@@ -499,7 +499,7 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
         playSound('success');
         onClose();
       } else {
-        const role = phone === '07712345678' ? 'owner' : 'user'; // Owner logic placeholder
+        const role = phone === '07701109692' ? 'owner' : 'user'; // Owner logic placeholder
         const { error } = await supabase.auth.signUp({
           email: emailToUse, password,
           options: { data: { full_name: name, phone, city, role } }
