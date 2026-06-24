@@ -482,33 +482,45 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
   const [city, setCity] = useState('بغداد');
   const playSound = useSound();
 
-  const submit = (e:React.FormEvent) => {
+  const submit = async (e:React.FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true); playSound('click');
-    setTimeout(()=>{
-      if(password.length<4){setError('كلمة المرور 4 أحرف على الأقل');playSound('error');setLoading(false);return;}
-      if(!isLogin&&phone.length<10){setError('رقم الهاتف غير صحيح');playSound('error');setLoading(false);return;}
-      if(isBanned(email)){setError('هذا الحساب موقوف. تواصل مع الإدارة.');playSound('error');setLoading(false);return;}
-      const role = email.toLowerCase()===OWNER_EMAIL?'owner':email.toLowerCase().includes('admin')?'admin':'user';
-      const u:User = {
-        id:'u-'+btoa(email).replace(/[^a-zA-Z0-9]/g,'').slice(0,12),
-        name:isLogin?(email.split('@')[0]||'مستخدم'):name,
-        email, phone:isLogin?'07700000000':phone, role,
-        avatar: DEFAULT_AVATAR, cover: DEFAULT_COVER,
-        bio:'', location:city, rating:4.8,
-        isVerified:role!=='user', joinedDate:isLogin?'منذ فترة':'الآن',
-        stats:{ads:0,favorites:0,views:0},
-        sellerStats:{totalAds:0,sold:0,responseRate:0,avgResponseTime:'-'},
-      };
-      // Preserve existing avatar/cover if user re-logs in
-      try {
-        const stored:StoredUser[] = JSON.parse(localStorage.getItem('souqUsers')||'[]');
-        const prev = stored.find(s=>s.id===u.id);
-        if(prev?.avatar && prev.avatar !== DEFAULT_AVATAR) u.avatar = prev.avatar;
-      } catch {}
-      localStorage.setItem('souqUser', JSON.stringify(u));
-      setTimeout(()=>{onLogin(u);onClose();},600);
+    try {
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          const msg = error.message.includes('Invalid login credentials')
+            ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة'
+            : error.message.includes('Email not confirmed')
+            ? 'يرجى تأكيد بريدك الإلكتروني أولاً'
+            : 'حدث خطأ في تسجيل الدخول';
+          setError(msg); playSound('error'); setLoading(false); return;
+        }
+        playSound('success');
+        onClose();
+      } else {
+        if (phone.length < 10) { setError('رقم الهاتف غير صحيح'); playSound('error'); setLoading(false); return; }
+        if (password.length < 6) { setError('كلمة المرور 6 أحرف على الأقل'); playSound('error'); setLoading(false); return; }
+        const role = email.toLowerCase() === OWNER_EMAIL ? 'owner' : 'user';
+        const { error } = await supabase.auth.signUp({
+          email, password,
+          options: { data: { full_name: name, phone, city, role } }
+        });
+        if (error) {
+          const msg = error.message.includes('already registered')
+            ? 'هذا البريد الإلكتروني مسجّل مسبقاً'
+            : error.message;
+          setError(msg); playSound('error'); setLoading(false); return;
+        }
+        const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+        if (!signInErr) { playSound('success'); onClose(); }
+        else { setError('تم إنشاء الحساب. يرجى تسجيل الدخول.'); }
+      }
+    } catch {
+      setError('حدث خطأ غير متوقع، يرجى المحاولة مرة أخرى');
+      playSound('error');
+    } finally {
       setLoading(false);
-    },1000);
+    }
   };
 
   return (
@@ -3494,6 +3506,48 @@ export default function App() {
   const [activeLightbox, setActiveLightbox] = useState<{ src: string; title: string } | null>(null);
   const playSound = useSound();
 
+  // ── دالة تحميل بيانات المستخدم من Supabase ──────────────────────────
+  const loadUserFromSupabase = async (authUser: any) => {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', authUser.id)
+      .maybeSingle();
+    const role = authUser.email === OWNER_EMAIL ? 'owner'
+      : (profile?.role || authUser.user_metadata?.role || 'user');
+    const u: User = {
+      id: authUser.id,
+      name: profile?.full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'مستخدم',
+      email: authUser.email || '',
+      phone: profile?.phone || authUser.user_metadata?.phone || '',
+      role,
+      avatar: profile?.avatar_url || DEFAULT_AVATAR,
+      cover: DEFAULT_COVER,
+      bio: '',
+      location: profile?.city || authUser.user_metadata?.city || 'بغداد',
+      rating: 4.8,
+      isVerified: role !== 'user',
+      joinedDate: profile?.created_at || 'الآن',
+      stats: { ads: profile?.ads_count || 0, favorites: profile?.favorites_count || 0, views: profile?.views_count || 0 },
+      sellerStats: { totalAds: 0, sold: 0, responseRate: 100, avgResponseTime: 'دقائق' }
+    };
+    setUser(u);
+    localStorage.setItem('souqUser', JSON.stringify(u));
+  };
+
+  // ── استعادة الجلسة ومراقبة Auth ────────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) loadUserFromSupabase(session.user);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) loadUserFromSupabase(session.user);
+      else { setUser(null); localStorage.removeItem('souqUser'); }
+    });
+    return () => subscription.unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Default demo ads to show for all users
   const getDefaultAds = (): Ad[] => [
     { id: 1, title: 'هاتف ايفون 14 برو', category: 'هواتف', governorate: 'بغداد', price: '850000', description: 'هاتف ايفون 14 برو جديد، لم يستخدم', images: ['https://images.unsplash.com/photo-1591290619762-bcc52fb0a910?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-1', createdAtISO: new Date(Date.now() - 86400000).toISOString(), views: 250, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
@@ -3822,8 +3876,28 @@ export default function App() {
     if(!localStorage.getItem('souqOnboarded'))setShowOnboarding(true);
     recordVisit(u);
   };
-  const handleLogout = ()=>{localStorage.removeItem('souqUser');setUser(null);setView('home');showToast('تم تسجيل الخروج','info');};
-  const handleUpdateUser = (u:User)=>{setUser(u);localStorage.setItem('souqUser',JSON.stringify(u));saveStoredUser(u,allAds.filter(a=>a.postedBy===u.id).length);showToast('تم حفظ الملف الشخصي ✅','success');};
+  const handleLogout = async ()=>{
+    await supabase.auth.signOut();
+    localStorage.removeItem('souqUser');
+    setUser(null);
+    setView('home');
+    showToast('تم تسجيل الخروج', 'info');
+  };
+  const handleUpdateUser = async (u:User)=>{
+    setUser(u);
+    localStorage.setItem('souqUser', JSON.stringify(u));
+    saveStoredUser(u, allAds.filter(a=>a.postedBy===u.id).length);
+    await supabase.from('profiles').upsert({
+      id: u.id,
+      full_name: u.name,
+      email: u.email,
+      phone: u.phone,
+      avatar_url: u.avatar,
+      city: u.location,
+      role: u.role
+    }, { onConflict: 'id' });
+    showToast('تم حفظ الملف الشخصي ✅', 'success');
+  };
   const handleToggleFav = (id:number)=>{setFavorites(prev=>{const f=prev.includes(id);showToast(f?'تمت الإزالة من المفضلة':'تمت الإضافة للمفضلة','success');return f?prev.filter(x=>x!==id):[...prev,id];});};
   const requireAuth = ()=>setShowAuth(true);
 
