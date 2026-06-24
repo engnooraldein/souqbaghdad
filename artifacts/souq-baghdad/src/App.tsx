@@ -915,12 +915,12 @@ function ImageLightboxModal({ src, title, onClose }: { src: string; title: strin
 // ─────────────────────────────────────────────
 // Ad Card
 // ─────────────────────────────────────────────
-function AdCard({ ad, onSelect, isFav, onFav, onSellerClick }:{
-  ad:Ad; onSelect:()=>void; isFav:boolean; onFav:(e:React.MouseEvent)=>void; onSellerClick?:(e:React.MouseEvent)=>void;
+function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu }:{
+  ad:Ad; onSelect:()=>void; isFav:boolean; onFav:(e:React.MouseEvent)=>void; onSellerClick?:(e:React.MouseEvent)=>void; onActionMenu?:(e:React.MouseEvent)=>void;
 }) {
   const time = useRelativeTime(ad.createdAtISO);
   return (
-    <motion.div whileHover={{y:-4}} onClick={onSelect}
+    <motion.div whileHover={{y:-4}} onClick={onSelect} onContextMenu={onActionMenu}
       className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full">
       <div className="relative w-full aspect-[4/3] overflow-hidden flex-shrink-0">
         <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={ad.title} className="w-full h-full object-cover" loading="lazy"/>
@@ -951,12 +951,12 @@ function AdCard({ ad, onSelect, isFav, onFav, onSellerClick }:{
 // ─────────────────────────────────────────────
 // Product Card
 // ─────────────────────────────────────────────
-function ProductCard({ product, onSelect, isFav, onFav, onSellerClick }:{
-  product:Product; onSelect:()=>void; isFav:boolean; onFav:(e:React.MouseEvent)=>void; onSellerClick?:(e:React.MouseEvent)=>void;
+function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionMenu }:{
+  product:Product; onSelect:()=>void; isFav:boolean; onFav:(e:React.MouseEvent)=>void; onSellerClick?:(e:React.MouseEvent)=>void; onActionMenu?:(e:React.MouseEvent)=>void;
 }) {
   const time = useRelativeTime(product.createdAtISO);
   return (
-    <motion.div whileHover={{y:-4}} onClick={onSelect}
+    <motion.div whileHover={{y:-4}} onClick={onSelect} onContextMenu={onActionMenu}
       className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full">
       <div className="relative w-full aspect-[4/3] overflow-hidden flex-shrink-0">
         <img src={product.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={product.title} className="w-full h-full object-cover" loading="lazy"/>
@@ -1940,7 +1940,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
 // ─────────────────────────────────────────────
 // Seller Public Page
 // ─────────────────────────────────────────────
-function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, onSelectProduct, favorites, onToggleFav, user, onAuthRequired, onDeleteProfile }:{
+function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, onSelectProduct, favorites, onToggleFav, user, onAuthRequired, onDeleteProfile, onActionMenu }:{
   sellerId:string; allAds:Ad[]; allProducts:Product[]; onBack:()=>void;
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void;
   favorites:number[]; onToggleFav:(id:number)=>void; user:User|null; onAuthRequired:()=>void;
@@ -2130,14 +2130,14 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
           <div className="bg-gray-800 rounded-2xl p-8 text-center border border-gray-700"><div className="text-3xl mb-2">📭</div><p className="text-gray-400">لا إعلانات بعد</p></div>
         ):(
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {sellerAds.map(ad=><AdCard key={ad.id} ad={ad} onSelect={()=>onSelectAd(ad)} isFav={favorites.includes(ad.id)} onFav={e=>{e.stopPropagation();if(!user){onAuthRequired();return;}onToggleFav(ad.id);}}/>)}
+            {sellerAds.map(ad=><AdCard key={ad.id} ad={ad} onSelect={()=>onSelectAd(ad)} isFav={favorites.includes(ad.id)} onFav={e=>{e.stopPropagation();if(!user){onAuthRequired();return;}onToggleFav(ad.id);}} onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===ad.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"ad",item:ad});}}/>)}
           </div>
         ))}
         {tab==='products'&&(sellerProds.length===0?(
           <div className="bg-gray-800 rounded-2xl p-8 text-center border border-gray-700"><div className="text-3xl mb-2">🛍️</div><p className="text-gray-400">لا منتجات بعد</p></div>
         ):(
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {sellerProds.map(p=><ProductCard key={p.id} product={p} onSelect={()=>onSelectProduct(p)} isFav={favorites.includes(p.id)} onFav={e=>{e.stopPropagation();if(!user){onAuthRequired();return;}onToggleFav(p.id);}}/>)}
+            {sellerProds.map(p=><ProductCard key={p.id} product={p} onSelect={()=>onSelectProduct(p)} isFav={favorites.includes(p.id)} onFav={e=>{e.stopPropagation();if(!user){onAuthRequired();return;}onToggleFav(p.id);}} onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===p.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"product",item:p});}}/>)}
           </div>
         ))}
       </div>
@@ -2823,7 +2823,8 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
               <div className={viewMode==='grid'?'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4':'space-y-3'}>
                 {filterAds.map(ad=><AdCard key={ad.id} ad={ad} onSelect={()=>onSelectAd(ad)} isFav={favorites.includes(ad.id)}
                   onFav={e=>{e.stopPropagation();if(!user){onRequireAuth();return;}onToggleFav(ad.id);}}
-                  onSellerClick={e=>{e.stopPropagation();if(ad.postedBy)onSellerClick(ad.postedBy);}}/>)}
+                  onSellerClick={e=>{e.stopPropagation();if(ad.postedBy)onSellerClick(ad.postedBy);}}
+                  onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===ad.postedBy||user.role==="admin"||user.role==="owner")) setActionMenuTarget({type:"ad",item:ad});}}/>)}
               </div>
             </div>
           )}
@@ -2835,7 +2836,8 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
               <div className={viewMode==='grid'?'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4':'space-y-3'}>
                 {filterProds.map(p=><ProductCard key={p.id} product={p} onSelect={()=>onSelectProduct(p)} isFav={favorites.includes(p.id)}
                   onFav={e=>{e.stopPropagation();if(!user){onRequireAuth();return;}onToggleFav(p.id);}}
-                  onSellerClick={e=>{e.stopPropagation();onSellerClick(p.postedBy);}}/>)}
+                  onSellerClick={e=>{e.stopPropagation();onSellerClick(p.postedBy);}}
+                  onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===p.postedBy||user.role==="admin"||user.role==="owner")) setActionMenuTarget({type:"product",item:p});}}/>)}
               </div>
             </div>
           )}
@@ -3064,13 +3066,15 @@ interface TransportAd {
   whatsappClicks?: number;
 }
 
-function TransportFormModal({ onClose, onSubmit, user, lines = [] }: {
+function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
   onClose: () => void;
   onSubmit: (ad: TransportAd) => void;
   user: { id: string; name: string; avatar: string; phone: string };
   lines?: TransportAd[];
+  editAd?: TransportAd | null;
 }) {
-  const [type, setType] = useState<'offer'|'request'>('offer');
+  const isEdit = !!editAd;
+  const [type, setType] = useState<'offer'|'request'>(editAd?.type || 'offer');
   
   const dynamicFormUniversities = Array.from(new Set([
     ...UNIVERSITIES.slice(1).filter(u => u !== 'أخرى'),
@@ -3079,16 +3083,18 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [] }: {
 
   const finalFormUniversities = [...dynamicFormUniversities, 'أخرى'];
 
-  const [university, setUniversity] = useState(finalFormUniversities[0] || UNIVERSITIES[1]);
-  const [customUniversity, setCustomUniversity] = useState('');
-  const [regions, setRegions] = useState('');
-  const [price, setPrice] = useState('');
-  const [seats, setSeats] = useState('4');
-  const [shift, setShift] = useState('صباحي');
-  const [vehicleType, setVehicleType] = useState('خصوصي');
-  const [targetAudience, setTargetAudience] = useState('مختلط');
-  const [phone, setPhone] = useState(user.phone || '');
-  const [note, setNote] = useState('');
+  const initialUniv = editAd?.university || finalFormUniversities[0] || UNIVERSITIES[1];
+  const isCustomUniv = editAd?.university && !finalFormUniversities.includes(editAd.university);
+  const [university, setUniversity] = useState(isCustomUniv ? 'أخرى' : initialUniv);
+  const [customUniversity, setCustomUniversity] = useState(isCustomUniv ? editAd.university : '');
+  const [regions, setRegions] = useState(editAd?.regions || '');
+  const [price, setPrice] = useState(editAd?.price ? editAd.price : '');
+  const [seats, setSeats] = useState(editAd?.seats?.toString() || '4');
+  const [shift, setShift] = useState(editAd?.shift || 'صباحي');
+  const [vehicleType, setVehicleType] = useState(editAd?.vehicleType || 'خصوصي');
+  const [targetAudience, setTargetAudience] = useState(editAd?.targetAudience || 'مختلط');
+  const [phone, setPhone] = useState(editAd?.phone || user.phone || '');
+  const [note, setNote] = useState(editAd?.note || '');
 
   const formatPriceInput = (value: string) => {
     const raw = value.replace(/\D/g, '');
@@ -3101,15 +3107,15 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [] }: {
     const finalUniversity = university === 'أخرى' ? customUniversity.trim() : university;
     if (!finalUniversity || !regions || !phone) return;
     onSubmit({
-      id: Date.now(),
+      id: isEdit ? editAd.id : Date.now(),
       type, university: finalUniversity, regions, price, seats: type==='offer'?parseInt(seats)||4:0,
       shift, vehicleType, targetAudience, phone, note,
-      postedBy: user.id, sellerName: user.name, sellerAvatar: user.avatar,
-      createdAt: new Date().toISOString(),
-      status: 'published',
-      views: 0,
-      interest: 0,
-      whatsappClicks: 0
+      postedBy: isEdit ? editAd.postedBy : user.id, sellerName: isEdit ? editAd.sellerName : user.name, sellerAvatar: isEdit ? editAd.sellerAvatar : user.avatar,
+      createdAt: isEdit ? editAd.createdAt : new Date().toISOString(),
+      status: isEdit ? editAd.status : 'published',
+      views: isEdit ? editAd.views : 0,
+      interest: isEdit ? editAd.interest : 0,
+      whatsappClicks: isEdit ? editAd.whatsappClicks : 0
     });
     onClose();
   };
@@ -3216,7 +3222,7 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [] }: {
   );
 }
 
-function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, lines, onPost, onUpdateStatus, onDeleteAd }: {
+function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, lines, onPost, onUpdateStatus, onDeleteAd, onActionMenu }: {
   user: { id: string; name: string; avatar: string; phone: string; role?: string } | null;
   onBack: () => void;
   onCreateAd: () => void;
@@ -3226,6 +3232,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
   onPost: (ad: TransportAd) => void;
   onUpdateStatus: (id: number, status: TransportAd['status'], reason?: TransportAd['completion_reason']) => void;
   onDeleteAd?: (id: number) => void;
+  onActionMenu?: (target: {type:"transport", item:TransportAd}) => void;
 }) {
   const [filterUniversity, setFilterUniversity] = useState('الكل');
   const [filterType, setFilterType] = useState('الكل');
@@ -3236,9 +3243,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
   const handleTouchStart = (ad: TransportAd) => {
     longPressTimer.current = setTimeout(() => {
       if (user && (user.role === 'admin' || user.role === 'owner' || user.id === ad.postedBy)) {
-        if (window.confirm('هل أنت متأكد من حذف هذا الإعلان؟')) {
-          onDeleteAd?.(ad.id);
-        }
+        onActionMenu?.({ type: 'transport', item: ad });
       }
     }, 800);
   };
@@ -3250,9 +3255,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
   const handleContextMenu = (e: React.MouseEvent, ad: TransportAd) => {
     e.preventDefault();
     if (user && (user.role === 'admin' || user.role === 'owner' || user.id === ad.postedBy)) {
-      if (window.confirm('هل أنت متأكد من حذف هذا الإعلان؟')) {
-        onDeleteAd?.(ad.id);
-      }
+      onActionMenu?.({ type: 'transport', item: ad });
     }
   };
 
@@ -3480,9 +3483,11 @@ export default function App() {
   const [showCreateProduct, setShowCreateProduct] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad|null>(null);
   const [editingProduct, setEditingProduct] = useState<Product|null>(null);
+  const [editingTransportAd, setEditingTransportAd] = useState<TransportAd|null>(null);
   const [selectedAd, setSelectedAd] = useState<Ad|null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product|null>(null);
   const [selectedTransportAd, setSelectedTransportAd] = useState<TransportAd|null>(null);
+  const [actionMenuTarget, setActionMenuTarget] = useState<{type:'ad'|'product'|'transport'; item:any}|null>(null);
   const [toast, setToast] = useState<{msg:string;type:string;visible:boolean}>({msg:'',type:'info',visible:false});
   const [showCreateTransport, setShowCreateTransport] = useState(false);
   const [activeDocTab, setActiveDocTab] = useState<string | null>(null);
@@ -4113,9 +4118,9 @@ export default function App() {
           {view==='profile'&&user&&<motion.div key="profile" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd}/></motion.div>}
           {view==='seller'&&selectedSellerId&&<motion.div key="seller" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <SellerPublicPage sellerId={selectedSellerId} allAds={allAds} allProducts={allProducts} onBack={()=>setView('home')} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile}/></motion.div>}
+            <SellerPublicPage sellerId={selectedSellerId} allAds={allAds} allProducts={allProducts} onBack={()=>setView('home')} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile} onActionMenu={setActionMenuTarget}/></motion.div>}
           {view==='transport'&&<motion.div key="transport" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd}/></motion.div>}
+            <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd} onActionMenu={setActionMenuTarget}/></motion.div>}
           {view==='admin'&&isAdmin&&!isOwner&&<motion.div key="admin" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <AdminPanel ads={allAds} onDeleteAd={handleDeleteAd} onClose={()=>setView('home')}/></motion.div>}
           {view==='owner'&&isOwner&&<motion.div key="owner" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
