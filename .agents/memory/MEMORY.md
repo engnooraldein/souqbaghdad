@@ -1,0 +1,7 @@
+- [Owner dashboard](owner-dashboard.md) — email nooraldeinsbah@gmail.com gets role 'owner' at login; grants full OwnerDashboard with analytics, visitor tracking, user ban/unban
+- [Ad editing](ad-editing.md) — AdFormModal handles both create and edit; editAd prop triggers edit mode, handleAddOrEditAd dispatches correctly
+- [Timestamp system](timestamps.md) — all ads store createdAtISO (ISO string); useRelativeTime hook updates every 10s; old ads migrated on load
+- [Image handling](image-handling.md) — always use compressImage() → base64; never URL.createObjectURL (blob URLs die on page reload)
+- [Product system](product-system.md) — Product type separate from Ad; stored in souqProducts localStorage; has condition/stock/postedBy; visible in home/search/seller page
+- [Seller public page](seller-public-page.md) — view='seller' + selectedSellerId state; uses seller info from ads/products; visible to any visitor without auth
+- [Profile system](profile-system.md) — ProfileView has 3 tabs: ads/store/account; ImageCropModal for avatar (1:1) and cover (3:1); drag+zoom canvas crop
