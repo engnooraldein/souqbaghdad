@@ -484,7 +484,7 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
   const submit = async (e:React.FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true); playSound('click');
     try {
-      const emailToUse = `${phone}@souqbaghdad.local`;
+      const emailToUse = `${phone}@souqbaghdad.com`;
       if (phone.length < 10) { setError('رقم الهاتف غير صحيح'); playSound('error'); setLoading(false); return; }
       if (password.length < 6) { setError('كلمة المرور 6 أحرف على الأقل'); playSound('error'); setLoading(false); return; }
       
