@@ -475,7 +475,6 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -485,33 +484,33 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
   const submit = async (e:React.FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true); playSound('click');
     try {
+      const emailToUse = `${phone}@souqbaghdad.local`;
+      if (phone.length < 10) { setError('رقم الهاتف غير صحيح'); playSound('error'); setLoading(false); return; }
+      if (password.length < 6) { setError('كلمة المرور 6 أحرف على الأقل'); playSound('error'); setLoading(false); return; }
+      
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: emailToUse, password });
         if (error) {
           const msg = error.message.includes('Invalid login credentials')
-            ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة'
-            : error.message.includes('Email not confirmed')
-            ? 'يرجى تأكيد بريدك الإلكتروني أولاً'
+            ? 'رقم الهاتف أو كلمة المرور غير صحيحة'
             : 'حدث خطأ في تسجيل الدخول';
           setError(msg); playSound('error'); setLoading(false); return;
         }
         playSound('success');
         onClose();
       } else {
-        if (phone.length < 10) { setError('رقم الهاتف غير صحيح'); playSound('error'); setLoading(false); return; }
-        if (password.length < 6) { setError('كلمة المرور 6 أحرف على الأقل'); playSound('error'); setLoading(false); return; }
-        const role = email.toLowerCase() === OWNER_EMAIL ? 'owner' : 'user';
+        const role = phone === '07712345678' ? 'owner' : 'user'; // Owner logic placeholder
         const { error } = await supabase.auth.signUp({
-          email, password,
+          email: emailToUse, password,
           options: { data: { full_name: name, phone, city, role } }
         });
         if (error) {
           const msg = error.message.includes('already registered')
-            ? 'هذا البريد الإلكتروني مسجّل مسبقاً'
+            ? 'رقم الهاتف هذا مسجّل مسبقاً'
             : error.message;
           setError(msg); playSound('error'); setLoading(false); return;
         }
-        const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+        const { error: signInErr } = await supabase.auth.signInWithPassword({ email: emailToUse, password });
         if (!signInErr) { playSound('success'); onClose(); }
         else { setError('تم إنشاء الحساب. يرجى تسجيل الدخول.'); }
       }
@@ -541,11 +540,11 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
           <form onSubmit={submit} className="space-y-4">
             {!isLogin&&<div className="relative"><User className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
               <input value={name} onChange={e=>setName(e.target.value)} placeholder="الاسم الكامل" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none"/></div>}
-            <div className="relative"><Mail className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-              <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="البريد الإلكتروني" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none"/></div>
-            {!isLogin&&<div className="grid grid-cols-2 gap-3">
-              <div className="relative"><Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                <input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="07XXXXXXXXX" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none"/></div>
+            
+            <div className="relative"><Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
+              <input type="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="رقم الهاتف (مثل 07700000000)" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none" dir="ltr"/></div>
+            
+            {!isLogin&&<div className="grid grid-cols-1 gap-3">
               <select value={city} onChange={e=>setCity(e.target.value)} className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400 outline-none">
                 {IRAQI_GOVERNORATES.filter(g=>g!=='الكل').map(g=><option key={g}>{g}</option>)}</select>
             </div>}
