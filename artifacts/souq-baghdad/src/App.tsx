@@ -216,18 +216,8 @@ const useSound = () => {
 function Logo({ small }:{small?:boolean}) {
   return (
     <div className="flex items-center gap-2">
-      <div className={`${small?'w-9 h-9':'w-11 h-11'} bg-gradient-to-br from-blue-900 to-blue-950 rounded-xl flex items-center justify-center border-2 border-amber-500/40 shadow-lg`}>
-        <svg viewBox="0 0 120 120" className={small?'w-7 h-7':'w-9 h-9'}>
-          <defs><linearGradient id="eg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#d4af37"/><stop offset="50%" stopColor="#f4d03f"/><stop offset="100%" stopColor="#d4af37"/></linearGradient></defs>
-          <ellipse cx="60" cy="50" rx="25" ry="20" fill="url(#eg)"/>
-          <path d="M35 50 Q20 35 15 55 Q10 75 30 70" fill="url(#eg)"/>
-          <path d="M85 50 Q100 35 105 55 Q110 75 90 70" fill="url(#eg)"/>
-          <circle cx="60" cy="35" r="12" fill="url(#eg)"/>
-          <path d="M45 55 L75 55 L75 85 L60 95 L45 85 Z" fill="#1e3a8a" stroke="#d4af37" strokeWidth="2"/>
-          <rect x="48" y="60" width="24" height="6" fill="#fff"/>
-          <rect x="48" y="66" width="24" height="6" fill="#000"/>
-          <rect x="48" y="72" width="24" height="6" fill="#ce1126"/>
-        </svg>
+      <div className={`${small?'w-10 h-10':'w-14 h-14'} bg-blue-900 rounded-xl flex items-center justify-center border-2 border-amber-500/40 shadow-lg overflow-hidden`}>
+        <img src="/logo.png" alt="سوق بغداد" className="w-full h-full object-cover scale-[1.3] pt-0.5" />
       </div>
       {!small && <div><h1 className="text-xl font-bold text-white leading-tight">سوك بغداد</h1><p className="text-amber-400 text-xs">السوق الرقمي العراقي</p></div>}
     </div>
@@ -1950,10 +1940,11 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
 // ─────────────────────────────────────────────
 // Seller Public Page
 // ─────────────────────────────────────────────
-function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, onSelectProduct, favorites, onToggleFav, user, onAuthRequired }:{
+function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, onSelectProduct, favorites, onToggleFav, user, onAuthRequired, onDeleteProfile }:{
   sellerId:string; allAds:Ad[]; allProducts:Product[]; onBack:()=>void;
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void;
   favorites:number[]; onToggleFav:(id:number)=>void; user:User|null; onAuthRequired:()=>void;
+  onDeleteProfile?:(id:string)=>void;
 }) {
   const [tab, setTab] = useState<'ads'|'products'>('ads');
   const [sellerUser, setSellerUser] = useState<any>(null);
@@ -2098,6 +2089,21 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
             <span className="text-amber-400 font-bold text-sm mr-1">{sellerUser?.rating || sellerInfo.rating}</span>
             <span className="text-gray-500 text-xs">({sellerUser?.ratingCount || 1} تقييم)</span>
           </div>
+
+          {user && (user.role === 'admin' || user.role === 'owner') && (
+            <div className="mt-3">
+              <button 
+                onClick={() => {
+                  if(window.confirm('هل أنت متأكد من حذف هذا الملف الشخصي وجميع إعلاناته؟')) {
+                    onDeleteProfile?.(sellerId);
+                  }
+                }} 
+                className="flex items-center gap-1.5 px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl font-bold hover:bg-red-500/20 transition-colors text-sm w-max"
+              >
+                <Trash2 className="w-4 h-4"/> حذف الملف الشخصي
+              </button>
+            </div>
+          )}
 
           <p className="text-gray-400 text-sm mt-3 flex items-center gap-1">
             <MapPin className="w-4 h-4 text-gray-500" />
@@ -3210,8 +3216,8 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [] }: {
   );
 }
 
-function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, lines, onPost, onUpdateStatus }: {
-  user: { id: string; name: string; avatar: string; phone: string } | null;
+function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, lines, onPost, onUpdateStatus, onDeleteAd }: {
+  user: { id: string; name: string; avatar: string; phone: string; role?: string } | null;
   onBack: () => void;
   onCreateAd: () => void;
   onGoToMyLines?: () => void;
@@ -3219,11 +3225,36 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
   lines: TransportAd[];
   onPost: (ad: TransportAd) => void;
   onUpdateStatus: (id: number, status: TransportAd['status'], reason?: TransportAd['completion_reason']) => void;
+  onDeleteAd?: (id: number) => void;
 }) {
   const [filterUniversity, setFilterUniversity] = useState('الكل');
   const [filterType, setFilterType] = useState('الكل');
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const handleTouchStart = (ad: TransportAd) => {
+    longPressTimer.current = setTimeout(() => {
+      if (user && (user.role === 'admin' || user.role === 'owner' || user.id === ad.postedBy)) {
+        if (window.confirm('هل أنت متأكد من حذف هذا الإعلان؟')) {
+          onDeleteAd?.(ad.id);
+        }
+      }
+    }, 800);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, ad: TransportAd) => {
+    e.preventDefault();
+    if (user && (user.role === 'admin' || user.role === 'owner' || user.id === ad.postedBy)) {
+      if (window.confirm('هل أنت متأكد من حذف هذا الإعلان؟')) {
+        onDeleteAd?.(ad.id);
+      }
+    }
+  };
 
   const handlePost = (ad: TransportAd) => {
     onPost(ad);
@@ -3326,6 +3357,13 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
             {filtered.map(ad=>(
               <motion.div key={ad.id} initial={{opacity:0,y:20}} animate={{opacity:1,y:0}}
                 onClick={() => onSelectAd?.(ad)}
+                onTouchStart={() => handleTouchStart(ad)}
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={handleTouchEnd}
+                onMouseDown={() => handleTouchStart(ad)}
+                onMouseUp={handleTouchEnd}
+                onMouseLeave={handleTouchEnd}
+                onContextMenu={(e) => handleContextMenu(e, ad)}
                 className={`bg-gray-800 rounded-2xl border transition-all overflow-hidden relative cursor-pointer hover:border-emerald-500/60 ${ad.type === 'offer' ? 'border-emerald-500/30' : 'border-amber-500/30'}`}>
                 
                 {/* Type Badge */}
@@ -3947,6 +3985,25 @@ export default function App() {
     showToast('تم حذف المنتج', 'info');
   };
 
+  const handleDeleteProfile = async (profileId: string) => {
+    await supabase.from('ads').delete().eq('seller_id', profileId);
+    setAllAds(prev => prev.filter(a => a.postedBy !== profileId));
+    
+    setAllTransportAds(prev => prev.filter(a => a.postedBy !== profileId));
+    
+    await supabase.from('products').delete().eq('seller_id', profileId);
+    setAllProducts(prev => prev.filter(p => p.postedBy !== profileId));
+
+    try {
+      const users = JSON.parse(localStorage.getItem('souqUsers') || '[]');
+      const filtered = users.filter((u: any) => u.id !== profileId);
+      localStorage.setItem('souqUsers', JSON.stringify(filtered));
+    } catch (e) {}
+
+    showToast('تم حذف الملف الشخصي وجميع محتوياته', 'success');
+    setView('home');
+  };
+
   const handleSellerClick = (sellerId:string)=>{if(sellerId){setSelectedSellerId(sellerId);setView('seller');}};
 
   const myAds = allAds.filter(a=>a.postedBy===user?.id);
@@ -4056,9 +4113,9 @@ export default function App() {
           {view==='profile'&&user&&<motion.div key="profile" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd}/></motion.div>}
           {view==='seller'&&selectedSellerId&&<motion.div key="seller" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <SellerPublicPage sellerId={selectedSellerId} allAds={allAds} allProducts={allProducts} onBack={()=>setView('home')} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth}/></motion.div>}
+            <SellerPublicPage sellerId={selectedSellerId} allAds={allAds} allProducts={allProducts} onBack={()=>setView('home')} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile}/></motion.div>}
           {view==='transport'&&<motion.div key="transport" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus}/></motion.div>}
+            <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd}/></motion.div>}
           {view==='admin'&&isAdmin&&!isOwner&&<motion.div key="admin" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <AdminPanel ads={allAds} onDeleteAd={handleDeleteAd} onClose={()=>setView('home')}/></motion.div>}
           {view==='owner'&&isOwner&&<motion.div key="owner" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
@@ -4077,7 +4134,7 @@ export default function App() {
       </footer>
 
       {/* Bottom Navigation Bar - Fixed Mobile First */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900/95 backdrop-blur-xl border-t border-gray-800 lg:hidden safe-area-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-gray-900/95 backdrop-blur-xl border-t border-gray-800 lg:hidden safe-area-bottom">
         <div className="flex items-center justify-around h-16 px-2">
           {/* الرئيسية */}
           <button
