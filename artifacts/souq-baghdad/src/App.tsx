@@ -508,7 +508,7 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
   const [error, setError] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [city, setCity] = useState('بغداد');
   const playSound = useSound();
 
@@ -1737,7 +1737,10 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
 }) {
   const [tab, setTab] = useState<'ads'|'store'|'lines'|'account'>('ads');
   const [editing, setEditing] = useState(false);
-  const [ef, setEf] = useState({ name:user.name, phone:user.phone, location:user.location, bio:user.bio||'' });
+  const [ef, setEf] = useState({ name:user.name, phone:user.phone, location:user.location, bio:user.bio||'', email:user.email||'' });
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [verifyImage, setVerifyImage] = useState<string|null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
   // Image crop state
   const [cropSrc, setCropSrc] = useState<string|null>(null);
   const [cropType, setCropType] = useState<'avatar'|'cover'>('avatar');
@@ -1752,7 +1755,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
   }, []);
 
   const handleSave = () => {
-    const updated:User = { ...user, ...ef, avatar:avatarPreview, cover:coverPreview };
+    const updated:User = { ...user, ...ef, email: ef.email, avatar:avatarPreview, cover:coverPreview };
     onUpdateUser(updated); setEditing(false);
   };
 
@@ -1776,7 +1779,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
         {/* Banner with 3:1 aspect ratio */}
         <div className="w-full aspect-[3/1] md:aspect-[4/1] bg-gray-900 relative overflow-hidden flex items-center justify-center">
           <img src={coverPreview} alt="" className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110"/>
-          <img src={coverPreview} alt="Cover" className="relative w-full h-full object-contain z-0"/>
+          <img src={coverPreview} alt="Cover" className="relative w-full h-full object-cover z-0"/>
           <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/30 to-transparent z-10"/>
           {editing&&<label className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 bg-black/60 text-white text-xs rounded-xl cursor-pointer hover:bg-black/80 backdrop-blur-md z-20">
             <Camera className="w-4 h-4"/> تغيير الغلاف
@@ -1789,7 +1792,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
             {/* Avatar */}
             <div className="relative z-20">
               <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-gray-950 shadow-xl overflow-hidden bg-white flex items-center justify-center">
-                <img src={avatarPreview} alt={user.name} className="w-full h-full object-contain p-0.5"/>
+                <img src={avatarPreview} alt={user.name} className="w-full h-full object-cover"/>
               </div>
               {editing&&(
                 <div className="absolute -bottom-1 -right-1 flex gap-1">
@@ -1828,7 +1831,13 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
               {user.badges?.hasVehicle && <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded-md text-xs font-semibold flex items-center gap-1">🚗 مركبة موثقة</span>}
               {user.badges?.hasID && <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded-md text-xs font-semibold flex items-center gap-1">🪪 هوية موثقة</span>}
               {user.badges?.isPhoneVerified && <span className="px-2 py-0.5 bg-sky-500/20 text-sky-400 rounded-md text-xs font-semibold flex items-center gap-1">📱 هاتف موثق</span>}
-            </div>
+            
+              {!user.isVerified && (
+                <button onClick={() => setShowVerifyModal(true)} className="px-2 py-1 bg-gray-800 border border-gray-700 text-gray-300 hover:text-white rounded-md text-xs font-semibold flex items-center gap-1 transition-colors ml-2">
+                  🛡️ طلب توثيق
+                </button>
+              )}
+</div>
             
             <div className="flex flex-wrap gap-3 mt-2 text-sm text-gray-400">
               <div className="flex items-center gap-1"><MapPin className="w-4 h-4"/><span>{user.location || 'العراق'}</span></div>
@@ -2093,7 +2102,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
         <img 
           src={sellerUser?.cover || DEFAULT_COVER} 
           alt="Cover" 
-          className="relative w-full h-full object-contain z-0"
+          className="relative w-full h-full object-cover z-0"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/30 to-transparent z-10"/>
         <button onClick={onBack} className="absolute top-4 right-4 z-20 flex items-center gap-1 px-3 py-1.5 bg-black/60 backdrop-blur-md text-white rounded-xl text-xs hover:bg-black/80 font-bold border border-white/10">
@@ -2104,7 +2113,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
         {/* Avatar Area */}
         <div className="flex justify-between items-end -mt-12 sm:-mt-16 mb-4 relative z-10">
           <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl border-4 border-gray-950 shadow-xl overflow-hidden bg-white flex-shrink-0 flex items-center justify-center">
-            <img src={sellerUser?.avatar || sellerInfo.avatar} alt={sellerUser?.name || sellerInfo.name} className="w-full h-full object-contain p-0.5"/>
+            <img src={sellerUser?.avatar || sellerInfo.avatar} alt={sellerUser?.name || sellerInfo.name} className="w-full h-full object-cover"/>
           </div>
         </div>
 
@@ -2201,7 +2210,8 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
 // ─────────────────────────────────────────────
 const DEVICE_COLORS = ['#f59e0b','#3b82f6','#8b5cf6'];
 function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:{ads:Ad[];products:Product[];onDeleteAd:(id:number)=>void;onDeleteProduct:(id:number)=>void;onClose:()=>void}) {
-  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'>('overview');
+  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'>('overview');
+  const [verificationRequests, setVerificationRequests] = useState<any[]>([]);
   const [recoveryRequests, setRecoveryRequests] = useState<any[]>([]);
   const [storedUsers, setStoredUsers] = useState<StoredUser[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
@@ -2217,7 +2227,18 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
     try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}
     const iv=setInterval(()=>{try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}},30_000);
     
-    const fetchRecovery = async () => {
+    
+    const fetchVerification = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('verification_requests')
+          .select(`*, profiles(full_name, phone, email)`)
+          .order('created_at', { ascending: false });
+        if (data && !error) setVerificationRequests(data);
+      } catch (err) {}
+    };
+    fetchVerification();
+const fetchRecovery = async () => {
       try {
         const { data, error } = await supabase
           .from('recovery_requests')
@@ -2335,7 +2356,7 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
         
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['broadcast','🔔 إشعار عام']] as [string,string][]).map(([t,l])=>(
+          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['broadcast','🔔 إشعار عام']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`px-4 py-2 rounded-xl text-sm font-bold ${tab===t?'bg-amber-500 text-black':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
           ))}
         </div>
@@ -2466,6 +2487,7 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
                       <option value="user">مستخدم عادي</option>
                       <option value="vendor">تاجر موثق</option>
                       <option value="admin">مشرف منصة</option>
+                      <option value="pro">برو (Pro)</option>
                     </select>
                   )}
                   {u.role!=='owner'&&<button onClick={()=>toggleBan(u.id)} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border ${u.isBanned?'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20':'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20'}`}>
@@ -2541,6 +2563,43 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
           </div>
         )}
         
+        
+        {tab==='verification'&&(
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+            <div className="p-4 border-b border-gray-700 flex items-center justify-between"><h3 className="text-white font-bold">طلبات توثيق الهوية ({verificationRequests.length})</h3></div>
+            {verificationRequests.length===0?<div className="p-6 text-center text-gray-400 text-sm">لا توجد طلبات</div>:
+            <div className="space-y-3 p-4">
+              {verificationRequests.map(req => (
+                <div key={req.id} className="bg-gray-900 rounded-xl p-4 border border-gray-700">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="text-white font-bold">{req.profiles?.full_name || 'مستخدم'}</p>
+                      <p className="text-xs text-gray-400">الهاتف: {req.profiles?.phone}</p>
+                    </div>
+                    <span className={`px-2 py-1 rounded-lg text-xs font-bold ${req.status==='pending'?'bg-amber-500/20 text-amber-400':req.status==='approved'?'bg-green-500/20 text-green-400':'bg-red-500/20 text-red-400'}`}>
+                      {req.status==='pending' ? 'قيد المراجعة' : req.status==='approved' ? 'تمت الموافقة' : 'مرفوض'}
+                    </span>
+                  </div>
+                  <div className="mt-3">
+                    <img src={req.id_image_url} alt="ID" className="w-full max-w-sm rounded-lg border border-gray-700 object-contain" />
+                  </div>
+                  <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-800">
+                    <button onClick={async () => {
+                      await supabase.from('verification_requests').update({ status: 'approved' }).eq('id', req.id);
+                      setVerificationRequests(prev => prev.map(r => r.id === req.id ? {...r, status: 'approved'} : r));
+                    }} className="flex-1 py-2 bg-green-500/10 border border-green-500/20 text-green-400 hover:bg-green-500/20 rounded-lg text-sm font-bold">موافقة</button>
+                    <button onClick={async () => {
+                      await supabase.from('verification_requests').update({ status: 'rejected' }).eq('id', req.id);
+                      setVerificationRequests(prev => prev.map(r => r.id === req.id ? {...r, status: 'rejected'} : r));
+                    }} className="flex-1 py-2 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 rounded-lg text-sm font-bold">رفض</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            }
+          </div>
+        )}
+
         {tab==='broadcast'&&(
           <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 max-w-2xl mx-auto">
             <div className="flex items-center gap-3 mb-6">
@@ -3583,11 +3642,25 @@ export default function App() {
     if (h.startsWith('#/seller')) return 'profile';
     return 'home';
   });
-  const [selectedSellerId, setSelectedSellerId] = useState<string|null>(() => {
+  const [selectedSellerId, setSelectedSellerId] = useState<string|null>(null);
+  const [selectedSellerPhone, setSelectedSellerPhone] = useState<string|null>(() => {
     const h = typeof window !== 'undefined' ? window.location.hash : '';
     if (h.startsWith('#/seller/')) return h.split('/')[2] || null;
     return null;
   });
+
+  useEffect(() => {
+    if (view === 'profile' && selectedSellerPhone) {
+      if (selectedSellerPhone.includes('-')) {
+        setSelectedSellerId(selectedSellerPhone);
+      } else {
+        supabase.from('profiles').select('id').eq('phone', selectedSellerPhone).single().then(({data}) => {
+          if (data) setSelectedSellerId(data.id);
+        });
+      }
+    }
+  }, [view, selectedSellerPhone]);
+
   const [showAuth, setShowAuth] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -3728,7 +3801,7 @@ export default function App() {
     } else if (selectedProduct) {
       newHash = `#/product/${selectedProduct.short_id || selectedProduct.id}`;
     } else if (view === 'profile' && selectedSellerId) {
-      newHash = `#/seller/${selectedSellerId}`;
+      newHash = `#/seller/${selectedSellerPhone || selectedSellerId}`;
     } else if (view === 'transport') {
       newHash = `#/transport`;
     } else if (view === 'admin') {
