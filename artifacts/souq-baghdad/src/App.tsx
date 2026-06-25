@@ -2201,7 +2201,8 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
 // ─────────────────────────────────────────────
 const DEVICE_COLORS = ['#f59e0b','#3b82f6','#8b5cf6'];
 function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:{ads:Ad[];products:Product[];onDeleteAd:(id:number)=>void;onDeleteProduct:(id:number)=>void;onClose:()=>void}) {
-  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'>('overview');
+  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'>('overview');
+  const [recoveryRequests, setRecoveryRequests] = useState<any[]>([]);
   const [storedUsers, setStoredUsers] = useState<StoredUser[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
   
@@ -2215,6 +2216,18 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
     try{setStoredUsers(JSON.parse(localStorage.getItem('souqUsers')||'[]'));}catch{}
     try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}
     const iv=setInterval(()=>{try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}},30_000);
+    
+    const fetchRecovery = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('recovery_requests')
+          .select(`*, profiles(full_name, phone, email)`)
+          .order('request_time', { ascending: false });
+        if (data && !error) setRecoveryRequests(data);
+      } catch (err) {}
+    };
+    fetchRecovery();
+
     return()=>clearInterval(iv);
   },[]);
 
@@ -2322,7 +2335,7 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
         
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['content','📢 المحتوى'],['broadcast','🔔 إشعار عام']] as [string,string][]).map(([t,l])=>(
+          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['broadcast','🔔 إشعار عام']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`px-4 py-2 rounded-xl text-sm font-bold ${tab===t?'bg-amber-500 text-black':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
           ))}
         </div>
@@ -2490,6 +2503,44 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
           </div>
         )}
 
+        
+        {tab==='recovery'&&(
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+            <div className="p-4 border-b border-gray-700 flex items-center justify-between"><h3 className="text-white font-bold">طلبات استعادة الحسابات ({recoveryRequests.length})</h3></div>
+            {recoveryRequests.length===0?<div className="p-6 text-center text-gray-400 text-sm">لا توجد طلبات</div>:
+            <div className="space-y-3 p-4">
+              {recoveryRequests.map(req => (
+                <div key={req.id} className="bg-gray-900 rounded-xl p-4 border border-gray-700">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="text-white font-bold">{req.profiles?.full_name || 'مستخدم غير معروف'}</p>
+                      <p className="text-xs text-gray-400">البريد: {req.profiles?.email} • الهاتف: {req.profiles?.phone}</p>
+                    </div>
+                    <span className={`px-2 py-1 rounded-lg text-xs font-bold ${req.status==='pending'?'bg-amber-500/20 text-amber-400':'bg-green-500/20 text-green-400'}`}>
+                      {req.status==='pending' ? 'قيد المراجعة' : 'تمت المعالجة'}
+                    </span>
+                  </div>
+                  {req.notes && <div className="mt-2 p-3 bg-gray-800 rounded-lg text-sm text-gray-300 border border-gray-700"><p className="text-xs text-gray-500 mb-1">تفاصيل الإثبات أو المشكلة:</p>{req.notes}</div>}
+                  <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-800">
+                    <button onClick={async () => {
+                      await supabase.from('recovery_requests').update({ status: req.status === 'pending' ? 'resolved' : 'pending' }).eq('id', req.id);
+                      setRecoveryRequests(prev => prev.map(r => r.id === req.id ? {...r, status: req.status === 'pending' ? 'resolved' : 'pending'} : r));
+                    }} className={`flex-1 py-2 rounded-lg text-sm font-bold border ${req.status==='pending'?'bg-green-500/10 border-green-500/20 text-green-400':'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+                      {req.status==='pending' ? 'تحديد كـ "تمت المعالجة"' : 'إعادة إلى "قيد المراجعة"'}
+                    </button>
+                    {req.profiles?.phone && (
+                      <a href={`https://wa.me/${req.profiles.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent('مرحباً بك، نتواصل معك من إدارة منصة سوق بغداد بخصوص طلب استعادة حسابك...')}`} target="_blank" rel="noopener noreferrer" className="flex-1 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg text-sm font-bold flex items-center justify-center gap-2">
+                        تواصل واتساب
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            }
+          </div>
+        )}
+        
         {tab==='broadcast'&&(
           <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 max-w-2xl mx-auto">
             <div className="flex items-center gap-3 mb-6">
