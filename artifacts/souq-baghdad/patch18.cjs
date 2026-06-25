@@ -70,9 +70,9 @@ content = content.replace(
   `const [visits, setVisits] = useState<Visit[]>([]);\n  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);`
 );
 
-// 7. OwnerDashboard users list checkboxes and multi-delete button
+// 7. OwnerDashboard users list checkboxes and multi-delete button (dbUsers)
 content = content.replace(
-  /\{storedUsers\.map\(u=>\{\s*return \(\s*<div key=\{u\.id\} className="bg-gray-800 rounded-xl p-3 sm:p-4 border border-gray-700 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 relative">\s*<div className="relative">/,
+  /\{dbUsers\.length===0\?<div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"\/><p className="text-gray-400">لا مستخدمون بعد<\/p><\/div>:dbUsers\.map\(u=>\{/,
   `{selectedUserIds.length > 0 && (
                <div className="flex justify-between items-center bg-gray-800 p-3 rounded-xl border border-red-500/30 mb-3">
                  <span className="text-red-400 font-bold">تم تحديد {selectedUserIds.length} حسابات</span>
@@ -81,7 +81,7 @@ content = content.replace(
                       for (const uid of selectedUserIds) {
                          if (onDeleteProfile) onDeleteProfile(uid);
                       }
-                      setStoredUsers(prev => prev.filter(u => !selectedUserIds.includes(u.id)));
+                      setDbUsers(prev => prev.filter(u => !selectedUserIds.includes(u.id)));
                       setSelectedUserIds([]);
                     }
                  }} className="bg-red-500 text-white px-4 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-red-600">
@@ -89,31 +89,40 @@ content = content.replace(
                  </button>
                </div>
             )}
-            {storedUsers.map(u=>{
-              return (
-                <div key={u.id} className="bg-gray-800 rounded-xl p-3 sm:p-4 border border-gray-700 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 relative">
-                  {u.role !== 'owner' && (
-                    <input type="checkbox" className="w-5 h-5 accent-red-500 rounded cursor-pointer hidden sm:block flex-shrink-0" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
-                      if (e.target.checked) setSelectedUserIds(prev => [...prev, u.id]);
-                      else setSelectedUserIds(prev => prev.filter(id => id !== u.id));
-                    }} />
-                  )}
-                  <div className="relative">`
+            {dbUsers.length===0?<div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا مستخدمون بعد</p></div>:dbUsers.map(u=>{`
+);
+
+// 8. Inject checkboxes in dbUsers.map rendering
+content = content.replace(
+  /<div key=\{u\.id\} className=\{`bg-gray-800 rounded-2xl p-4 border \$\{u\.is_banned\?'border-red-500\/30':'border-gray-700'\} flex items-center gap-3 flex-wrap`\}>\s*<div className="relative flex-shrink-0">/g,
+  `<div key={u.id} className={\`bg-gray-800 rounded-2xl p-4 border \${u.is_banned?'border-red-500/30':'border-gray-700'} flex items-center gap-3 flex-wrap relative\`}>
+                {u.role !== 'owner' && (
+                  <input type="checkbox" className="w-5 h-5 accent-red-500 rounded cursor-pointer hidden sm:block flex-shrink-0" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
+                    if (e.target.checked) setSelectedUserIds(prev => [...prev, u.id]);
+                    else setSelectedUserIds(prev => prev.filter(id => id !== u.id));
+                  }} />
+                )}
+                <div className="relative flex-shrink-0">`
 );
 
 content = content.replace(
-  /<div className="flex flex-col">\s*<span className="text-white font-bold text-sm sm:text-base">\{u\.name\|\|'مستخدم'\} \{u\.role==='pro'\?'🌟':u\.role==='vendor'\?'🏪':''\}<\/span>/,
-  `<div className="flex flex-col">
-                      <div className="flex items-center gap-2">
-                        {u.role !== 'owner' && (
-                          <input type="checkbox" className="w-4 h-4 accent-red-500 rounded cursor-pointer sm:hidden flex-shrink-0" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
-                            if (e.target.checked) setSelectedUserIds(prev => [...prev, u.id]);
-                            else setSelectedUserIds(prev => prev.filter(id => id !== u.id));
-                          }} />
-                        )}
-                        <span className="text-white font-bold text-sm sm:text-base">{u.name||'مستخدم'} {u.role==='pro'?'🌟':u.role==='vendor'?'🏪':''}</span>
-                      </div>`
+  /<div className="flex items-center gap-2 flex-wrap">\s*<p className="text-white font-bold text-sm">\{u\.full_name\}<\/p>/g,
+  `<div className="flex items-center gap-2 flex-wrap">
+                    {u.role !== 'owner' && (
+                      <input type="checkbox" className="w-4 h-4 accent-red-500 rounded cursor-pointer sm:hidden flex-shrink-0" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
+                        if (e.target.checked) setSelectedUserIds(prev => [...prev, u.id]);
+                        else setSelectedUserIds(prev => prev.filter(id => id !== u.id));
+                      }} />
+                    )}
+                    <p className="text-white font-bold text-sm">{u.full_name}</p>`
+);
+
+// 9. Fix delete button calling setStoredUsers
+content = content.replace(
+  /if\(onDeleteProfile\) onDeleteProfile\(u\.id\);\s*setStoredUsers\(prev => prev\.filter\(usr => usr\.id !== u\.id\)\);/g,
+  `if(onDeleteProfile) onDeleteProfile(u.id);
+                        setDbUsers(prev => prev.filter(usr => usr.id !== u.id));`
 );
 
 fs.writeFileSync(file, content, 'utf8');
-console.log('App.tsx patched with deletion fixes and multi-delete');
+console.log('App.tsx patched with deletion fixes and multi-delete targeting dbUsers');

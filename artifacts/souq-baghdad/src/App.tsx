@@ -2499,6 +2499,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   const [dbGuests, setDbGuests] = useState<any[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+
   
   // Broadcast State
   const [broadcastTitle, setBroadcastTitle] = useState('');
@@ -2771,17 +2772,45 @@ const fetchRecovery = async () => {
         
         {tab==='users'&&(
           <div className="space-y-3">
+            {selectedUserIds.length > 0 && (
+               <div className="flex justify-between items-center bg-gray-800 p-3 rounded-xl border border-red-500/30 mb-3">
+                 <span className="text-red-400 font-bold">تم تحديد {selectedUserIds.length} حسابات</span>
+                 <button onClick={async () => {
+                    if (window.confirm(`هل أنت متأكد من حذف ${selectedUserIds.length} حسابات نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`)) {
+                      for (const uid of selectedUserIds) {
+                         if (onDeleteProfile) onDeleteProfile(uid);
+                      }
+                      setDbUsers(prev => prev.filter(u => !selectedUserIds.includes(u.id)));
+                      setSelectedUserIds([]);
+                    }
+                 }} className="bg-red-500 text-white px-4 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-red-600">
+                    <Trash2 className="w-4 h-4"/> حذف الكل
+                 </button>
+               </div>
+            )}
             {dbUsers.length===0?<div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا مستخدمون بعد</p></div>:dbUsers.map(u=>{
               const isOnline = new Date().getTime() - new Date(u.last_seen || 0).getTime() < 5 * 60 * 1000;
               
               return (
-              <div key={u.id} className={`bg-gray-800 rounded-2xl p-4 border ${u.is_banned?'border-red-500/30':'border-gray-700'} flex items-center gap-3 flex-wrap`}>
+              <div key={u.id} className={`bg-gray-800 rounded-2xl p-4 border ${u.is_banned?'border-red-500/30':'border-gray-700'} flex items-center gap-3 flex-wrap relative`}>
+                {u.role !== 'owner' && (
+                  <input type="checkbox" className="w-5 h-5 accent-red-500 rounded cursor-pointer hidden sm:block flex-shrink-0" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
+                    if (e.target.checked) setSelectedUserIds(prev => [...prev, u.id]);
+                    else setSelectedUserIds(prev => prev.filter(id => id !== u.id));
+                  }} />
+                )}
                 <div className="relative flex-shrink-0">
                   <img src={u.avatar_url || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-12 h-12 rounded-full object-cover border-2 ${u.is_banned?'border-red-500/50':'border-gray-600'}`}/>
                   <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-gray-800 ${isOnline ? 'bg-green-500' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'غير متصل'}></div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
+                    {u.role !== 'owner' && (
+                      <input type="checkbox" className="w-4 h-4 accent-red-500 rounded cursor-pointer sm:hidden flex-shrink-0" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
+                        if (e.target.checked) setSelectedUserIds(prev => [...prev, u.id]);
+                        else setSelectedUserIds(prev => prev.filter(id => id !== u.id));
+                      }} />
+                    )}
                     <p className="text-white font-bold text-sm">{u.full_name}</p>
                     {u.is_banned&&<span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 text-[10px] rounded-full font-bold">موقوف</span>}
                     {u.role==='owner'&&<span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] rounded-full flex items-center gap-0.5"><Crown className="w-2.5 h-2.5"/>مالك</span>}
@@ -2799,7 +2828,7 @@ const fetchRecovery = async () => {
                     <button onClick={() => {
                       if(window.confirm('تنبيه: سيتم حذف هذا الحساب نهائياً مع كافة إعلاناته المرتبطة به. هل أنت متأكد؟')) {
                         if(onDeleteProfile) onDeleteProfile(u.id);
-                        setStoredUsers(prev => prev.filter(usr => usr.id !== u.id));
+                        setDbUsers(prev => prev.filter(usr => usr.id !== u.id));
                       }
                     }} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20" title="حذف الحساب">
                       <Trash2 className="w-3.5 h-3.5"/> حذف الحساب
