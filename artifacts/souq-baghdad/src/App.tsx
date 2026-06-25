@@ -2449,14 +2449,25 @@ const fetchRecovery = async () => {
   const topCategory = Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'لا يوجد';
 
   // Actions
-  const toggleBan=(id:string)=>{
-    const u=storedUsers.map(u=>u.id===id?{...u,isBanned:!u.isBanned}:u);
-    setStoredUsers(u);localStorage.setItem('souqUsers',JSON.stringify(u));
+  const toggleBan = async (id: string) => {
+    const user = dbUsers.find(u => u.id === id);
+    if (!user) return;
+    const newStatus = !user.is_banned;
+    setDbUsers(prev => prev.map(u => u.id === id ? { ...u, is_banned: newStatus } : u));
+    try {
+      await supabase.from('profiles').update({ is_banned: newStatus }).eq('id', id);
+    } catch (e) {
+      console.error('Failed to toggle ban', e);
+    }
   };
 
-  const changeRole=(id:string, newRole:string)=>{
-    const u=storedUsers.map(u=>u.id===id?{...u,role:newRole as any}:u);
-    setStoredUsers(u);localStorage.setItem('souqUsers',JSON.stringify(u));
+  const changeRole = async (id: string, newRole: string) => {
+    setDbUsers(prev => prev.map(u => u.id === id ? { ...u, role: newRole } : u));
+    try {
+      await supabase.from('profiles').update({ role: newRole }).eq('id', id);
+    } catch (e) {
+      console.error('Failed to change role', e);
+    }
   };
 
   const handleBroadcast = async (e: React.FormEvent) => {
@@ -2669,8 +2680,8 @@ const fetchRecovery = async () => {
                       <option value="pro">برو (Pro)</option>
                     </select>
                   )}
-                  {u.role!=='owner'&&<button onClick={()=>toggleBan(u.id)} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border ${u.isBanned?'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20':'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20'}`}>
-                    {u.isBanned?<><UserCheck className="w-3.5 h-3.5"/>رفع الإيقاف</>:<><UserX className="w-3.5 h-3.5"/>حظر</>}</button>}
+                  {u.role!=='owner'&&<button onClick={()=>toggleBan(u.id)} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border ${u.is_banned?'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20':'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20'}`}>
+                    {u.is_banned?<><UserCheck className="w-3.5 h-3.5"/>رفع الإيقاف</>:<><UserX className="w-3.5 h-3.5"/>حظر</>}</button>}
                 </div>
               </div>
             );})}
@@ -4298,6 +4309,12 @@ export default function App() {
     const trackActivity = async () => {
       try {
         if (user) {
+          const { data } = await supabase.from('profiles').select('is_banned').eq('id', user.id).single();
+          if (data?.is_banned) {
+            await supabase.auth.signOut();
+            document.body.innerHTML = '<div style="padding: 3rem; text-align: center; color: red; font-size: 1.5rem; font-weight: bold;">عذراً، هذا الحساب محظور من تصفح الموقع لانتهاكه الشروط.</div>';
+            return;
+          }
           await supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', user.id);
         } else {
           let deviceId = localStorage.getItem('souqGuestId');
