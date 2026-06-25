@@ -515,8 +515,22 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
   const submit = async (e:React.FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true); playSound('click');
     try {
-      const emailToUse = `${phone}@souqbaghdad.com`;
-      if (phone.length < 10) { setError('رقم الهاتف غير صحيح'); playSound('error'); setLoading(false); return; }
+      let emailToUse = identifier.trim().toLowerCase();
+      let phone = identifier.trim();
+      
+      if (!emailToUse.includes('@')) {
+        const isPhone = /^\d+$/.test(emailToUse);
+        if (isPhone) {
+          emailToUse = `${emailToUse}@souqbaghdad.com`;
+        } else {
+          emailToUse = `${emailToUse.replace(/\s+/g, '')}@souqbaghdad.com`;
+          phone = ''; // Username
+        }
+      } else {
+        phone = ''; // Email
+      }
+
+      if (identifier.length < 3) { setError('يرجى إدخال اسم المستخدم، رقم الهاتف، أو البريد الإلكتروني'); playSound('error'); setLoading(false); return; }
       if (password.length < 6) { setError('كلمة المرور 6 أحرف على الأقل'); playSound('error'); setLoading(false); return; }
       
       if (isLogin) {
@@ -573,7 +587,7 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
               <input value={name} onChange={e=>setName(e.target.value)} placeholder="الاسم الكامل" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none"/></div>}
             
             <div className="relative"><Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-              <input type="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="رقم الهاتف (مثل 07700000000)" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none" dir="ltr"/></div>
+              <input type="text" value={identifier} onChange={e=>setIdentifier(e.target.value)} placeholder="اسم المستخدم، رقم الهاتف، أو البريد الإلكتروني" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none" dir="rtl"/></div>
             
             {!isLogin&&<div className="grid grid-cols-1 gap-3">
               <select value={city} onChange={e=>setCity(e.target.value)} className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400 outline-none">
@@ -4381,6 +4395,16 @@ export default function App() {
               )}
             </div>
             <div className="flex items-center gap-2 lg:hidden">
+              {user ? (
+                <button onClick={()=>setView('profile')} className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white'}`}>
+                  <img src={user.avatar} alt="" className="w-6 h-6 rounded-full object-cover border border-gray-600"/>
+                  <span className="max-w-16 truncate hidden sm:block">{user.name}</span>
+                </button>
+              ) : (
+                <button onClick={()=>setShowAuth(true)} className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white font-bold rounded-xl text-xs">
+                  <LogIn className="w-4 h-4"/> <span className="hidden sm:inline">دخول</span>
+                </button>
+              )}
               <button onClick={()=>setShowNotifs(true)} className="p-2 rounded-xl bg-gray-800 text-white hover:bg-gray-700 relative">
                 <Bell className="w-5 h-5"/>
                 {notifications.length > 0 && (
