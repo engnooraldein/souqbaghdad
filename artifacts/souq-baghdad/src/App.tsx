@@ -64,13 +64,13 @@ interface Ad {
   category: string; images: string[]; seller: SellerInfo;
   time: string; createdAtISO: string; views: number; status: string;
   type: string; description: string; adCount: number; soldCount: number;
-  responseRate: number; avgResponseTime: string; postedBy?: string;
+  responseRate: number; avgResponseTime: string; postedBy?: string; short_id?: string;
 }
 interface Product {
   id: number; title: string; price: string; description: string;
   category: string; images: string[]; governorate: string; phone: string;
   condition: 'new' | 'used'; seller: SellerInfo;
-  createdAtISO: string; views: number; postedBy: string; stock: number;
+  createdAtISO: string; views: number; postedBy: string; stock: number; short_id?: string;
 }
 interface User {
   id: string; name: string; email: string; phone: string; role: string;
@@ -1156,7 +1156,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
   useEffect(()=>{
     setImgIdx(0);
     if (ad) {
-      recordItemView(ad.id, 'ad', user, ad.seller_id);
+      recordItemView(ad.id, 'ad', user, ad.postedBy);
     }
   },[ad]);
 
@@ -1267,7 +1267,7 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
   useEffect(()=>{
     setImgIdx(0);
     if (product) {
-      recordItemView(product.id, 'product', user, product.seller_id);
+      recordItemView(product.id, 'product', user, product.postedBy);
     }
   },[product]);
 
@@ -1364,7 +1364,7 @@ function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDuratio
   const [showViewers, setShowViewers] = useState(false);
   useEffect(()=>{
     if (ad) {
-      recordItemView(ad.id, 'transport', user, ad.seller_id);
+      recordItemView(ad.id, 'transport', user, ad.postedBy);
     }
   },[ad]);
 
@@ -1962,7 +1962,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                   <button onClick={()=>{setEditing(false);setAvatarPreview(user.avatar||DEFAULT_AVATAR);setCoverPreview(user.cover||DEFAULT_COVER);}} className="px-3 py-2 sm:px-4 sm:py-2 bg-gray-800 text-gray-300 border border-gray-700 rounded-xl text-sm hover:bg-gray-700">إلغاء</button>
                 </>
               ):(
-                <button onClick={()=>{setEditing(true);setEf({name:user.name,phone:user.phone,location:user.location,bio:user.bio||''});}} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-amber-500 text-black rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20 hover:bg-amber-600">
+                <button onClick={()=>{setEditing(true);setEf({name:user.name,phone:user.phone,location:user.location,bio:user.bio||'',email:user.email||''});}} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-amber-500 text-black rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20 hover:bg-amber-600">
                   <Edit2 className="w-4 h-4"/>تعديل</button>
               )}
             </div>
@@ -2188,7 +2188,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
   sellerId:string; allAds:Ad[]; allProducts:Product[]; onBack:()=>void;
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void;
   favorites:number[]; onToggleFav:(id:number)=>void; user:User|null; onAuthRequired:()=>void;
-  onDeleteProfile?:(id:string)=>void;
+  onDeleteProfile?:(id:string)=>void; onActionMenu?:any;
 }) {
   const [tab, setTab] = useState<'ads'|'products'>('ads');
   const [sellerUser, setSellerUser] = useState<any>(null);
@@ -2409,7 +2409,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   transportAds:TransportAd[];
   onDeleteAd:(id:string|number)=>void;
   onDeleteProduct:(id:string|number)=>void;
-  onDeleteTransportAd:(id:string)=>void;
+  onDeleteTransportAd:(id:number)=>void;
   onClose:()=>void;
 }) {
   const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'>('overview');
@@ -2470,6 +2470,7 @@ const fetchRecovery = async () => {
   // Calculate stats
   const today = new Date().toDateString();
   const todayV = visits.filter(v=>new Date(v.timestamp).toDateString()===today);
+  const DEVICE_COLORS = ['#f59e0b','#3b82f6','#8b5cf6'];
   const deviceData=[{name:'موبايل',value:visits.filter(v=>v.device==='mobile').length},{name:'كمبيوتر',value:visits.filter(v=>v.device==='desktop').length},{name:'تابلت',value:visits.filter(v=>v.device==='tablet').length}].filter(d=>d.value>0);
   const locMap:Record<string,number>={};
   visits.forEach(v=>{locMap[v.location]=(locMap[v.location]||0)+1;});
@@ -2781,8 +2782,8 @@ const fetchRecovery = async () => {
                   <div className="w-12 h-12 rounded-lg bg-gray-700 flex items-center justify-center flex-shrink-0">
                     <Car className="w-6 h-6 text-gray-400"/>
                   </div>
-                  <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{t.title}</p>
-                    <p className="text-xs text-gray-400">{t.fromLocation} ➔ {t.toLocation} • {formatPrice(t.price)} د.ع • {t.views||0} 👁</p></div>
+                  <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{t.type === 'offer' ? 'متوفر خط' : 'أبحث عن خط'} ({t.university})</p>
+                    <p className="text-xs text-gray-400">{t.regions} • {formatPrice(t.price)} د.ع • {t.views||0} 👁</p></div>
                   <button onClick={()=>onDeleteTransportAd(t.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
                 </div>
               ))}
@@ -3042,13 +3043,14 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick }:{
 // ─────────────────────────────────────────────
 // Market View
 // ─────────────────────────────────────────────
-function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelectProduct, onToggleFav, onRequireAuth, onSellerClick, onTransportClick, onSelectTransportAd, transportLines }:{
+function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelectProduct, onToggleFav, onRequireAuth, onSellerClick, onTransportClick, onSelectTransportAd, transportLines, onActionMenu }:{
   user:User|null; allAds:Ad[]; allProducts:Product[]; favorites:number[];
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void;
   onToggleFav:(id:number)=>void; onRequireAuth:()=>void; onSellerClick:(id:string)=>void;
   onTransportClick?:()=>void;
   onSelectTransportAd?:(ad:any)=>void;
   transportLines: TransportAd[];
+  onActionMenu?: any;
 }) {
   const [search, setSearch] = useState('');
   const [cat, setCat] = useState('all');
@@ -3250,7 +3252,7 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
                 {filterAds.map(ad=><AdCard key={ad.id} ad={ad} onSelect={()=>onSelectAd(ad)} isFav={favorites.includes(ad.id)}
                   onFav={e=>{e.stopPropagation();if(!user){onRequireAuth();return;}onToggleFav(ad.id);}}
                   onSellerClick={e=>{e.stopPropagation();if(ad.postedBy)onSellerClick(ad.postedBy);}}
-                  onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===ad.postedBy||user.role==="admin"||user.role==="owner")) setActionMenuTarget({type:"ad",item:ad});}}/>)}
+                  onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===ad.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"ad",item:ad});}}/>)}
               </div>
             </div>
           )}
@@ -3263,7 +3265,7 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
                 {filterProds.map(p=><ProductCard key={p.id} product={p} onSelect={()=>onSelectProduct(p)} isFav={favorites.includes(p.id)}
                   onFav={e=>{e.stopPropagation();if(!user){onRequireAuth();return;}onToggleFav(p.id);}}
                   onSellerClick={e=>{e.stopPropagation();onSellerClick(p.postedBy);}}
-                  onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===p.postedBy||user.role==="admin"||user.role==="owner")) setActionMenuTarget({type:"product",item:p});}}/>)}
+                  onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===p.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"product",item:p});}}/>)}
               </div>
             </div>
           )}
