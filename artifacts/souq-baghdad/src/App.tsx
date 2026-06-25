@@ -5,7 +5,7 @@ import {
   Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, Check,
   Gamepad2, Heart, Bell, Plus, LogOut, Star, X, Search, MapPin,
   Eye as ViewIcon, Phone as PhoneIcon, Grid, List, Menu, MessageSquare,
-  Share2, CheckCircle, XCircle, Loader2, ChevronRight, Shield, ImagePlus,
+  Share2, Copy, CheckCircle, XCircle, Loader2, ChevronRight, Shield, ImagePlus,
   Trash2, SlidersHorizontal, Settings, ChevronLeft, Info, LogIn, Edit2,
   Save, BarChart3, Smartphone, Monitor, Tablet, Globe, UserCheck, Activity,
   Crown, UserX, FileText, ShoppingBag, Package, Store, Camera, ZoomIn,
@@ -104,7 +104,21 @@ async function compressImage(file: File, maxPx = 900, quality = 0.78): Promise<s
         const canvas = document.createElement('canvas');
         canvas.width  = Math.round(img.width  * scale);
         canvas.height = Math.round(img.height * scale);
-        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        // Add Watermark
+        const fontSize = Math.max(16, Math.floor(canvas.width * 0.035));
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.font = `bold ${fontSize}px Tajawal, sans-serif`;
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'bottom';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+        ctx.fillText('سوك بغداد | souqbaghdad.store', canvas.width - 20, canvas.height - 20);
+        
         resolve(canvas.toDataURL('image/jpeg', quality));
       };
       img.src = reader.result as string;
@@ -121,9 +135,18 @@ const formatPrice = (p: string | number) => {
 function getWhatsAppLink(phone: string, itemType: 'product' | 'transport', details: any) {
   let text = '';
   if (itemType === 'product') {
-    text = `السلام عليكم 🌹\n\nشفت إعلان (${details.title}) وحاب أستفسر عنه إذا متوفر حالياً.\n\nتفاصيل الإعلان:\n📌 ${details.title}\n📍 ${details.location}\n\nتم إرسال هذه الرسالة مباشرة من خلال منصة سوك بغداد لتسهيل التواصل بين البائع والمشتري.\n\nبانتظار ردكم، شكراً 🙏`;
+    text = `مرحباً بك في سوق بغداد! 🌟
+يسعدنا تواصلك بخصوص المنتج: ${details.title}
+(رقم الإعلان: ${details.id})
+
+تصفح المزيد عبر موقعنا: www.souqbaghdad.store`;
   } else if (itemType === 'transport') {
-    text = `السلام عليكم 🌹\n\nشفت إعلان خط الجامعة وأرغب بمعرفة التفاصيل إذا ما زال متوفر.\n\n📍 المنطقة: ${details.location}\n🎓 الجامعة: ${details.university}\n🕒 الدوام: ${details.time}\n\nتم إرسال هذه الرسالة مباشرة عبر سوك بغداد لتسهيل الوصول إلى الخدمات والإعلانات المناسبة.\n\nشكراً لكم 🙏`;
+    text = `مرحباً بك في سوق بغداد! 🌟
+يسعدنا تواصلك بخصوص إعلان خط الجامعة: ${details.university}
+المنطقة: ${details.location}
+(رقم الإعلان: ${details.id})
+
+تصفح المزيد عبر موقعنا: www.souqbaghdad.store`;
   }
   const cleanPhone = phone.replace(/^0/, '');
   const num = cleanPhone.startsWith('964') ? cleanPhone : `964${cleanPhone}`;
@@ -1047,7 +1070,16 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
         </div>
         <div className="p-5">
           <div className="flex items-start justify-between mb-3">
-            <div><h2 className="text-xl font-bold text-white mb-1">{ad.title}</h2>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-xl font-bold text-white">{ad.title}</h2>
+                <div className="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded-lg border border-gray-700">
+                  <span className="text-xs text-gray-400">ID: {ad.id}</span>
+                  <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(String(ad.id)); alert('تم نسخ رقم الإعلان!'); }} className="text-amber-400 hover:text-amber-300">
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
               <div className="flex items-center gap-3 text-sm text-gray-400">
                 <span className="flex items-center gap-1"><MapPin className="w-3 h-3"/>{ad.location}</span>
                 <TimeAgo iso={ad.createdAtISO} className="text-green-400 font-medium"/>
@@ -1077,7 +1109,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 mb-3">
-            <motion.a href={getWhatsAppLink(ad.phone, ad.type === 'transport' ? 'transport' : 'product', { title: ad.title, location: ad.location, university: ad.description, time: 'راجع الإعلان' })} target="_blank" rel="noopener noreferrer"
+            <motion.a href={getWhatsAppLink(ad.phone, ad.type === 'transport' ? 'transport' : 'product', { id: ad.id, title: ad.title, location: ad.location, university: ad.description, time: 'راجع الإعلان' })} target="_blank" rel="noopener noreferrer"
               whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="flex items-center justify-center gap-2 py-4 bg-green-500 text-white font-bold rounded-xl text-sm">
               <MessageSquare className="w-5 h-5"/> واتساب</motion.a>
             <motion.a href={`tel:${ad.phone}`} whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="flex items-center justify-center gap-2 py-4 bg-blue-500 text-white font-bold rounded-xl text-sm">
@@ -1177,7 +1209,7 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 mb-3">
-            <motion.a href={getWhatsAppLink(product.phone, 'product', { title: product.title, location: product.governorate })} target="_blank" rel="noopener noreferrer"
+            <motion.a href={getWhatsAppLink(product.phone, 'product', { id: product.id, title: product.title, location: product.governorate })} target="_blank" rel="noopener noreferrer"
               whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="flex items-center justify-center gap-2 py-4 bg-green-500 text-white font-bold rounded-xl text-sm">
               <MessageSquare className="w-5 h-5"/> واتساب</motion.a>
             <motion.a href={`tel:${product.phone}`} whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="flex items-center justify-center gap-2 py-4 bg-blue-500 text-white font-bold rounded-xl text-sm">
@@ -1299,7 +1331,7 @@ function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDuratio
 
         {/* Call Actions */}
         <div className="grid grid-cols-2 gap-3">
-          <motion.a href={getWhatsAppLink(ad.phone, 'transport', { title: ad.type==='offer'?'خط متوفر':'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })} target="_blank" rel="noopener noreferrer"
+          <motion.a href={getWhatsAppLink(ad.phone, 'transport', { id: ad.id, title: ad.type==='offer'?'خط متوفر':'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })} target="_blank" rel="noopener noreferrer"
             whileHover={{scale:1.02}} whileTap={{scale:0.98}}
             className="flex items-center justify-center gap-2 py-3 bg-green-500 text-white font-bold rounded-xl text-sm">
             <MessageSquare className="w-5 h-5"/> واتساب
@@ -2728,14 +2760,14 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
   const fmt=(v:string)=>v.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',');
 
   const filterAds = allAds.filter(a=>{
-    const ms=!search||a.title.toLowerCase().includes(search.toLowerCase())||a.location.toLowerCase().includes(search.toLowerCase());
+    const ms=!search||String(a.id).includes(search)||a.title.toLowerCase().includes(search.toLowerCase())||a.location.toLowerCase().includes(search.toLowerCase());
     const mc=cat==='all'||a.category===cat; const mg=gov==='الكل'||a.governorate===gov;
     const min=priceMin?parseInt(priceMin.replace(/,/g,'')):0, max=priceMax?parseInt(priceMax.replace(/,/g,'')):Infinity, ap=parseInt(a.price)||0;
     return ms&&mc&&mg&&ap>=min&&ap<=max;
   }).sort((a,b)=>sort==='views'?b.views-a.views:sort==='price-low'?parseInt(a.price)-parseInt(b.price):sort==='price-high'?parseInt(b.price)-parseInt(a.price):new Date(b.createdAtISO).getTime()-new Date(a.createdAtISO).getTime());
 
   const filterProds = allProducts.filter(p=>{
-    const ms=!search||p.title.toLowerCase().includes(search.toLowerCase())||p.governorate.toLowerCase().includes(search.toLowerCase());
+    const ms=!search||String(p.id).includes(search)||p.title.toLowerCase().includes(search.toLowerCase())||p.governorate.toLowerCase().includes(search.toLowerCase());
     const mc=cat==='all'||p.category===cat; const mg=gov==='الكل'||p.governorate===gov;
     const min=priceMin?parseInt(priceMin.replace(/,/g,'')):0, max=priceMax?parseInt(priceMax.replace(/,/g,'')):Infinity, pp=parseInt(p.price)||0;
     return ms&&mc&&mg&&pp>=min&&pp<=max;
@@ -2943,12 +2975,7 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
 
                           <div className="flex gap-2">
                             <motion.a
-                              href={getWhatsAppLink(ad.phone, 'transport', {
-                                title: ad.type === 'offer' ? 'خط متوفر' : 'طلب خط',
-                                location: ad.regions,
-                                university: ad.university,
-                                time: ad.shift
-                              })}
+                              href={getWhatsAppLink(ad.phone, 'transport', { id: ad.id, title: ad.type === 'offer' ? 'خط متوفر' : 'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })}
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
@@ -3443,7 +3470,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
                           <CheckCircle className="w-3.5 h-3.5"/> حصلت
                         </button>
                       )}
-                      <motion.a href={getWhatsAppLink(ad.phone, 'transport', { title: ad.type==='offer'?'خط متوفر':'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })} target="_blank" rel="noopener noreferrer"
+                      <motion.a href={getWhatsAppLink(ad.phone, 'transport', { id: ad.id, title: ad.type==='offer'?'خط متوفر':'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })} target="_blank" rel="noopener noreferrer"
                         whileHover={{scale:1.05}} whileTap={{scale:0.95}}
                         onClick={(e) => e.stopPropagation()}
                         className="flex items-center gap-1.5 px-4 py-2 bg-green-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-green-500/20">
