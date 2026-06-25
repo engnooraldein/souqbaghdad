@@ -560,9 +560,10 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
           options: { data: { full_name: name, phone, city, role } }
         });
         if (error) {
-          const msg = error.message.includes('already registered')
-            ? 'رقم الهاتف هذا مسجّل مسبقاً'
-            : error.message;
+          let msg = error.message;
+          if (msg.includes('already registered') || msg === '{}') {
+            msg = 'رقم الهاتف أو الحساب مسجّل مسبقاً، يرجى تسجيل الدخول';
+          }
           setError(msg); playSound('error'); setLoading(false); return;
         }
         const { error: signInErr } = await supabase.auth.signInWithPassword({ email: emailToUse, password });
@@ -2371,6 +2372,8 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
   const [verificationRequests, setVerificationRequests] = useState<any[]>([]);
   const [recoveryRequests, setRecoveryRequests] = useState<any[]>([]);
   const [storedUsers, setStoredUsers] = useState<StoredUser[]>([]);
+  const [dbUsers, setDbUsers] = useState<any[]>([]);
+  const [dbGuests, setDbGuests] = useState<any[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
   
   // Broadcast State
@@ -2406,7 +2409,18 @@ const fetchRecovery = async () => {
     };
     fetchRecovery();
 
-    return()=>clearInterval(iv);
+    const fetchUsersAndGuests = async () => {
+      try {
+        const { data: profiles } = await supabase.from('profiles').select('*').order('last_seen', { ascending: false });
+        if (profiles) setDbUsers(profiles);
+        const { data: guests } = await supabase.from('guests').select('*').order('last_seen', { ascending: false });
+        if (guests) setDbGuests(guests);
+      } catch (err) {}
+    };
+    fetchUsersAndGuests();
+    const fetchInterval = setInterval(fetchUsersAndGuests, 60_000);
+
+    return () => { clearInterval(iv); clearInterval(fetchInterval); };
   },[]);
 
   // Calculate stats
@@ -2513,7 +2527,7 @@ const fetchRecovery = async () => {
         
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['broadcast','🔔 إشعار عام']] as [string,string][]).map(([t,l])=>(
+          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['broadcast','🔔 إشعار عام']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`px-4 py-2 rounded-xl text-sm font-bold ${tab===t?'bg-amber-500 text-black':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
           ))}
         </div>
@@ -2619,23 +2633,30 @@ const fetchRecovery = async () => {
         
         {tab==='users'&&(
           <div className="space-y-3">
-            {storedUsers.length===0?<div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا مستخدمون بعد</p></div>:storedUsers.map(u=>(
-              <div key={u.id} className={`bg-gray-800 rounded-2xl p-4 border ${u.isBanned?'border-red-500/30':'border-gray-700'} flex items-center gap-3 flex-wrap`}>
-                <img src={u.avatar} alt="" className={`w-12 h-12 rounded-full object-cover border-2 ${u.isBanned?'border-red-500/50':'border-gray-600'} flex-shrink-0`}/>
+            {dbUsers.length===0?<div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا مستخدمون بعد</p></div>:dbUsers.map(u=>{
+              const isOnline = new Date().getTime() - new Date(u.last_seen || 0).getTime() < 5 * 60 * 1000;
+              
+              return (
+              <div key={u.id} className={`bg-gray-800 rounded-2xl p-4 border ${u.is_banned?'border-red-500/30':'border-gray-700'} flex items-center gap-3 flex-wrap`}>
+                <div className="relative flex-shrink-0">
+                  <img src={u.avatar_url || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-12 h-12 rounded-full object-cover border-2 ${u.is_banned?'border-red-500/50':'border-gray-600'}`}/>
+                  <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-gray-800 ${isOnline ? 'bg-green-500' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'غير متصل'}></div>
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-white font-bold text-sm">{u.name}</p>
-                    {u.isBanned&&<span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 text-[10px] rounded-full font-bold">موقوف</span>}
+                    <p className="text-white font-bold text-sm">{u.full_name}</p>
+                    {u.is_banned&&<span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 text-[10px] rounded-full font-bold">موقوف</span>}
                     {u.role==='owner'&&<span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] rounded-full flex items-center gap-0.5"><Crown className="w-2.5 h-2.5"/>مالك</span>}
                     {u.role==='admin'&&<span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-[10px] rounded-full flex items-center gap-0.5"><Shield className="w-2.5 h-2.5"/>مشرف</span>}
                     {u.role==='vendor'&&<span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[10px] rounded-full flex items-center gap-0.5"><UserCheck className="w-2.5 h-2.5"/>تاجر موثق</span>}
                     {u.role==='pro'&&<span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-[10px] rounded-full flex items-center gap-0.5"><Star className="w-2.5 h-2.5"/>برو</span>}
                   </div>
-                  <p className="text-gray-400 text-xs">{u.email}</p>
-                  <p className="text-gray-500 text-[10px] mt-0.5">{u.location} • {u.adCount} إعلان • آخر ظهور: {new Date(u.lastSeen).toLocaleDateString('ar-IQ')}</p>
+                  <p className="text-gray-400 text-xs">{u.email || u.phone}</p>
+                  <p className="text-gray-500 text-[10px] mt-0.5">{u.city} • آخر ظهور: {u.last_seen ? new Date(u.last_seen).toLocaleString('ar-IQ') : 'غير معروف'}</p>
                 </div>
                 
                 <div className="flex items-center gap-2 flex-shrink-0 mt-2 sm:mt-0">
+                  <button onClick={() => alert('تفاصيل المستخدم: \n' + JSON.stringify(u, null, 2))} className="p-2 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-xl" title="معلومات المستخدم"><Eye className="w-4 h-4"/></button>
                   {u.role !== 'owner' && (
                     <select 
                       value={u.role || 'user'} 
@@ -2652,7 +2673,7 @@ const fetchRecovery = async () => {
                     {u.isBanned?<><UserCheck className="w-3.5 h-3.5"/>رفع الإيقاف</>:<><UserX className="w-3.5 h-3.5"/>حظر</>}</button>}
                 </div>
               </div>
-            ))}
+            );})}
           </div>
         )}
         
@@ -4269,6 +4290,37 @@ export default function App() {
   useEffect(()=>{
     if(user){const mc=allAds.filter(a=>a.postedBy===user.id).length+allProducts.filter(p=>p.postedBy===user.id).length;saveStoredUser(user,mc);}
   },[user]);
+
+  // Track online status and guests
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    const trackActivity = async () => {
+      try {
+        if (user) {
+          await supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', user.id);
+        } else {
+          let deviceId = localStorage.getItem('souqGuestId');
+          if (!deviceId) {
+            deviceId = crypto.randomUUID();
+            localStorage.setItem('souqGuestId', deviceId);
+          }
+          const { data } = await supabase.from('guests').select('is_banned').eq('id', deviceId).single();
+          if (data?.is_banned) {
+            document.body.innerHTML = '<div style="padding: 3rem; text-align: center; color: red; font-size: 1.5rem; font-weight: bold;">عذراً، هذا الجهاز محظور من تصفح الموقع لانتهاكه الشروط.</div>';
+            return;
+          }
+          await supabase.from('guests').upsert({ id: deviceId, last_seen: new Date().toISOString(), user_agent: navigator.userAgent });
+        }
+      } catch (e) {
+        // silently fail tracking errors
+      }
+    };
+
+    trackActivity();
+    interval = setInterval(trackActivity, 2 * 60 * 1000); // Every 2 minutes
+    return () => clearInterval(interval);
+  }, [user]);
 
   const showToast = useCallback((msg:string,type:string)=>{
     setToast({msg,type,visible:true}); playSound(type==='success'?'success':'info');
