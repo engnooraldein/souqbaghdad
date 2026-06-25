@@ -241,6 +241,39 @@ const useSound = () => {
   };
 };
 
+
+// ─────────────────────────────────────────────
+// Online Statuses Cache
+// ─────────────────────────────────────────────
+let globalOnlineStatuses: Record<string, boolean> = {};
+let onlineListeners: Array<() => void> = [];
+
+export const useOnlineStatuses = () => {
+  const [statuses, setStatuses] = useState(globalOnlineStatuses);
+  useEffect(() => {
+    const trigger = () => setStatuses({...globalOnlineStatuses});
+    onlineListeners.push(trigger);
+    return () => { onlineListeners = onlineListeners.filter(l => l !== trigger); };
+  }, []);
+  return statuses;
+}
+
+const fetchGlobalOnlineStatuses = async () => {
+  try {
+    const { data } = await supabase.from('profiles').select('id, last_seen');
+    if (data) {
+      const map: Record<string, boolean> = {};
+      data.forEach(p => {
+        if(p.last_seen) {
+          map[p.id] = new Date().getTime() - new Date(p.last_seen).getTime() < 5 * 60 * 1000;
+        }
+      });
+      globalOnlineStatuses = map;
+      onlineListeners.forEach(l => l());
+    }
+  } catch(e) {}
+};
+
 // ─────────────────────────────────────────────
 // Logo
 // ─────────────────────────────────────────────
@@ -1074,8 +1107,9 @@ function ImageLightboxModal({ src, title, onClose }: { src: string; title: strin
 // Ad Card
 // ─────────────────────────────────────────────
 function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu }:{
-  ad:Ad; onSelect:()=>void; isFav:boolean; onFav:(e:React.MouseEvent)=>void; onSellerClick?:(e:React.MouseEvent)=>void; onActionMenu?:(e:React.MouseEvent)=>void;
+  ad:Ad; onSelect:()=>void; isFav:boolean; onFav:(e:React.MouseEvent)=>void; onSellerClick?:(id:string)=>void; onActionMenu?:(e:React.MouseEvent)=>void;
 }) {
+  const onlineStatuses = useOnlineStatuses();
   const time = useRelativeTime(ad.createdAtISO);
   return (
     <motion.div whileHover={{y:-4}} onClick={onSelect} onContextMenu={onActionMenu}
@@ -1092,8 +1126,9 @@ function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu }:{
         <p className="text-lg font-bold text-amber-400 mb-2">{formatPrice(ad.price)} <span className="text-xs text-gray-400">د.ع</span></p>
         <div className="flex items-center gap-1 text-gray-400 text-xs mb-2 flex-1"><MapPin className="w-3 h-3 flex-shrink-0"/><span className="line-clamp-1">{ad.location}</span></div>
         <div className="flex items-center justify-between mt-auto">
-          <button onClick={e=>{e.stopPropagation();onSellerClick?.(e);}} className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
+          <button onClick={e=>{e.stopPropagation();onSellerClick?.(ad.postedBy||'');}} className="flex items-center gap-1.5 hover:opacity-80 transition-opacity relative">
             <img src={ad.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className="w-5 h-5 rounded-full border border-gray-600 object-cover"/>
+            {onlineStatuses[ad.postedBy||''] && <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-gray-800" title="متصل الآن"></div>}
             <span className="text-gray-400 text-xs truncate max-w-[80px]">{ad.seller?.name || 'مستخدم'}</span>
           </button>
           <div className="flex items-center gap-2 text-gray-500 text-xs">
@@ -1110,8 +1145,9 @@ function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu }:{
 // Product Card
 // ─────────────────────────────────────────────
 function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionMenu }:{
-  product:Product; onSelect:()=>void; isFav:boolean; onFav:(e:React.MouseEvent)=>void; onSellerClick?:(e:React.MouseEvent)=>void; onActionMenu?:(e:React.MouseEvent)=>void;
+  product:Product; onSelect:()=>void; isFav:boolean; onFav:(e:React.MouseEvent)=>void; onSellerClick?:(id:string)=>void; onActionMenu?:(e:React.MouseEvent)=>void;
 }) {
+  const onlineStatuses = useOnlineStatuses();
   const time = useRelativeTime(product.createdAtISO);
   return (
     <motion.div whileHover={{y:-4}} onClick={onSelect} onContextMenu={onActionMenu}
@@ -1130,8 +1166,9 @@ function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionM
         <p className="text-lg font-bold text-amber-400 mb-2">{formatPrice(product.price)} <span className="text-xs text-gray-400">د.ع</span></p>
         <div className="flex items-center gap-1 text-gray-400 text-xs mb-2 flex-1"><MapPin className="w-3 h-3 flex-shrink-0"/><span>{product.governorate}</span></div>
         <div className="flex items-center justify-between mt-auto">
-          <button onClick={e=>{e.stopPropagation();onSellerClick?.(e);}} className="flex items-center gap-1.5 hover:opacity-80">
+          <button onClick={e=>{e.stopPropagation();onSellerClick?.(product.postedBy||'');}} className="flex items-center gap-1.5 hover:opacity-80 relative">
             <img src={product.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className="w-5 h-5 rounded-full border border-gray-600 object-cover"/>
+            {onlineStatuses[product.postedBy||''] && <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-gray-800" title="متصل الآن"></div>}
             <span className="text-gray-400 text-xs truncate max-w-[80px]">{product.seller?.name || 'مستخدم'}</span>
           </button>
           <div className="flex items-center gap-2 text-gray-500 text-xs">
@@ -1153,6 +1190,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
+  const onlineStatuses = useOnlineStatuses();
   useEffect(()=>{
     setImgIdx(0);
     if (ad) {
@@ -1259,7 +1297,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
 // Product Detail Modal
 // ─────────────────────────────────────────────
 function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom }:{
-  product:Product|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; onAuthRequired:()=>void; onSellerClick?:(id:string)=>void;
+  product:Product|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; onAuthRequired:()=>void; onSellerClick?:(id:any)=>void;
   onViewDurationLogged?:(seconds:number)=>void; onImageZoom?:(src:string, title:string)=>void;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
@@ -2190,6 +2228,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
   favorites:number[]; onToggleFav:(id:number)=>void; user:User|null; onAuthRequired:()=>void;
   onDeleteProfile?:(id:string)=>void; onActionMenu?:any;
 }) {
+  const onlineStatuses = useOnlineStatuses();
   const [tab, setTab] = useState<'ads'|'products'>('ads');
   const [sellerUser, setSellerUser] = useState<any>(null);
 
@@ -2425,6 +2464,8 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   const [broadcastMsg, setBroadcastMsg] = useState('');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [broadcastSent, setBroadcastSent] = useState(false);
+  const [viewersModalItem, setViewersModalItem] = useState<{id:string|number, type:'ad'|'product'|'transport'}|null>(null);
+  const onlineStatuses = useOnlineStatuses();
 
   useEffect(()=>{
     try{setStoredUsers(JSON.parse(localStorage.getItem('souqUsers')||'[]'));}catch{}
@@ -2759,7 +2800,7 @@ const fetchRecovery = async () => {
                 <div key={ad.id} className="flex items-center gap-3 p-3 border-t border-gray-700/50 hover:bg-gray-700/30">
                   <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
                   <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{ad.title}</p>
-                    <p className="text-xs text-gray-400">{ad.location} • {formatPrice(ad.price)} د.ع • {ad.views} 👁</p></div>
+                    <p className="text-xs text-gray-400">{ad.location} • {formatPrice(ad.price)} د.ع • <button onClick={() => setViewersModalItem({id: ad.id, type: 'ad'})} className="hover:text-amber-400">{ad.views} 👁</button></p></div>
                   <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
                 </div>
               ))}
@@ -2770,7 +2811,7 @@ const fetchRecovery = async () => {
                 <div key={p.id} className="flex items-center gap-3 p-3 border-t border-gray-700/50 hover:bg-gray-700/30">
                   <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
                   <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{p.title}</p>
-                    <p className="text-xs text-gray-400">{p.governorate} • {formatPrice(p.price)} د.ع • {p.views} 👁 • {p.condition==='new'?'جديد':'مستعمل'}</p></div>
+                    <p className="text-xs text-gray-400">{p.governorate} • {formatPrice(p.price)} د.ع • <button onClick={() => setViewersModalItem({id: p.id, type: 'product'})} className="hover:text-amber-400">{p.views} 👁</button> • {p.condition==='new'?'جديد':'مستعمل'}</p></div>
                   <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
                 </div>
               ))}
@@ -2783,7 +2824,7 @@ const fetchRecovery = async () => {
                     <Car className="w-6 h-6 text-gray-400"/>
                   </div>
                   <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{t.type === 'offer' ? 'متوفر خط' : 'أبحث عن خط'} ({t.university})</p>
-                    <p className="text-xs text-gray-400">{t.regions} • {formatPrice(t.price)} د.ع • {t.views||0} 👁</p></div>
+                    <p className="text-xs text-gray-400">{t.regions} • {formatPrice(t.price)} د.ع • <button onClick={() => setViewersModalItem({id: t.id, type: 'transport'})} className="hover:text-amber-400">{t.views||0} 👁</button></p></div>
                   <button onClick={()=>onDeleteTransportAd(t.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
                 </div>
               ))}
@@ -2830,6 +2871,10 @@ const fetchRecovery = async () => {
         )}
         
         
+        <AnimatePresence>
+          {viewersModalItem && <ViewersModal itemId={viewersModalItem.id} itemType={viewersModalItem.type} onClose={() => setViewersModalItem(null)} />}
+        </AnimatePresence>
+
         {tab==='verification'&&(
           <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
             <div className="p-4 border-b border-gray-700 flex items-center justify-between"><h3 className="text-white font-bold">طلبات توثيق الهوية ({verificationRequests.length})</h3></div>
@@ -3251,7 +3296,7 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
               <div className={viewMode==='grid'?'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4':'space-y-3'}>
                 {filterAds.map(ad=><AdCard key={ad.id} ad={ad} onSelect={()=>onSelectAd(ad)} isFav={favorites.includes(ad.id)}
                   onFav={e=>{e.stopPropagation();if(!user){onRequireAuth();return;}onToggleFav(ad.id);}}
-                  onSellerClick={e=>{e.stopPropagation();if(ad.postedBy)onSellerClick(ad.postedBy);}}
+                  onSellerClick={(id)=>{if(id)onSellerClick(id);}}
                   onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===ad.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"ad",item:ad});}}/>)}
               </div>
             </div>
@@ -3264,7 +3309,7 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
               <div className={viewMode==='grid'?'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4':'space-y-3'}>
                 {filterProds.map(p=><ProductCard key={p.id} product={p} onSelect={()=>onSelectProduct(p)} isFav={favorites.includes(p.id)}
                   onFav={e=>{e.stopPropagation();if(!user){onRequireAuth();return;}onToggleFav(p.id);}}
-                  onSellerClick={e=>{e.stopPropagation();onSellerClick(p.postedBy);}}
+                  onSellerClick={(id)=>{if(id)onSellerClick(id);}}
                   onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===p.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"product",item:p});}}/>)}
               </div>
             </div>
