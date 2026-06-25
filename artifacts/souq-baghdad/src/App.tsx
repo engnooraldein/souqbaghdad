@@ -3562,6 +3562,78 @@ export default function App() {
   };
 
   // ── استعادة الجلسة ومراقبة Auth ────────────────────────────────────
+  
+  // --- DEEP LINKING & ROUTING HOOKS ---
+  const [initialHashParsed, setInitialHashParsed] = useState(false);
+
+  const syncStateFromHash = () => {
+    const hash = window.location.hash;
+    if (!hash || hash === '#/') {
+      setView('home');
+      setSelectedAd(null);
+      setSelectedProduct(null);
+      setSelectedSellerId(null);
+      return;
+    }
+    
+    const parts = hash.split('/');
+    const type = parts[1];
+    const id = parts[2];
+    
+    if (type === 'ad' && id) {
+      const ad = allAds.find(a => String(a.id) === id || a.short_id === id);
+      if (ad) setSelectedAd(ad);
+    } else if (type === 'product' && id) {
+      const prod = allProducts.find(p => String(p.id) === id || p.short_id === id);
+      if (prod) setSelectedProduct(prod);
+    } else if (type === 'seller' && id) {
+      setSelectedSellerId(id);
+      setView('profile');
+    } else if (type === 'transport') {
+      setView('transport');
+    } else if (type === 'admin') {
+      setView('admin');
+    } else if (type === 'owner') {
+      setView('owner');
+    }
+  };
+
+  useEffect(() => {
+    if (initialHashParsed) return;
+    if (allAds.length === 0 && allProducts.length === 0) return; // Wait for data
+    syncStateFromHash();
+    setInitialHashParsed(true);
+  }, [allAds, allProducts, initialHashParsed]);
+
+  useEffect(() => {
+    const handleHashChange = () => syncStateFromHash();
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [allAds, allProducts]);
+
+  useEffect(() => {
+    if (!initialHashParsed) return; // Don't push state before initial parse
+    let newHash = '#/';
+    if (selectedAd) {
+      newHash = `#/ad/${selectedAd.short_id || selectedAd.id}`;
+    } else if (selectedProduct) {
+      newHash = `#/product/${selectedProduct.short_id || selectedProduct.id}`;
+    } else if (view === 'profile' && selectedSellerId) {
+      newHash = `#/seller/${selectedSellerId}`;
+    } else if (view === 'transport') {
+      newHash = `#/transport`;
+    } else if (view === 'admin') {
+      newHash = `#/admin`;
+    } else if (view === 'owner') {
+      newHash = `#/owner`;
+    }
+    
+    if (window.location.hash !== newHash) {
+      window.history.pushState(null, '', newHash);
+    }
+  }, [view, selectedAd, selectedProduct, selectedSellerId, initialHashParsed]);
+  // ------------------------------------
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) loadUserFromSupabase(session.user);
