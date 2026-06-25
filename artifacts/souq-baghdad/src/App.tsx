@@ -1043,7 +1043,7 @@ function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu }:{
     <motion.div whileHover={{y:-4}} onClick={onSelect} onContextMenu={onActionMenu}
       className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full">
       <div className="relative w-full aspect-[4/3] overflow-hidden flex-shrink-0">
-        <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={ad.title} className="w-full h-full object-cover" loading="lazy"/>
+        <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={ad.title} className="w-full h-full object-cover" loading="lazy" decoding="async"/>
         {ad.type==='rent'&&<div className="absolute top-2 left-2 px-2 py-0.5 bg-blue-500 rounded-full text-xs font-bold text-white">للإيجار</div>}
         <button onClick={onFav} className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'} transition-colors`}>
           <Heart className={`w-4 h-4 text-white ${isFav?'fill-current':''}`}/></button>
@@ -1079,7 +1079,7 @@ function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionM
     <motion.div whileHover={{y:-4}} onClick={onSelect} onContextMenu={onActionMenu}
       className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full">
       <div className="relative w-full aspect-[4/3] overflow-hidden flex-shrink-0">
-        <img src={product.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={product.title} className="w-full h-full object-cover" loading="lazy"/>
+        <img src={product.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={product.title} className="w-full h-full object-cover" loading="lazy" decoding="async"/>
         <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{background:product.condition==='new'?'#22c55e':'#f59e0b'}}>
           {product.condition==='new'?'جديد':'مستعمل'}</div>
         <button onClick={onFav} className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'}`}>
@@ -1141,6 +1141,8 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
         <InterestTimer itemId={ad.id} itemType="ad" />
         <div className="relative"><div className="aspect-video overflow-hidden rounded-t-3xl bg-gray-800 relative group">
           <img src={ad.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={ad.title}
+            decoding="async"
+            fetchPriority="high"
             onClick={() => onImageZoom?.(ad.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700', ad.title)}
             className="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition-all duration-300"/>
           <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-lg pointer-events-none flex items-center gap-1 opacity-85 group-hover:opacity-100 transition-opacity">
@@ -1250,6 +1252,8 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
         <InterestTimer itemId={product.id} itemType="product" />
         <div className="relative"><div className="aspect-video overflow-hidden rounded-t-3xl bg-gray-800 relative group">
           <img src={product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={product.title}
+            decoding="async"
+            fetchPriority="high"
             onClick={() => onImageZoom?.(product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700', product.title)}
             className="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition-all duration-300"/>
           <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-lg pointer-events-none flex items-center gap-1 opacity-85 group-hover:opacity-100 transition-opacity">
