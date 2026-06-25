@@ -1082,7 +1082,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
               <div className="flex items-center justify-between mb-1">
                 <h2 className="text-xl font-bold text-white">{ad.title}</h2>
                 <div className="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded-lg border border-gray-700">
-                  <span className="text-xs text-gray-400">{ad.short_id ? `#${ad.short_id}` : `ID: ${ad.id}`}</span>
+                  <span className="text-xs text-gray-400">{ad.short_id ? `#${ad.short_id}` : `#${String(ad.id).substring(0, 5)}`}</span>
                   <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(String(ad.short_id || String(ad.id).substring(0, 5))); alert('تم نسخ رقم الإعلان!'); }} className="text-amber-400 hover:text-amber-300">
                     <Copy className="w-4 h-4" />
                   </button>
