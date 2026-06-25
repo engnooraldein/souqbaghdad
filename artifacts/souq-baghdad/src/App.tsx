@@ -1864,7 +1864,7 @@ function MyLinesTab({ userId, lines, onUpdateStatus, onDelete }: {
                 </h3>
                 <p className="text-gray-400 text-sm mb-6 leading-relaxed">
                   {showConfirmModal.action === 'found_line'
-                    ? 'إذا تم العثور على خط، سيتم إخفاء إعلانك من قائمة الخطوط العامة ونقله إلى قسم "مكتمل" داخل حسابك.'
+                    ? 'شكراً على استخدامك سوق بغداد! سيتم إخفاء إعلانك من قائمة الخطوط العامة. سيتم خزن إعلانك في قسم خطوطي ويمكنك إعادة فتح الإعلان في أي وقت.'
                     : 'إذا تم إغلاق الخط، سيتم إخفاء الإعلان من قائمة الخطوط العامة ونقله إلى قسم "مكتمل" داخل حسابك.'}
                 </p>
                 <div className="flex gap-3">
@@ -1966,6 +1966,13 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
         <div className="w-full aspect-[3/1] md:aspect-[4/1] bg-gray-900 relative overflow-hidden flex items-center justify-center">
           <img src={coverPreview} alt="" className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110"/>
           <img src={coverPreview} alt="Cover" className="relative w-full h-full object-cover z-0"/>
+          {/* Watermark */}
+          <div className="absolute top-4 left-4 z-10 flex items-center gap-2 opacity-60 select-none pointer-events-none drop-shadow-xl">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-900 rounded-lg flex items-center justify-center border border-amber-500/40">
+              <span className="text-white font-bold text-[10px] sm:text-xs">سوك</span>
+            </div>
+            <span className="text-white font-bold text-xs sm:text-sm drop-shadow-md">سوك بغداد</span>
+          </div>
           <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/30 to-transparent z-10"/>
           {editing&&<label className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 bg-black/60 text-white text-xs rounded-xl cursor-pointer hover:bg-black/80 backdrop-blur-md z-20">
             <Camera className="w-4 h-4"/> تغيير الغلاف
@@ -2338,6 +2345,13 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
           alt="Cover" 
           className="relative w-full h-full object-cover z-0"
         />
+        {/* Watermark */}
+        <div className="absolute top-4 left-4 z-10 flex items-center gap-2 opacity-60 select-none pointer-events-none drop-shadow-xl">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-900 rounded-lg flex items-center justify-center border border-amber-500/40">
+            <span className="text-white font-bold text-[10px] sm:text-xs">سوك</span>
+          </div>
+          <span className="text-white font-bold text-xs sm:text-sm drop-shadow-md">سوك بغداد</span>
+        </div>
         <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/30 to-transparent z-10"/>
         <button onClick={onBack} className="absolute top-4 right-4 z-20 flex items-center gap-1 px-3 py-1.5 bg-black/60 backdrop-blur-md text-white rounded-xl text-xs hover:bg-black/80 font-bold border border-white/10">
           <ChevronRight className="w-4 h-4"/> رجوع</button>
@@ -2442,7 +2456,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
 // ─────────────────────────────────────────────
 // Owner Dashboard
 // ─────────────────────────────────────────────
-function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProduct, onDeleteTransportAd, onClose }: {
+function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProduct, onDeleteTransportAd, onClose, onDeleteProfile }: {
   ads:Ad[];
   products:Product[];
   transportAds:TransportAd[];
@@ -2450,6 +2464,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   onDeleteProduct:(id:string|number)=>void;
   onDeleteTransportAd:(id:number)=>void;
   onClose:()=>void;
+  onDeleteProfile?:(id:string)=>void;
 }) {
   const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'>('overview');
   const [verificationRequests, setVerificationRequests] = useState<any[]>([]);
@@ -2754,6 +2769,16 @@ const fetchRecovery = async () => {
                 
                 <div className="flex items-center gap-2 flex-shrink-0 mt-2 sm:mt-0 flex-wrap">
                   <button onClick={() => alert('تفاصيل المستخدم: \n' + JSON.stringify(u, null, 2))} className="p-2 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-xl" title="معلومات المستخدم"><Eye className="w-4 h-4"/></button>
+                  {u.role !== 'owner' && (
+                    <button onClick={() => {
+                      if(window.confirm('تنبيه: سيتم حذف هذا الحساب نهائياً مع كافة إعلاناته المرتبطة به. هل أنت متأكد؟')) {
+                        if(onDeleteProfile) onDeleteProfile(u.id);
+                        setStoredUsers(prev => prev.filter(usr => usr.id !== u.id));
+                      }
+                    }} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20" title="حذف الحساب">
+                      <Trash2 className="w-3.5 h-3.5"/> حذف الحساب
+                    </button>
+                  )}
                   {u.role !== 'owner' && (
                     <select 
                       value={u.role || 'user'} 
