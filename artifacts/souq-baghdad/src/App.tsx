@@ -133,24 +133,27 @@ const formatPrice = (p: string | number) => {
 };
 
 function getWhatsAppLink(phone: string, itemType: 'product' | 'transport', details: any) {
-  let text = '';
-  if (itemType === 'product') {
-    text = `مرحباً بك في سوق بغداد! 🌟
-يسعدنا تواصلك بخصوص المنتج: ${details.title}
-(رقم الإعلان: ${details.id})
+  if (!phone) return '#';
+  const cleanPhone = phone.replace(/[^0-9+]/g, '');
+  const idStr = details.short_id ? `#${details.short_id}` : `#${String(details.id).substring(0, 5)}`;
+  const title = details.title || details.university || 'إعلان';
+  const location = details.location || details.governorate || 'غير محدد';
+  
+  const text = `السلام عليكم 🌹
+شفت إعلان (*${title}*) وحاب أستفسر عنه إذا متوفر حالياً.
 
-تصفح المزيد عبر موقعنا: www.souqbaghdad.store`;
-  } else if (itemType === 'transport') {
-    text = `مرحباً بك في سوق بغداد! 🌟
-يسعدنا تواصلك بخصوص إعلان خط الجامعة: ${details.university}
-المنطقة: ${details.location}
-(رقم الإعلان: ${details.id})
+*تفاصيل الإعلان:*
+📌 *${title}*
+🆔 *رمز الإعلان:* ${idStr}
+📍 *${location}*
 
-تصفح المزيد عبر موقعنا: www.souqbaghdad.store`;
-  }
-  const cleanPhone = phone.replace(/^0/, '');
-  const num = cleanPhone.startsWith('964') ? cleanPhone : `964${cleanPhone}`;
-  return `https://wa.me/${num}?text=${encodeURIComponent(text)}`;
+*رسالة من منصة سوق بغداد:*
+سوق بغداد هو السوق الرقمي العراقي الحديث، نسهل عليكم التواصل المباشر بين البائع والمشتري بكل سرعة وأمان.
+🌐 تصفحوا المزيد من العروض عبر موقعنا:
+www.souqbaghdad.store
+بانتظار ردكم، شكراً 🙏`;
+  
+  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
 }
 
 function getRelative(iso: string): string {
