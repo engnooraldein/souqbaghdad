@@ -2342,7 +2342,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
     }
   };
 
-  if(!sellerInfo) return (
+  if(!sellerUser && !sellerInfo) return (
     <div className="min-h-screen bg-gray-950 pt-16 flex flex-col items-center justify-center">
       <div className="text-5xl mb-4">🔍</div>
       <h2 className="text-white font-bold text-xl mb-2">لم يتم العثور على البائع</h2>
