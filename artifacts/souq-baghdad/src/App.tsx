@@ -4314,6 +4314,38 @@ export default function App() {
     }
   }, []);
 
+  const handleDeleteProfile = async (profileId: string) => {
+    // Try to delete using the admin RPC first
+    const { error: rpcError } = await supabase.rpc('admin_delete_user', { target_user_id: profileId });
+    
+    if (rpcError) {
+      // Fallback to client-side deletion if RPC fails or doesn't exist yet
+      await supabase.from('ads').delete().eq('seller_id', profileId);
+      await supabase.from('products').delete().eq('seller_id', profileId);
+      await supabase.from('transport_ads').delete().eq('seller_id', profileId);
+      await supabase.from('profiles').delete().eq('id', profileId);
+    }
+
+    setAllAds(prev => prev.filter(a => a.postedBy !== profileId));
+    setAllTransportAds(prev => prev.filter(a => a.postedBy !== profileId));
+    setAllProducts(prev => prev.filter(p => p.postedBy !== profileId));
+
+    try {
+      const users = JSON.parse(localStorage.getItem('souqUsers') || '[]');
+      const filtered = users.filter((u: any) => u.id !== profileId);
+      localStorage.setItem('souqUsers', JSON.stringify(filtered));
+    } catch (e) {}
+
+    // Only redirect and logout if the current user deletes their own account
+    if (user?.id === profileId) {
+      showToast('تم حذف حسابك وجميع محتوياته بنجاح', 'success');
+      setView('home');
+      handleLogout();
+    } else {
+      showToast('تم حذف الحساب ومحتوياته نهائياً', 'success');
+    }
+  };
+
   const fetchProducts = useCallback(async () => {
     const { data, error } = await supabase
       .from('products')
