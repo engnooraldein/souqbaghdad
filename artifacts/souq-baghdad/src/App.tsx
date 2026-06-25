@@ -1074,8 +1074,8 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
               <div className="flex items-center justify-between mb-1">
                 <h2 className="text-xl font-bold text-white">{ad.title}</h2>
                 <div className="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded-lg border border-gray-700">
-                  <span className="text-xs text-gray-400">ID: {ad.id}</span>
-                  <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(String(ad.id)); alert('تم نسخ رقم الإعلان!'); }} className="text-amber-400 hover:text-amber-300">
+                  <span className="text-xs text-gray-400">{ad.short_id ? `#${ad.short_id}` : `ID: ${ad.id}`}</span>
+                  <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(String(ad.short_id || ad.id)); alert('تم نسخ رقم الإعلان!'); }} className="text-amber-400 hover:text-amber-300">
                     <Copy className="w-4 h-4" />
                   </button>
                 </div>
@@ -1109,7 +1109,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 mb-3">
-            <motion.a href={getWhatsAppLink(ad.phone, ad.type === 'transport' ? 'transport' : 'product', { id: ad.id, title: ad.title, location: ad.location, university: ad.description, time: 'راجع الإعلان' })} target="_blank" rel="noopener noreferrer"
+            <motion.a href={getWhatsAppLink(ad.phone, ad.type === 'transport' ? 'transport' : 'product', { id: ad.id, short_id: ad.short_id, title: ad.title, location: ad.location, university: ad.description, time: 'راجع الإعلان' })} target="_blank" rel="noopener noreferrer"
               whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="flex items-center justify-center gap-2 py-4 bg-green-500 text-white font-bold rounded-xl text-sm">
               <MessageSquare className="w-5 h-5"/> واتساب</motion.a>
             <motion.a href={`tel:${ad.phone}`} whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="flex items-center justify-center gap-2 py-4 bg-blue-500 text-white font-bold rounded-xl text-sm">
@@ -1209,7 +1209,7 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 mb-3">
-            <motion.a href={getWhatsAppLink(product.phone, 'product', { id: product.id, title: product.title, location: product.governorate })} target="_blank" rel="noopener noreferrer"
+            <motion.a href={getWhatsAppLink(product.phone, 'product', { id: product.id, short_id: product.short_id, title: product.title, location: product.governorate })} target="_blank" rel="noopener noreferrer"
               whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="flex items-center justify-center gap-2 py-4 bg-green-500 text-white font-bold rounded-xl text-sm">
               <MessageSquare className="w-5 h-5"/> واتساب</motion.a>
             <motion.a href={`tel:${product.phone}`} whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="flex items-center justify-center gap-2 py-4 bg-blue-500 text-white font-bold rounded-xl text-sm">
@@ -2760,14 +2760,14 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
   const fmt=(v:string)=>v.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',');
 
   const filterAds = allAds.filter(a=>{
-    const ms=!search||String(a.id).includes(search)||a.title.toLowerCase().includes(search.toLowerCase())||a.location.toLowerCase().includes(search.toLowerCase());
+    const ms=!search||String(a.id).includes(search)||(a.short_id&&a.short_id.toLowerCase().includes(search.toLowerCase()))||a.title.toLowerCase().includes(search.toLowerCase())||a.location.toLowerCase().includes(search.toLowerCase());
     const mc=cat==='all'||a.category===cat; const mg=gov==='الكل'||a.governorate===gov;
     const min=priceMin?parseInt(priceMin.replace(/,/g,'')):0, max=priceMax?parseInt(priceMax.replace(/,/g,'')):Infinity, ap=parseInt(a.price)||0;
     return ms&&mc&&mg&&ap>=min&&ap<=max;
   }).sort((a,b)=>sort==='views'?b.views-a.views:sort==='price-low'?parseInt(a.price)-parseInt(b.price):sort==='price-high'?parseInt(b.price)-parseInt(a.price):new Date(b.createdAtISO).getTime()-new Date(a.createdAtISO).getTime());
 
   const filterProds = allProducts.filter(p=>{
-    const ms=!search||String(p.id).includes(search)||p.title.toLowerCase().includes(search.toLowerCase())||p.governorate.toLowerCase().includes(search.toLowerCase());
+    const ms=!search||String(p.id).includes(search)||(p.short_id&&p.short_id.toLowerCase().includes(search.toLowerCase()))||p.title.toLowerCase().includes(search.toLowerCase())||p.governorate.toLowerCase().includes(search.toLowerCase());
     const mc=cat==='all'||p.category===cat; const mg=gov==='الكل'||p.governorate===gov;
     const min=priceMin?parseInt(priceMin.replace(/,/g,'')):0, max=priceMax?parseInt(priceMax.replace(/,/g,'')):Infinity, pp=parseInt(p.price)||0;
     return ms&&mc&&mg&&pp>=min&&pp<=max;
