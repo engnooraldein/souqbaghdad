@@ -13,17 +13,21 @@ CREATE TABLE IF NOT EXISTS verification_requests (
 
 ALTER TABLE verification_requests ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can insert their own verification requests" ON verification_requests;
 CREATE POLICY "Users can insert their own verification requests"
   ON verification_requests FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can view their own verification requests" ON verification_requests;
 CREATE POLICY "Users can view their own verification requests"
   ON verification_requests FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Owner can read all verification requests" ON verification_requests;
 CREATE POLICY "Owner can read all verification requests"
   ON verification_requests FOR SELECT USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'owner')
   );
 
+DROP POLICY IF EXISTS "Owner can update verification requests" ON verification_requests;
 CREATE POLICY "Owner can update verification requests"
   ON verification_requests FOR UPDATE USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'owner')

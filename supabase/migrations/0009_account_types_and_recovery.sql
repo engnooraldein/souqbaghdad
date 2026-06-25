@@ -23,15 +23,18 @@ CREATE TABLE IF NOT EXISTS password_recovery_requests (
 ALTER TABLE password_recovery_requests ENABLE ROW LEVEL SECURITY;
 
 -- Anyone can insert a recovery request
+DROP POLICY IF EXISTS "Anyone can insert a password recovery request" ON password_recovery_requests;
 CREATE POLICY "Anyone can insert a password recovery request"
   ON password_recovery_requests FOR INSERT WITH CHECK (true);
 
 -- Only owner can read/update password recovery requests
+DROP POLICY IF EXISTS "Owner can read all password recovery requests" ON password_recovery_requests;
 CREATE POLICY "Owner can read all password recovery requests"
   ON password_recovery_requests FOR SELECT USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'owner')
   );
 
+DROP POLICY IF EXISTS "Owner can update password recovery requests" ON password_recovery_requests;
 CREATE POLICY "Owner can update password recovery requests"
   ON password_recovery_requests FOR UPDATE USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'owner')
