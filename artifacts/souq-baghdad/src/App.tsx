@@ -302,9 +302,16 @@ function ImageCropModal({ src, aspectRatio=1, title='قص الصورة', onSave,
     const c = document.createElement('canvas');
     c.width=PREV_W; c.height=PREV_H;
     const ctx = c.getContext('2d')!;
-    const sw = img.naturalWidth*zoom, sh = img.naturalHeight*zoom;
-    const dx = (PREV_W-sw)/2+pos.x, dy = (PREV_H-sh)/2+pos.y;
-    ctx.drawImage(img, dx, dy, sw, sh);
+    const nw = img.naturalWidth, nh = img.naturalHeight;
+    // Calculate the scale at which the browser's object-cover renders the image
+    const coverScale = Math.max((PREV_W*zoom)/nw, (PREV_H*zoom)/nh);
+    const dw = nw * coverScale;
+    const dh = nh * coverScale;
+    const dx = (PREV_W - dw)/2 + pos.x;
+    const dy = (PREV_H - dh)/2 + pos.y;
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(0, 0, PREV_W, PREV_H);
+    ctx.drawImage(img, dx, dy, dw, dh);
     onSave(c.toDataURL('image/jpeg', 0.88));
   };
 
@@ -3843,7 +3850,7 @@ export default function App() {
       phone: profile?.phone || authUser.user_metadata?.phone || '',
       role,
       avatar: profile?.avatar_url || DEFAULT_AVATAR,
-      cover: DEFAULT_COVER,
+      cover: profile?.cover_url || DEFAULT_COVER,
       bio: '',
       location: profile?.city || authUser.user_metadata?.city || 'بغداد',
       rating: 4.8,
@@ -4286,6 +4293,7 @@ export default function App() {
       email: u.email,
       phone: u.phone,
       avatar_url: u.avatar,
+      cover_url: u.cover,
       city: u.location,
       role: u.role
     }, { onConflict: 'id' });
