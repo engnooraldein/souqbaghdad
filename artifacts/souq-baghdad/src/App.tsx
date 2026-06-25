@@ -134,7 +134,12 @@ const formatPrice = (p: string | number) => {
 
 function getWhatsAppLink(phone: string, itemType: 'product' | 'transport', details: any) {
   if (!phone) return '#';
-  const cleanPhone = phone.replace(/[^0-9+]/g, '');
+    let cleanPhone = phone.replace(/[^0-9+]/g, '');
+  if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
+  if (!cleanPhone.startsWith('964') && !cleanPhone.startsWith('+964')) {
+    cleanPhone = '964' + cleanPhone;
+  }
+  cleanPhone = cleanPhone.replace('+', '');
   const idStr = details.short_id ? `#${details.short_id}` : `#${String(details.id).substring(0, 5)}`;
   const title = details.title || details.university || 'إعلان';
   const location = details.location || details.governorate || 'غير محدد';
@@ -1078,7 +1083,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
                 <h2 className="text-xl font-bold text-white">{ad.title}</h2>
                 <div className="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded-lg border border-gray-700">
                   <span className="text-xs text-gray-400">{ad.short_id ? `#${ad.short_id}` : `ID: ${ad.id}`}</span>
-                  <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(String(ad.short_id || ad.id)); alert('تم نسخ رقم الإعلان!'); }} className="text-amber-400 hover:text-amber-300">
+                  <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(String(ad.short_id || String(ad.id).substring(0, 5))); alert('تم نسخ رقم الإعلان!'); }} className="text-amber-400 hover:text-amber-300">
                     <Copy className="w-4 h-4" />
                   </button>
                 </div>
