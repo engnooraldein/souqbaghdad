@@ -3518,9 +3518,25 @@ export default function App() {
       return null;
     }
   });
-  const [view, setView] = useState<AppView>('home');
-  const [bottomNavActive, setBottomNavActive] = useState('home');
-  const [selectedSellerId, setSelectedSellerId] = useState<string|null>(null);
+  const [view, setView] = useState<AppView>(() => {
+    const h = typeof window !== 'undefined' ? window.location.hash : '';
+    if (h.startsWith('#/transport')) return 'transport';
+    if (h.startsWith('#/seller')) return 'profile';
+    if (h.startsWith('#/admin')) return 'admin';
+    if (h.startsWith('#/owner')) return 'owner';
+    return 'home';
+  });
+  const [bottomNavActive, setBottomNavActive] = useState(() => {
+    const h = typeof window !== 'undefined' ? window.location.hash : '';
+    if (h.startsWith('#/transport')) return 'transport';
+    if (h.startsWith('#/seller')) return 'profile';
+    return 'home';
+  });
+  const [selectedSellerId, setSelectedSellerId] = useState<string|null>(() => {
+    const h = typeof window !== 'undefined' ? window.location.hash : '';
+    if (h.startsWith('#/seller/')) return h.split('/')[2] || null;
+    return null;
+  });
   const [showAuth, setShowAuth] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
