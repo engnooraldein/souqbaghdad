@@ -510,6 +510,9 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
   const [name, setName] = useState('');
   const [identifier, setIdentifier] = useState('');
   const [city, setCity] = useState('بغداد');
+  const [isRecovery, setIsRecovery] = useState(false);
+  const [recoveryPhone, setRecoveryPhone] = useState('');
+  const [recoverySent, setRecoverySent] = useState(false);
   const playSound = useSound();
 
   const submit = async (e:React.FormEvent) => {
@@ -567,6 +570,24 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
     }
   };
 
+  const submitRecovery = async (e: React.FormEvent) => {
+    e.preventDefault(); setError(''); setLoading(true); playSound('click');
+    try {
+      if (recoveryPhone.length < 10) { setError('يرجى إدخال رقم هاتف صحيح'); playSound('error'); setLoading(false); return; }
+      
+      const { error } = await supabase.from('password_recovery_requests').insert([{ phone: recoveryPhone }]);
+      if (error) throw error;
+      
+      setRecoverySent(true);
+      playSound('success');
+    } catch {
+      setError('حدث خطأ أثناء إرسال الطلب، يرجى المحاولة مرة أخرى');
+      playSound('error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose}/>
@@ -581,7 +602,34 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
             <AlertCircle className="w-4 h-4 text-red-400"/><span className="text-red-400 text-sm">{error}</span>
           </motion.div>}
         </AnimatePresence>
-        {loading?<div className="flex flex-col items-center py-8"><Loader2 className="w-10 h-10 text-amber-400 animate-spin mb-3"/><p className="text-white">جاري التحميل...</p></div>:(
+        {isRecovery ? (
+          recoverySent ? (
+            <div className="text-center py-6 space-y-4">
+              <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Check className="w-8 h-8 text-green-400" />
+              </div>
+              <p className="text-white text-lg font-bold">تم إرسال طلبك بنجاح</p>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                راح نرسلك تفاصيل الدخول على واتساب من قبل تدقيق إدارة سوك بغداد مالك.
+              </p>
+              <button onClick={() => { setIsRecovery(false); setRecoverySent(false); }} className="w-full mt-4 py-3 bg-gray-800 text-white rounded-xl hover:bg-gray-700">
+                العودة لتسجيل الدخول
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={submitRecovery} className="space-y-4">
+              <p className="text-gray-300 text-sm mb-4 text-center">أدخل رقم هاتفك لاستعادة حسابك</p>
+              <div className="relative"><Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
+                <input type="tel" value={recoveryPhone} onChange={e=>setRecoveryPhone(e.target.value)} placeholder="رقم الهاتف" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none" dir="rtl"/></div>
+              <motion.button type="submit" disabled={loading} whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl">
+                {loading ? 'جاري الإرسال...' : 'استعادة كلمة المرور'}
+              </motion.button>
+              <button type="button" onClick={() => setIsRecovery(false)} className="w-full text-center text-gray-400 hover:text-white text-sm mt-2">
+                العودة
+              </button>
+            </form>
+          )
+        ) : loading?<div className="flex flex-col items-center py-8"><Loader2 className="w-10 h-10 text-amber-400 animate-spin mb-3"/><p className="text-white">جاري التحميل...</p></div>:(
           <form onSubmit={submit} className="space-y-4">
             {!isLogin&&<div className="relative"><User className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
               <input value={name} onChange={e=>setName(e.target.value)} placeholder="الاسم الكامل" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none"/></div>}
@@ -600,9 +648,18 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
               {isLogin?'تسجيل الدخول':'إنشاء الحساب'}</motion.button>
           </form>
         )}
-        <div className="mt-5 text-center">
-          <button onClick={()=>{setIsLogin(!isLogin);setError('');}} className="text-gray-400 hover:text-amber-400 text-sm">
-            {isLogin?'ليس لديك حساب؟ سجّل الآن':'لديك حساب؟ تسجيل الدخول'}</button></div>
+        {!isRecovery && (
+          <div className="mt-5 space-y-3 text-center">
+            {isLogin && (
+              <button type="button" onClick={() => {setIsRecovery(true); setError('');}} className="text-amber-400 hover:text-amber-300 text-sm block w-full">
+                نسيت كلمة المرور؟
+              </button>
+            )}
+            <button onClick={()=>{setIsLogin(!isLogin);setError('');}} className="text-gray-400 hover:text-white text-sm block w-full">
+              {isLogin?'ليس لديك حساب؟ سجّل الآن':'لديك حساب؟ تسجيل الدخول'}
+            </button>
+          </div>
+        )}
       </motion.div>
     </motion.div>
   );
@@ -1762,6 +1819,34 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
   const [coverPreview, setCoverPreview] = useState(user.cover||DEFAULT_COVER);
   const playSound = useSound();
 
+  const formatJoinedDate = (isoString: string) => {
+    try {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return isoString;
+      return d.toLocaleDateString('ar-IQ', { year: 'numeric', month: 'long' });
+    } catch {
+      return isoString;
+    }
+  };
+
+  const submitVerification = async () => {
+    if (!verifyImage) return;
+    setIsVerifying(true);
+    try {
+      const { error } = await supabase.from('verification_requests').insert([{
+        user_id: user.id,
+        id_image: verifyImage
+      }]);
+      if (error) throw error;
+      alert('تم تقديم طلب التوثيق بنجاح! سيتم مراجعته قريباً.');
+      setShowVerifyModal(false);
+    } catch {
+      alert('حدث خطأ أثناء تقديم الطلب.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   useEffect(() => {
     const handleSwitch = () => setTab('lines');
     window.addEventListener('switch-to-lines-tab', handleSwitch);
@@ -1841,6 +1926,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
               {user.role==='owner'&&<span className="flex items-center gap-1 px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs rounded-full font-bold"><Crown className="w-3 h-3"/>مالك</span>}
               {user.role==='admin'&&<span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs rounded-full font-bold">مشرف</span>}
               {user.role==='vendor'&&<span className="flex items-center gap-1 px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs rounded-full font-bold"><Crown className="w-3 h-3"/>تاجر موثق</span>}
+              {user.role==='pro'&&<span className="flex items-center gap-1 px-2 py-0.5 bg-purple-500/20 text-purple-400 text-xs rounded-full font-bold"><Star className="w-3 h-3"/>حساب برو</span>}
               {user.badges?.isStudent && <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded-md text-xs font-semibold flex items-center gap-1">🎓 طالب موثق</span>}
               {user.badges?.hasVehicle && <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded-md text-xs font-semibold flex items-center gap-1">🚗 مركبة موثقة</span>}
               {user.badges?.hasID && <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded-md text-xs font-semibold flex items-center gap-1">🪪 هوية موثقة</span>}
@@ -1855,7 +1941,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
             
             <div className="flex flex-wrap gap-3 mt-2 text-sm text-gray-400">
               <div className="flex items-center gap-1"><MapPin className="w-4 h-4"/><span>{user.location || 'العراق'}</span></div>
-              <div className="flex items-center gap-1"><Calendar className="w-4 h-4"/><span>انضم {user.joinedDate}</span></div>
+              <div className="flex items-center gap-1"><Calendar className="w-4 h-4"/><span>انضم في {formatJoinedDate(user.joinedDate)}</span></div>
               {user.rating && <div className="flex items-center gap-1 text-amber-400"><Star className="w-4 h-4 fill-current"/><span className="font-bold">{user.rating}</span></div>}
             </div>
             {user.bio&&<p className="text-gray-300 text-sm mt-3 line-clamp-2 bg-gray-800/50 p-3 rounded-xl border border-gray-800">{user.bio}</p>}
@@ -2006,6 +2092,41 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
       {/* Crop Modal */}
       <AnimatePresence>
         {cropSrc&&<ImageCropModal src={cropSrc} aspectRatio={cropType==='avatar'?1:3} title={cropType==='avatar'?'قص الصورة الشخصية':'قص صورة الغلاف'} onSave={handleCropSave} onClose={()=>setCropSrc(null)}/>}
+        
+        {showVerifyModal && (
+          <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={()=>setShowVerifyModal(false)}/>
+            <motion.div initial={{scale:0.95}} animate={{scale:1}} className="relative bg-gray-900 rounded-3xl p-6 w-full max-w-md border border-gray-700 shadow-2xl">
+              <button onClick={()=>setShowVerifyModal(false)} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400"><X className="w-5 h-5"/></button>
+              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Shield className="w-5 h-5 text-blue-400"/> طلب توثيق الحساب</h2>
+              <p className="text-gray-400 text-sm mb-4">يرجى رفع صورة واضحة لهويتك الشخصية (البطاقة الوطنية أو جواز السفر) لتوثيق حسابك والحصول على شارة الموثوقية.</p>
+              
+              <div className="mb-4">
+                {verifyImage ? (
+                  <div className="relative rounded-2xl overflow-hidden border border-gray-700 bg-gray-800">
+                    <img src={verifyImage} alt="ID" className="w-full h-48 object-cover"/>
+                    <button onClick={()=>setVerifyImage(null)} className="absolute top-2 left-2 p-2 bg-red-500 rounded-xl text-white shadow-lg"><Trash2 className="w-4 h-4"/></button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-gray-700 rounded-2xl cursor-pointer hover:bg-gray-800 transition-colors">
+                    <Camera className="w-8 h-8 text-gray-500 mb-2"/>
+                    <span className="text-gray-400 text-sm">اضغط هنا لالتقاط أو رفع صورة</span>
+                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={async (e) => {
+                      if(e.target.files?.[0]) {
+                        const b64 = await compressImage(e.target.files[0], 1200, 0.8);
+                        setVerifyImage(b64);
+                      }
+                    }}/>
+                  </label>
+                )}
+              </div>
+              
+              <button onClick={submitVerification} disabled={!verifyImage || isVerifying} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl disabled:opacity-50 hover:bg-blue-700 transition-colors">
+                {isVerifying ? 'جاري الإرسال...' : 'إرسال طلب التوثيق'}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );
@@ -2023,14 +2144,15 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
   const [tab, setTab] = useState<'ads'|'products'>('ads');
   const [sellerUser, setSellerUser] = useState<any>(null);
 
-  const sellerAds = allAds.filter(a=>a.postedBy===sellerId);
-  const sellerProds = allProducts.filter(p=>p.postedBy===sellerId);
+  // Fallback to searching by ID or phone
+  const sellerAds = allAds.filter(a=>a.postedBy===sellerId || a.phone===sellerId);
+  const sellerProds = allProducts.filter(p=>p.postedBy===sellerId || p.phone===sellerId);
   const sellerInfo: SellerInfo|null = sellerAds[0]?.seller || sellerProds[0]?.seller || null;
 
   useEffect(() => {
     try {
       const users = JSON.parse(localStorage.getItem('souqUsers') || '[]');
-      const found = users.find((u: any) => u.id === sellerId);
+      const found = users.find((u: any) => u.id === sellerId || u.phone === sellerId);
       if (found) {
         setSellerUser(found);
       } else if (sellerInfo) {
@@ -2047,6 +2169,16 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
       }
     } catch (e) {}
   }, [sellerId, sellerInfo]);
+
+  const formatJoinedDate = (isoString: string) => {
+    try {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return isoString;
+      return d.toLocaleDateString('ar-IQ', { year: 'numeric', month: 'long' });
+    } catch {
+      return isoString;
+    }
+  };
 
   const handleRate = (stars: number) => {
     if (!user) {
@@ -2179,9 +2311,9 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
             </div>
           )}
 
-          <p className="text-gray-400 text-sm mt-3 flex items-center gap-1">
-            <MapPin className="w-4 h-4 text-gray-500" />
-            <span>{sellerUser?.location || sellerInfo.location}</span>
+          <p className="text-gray-400 text-sm mt-3 flex items-center gap-3">
+            <span className="flex items-center gap-1"><MapPin className="w-4 h-4 text-gray-500" />{sellerUser?.location || sellerInfo.location}</span>
+            <span className="flex items-center gap-1"><Calendar className="w-4 h-4 text-gray-500" />انضم في {formatJoinedDate(sellerUser?.joinedDate || sellerInfo?.joinedDate || new Date().toISOString())}</span>
           </p>
         </div>
 
@@ -2486,6 +2618,7 @@ const fetchRecovery = async () => {
                     {u.role==='owner'&&<span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] rounded-full flex items-center gap-0.5"><Crown className="w-2.5 h-2.5"/>مالك</span>}
                     {u.role==='admin'&&<span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-[10px] rounded-full flex items-center gap-0.5"><Shield className="w-2.5 h-2.5"/>مشرف</span>}
                     {u.role==='vendor'&&<span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[10px] rounded-full flex items-center gap-0.5"><UserCheck className="w-2.5 h-2.5"/>تاجر موثق</span>}
+                    {u.role==='pro'&&<span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-[10px] rounded-full flex items-center gap-0.5"><Star className="w-2.5 h-2.5"/>برو</span>}
                   </div>
                   <p className="text-gray-400 text-xs">{u.email}</p>
                   <p className="text-gray-500 text-[10px] mt-0.5">{u.location} • {u.adCount} إعلان • آخر ظهور: {new Date(u.lastSeen).toLocaleDateString('ar-IQ')}</p>
@@ -3782,7 +3915,7 @@ export default function App() {
     } else if (type === 'product' && id) {
       const prod = allProducts.find(p => String(p.id) === id || p.short_id === id);
       if (prod) setSelectedProduct(prod);
-    } else if (type === 'seller' && id) {
+    } else if (type === 'profile' && id) {
       setSelectedSellerId(id);
       setView('profile');
     } else if (type === 'transport') {
@@ -3815,7 +3948,7 @@ export default function App() {
     } else if (selectedProduct) {
       newHash = `#/product/${selectedProduct.short_id || selectedProduct.id}`;
     } else if (view === 'profile' && selectedSellerId) {
-      newHash = `#/seller/${selectedSellerPhone || selectedSellerId}`;
+      newHash = `#/profile/${selectedSellerPhone || selectedSellerId}`;
     } else if (view === 'transport') {
       newHash = `#/transport`;
     } else if (view === 'admin') {
