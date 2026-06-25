@@ -21,7 +21,14 @@ import {
 // ─────────────────────────────────────────────
 const OWNER_EMAIL = 'nooraldeinsbah@gmail.com';
 const DEFAULT_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#1e3a5f"/><circle cx="50" cy="38" r="18" fill="#4b7ab5"/><ellipse cx="50" cy="82" rx="28" ry="20" fill="#4b7ab5"/></svg>')}`;
-const DEFAULT_COVER  = 'https://images.unsplash.com/photo-1579546929518-9e396f3b809b?w=900&q=60';
+const DEFAULT_COVER = '/logo.jpg';
+
+export const getCoverImage = (user: {role?: string, cover?: string}) => {
+  if (['pro', 'vendor', 'admin', 'owner'].includes(user?.role || '')) {
+    return user?.cover || DEFAULT_COVER;
+  }
+  return DEFAULT_COVER;
+};
 
 const IRAQI_GOVERNORATES = [
   'الكل','بغداد','البصرة','نينوى','أربيل','كربلاء','النجف',
@@ -1911,7 +1918,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
   const [cropSrc, setCropSrc] = useState<string|null>(null);
   const [cropType, setCropType] = useState<'avatar'|'cover'>('avatar');
   const [avatarPreview, setAvatarPreview] = useState(user.avatar||DEFAULT_AVATAR);
-  const [coverPreview, setCoverPreview] = useState(user.cover||DEFAULT_COVER);
+  const [coverPreview, setCoverPreview] = useState(getCoverImage(user));
   const playSound = useSound();
 
   const formatJoinedDate = (isoString: string) => {
@@ -1982,7 +1989,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
             <span className="text-white font-bold text-xs sm:text-sm drop-shadow-md">سوك بغداد</span>
           </div>
           <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/30 to-transparent z-10"/>
-          {editing&&<label className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 bg-black/60 text-white text-xs rounded-xl cursor-pointer hover:bg-black/80 backdrop-blur-md z-20">
+          {editing && ['pro','vendor','admin','owner'].includes(user.role) && <label className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 bg-black/60 text-white text-xs rounded-xl cursor-pointer hover:bg-black/80 backdrop-blur-md z-20">
             <Camera className="w-4 h-4"/> تغيير الغلاف
             <input type="file" accept="image/*" onChange={e=>openCrop(e,'cover')} className="hidden"/></label>}
         </div>
@@ -2491,6 +2498,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   const [dbUsers, setDbUsers] = useState<any[]>([]);
   const [dbGuests, setDbGuests] = useState<any[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   
   // Broadcast State
   const [broadcastTitle, setBroadcastTitle] = useState('');
@@ -4717,6 +4725,7 @@ export default function App() {
   };
 
   const handleDeleteProfile = async (profileId: string) => {
+    // Delete all user content
     await supabase.from('ads').delete().eq('seller_id', profileId);
     setAllAds(prev => prev.filter(a => a.postedBy !== profileId));
     
@@ -4725,14 +4734,23 @@ export default function App() {
     await supabase.from('products').delete().eq('seller_id', profileId);
     setAllProducts(prev => prev.filter(p => p.postedBy !== profileId));
 
+    // Delete user from profiles table
+    await supabase.from('profiles').delete().eq('id', profileId);
+
     try {
       const users = JSON.parse(localStorage.getItem('souqUsers') || '[]');
       const filtered = users.filter((u: any) => u.id !== profileId);
       localStorage.setItem('souqUsers', JSON.stringify(filtered));
     } catch (e) {}
 
-    showToast('تم حذف الملف الشخصي وجميع محتوياته', 'success');
-    setView('home');
+    // Only redirect and logout if the current user deletes their own account
+    if (user?.id === profileId) {
+      showToast('تم حذف حسابك وجميع محتوياته بنجاح', 'success');
+      setView('home');
+      handleLogout();
+    } else {
+      showToast('تم حذف الحساب ومحتوياته نهائياً', 'success');
+    }
   };
 
   const handleSellerClick = (sellerId:string)=>{if(sellerId){setSelectedSellerId(sellerId);setView('seller');}};
