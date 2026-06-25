@@ -2403,8 +2403,15 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
 // ─────────────────────────────────────────────
 // Owner Dashboard
 // ─────────────────────────────────────────────
-const DEVICE_COLORS = ['#f59e0b','#3b82f6','#8b5cf6'];
-function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:{ads:Ad[];products:Product[];onDeleteAd:(id:number)=>void;onDeleteProduct:(id:number)=>void;onClose:()=>void}) {
+function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProduct, onDeleteTransportAd, onClose }: {
+  ads:Ad[];
+  products:Product[];
+  transportAds:TransportAd[];
+  onDeleteAd:(id:string|number)=>void;
+  onDeleteProduct:(id:string|number)=>void;
+  onDeleteTransportAd:(id:string)=>void;
+  onClose:()=>void;
+}) {
   const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'>('overview');
   const [verificationRequests, setVerificationRequests] = useState<any[]>([]);
   const [recoveryRequests, setRecoveryRequests] = useState<any[]>([]);
@@ -2764,6 +2771,19 @@ const fetchRecovery = async () => {
                   <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{p.title}</p>
                     <p className="text-xs text-gray-400">{p.governorate} • {formatPrice(p.price)} د.ع • {p.views} 👁 • {p.condition==='new'?'جديد':'مستعمل'}</p></div>
                   <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
+                </div>
+              ))}
+            </div>
+            <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+              <div className="p-4 border-b border-gray-700 flex items-center justify-between"><h3 className="text-white font-bold">خطوط النقل ({transportAds.length})</h3><span className="text-gray-400 text-xs">{transportAds.reduce((s,t)=>s+(t.views||0),0)} مشاهدة</span></div>
+              {transportAds.length===0?<div className="p-6 text-center text-gray-400 text-sm">لا يوجد خطوط نقل</div>:transportAds.map(t=>(
+                <div key={t.id} className="flex items-center gap-3 p-3 border-t border-gray-700/50 hover:bg-gray-700/30">
+                  <div className="w-12 h-12 rounded-lg bg-gray-700 flex items-center justify-center flex-shrink-0">
+                    <Car className="w-6 h-6 text-gray-400"/>
+                  </div>
+                  <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{t.title}</p>
+                    <p className="text-xs text-gray-400">{t.fromLocation} ➔ {t.toLocation} • {formatPrice(t.price)} د.ع • {t.views||0} 👁</p></div>
+                  <button onClick={()=>onDeleteTransportAd(t.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
                 </div>
               ))}
             </div>
@@ -4737,7 +4757,7 @@ export default function App() {
           {view==='admin'&&isAdmin&&!isOwner&&<motion.div key="admin" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <AdminPanel ads={allAds} onDeleteAd={handleDeleteAd} onClose={()=>setView('home')}/></motion.div>}
           {view==='owner'&&isOwner&&<motion.div key="owner" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <OwnerDashboard ads={allAds} products={allProducts} onDeleteAd={handleDeleteAd} onDeleteProduct={handleDeleteProduct} onClose={()=>setView('home')}/></motion.div>}
+            <OwnerDashboard ads={allAds} products={allProducts} transportAds={allTransportAds} onDeleteAd={handleDeleteAd} onDeleteProduct={handleDeleteProduct} onDeleteTransportAd={handleDeleteTransportAd} onClose={()=>setView('home')}/></motion.div>}
         </AnimatePresence>
       </main>
 

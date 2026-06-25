@@ -20,7 +20,7 @@ BEGIN
   -- 2. Update the password in auth.users directly
   -- using pgcrypto's crypt() function with bcrypt salt
   UPDATE auth.users
-  SET encrypted_password = crypt(new_password, gen_salt('bf'))
+  SET encrypted_password = extensions.crypt(new_password, extensions.gen_salt('bf'))
   WHERE id = target_user_id;
 
   -- 3. Delete any recovery requests for this user if they exist
