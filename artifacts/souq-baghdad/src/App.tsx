@@ -2499,6 +2499,10 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   const [dbGuests, setDbGuests] = useState<any[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [usersSearch, setUsersSearch] = useState('');
+  const [usersFilter, setUsersFilter] = useState<'all'|'vendor'|'pro'|'admin'|'banned'>('all');
+  const [usersSort, setUsersSort] = useState<'last_seen'|'newest'|'alphabetical'>('last_seen');
+
 
   
   // Broadcast State
@@ -2771,24 +2775,119 @@ const fetchRecovery = async () => {
         )}
         
         {tab==='users'&&(
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {/* إحصائيات سريعة */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-gray-800 rounded-xl p-3 border border-gray-700 flex flex-col items-center">
+                <span className="text-gray-400 text-xs mb-1">الكل</span>
+                <span className="text-white font-bold text-lg">{dbUsers.length}</span>
+              </div>
+              <div className="bg-green-500/10 rounded-xl p-3 border border-green-500/20 flex flex-col items-center">
+                <span className="text-green-400 text-xs mb-1">التجار</span>
+                <span className="text-green-400 font-bold text-lg">{dbUsers.filter(u => u.role === 'vendor').length}</span>
+              </div>
+              <div className="bg-purple-500/10 rounded-xl p-3 border border-purple-500/20 flex flex-col items-center">
+                <span className="text-purple-400 text-xs mb-1">برو</span>
+                <span className="text-purple-400 font-bold text-lg">{dbUsers.filter(u => u.role === 'pro').length}</span>
+              </div>
+              <div className="bg-red-500/10 rounded-xl p-3 border border-red-500/20 flex flex-col items-center">
+                <span className="text-red-400 text-xs mb-1">المحظورين</span>
+                <span className="text-red-400 font-bold text-lg">{dbUsers.filter(u => u.is_banned).length}</span>
+              </div>
+            </div>
+
+            {/* شريط البحث والفلاتر */}
+            <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 space-y-3">
+              <div className="flex flex-col md:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
+                  <input type="text" placeholder="ابحث عن مستخدم بالاسم، الهاتف، الايميل..." 
+                    value={usersSearch} onChange={e => setUsersSearch(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg pl-3 pr-9 py-2 text-sm outline-none focus:border-amber-500" />
+                </div>
+                <select value={usersSort} onChange={e => setUsersSort(e.target.value as any)} className="bg-gray-900 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-amber-500">
+                  <option value="last_seen">آخر ظهور</option>
+                  <option value="newest">تاريخ التسجيل</option>
+                  <option value="alphabetical">أبجدياً</option>
+                </select>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: 'all', label: 'الكل' },
+                  { id: 'vendor', label: 'تجار موثقين', color: 'text-green-400 bg-green-500/10 border-green-500/20' },
+                  { id: 'pro', label: 'برو (Pro)', color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
+                  { id: 'admin', label: 'مدراء', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
+                  { id: 'banned', label: 'محظورين', color: 'text-red-400 bg-red-500/10 border-red-500/20' },
+                ].map(f => (
+                  <button key={f.id} onClick={() => setUsersFilter(f.id as any)} 
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${usersFilter === f.id ? (f.color || 'bg-amber-500 text-black border-amber-500') : 'bg-gray-900 text-gray-400 border-gray-700 hover:bg-gray-800'}`}>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {selectedUserIds.length > 0 && (
-               <div className="flex justify-between items-center bg-gray-800 p-3 rounded-xl border border-red-500/30 mb-3">
-                 <span className="text-red-400 font-bold">تم تحديد {selectedUserIds.length} حسابات</span>
-                 <button onClick={async () => {
-                    if (window.confirm(`هل أنت متأكد من حذف ${selectedUserIds.length} حسابات نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`)) {
-                      for (const uid of selectedUserIds) {
-                         if (onDeleteProfile) onDeleteProfile(uid);
+               <div className="flex justify-between items-center bg-gray-800 p-3 rounded-xl border border-red-500/30 mb-3 flex-wrap gap-2">
+                 <span className="text-red-400 font-bold text-sm">تم تحديد {selectedUserIds.length} حسابات</span>
+                 <div className="flex gap-2">
+                   <button onClick={async () => {
+                      if (window.confirm(`هل أنت متأكد من حظر ${selectedUserIds.length} حسابات؟`)) {
+                        for (const uid of selectedUserIds) {
+                          try { await supabase.from('profiles').update({ is_banned: true }).eq('id', uid); } catch(e){}
+                        }
+                        setDbUsers(prev => prev.map(u => selectedUserIds.includes(u.id) ? { ...u, is_banned: true } : u));
+                        setSelectedUserIds([]);
                       }
-                      setDbUsers(prev => prev.filter(u => !selectedUserIds.includes(u.id)));
-                      setSelectedUserIds([]);
-                    }
-                 }} className="bg-red-500 text-white px-4 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-red-600">
-                    <Trash2 className="w-4 h-4"/> حذف الكل
-                 </button>
+                   }} className="bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-red-500/30">
+                      <UserX className="w-3.5 h-3.5"/> حظر جماعي
+                   </button>
+                   <button onClick={async () => {
+                      if (window.confirm(`هل أنت متأكد من حذف ${selectedUserIds.length} حسابات نهائياً؟`)) {
+                        for (const uid of selectedUserIds) {
+                           if (onDeleteProfile) onDeleteProfile(uid);
+                        }
+                        setDbUsers(prev => prev.filter(u => !selectedUserIds.includes(u.id)));
+                        setSelectedUserIds([]);
+                      }
+                   }} className="bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-red-600">
+                      <Trash2 className="w-3.5 h-3.5"/> حذف الكل
+                   </button>
+                 </div>
                </div>
             )}
-            {dbUsers.length===0?<div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا مستخدمون بعد</p></div>:dbUsers.map(u=>{
+            
+            <div className="space-y-3">
+            {(()=>{
+              let filtered = dbUsers.filter(u => {
+                if (usersFilter === 'vendor' && u.role !== 'vendor') return false;
+                if (usersFilter === 'pro' && u.role !== 'pro') return false;
+                if (usersFilter === 'admin' && u.role !== 'admin' && u.role !== 'owner') return false;
+                if (usersFilter === 'banned' && !u.is_banned) return false;
+                
+                if (usersSearch) {
+                  const s = usersSearch.toLowerCase();
+                  const matchName = u.full_name?.toLowerCase().includes(s);
+                  const matchPhone = u.phone?.toLowerCase().includes(s);
+                  const matchEmail = u.email?.toLowerCase().includes(s);
+                  if (!matchName && !matchPhone && !matchEmail) return false;
+                }
+                return true;
+              });
+
+              filtered.sort((a, b) => {
+                if (usersSort === 'alphabetical') {
+                  return (a.full_name || '').localeCompare(b.full_name || '', 'ar');
+                } else if (usersSort === 'newest') {
+                  return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+                } else {
+                  return new Date(b.last_seen || 0).getTime() - new Date(a.last_seen || 0).getTime();
+                }
+              });
+
+              if (filtered.length === 0) return <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا يوجد مستخدمون مطابقون</p></div>;
+
+              return filtered.map(u=>{
               const isOnline = new Date().getTime() - new Date(u.last_seen || 0).getTime() < 5 * 60 * 1000;
               
               return (
@@ -2855,7 +2954,7 @@ const fetchRecovery = async () => {
                               const { error } = await supabase.rpc('admin_reset_password', { target_user_id: u.id, new_password: '123456' });
                               if(error) throw error;
                               alert('تم تغيير كلمة المرور بنجاح إلى: 123456');
-                            } catch(e:any) {
+                            } catch(e) {
                               alert('فشل في إعادة التعيين: ' + e.message);
                             }
                           }
@@ -2881,11 +2980,13 @@ const fetchRecovery = async () => {
                     {u.is_banned?<><UserCheck className="w-3.5 h-3.5"/>رفع الإيقاف</>:<><UserX className="w-3.5 h-3.5"/>حظر</>}</button>}
                 </div>
               </div>
-            );})}
+              );
+              })
+            })()}
+            </div>
           </div>
         )}
-        
-        {tab==='content'&&(
+{tab==='content'&&(
           <div className="space-y-4">
             <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
               <div className="p-4 border-b border-gray-700 flex items-center justify-between"><h3 className="text-white font-bold">الإعلانات ({ads.length})</h3><span className="text-gray-400 text-xs">{ads.reduce((s,a)=>s+a.views,0)} مشاهدة</span></div>
