@@ -353,39 +353,74 @@ function ImageCropModal({ src, aspectRatio=1, title='قص الصورة', onSave,
   );
 }
 
-function recordItemView(itemId: string|number, itemType: 'ad'|'product'|'transport', currentUser: User|null) {
+async function recordItemView(itemId: string|number, itemType: 'ad'|'product'|'transport', currentUser: User|null, sellerId?: string) {
   try {
-    const allViewers = JSON.parse(localStorage.getItem('souqItemViewers') || '{}');
-    const key = `${itemType}-${itemId}`;
-    const list = allViewers[key] || [];
-    
-    const viewerId = currentUser?.id || 'guest-' + Math.random().toString(36).substring(2, 7);
+    const viewerId = currentUser?.id || localStorage.getItem('souqGuestId') || 'guest-' + Math.random().toString(36).substring(2, 7);
     const viewerName = currentUser?.name || 'زائر';
     const viewerAvatar = currentUser?.avatar || `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#374151"/><circle cx="50" cy="50" r="30" fill="#4b5563"/></svg>')}`;
     const viewerLocation = currentUser?.location || 'العراق';
 
-    if (!list.some((v: any) => v.id === viewerId)) {
-      list.unshift({
-        id: viewerId,
-        name: viewerName,
-        avatar: viewerAvatar,
-        location: viewerLocation,
-        time: new Date().toISOString()
-      });
-      allViewers[key] = list.slice(0, 50);
-      localStorage.setItem('souqItemViewers', JSON.stringify(allViewers));
+    // 1. Check if already viewed in last hour to avoid spam
+    const lastViewKey = `last_view_${itemType}_${itemId}`;
+    const lastView = localStorage.getItem(lastViewKey);
+    if (lastView && Date.now() - Number(lastView) < 60 * 60 * 1000) {
+      return; // Already viewed recently
     }
-  } catch (e) {}
+
+    // 2. Insert into ad_viewers
+    const { error } = await supabase.from('ad_viewers').insert({
+      item_id: itemId,
+      item_type: itemType,
+      viewer_id: viewerId,
+      viewer_name: viewerName,
+      viewer_avatar: viewerAvatar,
+      viewer_location: viewerLocation
+    });
+
+    if (!error) {
+      localStorage.setItem(lastViewKey, Date.now().toString());
+      
+      // 3. Send notification to seller (only if seller exists and isn't the viewer)
+      if (sellerId && sellerId !== viewerId) {
+        await supabase.from('user_notifications').insert({
+          user_id: sellerId,
+          title: 'مشاهدة جديدة 👀',
+          body: `قام ${viewerName} بمشاهدة إعلانك للتو.`,
+          type: 'view',
+          audience: 'user'
+        });
+      }
+    }
+  } catch (e) {
+    console.error('Failed to record view', e);
+  }
 }
 
 function ViewersModal({ itemId, itemType, onClose }: { itemId: string|number, itemType: 'ad'|'product'|'transport', onClose: () => void }) {
   const [viewers, setViewers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    try {
-      const allViewers = JSON.parse(localStorage.getItem('souqItemViewers') || '{}');
-      const key = `${itemType}-${itemId}`;
-      setViewers(allViewers[key] || []);
-    } catch {}
+    const fetchViewers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('ad_viewers')
+          .select('*')
+          .eq('item_id', itemId)
+          .eq('item_type', itemType)
+          .order('viewed_at', { ascending: false })
+          .limit(50);
+          
+        if (!error && data) {
+          setViewers(data);
+        }
+      } catch (e) {
+        console.error('Error fetching viewers', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchViewers();
   }, [itemId, itemType]);
 
   return (
@@ -397,17 +432,19 @@ function ViewersModal({ itemId, itemType, onClose }: { itemId: string|number, it
           <button onClick={onClose} className="p-1.5 bg-gray-800 rounded-lg text-gray-400"><X className="w-4 h-4"/></button>
         </div>
         <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-          {viewers.length === 0 ? (
+          {loading ? (
+            <p className="text-gray-500 text-xs text-center py-6">جاري التحميل...</p>
+          ) : viewers.length === 0 ? (
             <p className="text-gray-500 text-xs text-center py-6">لا يوجد مشاهدات مسجلة بعد</p>
           ) : (
             viewers.map((v, i) => (
               <div key={i} className="flex items-center gap-3 p-2 bg-gray-800/50 rounded-xl border border-gray-700/50">
-                <img src={v.avatar} alt="" className="w-8 h-8 rounded-full object-cover border border-gray-600"/>
+                <img src={v.viewer_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className="w-8 h-8 rounded-full object-cover border border-gray-600"/>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-bold text-xs truncate">{v.name}</p>
-                  <p className="text-[10px] text-gray-400">{v.location || 'العراق'}</p>
+                  <p className="text-white font-bold text-xs truncate">{v.viewer_name || 'زائر'}</p>
+                  <p className="text-[10px] text-gray-400">{v.viewer_location || 'العراق'}</p>
                 </div>
-                <span className="text-[9px] text-gray-500">{getRelative(v.time)}</span>
+                <span className="text-[9px] text-gray-500">{getRelative(v.viewed_at)}</span>
               </div>
             ))
           )}
@@ -1119,7 +1156,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
   useEffect(()=>{
     setImgIdx(0);
     if (ad) {
-      recordItemView(ad.id, 'ad', user);
+      recordItemView(ad.id, 'ad', user, ad.seller_id);
     }
   },[ad]);
 
@@ -1230,7 +1267,7 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
   useEffect(()=>{
     setImgIdx(0);
     if (product) {
-      recordItemView(product.id, 'product', user);
+      recordItemView(product.id, 'product', user, product.seller_id);
     }
   },[product]);
 
@@ -1327,7 +1364,7 @@ function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDuratio
   const [showViewers, setShowViewers] = useState(false);
   useEffect(()=>{
     if (ad) {
-      recordItemView(ad.id, 'transport', user);
+      recordItemView(ad.id, 'transport', user, ad.seller_id);
     }
   },[ad]);
 
@@ -2666,7 +2703,7 @@ const fetchRecovery = async () => {
                   <p className="text-gray-500 text-[10px] mt-0.5">{u.city} • آخر ظهور: {u.last_seen ? new Date(u.last_seen).toLocaleString('ar-IQ') : 'غير معروف'}</p>
                 </div>
                 
-                <div className="flex items-center gap-2 flex-shrink-0 mt-2 sm:mt-0">
+                <div className="flex items-center gap-2 flex-shrink-0 mt-2 sm:mt-0 flex-wrap">
                   <button onClick={() => alert('تفاصيل المستخدم: \n' + JSON.stringify(u, null, 2))} className="p-2 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-xl" title="معلومات المستخدم"><Eye className="w-4 h-4"/></button>
                   {u.role !== 'owner' && (
                     <select 
@@ -2679,6 +2716,24 @@ const fetchRecovery = async () => {
                       <option value="admin">مشرف منصة</option>
                       <option value="pro">برو (Pro)</option>
                     </select>
+                  )}
+                  {u.role !== 'owner' && (
+                    <button 
+                      onClick={async () => {
+                        if(confirm('هل أنت متأكد من إعادة تعيين كلمة المرور إلى 123456؟')) {
+                          try {
+                            const { error } = await supabase.rpc('admin_reset_password', { target_user_id: u.id, new_password: '123456' });
+                            if(error) throw error;
+                            alert('تم تغيير كلمة المرور بنجاح إلى: 123456');
+                          } catch(e:any) {
+                            alert('فشل في إعادة التعيين: ' + e.message);
+                          }
+                        }
+                      }}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20"
+                    >
+                      <Key className="w-3.5 h-3.5"/> تصفير الرمز (123456)
+                    </button>
                   )}
                   {u.role!=='owner'&&<button onClick={()=>toggleBan(u.id)} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border ${u.is_banned?'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20':'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20'}`}>
                     {u.is_banned?<><UserCheck className="w-3.5 h-3.5"/>رفع الإيقاف</>:<><UserX className="w-3.5 h-3.5"/>حظر</>}</button>}
