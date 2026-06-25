@@ -413,15 +413,23 @@ async function recordItemView(itemId: string|number, itemType: 'ad'|'product'|'t
     if (!error) {
       localStorage.setItem(lastViewKey, Date.now().toString());
       
-      // 3. Send notification to seller (only if seller exists and isn't the viewer)
+      // 3. Send notification to seller
       if (sellerId && sellerId !== viewerId) {
         await supabase.from('user_notifications').insert({
           user_id: sellerId,
           title: 'مشاهدة جديدة 👀',
           body: `قام ${viewerName} بمشاهدة إعلانك للتو.`,
           type: 'view',
+          category: 'notification',
           audience: 'user'
         });
+      }
+
+      // 4. Update the views counter on the item itself
+      const table = itemType === 'product' ? 'products' : itemType === 'transport' ? 'transport_ads' : 'ads';
+      const { data: item } = await supabase.from(table).select('views').eq('id', itemId).single();
+      if (item) {
+        await supabase.from(table).update({ views: (item.views || 0) + 1 }).eq('id', itemId);
       }
     }
   } catch (e) {
@@ -1525,7 +1533,7 @@ function AdFormModal({ isOpen, onClose, onSubmit, user, editAd }:{
   const isEdit = !!editAd;
   const [tab, setTab] = useState<'form'|'preview'>('form');
   const [fd, setFd] = useState({ title:editAd?.title||'', price:editAd?.price?formatPrice(editAd.price):'', description:editAd?.description||'', category:editAd?.category||'cars', governorate:editAd?.governorate||user?.location||'بغداد', phone:editAd?.phone||user?.phone||'', type:editAd?.type||'sell' });
-  const [images, setImages] = useState<{preview:string;progress:number}[]>(editAd?.images?.map(img=>({preview:img,progress:100}))||[]);
+  const [images, setImages] = useState<{preview:string;progress:number;_uid?:string}[]>((editAd?.images?.map(img=>({preview:img,progress:100}))||[]));
   const [uploading, setUploading] = useState(false); const [pct, setPct] = useState(0);
   const playSound = useSound();
   useEffect(()=>{ if(editAd){ setFd({title:editAd.title,price:formatPrice(editAd.price),description:editAd.description,category:editAd.category,governorate:editAd.governorate,phone:editAd.phone,type:editAd.type}); setImages(editAd.images?.map(img=>({preview:img,progress:100})) || []); } },[editAd]);
@@ -1637,7 +1645,7 @@ function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct }:{
 }) {
   const isEdit = !!editProduct;
   const [fd, setFd] = useState({ title:editProduct?.title||'', price:editProduct?.price?formatPrice(editProduct.price):'', description:editProduct?.description||'', category:editProduct?.category||'phones', governorate:editProduct?.governorate||user?.location||'بغداد', phone:editProduct?.phone||user?.phone||'', condition:(editProduct?.condition||'new') as 'new'|'used', stock:editProduct?.stock||1 });
-  const [images, setImages] = useState<{preview:string;progress:number}[]>(editProduct?.images?.map(img=>({preview:img,progress:100}))||[]);
+  const [images, setImages] = useState<{preview:string;progress:number;_uid?:string}[]>((editProduct?.images?.map(img=>({preview:img,progress:100}))||[]));
   const [uploading, setUploading] = useState(false); const [pct, setPct] = useState(0);
   const playSound = useSound();
   useEffect(()=>{if(editProduct){setFd({title:editProduct.title,price:formatPrice(editProduct.price),description:editProduct.description,category:editProduct.category,governorate:editProduct.governorate,phone:editProduct.phone,condition:editProduct.condition,stock:editProduct.stock});setImages(editProduct.images?.map(img=>({preview:img,progress:100})) || []);}},[editProduct]);
