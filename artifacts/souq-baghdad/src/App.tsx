@@ -1945,6 +1945,154 @@ function MyLinesTab({ userId, lines, onUpdateStatus, onDelete }: {
 
 // Profile View
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Password Change Modal Component
+// ─────────────────────────────────────────────
+function PasswordChangeModal({ isOpen, onClose, userEmail, userPhone }:{
+  isOpen: boolean;
+  onClose: () => void;
+  userEmail?: string;
+  userPhone?: string;
+}) {
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    if (!oldPassword) { setErrorMsg('الرجاء إدخال كلمة المرور السابقة'); return; }
+    if (newPassword.length < 6) { setErrorMsg('يجب أن تكون كلمة المرور الجديدة 6 أحرف على الأقل'); return; }
+    if (newPassword !== confirmPassword) { setErrorMsg('كلمة المرور الجديدة وتأكيدها غير متطابقين'); return; }
+
+    setLoading(true);
+    try {
+      const identifier = userEmail || userPhone;
+      if (!identifier) {
+        setErrorMsg('لم يتم العثور على بريد إلكتروني أو رقم هاتف للتحقق');
+        setLoading(false);
+        return;
+      }
+
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
+        [userEmail ? 'email' : 'phone']: identifier,
+        password: oldPassword
+      });
+
+      if (signInErr) {
+        setErrorMsg('كلمة المرور السابقة غير صحيحة');
+        setLoading(false);
+        return;
+      }
+
+      const { error: updateErr } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (updateErr) {
+        setErrorMsg(updateErr.message || 'فشل تحديث كلمة المرور');
+      } else {
+        setSuccessMsg('تم تغيير كلمة المرور بنجاح! ✅');
+        setOldPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setTimeout(onClose, 2000);
+      }
+    } catch (err) {
+      setErrorMsg('حدث خطأ غير متوقع');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+      <motion.div 
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="relative bg-gray-900 border border-gray-800 rounded-3xl p-6 w-full max-w-md shadow-2xl overflow-hidden"
+      >
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-yellow-500" />
+        <button onClick={onClose} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white transition-colors">
+          <X className="w-5 h-5" />
+        </button>
+        
+        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+          <Key className="w-5 h-5 text-amber-400" /> تعديل كلمة المرور
+        </h2>
+
+        {errorMsg && (
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {successMsg && (
+          <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 text-green-400 rounded-xl text-xs flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{successMsg}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-gray-400 text-xs font-semibold mb-1.5">كلمة المرور السابقة</label>
+            <input 
+              type="password" 
+              required 
+              value={oldPassword} 
+              onChange={e => setOldPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full bg-gray-850 border border-gray-700 text-white px-4 py-2.5 rounded-xl outline-none focus:border-amber-500 transition-colors text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-gray-400 text-xs font-semibold mb-1.5">كلمة المرور الجديدة</label>
+            <input 
+              type="password" 
+              required 
+              value={newPassword} 
+              onChange={e => setNewPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full bg-gray-855 border border-gray-700 text-white px-4 py-2.5 rounded-xl outline-none focus:border-amber-500 transition-colors text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-gray-400 text-xs font-semibold mb-1.5">تأكيد كلمة المرور الجديدة</label>
+            <input 
+              type="password" 
+              required 
+              value={confirmPassword} 
+              onChange={e => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full bg-gray-855 border border-gray-700 text-white px-4 py-2.5 rounded-xl outline-none focus:border-amber-500 transition-colors text-sm"
+            />
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-amber-500/50 disabled:cursor-not-allowed text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors mt-2"
+          >
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'تحديث كلمة المرور'}
+          </button>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
 function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeleteProduct, onEditProduct, onUpdateUser, onAddAd, onAddProduct, transportLines, onUpdateTransportStatus, onDeleteTransportAd }:{
   user:User; myAds:Ad[]; myProducts:Product[]; onDeleteAd:(id:number)=>void; onEditAd:(ad:Ad)=>void;
   onDeleteProduct:(id:number)=>void; onEditProduct:(p:Product)=>void; onUpdateUser:(u:User)=>void;
@@ -1959,6 +2107,8 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [verifyImage, setVerifyImage] = useState<string|null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   // Image crop state
   const [cropSrc, setCropSrc] = useState<string|null>(null);
   const [cropType, setCropType] = useState<'avatar'|'cover'>('avatar');
@@ -2000,9 +2150,60 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
     return () => window.removeEventListener('switch-to-lines-tab', handleSwitch);
   }, []);
 
-  const handleSave = () => {
-    const updated:User = { ...user, ...ef, email: ef.email, avatar:avatarPreview, cover:coverPreview };
-    onUpdateUser(updated); setEditing(false);
+  const handleSave = async () => {
+    if (!ef.name.trim()) { alert('الرجاء إدخال الاسم الكامل'); return; }
+    if (!ef.phone.trim()) { alert('الرجاء إدخال رقم الهاتف'); return; }
+    if (!ef.email.trim()) { alert('الرجاء إدخال البريد الإلكتروني'); return; }
+    if (!/\S+@\S+\.\S+/.test(ef.email)) { alert('الرجاء إدخال بريد إلكتروني صالح'); return; }
+
+    setIsSaving(true);
+    try {
+      // Check phone uniqueness
+      const { data: phoneCheck } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('phone', ef.phone.trim())
+        .neq('id', user.id);
+      if (phoneCheck && phoneCheck.length > 0) {
+        alert('رقم الهاتف هذا مستخدم بالفعل في حساب آخر!');
+        setIsSaving(false);
+        return;
+      }
+
+      // Check email uniqueness
+      const { data: emailCheck } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', ef.email.trim().toLowerCase())
+        .neq('id', user.id);
+      if (emailCheck && emailCheck.length > 0) {
+        alert('البريد الإلكتروني هذا مستخدم بالفعل في حساب آخر!');
+        setIsSaving(false);
+        return;
+      }
+
+      // Update in auth if email changed
+      if (ef.email.trim().toLowerCase() !== (user.email || '').toLowerCase()) {
+        const { error: authErr } = await supabase.auth.updateUser({ email: ef.email.trim().toLowerCase() });
+        if (authErr) {
+          console.warn('Could not update email in Auth:', authErr.message);
+          alert('تم تحديث البريد الإلكتروني للملف، ولكن قد يتطلب ذلك تأكيد البريد الجديد عبر البريد الإلكتروني.');
+        }
+      }
+
+      // Update in auth if phone changed
+      if (ef.phone.trim() !== (user.phone || '')) {
+        await supabase.auth.updateUser({ phone: ef.phone.trim() }).catch(() => {});
+      }
+
+      const updated: User = { ...user, ...ef, email: ef.email.trim().toLowerCase(), phone: ef.phone.trim(), avatar: avatarPreview, cover: coverPreview };
+      await onUpdateUser(updated);
+      setEditing(false);
+    } catch (e) {
+      alert('حدث خطأ أثناء حفظ التغييرات');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const openCrop = async (e:React.ChangeEvent<HTMLInputElement>, type:'avatar'|'cover') => {
@@ -2209,7 +2410,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                 {!editing&&<button onClick={()=>setEditing(true)} className="text-xs text-amber-400 hover:underline flex items-center gap-1"><Edit2 className="w-3 h-3"/> تعديل</button>}
               </div>
               <div className="space-y-3">
-                {[{label:'الاسم الكامل',field:'name',placeholder:'اسمك الكامل'},{label:'رقم الهاتف',field:'phone',placeholder:'07XXXXXXXXX'},{label:'نبذة شخصية',field:'bio',placeholder:'اكتب نبذة...',multi:true}].map(({label,field,placeholder,multi})=>(
+                 {[{label:'الاسم الكامل',field:'name',placeholder:'اسمك الكامل'},{label:'رقم الهاتف',field:'phone',placeholder:'07XXXXXXXXX'},{label:'البريد الإلكتروني',field:'email',placeholder:'example@domain.com'},{label:'نبذة شخصية',field:'bio',placeholder:'اكتب نبذة...',multi:true}].map(({label,field,placeholder,multi})=>(
                   <div key={field}><label className="text-gray-400 text-xs font-medium mb-1 block">{label}</label>
                     {multi?(
                       <textarea disabled={!editing} value={(ef as any)[field]} onChange={e=>setEf({...ef,[field]:e.target.value})} placeholder={placeholder} rows={2} className={`w-full bg-gray-700 text-white rounded-xl py-2.5 px-4 border outline-none resize-none text-sm ${editing?'border-amber-400':'border-gray-600 opacity-70'}`}/>
@@ -2222,21 +2423,32 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                   <select disabled={!editing} value={ef.location} onChange={e=>setEf({...ef,location:e.target.value})} className={`w-full bg-gray-700 text-white rounded-xl py-2.5 px-4 border outline-none text-sm ${editing?'border-amber-400':'border-gray-600 opacity-70'}`}>
                     {IRAQI_GOVERNORATES.filter(g=>g!=='الكل').map(g=><option key={g}>{g}</option>)}</select></div>
                 {editing&&<div className="flex gap-3 pt-2">
-                  <button onClick={handleSave} className="flex-1 py-3 bg-green-500 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2"><Save className="w-4 h-4"/>حفظ التغييرات</button>
+                  <button onClick={handleSave} disabled={isSaving} className="flex-1 py-3 bg-green-500 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4"/>}
+                    حفظ التغييرات
+                  </button>
                   <button onClick={()=>setEditing(false)} className="px-4 py-3 bg-gray-700 text-gray-300 rounded-xl text-sm">إلغاء</button>
                 </div>}
               </div>
             </div>
-            {/* Email (read-only) */}
+            {/* Email (read-only info card, but we add Edit Password button here) */}
             <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700">
               <h3 className="text-white font-bold flex items-center gap-2 mb-3"><Mail className="w-4 h-4 text-blue-400"/>معلومات الحساب</h3>
               <div className="space-y-2">
-                {[{label:'البريد الإلكتروني',val:user.email},{label:'تاريخ الانضمام',val:user.joinedDate},{label:'نوع الحساب',val:user.role==='owner'?'مالك':user.role==='admin'?'مشرف':'مستخدم'}].map((r,i)=>(
+                {[{label:'البريد الإلكتروني',val:user.email},{label:'تاريخ الانضمام',val:formatJoinedDate(user.joinedDate)},{label:'نوع الحساب',val:user.role==='owner'?'مالك':user.role==='admin'?'مشرف':'مستخدم'}].map((r,i)=>(
                   <div key={i} className="flex items-center justify-between py-2 border-b border-gray-700 last:border-0">
                     <span className="text-gray-400 text-sm">{r.label}</span>
                     <span className="text-white text-sm font-medium">{r.val}</span>
                   </div>
                 ))}
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-700 flex justify-end">
+                <button 
+                  onClick={() => setShowPasswordModal(true)} 
+                  className="py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs flex items-center gap-2 transition-colors shadow-lg"
+                >
+                  <Key className="w-3.5 h-3.5" /> تعديل كلمة المرور
+                </button>
               </div>
             </div>
           </div>
@@ -2280,6 +2492,14 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
               </button>
             </motion.div>
           </motion.div>
+        )}
+        {showPasswordModal && (
+          <PasswordChangeModal 
+            isOpen={showPasswordModal} 
+            onClose={() => setShowPasswordModal(false)} 
+            userEmail={user.email} 
+            userPhone={user.phone} 
+          />
         )}
       </AnimatePresence>
     </div>
