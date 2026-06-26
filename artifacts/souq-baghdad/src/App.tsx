@@ -101,7 +101,7 @@ interface Visit {
 // ─────────────────────────────────────────────
 // Utilities
 // ─────────────────────────────────────────────
-async function compressImage(file: File, maxPx = 900, quality = 0.78): Promise<string> {
+async function compressImage(file: File, maxPx = 900, quality = 0.78, addWatermark = true): Promise<string> {
   return new Promise(resolve => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -114,17 +114,19 @@ async function compressImage(file: File, maxPx = 900, quality = 0.78): Promise<s
         const ctx = canvas.getContext('2d')!;
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         
-        // Add Watermark
-        const fontSize = Math.max(16, Math.floor(canvas.width * 0.035));
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        ctx.font = `bold ${fontSize}px Tajawal, sans-serif`;
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'bottom';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-        ctx.shadowBlur = 4;
-        ctx.shadowOffsetX = 2;
-        ctx.shadowOffsetY = 2;
-        ctx.fillText('سوك بغداد | souqbaghdad.store', canvas.width - 20, canvas.height - 20);
+        if (addWatermark) {
+          // Add Watermark
+          const fontSize = Math.max(16, Math.floor(canvas.width * 0.035));
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.font = `bold ${fontSize}px Tajawal, sans-serif`;
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'bottom';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+          ctx.shadowBlur = 4;
+          ctx.shadowOffsetX = 2;
+          ctx.shadowOffsetY = 2;
+          ctx.fillText('سوك بغداد | souqbaghdad.store', canvas.width - 20, canvas.height - 20);
+        }
         
         resolve(canvas.toDataURL('image/jpeg', quality));
       };
@@ -1112,7 +1114,7 @@ function ImageLightboxModal({ src, title, onClose }: { src: string; title: strin
       
       ctx.fillStyle = '#6b7280';
       ctx.font = `${Math.max(8, Math.round(bannerH * 0.16))}px system-ui, sans-serif`;
-      ctx.fillText('souqbaghdad.com', margin * 2, h + bannerH * 0.7);
+      ctx.fillText('souqbaghdad.store', margin * 2, h + bannerH * 0.7);
 
       const link = document.createElement('a');
       link.download = `souq-baghdad-${title.replace(/\s+/g, '-')}.jpg`;
@@ -1599,20 +1601,29 @@ function AdFormModal({ isOpen, onClose, onSubmit, user, editAd }:{
   const isEdit = !!editAd;
   const [tab, setTab] = useState<'form'|'preview'>('form');
   const [fd, setFd] = useState({ title:editAd?.title||'', price:editAd?.price?formatPrice(editAd.price):'', description:editAd?.description||'', category:editAd?.category||'cars', governorate:editAd?.governorate||user?.location||'بغداد', phone:editAd?.phone||user?.phone||'', type:editAd?.type||'sell' });
-  const [images, setImages] = useState<{preview:string;progress:number;_uid?:string}[]>((editAd?.images?.map(img=>({preview:img,progress:100}))||[]));
+  const [images, setImages] = useState<{preview:string;progress:number;_uid?:string}[]>((editAd?.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)}))||[]));
   const [uploading, setUploading] = useState(false); const [pct, setPct] = useState(0);
   const playSound = useSound();
-  useEffect(()=>{ if(editAd){ setFd({title:editAd.title,price:formatPrice(editAd.price),description:editAd.description,category:editAd.category,governorate:editAd.governorate,phone:editAd.phone,type:editAd.type}); setImages(editAd.images?.map(img=>({preview:img,progress:100})) || []); } },[editAd]);
+  useEffect(()=>{ if(editAd){ setFd({title:editAd.title,price:formatPrice(editAd.price),description:editAd.description,category:editAd.category,governorate:editAd.governorate,phone:editAd.phone,type:editAd.type}); setImages(editAd.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)})) || []); } },[editAd]);
   const handleImages = async (e:React.ChangeEvent<HTMLInputElement>) => {
     if(!e.target.files) return;
     const files = Array.from(e.target.files);
     for(const file of files){
-      const idx = images.length;
-      setImages(prev=>[...prev,{preview:'',progress:0}]);
-      let p=0; const iv=setInterval(()=>{ p=Math.min(p+Math.random()*30,85); setImages(prev=>prev.map((img,i)=>i===idx&&img.progress<100?{...img,progress:p}:img)); },120);
-      const b64 = await compressImage(file);
-      clearInterval(iv);
-      setImages(prev=>prev.map((img,i)=>i===idx?{preview:b64,progress:100}:img));
+      const uid = Math.random().toString(36).substring(2, 9);
+      setImages(prev=>[...prev,{preview:'',progress:0,_uid:uid}]);
+      let p=0;
+      const iv=setInterval(()=>{
+        p=Math.min(p+Math.random()*30,85);
+        setImages(prev=>prev.map(img=>img._uid===uid&&img.progress<100?{...img,progress:p}:img));
+      },120);
+      try {
+        const b64 = await compressImage(file);
+        clearInterval(iv);
+        setImages(prev=>prev.map(img=>img._uid===uid?{...img,preview:b64,progress:100}:img));
+      } catch (err) {
+        clearInterval(iv);
+        setImages(prev=>prev.filter(img=>img._uid!==uid));
+      }
     }
   };
   const handleSubmit = async (e:React.FormEvent) => {
@@ -1711,18 +1722,28 @@ function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct }:{
 }) {
   const isEdit = !!editProduct;
   const [fd, setFd] = useState({ title:editProduct?.title||'', price:editProduct?.price?formatPrice(editProduct.price):'', description:editProduct?.description||'', category:editProduct?.category||'phones', governorate:editProduct?.governorate||user?.location||'بغداد', phone:editProduct?.phone||user?.phone||'', condition:(editProduct?.condition||'new') as 'new'|'used', stock:editProduct?.stock||1 });
-  const [images, setImages] = useState<{preview:string;progress:number;_uid?:string}[]>((editProduct?.images?.map(img=>({preview:img,progress:100}))||[]));
+  const [images, setImages] = useState<{preview:string;progress:number;_uid?:string}[]>((editProduct?.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)}))||[]));
   const [uploading, setUploading] = useState(false); const [pct, setPct] = useState(0);
   const playSound = useSound();
-  useEffect(()=>{if(editProduct){setFd({title:editProduct.title,price:formatPrice(editProduct.price),description:editProduct.description,category:editProduct.category,governorate:editProduct.governorate,phone:editProduct.phone,condition:editProduct.condition,stock:editProduct.stock});setImages(editProduct.images?.map(img=>({preview:img,progress:100})) || []);}},[editProduct]);
+  useEffect(()=>{if(editProduct){setFd({title:editProduct.title,price:formatPrice(editProduct.price),description:editProduct.description,category:editProduct.category,governorate:editProduct.governorate,phone:editProduct.phone,condition:editProduct.condition,stock:editProduct.stock});setImages(editProduct.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)})) || []);}},[editProduct]);
   const handleImages = async (e:React.ChangeEvent<HTMLInputElement>) => {
     if(!e.target.files) return;
     for(const file of Array.from(e.target.files)){
-      const idx = images.length;
-      setImages(prev=>[...prev,{preview:'',progress:0}]);
-      let p=0; const iv=setInterval(()=>{p=Math.min(p+Math.random()*30,85);setImages(prev=>prev.map((img,i)=>i===idx&&img.progress<100?{...img,progress:p}:img));},120);
-      const b64=await compressImage(file); clearInterval(iv);
-      setImages(prev=>prev.map((img,i)=>i===idx?{preview:b64,progress:100}:img));
+      const uid = Math.random().toString(36).substring(2, 9);
+      setImages(prev=>[...prev,{preview:'',progress:0,_uid:uid}]);
+      let p=0;
+      const iv=setInterval(()=>{
+        p=Math.min(p+Math.random()*30,85);
+        setImages(prev=>prev.map(img=>img._uid===uid&&img.progress<100?{...img,progress:p}:img));
+      },120);
+      try {
+        const b64 = await compressImage(file);
+        clearInterval(iv);
+        setImages(prev=>prev.map(img=>img._uid===uid?{...img,preview:b64,progress:100}:img));
+      } catch (err) {
+        clearInterval(iv);
+        setImages(prev=>prev.filter(img=>img._uid!==uid));
+      }
     }
   };
   const handleSubmit = async (e:React.FormEvent) => {
@@ -2222,7 +2243,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
 
   const openCrop = async (e:React.ChangeEvent<HTMLInputElement>, type:'avatar'|'cover') => {
     if(!e.target.files?.[0]) return;
-    const b64 = await compressImage(e.target.files[0], 1200, 0.9);
+    const b64 = await compressImage(e.target.files[0], 1200, 0.9, false);
     setCropType(type); setCropSrc(b64);
   };
 
@@ -2493,7 +2514,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                     <span className="text-gray-400 text-sm">اضغط هنا لالتقاط أو رفع صورة</span>
                     <input type="file" accept="image/*" capture="environment" className="hidden" onChange={async (e) => {
                       if(e.target.files?.[0]) {
-                        const b64 = await compressImage(e.target.files[0], 1200, 0.8);
+                        const b64 = await compressImage(e.target.files[0], 1200, 0.8, false);
                         setVerifyImage(b64);
                       }
                     }}/>

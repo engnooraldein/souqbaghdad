@@ -22,7 +22,7 @@ if (!supabaseUrl || !supabaseKey) {
   process.exit(1);
 }
 
-const DOMAIN = 'https://souqbaghdad.com';
+const DOMAIN = 'https://souqbaghdad.store';
 
 async function generateSitemap() {
   console.log('Generating sitemap...');
