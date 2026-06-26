@@ -810,16 +810,31 @@ function InfoDocsModal({ activeTab, onClose }: { activeTab: string; onClose: () 
   const [tab, setTab] = useState(activeTab);
   const [contactForm, setContactForm] = useState({ name: '', email: '', msg: '' });
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     setTab(activeTab);
     setSent(false);
   }, [activeTab]);
 
-  const handleSubmitContact = (e: React.FormEvent) => {
+  const handleSubmitContact = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSent(true);
-    setContactForm({ name: '', email: '', msg: '' });
+    if (!contactForm.name.trim() || !contactForm.email.trim() || !contactForm.msg.trim()) return;
+    setSending(true);
+    try {
+      const { error } = await supabase.from('support_messages').insert([{
+        name: contactForm.name.trim(),
+        contact_info: contactForm.email.trim(),
+        message: contactForm.msg.trim()
+      }]);
+      if (error) throw error;
+      setSent(true);
+      setContactForm({ name: '', email: '', msg: '' });
+    } catch (err: any) {
+      alert('حدث خطأ أثناء إرسال الرسالة: ' + (err?.message || err));
+    } finally {
+      setSending(false);
+    }
   };
 
   const tabs = [
@@ -983,9 +998,9 @@ function InfoDocsModal({ activeTab, onClose }: { activeTab: string; onClose: () 
                       <textarea required rows={3} value={contactForm.msg} onChange={e => setContactForm({ ...contactForm, msg: e.target.value })}
                         className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-amber-500 resize-none" placeholder="كيف يمكننا مساعدتك؟" />
                     </div>
-                    <motion.button type="submit" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                      className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-xs">
-                      إرسال الرسالة
+                    <motion.button type="submit" disabled={sending} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                      className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-xs flex items-center justify-center gap-2 disabled:opacity-50">
+                      {sending ? 'جاري الإرسال...' : 'إرسال الرسالة'}
                     </motion.button>
                   </form>
                 )}
@@ -2755,7 +2770,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   onClose:()=>void;
   onDeleteProfile?:(id:string)=>void;
 }) {
-  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'>('overview');
+  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'messages'>('overview');
   const [verificationRequests, setVerificationRequests] = useState<any[]>([]);
   const [recoveryRequests, setRecoveryRequests] = useState<any[]>([]);
   const [storedUsers, setStoredUsers] = useState<StoredUser[]>([]);
@@ -2763,6 +2778,8 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   const [dbGuests, setDbGuests] = useState<any[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [supportMessages, setSupportMessages] = useState<any[]>([]);
+  const [isFetchingMessages, setIsFetchingMessages] = useState(false);
   const [usersSearch, setUsersSearch] = useState('');
   const [usersFilter, setUsersFilter] = useState<'all'|'vendor'|'pro'|'admin'|'banned'>('all');
   const [usersSort, setUsersSort] = useState<'last_seen'|'newest'|'alphabetical'>('last_seen');
@@ -2803,6 +2820,19 @@ const fetchRecovery = async () => {
       } catch (err) {}
     };
     fetchRecovery();
+
+    const fetchSupportMessages = async () => {
+      setIsFetchingMessages(true);
+      try {
+        const { data, error } = await supabase
+          .from('support_messages')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (data && !error) setSupportMessages(data);
+      } catch (err) {}
+      setIsFetchingMessages(false);
+    };
+    fetchSupportMessages();
 
     const fetchUsersAndGuests = async () => {
       try {
@@ -2907,6 +2937,26 @@ const fetchRecovery = async () => {
     }
   };
 
+  const handleResolveMessage = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'pending' ? 'resolved' : 'pending';
+    setSupportMessages(prev => prev.map(m => m.id === id ? { ...m, status: newStatus } : m));
+    try {
+      await supabase.from('support_messages').update({ status: newStatus }).eq('id', id);
+    } catch (e) {
+      console.error('Failed to update status', e);
+    }
+  };
+
+  const handleDeleteMessage = async (id: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذه الرسالة نهائياً؟')) return;
+    setSupportMessages(prev => prev.filter(m => m.id !== id));
+    try {
+      await supabase.from('support_messages').delete().eq('id', id);
+    } catch (e) {
+      console.error('Failed to delete message', e);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-950 pt-16 pb-8">
       <div className="container mx-auto px-4 max-w-5xl">
@@ -2934,7 +2984,7 @@ const fetchRecovery = async () => {
         
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['broadcast','🔔 إشعار عام']] as [string,string][]).map(([t,l])=>(
+          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['broadcast','🔔 إشعار عام'],['messages','💬 الرسائل']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`px-4 py-2 rounded-xl text-sm font-bold ${tab===t?'bg-amber-500 text-black':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
           ))}
         </div>
@@ -3405,6 +3455,72 @@ const fetchRecovery = async () => {
                   {isBroadcasting ? <Loader2 className="w-5 h-5 animate-spin"/> : <><Mail className="w-5 h-5"/> إرسال الإشعار الآن</>}
                 </button>
               </form>
+            )}
+          </div>
+        )}
+
+        {tab==='messages'&&(
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-white font-bold text-lg flex items-center gap-2">
+                <Mail className="w-5 h-5 text-amber-500" /> رسائل الدعم والشكاوى ({supportMessages.length})
+              </h2>
+            </div>
+            
+            {isFetchingMessages ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
+              </div>
+            ) : supportMessages.length === 0 ? (
+              <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700 border-dashed">
+                <div className="text-4xl mb-3">💬</div>
+                <p className="text-white font-bold mb-1">لا توجد رسائل دعم</p>
+                <p className="text-gray-400 text-sm">لم يرسل الزوار أي استفسارات أو شكاوى بعد.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {supportMessages.map(msg => (
+                  <div key={msg.id} className={`bg-gray-800 rounded-2xl p-5 border transition-colors ${msg.status === 'resolved' ? 'border-green-500/20 opacity-80' : 'border-gray-700 hover:border-amber-500/30'}`}>
+                    <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
+                      <div>
+                        <h4 className="text-white font-bold text-sm flex items-center gap-2">
+                          {msg.name}
+                          {msg.status === 'resolved' && (
+                            <span className="bg-green-500/20 text-green-400 text-[10px] px-2 py-0.5 rounded-full font-bold">تم الحل ✅</span>
+                          )}
+                          {msg.status === 'pending' && (
+                            <span className="bg-amber-500/20 text-amber-400 text-[10px] px-2 py-0.5 rounded-full font-bold">قيد الانتظار ⏳</span>
+                          )}
+                        </h4>
+                        <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                          <span>📧 للتواصل:</span>
+                          <span className="text-amber-400 select-all font-mono">{msg.contact_info}</span>
+                        </p>
+                      </div>
+                      <span className="text-[10px] text-gray-500 font-mono">
+                        {new Date(msg.created_at).toLocaleString('ar-IQ')}
+                      </span>
+                    </div>
+                    <p className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap bg-gray-900/40 p-3 rounded-xl border border-gray-750 font-medium">
+                      {msg.message}
+                    </p>
+                    <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-gray-700/50">
+                      <button 
+                        onClick={() => handleResolveMessage(msg.id, msg.status)} 
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${msg.status === 'resolved' ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20' : 'bg-green-500/10 border border-green-500/20 text-green-400 hover:bg-green-500/20'}`}
+                      >
+                        {msg.status === 'resolved' ? 'إعادة فتح الرسالة' : 'تم الحل'}
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteMessage(msg.id)} 
+                        className="px-3 py-1.5 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 rounded-lg text-xs font-bold transition-colors"
+                      >
+                        حذف
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
