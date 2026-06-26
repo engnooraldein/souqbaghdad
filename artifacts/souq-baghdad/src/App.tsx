@@ -1979,10 +1979,10 @@ function PasswordChangeModal({ isOpen, onClose, userEmail, userPhone }:{
         return;
       }
 
-      const { error: signInErr } = await supabase.auth.signInWithPassword({
-        [userEmail ? 'email' : 'phone']: identifier,
-        password: oldPassword
-      });
+      const credentials = userEmail 
+        ? { email: identifier, password: oldPassword }
+        : { phone: identifier, password: oldPassword };
+      const { error: signInErr } = await supabase.auth.signInWithPassword(credentials);
 
       if (signInErr) {
         setErrorMsg('كلمة المرور السابقة غير صحيحة');
@@ -3219,8 +3219,8 @@ const fetchRecovery = async () => {
                               const { error } = await supabase.rpc('admin_reset_password', { target_user_id: u.id, new_password: '123456' });
                               if(error) throw error;
                               alert('تم تغيير كلمة المرور بنجاح إلى: 123456');
-                            } catch(e) {
-                              alert('فشل في إعادة التعيين: ' + e.message);
+                            } catch(e: any) {
+                              alert('فشل في إعادة التعيين: ' + (e?.message || e));
                             }
                           }
                         }}
@@ -3727,7 +3727,7 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
     const mc=cat==='all'||p.category===cat; const mg=gov==='الكل'||p.governorate===gov;
     const min=priceMin?parseInt(priceMin.replace(/,/g,'')):0, max=priceMax?parseInt(priceMax.replace(/,/g,'')):Infinity, pp=parseInt(p.price)||0;
     return ms&&mc&&mg&&pp>=min&&pp<=max;
-  }).sort((a,b)=>sort==='views'?b.views-a.views:sort==='price-low'?parseInt(a.price)-parseInt(b.price):sort==='price-high'?parseInt(b.price)-parseInt(a.price):new Date(p.createdAtISO).getTime()-new Date(p.createdAtISO).getTime());
+  }).sort((a,b)=>sort==='views'?b.views-a.views:sort==='price-low'?parseInt(a.price)-parseInt(b.price):sort==='price-high'?parseInt(b.price)-parseInt(a.price):new Date(b.createdAtISO).getTime()-new Date(a.createdAtISO).getTime());
 
   const showAds = contentTab==='ads'||contentTab==='all';
   const showProds = contentTab==='products'||contentTab==='all';
@@ -4562,33 +4562,7 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    let iv: any;
-    if (user) {
-      fetchNotifications();
-      iv = setInterval(fetchNotifications, 10000);
-    } else {
-      setNotifications([]);
-    }
-    return () => {
-      if (iv) clearInterval(iv);
-    };
-  }, [user, fetchNotifications]);
-
-  const prevNotifsLength = useRef(0);
-  useEffect(() => {
-    if (notifications.length > prevNotifsLength.current) {
-      if (prevNotifsLength.current > 0) {
-        const hasNewIncoming = notifications.some(n => n.targetType === 'owner' || !n.targetType);
-        if (hasNewIncoming) {
-          const audio = new Audio('https://cdn.pixabay.com/audio/2022/03/24/audio_783d1a0e1c.mp3');
-          audio.volume = 0.6;
-          audio.play().catch(() => {});
-        }
-      }
-    }
-    prevNotifsLength.current = notifications.length;
-  }, [notifications]);
+  // Notifications handlers and effects are initialized below notifications state
 
   // Default demo ads to show for all users
   const getDefaultAds = (): Ad[] => [
@@ -4599,49 +4573,7 @@ export default function App() {
     { id: 5, title: 'لابتوب Dell XPS 13 - شبه جديد', category: 'إلكترونيات', governorate: 'البصرة', price: '1200000', description: 'لابتوب عالي المواصفات، استخدام خفيف فقط', images: ['https://images.unsplash.com/photo-1588872657839-cd2f3e5614f0?w=500&h=500&fit=crop'], location: 'البصرة', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-5', createdAtISO: new Date(Date.now() - 432000000).toISOString(), views: 320, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'البصرة' } },
   ];
 
-  const handleHistoryClick = (itemId: string | number, itemType: string) => {
-    if (itemType === 'ad') {
-      const found = allAds.find(a => String(a.id) === String(itemId));
-      if (found) setSelectedAd(found);
-    } else if (itemType === 'product') {
-      const found = allProducts.find(p => String(p.id) === String(itemId));
-      if (found) setSelectedProduct(found);
-    } else if (itemType === 'transport') {
-      const found = allTransportAds.find(t => String(t.id) === String(itemId));
-      if (found) setSelectedTransportAd(found);
-    }
-  };
-
-  const markNotifAsRead = async (notifId: number | string) => {
-    try {
-      const { error } = await supabase
-        .from('ads')
-        .update({ status: 'archived' })
-        .eq('id', notifId);
-      if (!error) {
-        setNotifications(prev => prev.filter(n => n.id !== notifId));
-      }
-    } catch (e) {
-      console.error('Failed to mark notification as read', e);
-    }
-  };
-
-  const handleArchiveAllNotifications = async () => {
-    if (!user) return;
-    try {
-      const { error } = await supabase
-        .from('ads')
-        .update({ status: 'archived' })
-        .eq('category', 'notification')
-        .eq('seller_id', user.id)
-        .eq('status', 'active');
-      if (!error) {
-        setNotifications([]);
-      }
-    } catch (e) {
-      console.error('Failed to archive all notifications', e);
-    }
-  };
+  // Misplaced handlers moved down below notifications state declaration
 
   const getDefaultProducts = (): Product[] => [
     { id: 1, title: 'معطف شتوي فخم', category: 'ملابس', governorate: 'بغداد', price: '150000', description: 'معطف برند عالمي، أصلي 100%', images: ['https://images.unsplash.com/photo-1539533057440-7814baea1002?w=500&h=500&fit=crop'], postedBy: 'demo-seller-1', createdAtISO: new Date(Date.now() - 86400000).toISOString(), views: 180, phone: '07700000000', condition: 'new', stock: 10, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
@@ -4952,6 +4884,65 @@ export default function App() {
       if (iv) clearInterval(iv);
     };
   }, [user, fetchNotifications]);
+
+  const prevNotifsLength = useRef(0);
+  useEffect(() => {
+    if (notifications.length > prevNotifsLength.current) {
+      if (prevNotifsLength.current > 0) {
+        const hasNewIncoming = notifications.some(n => n.targetType === 'owner' || !n.targetType);
+        if (hasNewIncoming) {
+          const audio = new Audio('https://cdn.pixabay.com/audio/2022/03/24/audio_783d1a0e1c.mp3');
+          audio.volume = 0.6;
+          audio.play().catch(() => {});
+        }
+      }
+    }
+    prevNotifsLength.current = notifications.length;
+  }, [notifications]);
+
+  const handleHistoryClick = (itemId: string | number, itemType: string) => {
+    if (itemType === 'ad') {
+      const found = allAds.find(a => String(a.id) === String(itemId));
+      if (found) setSelectedAd(found);
+    } else if (itemType === 'product') {
+      const found = allProducts.find(p => String(p.id) === String(itemId));
+      if (found) setSelectedProduct(found);
+    } else if (itemType === 'transport') {
+      const found = allTransportAds.find(t => String(t.id) === String(itemId));
+      if (found) setSelectedTransportAd(found);
+    }
+  };
+
+  const markNotifAsRead = async (notifId: number | string) => {
+    try {
+      const { error } = await supabase
+        .from('ads')
+        .update({ status: 'archived' })
+        .eq('id', notifId);
+      if (!error) {
+        setNotifications(prev => prev.filter(n => n.id !== notifId));
+      }
+    } catch (e) {
+      console.error('Failed to mark notification as read', e);
+    }
+  };
+
+  const handleArchiveAllNotifications = async () => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('ads')
+        .update({ status: 'archived' })
+        .eq('category', 'notification')
+        .eq('seller_id', user.id)
+        .eq('status', 'active');
+      if (!error) {
+        setNotifications([]);
+      }
+    } catch (e) {
+      console.error('Failed to archive all notifications', e);
+    }
+  };
 
   const handleViewDurationLogged = async (itemId: number | string, itemTitle: string, ownerId: string, itemType: string, seconds: number) => {
     if (!user) return;
