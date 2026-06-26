@@ -50,7 +50,7 @@ async function generateSitemap() {
     if (Array.isArray(ads)) {
       ads.forEach(ad => {
         xml += `  <url>
-    <loc>${DOMAIN}/#/ad/${ad.id}</loc>
+    <loc>${DOMAIN}/ad/${ad.id}</loc>
     <lastmod>${new Date(ad.updated_at || Date.now()).toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -62,7 +62,7 @@ async function generateSitemap() {
     if (Array.isArray(products)) {
       products.forEach(prod => {
         xml += `  <url>
-    <loc>${DOMAIN}/#/product/${prod.id}</loc>
+    <loc>${DOMAIN}/product/${prod.id}</loc>
     <lastmod>${new Date(prod.updated_at || Date.now()).toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>

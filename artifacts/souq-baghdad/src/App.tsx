@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from './lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Helmet } from 'react-helmet-async';
 import {
   Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, Check,
   Gamepad2, Heart, Bell, Plus, LogOut, Star, X, Search, MapPin,
@@ -4902,24 +4903,37 @@ export default function App() {
       return null;
     }
   });
+  const getInitialRouteInfo = () => {
+    if (typeof window === 'undefined') return { hash: '', path: '' };
+    let hash = window.location.hash;
+    const path = window.location.pathname;
+    
+    // Fallback if hash is empty but path has content (SEO friendly URL)
+    if ((!hash || hash === '#/') && path !== '/') {
+      hash = '#' + path;
+    }
+    return { hash, path };
+  };
+
   const [view, setView] = useState<AppView>(() => {
-    const h = typeof window !== 'undefined' ? window.location.hash : '';
-    if (h.startsWith('#/transport')) return 'transport';
-    if (h.startsWith('#/seller')) return 'profile';
-    if (h.startsWith('#/admin')) return 'admin';
-    if (h.startsWith('#/owner')) return 'owner';
+    const { hash } = getInitialRouteInfo();
+    if (hash.startsWith('#/transport')) return 'transport';
+    if (hash.startsWith('#/seller') || hash.startsWith('#/profile')) return 'profile';
+    if (hash.startsWith('#/admin')) return 'admin';
+    if (hash.startsWith('#/owner')) return 'owner';
     return 'home';
   });
   const [bottomNavActive, setBottomNavActive] = useState(() => {
-    const h = typeof window !== 'undefined' ? window.location.hash : '';
-    if (h.startsWith('#/transport')) return 'transport';
-    if (h.startsWith('#/seller')) return 'profile';
+    const { hash } = getInitialRouteInfo();
+    if (hash.startsWith('#/transport')) return 'transport';
+    if (hash.startsWith('#/seller') || hash.startsWith('#/profile')) return 'profile';
     return 'home';
   });
   const [selectedSellerId, setSelectedSellerId] = useState<string|null>(null);
   const [selectedSellerPhone, setSelectedSellerPhone] = useState<string|null>(() => {
-    const h = typeof window !== 'undefined' ? window.location.hash : '';
-    if (h.startsWith('#/seller/')) return h.split('/')[2] || null;
+    const { hash } = getInitialRouteInfo();
+    if (hash.startsWith('#/seller/')) return hash.split('/')[2] || null;
+    if (hash.startsWith('#/profile/')) return hash.split('/')[2] || null;
     return null;
   });
 
@@ -5028,7 +5042,12 @@ export default function App() {
   const [initialHashParsed, setInitialHashParsed] = useState(false);
 
   const syncStateFromHash = () => {
-    const hash = window.location.hash;
+    let hash = window.location.hash;
+    const path = window.location.pathname;
+    if ((!hash || hash === '#/') && path !== '/') {
+      hash = '#' + path;
+    }
+
     if (!hash || hash === '#/') {
       setView('home');
       setSelectedAd(null);
@@ -5047,7 +5066,7 @@ export default function App() {
     } else if (type === 'product' && id) {
       const prod = allProducts.find(p => String(p.id) === id || p.short_id === id);
       if (prod) setSelectedProduct(prod);
-    } else if (type === 'profile' && id) {
+    } else if (type === 'profile' && id || type === 'seller' && id) {
       setSelectedSellerId(id);
       setView('profile');
     } else if (type === 'transport') {
@@ -5058,6 +5077,15 @@ export default function App() {
       setView('owner');
     }
   };
+
+  // Rewrite clean pathname to hash route on browser level without page reloads
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.pathname !== '/' && window.location.pathname !== '') {
+      const path = window.location.pathname;
+      const search = window.location.search;
+      window.history.replaceState(null, '', `/#${path}${search}`);
+    }
+  }, []);
 
   useEffect(() => {
     if (initialHashParsed) return;
@@ -5744,8 +5772,43 @@ export default function App() {
   const isAdmin = user?.role==='admin';
   const isOwner = user?.role==='owner';
 
+  // Dynamic SEO metadata based on current router state
+  let pageTitle = "سوك بغداد - السوق الرقمي العراقي | أكبر منصة إعلانات في العراق";
+  let pageDescription = "سوك بغداد - أكبر منصة عراقية للبيع والشراء والإعلانات. سيارات، عقارات، هواتف، إلكترونيات، خدمات والمزيد. اكتشف آلاف الإعلانات في أقسام متعددة.";
+  let pageImage = "https://souqbaghdad.store/opengraph.jpg";
+  let canonicalUrl = "https://souqbaghdad.store/";
+
+  if (selectedAd) {
+    pageTitle = `${selectedAd.title} | إعلان في سوك بغداد`;
+    pageDescription = selectedAd.description ? `${selectedAd.description.slice(0, 150)}...` : `شاهد تفاصيل إعلان ${selectedAd.title} في سوق بغداد.`;
+    pageImage = selectedAd.images?.[0] || pageImage;
+    canonicalUrl = `https://souqbaghdad.store/ad/${selectedAd.id}`;
+  } else if (selectedProduct) {
+    pageTitle = `${selectedProduct.title} | منتج في سوك بغداد`;
+    pageDescription = selectedProduct.description ? `${selectedProduct.description.slice(0, 150)}...` : `شاهد تفاصيل منتج ${selectedProduct.title} في سوق بغداد.`;
+    pageImage = selectedProduct.images?.[0] || pageImage;
+    canonicalUrl = `https://souqbaghdad.store/product/${selectedProduct.id}`;
+  } else if (view === 'profile' && selectedSellerId) {
+    pageTitle = `صفحة البائع | سوك بغداد`;
+    pageDescription = `تصفح كافة الإعلانات والمنتجات المتوفرة لدى هذا المعلن في منصة سوك بغداد.`;
+    canonicalUrl = `https://souqbaghdad.store/profile/${selectedSellerPhone || selectedSellerId}`;
+  } else if (view === 'transport') {
+    pageTitle = `خطوط النقل والتوصيل | سوك بغداد`;
+    pageDescription = `تصفح خطوط النقل والتوصيل المتاحة في العراق - سوك بغداد`;
+    canonicalUrl = `https://souqbaghdad.store/transport`;
+  }
+
   return (
     <div className="dark min-h-screen bg-gray-950 pb-20 lg:pb-0">
+      <Helmet>
+        <title>{pageTitle}</title>
+        <meta name="description" content={pageDescription} />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={pageDescription} />
+        <meta property="og:image" content={pageImage} />
+        <meta property="og:url" content={canonicalUrl} />
+        <link rel="canonical" href={canonicalUrl} />
+      </Helmet>
       <Toast msg={toast.msg} type={toast.type} visible={toast.visible} onClose={()=>setToast(t=>({...t,visible:false}))}/>
 
       {/* Nav */}
