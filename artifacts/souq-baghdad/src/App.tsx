@@ -2652,7 +2652,7 @@ const fetchRecovery = async () => {
     if(!broadcastTitle || !broadcastMsg) return;
     setIsBroadcasting(true);
     try {
-      const userIds = storedUsers.map(u => u.id).filter(id => id);
+      const userIds = dbUsers.map(u => u.id).filter(id => id);
       if (userIds.length > 0) {
         const notifications = userIds.map(uid => ({
           seller_id: uid,
@@ -2703,7 +2703,7 @@ const fetchRecovery = async () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {[{l:'زيارات اليوم',v:todayV.length,icon:<Activity className="w-5 h-5"/>,c:'text-green-400',bg:'bg-green-500/10 border-green-500/20'},
             {l:'إجمالي الزيارات',v:visits.length,icon:<Globe className="w-5 h-5"/>,c:'text-blue-400',bg:'bg-blue-500/10 border-blue-500/20'},
-            {l:'المستخدمون',v:storedUsers.length,icon:<Users className="w-5 h-5"/>,c:'text-purple-400',bg:'bg-purple-500/10 border-purple-500/20'},
+            {l:'المستخدمون',v:dbUsers.length,icon:<Users className="w-5 h-5"/>,c:'text-purple-400',bg:'bg-purple-500/10 border-purple-500/20'},
             {l:'المحتوى',v:ads.length+products.length,icon:<Layers className="w-5 h-5"/>,c:'text-amber-400',bg:'bg-amber-500/10 border-amber-500/20'}].map((s,i)=>(
             <div key={i} className={`${s.bg} rounded-2xl p-4 border text-center`}>
               <div className={`flex justify-center mb-2 ${s.c}`}>{s.icon}</div>
@@ -3156,7 +3156,7 @@ const fetchRecovery = async () => {
               <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center"><Bell className="w-6 h-6 text-amber-500"/></div>
               <div>
                 <h2 className="text-white font-bold text-lg">إرسال إشعار للجميع</h2>
-                <p className="text-gray-400 text-xs">سيصل هذا الإشعار كرسالة منبثقة في التطبيق لجميع المستخدمين ({storedUsers.length} مستخدم).</p>
+                <p className="text-gray-400 text-xs">سيصل هذا الإشعار كرسالة منبثقة في التطبيق لجميع المستخدمين ({dbUsers.length} مستخدم).</p>
               </div>
             </div>
 
@@ -3226,14 +3226,17 @@ function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id:number
 // ─────────────────────────────────────────────
 // Notifications Panel
 // ─────────────────────────────────────────────
-function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick }:{
+function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onMarkRead, onArchiveAll }:{
   isOpen:boolean;
   onClose:()=>void;
   notifs:any[];
   onNotifClick:(senderId:string)=>void;
   onHistoryClick:(itemId: string | number, itemType: string)=>void;
+  onMarkRead:(id: number | string) => void;
+  onArchiveAll:() => void;
 }) {
   const [tab, setTab] = useState<'incoming' | 'history'>('incoming');
+  const [selectedNotif, setSelectedNotif] = useState<any>(null);
 
   const incomingNotifs = notifs.filter(n => n.targetType === 'owner' || !n.targetType);
   const historyNotifs = notifs.filter(n => n.targetType === 'viewer');
@@ -3264,6 +3267,15 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick }:{
             </button>
           </div>
 
+          {tab === 'incoming' && incomingNotifs.length > 0 && (
+            <button 
+              onClick={onArchiveAll}
+              className="w-full mb-4 py-2 bg-gray-800 hover:bg-gray-750 border border-gray-700 text-gray-300 hover:text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5"
+            >
+              <Check className="w-4 h-4 text-emerald-400" /> أرشفة كل الإشعارات
+            </button>
+          )}
+
           <div className="space-y-2">
             {activeNotifs.length === 0 ? (
               <div className="text-center py-10 text-gray-500 text-xs">
@@ -3272,11 +3284,22 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick }:{
             ) : (
               activeNotifs.map((n, i) => (
                 <div key={n.id || i} 
-                  onClick={() => {
+                  onClick={async () => {
+                    // Mark as read/archive
+                    if (n.id) onMarkRead(n.id);
+                    
                     if (tab === 'incoming') {
-                      if (n.senderId) { onNotifClick(n.senderId); onClose(); }
+                      if (n.type === 'message' || !n.senderId) {
+                        setSelectedNotif(n);
+                      } else if (n.senderId) {
+                        onNotifClick(n.senderId);
+                        onClose();
+                      }
                     } else {
-                      if (n.itemId) { onHistoryClick(n.itemId, n.itemType); onClose(); }
+                      if (n.itemId) {
+                        onHistoryClick(n.itemId, n.itemType);
+                        onClose();
+                      }
                     }
                   }}
                   className="bg-gray-800 rounded-xl p-3 border border-gray-700 transition-colors cursor-pointer hover:border-amber-500/50 hover:bg-gray-800/80"
@@ -3291,8 +3314,10 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick }:{
                       
                       <div className="flex items-center justify-between mt-2 flex-wrap gap-2">
                         <p className="text-gray-500 text-[10px]"><TimeAgo iso={n.time || new Date().toISOString()} /></p>
-                        {tab === 'incoming' && n.senderId && (
-                          <span className="text-[10px] text-amber-400 font-semibold">👉 عرض الملف</span>
+                        {tab === 'incoming' && (
+                          <span className="text-[10px] text-amber-400 font-semibold">
+                            {n.type === 'message' ? '🔍 تفاصيل الرسالة' : '👉 عرض الملف'}
+                          </span>
                         )}
                         {tab === 'history' && n.itemId && (
                           <span className="text-[10px] text-emerald-400 font-semibold">🔍 فتح الإعلان</span>
@@ -3319,6 +3344,48 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick }:{
             )}
           </div>
         </motion.div>
+
+        {/* Selected Notification Detail Modal inside notifications view */}
+        <AnimatePresence>
+          {selectedNotif && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={() => setSelectedNotif(null)}>
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden"
+              >
+                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-500 to-amber-500" />
+                <button 
+                  onClick={() => setSelectedNotif(null)} 
+                  className="absolute top-4 left-4 p-1.5 bg-gray-800 hover:bg-gray-750 text-gray-400 hover:text-white rounded-lg transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                
+                <div className="flex items-center gap-3 mb-4 mt-2">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                    <Bell className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-bold text-base leading-tight">{selectedNotif.title}</h3>
+                    <p className="text-gray-500 text-[10px] mt-0.5"><TimeAgo iso={selectedNotif.time || new Date().toISOString()} /></p>
+                  </div>
+                </div>
+                
+                <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap mb-6">{selectedNotif.message}</p>
+                
+                <button 
+                  onClick={() => setSelectedNotif(null)}
+                  className="w-full py-2.5 bg-gray-800 hover:bg-gray-750 text-white font-bold text-xs rounded-xl border border-gray-700 transition-colors"
+                >
+                  إغلاق
+                </button>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </motion.div>}
     </AnimatePresence>
   );
@@ -3440,7 +3507,7 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
     const mc=cat==='all'||p.category===cat; const mg=gov==='الكل'||p.governorate===gov;
     const min=priceMin?parseInt(priceMin.replace(/,/g,'')):0, max=priceMax?parseInt(priceMax.replace(/,/g,'')):Infinity, pp=parseInt(p.price)||0;
     return ms&&mc&&mg&&pp>=min&&pp<=max;
-  }).sort((a,b)=>sort==='views'?b.views-a.views:sort==='price-low'?parseInt(a.price)-parseInt(b.price):sort==='price-high'?parseInt(b.price)-parseInt(a.price):new Date(b.createdAtISO).getTime()-new Date(a.createdAtISO).getTime());
+  }).sort((a,b)=>sort==='views'?b.views-a.views:sort==='price-low'?parseInt(a.price)-parseInt(b.price):sort==='price-high'?parseInt(b.price)-parseInt(a.price):new Date(p.createdAtISO).getTime()-new Date(p.createdAtISO).getTime());
 
   const showAds = contentTab==='ads'||contentTab==='all';
   const showProds = contentTab==='products'||contentTab==='all';
@@ -4275,6 +4342,34 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    let iv: any;
+    if (user) {
+      fetchNotifications();
+      iv = setInterval(fetchNotifications, 10000);
+    } else {
+      setNotifications([]);
+    }
+    return () => {
+      if (iv) clearInterval(iv);
+    };
+  }, [user, fetchNotifications]);
+
+  const prevNotifsLength = useRef(0);
+  useEffect(() => {
+    if (notifications.length > prevNotifsLength.current) {
+      if (prevNotifsLength.current > 0) {
+        const hasNewIncoming = notifications.some(n => n.targetType === 'owner' || !n.targetType);
+        if (hasNewIncoming) {
+          const audio = new Audio('https://cdn.pixabay.com/audio/2022/03/24/audio_783d1a0e1c.mp3');
+          audio.volume = 0.6;
+          audio.play().catch(() => {});
+        }
+      }
+    }
+    prevNotifsLength.current = notifications.length;
+  }, [notifications]);
+
   // Default demo ads to show for all users
   const getDefaultAds = (): Ad[] => [
     { id: 1, title: 'هاتف ايفون 14 برو', category: 'هواتف', governorate: 'بغداد', price: '850000', description: 'هاتف ايفون 14 برو جديد، لم يستخدم', images: ['https://images.unsplash.com/photo-1591290619762-bcc52fb0a910?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-1', createdAtISO: new Date(Date.now() - 86400000).toISOString(), views: 250, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
@@ -4283,6 +4378,50 @@ export default function App() {
     { id: 4, title: 'خدمة تدريس خصوصي - رياضيات وإنجليزي', category: 'خدمات', governorate: 'بغداد', price: '50000', description: 'معلم ذو خبرة يقدم دروس خصوصية', images: ['https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'service', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-4', createdAtISO: new Date(Date.now() - 345600000).toISOString(), views: 180, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
     { id: 5, title: 'لابتوب Dell XPS 13 - شبه جديد', category: 'إلكترونيات', governorate: 'البصرة', price: '1200000', description: 'لابتوب عالي المواصفات، استخدام خفيف فقط', images: ['https://images.unsplash.com/photo-1588872657839-cd2f3e5614f0?w=500&h=500&fit=crop'], location: 'البصرة', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-5', createdAtISO: new Date(Date.now() - 432000000).toISOString(), views: 320, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'البصرة' } },
   ];
+
+  const handleHistoryClick = (itemId: string | number, itemType: string) => {
+    if (itemType === 'ad') {
+      const found = allAds.find(a => String(a.id) === String(itemId));
+      if (found) setSelectedAd(found);
+    } else if (itemType === 'product') {
+      const found = allProducts.find(p => String(p.id) === String(itemId));
+      if (found) setSelectedProduct(found);
+    } else if (itemType === 'transport') {
+      const found = allTransportAds.find(t => String(t.id) === String(itemId));
+      if (found) setSelectedTransportAd(found);
+    }
+  };
+
+  const markNotifAsRead = async (notifId: number | string) => {
+    try {
+      const { error } = await supabase
+        .from('ads')
+        .update({ status: 'archived' })
+        .eq('id', notifId);
+      if (!error) {
+        setNotifications(prev => prev.filter(n => n.id !== notifId));
+      }
+    } catch (e) {
+      console.error('Failed to mark notification as read', e);
+    }
+  };
+
+  const handleArchiveAllNotifications = async () => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('ads')
+        .update({ status: 'archived' })
+        .eq('category', 'notification')
+        .eq('seller_id', user.id)
+        .eq('status', 'active');
+      if (!error) {
+        setNotifications([]);
+      }
+    } catch (e) {
+      console.error('Failed to archive all notifications', e);
+    }
+  };
 
   const getDefaultProducts = (): Product[] => [
     { id: 1, title: 'معطف شتوي فخم', category: 'ملابس', governorate: 'بغداد', price: '150000', description: 'معطف برند عالمي، أصلي 100%', images: ['https://images.unsplash.com/photo-1539533057440-7814baea1002?w=500&h=500&fit=crop'], postedBy: 'demo-seller-1', createdAtISO: new Date(Date.now() - 86400000).toISOString(), views: 180, phone: '07700000000', condition: 'new', stock: 10, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
@@ -4536,6 +4675,7 @@ export default function App() {
       .select('*')
       .eq('category', 'notification')
       .eq('seller_id', user.id)
+      .eq('status', 'active')
       .order('created_at', { ascending: false });
 
     if (error) { console.error('Error fetching notifications:', error); return; }
@@ -4665,18 +4805,6 @@ export default function App() {
     }
   };
 
-  const handleHistoryClick = (itemId: string | number, itemType: string) => {
-    if (itemType === 'ad') {
-      const found = allAds.find(a => String(a.id) === String(itemId));
-      if (found) setSelectedAd(found);
-    } else if (itemType === 'product') {
-      const found = allProducts.find(p => String(p.id) === String(itemId));
-      if (found) setSelectedProduct(found);
-    } else if (itemType === 'transport') {
-      const found = allTransportAds.find(t => String(t.id) === String(itemId));
-      if (found) setSelectedTransportAd(found);
-    }
-  };
 
   useEffect(()=>{localStorage.setItem('souqFavs',JSON.stringify(favorites));},[favorites]);
 
@@ -5147,7 +5275,7 @@ export default function App() {
         {selectedTransportAd&&<TransportDetailModal ad={selectedTransportAd} onClose={()=>setSelectedTransportAd(null)} user={user} onAuthRequired={requireAuth} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedTransportAd.id, selectedTransportAd.type==='offer'?'خط متوفر':'طلب خط', selectedTransportAd.postedBy || '', 'transport', sec)}/>}
         {showCreateAd&&user&&<AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd}/>}
         {showCreateProduct&&user&&<ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct}/>}
-        {showNotifs&&<NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick}/>}
+        {showNotifs&&<NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick} onMarkRead={markNotifAsRead} onArchiveAll={handleArchiveAllNotifications}/>}
         {activeDocTab&&<InfoDocsModal activeTab={activeDocTab} onClose={()=>setActiveDocTab(null)}/>}
         {activeLightbox&&<ImageLightboxModal src={activeLightbox.src} title={activeLightbox.title} onClose={()=>setActiveLightbox(null)}/>}
       </AnimatePresence>
