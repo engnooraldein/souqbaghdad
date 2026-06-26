@@ -992,7 +992,7 @@ function InfoDocsModal({ activeTab, onClose }: { activeTab: string; onClose: () 
 
                 <div className="pt-4 border-t border-gray-800 flex items-center justify-between text-xs text-gray-400">
                   <span>📧 الدعم الفني: support@souqbaghdad.com</span>
-                  <a href="https://wa.me/9647700000000" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-green-400 font-bold hover:underline">
+                  <a href="https://wa.me/9647700028170" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-green-400 font-bold hover:underline">
                     💬 واتساب الإدارة
                   </a>
                 </div>
