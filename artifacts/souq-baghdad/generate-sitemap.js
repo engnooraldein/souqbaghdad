@@ -34,7 +34,7 @@ async function generateSitemap() {
     const ads = await adsRes.json();
 
     // Fetch active products
-    const prodsRes = await fetch(`${supabaseUrl}/rest/v1/products?is_active=eq.true&select=id,updated_at`, { headers });
+    const prodsRes = await fetch(`${supabaseUrl}/rest/v1/products?status=eq.active&select=id,updated_at`, { headers });
     const products = await prodsRes.json();
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>

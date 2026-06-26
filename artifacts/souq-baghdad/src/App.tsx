@@ -77,7 +77,7 @@ interface Product {
   id: number; title: string; price: string; description: string;
   category: string; images: string[]; governorate: string; phone: string;
   condition: 'new' | 'used'; seller: SellerInfo;
-  createdAtISO: string; views: number; postedBy: string; stock: number; short_id?: string;
+  createdAtISO: string; views: number; postedBy: string; stock: number; status: string; short_id?: string;
 }
 interface User {
   id: string; name: string; email: string; phone: string; role: string;
@@ -591,6 +591,108 @@ function OnboardingModal({ onClose }:{onClose:()=>void}) {
     </motion.div>
   );
 }
+
+// ─────────────────────────────────────────────
+// Congratulations Modal
+// ─────────────────────────────────────────────
+function CongratulationsModal({ item, onClose }: { item: { title: string; type: 'ad' | 'product' }; onClose: () => void }) {
+  const confettiCount = 35;
+  const particles = Array.from({ length: confettiCount });
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+    >
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
+      
+      {/* Confetti particles */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {particles.map((_, i) => {
+          const size = Math.random() * 8 + 6;
+          const colors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6', '#ef4444'];
+          const color = colors[Math.floor(Math.random() * colors.length)];
+          const delay = Math.random() * 0.5;
+          const left = `${Math.random() * 100}%`;
+          return (
+            <motion.div
+              key={i}
+              className="absolute rounded-full"
+              style={{
+                width: size,
+                height: size,
+                backgroundColor: color,
+                left: left,
+                top: -20,
+              }}
+              animate={{
+                y: '105vh',
+                rotate: Math.random() * 360 + 360,
+              }}
+              transition={{
+                duration: Math.random() * 2 + 2,
+                ease: "easeOut",
+                delay: delay,
+                repeat: Infinity,
+                repeatDelay: Math.random() * 2,
+              }}
+            />
+          );
+        })}
+      </div>
+
+      <motion.div
+        initial={{ scale: 0.8, y: 50, opacity: 0 }}
+        animate={{ scale: 1, y: 0, opacity: 1 }}
+        exit={{ scale: 0.8, y: 50, opacity: 0 }}
+        transition={{ type: "spring", damping: 15 }}
+        className="relative bg-gradient-to-b from-gray-900 to-slate-950 rounded-3xl p-8 w-full max-w-md text-center border border-amber-500/30 shadow-[0_0_50px_rgba(245,158,11,0.15)] z-10"
+      >
+        {/* Animated Celebration Icon */}
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: [0, 1.2, 1] }}
+          transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+          className="w-24 h-24 mx-auto mb-6 bg-gradient-to-tr from-amber-500 to-yellow-300 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/20 relative"
+        >
+          <motion.span
+            animate={{ rotate: [0, -10, 10, -10, 10, 0] }}
+            transition={{ delay: 0.5, duration: 1.5, repeat: Infinity, repeatDelay: 2 }}
+            className="text-5xl"
+          >
+            🏆
+          </motion.span>
+          <div className="absolute -top-2 -right-2 text-3xl animate-bounce">🎉</div>
+          <div className="absolute -bottom-2 -left-2 text-3xl animate-bounce" style={{ animationDelay: '0.5s' }}>💰</div>
+        </motion.div>
+
+        <h2 className="text-2xl font-black text-white mb-2 tracking-tight">تهانينا! 🎉 تم البيع بنجاح</h2>
+        <p className="text-amber-400 font-bold text-sm mb-4">
+          تم نقل {item.type === 'ad' ? 'الإعلان' : 'المنتج'} إلى أرشيفك الشخصي
+        </p>
+
+        <div className="bg-gray-800/80 border border-gray-700/60 rounded-2xl p-4 mb-6 text-right">
+          <p className="text-gray-400 text-xs mb-1">اسم العنصر:</p>
+          <p className="text-white font-bold text-base leading-snug line-clamp-2">{item.title}</p>
+        </div>
+
+        <p className="text-gray-300 text-xs leading-relaxed mb-6 max-w-sm mx-auto">
+          سيختفي هذا العنصر من المعرض العام والبحث تلقائياً، ولكنه سيظل معروضاً في الأرشيف بملفك الشخصي كرمز لنجاح مبيعاتك وبناء الثقة مع زوار صفحتك العامة.
+        </p>
+
+        <button
+          onClick={onClose}
+          className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-black rounded-2xl transition-all hover:shadow-lg hover:shadow-amber-500/10 hover:scale-[1.02] active:scale-[0.98]"
+        >
+          رائع، شكراً لك!
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 
 // ─────────────────────────────────────────────
 // Auth Modal
@@ -1196,6 +1298,7 @@ function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu }:{
         <button onClick={onFav} className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'} transition-colors`}>
           <Heart className={`w-4 h-4 text-white ${isFav?'fill-current':''}`}/></button>
         {ad.seller?.isVerified&&<div className="absolute bottom-2 left-2 px-2 py-0.5 bg-blue-500 rounded-full text-[10px] font-bold text-white flex items-center gap-1"><Shield className="w-2.5 h-2.5"/>موثق</div>}
+        {ad.status==='sold'&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-[1px]"><span className="bg-red-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
       </div>
       <div className="p-3 flex-1 flex flex-col">
         <h3 className="text-white font-bold text-sm mb-1 line-clamp-1">{ad.title}</h3>
@@ -1236,6 +1339,7 @@ function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionM
           <Heart className={`w-4 h-4 text-white ${isFav?'fill-current':''}`}/></button>
         <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-purple-600 rounded-full text-[10px] font-bold text-white flex items-center gap-1">
           <ShoppingBag className="w-2.5 h-2.5"/>متجر</div>
+        {product.status==='sold'&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-[1px]"><span className="bg-red-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
       </div>
       <div className="p-3 flex-1 flex flex-col">
         <h3 className="text-white font-bold text-sm mb-1 line-clamp-1">{product.title}</h3>
@@ -1752,7 +1856,8 @@ function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct }:{
     const p:Product = { id:isEdit?editProduct!.id:Date.now(), title:fd.title, price:fd.price.replace(/,/g,''), description:fd.description, category:fd.category, governorate:fd.governorate, phone:fd.phone, condition:fd.condition, stock:fd.stock,
       images:images.filter(i=>i.preview).map(i=>i.preview).concat(images.length===0?['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=700']:[]),
       seller:{name:user.name,avatar:user.avatar,isVerified:user.isVerified,rating:user.rating||5,joinedDate:user.joinedDate,location:user.location},
-      createdAtISO:isEdit?(editProduct?.createdAtISO||new Date().toISOString()):new Date().toISOString(), views:isEdit?(editProduct?.views||0):0, postedBy:user.id };
+      createdAtISO:isEdit?(editProduct?.createdAtISO||new Date().toISOString()):new Date().toISOString(), views:isEdit?(editProduct?.views||0):0, postedBy:user.id,
+      status:isEdit?(editProduct?.status||'active'):'active' };
     setUploading(false); playSound('success'); onSubmit(p); onClose();
     if(!isEdit){setFd({title:'',price:'',description:'',category:'phones',governorate:user?.location||'بغداد',phone:user?.phone||'',condition:'new',stock:1});setImages([]);}
   };
@@ -2128,15 +2233,17 @@ function PasswordChangeModal({ isOpen, onClose, userEmail, userPhone }:{
   );
 }
 
-function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeleteProduct, onEditProduct, onUpdateUser, onAddAd, onAddProduct, transportLines, onUpdateTransportStatus, onDeleteTransportAd }:{
+function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeleteProduct, onEditProduct, onUpdateUser, onAddAd, onAddProduct, transportLines, onUpdateTransportStatus, onDeleteTransportAd, onMarkAdSold, onMarkProductSold }:{
   user:User; myAds:Ad[]; myProducts:Product[]; onDeleteAd:(id:number)=>void; onEditAd:(ad:Ad)=>void;
   onDeleteProduct:(id:number)=>void; onEditProduct:(p:Product)=>void; onUpdateUser:(u:User)=>void;
   onAddAd:()=>void; onAddProduct:()=>void;
   transportLines: TransportAd[];
   onUpdateTransportStatus: (id: number, status: TransportAd['status'], reason?: TransportAd['completion_reason']) => void;
   onDeleteTransportAd: (id: number) => void;
+  onMarkAdSold:(ad:Ad)=>void;
+  onMarkProductSold:(p:Product)=>void;
 }) {
-  const [tab, setTab] = useState<'ads'|'store'|'lines'|'account'>('ads');
+  const [tab, setTab] = useState<'ads'|'store'|'archive'|'lines'|'account'>('ads');
   const [editing, setEditing] = useState(false);
   const [ef, setEf] = useState({ name:user.name, phone:user.phone, location:user.location, bio:user.bio||'', email:user.email||'' });
   const [showVerifyModal, setShowVerifyModal] = useState(false);
@@ -2353,7 +2460,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
 
         {/* Tabs */}
         <div className="flex gap-2 mb-5 bg-gray-800 p-1.5 rounded-2xl border border-gray-700 overflow-x-auto scrollbar-hide">
-          {([['ads',`📢 إعلاناتي (${myAds.length})`],['store',`🛍️ متجري (${myProducts.length})`],['lines',`🚌 خطوطي`],['account','⚙️ الحساب']] as [string,string][]).map(([t,l])=>(
+          {([['ads',`📢 إعلاناتي (${myAds.filter(a=>a.status==='active').length})`],['store',`🛍️ متجري (${myProducts.filter(p=>p.status==='active').length})`],['archive',`📦 الأرشيف (${myAds.filter(a=>a.status==='sold').length + myProducts.filter(p=>p.status==='sold').length})`],['lines',`🚌 خطوطي`],['account','⚙️ الحساب']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${tab===t?'bg-amber-500 text-black shadow':'text-gray-400 hover:text-white'}`}>{l}</button>
           ))}
         </div>
@@ -2363,13 +2470,13 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
           <>
             <button onClick={onAddAd} className="w-full mb-4 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-2xl flex items-center justify-center gap-2">
               <Plus className="w-5 h-5"/> إضافة إعلان جديد</button>
-            {myAds.length===0?(
+            {myAds.filter(a=>a.status==='active').length===0?(
               <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700 border-dashed">
                 <div className="text-4xl mb-3">📭</div><p className="text-white font-bold mb-1">لا إعلانات بعد</p><p className="text-gray-400 text-sm">انشر أول إعلان الآن!</p>
               </div>
             ):(
               <div className="space-y-3">
-                {myAds.map(ad=>(
+                {myAds.filter(a=>a.status==='active').map(ad=>(
                   <div key={ad.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-amber-500/30 transition-colors">
                     <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700"/>
                     <div className="flex-1 min-w-0">
@@ -2382,6 +2489,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                       </div>
                     </div>
                     <div className="flex flex-col gap-1.5 self-center">
+                      <button onClick={()=>onMarkAdSold(ad)} title="تم البيع" className="p-2 bg-green-500/20 rounded-xl text-green-400 hover:bg-green-500/30"><CheckCircle className="w-3.5 h-3.5"/></button>
                       <button onClick={()=>onEditAd(ad)} className="p-2 bg-amber-500/20 rounded-xl text-amber-400 hover:bg-amber-500/30"><Edit2 className="w-3.5 h-3.5"/></button>
                       <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30"><Trash2 className="w-3.5 h-3.5"/></button>
                     </div>
@@ -2397,13 +2505,13 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
           <>
             <button onClick={onAddProduct} className="w-full mb-4 py-3 bg-gradient-to-r from-purple-500 to-violet-500 text-white font-bold rounded-2xl flex items-center justify-center gap-2">
               <Plus className="w-5 h-5"/> إضافة منتج جديد</button>
-            {myProducts.length===0?(
+            {myProducts.filter(p=>p.status==='active').length===0?(
               <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700 border-dashed">
                 <div className="text-4xl mb-3">🛍️</div><p className="text-white font-bold mb-1">متجرك فارغ</p><p className="text-gray-400 text-sm">أضف أول منتج الآن!</p>
               </div>
             ):(
               <div className="space-y-3">
-                {myProducts.map(p=>(
+                {myProducts.filter(p=>p.status==='active').map(p=>(
                   <div key={p.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-purple-500/30 transition-colors">
                     <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700"/>
                     <div className="flex-1 min-w-0">
@@ -2416,7 +2524,62 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                       </div>
                     </div>
                     <div className="flex flex-col gap-1.5 self-center">
+                      <button onClick={()=>onMarkProductSold(p)} title="تم البيع" className="p-2 bg-green-500/20 rounded-xl text-green-400 hover:bg-green-500/30"><CheckCircle className="w-3.5 h-3.5"/></button>
                       <button onClick={()=>onEditProduct(p)} className="p-2 bg-purple-500/20 rounded-xl text-purple-400 hover:bg-purple-500/30"><Edit2 className="w-3.5 h-3.5"/></button>
+                      <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30"><Trash2 className="w-3.5 h-3.5"/></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Archive Tab */}
+        {tab==='archive'&&(
+          <>
+            {(myAds.filter(a=>a.status==='sold').length === 0 && myProducts.filter(p=>p.status==='sold').length === 0) ? (
+              <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700 border-dashed">
+                <div className="text-4xl mb-3">📦</div>
+                <p className="text-white font-bold mb-1">الأرشيف فارغ</p>
+                <p className="text-gray-400 text-sm">المنتجات والإعلانات التي تبيعها وتؤرشفها ستظهر هنا.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Sold Ads */}
+                {myAds.filter(a=>a.status==='sold').map(ad=>(
+                  <div key={ad.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-red-500/30 transition-colors relative">
+                    <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700 opacity-60"/>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-bold text-sm line-clamp-1 opacity-75">{ad.title}</p>
+                      <p className="text-amber-400 text-sm font-bold opacity-75">{formatPrice(ad.price)} <span className="text-xs text-gray-400">د.ع</span></p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-[10px] font-bold rounded-lg border border-red-500/30 flex items-center gap-0.5">
+                          🚫 تم البيع
+                        </span>
+                        <span className="text-gray-500 text-xs">إعلان</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5 self-center">
+                      <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30"><Trash2 className="w-3.5 h-3.5"/></button>
+                    </div>
+                  </div>
+                ))}
+                {/* Sold Products */}
+                {myProducts.filter(p=>p.status==='sold').map(p=>(
+                  <div key={p.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-red-500/30 transition-colors relative">
+                    <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700 opacity-60"/>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-bold text-sm line-clamp-1 opacity-75">{p.title}</p>
+                      <p className="text-amber-400 text-sm font-bold opacity-75">{formatPrice(p.price)} <span className="text-xs text-gray-400">د.ع</span></p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-[10px] font-bold rounded-lg border border-red-500/30 flex items-center gap-0.5">
+                          🚫 تم البيع
+                        </span>
+                        <span className="text-gray-500 text-xs">منتج</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5 self-center">
                       <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30"><Trash2 className="w-3.5 h-3.5"/></button>
                     </div>
                   </div>
@@ -3852,6 +4015,7 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
   const fmt=(v:string)=>v.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',');
 
   const filterAds = allAds.filter(a=>{
+    if (a.status !== 'active') return false;
     const ms=!search||String(a.id).includes(search)||(a.short_id&&a.short_id.toLowerCase().includes(search.toLowerCase()))||a.title.toLowerCase().includes(search.toLowerCase())||a.location.toLowerCase().includes(search.toLowerCase());
     const mc=cat==='all'||a.category===cat; const mg=gov==='الكل'||a.governorate===gov;
     const min=priceMin?parseInt(priceMin.replace(/,/g,'')):0, max=priceMax?parseInt(priceMax.replace(/,/g,'')):Infinity, ap=parseInt(a.price)||0;
@@ -3859,6 +4023,7 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
   }).sort((a,b)=>sort==='views'?b.views-a.views:sort==='price-low'?parseInt(a.price)-parseInt(b.price):sort==='price-high'?parseInt(b.price)-parseInt(a.price):new Date(b.createdAtISO).getTime()-new Date(a.createdAtISO).getTime());
 
   const filterProds = allProducts.filter(p=>{
+    if (p.status !== 'active') return false;
     const ms=!search||String(p.id).includes(search)||(p.short_id&&p.short_id.toLowerCase().includes(search.toLowerCase()))||p.title.toLowerCase().includes(search.toLowerCase())||p.governorate.toLowerCase().includes(search.toLowerCase());
     const mc=cat==='all'||p.category===cat; const mg=gov==='الكل'||p.governorate===gov;
     const min=priceMin?parseInt(priceMin.replace(/,/g,'')):0, max=priceMax?parseInt(priceMax.replace(/,/g,'')):Infinity, pp=parseInt(p.price)||0;
@@ -4712,14 +4877,15 @@ export default function App() {
   // Misplaced handlers moved down below notifications state declaration
 
   const getDefaultProducts = (): Product[] => [
-    { id: 1, title: 'معطف شتوي فخم', category: 'ملابس', governorate: 'بغداد', price: '150000', description: 'معطف برند عالمي، أصلي 100%', images: ['https://images.unsplash.com/photo-1539533057440-7814baea1002?w=500&h=500&fit=crop'], postedBy: 'demo-seller-1', createdAtISO: new Date(Date.now() - 86400000).toISOString(), views: 180, phone: '07700000000', condition: 'new', stock: 10, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
-    { id: 2, title: 'أثاث غرفة نوم كامل', category: 'أثاث', governorate: 'البصرة', price: '2500000', description: 'مجموعة أثاث فاخرة - سرير + دولاب + تسريحة', images: ['https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500&h=500&fit=crop'], postedBy: 'demo-seller-2', createdAtISO: new Date(Date.now() - 172800000).toISOString(), views: 290, phone: '07700000000', condition: 'new', stock: 5, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'البصرة' } },
-    { id: 3, title: 'دراجة هوائية ماونتن بايك', category: 'دراجات', governorate: 'أربيل', price: '500000', description: 'دراجة رياضية احترافية', images: ['https://images.unsplash.com/photo-1558618666-fcd25c85cd58?w=500&h=500&fit=crop'], postedBy: 'demo-seller-3', createdAtISO: new Date(Date.now() - 259200000).toISOString(), views: 150, phone: '07700000000', condition: 'used', stock: 1, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'أربيل' } },
+    { id: 1, title: 'معطف شتوي فخم', category: 'ملابس', governorate: 'بغداد', price: '150000', description: 'معطف برند عالمي، أصلي 100%', images: ['https://images.unsplash.com/photo-1539533057440-7814baea1002?w=500&h=500&fit=crop'], postedBy: 'demo-seller-1', createdAtISO: new Date(Date.now() - 86400000).toISOString(), views: 180, phone: '07700000000', condition: 'new', stock: 10, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' }, status: 'active' },
+    { id: 2, title: 'أثاث غرفة نوم كامل', category: 'أثاث', governorate: 'البصرة', price: '2500000', description: 'مجموعة أثاث فاخرة - سرير + دولاب + تسريحة', images: ['https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500&h=500&fit=crop'], postedBy: 'demo-seller-2', createdAtISO: new Date(Date.now() - 172800000).toISOString(), views: 290, phone: '07700000000', condition: 'new', stock: 5, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'البصرة' }, status: 'active' },
+    { id: 3, title: 'دراجة هوائية ماونتن بايك', category: 'دراجات', governorate: 'أربيل', price: '500000', description: 'دراجة رياضية احترافية', images: ['https://images.unsplash.com/photo-1558618666-fcd25c85cd58?w=500&h=500&fit=crop'], postedBy: 'demo-seller-3', createdAtISO: new Date(Date.now() - 259200000).toISOString(), views: 150, phone: '07700000000', condition: 'used', stock: 1, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'أربيل' }, status: 'active' },
   ];
 
   const [allAds, setAllAds] = useState<Ad[]>([]);
   const [allTransportAds, setAllTransportAds] = useState<TransportAd[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [congratulationsItem, setCongratulationsItem] = useState<{ title: string; type: 'ad' | 'product' } | null>(null);
   const [favorites, setFavorites] = useState<number[]>(()=>{
     try{return JSON.parse(localStorage.getItem('souqFavs')||'[]');}catch{return[];}
   });
@@ -4882,7 +5048,7 @@ export default function App() {
         };
       });
 
-      setAllAds(normalMapped.filter(a => a.status === 'active'));
+      setAllAds(normalMapped.filter(a => a.status === 'active' || a.status === 'sold'));
       setAllTransportAds(transportMapped);
     }
   }, []);
@@ -4948,6 +5114,7 @@ export default function App() {
         views: row.views || 0,
         postedBy: row.seller_id,
         stock: row.stock || 1,
+        status: row.status || 'active',
       }));
       setAllProducts(mapped);
     }
@@ -5394,6 +5561,34 @@ export default function App() {
     fetchProducts();
   };
 
+  const handleMarkAdSold = async (ad: Ad) => {
+    if (!window.confirm('هل تريد وضع علامة "تم البيع" على هذا الإعلان؟ سيختفي من المعرض العام ويُحفظ في الأرشيف.')) return;
+    const { error } = await supabase.from('ads').update({ status: 'sold' }).eq('id', ad.id);
+    if (error) {
+      showToast('حدث خطأ أثناء تحديث الحالة', 'error');
+      console.error(error);
+      return;
+    }
+    setAllAds(prev => prev.map(a => a.id === ad.id ? { ...a, status: 'sold' } : a));
+    playSound('success');
+    setCongratulationsItem({ title: ad.title, type: 'ad' });
+    fetchAds();
+  };
+
+  const handleMarkProductSold = async (p: Product) => {
+    if (!window.confirm('هل تريد وضع علامة "تم البيع" على هذا المنتج؟ سيختفي من المعرض العام ويُحفظ في الأرشيف.')) return;
+    const { error } = await supabase.from('products').update({ status: 'sold' }).eq('id', p.id);
+    if (error) {
+      showToast('حدث خطأ أثناء تحديث الحالة', 'error');
+      console.error(error);
+      return;
+    }
+    setAllProducts(prev => prev.map(pr => pr.id === p.id ? { ...pr, status: 'sold' } : pr));
+    playSound('success');
+    setCongratulationsItem({ title: p.title, type: 'product' });
+    fetchProducts();
+  };
+
   const handleDeleteAd = async (id: number) => {
     await supabase.from('ads').delete().eq('id', id);
     setAllAds(prev => prev.filter(a => a.id !== id));
@@ -5524,7 +5719,7 @@ export default function App() {
           {view==='home'&&<motion.div key="home" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <MarketView user={user} allAds={allAds} allProducts={allProducts} favorites={favorites} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} onToggleFav={handleToggleFav} onRequireAuth={requireAuth} onSellerClick={handleSellerClick} onTransportClick={()=>{setView('transport');setBottomNavActive('transport');}} onSelectTransportAd={setSelectedTransportAd} transportLines={allTransportAds}/></motion.div>}
           {view==='profile'&&user&&<motion.div key="profile" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd}/></motion.div>}
+            <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold}/></motion.div>}
           {view==='seller'&&selectedSellerId&&<motion.div key="seller" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <SellerPublicPage sellerId={selectedSellerId} allAds={allAds} allProducts={allProducts} onBack={()=>setView('home')} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile} onActionMenu={setActionMenuTarget}/></motion.div>}
           {view==='transport'&&<motion.div key="transport" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
@@ -5625,6 +5820,7 @@ export default function App() {
         {showNotifs&&<NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick} onMarkRead={markNotifAsRead} onArchiveAll={handleArchiveAllNotifications}/>}
         {activeDocTab&&<InfoDocsModal activeTab={activeDocTab} onClose={()=>setActiveDocTab(null)}/>}
         {activeLightbox&&<ImageLightboxModal src={activeLightbox.src} title={activeLightbox.title} onClose={()=>setActiveLightbox(null)}/>}
+        {congratulationsItem && <CongratulationsModal item={congratulationsItem} onClose={() => setCongratulationsItem(null)} />}
       </AnimatePresence>
     </div>
   );
