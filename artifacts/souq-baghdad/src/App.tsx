@@ -42,6 +42,9 @@ const CATEGORIES = [
   { id:'real-estate',  name:'العقارات',    emoji:'🏠' },
   { id:'phones',       name:'الهواتف',     emoji:'📱' },
   { id:'electronics',  name:'إلكترونيات', emoji:'💻' },
+  { id:'clothes',      name:'الملابس',     emoji:'👕' },
+  { id:'cosmetics',    name:'الكوزمتك',    emoji:'💄' },
+  { id:'handmade',     name:'حرف يدوية',   emoji:'🧶' },
   { id:'jobs',         name:'وظائف',       emoji:'💼' },
   { id:'furniture',    name:'أثاث',        emoji:'🛋️' },
   { id:'bikes',        name:'دراجات',      emoji:'🚲' },
@@ -3020,11 +3023,66 @@ const fetchRecovery = async () => {
 
     const fetchUsersAndGuests = async () => {
       try {
-        const { data: profiles } = await supabase.from('profiles').select('*').order('last_seen', { ascending: false });
-        if (profiles) setDbUsers(profiles);
+        const { data: profiles, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('last_seen', { ascending: false });
+        if (error) throw error;
+        
+        let mergedProfiles = profiles || [];
+        try {
+          const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
+          localUsers.forEach((lu: any) => {
+            if (lu && lu.id && !mergedProfiles.some((p: any) => p.id === lu.id)) {
+              mergedProfiles.push({
+                id: lu.id,
+                full_name: lu.name || 'مستخدم',
+                phone: lu.phone || '',
+                role: lu.role || 'user',
+                avatar_url: lu.avatar || DEFAULT_AVATAR,
+                created_at: lu.registeredAt || new Date().toISOString(),
+                ads_count: lu.adCount || 0,
+                favorites_count: 0,
+                views_count: 0,
+                email: lu.email || '',
+                city: lu.location || 'بغداد',
+                last_seen: lu.lastSeen || new Date().toISOString(),
+                is_banned: lu.isBanned || false
+              });
+            }
+          });
+        } catch (e) {
+          console.error('Error merging local users:', e);
+        }
+        
+        setDbUsers(mergedProfiles);
+        
         const { data: guests } = await supabase.from('guests').select('*').order('last_seen', { ascending: false });
         if (guests) setDbGuests(guests);
-      } catch (err) {}
+      } catch (err) {
+        console.error('Error fetching profiles, using local storage fallback:', err);
+        try {
+          const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
+          const fallback = localUsers.map((lu: any) => ({
+            id: lu.id || Math.random().toString(),
+            full_name: lu.name || 'مستخدم',
+            phone: lu.phone || '',
+            role: lu.role || 'user',
+            avatar_url: lu.avatar || DEFAULT_AVATAR,
+            created_at: lu.registeredAt || new Date().toISOString(),
+            ads_count: lu.adCount || 0,
+            favorites_count: 0,
+            views_count: 0,
+            email: lu.email || '',
+            city: lu.location || 'بغداد',
+            last_seen: lu.lastSeen || new Date().toISOString(),
+            is_banned: lu.isBanned || false
+          }));
+          setDbUsers(fallback);
+        } catch (e) {
+          console.error('Local fallback failed:', e);
+        }
+      }
     };
     fetchUsersAndGuests();
     const fetchInterval = setInterval(fetchUsersAndGuests, 60_000);
@@ -3355,8 +3413,8 @@ const fetchRecovery = async () => {
                </div>
             )}
             
-            <div className="space-y-3">
-            {(()=>{
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {(() => {
               let filtered = dbUsers.filter(u => {
                 if (usersFilter === 'vendor' && u.role !== 'vendor') return false;
                 if (usersFilter === 'pro' && u.role !== 'pro') return false;
@@ -3365,9 +3423,9 @@ const fetchRecovery = async () => {
                 
                 if (usersSearch) {
                   const s = usersSearch.toLowerCase();
-                  const matchName = u.full_name?.toLowerCase().includes(s);
-                  const matchPhone = u.phone?.toLowerCase().includes(s);
-                  const matchEmail = u.email?.toLowerCase().includes(s);
+                  const matchName = (u.full_name || '').toLowerCase().includes(s);
+                  const matchPhone = (u.phone || '').toLowerCase().includes(s);
+                  const matchEmail = (u.email || '').toLowerCase().includes(s);
                   if (!matchName && !matchPhone && !matchEmail) return false;
                 }
                 return true;
@@ -3383,105 +3441,153 @@ const fetchRecovery = async () => {
                 }
               });
 
-              if (filtered.length === 0) return <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا يوجد مستخدمون مطابقون</p></div>;
+              if (filtered.length === 0) return <div className="col-span-full bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا يوجد مستخدمون مطابقون</p></div>;
 
-              return filtered.map(u=>{
-              const isOnline = new Date().getTime() - new Date(u.last_seen || 0).getTime() < 5 * 60 * 1000;
-              
-              return (
-              <div key={u.id} className={`bg-gray-800 rounded-2xl p-4 border ${u.is_banned?'border-red-500/30':'border-gray-700'} flex items-center gap-3 flex-wrap relative`}>
-                {u.role !== 'owner' && (
-                  <input type="checkbox" className="w-5 h-5 accent-red-500 rounded cursor-pointer hidden sm:block flex-shrink-0" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
-                    if (e.target.checked) setSelectedUserIds(prev => [...prev, u.id]);
-                    else setSelectedUserIds(prev => prev.filter(id => id !== u.id));
-                  }} />
-                )}
-                <div className="relative flex-shrink-0">
-                  <img src={u.avatar_url || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-12 h-12 rounded-full object-cover border-2 ${u.is_banned?'border-red-500/50':'border-gray-600'}`}/>
-                  <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-gray-800 ${isOnline ? 'bg-green-500' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'غير متصل'}></div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {u.role !== 'owner' && (
-                      <input type="checkbox" className="w-4 h-4 accent-red-500 rounded cursor-pointer sm:hidden flex-shrink-0" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
-                        if (e.target.checked) setSelectedUserIds(prev => [...prev, u.id]);
-                        else setSelectedUserIds(prev => prev.filter(id => id !== u.id));
-                      }} />
-                    )}
-                    <p className="text-white font-bold text-sm">{u.full_name}</p>
-                    {u.is_banned&&<span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 text-[10px] rounded-full font-bold">موقوف</span>}
-                    {u.role==='owner'&&<span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] rounded-full flex items-center gap-0.5"><Crown className="w-2.5 h-2.5"/>مالك</span>}
-                    {u.role==='admin'&&<span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-[10px] rounded-full flex items-center gap-0.5"><Shield className="w-2.5 h-2.5"/>مشرف</span>}
-                    {u.role==='vendor'&&<span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[10px] rounded-full flex items-center gap-0.5"><UserCheck className="w-2.5 h-2.5"/>تاجر موثق</span>}
-                    {u.role==='pro'&&<span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-[10px] rounded-full flex items-center gap-0.5"><Star className="w-2.5 h-2.5"/>برو</span>}
-                  </div>
-                  <p className="text-gray-400 text-xs">{u.email || u.phone}</p>
-                  <p className="text-gray-500 text-[10px] mt-0.5">{u.city} • آخر ظهور: {u.last_seen ? new Date(u.last_seen).toLocaleString('ar-IQ') : 'غير معروف'}</p>
-                </div>
+              return filtered.map(u => {
+                const isOnline = new Date().getTime() - new Date(u.last_seen || 0).getTime() < 5 * 60 * 1000;
                 
-                <div className="flex items-center gap-2 flex-shrink-0 mt-2 sm:mt-0 flex-wrap">
-                  <button onClick={() => alert('تفاصيل المستخدم: \n' + JSON.stringify(u, null, 2))} className="p-2 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-xl" title="معلومات المستخدم"><Eye className="w-4 h-4"/></button>
-                  {u.role !== 'owner' && (
-                    <button onClick={() => {
-                      if(window.confirm('تنبيه: سيتم حذف هذا الحساب نهائياً مع كافة إعلاناته المرتبطة به. هل أنت متأكد؟')) {
-                        if(onDeleteProfile) onDeleteProfile(u.id);
-                        setDbUsers(prev => prev.filter(usr => usr.id !== u.id));
-                      }
-                    }} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20" title="حذف الحساب">
-                      <Trash2 className="w-3.5 h-3.5"/> حذف الحساب
-                    </button>
-                  )}
-                  {u.role !== 'owner' && (
-                    <select 
-                      value={u.role || 'user'} 
-                      onChange={(e) => changeRole(u.id, e.target.value)}
-                      className="bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5 outline-none focus:border-amber-500"
-                    >
-                      <option value="user">مستخدم عادي</option>
-                      <option value="vendor">تاجر موثق</option>
-                      <option value="admin">مشرف منصة</option>
-                      <option value="pro">برو (Pro)</option>
-                    </select>
-                  )}
-                  {u.role !== 'owner' && (
-                    <div className="flex items-center gap-1">
-                      <button 
-                        onClick={async () => {
-                          if(confirm('هل أنت متأكد من إعادة تعيين كلمة المرور إلى 123456؟')) {
-                            try {
-                              const { error } = await supabase.rpc('admin_reset_password', { target_user_id: u.id, new_password: '123456' });
-                              if(error) throw error;
-                              alert('تم تغيير كلمة المرور بنجاح إلى: 123456');
-                            } catch(e: any) {
-                              alert('فشل في إعادة التعيين: ' + (e?.message || e));
-                            }
-                          }
-                        }}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20"
-                      >
-                        <Key className="w-3.5 h-3.5"/> تصفير الرمز (123456)
-                      </button>
-                      {u.phone && (
-                        <a 
-                          href={getWhatsAppResetLink(u.phone)} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20"
-                          title="إرسال رسالة واتساب بالتفاصيل الجديدة"
-                        >
-                          <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg> واتساب
-                        </a>
+                return (
+                  <div key={u.id} className={`bg-gray-800/90 rounded-2xl p-5 border ${u.is_banned ? 'border-red-500/40 shadow-lg shadow-red-500/5' : 'border-gray-700/80 hover:border-amber-500/30'} flex flex-col justify-between transition-all relative`}>
+                    
+                    {/* Top Header */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="relative flex-shrink-0">
+                          <img src={u.avatar_url || DEFAULT_AVATAR} alt="" className={`w-14 h-14 rounded-2xl object-cover border-2 ${u.is_banned ? 'border-red-500/50' : 'border-gray-700'}`} />
+                          <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-gray-800 ${isOnline ? 'bg-green-500' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'غير متصل'}></div>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-white font-extrabold text-sm leading-tight truncate max-w-40">{u.full_name || 'مستخدم'}</p>
+                            {u.is_banned && <span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 text-[10px] rounded-full font-bold">موقوف</span>}
+                          </div>
+                          <p className="text-gray-500 text-[10px] mt-0.5">{u.city || 'بغداد'}</p>
+                        </div>
+                      </div>
+                      
+                      {u.role !== 'owner' && (
+                        <input type="checkbox" className="w-5 h-5 accent-red-500 rounded cursor-pointer border-gray-600 bg-gray-700 text-red-500 flex-shrink-0" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
+                          if (e.target.checked) setSelectedUserIds(prev => [...prev, u.id]);
+                          else setSelectedUserIds(prev => prev.filter(id => id !== u.id));
+                        }} />
                       )}
                     </div>
-                  )}
-                  {u.role!=='owner'&&<button onClick={()=>toggleBan(u.id)} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border ${u.is_banned?'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20':'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20'}`}>
-                    {u.is_banned?<><UserCheck className="w-3.5 h-3.5"/>رفع الإيقاف</>:<><UserX className="w-3.5 h-3.5"/>حظر</>}</button>}
-                </div>
-              </div>
-              );
-              })
+
+                    {/* Badges */}
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                      {u.role === 'owner' && <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] rounded-lg font-bold flex items-center gap-1"><Crown className="w-2.5 h-2.5"/>مالك المنصة</span>}
+                      {u.role === 'admin' && <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] rounded-lg font-bold flex items-center gap-1"><Shield className="w-2.5 h-2.5"/>مشرف</span>}
+                      {u.role === 'vendor' && <span className="px-2 py-0.5 bg-green-500/20 text-green-400 border border-green-500/30 text-[10px] rounded-lg font-bold flex items-center gap-1"><UserCheck className="w-2.5 h-2.5"/>تاجر موثق</span>}
+                      {u.role === 'pro' && <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 border border-purple-500/30 text-[10px] rounded-lg font-bold flex items-center gap-1"><Star className="w-2.5 h-2.5"/>برو (Pro)</span>}
+                      {u.role === 'user' && <span className="px-2 py-0.5 bg-gray-700/50 text-gray-300 border border-gray-700 text-[10px] rounded-lg font-bold flex items-center gap-1"><User className="w-2.5 h-2.5"/>عضو عادي</span>}
+                    </div>
+
+                    {/* Info */}
+                    <div className="space-y-1.5 text-xs text-gray-400 border-t border-gray-700/50 pt-3 mb-4 flex-1">
+                      {u.email && (
+                        <div className="flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+                          <span className="truncate" title={u.email}>{u.email}</span>
+                        </div>
+                      )}
+                      {u.phone && (
+                        <div className="flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+                          <span>{u.phone}</span>
+                        </div>
+                      )}
+                      <div className="text-[10px] text-gray-500 mt-2">
+                        <p>التسجيل: {u.created_at ? new Date(u.created_at).toLocaleDateString('ar-IQ') : 'غير معروف'}</p>
+                        <p>آخر ظهور: {u.last_seen ? new Date(u.last_seen).toLocaleString('ar-IQ') : 'غير معروف'}</p>
+                      </div>
+                    </div>
+
+                    {/* Actions Group */}
+                    <div className="flex flex-col gap-2 border-t border-gray-700/50 pt-3">
+                      {u.role !== 'owner' && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-gray-500 whitespace-nowrap">الرتبة:</span>
+                          <select 
+                            value={u.role || 'user'} 
+                            onChange={(e) => changeRole(u.id, e.target.value)}
+                            className="flex-1 bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-2 py-1 outline-none focus:border-amber-500 cursor-pointer"
+                          >
+                            <option value="user">مستخدم عادي</option>
+                            <option value="vendor">تاجر موثق</option>
+                            <option value="admin">مشرف منصة</option>
+                            <option value="pro">برو (Pro)</option>
+                          </select>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-1.5 justify-end mt-1">
+                        <button onClick={() => alert('تفاصيل المستخدم: \n' + JSON.stringify(u, null, 2))} className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded-xl border border-blue-500/20" title="عرض التفاصيل الكاملة"><Eye className="w-3.5 h-3.5"/></button>
+                        
+                        {u.phone && (
+                          <a 
+                            href={getWhatsAppResetLink(u.phone)} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="p-2 bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded-xl border border-green-500/20"
+                            title="إرسال رسالة واتساب بالتفاصيل"
+                          >
+                            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
+                          </a>
+                        )}
+
+                        {u.role !== 'owner' && (
+                          <button 
+                            onClick={async () => {
+                              if (confirm('هل أنت متأكد من إعادة تعيين كلمة المرور إلى 123456؟')) {
+                                try {
+                                  const { error } = await supabase.rpc('admin_reset_password', { target_user_id: u.id, new_password: '123456' });
+                                  if (error) throw error;
+                                  alert('تم تغيير كلمة المرور بنجاح إلى: 123456');
+                                } catch (e: any) {
+                                  alert('فشل في إعادة التعيين: ' + (e?.message || e));
+                                }
+                              }
+                            }}
+                            className="p-2 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 rounded-xl border border-amber-500/20"
+                            title="تصفير الرمز السري إلى (123456)"
+                          >
+                            <Key className="w-3.5 h-3.5"/>
+                          </button>
+                        )}
+
+                        {u.role !== 'owner' && (
+                          <button 
+                            onClick={() => toggleBan(u.id)} 
+                            className={`p-2 rounded-xl border transition-all ${u.is_banned ? 'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20' : 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20'}`}
+                            title={u.is_banned ? "رفع الإيقاف" : "حظر الحساب"}
+                          >
+                            {u.is_banned ? <UserCheck className="w-3.5 h-3.5" /> : <UserX className="w-3.5 h-3.5" />}
+                          </button>
+                        )}
+
+                        {u.role !== 'owner' && (
+                          <button 
+                            onClick={() => {
+                              if (window.confirm('تنبيه: سيتم حذف هذا الحساب نهائياً مع كافة إعلاناته المرتبطة به. هل أنت متأكد؟')) {
+                                if (onDeleteProfile) onDeleteProfile(u.id);
+                                setDbUsers(prev => prev.filter(usr => usr.id !== u.id));
+                              }
+                            }} 
+                            className="p-2 bg-red-600/10 text-red-500 hover:bg-red-600/25 border border-red-500/20 rounded-xl" 
+                            title="حذف الحساب نهائياً"
+                          >
+                            <Trash2 className="w-3.5 h-3.5"/>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+                );
+              });
             })()}
             </div>
+
           </div>
         )}
 {tab==='content'&&(
