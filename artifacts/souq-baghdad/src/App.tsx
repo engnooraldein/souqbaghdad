@@ -3458,6 +3458,47 @@ export default function App() {
   const handleOpenShare = (data: { title: string; url: string; image?: string; price?: string }) => setShareModalData({ isOpen: true, ...data });
   const playSound = useSound();
 
+  // Synchronize URL with active view & modals for Clean Dynamic Routing (Pretty Permalinks)
+  useEffect(() => {
+    const handleUrlSync = () => {
+      const path = window.location.pathname;
+      if (path.startsWith('/transportation') || path.startsWith('/transport')) {
+        setView('transport');
+        setBottomNavActive('transport');
+      } else if (path.startsWith('/profile') || path.startsWith('/my-profile')) {
+        setView('profile');
+        setBottomNavActive('profile');
+      } else if (path.startsWith('/seller/')) {
+        const sId = path.split('/')[2];
+        if (sId) { setSelectedSellerId(sId); setView('seller'); }
+      }
+    };
+    handleUrlSync();
+    window.addEventListener('popstate', handleUrlSync);
+    return () => window.removeEventListener('popstate', handleUrlSync);
+  }, []);
+
+  useEffect(() => {
+    let targetPath = '/';
+    if (selectedAd) {
+      targetPath = generateAdUrl(selectedAd.category, selectedAd.title, selectedAd.id);
+    } else if (selectedProduct) {
+      targetPath = generateProductUrl(selectedProduct.category, selectedProduct.title, selectedProduct.id);
+    } else if (view === 'transport') {
+      targetPath = '/transportation';
+    } else if (view === 'profile') {
+      targetPath = '/profile';
+    } else if (view === 'seller' && selectedSellerId) {
+      targetPath = `/seller/${selectedSellerId}`;
+    } else if (view === 'home') {
+      targetPath = '/';
+    }
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({}, '', targetPath);
+    }
+  }, [view, selectedAd, selectedProduct, selectedSellerId]);
+
+
   // Default demo ads to show for all users
   const getDefaultAds = (): Ad[] => [
     { id: 1, title: 'هاتف ايفون 14 برو', category: 'هواتف', governorate: 'بغداد', price: '850000', description: 'هاتف ايفون 14 برو جديد، لم يستخدم', images: ['https://images.unsplash.com/photo-1591290619762-bcc52fb0a910?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-1', createdAtISO: new Date(Date.now() - 86400000).toISOString(), views: 250, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
