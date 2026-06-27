@@ -113,6 +113,12 @@ export function AuthPages({ onBack }: AuthPagesProps) {
             </p>
           </div>
 
+          {/* Demo Badge */}
+          <div className="bg-amber-500/20 border border-amber-500/30 rounded-xl p-3 mb-6 text-center">
+            <span className="text-amber-400 text-sm font-semibold">🔧 وضع تجريبي</span>
+            <p className="text-amber-300/70 text-xs mt-1">استخدم "demo123" ككلمة مرور</p>
+          </div>
+
           {/* Error/Success Messages */}
           <AnimatePresence>
             {error && (

@@ -96,7 +96,7 @@ export function UserProfile({ onBack }: UserProfileProps) {
               <img
                 src={user.avatar}
                 alt={user.name}
-                className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-gray-900 object-cover aspect-square bg-gray-800"
+                className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-gray-900 object-cover bg-gray-800"
               />
               <button className="absolute bottom-0 right-0 w-8 h-8 sm:w-10 sm:h-10 bg-amber-500 rounded-full flex items-center justify-center border-2 border-gray-900 hover:bg-amber-600 transition-colors shadow-lg">
                 <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-black" />
@@ -174,7 +174,7 @@ export function UserProfile({ onBack }: UserProfileProps) {
               )}
               <div className="flex items-center gap-1">
                 <Calendar className="w-4 h-4" />
-                <span>انضم {new Date(user.createdAt).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'long' })}</span>
+                <span>انضم {user.createdAt}</span>
               </div>
             </div>
           </div>

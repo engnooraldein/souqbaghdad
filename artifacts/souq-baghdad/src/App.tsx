@@ -1,16 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from './lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Helmet } from 'react-helmet-async';
 import {
   Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, Check,
   Gamepad2, Heart, Bell, Plus, LogOut, Star, X, Search, MapPin,
   Eye as ViewIcon, Phone as PhoneIcon, Grid, List, Menu, MessageSquare,
-  Share2, Copy, CheckCircle, XCircle, Loader2, ChevronRight, Shield, ImagePlus,
+  Share2, CheckCircle, XCircle, Loader2, ChevronRight, Shield, ImagePlus,
   Trash2, SlidersHorizontal, Settings, ChevronLeft, Info, LogIn, Edit2,
   Save, BarChart3, Smartphone, Monitor, Tablet, Globe, UserCheck, Activity,
   Crown, UserX, FileText, ShoppingBag, Package, Store, Camera, ZoomIn,
-  ZoomOut, Calendar, Users, ChevronDown, Tag, Layers, Home, Car, UserCircle, Key
+  ZoomOut, Calendar, Users, ChevronDown, Tag, Layers, Home, Car, UserCircle
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -22,14 +21,7 @@ import {
 // ─────────────────────────────────────────────
 const OWNER_EMAIL = 'nooraldeinsbah@gmail.com';
 const DEFAULT_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#1e3a5f"/><circle cx="50" cy="38" r="18" fill="#4b7ab5"/><ellipse cx="50" cy="82" rx="28" ry="20" fill="#4b7ab5"/></svg>')}`;
-const DEFAULT_COVER = '/logo.jpg';
-
-export const getCoverImage = (user: {role?: string, cover?: string}) => {
-  if (['pro', 'vendor', 'admin', 'owner'].includes(user?.role || '')) {
-    return user?.cover || DEFAULT_COVER;
-  }
-  return DEFAULT_COVER;
-};
+const DEFAULT_COVER  = 'https://images.unsplash.com/photo-1579546929518-9e396f3b809b?w=900&q=60';
 
 const IRAQI_GOVERNORATES = [
   'الكل','بغداد','البصرة','نينوى','أربيل','كربلاء','النجف',
@@ -43,9 +35,6 @@ const CATEGORIES = [
   { id:'real-estate',  name:'العقارات',    emoji:'🏠' },
   { id:'phones',       name:'الهواتف',     emoji:'📱' },
   { id:'electronics',  name:'إلكترونيات', emoji:'💻' },
-  { id:'clothes',      name:'الملابس',     emoji:'👕' },
-  { id:'cosmetics',    name:'الكوزمتك',    emoji:'💄' },
-  { id:'handmade',     name:'حرف يدوية',   emoji:'🧶' },
   { id:'jobs',         name:'وظائف',       emoji:'💼' },
   { id:'furniture',    name:'أثاث',        emoji:'🛋️' },
   { id:'bikes',        name:'دراجات',      emoji:'🚲' },
@@ -75,13 +64,13 @@ interface Ad {
   category: string; images: string[]; seller: SellerInfo;
   time: string; createdAtISO: string; views: number; status: string;
   type: string; description: string; adCount: number; soldCount: number;
-  responseRate: number; avgResponseTime: string; postedBy?: string; short_id?: string;
+  responseRate: number; avgResponseTime: string; postedBy?: string;
 }
 interface Product {
   id: number; title: string; price: string; description: string;
   category: string; images: string[]; governorate: string; phone: string;
   condition: 'new' | 'used'; seller: SellerInfo;
-  createdAtISO: string; views: number; postedBy: string; stock: number; status: string; short_id?: string;
+  createdAtISO: string; views: number; postedBy: string; stock: number;
 }
 interface User {
   id: string; name: string; email: string; phone: string; role: string;
@@ -105,7 +94,7 @@ interface Visit {
 // ─────────────────────────────────────────────
 // Utilities
 // ─────────────────────────────────────────────
-async function compressImage(file: File, maxPx = 900, quality = 0.78, addWatermark = true): Promise<string> {
+async function compressImage(file: File, maxPx = 900, quality = 0.78): Promise<string> {
   return new Promise(resolve => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -115,23 +104,7 @@ async function compressImage(file: File, maxPx = 900, quality = 0.78, addWaterma
         const canvas = document.createElement('canvas');
         canvas.width  = Math.round(img.width  * scale);
         canvas.height = Math.round(img.height * scale);
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        
-        if (addWatermark) {
-          // Add Watermark
-          const fontSize = Math.max(16, Math.floor(canvas.width * 0.035));
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-          ctx.font = `bold ${fontSize}px Tajawal, sans-serif`;
-          ctx.textAlign = 'right';
-          ctx.textBaseline = 'bottom';
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-          ctx.shadowBlur = 4;
-          ctx.shadowOffsetX = 2;
-          ctx.shadowOffsetY = 2;
-          ctx.fillText('سوك بغداد | souqbaghdad.store', canvas.width - 20, canvas.height - 20);
-        }
-        
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
         resolve(canvas.toDataURL('image/jpeg', quality));
       };
       img.src = reader.result as string;
@@ -146,32 +119,15 @@ const formatPrice = (p: string | number) => {
 };
 
 function getWhatsAppLink(phone: string, itemType: 'product' | 'transport', details: any) {
-  if (!phone) return '#';
-    let cleanPhone = phone.replace(/[^0-9+]/g, '');
-  if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
-  if (!cleanPhone.startsWith('964') && !cleanPhone.startsWith('+964')) {
-    cleanPhone = '964' + cleanPhone;
+  let text = '';
+  if (itemType === 'product') {
+    text = `السلام عليكم 🌹\n\nشفت إعلان (${details.title}) وحاب أستفسر عنه إذا متوفر حالياً.\n\nتفاصيل الإعلان:\n📌 ${details.title}\n📍 ${details.location}\n\nتم إرسال هذه الرسالة مباشرة من خلال منصة سوك بغداد لتسهيل التواصل بين البائع والمشتري.\n\nبانتظار ردكم، شكراً 🙏`;
+  } else if (itemType === 'transport') {
+    text = `السلام عليكم 🌹\n\nشفت إعلان خط الجامعة وأرغب بمعرفة التفاصيل إذا ما زال متوفر.\n\n📍 المنطقة: ${details.location}\n🎓 الجامعة: ${details.university}\n🕒 الدوام: ${details.time}\n\nتم إرسال هذه الرسالة مباشرة عبر سوك بغداد لتسهيل الوصول إلى الخدمات والإعلانات المناسبة.\n\nشكراً لكم 🙏`;
   }
-  cleanPhone = cleanPhone.replace('+', '');
-  const idStr = details.short_id ? `#${details.short_id}` : `#${String(details.id).substring(0, 5)}`;
-  const title = details.title || details.university || 'إعلان';
-  const location = details.location || details.governorate || 'غير محدد';
-  
-  const text = `السلام عليكم 🌹
-شفت إعلان (*${title}*) وحاب أستفسر عنه إذا متوفر حالياً.
-
-*تفاصيل الإعلان:*
-📌 *${title}*
-🆔 *رمز الإعلان:* ${idStr}
-📍 *${location}*
-
-*رسالة من منصة سوق بغداد:*
-سوق بغداد هو السوق الرقمي العراقي الحديث، نسهل عليكم التواصل المباشر بين البائع والمشتري بكل سرعة وأمان.
-🌐 تصفحوا المزيد من العروض عبر موقعنا:
-www.souqbaghdad.store
-بانتظار ردكم، شكراً 🙏`;
-  
-  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+  const cleanPhone = phone.replace(/^0/, '');
+  const num = cleanPhone.startsWith('964') ? cleanPhone : `964${cleanPhone}`;
+  return `https://wa.me/${num}?text=${encodeURIComponent(text)}`;
 }
 
 function getRelative(iso: string): string {
@@ -254,49 +210,26 @@ const useSound = () => {
   };
 };
 
-
-// ─────────────────────────────────────────────
-// Online Statuses Cache
-// ─────────────────────────────────────────────
-let globalOnlineStatuses: Record<string, boolean> = {};
-let onlineListeners: Array<() => void> = [];
-
-export const useOnlineStatuses = () => {
-  const [statuses, setStatuses] = useState(globalOnlineStatuses);
-  useEffect(() => {
-    const trigger = () => setStatuses({...globalOnlineStatuses});
-    onlineListeners.push(trigger);
-    return () => { onlineListeners = onlineListeners.filter(l => l !== trigger); };
-  }, []);
-  return statuses;
-}
-
-const fetchGlobalOnlineStatuses = async () => {
-  try {
-    const { data } = await supabase.from('profiles').select('id, last_seen');
-    if (data) {
-      const map: Record<string, boolean> = {};
-      data.forEach(p => {
-        if(p.last_seen) {
-          map[p.id] = new Date().getTime() - new Date(p.last_seen).getTime() < 5 * 60 * 1000;
-        }
-      });
-      globalOnlineStatuses = map;
-      onlineListeners.forEach(l => l());
-    }
-  } catch(e) {}
-};
-
 // ─────────────────────────────────────────────
 // Logo
 // ─────────────────────────────────────────────
 function Logo({ small }:{small?:boolean}) {
   return (
     <div className="flex items-center gap-2">
-      <div className={`${small?'w-10 h-10':'w-14 h-14'} shrink-0 bg-blue-900 rounded-xl flex items-center justify-center border-2 border-amber-500/40 shadow-lg overflow-hidden`}>
-        <img src="/logo.jpg" alt="سوق بغداد" className="w-full h-full object-cover" />
+      <div className={`${small?'w-9 h-9':'w-11 h-11'} bg-gradient-to-br from-blue-900 to-blue-950 rounded-xl flex items-center justify-center border-2 border-amber-500/40 shadow-lg`}>
+        <svg viewBox="0 0 120 120" className={small?'w-7 h-7':'w-9 h-9'}>
+          <defs><linearGradient id="eg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#d4af37"/><stop offset="50%" stopColor="#f4d03f"/><stop offset="100%" stopColor="#d4af37"/></linearGradient></defs>
+          <ellipse cx="60" cy="50" rx="25" ry="20" fill="url(#eg)"/>
+          <path d="M35 50 Q20 35 15 55 Q10 75 30 70" fill="url(#eg)"/>
+          <path d="M85 50 Q100 35 105 55 Q110 75 90 70" fill="url(#eg)"/>
+          <circle cx="60" cy="35" r="12" fill="url(#eg)"/>
+          <path d="M45 55 L75 55 L75 85 L60 95 L45 85 Z" fill="#1e3a8a" stroke="#d4af37" strokeWidth="2"/>
+          <rect x="48" y="60" width="24" height="6" fill="#fff"/>
+          <rect x="48" y="66" width="24" height="6" fill="#000"/>
+          <rect x="48" y="72" width="24" height="6" fill="#ce1126"/>
+        </svg>
       </div>
-      {!small && <div className="shrink-0"><h1 className="text-xl font-bold text-white leading-tight">سوك بغداد</h1><p className="text-amber-400 text-xs">السوق الرقمي العراقي</p></div>}
+      {!small && <div><h1 className="text-xl font-bold text-white leading-tight">سوك بغداد</h1><p className="text-amber-400 text-xs">السوق الرقمي العراقي</p></div>}
     </div>
   );
 }
@@ -348,16 +281,9 @@ function ImageCropModal({ src, aspectRatio=1, title='قص الصورة', onSave,
     const c = document.createElement('canvas');
     c.width=PREV_W; c.height=PREV_H;
     const ctx = c.getContext('2d')!;
-    const nw = img.naturalWidth, nh = img.naturalHeight;
-    // Calculate the scale at which the browser's object-cover renders the image
-    const coverScale = Math.max((PREV_W*zoom)/nw, (PREV_H*zoom)/nh);
-    const dw = nw * coverScale;
-    const dh = nh * coverScale;
-    const dx = (PREV_W - dw)/2 + pos.x;
-    const dy = (PREV_H - dh)/2 + pos.y;
-    ctx.fillStyle = '#111827';
-    ctx.fillRect(0, 0, PREV_W, PREV_H);
-    ctx.drawImage(img, dx, dy, dw, dh);
+    const sw = img.naturalWidth*zoom, sh = img.naturalHeight*zoom;
+    const dx = (PREV_W-sw)/2+pos.x, dy = (PREV_H-sh)/2+pos.y;
+    ctx.drawImage(img, dx, dy, sw, sh);
     onSave(c.toDataURL('image/jpeg', 0.88));
   };
 
@@ -399,82 +325,39 @@ function ImageCropModal({ src, aspectRatio=1, title='قص الصورة', onSave,
   );
 }
 
-async function recordItemView(itemId: string|number, itemType: 'ad'|'product'|'transport', currentUser: User|null, sellerId?: string) {
+function recordItemView(itemId: string|number, itemType: 'ad'|'product'|'transport', currentUser: User|null) {
   try {
-    const viewerId = currentUser?.id || localStorage.getItem('souqGuestId') || 'guest-' + Math.random().toString(36).substring(2, 7);
+    const allViewers = JSON.parse(localStorage.getItem('souqItemViewers') || '{}');
+    const key = `${itemType}-${itemId}`;
+    const list = allViewers[key] || [];
+    
+    const viewerId = currentUser?.id || 'guest-' + Math.random().toString(36).substring(2, 7);
     const viewerName = currentUser?.name || 'زائر';
     const viewerAvatar = currentUser?.avatar || `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#374151"/><circle cx="50" cy="50" r="30" fill="#4b5563"/></svg>')}`;
     const viewerLocation = currentUser?.location || 'العراق';
 
-    // 1. Check if already viewed in last hour to avoid spam
-    const lastViewKey = `last_view_${itemType}_${itemId}`;
-    const lastView = localStorage.getItem(lastViewKey);
-    if (lastView && Date.now() - Number(lastView) < 60 * 60 * 1000) {
-      return; // Already viewed recently
+    if (!list.some((v: any) => v.id === viewerId)) {
+      list.unshift({
+        id: viewerId,
+        name: viewerName,
+        avatar: viewerAvatar,
+        location: viewerLocation,
+        time: new Date().toISOString()
+      });
+      allViewers[key] = list.slice(0, 50);
+      localStorage.setItem('souqItemViewers', JSON.stringify(allViewers));
     }
-
-    // 2. Insert into ad_viewers
-    const { error } = await supabase.from('ad_viewers').insert({
-      item_id: itemId,
-      item_type: itemType,
-      viewer_id: viewerId,
-      viewer_name: viewerName,
-      viewer_avatar: viewerAvatar,
-      viewer_location: viewerLocation
-    });
-
-    if (!error) {
-      localStorage.setItem(lastViewKey, Date.now().toString());
-      
-      // 3. Send notification to seller
-      if (sellerId && sellerId !== viewerId) {
-        await supabase.from('user_notifications').insert({
-          user_id: sellerId,
-          title: 'مشاهدة جديدة 👀',
-          body: `قام ${viewerName} بمشاهدة إعلانك للتو.`,
-          type: 'view',
-          category: 'notification',
-          audience: 'user'
-        });
-      }
-
-      // 4. Update the views counter on the item itself
-      const table = itemType === 'product' ? 'products' : itemType === 'transport' ? 'transport_ads' : 'ads';
-      const { data: item } = await supabase.from(table).select('views').eq('id', itemId).single();
-      if (item) {
-        await supabase.from(table).update({ views: (item.views || 0) + 1 }).eq('id', itemId);
-      }
-    }
-  } catch (e) {
-    console.error('Failed to record view', e);
-  }
+  } catch (e) {}
 }
 
 function ViewersModal({ itemId, itemType, onClose }: { itemId: string|number, itemType: 'ad'|'product'|'transport', onClose: () => void }) {
   const [viewers, setViewers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
   useEffect(() => {
-    const fetchViewers = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('ad_viewers')
-          .select('*')
-          .eq('item_id', itemId)
-          .eq('item_type', itemType)
-          .order('viewed_at', { ascending: false })
-          .limit(50);
-          
-        if (!error && data) {
-          setViewers(data);
-        }
-      } catch (e) {
-        console.error('Error fetching viewers', e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchViewers();
+    try {
+      const allViewers = JSON.parse(localStorage.getItem('souqItemViewers') || '{}');
+      const key = `${itemType}-${itemId}`;
+      setViewers(allViewers[key] || []);
+    } catch {}
   }, [itemId, itemType]);
 
   return (
@@ -486,19 +369,17 @@ function ViewersModal({ itemId, itemType, onClose }: { itemId: string|number, it
           <button onClick={onClose} className="p-1.5 bg-gray-800 rounded-lg text-gray-400"><X className="w-4 h-4"/></button>
         </div>
         <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-          {loading ? (
-            <p className="text-gray-500 text-xs text-center py-6">جاري التحميل...</p>
-          ) : viewers.length === 0 ? (
+          {viewers.length === 0 ? (
             <p className="text-gray-500 text-xs text-center py-6">لا يوجد مشاهدات مسجلة بعد</p>
           ) : (
             viewers.map((v, i) => (
               <div key={i} className="flex items-center gap-3 p-2 bg-gray-800/50 rounded-xl border border-gray-700/50">
-                <img src={v.viewer_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className="w-8 h-8 rounded-full object-cover border border-gray-600"/>
+                <img src={v.avatar} alt="" className="w-8 h-8 rounded-full object-cover border border-gray-600"/>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-bold text-xs truncate">{v.viewer_name || 'زائر'}</p>
-                  <p className="text-[10px] text-gray-400">{v.viewer_location || 'العراق'}</p>
+                  <p className="text-white font-bold text-xs truncate">{v.name}</p>
+                  <p className="text-[10px] text-gray-400">{v.location || 'العراق'}</p>
                 </div>
-                <span className="text-[9px] text-gray-500">{getRelative(v.viewed_at)}</span>
+                <span className="text-[9px] text-gray-500">{getRelative(v.time)}</span>
               </div>
             ))
           )}
@@ -597,242 +478,47 @@ function OnboardingModal({ onClose }:{onClose:()=>void}) {
 }
 
 // ─────────────────────────────────────────────
-// Congratulations Modal
-// ─────────────────────────────────────────────
-function CongratulationsModal({ item, onClose }: { item: { title: string; type: 'ad' | 'product' }; onClose: () => void }) {
-  const confettiCount = 35;
-  const particles = Array.from({ length: confettiCount });
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-    >
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
-      
-      {/* Confetti particles */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {particles.map((_, i) => {
-          const size = Math.random() * 8 + 6;
-          const colors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6', '#ef4444'];
-          const color = colors[Math.floor(Math.random() * colors.length)];
-          const delay = Math.random() * 0.5;
-          const left = `${Math.random() * 100}%`;
-          return (
-            <motion.div
-              key={i}
-              className="absolute rounded-full"
-              style={{
-                width: size,
-                height: size,
-                backgroundColor: color,
-                left: left,
-                top: -20,
-              }}
-              animate={{
-                y: '105vh',
-                rotate: Math.random() * 360 + 360,
-              }}
-              transition={{
-                duration: Math.random() * 2 + 2,
-                ease: "easeOut",
-                delay: delay,
-                repeat: Infinity,
-                repeatDelay: Math.random() * 2,
-              }}
-            />
-          );
-        })}
-      </div>
-
-      <motion.div
-        initial={{ scale: 0.8, y: 50, opacity: 0 }}
-        animate={{ scale: 1, y: 0, opacity: 1 }}
-        exit={{ scale: 0.8, y: 50, opacity: 0 }}
-        transition={{ type: "spring", damping: 15 }}
-        className="relative bg-gradient-to-b from-gray-900 to-slate-950 rounded-3xl p-8 w-full max-w-md text-center border border-amber-500/30 shadow-[0_0_50px_rgba(245,158,11,0.15)] z-10"
-      >
-        {/* Animated Celebration Icon */}
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: [0, 1.2, 1] }}
-          transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-          className="w-24 h-24 mx-auto mb-6 bg-gradient-to-tr from-amber-500 to-yellow-300 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/20 relative"
-        >
-          <motion.span
-            animate={{ rotate: [0, -10, 10, -10, 10, 0] }}
-            transition={{ delay: 0.5, duration: 1.5, repeat: Infinity, repeatDelay: 2 }}
-            className="text-5xl"
-          >
-            🏆
-          </motion.span>
-          <div className="absolute -top-2 -right-2 text-3xl animate-bounce">🎉</div>
-          <div className="absolute -bottom-2 -left-2 text-3xl animate-bounce" style={{ animationDelay: '0.5s' }}>💰</div>
-        </motion.div>
-
-        <h2 className="text-2xl font-black text-white mb-2 tracking-tight">تهانينا! 🎉 تم البيع بنجاح</h2>
-        <p className="text-amber-400 font-bold text-sm mb-4">
-          تم نقل {item.type === 'ad' ? 'الإعلان' : 'المنتج'} إلى أرشيفك الشخصي
-        </p>
-
-        <div className="bg-gray-800/80 border border-gray-700/60 rounded-2xl p-4 mb-6 text-right">
-          <p className="text-gray-400 text-xs mb-1">اسم العنصر:</p>
-          <p className="text-white font-bold text-base leading-snug line-clamp-2">{item.title}</p>
-        </div>
-
-        <p className="text-gray-300 text-xs leading-relaxed mb-6 max-w-sm mx-auto">
-          سيختفي هذا العنصر من المعرض العام والبحث تلقائياً، ولكنه سيظل معروضاً في الأرشيف بملفك الشخصي كرمز لنجاح مبيعاتك وبناء الثقة مع زوار صفحتك العامة.
-        </p>
-
-        <button
-          onClick={onClose}
-          className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-black rounded-2xl transition-all hover:shadow-lg hover:shadow-amber-500/10 hover:scale-[1.02] active:scale-[0.98]"
-        >
-          رائع، شكراً لك!
-        </button>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-
-// ─────────────────────────────────────────────
 // Auth Modal
 // ─────────────────────────────────────────────
-
 function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>void}) {
-  const [step, setStep] = useState<'phone'|'login'|'signup'>(() => {
-    const last = localStorage.getItem('souqLastUser');
-    return last ? 'login' : 'phone';
-  });
-  const [identifier, setIdentifier] = useState(() => {
-    const last = localStorage.getItem('souqLastUser');
-    if (last) {
-      try {
-        const u = JSON.parse(last);
-        return u.phone || u.email || '';
-      } catch { return ''; }
-    }
-    return '';
-  });
+  const [isLogin, setIsLogin] = useState(true);
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [city, setCity] = useState('بغداد');
-  
-  const [isRecovery, setIsRecovery] = useState(false);
-  const [recoveryPhone, setRecoveryPhone] = useState('');
-  const [recoverySent, setRecoverySent] = useState(false);
   const playSound = useSound();
 
-  const handlePhoneSubmit = async (e: React.FormEvent) => {
+  const submit = (e:React.FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true); playSound('click');
-    try {
-      if (identifier.length < 3) { setError('يرجى إدخال رقم الهاتف أو البريد الإلكتروني'); setLoading(false); return; }
-      
-      let phoneToCheck = identifier.trim();
-      const isPhone = /^\d+$/.test(phoneToCheck);
-      
-      if (isPhone || !phoneToCheck.includes('@')) {
-         const { data, error } = await supabase.from('profiles').select('id').eq('phone', phoneToCheck).maybeSingle();
-         if (data) {
-           setStep('login');
-         } else {
-           if(!isPhone) {
-             const { data: emailData } = await supabase.from('profiles').select('id').eq('email', phoneToCheck).maybeSingle();
-             if (emailData) setStep('login');
-             else setStep('signup');
-           } else {
-             setStep('signup');
-           }
-         }
-      } else {
-         const { data } = await supabase.from('profiles').select('id').eq('email', phoneToCheck.toLowerCase()).maybeSingle();
-         if (data) setStep('login');
-         else setStep('signup');
-      }
-    } catch(err) {
-      setError('حدث خطأ في الاتصال بالخادم.');
-    } finally {
+    setTimeout(()=>{
+      if(password.length<4){setError('كلمة المرور 4 أحرف على الأقل');playSound('error');setLoading(false);return;}
+      if(!isLogin&&phone.length<10){setError('رقم الهاتف غير صحيح');playSound('error');setLoading(false);return;}
+      if(isBanned(email)){setError('هذا الحساب موقوف. تواصل مع الإدارة.');playSound('error');setLoading(false);return;}
+      const role = email.toLowerCase()===OWNER_EMAIL?'owner':email.toLowerCase().includes('admin')?'admin':'user';
+      const u:User = {
+        id:'u-'+btoa(email).replace(/[^a-zA-Z0-9]/g,'').slice(0,12),
+        name:isLogin?(email.split('@')[0]||'مستخدم'):name,
+        email, phone:isLogin?'07700000000':phone, role,
+        avatar: DEFAULT_AVATAR, cover: DEFAULT_COVER,
+        bio:'', location:city, rating:4.8,
+        isVerified:role!=='user', joinedDate:isLogin?'منذ فترة':'الآن',
+        stats:{ads:0,favorites:0,views:0},
+        sellerStats:{totalAds:0,sold:0,responseRate:0,avgResponseTime:'-'},
+      };
+      // Preserve existing avatar/cover if user re-logs in
+      try {
+        const stored:StoredUser[] = JSON.parse(localStorage.getItem('souqUsers')||'[]');
+        const prev = stored.find(s=>s.id===u.id);
+        if(prev?.avatar && prev.avatar !== DEFAULT_AVATAR) u.avatar = prev.avatar;
+      } catch {}
+      localStorage.setItem('souqUser', JSON.stringify(u));
+      setTimeout(()=>{onLogin(u);onClose();},600);
       setLoading(false);
-    }
-  };
-
-  const handleAuthSubmit = async (e:React.FormEvent) => {
-    e.preventDefault(); setError(''); setLoading(true); playSound('click');
-    try {
-      let emailToUse = identifier.trim().toLowerCase();
-      let phone = identifier.trim();
-      
-      if (!emailToUse.includes('@')) {
-        const isPhone = /^\d+$/.test(emailToUse);
-        if (isPhone) {
-          emailToUse = `${emailToUse}@souqbaghdad.com`;
-        } else {
-          emailToUse = `${emailToUse.replace(/\s+/g, '')}@souqbaghdad.com`;
-          phone = ''; // Username
-        }
-      } else {
-        phone = ''; // Email
-      }
-
-      if (password.length < 6) { setError('كلمة المرور 6 أحرف على الأقل'); playSound('error'); setLoading(false); return; }
-      
-      if (step === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({ email: emailToUse, password });
-        if (error) {
-          const msg = error.message.includes('Invalid login credentials')
-            ? 'كلمة المرور غير صحيحة'
-            : 'حدث خطأ في تسجيل الدخول';
-          setError(msg); playSound('error'); setLoading(false); return;
-        }
-        playSound('success');
-        onClose();
-      } else if (step === 'signup') {
-        const role = phone === '07701109692' ? 'owner' : 'user';
-        const { error } = await supabase.auth.signUp({
-          email: emailToUse, password,
-          options: { data: { full_name: name, phone, city, role } }
-        });
-        if (error) {
-          let msg = error.message;
-          if (msg.includes('already registered') || msg === '{}') {
-            msg = 'هذا الحساب مسجّل مسبقاً، يرجى تسجيل الدخول';
-            setStep('login');
-          }
-          setError(msg); playSound('error'); setLoading(false); return;
-        }
-        const { error: signInErr } = await supabase.auth.signInWithPassword({ email: emailToUse, password });
-        if (!signInErr) { playSound('success'); onClose(); }
-        else { setError('تم إنشاء الحساب. يرجى تسجيل الدخول.'); setStep('login'); }
-      }
-    } catch {
-      setError('حدث خطأ غير متوقع، يرجى المحاولة مرة أخرى');
-      playSound('error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const submitRecovery = async (e: React.FormEvent) => {
-    e.preventDefault(); setError(''); setLoading(true); playSound('click');
-    try {
-      if (recoveryPhone.length < 10) { setError('يرجى إدخال رقم هاتف صحيح'); playSound('error'); setLoading(false); return; }
-      const { error } = await supabase.from('password_recovery_requests').insert([{ phone: recoveryPhone }]);
-      if (error) throw error;
-      setRecoverySent(true);
-      playSound('success');
-    } catch {
-      setError('حدث خطأ أثناء إرسال الطلب، يرجى المحاولة مرة أخرى');
-      playSound('error');
-    } finally {
-      setLoading(false);
-    }
+    },1000);
   };
 
   return (
@@ -840,109 +526,59 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose}/>
       <motion.div initial={{scale:0.95,opacity:0}} animate={{scale:1,opacity:1}}
         className="relative bg-gray-900 rounded-3xl p-7 w-full max-w-md border border-gray-700 shadow-2xl z-10">
-        <button onClick={onClose} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white transition-colors"><X className="w-5 h-5"/></button>
-        <div className="text-center mb-6">
-          <div className="text-5xl mb-3">{step === 'login' ? '🔐' : step === 'signup' ? '✨' : '📱'}</div>
-          <h2 className="text-2xl font-bold text-white">
-            {isRecovery ? 'استعادة الحساب' : step === 'phone' ? 'الدخول السريع' : step === 'login' ? 'مرحباً بعودتك' : 'حساب جديد'}
-          </h2>
-          {!isRecovery && step !== 'phone' && (
-             <p className="text-gray-400 text-sm mt-1">{identifier}</p>
-          )}
-        </div>
+        <button onClick={onClose} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400"><X className="w-5 h-5"/></button>
+        <div className="text-center mb-6"><div className="text-5xl mb-3">{isLogin?'🔐':'✨'}</div>
+          <h2 className="text-2xl font-bold text-white">{isLogin?'تسجيل الدخول':'إنشاء حساب'}</h2></div>
         <AnimatePresence>
           {error&&<motion.div initial={{opacity:0,y:-5}} animate={{opacity:1,y:0}} exit={{opacity:0}}
             className="bg-red-500/20 border border-red-500/30 rounded-xl p-3 mb-4 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0"/><span className="text-red-400 text-sm">{error}</span>
+            <AlertCircle className="w-4 h-4 text-red-400"/><span className="text-red-400 text-sm">{error}</span>
           </motion.div>}
         </AnimatePresence>
-
-        {isRecovery ? (
-          recoverySent ? (
-            <div className="text-center py-6 space-y-4">
-              <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4"><Check className="w-8 h-8 text-green-400" /></div>
-              <p className="text-white text-lg font-bold">تم إرسال طلبك بنجاح</p>
-              <p className="text-gray-400 text-sm leading-relaxed">راح نرسلك تفاصيل الدخول على واتساب بعد التدقيق.</p>
-              <button onClick={() => { setIsRecovery(false); setRecoverySent(false); }} className="w-full mt-4 py-3 bg-gray-800 text-white rounded-xl hover:bg-gray-700">العودة لتسجيل الدخول</button>
-            </div>
-          ) : (
-            <form onSubmit={submitRecovery} className="space-y-4">
-              <p className="text-gray-300 text-sm mb-4 text-center">أدخل رقم هاتفك لاستعادة حسابك</p>
+        {loading?<div className="flex flex-col items-center py-8"><Loader2 className="w-10 h-10 text-amber-400 animate-spin mb-3"/><p className="text-white">جاري التحميل...</p></div>:(
+          <form onSubmit={submit} className="space-y-4">
+            {!isLogin&&<div className="relative"><User className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="الاسم الكامل" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none"/></div>}
+            <div className="relative"><Mail className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
+              <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="البريد الإلكتروني" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none"/></div>
+            {!isLogin&&<div className="grid grid-cols-2 gap-3">
               <div className="relative"><Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                <input type="tel" value={recoveryPhone} onChange={e=>setRecoveryPhone(e.target.value)} placeholder="رقم الهاتف" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none" dir="rtl"/></div>
-              <motion.button type="submit" disabled={loading} whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl">{loading ? 'جاري الإرسال...' : 'استعادة كلمة المرور'}</motion.button>
-              <button type="button" onClick={() => setIsRecovery(false)} className="w-full text-center text-gray-400 hover:text-white text-sm mt-2">العودة</button>
-            </form>
-          )
-        ) : loading?<div className="flex flex-col items-center py-8"><Loader2 className="w-10 h-10 text-amber-400 animate-spin mb-3"/><p className="text-white">جاري التحميل...</p></div>:(
-          step === 'phone' ? (
-             <form onSubmit={handlePhoneSubmit} className="space-y-4">
-               <div className="relative"><Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                 <input type="text" value={identifier} onChange={e=>setIdentifier(e.target.value)} placeholder="رقم الهاتف أو البريد الإلكتروني" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-4 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none text-lg" dir="rtl"/>
-               </div>
-               <motion.button type="submit" whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-lg mt-2 shadow-lg shadow-amber-500/20">متابعة</motion.button>
-             </form>
-          ) : (
-            <form onSubmit={handleAuthSubmit} className="space-y-4">
-              {step === 'signup' && <div className="relative"><User className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                <input value={name} onChange={e=>setName(e.target.value)} placeholder="الاسم الكامل" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none"/></div>}
-              
-              {step === 'signup' && <div className="grid grid-cols-1 gap-3">
-                <select value={city} onChange={e=>setCity(e.target.value)} className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400 outline-none">
-                  {IRAQI_GOVERNORATES.filter(g=>g!=='الكل').map(g=><option key={g}>{g}</option>)}</select>
-              </div>}
-              
-              <div className="relative"><Lock className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                <input type={showPwd?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="كلمة المرور" required autoFocus className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-10 border border-gray-700 focus:border-amber-400 outline-none"/>
-                <button type="button" onClick={()=>setShowPwd(!showPwd)} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">{showPwd?<EyeOff className="w-4 h-4"/>:<Eye className="w-4 h-4"/>}</button></div>
-              
-              <motion.button type="submit" whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl shadow-lg shadow-amber-500/20">
-                {step === 'login' ? 'تسجيل الدخول' : 'تأكيد وإنشاء الحساب'}
-              </motion.button>
-              
-              <div className="mt-4 flex flex-col items-center gap-3">
-                 {step === 'login' && <button type="button" onClick={() => {setIsRecovery(true); setError('');}} className="text-amber-400 hover:text-amber-300 text-sm">نسيت كلمة المرور؟</button>}
-                 <button type="button" onClick={() => {setStep('phone'); setError('');}} className="text-gray-400 hover:text-white text-sm">تغيير رقم الهاتف</button>
-              </div>
-            </form>
-          )
+                <input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="07XXXXXXXXX" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none"/></div>
+              <select value={city} onChange={e=>setCity(e.target.value)} className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400 outline-none">
+                {IRAQI_GOVERNORATES.filter(g=>g!=='الكل').map(g=><option key={g}>{g}</option>)}</select>
+            </div>}
+            <div className="relative"><Lock className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
+              <input type={showPwd?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="كلمة المرور" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-10 border border-gray-700 focus:border-amber-400 outline-none"/>
+              <button type="button" onClick={()=>setShowPwd(!showPwd)} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">{showPwd?<EyeOff className="w-4 h-4"/>:<Eye className="w-4 h-4"/>}</button></div>
+            <motion.button type="submit" whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl">
+              {isLogin?'تسجيل الدخول':'إنشاء الحساب'}</motion.button>
+          </form>
         )}
+        <div className="mt-5 text-center">
+          <button onClick={()=>{setIsLogin(!isLogin);setError('');}} className="text-gray-400 hover:text-amber-400 text-sm">
+            {isLogin?'ليس لديك حساب؟ سجّل الآن':'لديك حساب؟ تسجيل الدخول'}</button></div>
       </motion.div>
     </motion.div>
   );
 }
 
-
+// ─────────────────────────────────────────────
+// Info & Legal Docs Modal
 // ─────────────────────────────────────────────
 function InfoDocsModal({ activeTab, onClose }: { activeTab: string; onClose: () => void }) {
   const [tab, setTab] = useState(activeTab);
   const [contactForm, setContactForm] = useState({ name: '', email: '', msg: '' });
   const [sent, setSent] = useState(false);
-  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     setTab(activeTab);
     setSent(false);
   }, [activeTab]);
 
-  const handleSubmitContact = async (e: React.FormEvent) => {
+  const handleSubmitContact = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!contactForm.name.trim() || !contactForm.email.trim() || !contactForm.msg.trim()) return;
-    setSending(true);
-    try {
-      const { error } = await supabase.from('support_messages').insert([{
-        name: contactForm.name.trim(),
-        contact_info: contactForm.email.trim(),
-        message: contactForm.msg.trim()
-      }]);
-      if (error) throw error;
-      setSent(true);
-      setContactForm({ name: '', email: '', msg: '' });
-    } catch (err: any) {
-      alert('حدث خطأ أثناء إرسال الرسالة: ' + (err?.message || err));
-    } finally {
-      setSending(false);
-    }
+    setSent(true);
+    setContactForm({ name: '', email: '', msg: '' });
   };
 
   const tabs = [
@@ -1106,46 +742,18 @@ function InfoDocsModal({ activeTab, onClose }: { activeTab: string; onClose: () 
                       <textarea required rows={3} value={contactForm.msg} onChange={e => setContactForm({ ...contactForm, msg: e.target.value })}
                         className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-amber-500 resize-none" placeholder="كيف يمكننا مساعدتك؟" />
                     </div>
-                    <motion.button type="submit" disabled={sending} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                      className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-xs flex items-center justify-center gap-2 disabled:opacity-50">
-                      {sending ? 'جاري الإرسال...' : 'إرسال الرسالة'}
+                    <motion.button type="submit" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                      className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-xs">
+                      إرسال الرسالة
                     </motion.button>
                   </form>
                 )}
 
-                                <div className="pt-4 border-t border-gray-800 space-y-3">
-                  <p className="text-gray-400 text-xs text-center font-bold">تواصل معنا عبر منصاتنا الرسمية:</p>
-                  <div className="flex flex-wrap items-center justify-center gap-2">
-                    <a 
-                      href="https://wa.me/9647700028170" 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="flex items-center gap-2 px-4 py-2.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 hover:text-green-300 font-bold rounded-2xl border border-green-500/20 transition-all text-xs"
-                    >
-                      <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
-                      <span>واتساب الدعم</span>
-                    </a>
-                    
-                    <a 
-                      href="https://instagram.com/SOUQBAGHDAD.IQ" 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="flex items-center gap-2 px-4 py-2.5 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 hover:text-pink-300 font-bold rounded-2xl border border-pink-500/20 transition-all text-xs"
-                    >
-                      <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>
-                      <span>انستغرام المنصة</span>
-                    </a>
-                    
-                    <a 
-                      href="https://t.me/SOUQBAGHDA" 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="flex items-center gap-2 px-4 py-2.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 hover:text-sky-300 font-bold rounded-2xl border border-sky-500/20 transition-all text-xs"
-                    >
-                      <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M11.944 0C5.344 0 0 5.344 0 12c0 6.656 5.344 12 12 12 6.656 0 12-5.344 12-12C24 5.344 18.656 0 11.944 0zm5.892 8.046c-.144.9-.99 5.874-1.44 8.286-.192 1.014-.564 1.356-.924 1.392-.786.072-1.386-.516-2.148-1.014-.762-.5-1.188-.81-1.926-1.296-.852-.564-.3-.876.186-1.38.126-.132 2.334-2.136 2.376-2.316.006-.024.012-.114-.042-.162-.054-.048-.132-.03-.186-.018-.084.018-1.392.882-3.924 2.592-.372.258-.708.384-1.008.378-.33-.006-.966-.186-1.44-.342-.582-.192-1.044-.294-1.002-.624.024-.168.252-.342.69-.516 2.688-1.17 4.482-1.938 5.388-2.31 2.562-1.056 3.096-1.242 3.444-1.248.078 0 .252.018.366.114.096.084.12.198.132.282.012.072.024.228.012.384z"/></svg>
-                      <span>تليكرام المنصة</span>
-                    </a>
-                  </div>
+                <div className="pt-4 border-t border-gray-800 flex items-center justify-between text-xs text-gray-400">
+                  <span>📧 الدعم الفني: support@souqbaghdad.com</span>
+                  <a href="https://wa.me/9647700000000" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-green-400 font-bold hover:underline">
+                    💬 واتساب الإدارة
+                  </a>
                 </div>
               </motion.div>
             )}
@@ -1249,7 +857,7 @@ function ImageLightboxModal({ src, title, onClose }: { src: string; title: strin
       
       ctx.fillStyle = '#6b7280';
       ctx.font = `${Math.max(8, Math.round(bannerH * 0.16))}px system-ui, sans-serif`;
-      ctx.fillText('souqbaghdad.store', margin * 2, h + bannerH * 0.7);
+      ctx.fillText('souqbaghdad.com', margin * 2, h + bannerH * 0.7);
 
       const link = document.createElement('a');
       link.download = `souq-baghdad-${title.replace(/\s+/g, '-')}.jpg`;
@@ -1317,30 +925,27 @@ function ImageLightboxModal({ src, title, onClose }: { src: string; title: strin
 // ─────────────────────────────────────────────
 // Ad Card
 // ─────────────────────────────────────────────
-function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu }:{
-  ad:Ad; onSelect:()=>void; isFav:boolean; onFav:(e:React.MouseEvent)=>void; onSellerClick?:(id:string)=>void; onActionMenu?:(e:React.MouseEvent)=>void;
+function AdCard({ ad, onSelect, isFav, onFav, onSellerClick }:{
+  ad:Ad; onSelect:()=>void; isFav:boolean; onFav:(e:React.MouseEvent)=>void; onSellerClick?:(e:React.MouseEvent)=>void;
 }) {
-  const onlineStatuses = useOnlineStatuses();
   const time = useRelativeTime(ad.createdAtISO);
   return (
-    <motion.div whileHover={{y:-4}} onClick={onSelect} onContextMenu={onActionMenu}
+    <motion.div whileHover={{y:-4}} onClick={onSelect}
       className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full">
       <div className="relative w-full aspect-[4/3] overflow-hidden flex-shrink-0">
-        <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={ad.title} className="w-full h-full object-cover" loading="lazy" decoding="async"/>
+        <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={ad.title} className="w-full h-full object-cover" loading="lazy"/>
         {ad.type==='rent'&&<div className="absolute top-2 left-2 px-2 py-0.5 bg-blue-500 rounded-full text-xs font-bold text-white">للإيجار</div>}
         <button onClick={onFav} className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'} transition-colors`}>
           <Heart className={`w-4 h-4 text-white ${isFav?'fill-current':''}`}/></button>
         {ad.seller?.isVerified&&<div className="absolute bottom-2 left-2 px-2 py-0.5 bg-blue-500 rounded-full text-[10px] font-bold text-white flex items-center gap-1"><Shield className="w-2.5 h-2.5"/>موثق</div>}
-        {ad.status==='sold'&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-[1px]"><span className="bg-red-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
       </div>
       <div className="p-3 flex-1 flex flex-col">
         <h3 className="text-white font-bold text-sm mb-1 line-clamp-1">{ad.title}</h3>
         <p className="text-lg font-bold text-amber-400 mb-2">{formatPrice(ad.price)} <span className="text-xs text-gray-400">د.ع</span></p>
         <div className="flex items-center gap-1 text-gray-400 text-xs mb-2 flex-1"><MapPin className="w-3 h-3 flex-shrink-0"/><span className="line-clamp-1">{ad.location}</span></div>
         <div className="flex items-center justify-between mt-auto">
-          <button onClick={e=>{e.stopPropagation();onSellerClick?.(ad.postedBy||'');}} className="flex items-center gap-1.5 hover:opacity-80 transition-opacity relative">
+          <button onClick={e=>{e.stopPropagation();onSellerClick?.(e);}} className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
             <img src={ad.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className="w-5 h-5 rounded-full border border-gray-600 object-cover"/>
-            {onlineStatuses[ad.postedBy||''] && <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-gray-800" title="متصل الآن"></div>}
             <span className="text-gray-400 text-xs truncate max-w-[80px]">{ad.seller?.name || 'مستخدم'}</span>
           </button>
           <div className="flex items-center gap-2 text-gray-500 text-xs">
@@ -1356,32 +961,29 @@ function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu }:{
 // ─────────────────────────────────────────────
 // Product Card
 // ─────────────────────────────────────────────
-function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionMenu }:{
-  product:Product; onSelect:()=>void; isFav:boolean; onFav:(e:React.MouseEvent)=>void; onSellerClick?:(id:string)=>void; onActionMenu?:(e:React.MouseEvent)=>void;
+function ProductCard({ product, onSelect, isFav, onFav, onSellerClick }:{
+  product:Product; onSelect:()=>void; isFav:boolean; onFav:(e:React.MouseEvent)=>void; onSellerClick?:(e:React.MouseEvent)=>void;
 }) {
-  const onlineStatuses = useOnlineStatuses();
   const time = useRelativeTime(product.createdAtISO);
   return (
-    <motion.div whileHover={{y:-4}} onClick={onSelect} onContextMenu={onActionMenu}
+    <motion.div whileHover={{y:-4}} onClick={onSelect}
       className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full">
       <div className="relative w-full aspect-[4/3] overflow-hidden flex-shrink-0">
-        <img src={product.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={product.title} className="w-full h-full object-cover" loading="lazy" decoding="async"/>
+        <img src={product.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={product.title} className="w-full h-full object-cover" loading="lazy"/>
         <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{background:product.condition==='new'?'#22c55e':'#f59e0b'}}>
           {product.condition==='new'?'جديد':'مستعمل'}</div>
         <button onClick={onFav} className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'}`}>
           <Heart className={`w-4 h-4 text-white ${isFav?'fill-current':''}`}/></button>
         <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-purple-600 rounded-full text-[10px] font-bold text-white flex items-center gap-1">
           <ShoppingBag className="w-2.5 h-2.5"/>متجر</div>
-        {product.status==='sold'&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-[1px]"><span className="bg-red-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
       </div>
       <div className="p-3 flex-1 flex flex-col">
         <h3 className="text-white font-bold text-sm mb-1 line-clamp-1">{product.title}</h3>
         <p className="text-lg font-bold text-amber-400 mb-2">{formatPrice(product.price)} <span className="text-xs text-gray-400">د.ع</span></p>
         <div className="flex items-center gap-1 text-gray-400 text-xs mb-2 flex-1"><MapPin className="w-3 h-3 flex-shrink-0"/><span>{product.governorate}</span></div>
         <div className="flex items-center justify-between mt-auto">
-          <button onClick={e=>{e.stopPropagation();onSellerClick?.(product.postedBy||'');}} className="flex items-center gap-1.5 hover:opacity-80 relative">
+          <button onClick={e=>{e.stopPropagation();onSellerClick?.(e);}} className="flex items-center gap-1.5 hover:opacity-80">
             <img src={product.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className="w-5 h-5 rounded-full border border-gray-600 object-cover"/>
-            {onlineStatuses[product.postedBy||''] && <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-gray-800" title="متصل الآن"></div>}
             <span className="text-gray-400 text-xs truncate max-w-[80px]">{product.seller?.name || 'مستخدم'}</span>
           </button>
           <div className="flex items-center gap-2 text-gray-500 text-xs">
@@ -1403,11 +1005,10 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
-  const onlineStatuses = useOnlineStatuses();
   useEffect(()=>{
     setImgIdx(0);
     if (ad) {
-      recordItemView(ad.id, 'ad', user, ad.postedBy);
+      recordItemView(ad.id, 'ad', user);
     }
   },[ad]);
 
@@ -1430,8 +1031,6 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
         <InterestTimer itemId={ad.id} itemType="ad" />
         <div className="relative"><div className="aspect-video overflow-hidden rounded-t-3xl bg-gray-800 relative group">
           <img src={ad.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={ad.title}
-            decoding="async"
-            fetchPriority="high"
             onClick={() => onImageZoom?.(ad.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700', ad.title)}
             className="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition-all duration-300"/>
           <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-lg pointer-events-none flex items-center gap-1 opacity-85 group-hover:opacity-100 transition-opacity">
@@ -1447,16 +1046,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
         </div>
         <div className="p-5">
           <div className="flex items-start justify-between mb-3">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <h2 className="text-xl font-bold text-white">{ad.title}</h2>
-                <div className="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded-lg border border-gray-700">
-                  <span className="text-xs text-gray-400">{ad.short_id ? `#${ad.short_id}` : `#${String(ad.id).substring(0, 5)}`}</span>
-                  <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(String(ad.short_id || String(ad.id).substring(0, 5))); alert('تم نسخ رقم الإعلان!'); }} className="text-amber-400 hover:text-amber-300">
-                    <Copy className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+            <div><h2 className="text-xl font-bold text-white mb-1">{ad.title}</h2>
               <div className="flex items-center gap-3 text-sm text-gray-400">
                 <span className="flex items-center gap-1"><MapPin className="w-3 h-3"/>{ad.location}</span>
                 <TimeAgo iso={ad.createdAtISO} className="text-green-400 font-medium"/>
@@ -1486,7 +1076,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 mb-3">
-            <motion.a href={getWhatsAppLink(ad.phone, ad.type === 'transport' ? 'transport' : 'product', { id: ad.id, short_id: ad.short_id, title: ad.title, location: ad.location, university: ad.description, time: 'راجع الإعلان' })} target="_blank" rel="noopener noreferrer"
+            <motion.a href={getWhatsAppLink(ad.phone, ad.type === 'transport' ? 'transport' : 'product', { title: ad.title, location: ad.location, university: ad.description, time: 'راجع الإعلان' })} target="_blank" rel="noopener noreferrer"
               whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="flex items-center justify-center gap-2 py-4 bg-green-500 text-white font-bold rounded-xl text-sm">
               <MessageSquare className="w-5 h-5"/> واتساب</motion.a>
             <motion.a href={`tel:${ad.phone}`} whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="flex items-center justify-center gap-2 py-4 bg-blue-500 text-white font-bold rounded-xl text-sm">
@@ -1510,7 +1100,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
 // Product Detail Modal
 // ─────────────────────────────────────────────
 function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom }:{
-  product:Product|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; onAuthRequired:()=>void; onSellerClick?:(id:any)=>void;
+  product:Product|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; onAuthRequired:()=>void; onSellerClick?:(id:string)=>void;
   onViewDurationLogged?:(seconds:number)=>void; onImageZoom?:(src:string, title:string)=>void;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
@@ -1518,7 +1108,7 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
   useEffect(()=>{
     setImgIdx(0);
     if (product) {
-      recordItemView(product.id, 'product', user, product.postedBy);
+      recordItemView(product.id, 'product', user);
     }
   },[product]);
 
@@ -1541,8 +1131,6 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
         <InterestTimer itemId={product.id} itemType="product" />
         <div className="relative"><div className="aspect-video overflow-hidden rounded-t-3xl bg-gray-800 relative group">
           <img src={product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={product.title}
-            decoding="async"
-            fetchPriority="high"
             onClick={() => onImageZoom?.(product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700', product.title)}
             className="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition-all duration-300"/>
           <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-lg pointer-events-none flex items-center gap-1 opacity-85 group-hover:opacity-100 transition-opacity">
@@ -1588,7 +1176,7 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 mb-3">
-            <motion.a href={getWhatsAppLink(product.phone, 'product', { id: product.id, short_id: product.short_id, title: product.title, location: product.governorate })} target="_blank" rel="noopener noreferrer"
+            <motion.a href={getWhatsAppLink(product.phone, 'product', { title: product.title, location: product.governorate })} target="_blank" rel="noopener noreferrer"
               whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="flex items-center justify-center gap-2 py-4 bg-green-500 text-white font-bold rounded-xl text-sm">
               <MessageSquare className="w-5 h-5"/> واتساب</motion.a>
             <motion.a href={`tel:${product.phone}`} whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="flex items-center justify-center gap-2 py-4 bg-blue-500 text-white font-bold rounded-xl text-sm">
@@ -1615,7 +1203,7 @@ function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDuratio
   const [showViewers, setShowViewers] = useState(false);
   useEffect(()=>{
     if (ad) {
-      recordItemView(ad.id, 'transport', user, ad.postedBy);
+      recordItemView(ad.id, 'transport', user);
     }
   },[ad]);
 
@@ -1710,7 +1298,7 @@ function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDuratio
 
         {/* Call Actions */}
         <div className="grid grid-cols-2 gap-3">
-          <motion.a href={getWhatsAppLink(ad.phone, 'transport', { id: ad.id, title: ad.type==='offer'?'خط متوفر':'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })} target="_blank" rel="noopener noreferrer"
+          <motion.a href={getWhatsAppLink(ad.phone, 'transport', { title: ad.type==='offer'?'خط متوفر':'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })} target="_blank" rel="noopener noreferrer"
             whileHover={{scale:1.02}} whileTap={{scale:0.98}}
             className="flex items-center justify-center gap-2 py-3 bg-green-500 text-white font-bold rounded-xl text-sm">
             <MessageSquare className="w-5 h-5"/> واتساب
@@ -1738,29 +1326,20 @@ function AdFormModal({ isOpen, onClose, onSubmit, user, editAd }:{
   const isEdit = !!editAd;
   const [tab, setTab] = useState<'form'|'preview'>('form');
   const [fd, setFd] = useState({ title:editAd?.title||'', price:editAd?.price?formatPrice(editAd.price):'', description:editAd?.description||'', category:editAd?.category||'cars', governorate:editAd?.governorate||user?.location||'بغداد', phone:editAd?.phone||user?.phone||'', type:editAd?.type||'sell' });
-  const [images, setImages] = useState<{preview:string;progress:number;_uid?:string}[]>((editAd?.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)}))||[]));
+  const [images, setImages] = useState<{preview:string;progress:number}[]>(editAd?.images?.map(img=>({preview:img,progress:100}))||[]);
   const [uploading, setUploading] = useState(false); const [pct, setPct] = useState(0);
   const playSound = useSound();
-  useEffect(()=>{ if(editAd){ setFd({title:editAd.title,price:formatPrice(editAd.price),description:editAd.description,category:editAd.category,governorate:editAd.governorate,phone:editAd.phone,type:editAd.type}); setImages(editAd.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)})) || []); } },[editAd]);
+  useEffect(()=>{ if(editAd){ setFd({title:editAd.title,price:formatPrice(editAd.price),description:editAd.description,category:editAd.category,governorate:editAd.governorate,phone:editAd.phone,type:editAd.type}); setImages(editAd.images?.map(img=>({preview:img,progress:100})) || []); } },[editAd]);
   const handleImages = async (e:React.ChangeEvent<HTMLInputElement>) => {
     if(!e.target.files) return;
     const files = Array.from(e.target.files);
     for(const file of files){
-      const uid = Math.random().toString(36).substring(2, 9);
-      setImages(prev=>[...prev,{preview:'',progress:0,_uid:uid}]);
-      let p=0;
-      const iv=setInterval(()=>{
-        p=Math.min(p+Math.random()*30,85);
-        setImages(prev=>prev.map(img=>img._uid===uid&&img.progress<100?{...img,progress:p}:img));
-      },120);
-      try {
-        const b64 = await compressImage(file);
-        clearInterval(iv);
-        setImages(prev=>prev.map(img=>img._uid===uid?{...img,preview:b64,progress:100}:img));
-      } catch (err) {
-        clearInterval(iv);
-        setImages(prev=>prev.filter(img=>img._uid!==uid));
-      }
+      const idx = images.length;
+      setImages(prev=>[...prev,{preview:'',progress:0}]);
+      let p=0; const iv=setInterval(()=>{ p=Math.min(p+Math.random()*30,85); setImages(prev=>prev.map((img,i)=>i===idx&&img.progress<100?{...img,progress:p}:img)); },120);
+      const b64 = await compressImage(file);
+      clearInterval(iv);
+      setImages(prev=>prev.map((img,i)=>i===idx?{preview:b64,progress:100}:img));
     }
   };
   const handleSubmit = async (e:React.FormEvent) => {
@@ -1859,28 +1438,18 @@ function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct }:{
 }) {
   const isEdit = !!editProduct;
   const [fd, setFd] = useState({ title:editProduct?.title||'', price:editProduct?.price?formatPrice(editProduct.price):'', description:editProduct?.description||'', category:editProduct?.category||'phones', governorate:editProduct?.governorate||user?.location||'بغداد', phone:editProduct?.phone||user?.phone||'', condition:(editProduct?.condition||'new') as 'new'|'used', stock:editProduct?.stock||1 });
-  const [images, setImages] = useState<{preview:string;progress:number;_uid?:string}[]>((editProduct?.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)}))||[]));
+  const [images, setImages] = useState<{preview:string;progress:number}[]>(editProduct?.images?.map(img=>({preview:img,progress:100}))||[]);
   const [uploading, setUploading] = useState(false); const [pct, setPct] = useState(0);
   const playSound = useSound();
-  useEffect(()=>{if(editProduct){setFd({title:editProduct.title,price:formatPrice(editProduct.price),description:editProduct.description,category:editProduct.category,governorate:editProduct.governorate,phone:editProduct.phone,condition:editProduct.condition,stock:editProduct.stock});setImages(editProduct.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)})) || []);}},[editProduct]);
+  useEffect(()=>{if(editProduct){setFd({title:editProduct.title,price:formatPrice(editProduct.price),description:editProduct.description,category:editProduct.category,governorate:editProduct.governorate,phone:editProduct.phone,condition:editProduct.condition,stock:editProduct.stock});setImages(editProduct.images?.map(img=>({preview:img,progress:100})) || []);}},[editProduct]);
   const handleImages = async (e:React.ChangeEvent<HTMLInputElement>) => {
     if(!e.target.files) return;
     for(const file of Array.from(e.target.files)){
-      const uid = Math.random().toString(36).substring(2, 9);
-      setImages(prev=>[...prev,{preview:'',progress:0,_uid:uid}]);
-      let p=0;
-      const iv=setInterval(()=>{
-        p=Math.min(p+Math.random()*30,85);
-        setImages(prev=>prev.map(img=>img._uid===uid&&img.progress<100?{...img,progress:p}:img));
-      },120);
-      try {
-        const b64 = await compressImage(file);
-        clearInterval(iv);
-        setImages(prev=>prev.map(img=>img._uid===uid?{...img,preview:b64,progress:100}:img));
-      } catch (err) {
-        clearInterval(iv);
-        setImages(prev=>prev.filter(img=>img._uid!==uid));
-      }
+      const idx = images.length;
+      setImages(prev=>[...prev,{preview:'',progress:0}]);
+      let p=0; const iv=setInterval(()=>{p=Math.min(p+Math.random()*30,85);setImages(prev=>prev.map((img,i)=>i===idx&&img.progress<100?{...img,progress:p}:img));},120);
+      const b64=await compressImage(file); clearInterval(iv);
+      setImages(prev=>prev.map((img,i)=>i===idx?{preview:b64,progress:100}:img));
     }
   };
   const handleSubmit = async (e:React.FormEvent) => {
@@ -1889,8 +1458,7 @@ function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct }:{
     const p:Product = { id:isEdit?editProduct!.id:Date.now(), title:fd.title, price:fd.price.replace(/,/g,''), description:fd.description, category:fd.category, governorate:fd.governorate, phone:fd.phone, condition:fd.condition, stock:fd.stock,
       images:images.filter(i=>i.preview).map(i=>i.preview).concat(images.length===0?['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=700']:[]),
       seller:{name:user.name,avatar:user.avatar,isVerified:user.isVerified,rating:user.rating||5,joinedDate:user.joinedDate,location:user.location},
-      createdAtISO:isEdit?(editProduct?.createdAtISO||new Date().toISOString()):new Date().toISOString(), views:isEdit?(editProduct?.views||0):0, postedBy:user.id,
-      status:isEdit?(editProduct?.status||'active'):'active' };
+      createdAtISO:isEdit?(editProduct?.createdAtISO||new Date().toISOString()):new Date().toISOString(), views:isEdit?(editProduct?.views||0):0, postedBy:user.id };
     setUploading(false); playSound('success'); onSubmit(p); onClose();
     if(!isEdit){setFd({title:'',price:'',description:'',category:'phones',governorate:user?.location||'بغداد',phone:user?.phone||'',condition:'new',stock:1});setImages([]);}
   };
@@ -2097,7 +1665,7 @@ function MyLinesTab({ userId, lines, onUpdateStatus, onDelete }: {
                 </h3>
                 <p className="text-gray-400 text-sm mb-6 leading-relaxed">
                   {showConfirmModal.action === 'found_line'
-                    ? 'شكراً على استخدامك سوق بغداد! سيتم إخفاء إعلانك من قائمة الخطوط العامة. سيتم خزن إعلانك في قسم خطوطي ويمكنك إعادة فتح الإعلان في أي وقت.'
+                    ? 'إذا تم العثور على خط، سيتم إخفاء إعلانك من قائمة الخطوط العامة ونقله إلى قسم "مكتمل" داخل حسابك.'
                     : 'إذا تم إغلاق الخط، سيتم إخفاء الإعلان من قائمة الخطوط العامة ونقله إلى قسم "مكتمل" داخل حسابك.'}
                 </p>
                 <div className="flex gap-3">
@@ -2118,206 +1686,23 @@ function MyLinesTab({ userId, lines, onUpdateStatus, onDelete }: {
 
 // Profile View
 // ─────────────────────────────────────────────
-// ─────────────────────────────────────────────
-// Password Change Modal Component
-// ─────────────────────────────────────────────
-function PasswordChangeModal({ isOpen, onClose, userEmail, userPhone }:{
-  isOpen: boolean;
-  onClose: () => void;
-  userEmail?: string;
-  userPhone?: string;
-}) {
-  const [oldPassword, setOldPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg('');
-    setSuccessMsg('');
-
-    if (!oldPassword) { setErrorMsg('الرجاء إدخال كلمة المرور السابقة'); return; }
-    if (newPassword.length < 6) { setErrorMsg('يجب أن تكون كلمة المرور الجديدة 6 أحرف على الأقل'); return; }
-    if (newPassword !== confirmPassword) { setErrorMsg('كلمة المرور الجديدة وتأكيدها غير متطابقين'); return; }
-
-    setLoading(true);
-    try {
-      const identifier = userEmail || userPhone;
-      if (!identifier) {
-        setErrorMsg('لم يتم العثور على بريد إلكتروني أو رقم هاتف للتحقق');
-        setLoading(false);
-        return;
-      }
-
-      const credentials = userEmail 
-        ? { email: identifier, password: oldPassword }
-        : { phone: identifier, password: oldPassword };
-      const { error: signInErr } = await supabase.auth.signInWithPassword(credentials);
-
-      if (signInErr) {
-        setErrorMsg('كلمة المرور السابقة غير صحيحة');
-        setLoading(false);
-        return;
-      }
-
-      const { error: updateErr } = await supabase.auth.updateUser({
-        password: newPassword
-      });
-
-      if (updateErr) {
-        setErrorMsg(updateErr.message || 'فشل تحديث كلمة المرور');
-      } else {
-        setSuccessMsg('تم تغيير كلمة المرور بنجاح! ✅');
-        setOldPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
-        setTimeout(onClose, 2000);
-      }
-    } catch (err) {
-      setErrorMsg('حدث خطأ غير متوقع');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-      <motion.div 
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="relative bg-gray-900 border border-gray-800 rounded-3xl p-6 w-full max-w-md shadow-2xl overflow-hidden"
-      >
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-yellow-500" />
-        <button onClick={onClose} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white transition-colors">
-          <X className="w-5 h-5" />
-        </button>
-        
-        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-          <Key className="w-5 h-5 text-amber-400" /> تعديل كلمة المرور
-        </h2>
-
-        {errorMsg && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
-
-        {successMsg && (
-          <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 text-green-400 rounded-xl text-xs flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 flex-shrink-0" />
-            <span>{successMsg}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-gray-400 text-xs font-semibold mb-1.5">كلمة المرور السابقة</label>
-            <input 
-              type="password" 
-              required 
-              value={oldPassword} 
-              onChange={e => setOldPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full bg-gray-850 border border-gray-700 text-white px-4 py-2.5 rounded-xl outline-none focus:border-amber-500 transition-colors text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-gray-400 text-xs font-semibold mb-1.5">كلمة المرور الجديدة</label>
-            <input 
-              type="password" 
-              required 
-              value={newPassword} 
-              onChange={e => setNewPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full bg-gray-855 border border-gray-700 text-white px-4 py-2.5 rounded-xl outline-none focus:border-amber-500 transition-colors text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-gray-400 text-xs font-semibold mb-1.5">تأكيد كلمة المرور الجديدة</label>
-            <input 
-              type="password" 
-              required 
-              value={confirmPassword} 
-              onChange={e => setConfirmPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full bg-gray-855 border border-gray-700 text-white px-4 py-2.5 rounded-xl outline-none focus:border-amber-500 transition-colors text-sm"
-            />
-          </div>
-
-          <button 
-            type="submit" 
-            disabled={loading}
-            className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-amber-500/50 disabled:cursor-not-allowed text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors mt-2"
-          >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'تحديث كلمة المرور'}
-          </button>
-        </form>
-      </motion.div>
-    </div>
-  );
-}
-
-function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeleteProduct, onEditProduct, onUpdateUser, onAddAd, onAddProduct, transportLines, onUpdateTransportStatus, onDeleteTransportAd, onMarkAdSold, onMarkProductSold }:{
+function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeleteProduct, onEditProduct, onUpdateUser, onAddAd, onAddProduct, transportLines, onUpdateTransportStatus, onDeleteTransportAd }:{
   user:User; myAds:Ad[]; myProducts:Product[]; onDeleteAd:(id:number)=>void; onEditAd:(ad:Ad)=>void;
   onDeleteProduct:(id:number)=>void; onEditProduct:(p:Product)=>void; onUpdateUser:(u:User)=>void;
   onAddAd:()=>void; onAddProduct:()=>void;
   transportLines: TransportAd[];
   onUpdateTransportStatus: (id: number, status: TransportAd['status'], reason?: TransportAd['completion_reason']) => void;
   onDeleteTransportAd: (id: number) => void;
-  onMarkAdSold:(ad:Ad)=>void;
-  onMarkProductSold:(p:Product)=>void;
 }) {
-  const [tab, setTab] = useState<'ads'|'store'|'archive'|'lines'|'account'>('ads');
+  const [tab, setTab] = useState<'ads'|'store'|'lines'|'account'>('ads');
   const [editing, setEditing] = useState(false);
-  const [ef, setEf] = useState({ name:user.name, phone:user.phone, location:user.location, bio:user.bio||'', email:user.email||'' });
-  const [showVerifyModal, setShowVerifyModal] = useState(false);
-  const [verifyImage, setVerifyImage] = useState<string|null>(null);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [ef, setEf] = useState({ name:user.name, phone:user.phone, location:user.location, bio:user.bio||'' });
   // Image crop state
   const [cropSrc, setCropSrc] = useState<string|null>(null);
   const [cropType, setCropType] = useState<'avatar'|'cover'>('avatar');
   const [avatarPreview, setAvatarPreview] = useState(user.avatar||DEFAULT_AVATAR);
-  const [coverPreview, setCoverPreview] = useState(getCoverImage(user));
+  const [coverPreview, setCoverPreview] = useState(user.cover||DEFAULT_COVER);
   const playSound = useSound();
-
-  const formatJoinedDate = (isoString: string) => {
-    try {
-      const d = new Date(isoString);
-      if (isNaN(d.getTime())) return isoString;
-      return d.toLocaleDateString('ar-IQ', { year: 'numeric', month: 'long' });
-    } catch {
-      return isoString;
-    }
-  };
-
-  const submitVerification = async () => {
-    if (!verifyImage) return;
-    setIsVerifying(true);
-    try {
-      const { error } = await supabase.from('verification_requests').insert([{
-        user_id: user.id,
-        id_image: verifyImage
-      }]);
-      if (error) throw error;
-      alert('تم تقديم طلب التوثيق بنجاح! سيتم مراجعته قريباً.');
-      setShowVerifyModal(false);
-    } catch {
-      alert('حدث خطأ أثناء تقديم الطلب.');
-    } finally {
-      setIsVerifying(false);
-    }
-  };
 
   useEffect(() => {
     const handleSwitch = () => setTab('lines');
@@ -2325,65 +1710,14 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
     return () => window.removeEventListener('switch-to-lines-tab', handleSwitch);
   }, []);
 
-  const handleSave = async () => {
-    if (!ef.name.trim()) { alert('الرجاء إدخال الاسم الكامل'); return; }
-    if (!ef.phone.trim()) { alert('الرجاء إدخال رقم الهاتف'); return; }
-    if (!ef.email.trim()) { alert('الرجاء إدخال البريد الإلكتروني'); return; }
-    if (!/\S+@\S+\.\S+/.test(ef.email)) { alert('الرجاء إدخال بريد إلكتروني صالح'); return; }
-
-    setIsSaving(true);
-    try {
-      // Check phone uniqueness
-      const { data: phoneCheck } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('phone', ef.phone.trim())
-        .neq('id', user.id);
-      if (phoneCheck && phoneCheck.length > 0) {
-        alert('رقم الهاتف هذا مستخدم بالفعل في حساب آخر!');
-        setIsSaving(false);
-        return;
-      }
-
-      // Check email uniqueness
-      const { data: emailCheck } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', ef.email.trim().toLowerCase())
-        .neq('id', user.id);
-      if (emailCheck && emailCheck.length > 0) {
-        alert('البريد الإلكتروني هذا مستخدم بالفعل في حساب آخر!');
-        setIsSaving(false);
-        return;
-      }
-
-      // Update in auth if email changed
-      if (ef.email.trim().toLowerCase() !== (user.email || '').toLowerCase()) {
-        const { error: authErr } = await supabase.auth.updateUser({ email: ef.email.trim().toLowerCase() });
-        if (authErr) {
-          console.warn('Could not update email in Auth:', authErr.message);
-          alert('تم تحديث البريد الإلكتروني للملف، ولكن قد يتطلب ذلك تأكيد البريد الجديد عبر البريد الإلكتروني.');
-        }
-      }
-
-      // Update in auth if phone changed
-      if (ef.phone.trim() !== (user.phone || '')) {
-        await supabase.auth.updateUser({ phone: ef.phone.trim() }).catch(() => {});
-      }
-
-      const updated: User = { ...user, ...ef, email: ef.email.trim().toLowerCase(), phone: ef.phone.trim(), avatar: avatarPreview, cover: coverPreview };
-      await onUpdateUser(updated);
-      setEditing(false);
-    } catch (e) {
-      alert('حدث خطأ أثناء حفظ التغييرات');
-    } finally {
-      setIsSaving(false);
-    }
+  const handleSave = () => {
+    const updated:User = { ...user, ...ef, avatar:avatarPreview, cover:coverPreview };
+    onUpdateUser(updated); setEditing(false);
   };
 
   const openCrop = async (e:React.ChangeEvent<HTMLInputElement>, type:'avatar'|'cover') => {
     if(!e.target.files?.[0]) return;
-    const b64 = await compressImage(e.target.files[0], 1200, 0.9, false);
+    const b64 = await compressImage(e.target.files[0], 1200, 0.9);
     setCropType(type); setCropSrc(b64);
   };
 
@@ -2401,16 +1735,9 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
         {/* Banner with 3:1 aspect ratio */}
         <div className="w-full aspect-[3/1] md:aspect-[4/1] bg-gray-900 relative overflow-hidden flex items-center justify-center">
           <img src={coverPreview} alt="" className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110"/>
-          <img src={coverPreview} alt="Cover" className="relative w-full h-full object-cover z-0"/>
-          {/* Watermark */}
-          <div className="absolute top-4 left-4 z-10 flex items-center gap-2 opacity-60 select-none pointer-events-none drop-shadow-xl">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-900 rounded-lg flex items-center justify-center border border-amber-500/40">
-              <span className="text-white font-bold text-[10px] sm:text-xs">سوك</span>
-            </div>
-            <span className="text-white font-bold text-xs sm:text-sm drop-shadow-md">سوك بغداد</span>
-          </div>
+          <img src={coverPreview} alt="Cover" className="relative w-full h-full object-contain z-0"/>
           <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/30 to-transparent z-10"/>
-          {editing && ['pro','vendor','admin','owner'].includes(user.role) && <label className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 bg-black/60 text-white text-xs rounded-xl cursor-pointer hover:bg-black/80 backdrop-blur-md z-20">
+          {editing&&<label className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 bg-black/60 text-white text-xs rounded-xl cursor-pointer hover:bg-black/80 backdrop-blur-md z-20">
             <Camera className="w-4 h-4"/> تغيير الغلاف
             <input type="file" accept="image/*" onChange={e=>openCrop(e,'cover')} className="hidden"/></label>}
         </div>
@@ -2421,7 +1748,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
             {/* Avatar */}
             <div className="relative z-20">
               <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-gray-950 shadow-xl overflow-hidden bg-white flex items-center justify-center">
-                <img src={avatarPreview} alt={user.name} className="w-full h-full object-cover"/>
+                <img src={avatarPreview} alt={user.name} className="w-full h-full object-contain p-0.5"/>
               </div>
               {editing&&(
                 <div className="absolute -bottom-1 -right-1 flex gap-1">
@@ -2443,7 +1770,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                   <button onClick={()=>{setEditing(false);setAvatarPreview(user.avatar||DEFAULT_AVATAR);setCoverPreview(user.cover||DEFAULT_COVER);}} className="px-3 py-2 sm:px-4 sm:py-2 bg-gray-800 text-gray-300 border border-gray-700 rounded-xl text-sm hover:bg-gray-700">إلغاء</button>
                 </>
               ):(
-                <button onClick={()=>{setEditing(true);setEf({name:user.name,phone:user.phone,location:user.location,bio:user.bio||'',email:user.email||''});}} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-amber-500 text-black rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20 hover:bg-amber-600">
+                <button onClick={()=>{setEditing(true);setEf({name:user.name,phone:user.phone,location:user.location,bio:user.bio||''});}} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-amber-500 text-black rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20 hover:bg-amber-600">
                   <Edit2 className="w-4 h-4"/>تعديل</button>
               )}
             </div>
@@ -2456,22 +1783,15 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
               {user.role==='owner'&&<span className="flex items-center gap-1 px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs rounded-full font-bold"><Crown className="w-3 h-3"/>مالك</span>}
               {user.role==='admin'&&<span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs rounded-full font-bold">مشرف</span>}
               {user.role==='vendor'&&<span className="flex items-center gap-1 px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs rounded-full font-bold"><Crown className="w-3 h-3"/>تاجر موثق</span>}
-              {user.role==='pro'&&<span className="flex items-center gap-1 px-2 py-0.5 bg-purple-500/20 text-purple-400 text-xs rounded-full font-bold"><Star className="w-3 h-3"/>حساب برو</span>}
               {user.badges?.isStudent && <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded-md text-xs font-semibold flex items-center gap-1">🎓 طالب موثق</span>}
               {user.badges?.hasVehicle && <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded-md text-xs font-semibold flex items-center gap-1">🚗 مركبة موثقة</span>}
               {user.badges?.hasID && <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded-md text-xs font-semibold flex items-center gap-1">🪪 هوية موثقة</span>}
               {user.badges?.isPhoneVerified && <span className="px-2 py-0.5 bg-sky-500/20 text-sky-400 rounded-md text-xs font-semibold flex items-center gap-1">📱 هاتف موثق</span>}
-            
-              {!user.isVerified && (
-                <button onClick={() => setShowVerifyModal(true)} className="px-2 py-1 bg-gray-800 border border-gray-700 text-gray-300 hover:text-white rounded-md text-xs font-semibold flex items-center gap-1 transition-colors ml-2">
-                  🛡️ طلب توثيق
-                </button>
-              )}
-</div>
+            </div>
             
             <div className="flex flex-wrap gap-3 mt-2 text-sm text-gray-400">
               <div className="flex items-center gap-1"><MapPin className="w-4 h-4"/><span>{user.location || 'العراق'}</span></div>
-              <div className="flex items-center gap-1"><Calendar className="w-4 h-4"/><span>انضم في {formatJoinedDate(user.joinedDate)}</span></div>
+              <div className="flex items-center gap-1"><Calendar className="w-4 h-4"/><span>انضم {user.joinedDate}</span></div>
               {user.rating && <div className="flex items-center gap-1 text-amber-400"><Star className="w-4 h-4 fill-current"/><span className="font-bold">{user.rating}</span></div>}
             </div>
             {user.bio&&<p className="text-gray-300 text-sm mt-3 line-clamp-2 bg-gray-800/50 p-3 rounded-xl border border-gray-800">{user.bio}</p>}
@@ -2493,7 +1813,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
 
         {/* Tabs */}
         <div className="flex gap-2 mb-5 bg-gray-800 p-1.5 rounded-2xl border border-gray-700 overflow-x-auto scrollbar-hide">
-          {([['ads',`📢 إعلاناتي (${myAds.filter(a=>a.status==='active').length})`],['store',`🛍️ متجري (${myProducts.filter(p=>p.status==='active').length})`],['archive',`📦 الأرشيف (${myAds.filter(a=>a.status==='sold').length + myProducts.filter(p=>p.status==='sold').length})`],['lines',`🚌 خطوطي`],['account','⚙️ الحساب']] as [string,string][]).map(([t,l])=>(
+          {([['ads',`📢 إعلاناتي (${myAds.length})`],['store',`🛍️ متجري (${myProducts.length})`],['lines',`🚌 خطوطي`],['account','⚙️ الحساب']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${tab===t?'bg-amber-500 text-black shadow':'text-gray-400 hover:text-white'}`}>{l}</button>
           ))}
         </div>
@@ -2503,13 +1823,13 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
           <>
             <button onClick={onAddAd} className="w-full mb-4 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-2xl flex items-center justify-center gap-2">
               <Plus className="w-5 h-5"/> إضافة إعلان جديد</button>
-            {myAds.filter(a=>a.status==='active').length===0?(
+            {myAds.length===0?(
               <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700 border-dashed">
                 <div className="text-4xl mb-3">📭</div><p className="text-white font-bold mb-1">لا إعلانات بعد</p><p className="text-gray-400 text-sm">انشر أول إعلان الآن!</p>
               </div>
             ):(
               <div className="space-y-3">
-                {myAds.filter(a=>a.status==='active').map(ad=>(
+                {myAds.map(ad=>(
                   <div key={ad.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-amber-500/30 transition-colors">
                     <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700"/>
                     <div className="flex-1 min-w-0">
@@ -2522,7 +1842,6 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                       </div>
                     </div>
                     <div className="flex flex-col gap-1.5 self-center">
-                      <button onClick={()=>onMarkAdSold(ad)} title="تم البيع" className="p-2 bg-green-500/20 rounded-xl text-green-400 hover:bg-green-500/30"><CheckCircle className="w-3.5 h-3.5"/></button>
                       <button onClick={()=>onEditAd(ad)} className="p-2 bg-amber-500/20 rounded-xl text-amber-400 hover:bg-amber-500/30"><Edit2 className="w-3.5 h-3.5"/></button>
                       <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30"><Trash2 className="w-3.5 h-3.5"/></button>
                     </div>
@@ -2538,13 +1857,13 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
           <>
             <button onClick={onAddProduct} className="w-full mb-4 py-3 bg-gradient-to-r from-purple-500 to-violet-500 text-white font-bold rounded-2xl flex items-center justify-center gap-2">
               <Plus className="w-5 h-5"/> إضافة منتج جديد</button>
-            {myProducts.filter(p=>p.status==='active').length===0?(
+            {myProducts.length===0?(
               <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700 border-dashed">
                 <div className="text-4xl mb-3">🛍️</div><p className="text-white font-bold mb-1">متجرك فارغ</p><p className="text-gray-400 text-sm">أضف أول منتج الآن!</p>
               </div>
             ):(
               <div className="space-y-3">
-                {myProducts.filter(p=>p.status==='active').map(p=>(
+                {myProducts.map(p=>(
                   <div key={p.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-purple-500/30 transition-colors">
                     <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700"/>
                     <div className="flex-1 min-w-0">
@@ -2557,62 +1876,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                       </div>
                     </div>
                     <div className="flex flex-col gap-1.5 self-center">
-                      <button onClick={()=>onMarkProductSold(p)} title="تم البيع" className="p-2 bg-green-500/20 rounded-xl text-green-400 hover:bg-green-500/30"><CheckCircle className="w-3.5 h-3.5"/></button>
                       <button onClick={()=>onEditProduct(p)} className="p-2 bg-purple-500/20 rounded-xl text-purple-400 hover:bg-purple-500/30"><Edit2 className="w-3.5 h-3.5"/></button>
-                      <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30"><Trash2 className="w-3.5 h-3.5"/></button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Archive Tab */}
-        {tab==='archive'&&(
-          <>
-            {(myAds.filter(a=>a.status==='sold').length === 0 && myProducts.filter(p=>p.status==='sold').length === 0) ? (
-              <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700 border-dashed">
-                <div className="text-4xl mb-3">📦</div>
-                <p className="text-white font-bold mb-1">الأرشيف فارغ</p>
-                <p className="text-gray-400 text-sm">المنتجات والإعلانات التي تبيعها وتؤرشفها ستظهر هنا.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {/* Sold Ads */}
-                {myAds.filter(a=>a.status==='sold').map(ad=>(
-                  <div key={ad.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-red-500/30 transition-colors relative">
-                    <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700 opacity-60"/>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-bold text-sm line-clamp-1 opacity-75">{ad.title}</p>
-                      <p className="text-amber-400 text-sm font-bold opacity-75">{formatPrice(ad.price)} <span className="text-xs text-gray-400">د.ع</span></p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-[10px] font-bold rounded-lg border border-red-500/30 flex items-center gap-0.5">
-                          🚫 تم البيع
-                        </span>
-                        <span className="text-gray-500 text-xs">إعلان</span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1.5 self-center">
-                      <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30"><Trash2 className="w-3.5 h-3.5"/></button>
-                    </div>
-                  </div>
-                ))}
-                {/* Sold Products */}
-                {myProducts.filter(p=>p.status==='sold').map(p=>(
-                  <div key={p.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-red-500/30 transition-colors relative">
-                    <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700 opacity-60"/>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-bold text-sm line-clamp-1 opacity-75">{p.title}</p>
-                      <p className="text-amber-400 text-sm font-bold opacity-75">{formatPrice(p.price)} <span className="text-xs text-gray-400">د.ع</span></p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-[10px] font-bold rounded-lg border border-red-500/30 flex items-center gap-0.5">
-                          🚫 تم البيع
-                        </span>
-                        <span className="text-gray-500 text-xs">منتج</span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1.5 self-center">
                       <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30"><Trash2 className="w-3.5 h-3.5"/></button>
                     </div>
                   </div>
@@ -2641,7 +1905,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                 {!editing&&<button onClick={()=>setEditing(true)} className="text-xs text-amber-400 hover:underline flex items-center gap-1"><Edit2 className="w-3 h-3"/> تعديل</button>}
               </div>
               <div className="space-y-3">
-                 {[{label:'الاسم الكامل',field:'name',placeholder:'اسمك الكامل'},{label:'رقم الهاتف',field:'phone',placeholder:'07XXXXXXXXX'},{label:'البريد الإلكتروني',field:'email',placeholder:'example@domain.com'},{label:'نبذة شخصية',field:'bio',placeholder:'اكتب نبذة...',multi:true}].map(({label,field,placeholder,multi})=>(
+                {[{label:'الاسم الكامل',field:'name',placeholder:'اسمك الكامل'},{label:'رقم الهاتف',field:'phone',placeholder:'07XXXXXXXXX'},{label:'نبذة شخصية',field:'bio',placeholder:'اكتب نبذة...',multi:true}].map(({label,field,placeholder,multi})=>(
                   <div key={field}><label className="text-gray-400 text-xs font-medium mb-1 block">{label}</label>
                     {multi?(
                       <textarea disabled={!editing} value={(ef as any)[field]} onChange={e=>setEf({...ef,[field]:e.target.value})} placeholder={placeholder} rows={2} className={`w-full bg-gray-700 text-white rounded-xl py-2.5 px-4 border outline-none resize-none text-sm ${editing?'border-amber-400':'border-gray-600 opacity-70'}`}/>
@@ -2654,32 +1918,21 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                   <select disabled={!editing} value={ef.location} onChange={e=>setEf({...ef,location:e.target.value})} className={`w-full bg-gray-700 text-white rounded-xl py-2.5 px-4 border outline-none text-sm ${editing?'border-amber-400':'border-gray-600 opacity-70'}`}>
                     {IRAQI_GOVERNORATES.filter(g=>g!=='الكل').map(g=><option key={g}>{g}</option>)}</select></div>
                 {editing&&<div className="flex gap-3 pt-2">
-                  <button onClick={handleSave} disabled={isSaving} className="flex-1 py-3 bg-green-500 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4"/>}
-                    حفظ التغييرات
-                  </button>
+                  <button onClick={handleSave} className="flex-1 py-3 bg-green-500 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2"><Save className="w-4 h-4"/>حفظ التغييرات</button>
                   <button onClick={()=>setEditing(false)} className="px-4 py-3 bg-gray-700 text-gray-300 rounded-xl text-sm">إلغاء</button>
                 </div>}
               </div>
             </div>
-            {/* Email (read-only info card, but we add Edit Password button here) */}
+            {/* Email (read-only) */}
             <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700">
               <h3 className="text-white font-bold flex items-center gap-2 mb-3"><Mail className="w-4 h-4 text-blue-400"/>معلومات الحساب</h3>
               <div className="space-y-2">
-                {[{label:'البريد الإلكتروني',val:user.email},{label:'تاريخ الانضمام',val:formatJoinedDate(user.joinedDate)},{label:'نوع الحساب',val:user.role==='owner'?'مالك':user.role==='admin'?'مشرف':'مستخدم'}].map((r,i)=>(
+                {[{label:'البريد الإلكتروني',val:user.email},{label:'تاريخ الانضمام',val:user.joinedDate},{label:'نوع الحساب',val:user.role==='owner'?'مالك':user.role==='admin'?'مشرف':'مستخدم'}].map((r,i)=>(
                   <div key={i} className="flex items-center justify-between py-2 border-b border-gray-700 last:border-0">
                     <span className="text-gray-400 text-sm">{r.label}</span>
                     <span className="text-white text-sm font-medium">{r.val}</span>
                   </div>
                 ))}
-              </div>
-              <div className="mt-4 pt-4 border-t border-gray-700 flex justify-end">
-                <button 
-                  onClick={() => setShowPasswordModal(true)} 
-                  className="py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs flex items-center gap-2 transition-colors shadow-lg"
-                >
-                  <Key className="w-3.5 h-3.5" /> تعديل كلمة المرور
-                </button>
               </div>
             </div>
           </div>
@@ -2689,49 +1942,6 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
       {/* Crop Modal */}
       <AnimatePresence>
         {cropSrc&&<ImageCropModal src={cropSrc} aspectRatio={cropType==='avatar'?1:3} title={cropType==='avatar'?'قص الصورة الشخصية':'قص صورة الغلاف'} onSave={handleCropSave} onClose={()=>setCropSrc(null)}/>}
-        
-        {showVerifyModal && (
-          <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={()=>setShowVerifyModal(false)}/>
-            <motion.div initial={{scale:0.95}} animate={{scale:1}} className="relative bg-gray-900 rounded-3xl p-6 w-full max-w-md border border-gray-700 shadow-2xl">
-              <button onClick={()=>setShowVerifyModal(false)} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400"><X className="w-5 h-5"/></button>
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Shield className="w-5 h-5 text-blue-400"/> طلب توثيق الحساب</h2>
-              <p className="text-gray-400 text-sm mb-4">يرجى رفع صورة واضحة لهويتك الشخصية (البطاقة الوطنية أو جواز السفر) لتوثيق حسابك والحصول على شارة الموثوقية.</p>
-              
-              <div className="mb-4">
-                {verifyImage ? (
-                  <div className="relative rounded-2xl overflow-hidden border border-gray-700 bg-gray-800">
-                    <img src={verifyImage} alt="ID" className="w-full h-48 object-cover"/>
-                    <button onClick={()=>setVerifyImage(null)} className="absolute top-2 left-2 p-2 bg-red-500 rounded-xl text-white shadow-lg"><Trash2 className="w-4 h-4"/></button>
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-gray-700 rounded-2xl cursor-pointer hover:bg-gray-800 transition-colors">
-                    <Camera className="w-8 h-8 text-gray-500 mb-2"/>
-                    <span className="text-gray-400 text-sm">اضغط هنا لالتقاط أو رفع صورة</span>
-                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={async (e) => {
-                      if(e.target.files?.[0]) {
-                        const b64 = await compressImage(e.target.files[0], 1200, 0.8, false);
-                        setVerifyImage(b64);
-                      }
-                    }}/>
-                  </label>
-                )}
-              </div>
-              
-              <button onClick={submitVerification} disabled={!verifyImage || isVerifying} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl disabled:opacity-50 hover:bg-blue-700 transition-colors">
-                {isVerifying ? 'جاري الإرسال...' : 'إرسال طلب التوثيق'}
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-        {showPasswordModal && (
-          <PasswordChangeModal 
-            isOpen={showPasswordModal} 
-            onClose={() => setShowPasswordModal(false)} 
-            userEmail={user.email} 
-            userPhone={user.phone} 
-          />
-        )}
       </AnimatePresence>
     </div>
   );
@@ -2740,25 +1950,22 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
 // ─────────────────────────────────────────────
 // Seller Public Page
 // ─────────────────────────────────────────────
-function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, onSelectProduct, favorites, onToggleFav, user, onAuthRequired, onDeleteProfile, onActionMenu }:{
+function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, onSelectProduct, favorites, onToggleFav, user, onAuthRequired }:{
   sellerId:string; allAds:Ad[]; allProducts:Product[]; onBack:()=>void;
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void;
   favorites:number[]; onToggleFav:(id:number)=>void; user:User|null; onAuthRequired:()=>void;
-  onDeleteProfile?:(id:string)=>void; onActionMenu?:any;
 }) {
-  const onlineStatuses = useOnlineStatuses();
   const [tab, setTab] = useState<'ads'|'products'>('ads');
   const [sellerUser, setSellerUser] = useState<any>(null);
 
-  // Fallback to searching by ID or phone
-  const sellerAds = allAds.filter(a=>a.postedBy===sellerId || a.phone===sellerId);
-  const sellerProds = allProducts.filter(p=>p.postedBy===sellerId || p.phone===sellerId);
+  const sellerAds = allAds.filter(a=>a.postedBy===sellerId);
+  const sellerProds = allProducts.filter(p=>p.postedBy===sellerId);
   const sellerInfo: SellerInfo|null = sellerAds[0]?.seller || sellerProds[0]?.seller || null;
 
   useEffect(() => {
     try {
       const users = JSON.parse(localStorage.getItem('souqUsers') || '[]');
-      const found = users.find((u: any) => u.id === sellerId || u.phone === sellerId);
+      const found = users.find((u: any) => u.id === sellerId);
       if (found) {
         setSellerUser(found);
       } else if (sellerInfo) {
@@ -2775,16 +1982,6 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
       }
     } catch (e) {}
   }, [sellerId, sellerInfo]);
-
-  const formatJoinedDate = (isoString: string) => {
-    try {
-      const d = new Date(isoString);
-      if (isNaN(d.getTime())) return isoString;
-      return d.toLocaleDateString('ar-IQ', { year: 'numeric', month: 'long' });
-    } catch {
-      return isoString;
-    }
-  };
 
   const handleRate = (stars: number) => {
     if (!user) {
@@ -2838,7 +2035,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
     }
   };
 
-  if(!sellerUser && !sellerInfo) return (
+  if(!sellerInfo) return (
     <div className="min-h-screen bg-gray-950 pt-16 flex flex-col items-center justify-center">
       <div className="text-5xl mb-4">🔍</div>
       <h2 className="text-white font-bold text-xl mb-2">لم يتم العثور على البائع</h2>
@@ -2854,15 +2051,8 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
         <img 
           src={sellerUser?.cover || DEFAULT_COVER} 
           alt="Cover" 
-          className="relative w-full h-full object-cover z-0"
+          className="relative w-full h-full object-contain z-0"
         />
-        {/* Watermark */}
-        <div className="absolute top-4 left-4 z-10 flex items-center gap-2 opacity-60 select-none pointer-events-none drop-shadow-xl">
-          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-900 rounded-lg flex items-center justify-center border border-amber-500/40">
-            <span className="text-white font-bold text-[10px] sm:text-xs">سوك</span>
-          </div>
-          <span className="text-white font-bold text-xs sm:text-sm drop-shadow-md">سوك بغداد</span>
-        </div>
         <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/30 to-transparent z-10"/>
         <button onClick={onBack} className="absolute top-4 right-4 z-20 flex items-center gap-1 px-3 py-1.5 bg-black/60 backdrop-blur-md text-white rounded-xl text-xs hover:bg-black/80 font-bold border border-white/10">
           <ChevronRight className="w-4 h-4"/> رجوع</button>
@@ -2872,7 +2062,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
         {/* Avatar Area */}
         <div className="flex justify-between items-end -mt-12 sm:-mt-16 mb-4 relative z-10">
           <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl border-4 border-gray-950 shadow-xl overflow-hidden bg-white flex-shrink-0 flex items-center justify-center">
-            <img src={sellerUser?.avatar || sellerInfo.avatar} alt={sellerUser?.name || sellerInfo.name} className="w-full h-full object-cover"/>
+            <img src={sellerUser?.avatar || sellerInfo.avatar} alt={sellerUser?.name || sellerInfo.name} className="w-full h-full object-contain p-0.5"/>
           </div>
         </div>
 
@@ -2909,24 +2099,9 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
             <span className="text-gray-500 text-xs">({sellerUser?.ratingCount || 1} تقييم)</span>
           </div>
 
-          {user && (user.role === 'admin' || user.role === 'owner') && (
-            <div className="mt-3">
-              <button 
-                onClick={() => {
-                  if(window.confirm('هل أنت متأكد من حذف هذا الملف الشخصي وجميع إعلاناته؟')) {
-                    onDeleteProfile?.(sellerId);
-                  }
-                }} 
-                className="flex items-center gap-1.5 px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl font-bold hover:bg-red-500/20 transition-colors text-sm w-max"
-              >
-                <Trash2 className="w-4 h-4"/> حذف الملف الشخصي
-              </button>
-            </div>
-          )}
-
-          <p className="text-gray-400 text-sm mt-3 flex items-center gap-3">
-            <span className="flex items-center gap-1"><MapPin className="w-4 h-4 text-gray-500" />{sellerUser?.location || sellerInfo.location}</span>
-            <span className="flex items-center gap-1"><Calendar className="w-4 h-4 text-gray-500" />انضم في {formatJoinedDate(sellerUser?.joinedDate || sellerInfo?.joinedDate || new Date().toISOString())}</span>
+          <p className="text-gray-400 text-sm mt-3 flex items-center gap-1">
+            <MapPin className="w-4 h-4 text-gray-500" />
+            <span>{sellerUser?.location || sellerInfo.location}</span>
           </p>
         </div>
 
@@ -2949,14 +2124,14 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
           <div className="bg-gray-800 rounded-2xl p-8 text-center border border-gray-700"><div className="text-3xl mb-2">📭</div><p className="text-gray-400">لا إعلانات بعد</p></div>
         ):(
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {sellerAds.map(ad=><AdCard key={ad.id} ad={ad} onSelect={()=>onSelectAd(ad)} isFav={favorites.includes(ad.id)} onFav={e=>{e.stopPropagation();if(!user){onAuthRequired();return;}onToggleFav(ad.id);}} onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===ad.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"ad",item:ad});}}/>)}
+            {sellerAds.map(ad=><AdCard key={ad.id} ad={ad} onSelect={()=>onSelectAd(ad)} isFav={favorites.includes(ad.id)} onFav={e=>{e.stopPropagation();if(!user){onAuthRequired();return;}onToggleFav(ad.id);}}/>)}
           </div>
         ))}
         {tab==='products'&&(sellerProds.length===0?(
           <div className="bg-gray-800 rounded-2xl p-8 text-center border border-gray-700"><div className="text-3xl mb-2">🛍️</div><p className="text-gray-400">لا منتجات بعد</p></div>
         ):(
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {sellerProds.map(p=><ProductCard key={p.id} product={p} onSelect={()=>onSelectProduct(p)} isFav={favorites.includes(p.id)} onFav={e=>{e.stopPropagation();if(!user){onAuthRequired();return;}onToggleFav(p.id);}} onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===p.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"product",item:p});}}/>)}
+            {sellerProds.map(p=><ProductCard key={p.id} product={p} onSelect={()=>onSelectProduct(p)} isFav={favorites.includes(p.id)} onFav={e=>{e.stopPropagation();if(!user){onAuthRequired();return;}onToggleFav(p.id);}}/>)}
           </div>
         ))}
       </div>
@@ -2967,163 +2142,28 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
 // ─────────────────────────────────────────────
 // Owner Dashboard
 // ─────────────────────────────────────────────
-
-const getWhatsAppResetLink = (phone: string) => {
-  if (!phone) return '#';
-  let clean = phone.replace(/[^0-9]/g, '');
-  if (clean.startsWith('07')) clean = '964' + clean.slice(1);
-  else if (clean.startsWith('7')) clean = '964' + clean;
-  const msg = `🌟 *أهلاً بك في سوق بغداد - السوق الرقمي العراقي*\n\nتم تصفير كلمة سر حسابك بنجاح.\n🔑 الرمز السري الجديد هو: *123456*\n\n💡 *ملاحظة:* يمكنك تغيير كلمة السر في أي وقت من خلال:\n(حسابي الشخصي > الملف الشخصي > قسم الحساب).\n\nشكراً لاستخدامك منصتنا، ونتمنى لك تجربة تسوق رائعة! 🛒\n🌐 رابط الموقع: www.souqbaghdad.store`;
-  return `https://wa.me/${clean}?text=${encodeURIComponent(msg)}`;
-};
-
-function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProduct, onDeleteTransportAd, onClose, onDeleteProfile }: {
-  ads:Ad[];
-  products:Product[];
-  transportAds:TransportAd[];
-  onDeleteAd:(id:string|number)=>void;
-  onDeleteProduct:(id:string|number)=>void;
-  onDeleteTransportAd:(id:number)=>void;
-  onClose:()=>void;
-  onDeleteProfile?:(id:string)=>void;
-}) {
-  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'messages'>('overview');
-  const [verificationRequests, setVerificationRequests] = useState<any[]>([]);
-  const [recoveryRequests, setRecoveryRequests] = useState<any[]>([]);
+const DEVICE_COLORS = ['#f59e0b','#3b82f6','#8b5cf6'];
+function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:{ads:Ad[];products:Product[];onDeleteAd:(id:number)=>void;onDeleteProduct:(id:number)=>void;onClose:()=>void}) {
+  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'>('overview');
   const [storedUsers, setStoredUsers] = useState<StoredUser[]>([]);
-  const [dbUsers, setDbUsers] = useState<any[]>([]);
-  const [dbGuests, setDbGuests] = useState<any[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [supportMessages, setSupportMessages] = useState<any[]>([]);
-  const [isFetchingMessages, setIsFetchingMessages] = useState(false);
-  const [usersSearch, setUsersSearch] = useState('');
-  const [usersFilter, setUsersFilter] = useState<'all'|'vendor'|'pro'|'admin'|'banned'>('all');
-  const [usersSort, setUsersSort] = useState<'last_seen'|'newest'|'alphabetical'>('last_seen');
-
-
   
   // Broadcast State
   const [broadcastTitle, setBroadcastTitle] = useState('');
   const [broadcastMsg, setBroadcastMsg] = useState('');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [broadcastSent, setBroadcastSent] = useState(false);
-  const [viewersModalItem, setViewersModalItem] = useState<{id:string|number, type:'ad'|'product'|'transport'}|null>(null);
-  const onlineStatuses = useOnlineStatuses();
 
   useEffect(()=>{
     try{setStoredUsers(JSON.parse(localStorage.getItem('souqUsers')||'[]'));}catch{}
     try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}
     const iv=setInterval(()=>{try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}},30_000);
-    
-    
-    const fetchVerification = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('verification_requests')
-          .select(`*, profiles(full_name, phone, email)`)
-          .order('created_at', { ascending: false });
-        if (data && !error) setVerificationRequests(data);
-      } catch (err) {}
-    };
-    fetchVerification();
-const fetchRecovery = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('recovery_requests')
-          .select(`*, profiles(full_name, phone, email)`)
-          .order('request_time', { ascending: false });
-        if (data && !error) setRecoveryRequests(data);
-      } catch (err) {}
-    };
-    fetchRecovery();
-
-    const fetchSupportMessages = async () => {
-      setIsFetchingMessages(true);
-      try {
-        const { data, error } = await supabase
-          .from('support_messages')
-          .select('*')
-          .order('created_at', { ascending: false });
-        if (data && !error) setSupportMessages(data);
-      } catch (err) {}
-      setIsFetchingMessages(false);
-    };
-    fetchSupportMessages();
-
-    const fetchUsersAndGuests = async () => {
-      try {
-        const { data: profiles, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .order('last_seen', { ascending: false });
-        if (error) throw error;
-        
-        let mergedProfiles = profiles || [];
-        try {
-          const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
-          localUsers.forEach((lu: any) => {
-            if (lu && lu.id && !mergedProfiles.some((p: any) => p.id === lu.id)) {
-              mergedProfiles.push({
-                id: lu.id,
-                full_name: lu.name || 'مستخدم',
-                phone: lu.phone || '',
-                role: lu.role || 'user',
-                avatar_url: lu.avatar || DEFAULT_AVATAR,
-                created_at: lu.registeredAt || new Date().toISOString(),
-                ads_count: lu.adCount || 0,
-                favorites_count: 0,
-                views_count: 0,
-                email: lu.email || '',
-                city: lu.location || 'بغداد',
-                last_seen: lu.lastSeen || new Date().toISOString(),
-                is_banned: lu.isBanned || false
-              });
-            }
-          });
-        } catch (e) {
-          console.error('Error merging local users:', e);
-        }
-        
-        setDbUsers(mergedProfiles);
-        
-        const { data: guests } = await supabase.from('guests').select('*').order('last_seen', { ascending: false });
-        if (guests) setDbGuests(guests);
-      } catch (err) {
-        console.error('Error fetching profiles, using local storage fallback:', err);
-        try {
-          const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
-          const fallback = localUsers.map((lu: any) => ({
-            id: lu.id || Math.random().toString(),
-            full_name: lu.name || 'مستخدم',
-            phone: lu.phone || '',
-            role: lu.role || 'user',
-            avatar_url: lu.avatar || DEFAULT_AVATAR,
-            created_at: lu.registeredAt || new Date().toISOString(),
-            ads_count: lu.adCount || 0,
-            favorites_count: 0,
-            views_count: 0,
-            email: lu.email || '',
-            city: lu.location || 'بغداد',
-            last_seen: lu.lastSeen || new Date().toISOString(),
-            is_banned: lu.isBanned || false
-          }));
-          setDbUsers(fallback);
-        } catch (e) {
-          console.error('Local fallback failed:', e);
-        }
-      }
-    };
-    fetchUsersAndGuests();
-    const fetchInterval = setInterval(fetchUsersAndGuests, 60_000);
-
-    return () => { clearInterval(iv); clearInterval(fetchInterval); };
+    return()=>clearInterval(iv);
   },[]);
 
   // Calculate stats
   const today = new Date().toDateString();
   const todayV = visits.filter(v=>new Date(v.timestamp).toDateString()===today);
-  const DEVICE_COLORS = ['#f59e0b','#3b82f6','#8b5cf6'];
   const deviceData=[{name:'موبايل',value:visits.filter(v=>v.device==='mobile').length},{name:'كمبيوتر',value:visits.filter(v=>v.device==='desktop').length},{name:'تابلت',value:visits.filter(v=>v.device==='tablet').length}].filter(d=>d.value>0);
   const locMap:Record<string,number>={};
   visits.forEach(v=>{locMap[v.location]=(locMap[v.location]||0)+1;});
@@ -3147,25 +2187,14 @@ const fetchRecovery = async () => {
   const topCategory = Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'لا يوجد';
 
   // Actions
-  const toggleBan = async (id: string) => {
-    const user = dbUsers.find(u => u.id === id);
-    if (!user) return;
-    const newStatus = !user.is_banned;
-    setDbUsers(prev => prev.map(u => u.id === id ? { ...u, is_banned: newStatus } : u));
-    try {
-      await supabase.from('profiles').update({ is_banned: newStatus }).eq('id', id);
-    } catch (e) {
-      console.error('Failed to toggle ban', e);
-    }
+  const toggleBan=(id:string)=>{
+    const u=storedUsers.map(u=>u.id===id?{...u,isBanned:!u.isBanned}:u);
+    setStoredUsers(u);localStorage.setItem('souqUsers',JSON.stringify(u));
   };
 
-  const changeRole = async (id: string, newRole: string) => {
-    setDbUsers(prev => prev.map(u => u.id === id ? { ...u, role: newRole } : u));
-    try {
-      await supabase.from('profiles').update({ role: newRole }).eq('id', id);
-    } catch (e) {
-      console.error('Failed to change role', e);
-    }
+  const changeRole=(id:string, newRole:string)=>{
+    const u=storedUsers.map(u=>u.id===id?{...u,role:newRole as any}:u);
+    setStoredUsers(u);localStorage.setItem('souqUsers',JSON.stringify(u));
   };
 
   const handleBroadcast = async (e: React.FormEvent) => {
@@ -3173,7 +2202,7 @@ const fetchRecovery = async () => {
     if(!broadcastTitle || !broadcastMsg) return;
     setIsBroadcasting(true);
     try {
-      const userIds = dbUsers.map(u => u.id).filter(id => id);
+      const userIds = storedUsers.map(u => u.id).filter(id => id);
       if (userIds.length > 0) {
         const notifications = userIds.map(uid => ({
           seller_id: uid,
@@ -3209,26 +2238,6 @@ const fetchRecovery = async () => {
     }
   };
 
-  const handleResolveMessage = async (id: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'pending' ? 'resolved' : 'pending';
-    setSupportMessages(prev => prev.map(m => m.id === id ? { ...m, status: newStatus } : m));
-    try {
-      await supabase.from('support_messages').update({ status: newStatus }).eq('id', id);
-    } catch (e) {
-      console.error('Failed to update status', e);
-    }
-  };
-
-  const handleDeleteMessage = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذه الرسالة نهائياً؟')) return;
-    setSupportMessages(prev => prev.filter(m => m.id !== id));
-    try {
-      await supabase.from('support_messages').delete().eq('id', id);
-    } catch (e) {
-      console.error('Failed to delete message', e);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-950 pt-16 pb-8">
       <div className="container mx-auto px-4 max-w-5xl">
@@ -3244,7 +2253,7 @@ const fetchRecovery = async () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {[{l:'زيارات اليوم',v:todayV.length,icon:<Activity className="w-5 h-5"/>,c:'text-green-400',bg:'bg-green-500/10 border-green-500/20'},
             {l:'إجمالي الزيارات',v:visits.length,icon:<Globe className="w-5 h-5"/>,c:'text-blue-400',bg:'bg-blue-500/10 border-blue-500/20'},
-            {l:'المستخدمون',v:dbUsers.length,icon:<Users className="w-5 h-5"/>,c:'text-purple-400',bg:'bg-purple-500/10 border-purple-500/20'},
+            {l:'المستخدمون',v:storedUsers.length,icon:<Users className="w-5 h-5"/>,c:'text-purple-400',bg:'bg-purple-500/10 border-purple-500/20'},
             {l:'المحتوى',v:ads.length+products.length,icon:<Layers className="w-5 h-5"/>,c:'text-amber-400',bg:'bg-amber-500/10 border-amber-500/20'}].map((s,i)=>(
             <div key={i} className={`${s.bg} rounded-2xl p-4 border text-center`}>
               <div className={`flex justify-center mb-2 ${s.c}`}>{s.icon}</div>
@@ -3256,7 +2265,7 @@ const fetchRecovery = async () => {
         
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['broadcast','🔔 إشعار عام'],['messages','💬 الرسائل']] as [string,string][]).map(([t,l])=>(
+          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['content','📢 المحتوى'],['broadcast','🔔 إشعار عام']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`px-4 py-2 rounded-xl text-sm font-bold ${tab===t?'bg-amber-500 text-black':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
           ))}
         </div>
@@ -3361,266 +2370,43 @@ const fetchRecovery = async () => {
         )}
         
         {tab==='users'&&(
-          <div className="space-y-4">
-            {/* إحصائيات سريعة */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-gray-800 rounded-xl p-3 border border-gray-700 flex flex-col items-center">
-                <span className="text-gray-400 text-xs mb-1">الكل</span>
-                <span className="text-white font-bold text-lg">{dbUsers.length}</span>
-              </div>
-              <div className="bg-green-500/10 rounded-xl p-3 border border-green-500/20 flex flex-col items-center">
-                <span className="text-green-400 text-xs mb-1">التجار</span>
-                <span className="text-green-400 font-bold text-lg">{dbUsers.filter(u => u.role === 'vendor').length}</span>
-              </div>
-              <div className="bg-purple-500/10 rounded-xl p-3 border border-purple-500/20 flex flex-col items-center">
-                <span className="text-purple-400 text-xs mb-1">برو</span>
-                <span className="text-purple-400 font-bold text-lg">{dbUsers.filter(u => u.role === 'pro').length}</span>
-              </div>
-              <div className="bg-red-500/10 rounded-xl p-3 border border-red-500/20 flex flex-col items-center">
-                <span className="text-red-400 text-xs mb-1">المحظورين</span>
-                <span className="text-red-400 font-bold text-lg">{dbUsers.filter(u => u.is_banned).length}</span>
-              </div>
-            </div>
-
-            {/* شريط البحث والفلاتر */}
-            <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 space-y-3">
-              <div className="flex flex-col md:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                  <input type="text" placeholder="ابحث عن مستخدم بالاسم، الهاتف، الايميل..." 
-                    value={usersSearch} onChange={e => setUsersSearch(e.target.value)}
-                    className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg pl-3 pr-9 py-2 text-sm outline-none focus:border-amber-500" />
-                </div>
-                <select value={usersSort} onChange={e => setUsersSort(e.target.value as any)} className="bg-gray-900 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-amber-500">
-                  <option value="last_seen">آخر ظهور</option>
-                  <option value="newest">تاريخ التسجيل</option>
-                  <option value="alphabetical">أبجدياً</option>
-                </select>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { id: 'all', label: 'الكل' },
-                  { id: 'vendor', label: 'تجار موثقين', color: 'text-green-400 bg-green-500/10 border-green-500/20' },
-                  { id: 'pro', label: 'برو (Pro)', color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
-                  { id: 'admin', label: 'مدراء', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
-                  { id: 'banned', label: 'محظورين', color: 'text-red-400 bg-red-500/10 border-red-500/20' },
-                ].map(f => (
-                  <button key={f.id} onClick={() => setUsersFilter(f.id as any)} 
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${usersFilter === f.id ? (f.color || 'bg-amber-500 text-black border-amber-500') : 'bg-gray-900 text-gray-400 border-gray-700 hover:bg-gray-800'}`}>
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {selectedUserIds.length > 0 && (
-               <div className="flex justify-between items-center bg-gray-800 p-3 rounded-xl border border-red-500/30 mb-3 flex-wrap gap-2">
-                 <span className="text-red-400 font-bold text-sm">تم تحديد {selectedUserIds.length} حسابات</span>
-                 <div className="flex gap-2">
-                   <button onClick={async () => {
-                      if (window.confirm(`هل أنت متأكد من حظر ${selectedUserIds.length} حسابات؟`)) {
-                        for (const uid of selectedUserIds) {
-                          try { await supabase.from('profiles').update({ is_banned: true }).eq('id', uid); } catch(e){}
-                        }
-                        setDbUsers(prev => prev.map(u => selectedUserIds.includes(u.id) ? { ...u, is_banned: true } : u));
-                        setSelectedUserIds([]);
-                      }
-                   }} className="bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-red-500/30">
-                      <UserX className="w-3.5 h-3.5"/> حظر جماعي
-                   </button>
-                   <button onClick={async () => {
-                      if (window.confirm(`هل أنت متأكد من حذف ${selectedUserIds.length} حسابات نهائياً؟`)) {
-                        for (const uid of selectedUserIds) {
-                           if (onDeleteProfile) onDeleteProfile(uid);
-                        }
-                        setDbUsers(prev => prev.filter(u => !selectedUserIds.includes(u.id)));
-                        setSelectedUserIds([]);
-                      }
-                   }} className="bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-red-600">
-                      <Trash2 className="w-3.5 h-3.5"/> حذف الكل
-                   </button>
-                 </div>
-               </div>
-            )}
-            
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {(() => {
-              let filtered = dbUsers.filter(u => {
-                if (usersFilter === 'vendor' && u.role !== 'vendor') return false;
-                if (usersFilter === 'pro' && u.role !== 'pro') return false;
-                if (usersFilter === 'admin' && u.role !== 'admin' && u.role !== 'owner') return false;
-                if (usersFilter === 'banned' && !u.is_banned) return false;
-                
-                if (usersSearch) {
-                  const s = usersSearch.toLowerCase();
-                  const matchName = (u.full_name || '').toLowerCase().includes(s);
-                  const matchPhone = (u.phone || '').toLowerCase().includes(s);
-                  const matchEmail = (u.email || '').toLowerCase().includes(s);
-                  if (!matchName && !matchPhone && !matchEmail) return false;
-                }
-                return true;
-              });
-
-              filtered.sort((a, b) => {
-                if (usersSort === 'alphabetical') {
-                  return (a.full_name || '').localeCompare(b.full_name || '', 'ar');
-                } else if (usersSort === 'newest') {
-                  return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-                } else {
-                  return new Date(b.last_seen || 0).getTime() - new Date(a.last_seen || 0).getTime();
-                }
-              });
-
-              if (filtered.length === 0) return <div className="col-span-full bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا يوجد مستخدمون مطابقون</p></div>;
-
-              return filtered.map(u => {
-                const isOnline = new Date().getTime() - new Date(u.last_seen || 0).getTime() < 5 * 60 * 1000;
-                
-                return (
-                  <div key={u.id} className={`bg-gray-800/90 rounded-2xl p-5 border ${u.is_banned ? 'border-red-500/40 shadow-lg shadow-red-500/5' : 'border-gray-700/80 hover:border-amber-500/30'} flex flex-col justify-between transition-all relative`}>
-                    
-                    {/* Top Header */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="relative flex-shrink-0">
-                          <img src={u.avatar_url || DEFAULT_AVATAR} alt="" className={`w-14 h-14 rounded-2xl object-cover border-2 ${u.is_banned ? 'border-red-500/50' : 'border-gray-700'}`} />
-                          <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-gray-800 ${isOnline ? 'bg-green-500' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'غير متصل'}></div>
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="text-white font-extrabold text-sm leading-tight truncate max-w-40">{u.full_name || 'مستخدم'}</p>
-                            {u.is_banned && <span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 text-[10px] rounded-full font-bold">موقوف</span>}
-                          </div>
-                          <p className="text-gray-500 text-[10px] mt-0.5">{u.city || 'بغداد'}</p>
-                        </div>
-                      </div>
-                      
-                      {u.role !== 'owner' && (
-                        <input type="checkbox" className="w-5 h-5 accent-red-500 rounded cursor-pointer border-gray-600 bg-gray-700 text-red-500 flex-shrink-0" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
-                          if (e.target.checked) setSelectedUserIds(prev => [...prev, u.id]);
-                          else setSelectedUserIds(prev => prev.filter(id => id !== u.id));
-                        }} />
-                      )}
-                    </div>
-
-                    {/* Badges */}
-                    <div className="flex flex-wrap gap-1.5 mb-4">
-                      {u.role === 'owner' && <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] rounded-lg font-bold flex items-center gap-1"><Crown className="w-2.5 h-2.5"/>مالك المنصة</span>}
-                      {u.role === 'admin' && <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] rounded-lg font-bold flex items-center gap-1"><Shield className="w-2.5 h-2.5"/>مشرف</span>}
-                      {u.role === 'vendor' && <span className="px-2 py-0.5 bg-green-500/20 text-green-400 border border-green-500/30 text-[10px] rounded-lg font-bold flex items-center gap-1"><UserCheck className="w-2.5 h-2.5"/>تاجر موثق</span>}
-                      {u.role === 'pro' && <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 border border-purple-500/30 text-[10px] rounded-lg font-bold flex items-center gap-1"><Star className="w-2.5 h-2.5"/>برو (Pro)</span>}
-                      {u.role === 'user' && <span className="px-2 py-0.5 bg-gray-700/50 text-gray-300 border border-gray-700 text-[10px] rounded-lg font-bold flex items-center gap-1"><User className="w-2.5 h-2.5"/>عضو عادي</span>}
-                    </div>
-
-                    {/* Info */}
-                    <div className="space-y-1.5 text-xs text-gray-400 border-t border-gray-700/50 pt-3 mb-4 flex-1">
-                      {u.email && (
-                        <div className="flex items-center gap-1.5">
-                          <Mail className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
-                          <span className="truncate" title={u.email}>{u.email}</span>
-                        </div>
-                      )}
-                      {u.phone && (
-                        <div className="flex items-center gap-1.5">
-                          <Phone className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
-                          <span>{u.phone}</span>
-                        </div>
-                      )}
-                      <div className="text-[10px] text-gray-500 mt-2">
-                        <p>التسجيل: {u.created_at ? new Date(u.created_at).toLocaleDateString('ar-IQ') : 'غير معروف'}</p>
-                        <p>آخر ظهور: {u.last_seen ? new Date(u.last_seen).toLocaleString('ar-IQ') : 'غير معروف'}</p>
-                      </div>
-                    </div>
-
-                    {/* Actions Group */}
-                    <div className="flex flex-col gap-2 border-t border-gray-700/50 pt-3">
-                      {u.role !== 'owner' && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-gray-500 whitespace-nowrap">الرتبة:</span>
-                          <select 
-                            value={u.role || 'user'} 
-                            onChange={(e) => changeRole(u.id, e.target.value)}
-                            className="flex-1 bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-2 py-1 outline-none focus:border-amber-500 cursor-pointer"
-                          >
-                            <option value="user">مستخدم عادي</option>
-                            <option value="vendor">تاجر موثق</option>
-                            <option value="admin">مشرف منصة</option>
-                            <option value="pro">برو (Pro)</option>
-                          </select>
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-1.5 justify-end mt-1">
-                        <button onClick={() => alert('تفاصيل المستخدم: \n' + JSON.stringify(u, null, 2))} className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded-xl border border-blue-500/20" title="عرض التفاصيل الكاملة"><Eye className="w-3.5 h-3.5"/></button>
-                        
-                        {u.phone && (
-                          <a 
-                            href={getWhatsAppResetLink(u.phone)} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="p-2 bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded-xl border border-green-500/20"
-                            title="إرسال رسالة واتساب بالتفاصيل"
-                          >
-                            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
-                          </a>
-                        )}
-
-                        {u.role !== 'owner' && (
-                          <button 
-                            onClick={async () => {
-                              if (confirm('هل أنت متأكد من إعادة تعيين كلمة المرور إلى 123456؟')) {
-                                try {
-                                  const { error } = await supabase.rpc('admin_reset_password', { target_user_id: u.id, new_password: '123456' });
-                                  if (error) throw error;
-                                  alert('تم تغيير كلمة المرور بنجاح إلى: 123456');
-                                } catch (e: any) {
-                                  alert('فشل في إعادة التعيين: ' + (e?.message || e));
-                                }
-                              }
-                            }}
-                            className="p-2 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 rounded-xl border border-amber-500/20"
-                            title="تصفير الرمز السري إلى (123456)"
-                          >
-                            <Key className="w-3.5 h-3.5"/>
-                          </button>
-                        )}
-
-                        {u.role !== 'owner' && (
-                          <button 
-                            onClick={() => toggleBan(u.id)} 
-                            className={`p-2 rounded-xl border transition-all ${u.is_banned ? 'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20' : 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20'}`}
-                            title={u.is_banned ? "رفع الإيقاف" : "حظر الحساب"}
-                          >
-                            {u.is_banned ? <UserCheck className="w-3.5 h-3.5" /> : <UserX className="w-3.5 h-3.5" />}
-                          </button>
-                        )}
-
-                        {u.role !== 'owner' && (
-                          <button 
-                            onClick={() => {
-                              if (window.confirm('تنبيه: سيتم حذف هذا الحساب نهائياً مع كافة إعلاناته المرتبطة به. هل أنت متأكد؟')) {
-                                if (onDeleteProfile) onDeleteProfile(u.id);
-                                setDbUsers(prev => prev.filter(usr => usr.id !== u.id));
-                              }
-                            }} 
-                            className="p-2 bg-red-600/10 text-red-500 hover:bg-red-600/25 border border-red-500/20 rounded-xl" 
-                            title="حذف الحساب نهائياً"
-                          >
-                            <Trash2 className="w-3.5 h-3.5"/>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
+          <div className="space-y-3">
+            {storedUsers.length===0?<div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا مستخدمون بعد</p></div>:storedUsers.map(u=>(
+              <div key={u.id} className={`bg-gray-800 rounded-2xl p-4 border ${u.isBanned?'border-red-500/30':'border-gray-700'} flex items-center gap-3 flex-wrap`}>
+                <img src={u.avatar} alt="" className={`w-12 h-12 rounded-full object-cover border-2 ${u.isBanned?'border-red-500/50':'border-gray-600'} flex-shrink-0`}/>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-white font-bold text-sm">{u.name}</p>
+                    {u.isBanned&&<span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 text-[10px] rounded-full font-bold">موقوف</span>}
+                    {u.role==='owner'&&<span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] rounded-full flex items-center gap-0.5"><Crown className="w-2.5 h-2.5"/>مالك</span>}
+                    {u.role==='admin'&&<span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-[10px] rounded-full flex items-center gap-0.5"><Shield className="w-2.5 h-2.5"/>مشرف</span>}
+                    {u.role==='vendor'&&<span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[10px] rounded-full flex items-center gap-0.5"><UserCheck className="w-2.5 h-2.5"/>تاجر موثق</span>}
                   </div>
-                );
-              });
-            })()}
-            </div>
-
+                  <p className="text-gray-400 text-xs">{u.email}</p>
+                  <p className="text-gray-500 text-[10px] mt-0.5">{u.location} • {u.adCount} إعلان • آخر ظهور: {new Date(u.lastSeen).toLocaleDateString('ar-IQ')}</p>
+                </div>
+                
+                <div className="flex items-center gap-2 flex-shrink-0 mt-2 sm:mt-0">
+                  {u.role !== 'owner' && (
+                    <select 
+                      value={u.role || 'user'} 
+                      onChange={(e) => changeRole(u.id, e.target.value)}
+                      className="bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5 outline-none focus:border-amber-500"
+                    >
+                      <option value="user">مستخدم عادي</option>
+                      <option value="vendor">تاجر موثق</option>
+                      <option value="admin">مشرف منصة</option>
+                    </select>
+                  )}
+                  {u.role!=='owner'&&<button onClick={()=>toggleBan(u.id)} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border ${u.isBanned?'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20':'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20'}`}>
+                    {u.isBanned?<><UserCheck className="w-3.5 h-3.5"/>رفع الإيقاف</>:<><UserX className="w-3.5 h-3.5"/>حظر</>}</button>}
+                </div>
+              </div>
+            ))}
           </div>
         )}
-{tab==='content'&&(
+        
+        {tab==='content'&&(
           <div className="space-y-4">
             <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
               <div className="p-4 border-b border-gray-700 flex items-center justify-between"><h3 className="text-white font-bold">الإعلانات ({ads.length})</h3><span className="text-gray-400 text-xs">{ads.reduce((s,a)=>s+a.views,0)} مشاهدة</span></div>
@@ -3628,7 +2414,7 @@ const fetchRecovery = async () => {
                 <div key={ad.id} className="flex items-center gap-3 p-3 border-t border-gray-700/50 hover:bg-gray-700/30">
                   <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
                   <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{ad.title}</p>
-                    <p className="text-xs text-gray-400">{ad.location} • {formatPrice(ad.price)} د.ع • <button onClick={() => setViewersModalItem({id: ad.id, type: 'ad'})} className="hover:text-amber-400">{ad.views} 👁</button></p></div>
+                    <p className="text-xs text-gray-400">{ad.location} • {formatPrice(ad.price)} د.ع • {ad.views} 👁</p></div>
                   <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
                 </div>
               ))}
@@ -3639,103 +2425,11 @@ const fetchRecovery = async () => {
                 <div key={p.id} className="flex items-center gap-3 p-3 border-t border-gray-700/50 hover:bg-gray-700/30">
                   <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
                   <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{p.title}</p>
-                    <p className="text-xs text-gray-400">{p.governorate} • {formatPrice(p.price)} د.ع • <button onClick={() => setViewersModalItem({id: p.id, type: 'product'})} className="hover:text-amber-400">{p.views} 👁</button> • {p.condition==='new'?'جديد':'مستعمل'}</p></div>
+                    <p className="text-xs text-gray-400">{p.governorate} • {formatPrice(p.price)} د.ع • {p.views} 👁 • {p.condition==='new'?'جديد':'مستعمل'}</p></div>
                   <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
                 </div>
               ))}
             </div>
-            <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
-              <div className="p-4 border-b border-gray-700 flex items-center justify-between"><h3 className="text-white font-bold">خطوط النقل ({transportAds.length})</h3><span className="text-gray-400 text-xs">{transportAds.reduce((s,t)=>s+(t.views||0),0)} مشاهدة</span></div>
-              {transportAds.length===0?<div className="p-6 text-center text-gray-400 text-sm">لا يوجد خطوط نقل</div>:transportAds.map(t=>(
-                <div key={t.id} className="flex items-center gap-3 p-3 border-t border-gray-700/50 hover:bg-gray-700/30">
-                  <div className="w-12 h-12 rounded-lg bg-gray-700 flex items-center justify-center flex-shrink-0">
-                    <Car className="w-6 h-6 text-gray-400"/>
-                  </div>
-                  <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{t.type === 'offer' ? 'متوفر خط' : 'أبحث عن خط'} ({t.university})</p>
-                    <p className="text-xs text-gray-400">{t.regions} • {formatPrice(t.price)} د.ع • <button onClick={() => setViewersModalItem({id: t.id, type: 'transport'})} className="hover:text-amber-400">{t.views||0} 👁</button></p></div>
-                  <button onClick={()=>onDeleteTransportAd(t.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        
-        {tab==='recovery'&&(
-          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
-            <div className="p-4 border-b border-gray-700 flex items-center justify-between"><h3 className="text-white font-bold">طلبات استعادة الحسابات ({recoveryRequests.length})</h3></div>
-            {recoveryRequests.length===0?<div className="p-6 text-center text-gray-400 text-sm">لا توجد طلبات</div>:
-            <div className="space-y-3 p-4">
-              {recoveryRequests.map(req => (
-                <div key={req.id} className="bg-gray-900 rounded-xl p-4 border border-gray-700">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="text-white font-bold">{req.profiles?.full_name || 'مستخدم غير معروف'}</p>
-                      <p className="text-xs text-gray-400">البريد: {req.profiles?.email} • الهاتف: {req.profiles?.phone}</p>
-                    </div>
-                    <span className={`px-2 py-1 rounded-lg text-xs font-bold ${req.status==='pending'?'bg-amber-500/20 text-amber-400':'bg-green-500/20 text-green-400'}`}>
-                      {req.status==='pending' ? 'قيد المراجعة' : 'تمت المعالجة'}
-                    </span>
-                  </div>
-                  {req.notes && <div className="mt-2 p-3 bg-gray-800 rounded-lg text-sm text-gray-300 border border-gray-700"><p className="text-xs text-gray-500 mb-1">تفاصيل الإثبات أو المشكلة:</p>{req.notes}</div>}
-                  <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-800">
-                    <button onClick={async () => {
-                      await supabase.from('recovery_requests').update({ status: req.status === 'pending' ? 'resolved' : 'pending' }).eq('id', req.id);
-                      setRecoveryRequests(prev => prev.map(r => r.id === req.id ? {...r, status: req.status === 'pending' ? 'resolved' : 'pending'} : r));
-                    }} className={`flex-1 py-2 rounded-lg text-sm font-bold border ${req.status==='pending'?'bg-green-500/10 border-green-500/20 text-green-400':'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
-                      {req.status==='pending' ? 'تحديد كـ "تمت المعالجة"' : 'إعادة إلى "قيد المراجعة"'}
-                    </button>
-                    {req.profiles?.phone && (
-                      <a href={getWhatsAppResetLink(req.profiles.phone)} target="_blank" rel="noopener noreferrer" className="flex-1 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg text-sm font-bold flex items-center justify-center gap-2">
-                        تواصل واتساب
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-            }
-          </div>
-        )}
-        
-        
-        <AnimatePresence>
-          {viewersModalItem && <ViewersModal itemId={viewersModalItem.id} itemType={viewersModalItem.type} onClose={() => setViewersModalItem(null)} />}
-        </AnimatePresence>
-
-        {tab==='verification'&&(
-          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
-            <div className="p-4 border-b border-gray-700 flex items-center justify-between"><h3 className="text-white font-bold">طلبات توثيق الهوية ({verificationRequests.length})</h3></div>
-            {verificationRequests.length===0?<div className="p-6 text-center text-gray-400 text-sm">لا توجد طلبات</div>:
-            <div className="space-y-3 p-4">
-              {verificationRequests.map(req => (
-                <div key={req.id} className="bg-gray-900 rounded-xl p-4 border border-gray-700">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="text-white font-bold">{req.profiles?.full_name || 'مستخدم'}</p>
-                      <p className="text-xs text-gray-400">الهاتف: {req.profiles?.phone}</p>
-                    </div>
-                    <span className={`px-2 py-1 rounded-lg text-xs font-bold ${req.status==='pending'?'bg-amber-500/20 text-amber-400':req.status==='approved'?'bg-green-500/20 text-green-400':'bg-red-500/20 text-red-400'}`}>
-                      {req.status==='pending' ? 'قيد المراجعة' : req.status==='approved' ? 'تمت الموافقة' : 'مرفوض'}
-                    </span>
-                  </div>
-                  <div className="mt-3">
-                    <img src={req.id_image_url} alt="ID" className="w-full max-w-sm rounded-lg border border-gray-700 object-contain" />
-                  </div>
-                  <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-800">
-                    <button onClick={async () => {
-                      await supabase.from('verification_requests').update({ status: 'approved' }).eq('id', req.id);
-                      setVerificationRequests(prev => prev.map(r => r.id === req.id ? {...r, status: 'approved'} : r));
-                    }} className="flex-1 py-2 bg-green-500/10 border border-green-500/20 text-green-400 hover:bg-green-500/20 rounded-lg text-sm font-bold">موافقة</button>
-                    <button onClick={async () => {
-                      await supabase.from('verification_requests').update({ status: 'rejected' }).eq('id', req.id);
-                      setVerificationRequests(prev => prev.map(r => r.id === req.id ? {...r, status: 'rejected'} : r));
-                    }} className="flex-1 py-2 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 rounded-lg text-sm font-bold">رفض</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            }
           </div>
         )}
 
@@ -3745,7 +2439,7 @@ const fetchRecovery = async () => {
               <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center"><Bell className="w-6 h-6 text-amber-500"/></div>
               <div>
                 <h2 className="text-white font-bold text-lg">إرسال إشعار للجميع</h2>
-                <p className="text-gray-400 text-xs">سيصل هذا الإشعار كرسالة منبثقة في التطبيق لجميع المستخدمين ({dbUsers.length} مستخدم).</p>
+                <p className="text-gray-400 text-xs">سيصل هذا الإشعار كرسالة منبثقة في التطبيق لجميع المستخدمين ({storedUsers.length} مستخدم).</p>
               </div>
             </div>
 
@@ -3775,72 +2469,6 @@ const fetchRecovery = async () => {
                   {isBroadcasting ? <Loader2 className="w-5 h-5 animate-spin"/> : <><Mail className="w-5 h-5"/> إرسال الإشعار الآن</>}
                 </button>
               </form>
-            )}
-          </div>
-        )}
-
-        {tab==='messages'&&(
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-white font-bold text-lg flex items-center gap-2">
-                <Mail className="w-5 h-5 text-amber-500" /> رسائل الدعم والشكاوى ({supportMessages.length})
-              </h2>
-            </div>
-            
-            {isFetchingMessages ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-              </div>
-            ) : supportMessages.length === 0 ? (
-              <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700 border-dashed">
-                <div className="text-4xl mb-3">💬</div>
-                <p className="text-white font-bold mb-1">لا توجد رسائل دعم</p>
-                <p className="text-gray-400 text-sm">لم يرسل الزوار أي استفسارات أو شكاوى بعد.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4">
-                {supportMessages.map(msg => (
-                  <div key={msg.id} className={`bg-gray-800 rounded-2xl p-5 border transition-colors ${msg.status === 'resolved' ? 'border-green-500/20 opacity-80' : 'border-gray-700 hover:border-amber-500/30'}`}>
-                    <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
-                      <div>
-                        <h4 className="text-white font-bold text-sm flex items-center gap-2">
-                          {msg.name}
-                          {msg.status === 'resolved' && (
-                            <span className="bg-green-500/20 text-green-400 text-[10px] px-2 py-0.5 rounded-full font-bold">تم الحل ✅</span>
-                          )}
-                          {msg.status === 'pending' && (
-                            <span className="bg-amber-500/20 text-amber-400 text-[10px] px-2 py-0.5 rounded-full font-bold">قيد الانتظار ⏳</span>
-                          )}
-                        </h4>
-                        <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
-                          <span>📧 للتواصل:</span>
-                          <span className="text-amber-400 select-all font-mono">{msg.contact_info}</span>
-                        </p>
-                      </div>
-                      <span className="text-[10px] text-gray-500 font-mono">
-                        {new Date(msg.created_at).toLocaleString('ar-IQ')}
-                      </span>
-                    </div>
-                    <p className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap bg-gray-900/40 p-3 rounded-xl border border-gray-750 font-medium">
-                      {msg.message}
-                    </p>
-                    <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-gray-700/50">
-                      <button 
-                        onClick={() => handleResolveMessage(msg.id, msg.status)} 
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${msg.status === 'resolved' ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20' : 'bg-green-500/10 border border-green-500/20 text-green-400 hover:bg-green-500/20'}`}
-                      >
-                        {msg.status === 'resolved' ? 'إعادة فتح الرسالة' : 'تم الحل'}
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteMessage(msg.id)} 
-                        className="px-3 py-1.5 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 rounded-lg text-xs font-bold transition-colors"
-                      >
-                        حذف
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
             )}
           </div>
         )}
@@ -3881,17 +2509,14 @@ function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id:number
 // ─────────────────────────────────────────────
 // Notifications Panel
 // ─────────────────────────────────────────────
-function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onMarkRead, onArchiveAll }:{
+function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick }:{
   isOpen:boolean;
   onClose:()=>void;
   notifs:any[];
   onNotifClick:(senderId:string)=>void;
   onHistoryClick:(itemId: string | number, itemType: string)=>void;
-  onMarkRead:(id: number | string) => void;
-  onArchiveAll:() => void;
 }) {
   const [tab, setTab] = useState<'incoming' | 'history'>('incoming');
-  const [selectedNotif, setSelectedNotif] = useState<any>(null);
 
   const incomingNotifs = notifs.filter(n => n.targetType === 'owner' || !n.targetType);
   const historyNotifs = notifs.filter(n => n.targetType === 'viewer');
@@ -3922,15 +2547,6 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
             </button>
           </div>
 
-          {tab === 'incoming' && incomingNotifs.length > 0 && (
-            <button 
-              onClick={onArchiveAll}
-              className="w-full mb-4 py-2 bg-gray-800 hover:bg-gray-750 border border-gray-700 text-gray-300 hover:text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5"
-            >
-              <Check className="w-4 h-4 text-emerald-400" /> أرشفة كل الإشعارات
-            </button>
-          )}
-
           <div className="space-y-2">
             {activeNotifs.length === 0 ? (
               <div className="text-center py-10 text-gray-500 text-xs">
@@ -3939,22 +2555,11 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
             ) : (
               activeNotifs.map((n, i) => (
                 <div key={n.id || i} 
-                  onClick={async () => {
-                    // Mark as read/archive
-                    if (n.id) onMarkRead(n.id);
-                    
+                  onClick={() => {
                     if (tab === 'incoming') {
-                      if (n.type === 'message' || !n.senderId) {
-                        setSelectedNotif(n);
-                      } else if (n.senderId) {
-                        onNotifClick(n.senderId);
-                        onClose();
-                      }
+                      if (n.senderId) { onNotifClick(n.senderId); onClose(); }
                     } else {
-                      if (n.itemId) {
-                        onHistoryClick(n.itemId, n.itemType);
-                        onClose();
-                      }
+                      if (n.itemId) { onHistoryClick(n.itemId, n.itemType); onClose(); }
                     }
                   }}
                   className="bg-gray-800 rounded-xl p-3 border border-gray-700 transition-colors cursor-pointer hover:border-amber-500/50 hover:bg-gray-800/80"
@@ -3969,10 +2574,8 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
                       
                       <div className="flex items-center justify-between mt-2 flex-wrap gap-2">
                         <p className="text-gray-500 text-[10px]"><TimeAgo iso={n.time || new Date().toISOString()} /></p>
-                        {tab === 'incoming' && (
-                          <span className="text-[10px] text-amber-400 font-semibold">
-                            {n.type === 'message' ? '🔍 تفاصيل الرسالة' : '👉 عرض الملف'}
-                          </span>
+                        {tab === 'incoming' && n.senderId && (
+                          <span className="text-[10px] text-amber-400 font-semibold">👉 عرض الملف</span>
                         )}
                         {tab === 'history' && n.itemId && (
                           <span className="text-[10px] text-emerald-400 font-semibold">🔍 فتح الإعلان</span>
@@ -3999,48 +2602,6 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
             )}
           </div>
         </motion.div>
-
-        {/* Selected Notification Detail Modal inside notifications view */}
-        <AnimatePresence>
-          {selectedNotif && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={() => setSelectedNotif(null)}>
-              <motion.div 
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden"
-              >
-                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-500 to-amber-500" />
-                <button 
-                  onClick={() => setSelectedNotif(null)} 
-                  className="absolute top-4 left-4 p-1.5 bg-gray-800 hover:bg-gray-750 text-gray-400 hover:text-white rounded-lg transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-                
-                <div className="flex items-center gap-3 mb-4 mt-2">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                    <Bell className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-white font-bold text-base leading-tight">{selectedNotif.title}</h3>
-                    <p className="text-gray-500 text-[10px] mt-0.5"><TimeAgo iso={selectedNotif.time || new Date().toISOString()} /></p>
-                  </div>
-                </div>
-                
-                <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap mb-6">{selectedNotif.message}</p>
-                
-                <button 
-                  onClick={() => setSelectedNotif(null)}
-                  className="w-full py-2.5 bg-gray-800 hover:bg-gray-750 text-white font-bold text-xs rounded-xl border border-gray-700 transition-colors"
-                >
-                  إغلاق
-                </button>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
       </motion.div>}
     </AnimatePresence>
   );
@@ -4049,14 +2610,13 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
 // ─────────────────────────────────────────────
 // Market View
 // ─────────────────────────────────────────────
-function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelectProduct, onToggleFav, onRequireAuth, onSellerClick, onTransportClick, onSelectTransportAd, transportLines, onActionMenu }:{
+function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelectProduct, onToggleFav, onRequireAuth, onSellerClick, onTransportClick, onSelectTransportAd, transportLines }:{
   user:User|null; allAds:Ad[]; allProducts:Product[]; favorites:number[];
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void;
   onToggleFav:(id:number)=>void; onRequireAuth:()=>void; onSellerClick:(id:string)=>void;
   onTransportClick?:()=>void;
   onSelectTransportAd?:(ad:any)=>void;
   transportLines: TransportAd[];
-  onActionMenu?: any;
 }) {
   const [search, setSearch] = useState('');
   const [cat, setCat] = useState('all');
@@ -4151,16 +2711,14 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
   const fmt=(v:string)=>v.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',');
 
   const filterAds = allAds.filter(a=>{
-    if (a.status !== 'active') return false;
-    const ms=!search||String(a.id).includes(search)||(a.short_id&&a.short_id.toLowerCase().includes(search.toLowerCase()))||a.title.toLowerCase().includes(search.toLowerCase())||a.location.toLowerCase().includes(search.toLowerCase());
+    const ms=!search||a.title.toLowerCase().includes(search.toLowerCase())||a.location.toLowerCase().includes(search.toLowerCase());
     const mc=cat==='all'||a.category===cat; const mg=gov==='الكل'||a.governorate===gov;
     const min=priceMin?parseInt(priceMin.replace(/,/g,'')):0, max=priceMax?parseInt(priceMax.replace(/,/g,'')):Infinity, ap=parseInt(a.price)||0;
     return ms&&mc&&mg&&ap>=min&&ap<=max;
   }).sort((a,b)=>sort==='views'?b.views-a.views:sort==='price-low'?parseInt(a.price)-parseInt(b.price):sort==='price-high'?parseInt(b.price)-parseInt(a.price):new Date(b.createdAtISO).getTime()-new Date(a.createdAtISO).getTime());
 
   const filterProds = allProducts.filter(p=>{
-    if (p.status !== 'active') return false;
-    const ms=!search||String(p.id).includes(search)||(p.short_id&&p.short_id.toLowerCase().includes(search.toLowerCase()))||p.title.toLowerCase().includes(search.toLowerCase())||p.governorate.toLowerCase().includes(search.toLowerCase());
+    const ms=!search||p.title.toLowerCase().includes(search.toLowerCase())||p.governorate.toLowerCase().includes(search.toLowerCase());
     const mc=cat==='all'||p.category===cat; const mg=gov==='الكل'||p.governorate===gov;
     const min=priceMin?parseInt(priceMin.replace(/,/g,'')):0, max=priceMax?parseInt(priceMax.replace(/,/g,'')):Infinity, pp=parseInt(p.price)||0;
     return ms&&mc&&mg&&pp>=min&&pp<=max;
@@ -4259,8 +2817,7 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
               <div className={viewMode==='grid'?'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4':'space-y-3'}>
                 {filterAds.map(ad=><AdCard key={ad.id} ad={ad} onSelect={()=>onSelectAd(ad)} isFav={favorites.includes(ad.id)}
                   onFav={e=>{e.stopPropagation();if(!user){onRequireAuth();return;}onToggleFav(ad.id);}}
-                  onSellerClick={(id)=>{if(id)onSellerClick(id);}}
-                  onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===ad.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"ad",item:ad});}}/>)}
+                  onSellerClick={e=>{e.stopPropagation();if(ad.postedBy)onSellerClick(ad.postedBy);}}/>)}
               </div>
             </div>
           )}
@@ -4272,8 +2829,7 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
               <div className={viewMode==='grid'?'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4':'space-y-3'}>
                 {filterProds.map(p=><ProductCard key={p.id} product={p} onSelect={()=>onSelectProduct(p)} isFav={favorites.includes(p.id)}
                   onFav={e=>{e.stopPropagation();if(!user){onRequireAuth();return;}onToggleFav(p.id);}}
-                  onSellerClick={(id)=>{if(id)onSellerClick(id);}}
-                  onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===p.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"product",item:p});}}/>)}
+                  onSellerClick={e=>{e.stopPropagation();onSellerClick(p.postedBy);}}/>)}
               </div>
             </div>
           )}
@@ -4368,7 +2924,12 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
 
                           <div className="flex gap-2">
                             <motion.a
-                              href={getWhatsAppLink(ad.phone, 'transport', { id: ad.id, title: ad.type === 'offer' ? 'خط متوفر' : 'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })}
+                              href={getWhatsAppLink(ad.phone, 'transport', {
+                                title: ad.type === 'offer' ? 'خط متوفر' : 'طلب خط',
+                                location: ad.regions,
+                                university: ad.university,
+                                time: ad.shift
+                              })}
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
@@ -4497,15 +3058,13 @@ interface TransportAd {
   whatsappClicks?: number;
 }
 
-function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
+function TransportFormModal({ onClose, onSubmit, user, lines = [] }: {
   onClose: () => void;
   onSubmit: (ad: TransportAd) => void;
   user: { id: string; name: string; avatar: string; phone: string };
   lines?: TransportAd[];
-  editAd?: TransportAd | null;
 }) {
-  const isEdit = !!editAd;
-  const [type, setType] = useState<'offer'|'request'>(editAd?.type || 'offer');
+  const [type, setType] = useState<'offer'|'request'>('offer');
   
   const dynamicFormUniversities = Array.from(new Set([
     ...UNIVERSITIES.slice(1).filter(u => u !== 'أخرى'),
@@ -4514,18 +3073,16 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
 
   const finalFormUniversities = [...dynamicFormUniversities, 'أخرى'];
 
-  const initialUniv = editAd?.university || finalFormUniversities[0] || UNIVERSITIES[1];
-  const isCustomUniv = editAd?.university && !finalFormUniversities.includes(editAd.university);
-  const [university, setUniversity] = useState(isCustomUniv ? 'أخرى' : initialUniv);
-  const [customUniversity, setCustomUniversity] = useState(isCustomUniv ? editAd.university : '');
-  const [regions, setRegions] = useState(editAd?.regions || '');
-  const [price, setPrice] = useState(editAd?.price ? editAd.price : '');
-  const [seats, setSeats] = useState(editAd?.seats?.toString() || '4');
-  const [shift, setShift] = useState(editAd?.shift || 'صباحي');
-  const [vehicleType, setVehicleType] = useState(editAd?.vehicleType || 'خصوصي');
-  const [targetAudience, setTargetAudience] = useState(editAd?.targetAudience || 'مختلط');
-  const [phone, setPhone] = useState(editAd?.phone || user.phone || '');
-  const [note, setNote] = useState(editAd?.note || '');
+  const [university, setUniversity] = useState(finalFormUniversities[0] || UNIVERSITIES[1]);
+  const [customUniversity, setCustomUniversity] = useState('');
+  const [regions, setRegions] = useState('');
+  const [price, setPrice] = useState('');
+  const [seats, setSeats] = useState('4');
+  const [shift, setShift] = useState('صباحي');
+  const [vehicleType, setVehicleType] = useState('خصوصي');
+  const [targetAudience, setTargetAudience] = useState('مختلط');
+  const [phone, setPhone] = useState(user.phone || '');
+  const [note, setNote] = useState('');
 
   const formatPriceInput = (value: string) => {
     const raw = value.replace(/\D/g, '');
@@ -4538,15 +3095,15 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
     const finalUniversity = university === 'أخرى' ? customUniversity.trim() : university;
     if (!finalUniversity || !regions || !phone) return;
     onSubmit({
-      id: isEdit ? editAd.id : Date.now(),
+      id: Date.now(),
       type, university: finalUniversity, regions, price, seats: type==='offer'?parseInt(seats)||4:0,
       shift, vehicleType, targetAudience, phone, note,
-      postedBy: isEdit ? editAd.postedBy : user.id, sellerName: isEdit ? editAd.sellerName : user.name, sellerAvatar: isEdit ? editAd.sellerAvatar : user.avatar,
-      createdAt: isEdit ? editAd.createdAt : new Date().toISOString(),
-      status: isEdit ? editAd.status : 'published',
-      views: isEdit ? editAd.views : 0,
-      interest: isEdit ? editAd.interest : 0,
-      whatsappClicks: isEdit ? editAd.whatsappClicks : 0
+      postedBy: user.id, sellerName: user.name, sellerAvatar: user.avatar,
+      createdAt: new Date().toISOString(),
+      status: 'published',
+      views: 0,
+      interest: 0,
+      whatsappClicks: 0
     });
     onClose();
   };
@@ -4653,8 +3210,8 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
   );
 }
 
-function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, lines, onPost, onUpdateStatus, onDeleteAd, onActionMenu }: {
-  user: { id: string; name: string; avatar: string; phone: string; role?: string } | null;
+function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, lines, onPost, onUpdateStatus }: {
+  user: { id: string; name: string; avatar: string; phone: string } | null;
   onBack: () => void;
   onCreateAd: () => void;
   onGoToMyLines?: () => void;
@@ -4662,33 +3219,11 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
   lines: TransportAd[];
   onPost: (ad: TransportAd) => void;
   onUpdateStatus: (id: number, status: TransportAd['status'], reason?: TransportAd['completion_reason']) => void;
-  onDeleteAd?: (id: number) => void;
-  onActionMenu?: (target: {type:"transport", item:TransportAd}) => void;
 }) {
   const [filterUniversity, setFilterUniversity] = useState('الكل');
   const [filterType, setFilterType] = useState('الكل');
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-
-  const handleTouchStart = (ad: TransportAd) => {
-    longPressTimer.current = setTimeout(() => {
-      if (user && (user.role === 'admin' || user.role === 'owner' || user.id === ad.postedBy)) {
-        onActionMenu?.({ type: 'transport', item: ad });
-      }
-    }, 800);
-  };
-
-  const handleTouchEnd = () => {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
-  };
-
-  const handleContextMenu = (e: React.MouseEvent, ad: TransportAd) => {
-    e.preventDefault();
-    if (user && (user.role === 'admin' || user.role === 'owner' || user.id === ad.postedBy)) {
-      onActionMenu?.({ type: 'transport', item: ad });
-    }
-  };
 
   const handlePost = (ad: TransportAd) => {
     onPost(ad);
@@ -4791,13 +3326,6 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
             {filtered.map(ad=>(
               <motion.div key={ad.id} initial={{opacity:0,y:20}} animate={{opacity:1,y:0}}
                 onClick={() => onSelectAd?.(ad)}
-                onTouchStart={() => handleTouchStart(ad)}
-                onTouchEnd={handleTouchEnd}
-                onTouchCancel={handleTouchEnd}
-                onMouseDown={() => handleTouchStart(ad)}
-                onMouseUp={handleTouchEnd}
-                onMouseLeave={handleTouchEnd}
-                onContextMenu={(e) => handleContextMenu(e, ad)}
                 className={`bg-gray-800 rounded-2xl border transition-all overflow-hidden relative cursor-pointer hover:border-emerald-500/60 ${ad.type === 'offer' ? 'border-emerald-500/30' : 'border-amber-500/30'}`}>
                 
                 {/* Type Badge */}
@@ -4863,7 +3391,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
                           <CheckCircle className="w-3.5 h-3.5"/> حصلت
                         </button>
                       )}
-                      <motion.a href={getWhatsAppLink(ad.phone, 'transport', { id: ad.id, title: ad.type==='offer'?'خط متوفر':'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })} target="_blank" rel="noopener noreferrer"
+                      <motion.a href={getWhatsAppLink(ad.phone, 'transport', { title: ad.type==='offer'?'خط متوفر':'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })} target="_blank" rel="noopener noreferrer"
                         whileHover={{scale:1.05}} whileTap={{scale:0.95}}
                         onClick={(e) => e.stopPropagation()}
                         className="flex items-center gap-1.5 px-4 py-2 bg-green-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-green-500/20">
@@ -4903,52 +3431,9 @@ export default function App() {
       return null;
     }
   });
-  const getInitialRouteInfo = () => {
-    if (typeof window === 'undefined') return { hash: '', path: '' };
-    let hash = window.location.hash;
-    const path = window.location.pathname;
-    
-    // Fallback if hash is empty but path has content (SEO friendly URL)
-    if ((!hash || hash === '#/') && path !== '/') {
-      hash = '#' + path;
-    }
-    return { hash, path };
-  };
-
-  const [view, setView] = useState<AppView>(() => {
-    const { hash } = getInitialRouteInfo();
-    if (hash.startsWith('#/transport')) return 'transport';
-    if (hash.startsWith('#/seller') || hash.startsWith('#/profile')) return 'profile';
-    if (hash.startsWith('#/admin')) return 'admin';
-    if (hash.startsWith('#/owner')) return 'owner';
-    return 'home';
-  });
-  const [bottomNavActive, setBottomNavActive] = useState(() => {
-    const { hash } = getInitialRouteInfo();
-    if (hash.startsWith('#/transport')) return 'transport';
-    if (hash.startsWith('#/seller') || hash.startsWith('#/profile')) return 'profile';
-    return 'home';
-  });
+  const [view, setView] = useState<AppView>('home');
+  const [bottomNavActive, setBottomNavActive] = useState('home');
   const [selectedSellerId, setSelectedSellerId] = useState<string|null>(null);
-  const [selectedSellerPhone, setSelectedSellerPhone] = useState<string|null>(() => {
-    const { hash } = getInitialRouteInfo();
-    if (hash.startsWith('#/seller/')) return hash.split('/')[2] || null;
-    if (hash.startsWith('#/profile/')) return hash.split('/')[2] || null;
-    return null;
-  });
-
-  useEffect(() => {
-    if (view === 'profile' && selectedSellerPhone) {
-      if (selectedSellerPhone.includes('-')) {
-        setSelectedSellerId(selectedSellerPhone);
-      } else {
-        supabase.from('profiles').select('id').eq('phone', selectedSellerPhone).single().then(({data}) => {
-          if (data) setSelectedSellerId(data.id);
-        });
-      }
-    }
-  }, [view, selectedSellerPhone]);
-
   const [showAuth, setShowAuth] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -4957,62 +3442,14 @@ export default function App() {
   const [showCreateProduct, setShowCreateProduct] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad|null>(null);
   const [editingProduct, setEditingProduct] = useState<Product|null>(null);
-  const [editingTransportAd, setEditingTransportAd] = useState<TransportAd|null>(null);
   const [selectedAd, setSelectedAd] = useState<Ad|null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product|null>(null);
   const [selectedTransportAd, setSelectedTransportAd] = useState<TransportAd|null>(null);
-  const [actionMenuTarget, setActionMenuTarget] = useState<{type:'ad'|'product'|'transport'; item:any}|null>(null);
   const [toast, setToast] = useState<{msg:string;type:string;visible:boolean}>({msg:'',type:'info',visible:false});
   const [showCreateTransport, setShowCreateTransport] = useState(false);
   const [activeDocTab, setActiveDocTab] = useState<string | null>(null);
   const [activeLightbox, setActiveLightbox] = useState<{ src: string; title: string } | null>(null);
   const playSound = useSound();
-
-  // ── دالة تحميل بيانات المستخدم من Supabase ──────────────────────────
-  const loadUserFromSupabase = async (authUser: any) => {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', authUser.id)
-      .maybeSingle();
-    const role = authUser.email === OWNER_EMAIL ? 'owner'
-      : (profile?.role || authUser.user_metadata?.role || 'user');
-    const u: User = {
-      id: authUser.id,
-      name: profile?.full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'مستخدم',
-      email: authUser.email || '',
-      phone: profile?.phone || authUser.user_metadata?.phone || '',
-      role,
-      avatar: profile?.avatar_url || DEFAULT_AVATAR,
-      cover: profile?.cover_url || DEFAULT_COVER,
-      bio: '',
-      location: profile?.city || authUser.user_metadata?.city || 'بغداد',
-      rating: 4.8,
-      isVerified: role !== 'user',
-      joinedDate: profile?.created_at || 'الآن',
-      stats: { ads: profile?.ads_count || 0, favorites: profile?.favorites_count || 0, views: profile?.views_count || 0 },
-      sellerStats: { totalAds: 0, sold: 0, responseRate: 100, avgResponseTime: 'دقائق' }
-    };
-    setUser(u);
-    localStorage.setItem('souqUser', JSON.stringify(u));
-  };
-
-  // ── استعادة الجلسة ومراقبة Auth ────────────────────────────────────
-  
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) loadUserFromSupabase(session.user);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) loadUserFromSupabase(session.user);
-      else { setUser(null); localStorage.removeItem('souqUser'); }
-    });
-    return () => subscription.unsubscribe();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Notifications handlers and effects are initialized below notifications state
 
   // Default demo ads to show for all users
   const getDefaultAds = (): Ad[] => [
@@ -5023,105 +3460,18 @@ export default function App() {
     { id: 5, title: 'لابتوب Dell XPS 13 - شبه جديد', category: 'إلكترونيات', governorate: 'البصرة', price: '1200000', description: 'لابتوب عالي المواصفات، استخدام خفيف فقط', images: ['https://images.unsplash.com/photo-1588872657839-cd2f3e5614f0?w=500&h=500&fit=crop'], location: 'البصرة', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-5', createdAtISO: new Date(Date.now() - 432000000).toISOString(), views: 320, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'البصرة' } },
   ];
 
-  // Misplaced handlers moved down below notifications state declaration
-
   const getDefaultProducts = (): Product[] => [
-    { id: 1, title: 'معطف شتوي فخم', category: 'ملابس', governorate: 'بغداد', price: '150000', description: 'معطف برند عالمي، أصلي 100%', images: ['https://images.unsplash.com/photo-1539533057440-7814baea1002?w=500&h=500&fit=crop'], postedBy: 'demo-seller-1', createdAtISO: new Date(Date.now() - 86400000).toISOString(), views: 180, phone: '07700000000', condition: 'new', stock: 10, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' }, status: 'active' },
-    { id: 2, title: 'أثاث غرفة نوم كامل', category: 'أثاث', governorate: 'البصرة', price: '2500000', description: 'مجموعة أثاث فاخرة - سرير + دولاب + تسريحة', images: ['https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500&h=500&fit=crop'], postedBy: 'demo-seller-2', createdAtISO: new Date(Date.now() - 172800000).toISOString(), views: 290, phone: '07700000000', condition: 'new', stock: 5, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'البصرة' }, status: 'active' },
-    { id: 3, title: 'دراجة هوائية ماونتن بايك', category: 'دراجات', governorate: 'أربيل', price: '500000', description: 'دراجة رياضية احترافية', images: ['https://images.unsplash.com/photo-1558618666-fcd25c85cd58?w=500&h=500&fit=crop'], postedBy: 'demo-seller-3', createdAtISO: new Date(Date.now() - 259200000).toISOString(), views: 150, phone: '07700000000', condition: 'used', stock: 1, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'أربيل' }, status: 'active' },
+    { id: 1, title: 'معطف شتوي فخم', category: 'ملابس', governorate: 'بغداد', price: '150000', description: 'معطف برند عالمي، أصلي 100%', images: ['https://images.unsplash.com/photo-1539533057440-7814baea1002?w=500&h=500&fit=crop'], postedBy: 'demo-seller-1', createdAtISO: new Date(Date.now() - 86400000).toISOString(), views: 180, phone: '07700000000', condition: 'new', stock: 10, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
+    { id: 2, title: 'أثاث غرفة نوم كامل', category: 'أثاث', governorate: 'البصرة', price: '2500000', description: 'مجموعة أثاث فاخرة - سرير + دولاب + تسريحة', images: ['https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500&h=500&fit=crop'], postedBy: 'demo-seller-2', createdAtISO: new Date(Date.now() - 172800000).toISOString(), views: 290, phone: '07700000000', condition: 'new', stock: 5, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'البصرة' } },
+    { id: 3, title: 'دراجة هوائية ماونتن بايك', category: 'دراجات', governorate: 'أربيل', price: '500000', description: 'دراجة رياضية احترافية', images: ['https://images.unsplash.com/photo-1558618666-fcd25c85cd58?w=500&h=500&fit=crop'], postedBy: 'demo-seller-3', createdAtISO: new Date(Date.now() - 259200000).toISOString(), views: 150, phone: '07700000000', condition: 'used', stock: 1, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'أربيل' } },
   ];
 
   const [allAds, setAllAds] = useState<Ad[]>([]);
   const [allTransportAds, setAllTransportAds] = useState<TransportAd[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
-  const [congratulationsItem, setCongratulationsItem] = useState<{ title: string; type: 'ad' | 'product' } | null>(null);
   const [favorites, setFavorites] = useState<number[]>(()=>{
     try{return JSON.parse(localStorage.getItem('souqFavs')||'[]');}catch{return[];}
   });
-  // --- DEEP LINKING & ROUTING HOOKS ---
-  const [initialHashParsed, setInitialHashParsed] = useState(false);
-
-  const syncStateFromHash = () => {
-    let hash = window.location.hash;
-    const path = window.location.pathname;
-    if ((!hash || hash === '#/') && path !== '/') {
-      hash = '#' + path;
-    }
-
-    if (!hash || hash === '#/') {
-      setView('home');
-      setSelectedAd(null);
-      setSelectedProduct(null);
-      setSelectedSellerId(null);
-      return;
-    }
-    
-    const parts = hash.split('/');
-    const type = parts[1];
-    const id = parts[2];
-    
-    if (type === 'ad' && id) {
-      const ad = allAds.find(a => String(a.id) === id || a.short_id === id);
-      if (ad) setSelectedAd(ad);
-    } else if (type === 'product' && id) {
-      const prod = allProducts.find(p => String(p.id) === id || p.short_id === id);
-      if (prod) setSelectedProduct(prod);
-    } else if (type === 'profile' && id || type === 'seller' && id) {
-      setSelectedSellerId(id);
-      setView('profile');
-    } else if (type === 'transport') {
-      setView('transport');
-    } else if (type === 'admin') {
-      setView('admin');
-    } else if (type === 'owner') {
-      setView('owner');
-    }
-  };
-
-  // Rewrite clean pathname to hash route on browser level without page reloads
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.pathname !== '/' && window.location.pathname !== '') {
-      const path = window.location.pathname;
-      const search = window.location.search;
-      window.history.replaceState(null, '', `/#${path}${search}`);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (initialHashParsed) return;
-    if (allAds.length === 0 && allProducts.length === 0) return; // Wait for data
-    syncStateFromHash();
-    setInitialHashParsed(true);
-  }, [allAds, allProducts, initialHashParsed]);
-
-  useEffect(() => {
-    const handleHashChange = () => syncStateFromHash();
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [allAds, allProducts]);
-
-  useEffect(() => {
-    if (!initialHashParsed) return; // Don't push state before initial parse
-    let newHash = '#/';
-    if (selectedAd) {
-      newHash = `#/ad/${selectedAd.short_id || selectedAd.id}`;
-    } else if (selectedProduct) {
-      newHash = `#/product/${selectedProduct.short_id || selectedProduct.id}`;
-    } else if (view === 'profile' && selectedSellerId) {
-      newHash = `#/profile/${selectedSellerPhone || selectedSellerId}`;
-    } else if (view === 'transport') {
-      newHash = `#/transport`;
-    } else if (view === 'admin') {
-      newHash = `#/admin`;
-    } else if (view === 'owner') {
-      newHash = `#/owner`;
-    }
-    
-    if (window.location.hash !== newHash) {
-      window.history.pushState(null, '', newHash);
-    }
-  }, [view, selectedAd, selectedProduct, selectedSellerId, initialHashParsed]);
-  // ------------------------------------
 
   // ── Fetch ads & products from Supabase ─────────────────────────
   const fetchAds = useCallback(async () => {
@@ -5211,42 +3561,10 @@ export default function App() {
         };
       });
 
-      setAllAds(normalMapped.filter(a => a.status === 'active' || a.status === 'sold'));
+      setAllAds(normalMapped.filter(a => a.status === 'active'));
       setAllTransportAds(transportMapped);
     }
   }, []);
-
-  const handleDeleteProfile = async (profileId: string) => {
-    // Try to delete using the admin RPC first
-    const { error: rpcError } = await supabase.rpc('admin_delete_user', { target_user_id: profileId });
-    
-    if (rpcError) {
-      // Fallback to client-side deletion if RPC fails or doesn't exist yet
-      await supabase.from('ads').delete().eq('seller_id', profileId);
-      await supabase.from('products').delete().eq('seller_id', profileId);
-      await supabase.from('transport_ads').delete().eq('seller_id', profileId);
-      await supabase.from('profiles').delete().eq('id', profileId);
-    }
-
-    setAllAds(prev => prev.filter(a => a.postedBy !== profileId));
-    setAllTransportAds(prev => prev.filter(a => a.postedBy !== profileId));
-    setAllProducts(prev => prev.filter(p => p.postedBy !== profileId));
-
-    try {
-      const users = JSON.parse(localStorage.getItem('souqUsers') || '[]');
-      const filtered = users.filter((u: any) => u.id !== profileId);
-      localStorage.setItem('souqUsers', JSON.stringify(filtered));
-    } catch (e) {}
-
-    // Only redirect and logout if the current user deletes their own account
-    if (user?.id === profileId) {
-      showToast('تم حذف حسابك وجميع محتوياته بنجاح', 'success');
-      setView('home');
-      handleLogout();
-    } else {
-      showToast('تم حذف الحساب ومحتوياته نهائياً', 'success');
-    }
-  };
 
   const fetchProducts = useCallback(async () => {
     const { data, error } = await supabase
@@ -5277,7 +3595,6 @@ export default function App() {
         views: row.views || 0,
         postedBy: row.seller_id,
         stock: row.stock || 1,
-        status: row.status || 'active',
       }));
       setAllProducts(mapped);
     }
@@ -5293,7 +3610,6 @@ export default function App() {
       .select('*')
       .eq('category', 'notification')
       .eq('seller_id', user.id)
-      .eq('status', 'active')
       .order('created_at', { ascending: false });
 
     if (error) { console.error('Error fetching notifications:', error); return; }
@@ -5350,65 +3666,6 @@ export default function App() {
       if (iv) clearInterval(iv);
     };
   }, [user, fetchNotifications]);
-
-  const prevNotifsLength = useRef(0);
-  useEffect(() => {
-    if (notifications.length > prevNotifsLength.current) {
-      if (prevNotifsLength.current > 0) {
-        const hasNewIncoming = notifications.some(n => n.targetType === 'owner' || !n.targetType);
-        if (hasNewIncoming) {
-          const audio = new Audio('https://cdn.pixabay.com/audio/2022/03/24/audio_783d1a0e1c.mp3');
-          audio.volume = 0.6;
-          audio.play().catch(() => {});
-        }
-      }
-    }
-    prevNotifsLength.current = notifications.length;
-  }, [notifications]);
-
-  const handleHistoryClick = (itemId: string | number, itemType: string) => {
-    if (itemType === 'ad') {
-      const found = allAds.find(a => String(a.id) === String(itemId));
-      if (found) setSelectedAd(found);
-    } else if (itemType === 'product') {
-      const found = allProducts.find(p => String(p.id) === String(itemId));
-      if (found) setSelectedProduct(found);
-    } else if (itemType === 'transport') {
-      const found = allTransportAds.find(t => String(t.id) === String(itemId));
-      if (found) setSelectedTransportAd(found);
-    }
-  };
-
-  const markNotifAsRead = async (notifId: number | string) => {
-    try {
-      const { error } = await supabase
-        .from('ads')
-        .update({ status: 'archived' })
-        .eq('id', notifId);
-      if (!error) {
-        setNotifications(prev => prev.filter(n => n.id !== notifId));
-      }
-    } catch (e) {
-      console.error('Failed to mark notification as read', e);
-    }
-  };
-
-  const handleArchiveAllNotifications = async () => {
-    if (!user) return;
-    try {
-      const { error } = await supabase
-        .from('ads')
-        .update({ status: 'archived' })
-        .eq('category', 'notification')
-        .eq('seller_id', user.id)
-        .eq('status', 'active');
-      if (!error) {
-        setNotifications([]);
-      }
-    } catch (e) {
-      console.error('Failed to archive all notifications', e);
-    }
-  };
 
   const handleViewDurationLogged = async (itemId: number | string, itemTitle: string, ownerId: string, itemType: string, seconds: number) => {
     if (!user) return;
@@ -5482,6 +3739,18 @@ export default function App() {
     }
   };
 
+  const handleHistoryClick = (itemId: string | number, itemType: string) => {
+    if (itemType === 'ad') {
+      const found = allAds.find(a => String(a.id) === String(itemId));
+      if (found) setSelectedAd(found);
+    } else if (itemType === 'product') {
+      const found = allProducts.find(p => String(p.id) === String(itemId));
+      if (found) setSelectedProduct(found);
+    } else if (itemType === 'transport') {
+      const found = allTransportAds.find(t => String(t.id) === String(itemId));
+      if (found) setSelectedTransportAd(found);
+    }
+  };
 
   useEffect(()=>{localStorage.setItem('souqFavs',JSON.stringify(favorites));},[favorites]);
 
@@ -5500,43 +3769,6 @@ export default function App() {
     if(user){const mc=allAds.filter(a=>a.postedBy===user.id).length+allProducts.filter(p=>p.postedBy===user.id).length;saveStoredUser(user,mc);}
   },[user]);
 
-  // Track online status and guests
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    const trackActivity = async () => {
-      try {
-        if (user) {
-          const { data } = await supabase.from('profiles').select('is_banned').eq('id', user.id).single();
-          if (data?.is_banned) {
-            await supabase.auth.signOut();
-            document.body.innerHTML = '<div style="padding: 3rem; text-align: center; color: red; font-size: 1.5rem; font-weight: bold;">عذراً، هذا الحساب محظور من تصفح الموقع لانتهاكه الشروط.</div>';
-            return;
-          }
-          await supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', user.id);
-        } else {
-          let deviceId = localStorage.getItem('souqGuestId');
-          if (!deviceId) {
-            deviceId = crypto.randomUUID();
-            localStorage.setItem('souqGuestId', deviceId);
-          }
-          const { data } = await supabase.from('guests').select('is_banned').eq('id', deviceId).single();
-          if (data?.is_banned) {
-            document.body.innerHTML = '<div style="padding: 3rem; text-align: center; color: red; font-size: 1.5rem; font-weight: bold;">عذراً، هذا الجهاز محظور من تصفح الموقع لانتهاكه الشروط.</div>';
-            return;
-          }
-          await supabase.from('guests').upsert({ id: deviceId, last_seen: new Date().toISOString(), user_agent: navigator.userAgent });
-        }
-      } catch (e) {
-        // silently fail tracking errors
-      }
-    };
-
-    trackActivity();
-    interval = setInterval(trackActivity, 2 * 60 * 1000); // Every 2 minutes
-    return () => clearInterval(interval);
-  }, [user]);
-
   const showToast = useCallback((msg:string,type:string)=>{
     setToast({msg,type,visible:true}); playSound(type==='success'?'success':'info');
     setTimeout(()=>setToast(t=>({...t,visible:false})),4000);
@@ -5547,29 +3779,8 @@ export default function App() {
     if(!localStorage.getItem('souqOnboarded'))setShowOnboarding(true);
     recordVisit(u);
   };
-  const handleLogout = async ()=>{
-    await supabase.auth.signOut();
-    localStorage.removeItem('souqUser');
-    setUser(null);
-    setView('home');
-    showToast('تم تسجيل الخروج', 'info');
-  };
-  const handleUpdateUser = async (u:User)=>{
-    setUser(u);
-    localStorage.setItem('souqUser', JSON.stringify(u));
-    saveStoredUser(u, allAds.filter(a=>a.postedBy===u.id).length);
-    await supabase.from('profiles').upsert({
-      id: u.id,
-      full_name: u.name,
-      email: u.email,
-      phone: u.phone,
-      avatar_url: u.avatar,
-      cover_url: u.cover,
-      city: u.location,
-      role: u.role
-    }, { onConflict: 'id' });
-    showToast('تم حفظ الملف الشخصي ✅', 'success');
-  };
+  const handleLogout = ()=>{localStorage.removeItem('souqUser');setUser(null);setView('home');showToast('تم تسجيل الخروج','info');};
+  const handleUpdateUser = (u:User)=>{setUser(u);localStorage.setItem('souqUser',JSON.stringify(u));saveStoredUser(u,allAds.filter(a=>a.postedBy===u.id).length);showToast('تم حفظ الملف الشخصي ✅','success');};
   const handleToggleFav = (id:number)=>{setFavorites(prev=>{const f=prev.includes(id);showToast(f?'تمت الإزالة من المفضلة':'تمت الإضافة للمفضلة','success');return f?prev.filter(x=>x!==id):[...prev,id];});};
   const requireAuth = ()=>setShowAuth(true);
 
@@ -5724,34 +3935,6 @@ export default function App() {
     fetchProducts();
   };
 
-  const handleMarkAdSold = async (ad: Ad) => {
-    if (!window.confirm('هل تريد وضع علامة "تم البيع" على هذا الإعلان؟ سيختفي من المعرض العام ويُحفظ في الأرشيف.')) return;
-    const { error } = await supabase.from('ads').update({ status: 'sold' }).eq('id', ad.id);
-    if (error) {
-      showToast('حدث خطأ أثناء تحديث الحالة', 'error');
-      console.error(error);
-      return;
-    }
-    setAllAds(prev => prev.map(a => a.id === ad.id ? { ...a, status: 'sold' } : a));
-    playSound('success');
-    setCongratulationsItem({ title: ad.title, type: 'ad' });
-    fetchAds();
-  };
-
-  const handleMarkProductSold = async (p: Product) => {
-    if (!window.confirm('هل تريد وضع علامة "تم البيع" على هذا المنتج؟ سيختفي من المعرض العام ويُحفظ في الأرشيف.')) return;
-    const { error } = await supabase.from('products').update({ status: 'sold' }).eq('id', p.id);
-    if (error) {
-      showToast('حدث خطأ أثناء تحديث الحالة', 'error');
-      console.error(error);
-      return;
-    }
-    setAllProducts(prev => prev.map(pr => pr.id === p.id ? { ...pr, status: 'sold' } : pr));
-    playSound('success');
-    setCongratulationsItem({ title: p.title, type: 'product' });
-    fetchProducts();
-  };
-
   const handleDeleteAd = async (id: number) => {
     await supabase.from('ads').delete().eq('id', id);
     setAllAds(prev => prev.filter(a => a.id !== id));
@@ -5764,7 +3947,6 @@ export default function App() {
     showToast('تم حذف المنتج', 'info');
   };
 
-  
   const handleSellerClick = (sellerId:string)=>{if(sellerId){setSelectedSellerId(sellerId);setView('seller');}};
 
   const myAds = allAds.filter(a=>a.postedBy===user?.id);
@@ -5772,43 +3954,8 @@ export default function App() {
   const isAdmin = user?.role==='admin';
   const isOwner = user?.role==='owner';
 
-  // Dynamic SEO metadata based on current router state
-  let pageTitle = "سوك بغداد - السوق الرقمي العراقي | أكبر منصة إعلانات في العراق";
-  let pageDescription = "سوك بغداد - أكبر منصة عراقية للبيع والشراء والإعلانات. سيارات، عقارات، هواتف، إلكترونيات، خدمات والمزيد. اكتشف آلاف الإعلانات في أقسام متعددة.";
-  let pageImage = "https://souqbaghdad.store/opengraph.jpg";
-  let canonicalUrl = "https://souqbaghdad.store/";
-
-  if (selectedAd) {
-    pageTitle = `${selectedAd.title} | إعلان في سوك بغداد`;
-    pageDescription = selectedAd.description ? `${selectedAd.description.slice(0, 150)}...` : `شاهد تفاصيل إعلان ${selectedAd.title} في سوق بغداد.`;
-    pageImage = selectedAd.images?.[0] || pageImage;
-    canonicalUrl = `https://souqbaghdad.store/ad/${selectedAd.id}`;
-  } else if (selectedProduct) {
-    pageTitle = `${selectedProduct.title} | منتج في سوك بغداد`;
-    pageDescription = selectedProduct.description ? `${selectedProduct.description.slice(0, 150)}...` : `شاهد تفاصيل منتج ${selectedProduct.title} في سوق بغداد.`;
-    pageImage = selectedProduct.images?.[0] || pageImage;
-    canonicalUrl = `https://souqbaghdad.store/product/${selectedProduct.id}`;
-  } else if (view === 'profile' && selectedSellerId) {
-    pageTitle = `صفحة البائع | سوك بغداد`;
-    pageDescription = `تصفح كافة الإعلانات والمنتجات المتوفرة لدى هذا المعلن في منصة سوك بغداد.`;
-    canonicalUrl = `https://souqbaghdad.store/profile/${selectedSellerPhone || selectedSellerId}`;
-  } else if (view === 'transport') {
-    pageTitle = `خطوط النقل والتوصيل | سوك بغداد`;
-    pageDescription = `تصفح خطوط النقل والتوصيل المتاحة في العراق - سوك بغداد`;
-    canonicalUrl = `https://souqbaghdad.store/transport`;
-  }
-
   return (
     <div className="dark min-h-screen bg-gray-950 pb-20 lg:pb-0">
-      <Helmet>
-        <title>{pageTitle}</title>
-        <meta name="description" content={pageDescription} />
-        <meta property="og:title" content={pageTitle} />
-        <meta property="og:description" content={pageDescription} />
-        <meta property="og:image" content={pageImage} />
-        <meta property="og:url" content={canonicalUrl} />
-        <link rel="canonical" href={canonicalUrl} />
-      </Helmet>
       <Toast msg={toast.msg} type={toast.type} visible={toast.visible} onClose={()=>setToast(t=>({...t,visible:false}))}/>
 
       {/* Nav */}
@@ -5852,16 +3999,6 @@ export default function App() {
               )}
             </div>
             <div className="flex items-center gap-2 lg:hidden">
-              {user ? (
-                <button onClick={()=>setView('profile')} className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white'}`}>
-                  <img src={user.avatar} alt="" className="w-6 h-6 rounded-full object-cover border border-gray-600"/>
-                  <span className="max-w-16 truncate hidden sm:block">{user.name}</span>
-                </button>
-              ) : (
-                <button onClick={()=>setShowAuth(true)} className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white font-bold rounded-xl text-xs">
-                  <LogIn className="w-4 h-4"/> <span className="hidden sm:inline">دخول</span>
-                </button>
-              )}
               <button onClick={()=>setShowNotifs(true)} className="p-2 rounded-xl bg-gray-800 text-white hover:bg-gray-700 relative">
                 <Bell className="w-5 h-5"/>
                 {notifications.length > 0 && (
@@ -5917,15 +4054,15 @@ export default function App() {
           {view==='home'&&<motion.div key="home" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <MarketView user={user} allAds={allAds} allProducts={allProducts} favorites={favorites} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} onToggleFav={handleToggleFav} onRequireAuth={requireAuth} onSellerClick={handleSellerClick} onTransportClick={()=>{setView('transport');setBottomNavActive('transport');}} onSelectTransportAd={setSelectedTransportAd} transportLines={allTransportAds}/></motion.div>}
           {view==='profile'&&user&&<motion.div key="profile" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold}/></motion.div>}
+            <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd}/></motion.div>}
           {view==='seller'&&selectedSellerId&&<motion.div key="seller" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <SellerPublicPage sellerId={selectedSellerId} allAds={allAds} allProducts={allProducts} onBack={()=>setView('home')} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile} onActionMenu={setActionMenuTarget}/></motion.div>}
+            <SellerPublicPage sellerId={selectedSellerId} allAds={allAds} allProducts={allProducts} onBack={()=>setView('home')} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth}/></motion.div>}
           {view==='transport'&&<motion.div key="transport" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd} onActionMenu={setActionMenuTarget}/></motion.div>}
+            <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus}/></motion.div>}
           {view==='admin'&&isAdmin&&!isOwner&&<motion.div key="admin" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <AdminPanel ads={allAds} onDeleteAd={handleDeleteAd} onClose={()=>setView('home')}/></motion.div>}
           {view==='owner'&&isOwner&&<motion.div key="owner" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <OwnerDashboard ads={allAds} products={allProducts} transportAds={allTransportAds} onDeleteAd={handleDeleteAd} onDeleteProduct={handleDeleteProduct} onDeleteTransportAd={handleDeleteTransportAd} onClose={()=>setView('home')} onDeleteProfile={handleDeleteProfile}/></motion.div>}
+            <OwnerDashboard ads={allAds} products={allProducts} onDeleteAd={handleDeleteAd} onDeleteProduct={handleDeleteProduct} onClose={()=>setView('home')}/></motion.div>}
         </AnimatePresence>
       </main>
 
@@ -5933,27 +4070,14 @@ export default function App() {
       <footer className="bg-gray-900 border-t border-gray-800 py-6">
         <div className="container mx-auto px-4 text-center">
           <div className="flex items-center justify-center gap-2 mb-3"><span className="text-2xl">🇮🇶</span><span className="text-lg font-bold text-white">سوك بغداد</span></div>
-                    <p className="text-gray-500 text-xs">© 2025 سوك بغداد — السوق الرقمي العراقي</p>
-          
-          <div className="flex items-center justify-center gap-4 mt-3">
-            <a href="https://wa.me/9647700028170" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700/50 flex items-center justify-center text-green-400 hover:bg-green-500/10 hover:border-green-500/30 transition-all" title="واتساب الدعم">
-              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
-            </a>
-            <a href="https://instagram.com/SOUQBAGHDAD.IQ" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700/50 flex items-center justify-center text-pink-400 hover:bg-pink-500/10 hover:border-pink-500/30 transition-all" title="انستغرام المنصة">
-              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>
-            </a>
-            <a href="https://t.me/SOUQBAGHDA" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700/50 flex items-center justify-center text-sky-400 hover:bg-sky-500/10 hover:border-sky-500/30 transition-all" title="تليكرام المنصة">
-              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M11.944 0C5.344 0 0 5.344 0 12c0 6.656 5.344 12 12 12 6.656 0 12-5.344 12-12C24 5.344 18.656 0 11.944 0zm5.892 8.046c-.144.9-.99 5.874-1.44 8.286-.192 1.014-.564 1.356-.924 1.392-.786.072-1.386-.516-2.148-1.014-.762-.5-1.188-.81-1.926-1.296-.852-.564-.3-.876.186-1.38.126-.132 2.334-2.136 2.376-2.316.006-.024.012-.114-.042-.162-.054-.048-.132-.03-.186-.018-.084.018-1.392.882-3.924 2.592-.372.258-.708.384-1.008.378-.33-.006-.966-.186-1.44-.342-.582-.192-1.044-.294-1.002-.624.024-.168.252-.342.69-.516 2.688-1.17 4.482-1.938 5.388-2.31 2.562-1.056 3.096-1.242 3.444-1.248.078 0 .252.018.366.114.096.084.12.198.132.282.012.072.024.228.012.384z"/></svg>
-            </a>
-          </div>
-
+          <p className="text-gray-500 text-xs">© 2025 سوك بغداد — السوق الرقمي العراقي</p>
           <div className="flex items-center justify-center gap-3 mt-3 text-gray-500 text-xs">
             {['الشروط والأحكام','سياسة الخصوصية','تواصل معنا','من نحن'].map(l=><button key={l} onClick={()=>setActiveDocTab(l)} className="hover:text-amber-400">{l}</button>)}</div>
         </div>
       </footer>
 
       {/* Bottom Navigation Bar - Fixed Mobile First */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-gray-900/95 backdrop-blur-xl border-t border-gray-800 lg:hidden safe-area-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900/95 backdrop-blur-xl border-t border-gray-800 lg:hidden safe-area-bottom">
         <div className="flex items-center justify-around h-16 px-2">
           {/* الرئيسية */}
           <button
@@ -6028,10 +4152,9 @@ export default function App() {
         {selectedTransportAd&&<TransportDetailModal ad={selectedTransportAd} onClose={()=>setSelectedTransportAd(null)} user={user} onAuthRequired={requireAuth} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedTransportAd.id, selectedTransportAd.type==='offer'?'خط متوفر':'طلب خط', selectedTransportAd.postedBy || '', 'transport', sec)}/>}
         {showCreateAd&&user&&<AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd}/>}
         {showCreateProduct&&user&&<ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct}/>}
-        {showNotifs&&<NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick} onMarkRead={markNotifAsRead} onArchiveAll={handleArchiveAllNotifications}/>}
+        {showNotifs&&<NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick}/>}
         {activeDocTab&&<InfoDocsModal activeTab={activeDocTab} onClose={()=>setActiveDocTab(null)}/>}
         {activeLightbox&&<ImageLightboxModal src={activeLightbox.src} title={activeLightbox.title} onClose={()=>setActiveLightbox(null)}/>}
-        {congratulationsItem && <CongratulationsModal item={congratulationsItem} onClose={() => setCongratulationsItem(null)} />}
       </AnimatePresence>
     </div>
   );
