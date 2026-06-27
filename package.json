@@ -2,12 +2,12 @@
   "name": "workspace",
   "version": "0.0.0",
   "license": "MIT",
-  "packageManager": "pnpm@9.15.4",
+  "packageManager": "pnpm@10.5.2",
   "engines": {
-    "node": "20.x"
+    "node": ">=20.0.0"
   },
   "scripts": {
-    "build": "npx vite build --config artifacts/souq-baghdad/vite.config.ts && node -e \"require('fs').cpSync('artifacts/souq-baghdad/dist', 'dist', {recursive: true})\"",
+    "build": "npx vite build --config artifacts/souq-baghdad/vite.config.ts && node -e \"require('fs').cpSync('artifacts/souq-baghdad/dist/public', 'dist', {recursive: true})\"",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },
