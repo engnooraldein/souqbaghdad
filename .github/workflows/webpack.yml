@@ -22,9 +22,13 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
 
-    - name: Build
-      working-directory: artifacts/souq-baghdad
-      run: |
-        npm i -g pnpm
-        pnpm install
-        npm run build
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9.15.4
+
+    - name: Install dependencies
+      run: pnpm install --no-frozen-lockfile
+
+    - name: Build souq-baghdad
+      run: pnpm --filter @workspace/souq-baghdad run build
