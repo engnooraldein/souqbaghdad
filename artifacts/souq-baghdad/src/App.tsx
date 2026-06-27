@@ -200,8 +200,28 @@ https://www.souqbaghdad.store 🔗
       url: shareUrl,
     }).catch((err) => console.log('Error sharing:', err));
   } else {
-    navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
-    alert('تم نسخ نص الإعلان والرابط بنجاح! يمكنك لصقه في أي تطبيق.');
+    const fullTextToCopy = `${shareText}\n${shareUrl}`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(fullTextToCopy).then(() => {
+        alert('تم نسخ نص الإعلان والرابط بنجاح! يمكنك لصقه في أي تطبيق.');
+      }).catch(() => {
+        window.prompt('نسخ نص الإعلان والمشاركة:', fullTextToCopy);
+      });
+    } else {
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = fullTextToCopy;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        alert('تم نسخ نص الإعلان والرابط بنجاح! يمكنك لصقه في أي تطبيق.');
+      } catch {
+        window.prompt('انسخ نص الإعلان والمشاركة:', fullTextToCopy);
+      }
+    }
   }
 }
 
