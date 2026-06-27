@@ -27,5 +27,5 @@ jobs:
     - name: Install dependencies
       run: pnpm install --no-frozen-lockfile
 
-    - name: Build souq-baghdad
-      run: pnpm --filter @workspace/souq-baghdad run build
+    - name: Build project
+      run: pnpm run build

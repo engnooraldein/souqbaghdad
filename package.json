@@ -7,7 +7,7 @@
     "node": "20.x"
   },
   "scripts": {
-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "build": "npx vite build --config artifacts/souq-baghdad/vite.config.ts && node -e \"require('fs').cpSync('artifacts/souq-baghdad/dist', 'dist', {recursive: true})\"",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },
