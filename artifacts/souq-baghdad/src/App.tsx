@@ -3471,12 +3471,24 @@ export default function App() {
       } else if (path.startsWith('/seller/')) {
         const sId = path.split('/')[2];
         if (sId) { setSelectedSellerId(sId); setView('seller'); }
+      } else if (path.startsWith('/ad/')) {
+        const extracted = extractIdFromPath(path);
+        if (extracted.id) {
+          const found = allAds.find(a => String(a.id) === String(extracted.id));
+          if (found) setSelectedAd(found);
+        }
+      } else if (path.startsWith('/product/')) {
+        const extracted = extractIdFromPath(path);
+        if (extracted.id) {
+          const found = allProducts.find(p => String(p.id) === String(extracted.id));
+          if (found) setSelectedProduct(found);
+        }
       }
     };
     handleUrlSync();
     window.addEventListener('popstate', handleUrlSync);
     return () => window.removeEventListener('popstate', handleUrlSync);
-  }, []);
+  }, [allAds, allProducts]);
 
   useEffect(() => {
     let targetPath = '/';
