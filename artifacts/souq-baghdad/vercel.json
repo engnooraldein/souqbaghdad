@@ -1,4 +1,6 @@
 {
+  "framework": "vite",
+  "installCommand": "pnpm install --no-frozen-lockfile --ignore-scripts",
   "rewrites": [
     {
       "source": "/(.*)",
