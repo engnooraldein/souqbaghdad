@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from './lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ShareModal } from './components/ShareModal';
+import { generateAdUrl, generateProductUrl } from './lib/slugUtils';
 import {
   Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, Check,
   Gamepad2, Heart, Bell, Plus, LogOut, Star, X, Search, MapPin,
@@ -15,6 +17,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
+
 
 // ─────────────────────────────────────────────
 // Constants
@@ -999,9 +1002,10 @@ function ProductCard({ product, onSelect, isFav, onFav, onSellerClick }:{
 // ─────────────────────────────────────────────
 // Ad Detail Modal
 // ─────────────────────────────────────────────
-function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom }:{
+function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom, onShare }:{
   ad:Ad|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; onAuthRequired:()=>void; onSellerClick?:(sellerId:string)=>void;
   onViewDurationLogged?:(seconds:number)=>void; onImageZoom?:(src:string, title:string)=>void;
+  onShare?:(data:{title:string; url:string; image?:string; price?:string})=>void;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
@@ -1086,9 +1090,9 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
             <button onClick={()=>{if(!user){onAuthRequired();return;}onFav();}}
               className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-medium ${isFav?'bg-red-500 text-white':'bg-gray-800 text-white'}`}>
               <Heart className={`w-4 h-4 ${isFav?'fill-current':''}`}/>{isFav?'في المفضلة':'أضف للمفضلة'}</button>
-            <button onClick={()=>navigator.share?.({title:ad.title,url:window.location.href})}
-              className="flex-1 py-3 bg-gray-800 text-white rounded-xl flex items-center justify-center gap-2 text-sm font-medium">
-              <Share2 className="w-4 h-4"/> مشاركة</button>
+            <button onClick={() => onShare?.({ title: ad.title, url: generateAdUrl(ad.category, ad.title, ad.id), image: ad.images?.[0], price: formatPrice(ad.price) })}
+              className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl flex items-center justify-center gap-2 text-sm transition-all shadow-lg shadow-amber-500/20">
+              <Share2 className="w-4 h-4"/> مشاركة الإعلان</button>
           </div>
         </div>
       </motion.div>
@@ -1099,9 +1103,10 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
 // ─────────────────────────────────────────────
 // Product Detail Modal
 // ─────────────────────────────────────────────
-function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom }:{
+function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom, onShare }:{
   product:Product|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; onAuthRequired:()=>void; onSellerClick?:(id:string)=>void;
   onViewDurationLogged?:(seconds:number)=>void; onImageZoom?:(src:string, title:string)=>void;
+  onShare?:(data:{title:string; url:string; image?:string; price?:string})=>void;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
@@ -3449,6 +3454,8 @@ export default function App() {
   const [showCreateTransport, setShowCreateTransport] = useState(false);
   const [activeDocTab, setActiveDocTab] = useState<string | null>(null);
   const [activeLightbox, setActiveLightbox] = useState<{ src: string; title: string } | null>(null);
+  const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; title: string; url: string; image?: string; price?: string }>({ isOpen: false, title: '', url: '' });
+  const handleOpenShare = (data: { title: string; url: string; image?: string; price?: string }) => setShareModalData({ isOpen: true, ...data });
   const playSound = useSound();
 
   // Default demo ads to show for all users
@@ -4147,14 +4154,15 @@ export default function App() {
       <AnimatePresence>
         {showOnboarding&&<OnboardingModal onClose={()=>{setShowOnboarding(false);localStorage.setItem('souqOnboarded','1');}}/>}
         {showAuth&&<AuthModal onClose={()=>setShowAuth(false)} onLogin={handleLogin}/>}
-        {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title) => setActiveLightbox({ src, title })}/>}
-        {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title) => setActiveLightbox({ src, title })}/>}
+        {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title) => setActiveLightbox({ src, title })} onShare={handleOpenShare}/>}
+        {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title) => setActiveLightbox({ src, title })} onShare={handleOpenShare}/>}
         {selectedTransportAd&&<TransportDetailModal ad={selectedTransportAd} onClose={()=>setSelectedTransportAd(null)} user={user} onAuthRequired={requireAuth} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedTransportAd.id, selectedTransportAd.type==='offer'?'خط متوفر':'طلب خط', selectedTransportAd.postedBy || '', 'transport', sec)}/>}
         {showCreateAd&&user&&<AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd}/>}
         {showCreateProduct&&user&&<ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct}/>}
         {showNotifs&&<NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick}/>}
         {activeDocTab&&<InfoDocsModal activeTab={activeDocTab} onClose={()=>setActiveDocTab(null)}/>}
         {activeLightbox&&<ImageLightboxModal src={activeLightbox.src} title={activeLightbox.title} onClose={()=>setActiveLightbox(null)}/>}
+        <ShareModal isOpen={shareModalData.isOpen} onClose={() => setShareModalData(prev => ({ ...prev, isOpen: false }))} title={shareModalData.title} url={shareModalData.url} image={shareModalData.image} price={shareModalData.price} />
       </AnimatePresence>
     </div>
   );
