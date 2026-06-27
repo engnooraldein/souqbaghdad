@@ -2,6 +2,9 @@
   "name": "workspace",
   "version": "0.0.0",
   "license": "MIT",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
@@ -9,16 +12,12 @@
   },
   "private": true,
   "devDependencies": {
-    "@rollup/rollup-win32-x64-msvc": "4.62.0",
-    "@tailwindcss/oxide-win32-x64-msvc": "4.3.0",
-    "lightningcss-win32-x64-msvc": "1.32.0",
     "prettier": "^3.8.3",
     "typescript": "~5.9.3"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "esbuild",
-      "@esbuild/win32-x64"
+      "esbuild"
     ]
   }
 }
