@@ -174,6 +174,37 @@ www.souqbaghdad.store
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
 }
 
+export function handleUniversalShare(details: { title?: string; university?: string; type?: string; location?: string; governorate?: string; regions?: string; id?: any; short_id?: string; price?: string }) {
+  const title = details.title || (details.university ? `${details.type === 'offer' ? 'خط متوفر' : 'طلب خط'} - ${details.university}` : 'إعلان في سوق بغداد');
+  const location = details.location || details.governorate || details.regions || 'العراق';
+  const idStr = details.short_id ? `#${details.short_id}` : details.id ? `#${String(details.id).substring(0, 5)}` : '';
+  
+  const shareText = `📢 *رسالة من منصة سوق بغداد:* 🇮🇶
+
+شاهد تفاصيل (${title}) ${idStr} 
+📍 الموقع: ${location} ${details.price ? `\n🏷️ السعر: ${details.price}` : ''}
+
+سوق بغداد هو السوق الرقمي العراقي الحديث، نسهل عليكم التواصل المباشر بين البائع والمشتري بكل سرعة وأمان. 🚀🤝
+
+🛍️ تصفحوا المزيد من العروض عبر موقعنا:
+https://www.souqbaghdad.store 🔗
+
+بانتظار ردكم، شكراً! 🙏✨`;
+
+  const shareUrl = window.location.href.includes('souqbaghdad.store') ? window.location.href : 'https://www.souqbaghdad.store';
+
+  if (navigator.share) {
+    navigator.share({
+      title: title,
+      text: shareText,
+      url: shareUrl,
+    }).catch((err) => console.log('Error sharing:', err));
+  } else {
+    navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+    alert('تم نسخ نص الإعلان والرابط بنجاح! يمكنك لصقه في أي تطبيق.');
+  }
+}
+
 function getRelative(iso: string): string {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 5)  return 'الآن';
@@ -1496,8 +1527,8 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
             <button onClick={()=>{if(!user){onAuthRequired();return;}onFav();}}
               className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-medium ${isFav?'bg-red-500 text-white':'bg-gray-800 text-white'}`}>
               <Heart className={`w-4 h-4 ${isFav?'fill-current':''}`}/>{isFav?'في المفضلة':'أضف للمفضلة'}</button>
-            <button onClick={()=>navigator.share?.({title:ad.title,url:window.location.href})}
-              className="flex-1 py-3 bg-gray-800 text-white rounded-xl flex items-center justify-center gap-2 text-sm font-medium">
+            <button onClick={()=>handleUniversalShare({ id: ad.id, short_id: ad.short_id, title: ad.title, location: ad.location, price: ad.price })}
+              className="flex-1 py-3 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl flex items-center justify-center gap-2 text-sm font-bold hover:bg-amber-500/30">
               <Share2 className="w-4 h-4"/> مشاركة</button>
           </div>
         </div>
@@ -1598,8 +1629,8 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
             <button onClick={()=>{if(!user){onAuthRequired();return;}onFav();}}
               className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-medium ${isFav?'bg-red-500 text-white':'bg-gray-800 text-white'}`}>
               <Heart className={`w-4 h-4 ${isFav?'fill-current':''}`}/>{isFav?'في المفضلة':'أضف للمفضلة'}</button>
-            <button onClick={()=>navigator.share?.({title:product.title,url:window.location.href})}
-              className="flex-1 py-3 bg-gray-800 text-white rounded-xl flex items-center justify-center gap-2 text-sm font-medium">
+            <button onClick={()=>handleUniversalShare({ id: product.id, short_id: product.short_id, title: product.title, governorate: product.governorate, price: formatPrice(product.price) })}
+              className="flex-1 py-3 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl flex items-center justify-center gap-2 text-sm font-bold hover:bg-amber-500/30">
               <Share2 className="w-4 h-4"/> مشاركة</button>
           </div>
         </div>
@@ -1709,15 +1740,21 @@ function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDuratio
         </div>
 
         {/* Call Actions */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-2">
           <motion.a href={getWhatsAppLink(ad.phone, 'transport', { id: ad.id, title: ad.type==='offer'?'خط متوفر':'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })} target="_blank" rel="noopener noreferrer"
             whileHover={{scale:1.02}} whileTap={{scale:0.98}}
-            className="flex items-center justify-center gap-2 py-3 bg-green-500 text-white font-bold rounded-xl text-sm">
-            <MessageSquare className="w-5 h-5"/> واتساب
+            className="flex items-center justify-center gap-1.5 py-3 bg-green-500 text-white font-bold rounded-xl text-xs">
+            <MessageSquare className="w-4 h-4"/> واتساب
           </motion.a>
+          <motion.button
+            onClick={() => handleUniversalShare({ id: ad.id, university: ad.university, type: ad.type, regions: ad.regions, price: ad.price })}
+            whileHover={{scale:1.02}} whileTap={{scale:0.98}}
+            className="flex items-center justify-center gap-1.5 py-3 bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold rounded-xl text-xs hover:bg-amber-500/30">
+            <Share2 className="w-4 h-4"/> مشاركة
+          </motion.button>
           <motion.a href={`tel:${ad.phone}`} whileHover={{scale:1.02}} whileTap={{scale:0.98}}
-            className="flex items-center justify-center gap-2 py-3 bg-blue-500 text-white font-bold rounded-xl text-sm">
-            <PhoneIcon className="w-5 h-5"/> اتصال
+            className="flex items-center justify-center gap-1.5 py-3 bg-blue-500 text-white font-bold rounded-xl text-xs">
+            <PhoneIcon className="w-4 h-4"/> اتصال
           </motion.a>
         </div>
 
@@ -4196,6 +4233,14 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
                             >
                               <MessageSquare className="w-3.5 h-3.5" /> واتساب
                             </motion.a>
+                            <motion.button
+                              onClick={(e) => { e.stopPropagation(); handleUniversalShare({ id: ad.id, university: ad.university, type: ad.type, regions: ad.regions, price: ad.price }); }}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold rounded-xl text-xs hover:bg-amber-500/30"
+                            >
+                              <Share2 className="w-3.5 h-3.5" /> مشاركة
+                            </motion.button>
                           </div>
                         </div>
                       </div>
@@ -4687,6 +4732,14 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
                         className="flex items-center gap-1.5 px-4 py-2 bg-green-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-green-500/20">
                         <MessageSquare className="w-3.5 h-3.5"/> واتساب
                       </motion.a>
+                      <motion.button
+                        onClick={(e) => { e.stopPropagation(); handleUniversalShare({ id: ad.id, university: ad.university, type: ad.type, regions: ad.regions, price: ad.price }); }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold rounded-xl text-xs hover:bg-amber-500/30"
+                      >
+                        <Share2 className="w-3.5 h-3.5" /> مشاركة
+                      </motion.button>
                     </div>
                   </div>
                 </div>
