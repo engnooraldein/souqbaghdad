@@ -27,7 +27,17 @@ export function generateProductUrl(category: string, title: string, id: string |
   return `/product/${id}/${cleanCategory}/${cleanTitle}`;
 }
 
-export function extractIdFromPath(path: string): { type: 'ad' | 'product' | 'seller' | null; id: string | number | null } {
+export function generateTransportUrl(university: string, id: string | number): string {
+  const cleanUni = university ? slugify(university) : 'uni';
+  return `/transport/${id}/${cleanUni}`;
+}
+
+export function generateProfileUrl(name: string, id: string | number): string {
+  const cleanName = name ? slugify(name) : 'user';
+  return `/seller/${id}/${cleanName}`;
+}
+
+export function extractIdFromPath(path: string): { type: 'ad' | 'product' | 'seller' | 'transport' | null; id: string | number | null } {
   const adMatch = path.match(/\/ad\/([^\/]+)/);
   if (adMatch) return { type: 'ad', id: adMatch[1] };
 
@@ -37,5 +47,9 @@ export function extractIdFromPath(path: string): { type: 'ad' | 'product' | 'sel
   const sellerMatch = path.match(/\/seller\/([^\/]+)/);
   if (sellerMatch) return { type: 'seller', id: sellerMatch[1] };
 
+  const transportMatch = path.match(/\/transport\/([^\/]+)/);
+  if (transportMatch) return { type: 'transport', id: transportMatch[1] };
+
   return { type: null, id: null };
 }
+

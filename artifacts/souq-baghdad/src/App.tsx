@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from './lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShareModal } from './components/ShareModal';
-import { generateAdUrl, generateProductUrl, extractIdFromPath } from './lib/slugUtils';
+import { generateAdUrl, generateProductUrl, generateTransportUrl, generateProfileUrl, extractIdFromPath } from './lib/slugUtils';
 import {
   Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, Check,
   Gamepad2, Heart, Bell, Plus, LogOut, Star, X, Search, MapPin,
@@ -1005,7 +1005,7 @@ function ProductCard({ product, onSelect, isFav, onFav, onSellerClick }:{
 function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom, onShare }:{
   ad:Ad|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; onAuthRequired:()=>void; onSellerClick?:(sellerId:string)=>void;
   onViewDurationLogged?:(seconds:number)=>void; onImageZoom?:(src:string, title:string)=>void;
-  onShare?:(data:{title:string; url:string; image?:string; price?:string})=>void;
+  onShare?:(ad:Ad)=>void;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
@@ -1090,7 +1090,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
             <button onClick={()=>{if(!user){onAuthRequired();return;}onFav();}}
               className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-medium ${isFav?'bg-red-500 text-white':'bg-gray-800 text-white'}`}>
               <Heart className={`w-4 h-4 ${isFav?'fill-current':''}`}/>{isFav?'في المفضلة':'أضف للمفضلة'}</button>
-            <button onClick={() => onShare?.({ title: ad.title, url: generateAdUrl(ad.category, ad.title, ad.id), image: ad.images?.[0], price: formatPrice(ad.price) })}
+            <button onClick={() => onShare?.(ad)}
               className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl flex items-center justify-center gap-2 text-sm transition-all shadow-lg shadow-amber-500/20">
               <Share2 className="w-4 h-4"/> مشاركة الإعلان</button>
           </div>
@@ -1106,7 +1106,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
 function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom, onShare }:{
   product:Product|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; onAuthRequired:()=>void; onSellerClick?:(id:string)=>void;
   onViewDurationLogged?:(seconds:number)=>void; onImageZoom?:(src:string, title:string)=>void;
-  onShare?:(data:{title:string; url:string; image?:string; price?:string})=>void;
+  onShare?:(product:Product)=>void;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
@@ -1191,9 +1191,9 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
             <button onClick={()=>{if(!user){onAuthRequired();return;}onFav();}}
               className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-medium ${isFav?'bg-red-500 text-white':'bg-gray-800 text-white'}`}>
               <Heart className={`w-4 h-4 ${isFav?'fill-current':''}`}/>{isFav?'في المفضلة':'أضف للمفضلة'}</button>
-            <button onClick={()=>navigator.share?.({title:product.title,url:window.location.href})}
-              className="flex-1 py-3 bg-gray-800 text-white rounded-xl flex items-center justify-center gap-2 text-sm font-medium">
-              <Share2 className="w-4 h-4"/> مشاركة</button>
+            <button onClick={() => onShare?.(product)}
+              className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 text-sm transition-all shadow-lg shadow-purple-500/20">
+              <Share2 className="w-4 h-4"/> مشاركة المنتج</button>
           </div>
         </div>
       </motion.div>
@@ -1201,9 +1201,10 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
   );
 }
 
-function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDurationLogged }:{
+function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDurationLogged, onShare }:{
   ad:TransportAd|null; onClose:()=>void; user:User|null; onAuthRequired:()=>void;
   onViewDurationLogged?:(seconds:number)=>void;
+  onShare?:(ad:TransportAd)=>void;
 }) {
   const [showViewers, setShowViewers] = useState(false);
   useEffect(()=>{
@@ -3456,6 +3457,60 @@ export default function App() {
   const [activeLightbox, setActiveLightbox] = useState<{ src: string; title: string } | null>(null);
   const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; title: string; url: string; image?: string; price?: string }>({ isOpen: false, title: '', url: '' });
   const handleOpenShare = (data: { title: string; url: string; image?: string; price?: string }) => setShareModalData({ isOpen: true, ...data });
+
+  const handleUniversalShare = async (type: 'ad' | 'product' | 'transport' | 'profile', item: any) => {
+    if (!item) return;
+    let title = '';
+    let text = '';
+    let relativeUrl = '';
+    let image = '';
+    let price = '';
+
+    const baseUrl = 'https://souqbaghdad.store';
+
+    if (type === 'ad') {
+      title = item.title || 'إعلان في سوق بغداد';
+      price = item.price ? formatPrice(item.price) : '';
+      image = item.images?.[0] || '';
+      relativeUrl = generateAdUrl(item.category, item.title, item.id);
+      text = `شاهد إعلان (${title})${price ? ` بسعر ${price} د.ع` : ''} في ${item.location || item.governorate || 'العراق'} على منصة سوق بغداد 🇮🇶`;
+    } else if (type === 'product') {
+      title = item.title || 'منتج في سوق بغداد';
+      price = item.price ? formatPrice(item.price) : '';
+      image = item.images?.[0] || '';
+      relativeUrl = generateProductUrl(item.category, item.title, item.id);
+      text = `شاهد منتج (${title})${price ? ` بسعر ${price} د.ع` : ''} (الحالة: ${item.condition || 'جديد'}) على منصة سوق بغداد 🇮🇶`;
+    } else if (type === 'transport') {
+      const typeText = item.type === 'offer' ? 'خط متوفر' : 'طلب خط';
+      title = `${typeText} - ${item.university || 'جامعة'}`;
+      price = item.price || '';
+      relativeUrl = generateTransportUrl(item.university || 'university', item.id);
+      text = `شاهد ${typeText} إلى جامعة ${item.university || ''} (المناطق: ${item.regions || 'غير محدد'} | الدوام: ${item.shift || 'راجع التفاصيل'}) على منصة سوق بغداد 🇮🇶`;
+    } else if (type === 'profile') {
+      const name = item.name || 'مستخدم سوق بغداد';
+      title = `حساب البائع - ${name}`;
+      image = item.avatar || '';
+      relativeUrl = generateProfileUrl(name, item.id || item.postedBy || 'user');
+      text = `تصفح حساب البائع (${name}) والإعلانات والمنتجات المعروضة على منصة سوق بغداد 🇮🇶`;
+    }
+
+    const fullUrl = relativeUrl.startsWith('http') ? relativeUrl : `${baseUrl}${relativeUrl}`;
+
+    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+      try {
+        await navigator.share({
+          title,
+          text,
+          url: fullUrl,
+        });
+        return;
+      } catch (err) {
+        if ((err as any)?.name === 'AbortError') return;
+      }
+    }
+
+    setShareModalData({ isOpen: true, title, url: relativeUrl, image, price });
+  };
   const playSound = useSound();
 
   const [allAds, setAllAds] = useState<Ad[]>([]);
