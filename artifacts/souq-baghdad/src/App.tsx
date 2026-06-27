@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from './lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShareModal } from './components/ShareModal';
-import { generateAdUrl, generateProductUrl } from './lib/slugUtils';
+import { generateAdUrl, generateProductUrl, extractIdFromPath } from './lib/slugUtils';
 import {
   Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, Check,
   Gamepad2, Heart, Bell, Plus, LogOut, Star, X, Search, MapPin,
