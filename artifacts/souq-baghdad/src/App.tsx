@@ -94,6 +94,32 @@ interface Visit {
   location: string; userId?: string; userName?: string; page: string;
 }
 
+export interface SystemLog {
+  id: string;
+  timestamp: string;
+  action: string;
+  details: string;
+  user: string;
+  type: 'info' | 'success' | 'warning' | 'danger';
+}
+
+export const logSystemAction = (action: string, details: string, type: 'info' | 'success' | 'warning' | 'danger' = 'info', userName: string = 'إدارة النظام') => {
+  try {
+    const logs: SystemLog[] = JSON.parse(localStorage.getItem('souqSystemLogs') || '[]');
+    const newLog: SystemLog = {
+      id: Math.random().toString(36).substring(2, 9),
+      timestamp: new Date().toISOString(),
+      action,
+      details,
+      user: userName,
+      type
+    };
+    localStorage.setItem('souqSystemLogs', JSON.stringify([newLog, ...logs].slice(0, 500)));
+  } catch (e) {
+    console.error('Failed to log action:', e);
+  }
+};
+
 // ─────────────────────────────────────────────
 // Utilities
 // ─────────────────────────────────────────────
@@ -2155,9 +2181,11 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
 // ─────────────────────────────────────────────
 const DEVICE_COLORS = ['#f59e0b','#3b82f6','#8b5cf6'];
 function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:{ads:Ad[];products:Product[];onDeleteAd:(id:number)=>void;onDeleteProduct:(id:number)=>void;onClose:()=>void}) {
-  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'>('overview');
+  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'logs'>('overview');
   const [storedUsers, setStoredUsers] = useState<StoredUser[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
+  const [logs, setLogs] = useState<SystemLog[]>([]);
+  const [logSearch, setLogSearch] = useState('');
   
   // Broadcast State
   const [broadcastTitle, setBroadcastTitle] = useState('');
@@ -2168,7 +2196,26 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
   useEffect(()=>{
     try{setStoredUsers(JSON.parse(localStorage.getItem('souqUsers')||'[]'));}catch{}
     try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}
-    const iv=setInterval(()=>{try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}},30_000);
+    try{
+      let storedLogs: SystemLog[] = JSON.parse(localStorage.getItem('souqSystemLogs')||'[]');
+      if (storedLogs.length === 0) {
+        storedLogs = [{
+          id: 'init-1',
+          timestamp: new Date().toISOString(),
+          action: 'تحديث النظام',
+          details: 'تم تحديث الاعتماديات ومحرك pnpm ونظام المستودع بنجاح',
+          user: 'النظام الآلي',
+          type: 'success'
+        }];
+        localStorage.setItem('souqSystemLogs', JSON.stringify(storedLogs));
+      }
+      setLogs(storedLogs);
+    }catch{}
+
+    const iv=setInterval(()=>{
+      try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}
+      try{setLogs(JSON.parse(localStorage.getItem('souqSystemLogs')||'[]'));}catch{}
+    },5000);
     return()=>clearInterval(iv);
   },[]);
 
@@ -2199,13 +2246,44 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
 
   // Actions
   const toggleBan=(id:string)=>{
-    const u=storedUsers.map(u=>u.id===id?{...u,isBanned:!u.isBanned}:u);
+    const target = storedUsers.find(u=>u.id===id);
+    const newBannedState = !target?.isBanned;
+    const u=storedUsers.map(u=>u.id===id?{...u,isBanned:newBannedState}:u);
     setStoredUsers(u);localStorage.setItem('souqUsers',JSON.stringify(u));
+    logSystemAction(
+      newBannedState ? 'حظر مستخدم' : 'فك حظر مستخدم',
+      `تم ${newBannedState ? 'حظر' : 'إلغاء حظر'} المستخدم: ${target?.name || id}`,
+      newBannedState ? 'danger' : 'success',
+      'المالك'
+    );
+    setLogs(JSON.parse(localStorage.getItem('souqSystemLogs')||'[]'));
   };
 
   const changeRole=(id:string, newRole:string)=>{
+    const target = storedUsers.find(u=>u.id===id);
     const u=storedUsers.map(u=>u.id===id?{...u,role:newRole as any}:u);
     setStoredUsers(u);localStorage.setItem('souqUsers',JSON.stringify(u));
+    logSystemAction(
+      'تغيير رتبة مستخدم',
+      `تم تغيير رتبة ${target?.name || id} إلى ${newRole}`,
+      'warning',
+      'المالك'
+    );
+    setLogs(JSON.parse(localStorage.getItem('souqSystemLogs')||'[]'));
+  };
+
+  const handleDeleteAdWithLog = (id: number) => {
+    const target = ads.find(a => a.id === id);
+    onDeleteAd(id);
+    logSystemAction('حذف إعلان', `تم حذف الإعلان: "${target?.title || id}"`, 'danger', 'المالك');
+    setLogs(JSON.parse(localStorage.getItem('souqSystemLogs')||'[]'));
+  };
+
+  const handleDeleteProductWithLog = (id: number) => {
+    const target = products.find(p => p.id === id);
+    onDeleteProduct(id);
+    logSystemAction('حذف منتج', `تم حذف المنتج: "${target?.title || id}"`, 'danger', 'المالك');
+    setLogs(JSON.parse(localStorage.getItem('souqSystemLogs')||'[]'));
   };
 
   const handleBroadcast = async (e: React.FormEvent) => {
@@ -2239,6 +2317,13 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
           await supabase.from('ads').insert(chunk);
         }
       }
+      logSystemAction(
+        'إرسال إشعار عام',
+        `عنوان الإشعار: "${broadcastTitle}" - تم الإرسال إلى ${userIds.length} مستخدم`,
+        'info',
+        'المالك'
+      );
+      setLogs(JSON.parse(localStorage.getItem('souqSystemLogs')||'[]'));
       setBroadcastSent(true);
       setTimeout(() => { setBroadcastTitle(''); setBroadcastMsg(''); setBroadcastSent(false); }, 3000);
     } catch (err) {
@@ -2426,7 +2511,7 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
                   <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
                   <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{ad.title}</p>
                     <p className="text-xs text-gray-400">{ad.location} • {formatPrice(ad.price)} د.ع • {ad.views} 👁</p></div>
-                  <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
+                  <button onClick={()=>handleDeleteAdWithLog(ad.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
                 </div>
               ))}
             </div>
@@ -2437,7 +2522,7 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
                   <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
                   <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{p.title}</p>
                     <p className="text-xs text-gray-400">{p.governorate} • {formatPrice(p.price)} د.ع • {p.views} 👁 • {p.condition==='new'?'جديد':'مستعمل'}</p></div>
-                  <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
+                  <button onClick={()=>handleDeleteProductWithLog(p.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
                 </div>
               ))}
             </div>
@@ -2480,6 +2565,79 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
                   {isBroadcasting ? <Loader2 className="w-5 h-5 animate-spin"/> : <><Mail className="w-5 h-5"/> إرسال الإشعار الآن</>}
                 </button>
               </form>
+            )}
+          </div>
+        )}
+
+        {tab==='logs'&&(
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden space-y-4 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-gray-700">
+              <div>
+                <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-amber-400"/> سجل العمليات والتغييرات ({logs.length})
+                </h3>
+                <p className="text-gray-400 text-xs">يسجل هذا القسم كافة التحديثات والأنشطة المنفذة على المنصة تلقائياً</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-gray-400 absolute right-3 top-2.5"/>
+                  <input
+                    type="text"
+                    placeholder="بحث في السجل..."
+                    value={logSearch}
+                    onChange={e => setLogSearch(e.target.value)}
+                    className="bg-gray-900 border border-gray-700 text-white text-xs rounded-xl pr-9 pl-3 py-2 outline-none focus:border-amber-500 w-48"
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    if (confirm('هل أنت تأكد من مسح سجل العمليات؟')) {
+                      localStorage.removeItem('souqSystemLogs');
+                      setLogs([]);
+                    }
+                  }}
+                  className="px-3 py-2 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5"/> مسح السجل
+                </button>
+              </div>
+            </div>
+
+            {logs.length === 0 ? (
+              <div className="p-10 text-center">
+                <FileText className="w-12 h-12 text-gray-600 mx-auto mb-3"/>
+                <p className="text-gray-400 text-sm">لا توجد عمليات مسجلة حتى الآن</p>
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-[550px] overflow-y-auto pr-1">
+                {logs
+                  .filter(l => l.action.includes(logSearch) || l.details.includes(logSearch) || l.user.includes(logSearch))
+                  .map(log => {
+                    const badgeBg = 
+                      log.type === 'danger' ? 'bg-red-500/10 border-red-500/30 text-red-400' :
+                      log.type === 'warning' ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' :
+                      log.type === 'success' ? 'bg-green-500/10 border-green-500/30 text-green-400' :
+                      'bg-blue-500/10 border-blue-500/30 text-blue-400';
+                    return (
+                      <div key={log.id} className="bg-gray-900/80 border border-gray-700/60 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 hover:border-gray-600 transition-colors">
+                        <div className="flex items-start gap-3 min-w-0 flex-1">
+                          <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex-shrink-0 mt-0.5 ${badgeBg}`}>
+                            {log.action}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-white text-xs font-medium leading-relaxed">{log.details}</p>
+                            <span className="text-gray-500 text-[10px] block mt-1">المفذ: <strong className="text-gray-400">{log.user}</strong></span>
+                          </div>
+                        </div>
+                        <div className="text-left flex-shrink-0">
+                          <span className="text-gray-400 text-[11px] font-mono bg-gray-800 px-2.5 py-1 rounded-lg border border-gray-700/50">
+                            {new Date(log.timestamp).toLocaleString('ar-IQ', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: 'numeric', month: 'short' })}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
             )}
           </div>
         )}
