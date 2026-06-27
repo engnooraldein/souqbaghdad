@@ -2977,34 +2977,6 @@ const getWhatsAppResetLink = (phone: string) => {
   return `https://wa.me/${clean}?text=${encodeURIComponent(msg)}`;
 };
 
-export interface SystemLog {
-  id: string;
-  timestamp: string;
-  action: string;
-  admin: string;
-  details: string;
-  target?: string;
-}
-
-export const logSystemAction = (action: string, details: string, target?: string, admin: string = 'المالك') => {
-  try {
-    const logs: SystemLog[] = JSON.parse(localStorage.getItem('souq_system_logs') || '[]');
-    const newLog: SystemLog = {
-      id: Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
-      timestamp: new Date().toISOString(),
-      action,
-      admin,
-      details,
-      target
-    };
-    logs.unshift(newLog);
-    if (logs.length > 500) logs.pop();
-    localStorage.setItem('souq_system_logs', JSON.stringify(logs));
-  } catch (err) {
-    console.error('Failed to log action:', err);
-  }
-};
-
 function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProduct, onDeleteTransportAd, onClose, onDeleteProfile }: {
   ads:Ad[];
   products:Product[];
@@ -3015,7 +2987,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   onClose:()=>void;
   onDeleteProfile?:(id:string)=>void;
 }) {
-  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'logs'|'changelog'>('overview');
+  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'messages'>('overview');
   const [verificationRequests, setVerificationRequests] = useState<any[]>([]);
   const [recoveryRequests, setRecoveryRequests] = useState<any[]>([]);
   const [storedUsers, setStoredUsers] = useState<StoredUser[]>([]);
@@ -3023,17 +2995,11 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   const [dbGuests, setDbGuests] = useState<any[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
-  const [logFilter, setLogFilter] = useState('');
-
-  useEffect(() => {
-    const loadLogs = () => {
-      try { setSystemLogs(JSON.parse(localStorage.getItem('souq_system_logs') || '[]')); } catch {}
-    };
-    loadLogs();
-    const interval = setInterval(loadLogs, 3000);
-    return () => clearInterval(interval);
-  }, []);
+  const [supportMessages, setSupportMessages] = useState<any[]>([]);
+  const [isFetchingMessages, setIsFetchingMessages] = useState(false);
+  const [usersSearch, setUsersSearch] = useState('');
+  const [usersFilter, setUsersFilter] = useState<'all'|'vendor'|'pro'|'admin'|'banned'>('all');
+  const [usersSort, setUsersSort] = useState<'last_seen'|'newest'|'alphabetical'>('last_seen');
 
 
   
@@ -3072,13 +3038,81 @@ const fetchRecovery = async () => {
     };
     fetchRecovery();
 
+    const fetchSupportMessages = async () => {
+      setIsFetchingMessages(true);
+      try {
+        const { data, error } = await supabase
+          .from('support_messages')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (data && !error) setSupportMessages(data);
+      } catch (err) {}
+      setIsFetchingMessages(false);
+    };
+    fetchSupportMessages();
+
     const fetchUsersAndGuests = async () => {
       try {
-        const { data: profiles } = await supabase.from('profiles').select('*').order('last_seen', { ascending: false });
-        if (profiles) setDbUsers(profiles);
+        const { data: profiles, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('last_seen', { ascending: false });
+        if (error) throw error;
+        
+        let mergedProfiles = profiles || [];
+        try {
+          const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
+          localUsers.forEach((lu: any) => {
+            if (lu && lu.id && !mergedProfiles.some((p: any) => p.id === lu.id)) {
+              mergedProfiles.push({
+                id: lu.id,
+                full_name: lu.name || 'مستخدم',
+                phone: lu.phone || '',
+                role: lu.role || 'user',
+                avatar_url: lu.avatar || DEFAULT_AVATAR,
+                created_at: lu.registeredAt || new Date().toISOString(),
+                ads_count: lu.adCount || 0,
+                favorites_count: 0,
+                views_count: 0,
+                email: lu.email || '',
+                city: lu.location || 'بغداد',
+                last_seen: lu.lastSeen || new Date().toISOString(),
+                is_banned: lu.isBanned || false
+              });
+            }
+          });
+        } catch (e) {
+          console.error('Error merging local users:', e);
+        }
+        
+        setDbUsers(mergedProfiles);
+        
         const { data: guests } = await supabase.from('guests').select('*').order('last_seen', { ascending: false });
         if (guests) setDbGuests(guests);
-      } catch (err) {}
+      } catch (err) {
+        console.error('Error fetching profiles, using local storage fallback:', err);
+        try {
+          const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
+          const fallback = localUsers.map((lu: any) => ({
+            id: lu.id || Math.random().toString(),
+            full_name: lu.name || 'مستخدم',
+            phone: lu.phone || '',
+            role: lu.role || 'user',
+            avatar_url: lu.avatar || DEFAULT_AVATAR,
+            created_at: lu.registeredAt || new Date().toISOString(),
+            ads_count: lu.adCount || 0,
+            favorites_count: 0,
+            views_count: 0,
+            email: lu.email || '',
+            city: lu.location || 'بغداد',
+            last_seen: lu.lastSeen || new Date().toISOString(),
+            is_banned: lu.isBanned || false
+          }));
+          setDbUsers(fallback);
+        } catch (e) {
+          console.error('Local fallback failed:', e);
+        }
+      }
     };
     fetchUsersAndGuests();
     const fetchInterval = setInterval(fetchUsersAndGuests, 60_000);
@@ -3139,7 +3173,7 @@ const fetchRecovery = async () => {
     if(!broadcastTitle || !broadcastMsg) return;
     setIsBroadcasting(true);
     try {
-      const userIds = storedUsers.map(u => u.id).filter(id => id);
+      const userIds = dbUsers.map(u => u.id).filter(id => id);
       if (userIds.length > 0) {
         const notifications = userIds.map(uid => ({
           seller_id: uid,
@@ -3165,7 +3199,6 @@ const fetchRecovery = async () => {
           await supabase.from('ads').insert(chunk);
         }
       }
-      logSystemAction('إرسال إشعار عام', `عنوان الإشعار: ${broadcastTitle}`, 'جميع المستخدمين');
       setBroadcastSent(true);
       setTimeout(() => { setBroadcastTitle(''); setBroadcastMsg(''); setBroadcastSent(false); }, 3000);
     } catch (err) {
@@ -3176,13 +3209,33 @@ const fetchRecovery = async () => {
     }
   };
 
+  const handleResolveMessage = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'pending' ? 'resolved' : 'pending';
+    setSupportMessages(prev => prev.map(m => m.id === id ? { ...m, status: newStatus } : m));
+    try {
+      await supabase.from('support_messages').update({ status: newStatus }).eq('id', id);
+    } catch (e) {
+      console.error('Failed to update status', e);
+    }
+  };
+
+  const handleDeleteMessage = async (id: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذه الرسالة نهائياً؟')) return;
+    setSupportMessages(prev => prev.filter(m => m.id !== id));
+    try {
+      await supabase.from('support_messages').delete().eq('id', id);
+    } catch (e) {
+      console.error('Failed to delete message', e);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-950 pt-16 pb-8">
       <div className="container mx-auto px-4 max-w-5xl">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg"><Crown className="w-6 h-6 text-black"/></div>
-            <div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">🚀 الإصدار v1.2</span></div><p className="text-amber-400 text-xs mt-0.5">تحليلات شاملة وإدارة كاملة للموقع المنصة حية ومتصلة</p></div>
+            <div><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><p className="text-amber-400 text-xs">تحليلات شاملة وإدارة كاملة للموقع</p></div>
           </div>
           <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white"><X className="w-5 h-5"/></button>
         </div>
@@ -3191,7 +3244,7 @@ const fetchRecovery = async () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {[{l:'زيارات اليوم',v:todayV.length,icon:<Activity className="w-5 h-5"/>,c:'text-green-400',bg:'bg-green-500/10 border-green-500/20'},
             {l:'إجمالي الزيارات',v:visits.length,icon:<Globe className="w-5 h-5"/>,c:'text-blue-400',bg:'bg-blue-500/10 border-blue-500/20'},
-            {l:'المستخدمون',v:storedUsers.length,icon:<Users className="w-5 h-5"/>,c:'text-purple-400',bg:'bg-purple-500/10 border-purple-500/20'},
+            {l:'المستخدمون',v:dbUsers.length,icon:<Users className="w-5 h-5"/>,c:'text-purple-400',bg:'bg-purple-500/10 border-purple-500/20'},
             {l:'المحتوى',v:ads.length+products.length,icon:<Layers className="w-5 h-5"/>,c:'text-amber-400',bg:'bg-amber-500/10 border-amber-500/20'}].map((s,i)=>(
             <div key={i} className={`${s.bg} rounded-2xl p-4 border text-center`}>
               <div className={`flex justify-center mb-2 ${s.c}`}>{s.icon}</div>
@@ -3203,7 +3256,7 @@ const fetchRecovery = async () => {
         
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['broadcast','🔔 إشعار عام'],['logs','📋 سجل العمليات'],['changelog','🚀 التحديثات v1.2']] as [string,string][]).map(([t,l])=>(
+          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['broadcast','🔔 إشعار عام'],['messages','💬 الرسائل']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`px-4 py-2 rounded-xl text-sm font-bold ${tab===t?'bg-amber-500 text-black':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
           ))}
         </div>
@@ -3308,121 +3361,266 @@ const fetchRecovery = async () => {
         )}
         
         {tab==='users'&&(
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {/* إحصائيات سريعة */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-gray-800 rounded-xl p-3 border border-gray-700 flex flex-col items-center">
+                <span className="text-gray-400 text-xs mb-1">الكل</span>
+                <span className="text-white font-bold text-lg">{dbUsers.length}</span>
+              </div>
+              <div className="bg-green-500/10 rounded-xl p-3 border border-green-500/20 flex flex-col items-center">
+                <span className="text-green-400 text-xs mb-1">التجار</span>
+                <span className="text-green-400 font-bold text-lg">{dbUsers.filter(u => u.role === 'vendor').length}</span>
+              </div>
+              <div className="bg-purple-500/10 rounded-xl p-3 border border-purple-500/20 flex flex-col items-center">
+                <span className="text-purple-400 text-xs mb-1">برو</span>
+                <span className="text-purple-400 font-bold text-lg">{dbUsers.filter(u => u.role === 'pro').length}</span>
+              </div>
+              <div className="bg-red-500/10 rounded-xl p-3 border border-red-500/20 flex flex-col items-center">
+                <span className="text-red-400 text-xs mb-1">المحظورين</span>
+                <span className="text-red-400 font-bold text-lg">{dbUsers.filter(u => u.is_banned).length}</span>
+              </div>
+            </div>
+
+            {/* شريط البحث والفلاتر */}
+            <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 space-y-3">
+              <div className="flex flex-col md:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
+                  <input type="text" placeholder="ابحث عن مستخدم بالاسم، الهاتف، الايميل..." 
+                    value={usersSearch} onChange={e => setUsersSearch(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg pl-3 pr-9 py-2 text-sm outline-none focus:border-amber-500" />
+                </div>
+                <select value={usersSort} onChange={e => setUsersSort(e.target.value as any)} className="bg-gray-900 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-amber-500">
+                  <option value="last_seen">آخر ظهور</option>
+                  <option value="newest">تاريخ التسجيل</option>
+                  <option value="alphabetical">أبجدياً</option>
+                </select>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: 'all', label: 'الكل' },
+                  { id: 'vendor', label: 'تجار موثقين', color: 'text-green-400 bg-green-500/10 border-green-500/20' },
+                  { id: 'pro', label: 'برو (Pro)', color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
+                  { id: 'admin', label: 'مدراء', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
+                  { id: 'banned', label: 'محظورين', color: 'text-red-400 bg-red-500/10 border-red-500/20' },
+                ].map(f => (
+                  <button key={f.id} onClick={() => setUsersFilter(f.id as any)} 
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${usersFilter === f.id ? (f.color || 'bg-amber-500 text-black border-amber-500') : 'bg-gray-900 text-gray-400 border-gray-700 hover:bg-gray-800'}`}>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {selectedUserIds.length > 0 && (
-               <div className="flex justify-between items-center bg-gray-800 p-3 rounded-xl border border-red-500/30 mb-3">
-                 <span className="text-red-400 font-bold">تم تحديد {selectedUserIds.length} حسابات</span>
-                 <button onClick={async () => {
-                    if (window.confirm(`هل أنت متأكد من حذف ${selectedUserIds.length} حسابات نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`)) {
-                      for (const uid of selectedUserIds) {
-                         if (onDeleteProfile) onDeleteProfile(uid);
+               <div className="flex justify-between items-center bg-gray-800 p-3 rounded-xl border border-red-500/30 mb-3 flex-wrap gap-2">
+                 <span className="text-red-400 font-bold text-sm">تم تحديد {selectedUserIds.length} حسابات</span>
+                 <div className="flex gap-2">
+                   <button onClick={async () => {
+                      if (window.confirm(`هل أنت متأكد من حظر ${selectedUserIds.length} حسابات؟`)) {
+                        for (const uid of selectedUserIds) {
+                          try { await supabase.from('profiles').update({ is_banned: true }).eq('id', uid); } catch(e){}
+                        }
+                        setDbUsers(prev => prev.map(u => selectedUserIds.includes(u.id) ? { ...u, is_banned: true } : u));
+                        setSelectedUserIds([]);
                       }
-                      setDbUsers(prev => prev.filter(u => !selectedUserIds.includes(u.id)));
-                      setSelectedUserIds([]);
-                    }
-                 }} className="bg-red-500 text-white px-4 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-red-600">
-                    <Trash2 className="w-4 h-4"/> حذف الكل
-                 </button>
+                   }} className="bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-red-500/30">
+                      <UserX className="w-3.5 h-3.5"/> حظر جماعي
+                   </button>
+                   <button onClick={async () => {
+                      if (window.confirm(`هل أنت متأكد من حذف ${selectedUserIds.length} حسابات نهائياً؟`)) {
+                        for (const uid of selectedUserIds) {
+                           if (onDeleteProfile) onDeleteProfile(uid);
+                        }
+                        setDbUsers(prev => prev.filter(u => !selectedUserIds.includes(u.id)));
+                        setSelectedUserIds([]);
+                      }
+                   }} className="bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-red-600">
+                      <Trash2 className="w-3.5 h-3.5"/> حذف الكل
+                   </button>
+                 </div>
                </div>
             )}
-            {dbUsers.length===0?<div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا مستخدمون بعد</p></div>:dbUsers.map(u=>{
-              const isOnline = new Date().getTime() - new Date(u.last_seen || 0).getTime() < 5 * 60 * 1000;
-              
-              return (
-              <div key={u.id} className={`bg-gray-800 rounded-2xl p-4 border ${u.is_banned?'border-red-500/30':'border-gray-700'} flex items-center gap-3 flex-wrap relative`}>
-                {u.role !== 'owner' && (
-                  <input type="checkbox" className="w-5 h-5 accent-red-500 rounded cursor-pointer hidden sm:block flex-shrink-0" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
-                    if (e.target.checked) setSelectedUserIds(prev => [...prev, u.id]);
-                    else setSelectedUserIds(prev => prev.filter(id => id !== u.id));
-                  }} />
-                )}
-                <div className="relative flex-shrink-0">
-                  <img src={u.avatar_url || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-12 h-12 rounded-full object-cover border-2 ${u.is_banned?'border-red-500/50':'border-gray-600'}`}/>
-                  <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-gray-800 ${isOnline ? 'bg-green-500' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'غير متصل'}></div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {u.role !== 'owner' && (
-                      <input type="checkbox" className="w-4 h-4 accent-red-500 rounded cursor-pointer sm:hidden flex-shrink-0" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
-                        if (e.target.checked) setSelectedUserIds(prev => [...prev, u.id]);
-                        else setSelectedUserIds(prev => prev.filter(id => id !== u.id));
-                      }} />
-                    )}
-                    <p className="text-white font-bold text-sm">{u.full_name}</p>
-                    {u.is_banned&&<span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 text-[10px] rounded-full font-bold">موقوف</span>}
-                    {u.role==='owner'&&<span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] rounded-full flex items-center gap-0.5"><Crown className="w-2.5 h-2.5"/>مالك</span>}
-                    {u.role==='admin'&&<span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-[10px] rounded-full flex items-center gap-0.5"><Shield className="w-2.5 h-2.5"/>مشرف</span>}
-                    {u.role==='vendor'&&<span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[10px] rounded-full flex items-center gap-0.5"><UserCheck className="w-2.5 h-2.5"/>تاجر موثق</span>}
-                    {u.role==='pro'&&<span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-[10px] rounded-full flex items-center gap-0.5"><Star className="w-2.5 h-2.5"/>برو</span>}
-                  </div>
-                  <p className="text-gray-400 text-xs">{u.email || u.phone}</p>
-                  <p className="text-gray-500 text-[10px] mt-0.5">{u.city} • آخر ظهور: {u.last_seen ? new Date(u.last_seen).toLocaleString('ar-IQ') : 'غير معروف'}</p>
-                </div>
+            
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {(() => {
+              let filtered = dbUsers.filter(u => {
+                if (usersFilter === 'vendor' && u.role !== 'vendor') return false;
+                if (usersFilter === 'pro' && u.role !== 'pro') return false;
+                if (usersFilter === 'admin' && u.role !== 'admin' && u.role !== 'owner') return false;
+                if (usersFilter === 'banned' && !u.is_banned) return false;
                 
-                <div className="flex items-center gap-2 flex-shrink-0 mt-2 sm:mt-0 flex-wrap">
-                  <button onClick={() => alert('تفاصيل المستخدم: \n' + JSON.stringify(u, null, 2))} className="p-2 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-xl" title="معلومات المستخدم"><Eye className="w-4 h-4"/></button>
-                  {u.role !== 'owner' && (
-                    <button onClick={() => {
-                      if(window.confirm('تنبيه: سيتم حذف هذا الحساب نهائياً مع كافة إعلاناته المرتبطة به. هل أنت متأكد؟')) {
-                        if(onDeleteProfile) onDeleteProfile(u.id);
-                        setDbUsers(prev => prev.filter(usr => usr.id !== u.id));
-                      }
-                    }} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20" title="حذف الحساب">
-                      <Trash2 className="w-3.5 h-3.5"/> حذف الحساب
-                    </button>
-                  )}
-                  {u.role !== 'owner' && (
-                    <select 
-                      value={u.role || 'user'} 
-                      onChange={(e) => changeRole(u.id, e.target.value)}
-                      className="bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5 outline-none focus:border-amber-500"
-                    >
-                      <option value="user">مستخدم عادي</option>
-                      <option value="vendor">تاجر موثق</option>
-                      <option value="admin">مشرف منصة</option>
-                      <option value="pro">برو (Pro)</option>
-                    </select>
-                  )}
-                  {u.role !== 'owner' && (
-                    <div className="flex items-center gap-1">
-                      <button 
-                        onClick={async () => {
-                          if(confirm('هل أنت متأكد من إعادة تعيين كلمة المرور إلى 123456؟')) {
-                            try {
-                              const { error } = await supabase.rpc('admin_reset_password', { target_user_id: u.id, new_password: '123456' });
-                              if(error) throw error;
-                              alert('تم تغيير كلمة المرور بنجاح إلى: 123456');
-                            } catch(e:any) {
-                              alert('فشل في إعادة التعيين: ' + e.message);
-                            }
-                          }
-                        }}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20"
-                      >
-                        <Key className="w-3.5 h-3.5"/> تصفير الرمز (123456)
-                      </button>
-                      {u.phone && (
-                        <a 
-                          href={getWhatsAppResetLink(u.phone)} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20"
-                          title="إرسال رسالة واتساب بالتفاصيل الجديدة"
-                        >
-                          <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg> واتساب
-                        </a>
+                if (usersSearch) {
+                  const s = usersSearch.toLowerCase();
+                  const matchName = (u.full_name || '').toLowerCase().includes(s);
+                  const matchPhone = (u.phone || '').toLowerCase().includes(s);
+                  const matchEmail = (u.email || '').toLowerCase().includes(s);
+                  if (!matchName && !matchPhone && !matchEmail) return false;
+                }
+                return true;
+              });
+
+              filtered.sort((a, b) => {
+                if (usersSort === 'alphabetical') {
+                  return (a.full_name || '').localeCompare(b.full_name || '', 'ar');
+                } else if (usersSort === 'newest') {
+                  return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+                } else {
+                  return new Date(b.last_seen || 0).getTime() - new Date(a.last_seen || 0).getTime();
+                }
+              });
+
+              if (filtered.length === 0) return <div className="col-span-full bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا يوجد مستخدمون مطابقون</p></div>;
+
+              return filtered.map(u => {
+                const isOnline = new Date().getTime() - new Date(u.last_seen || 0).getTime() < 5 * 60 * 1000;
+                
+                return (
+                  <div key={u.id} className={`bg-gray-800/90 rounded-2xl p-5 border ${u.is_banned ? 'border-red-500/40 shadow-lg shadow-red-500/5' : 'border-gray-700/80 hover:border-amber-500/30'} flex flex-col justify-between transition-all relative`}>
+                    
+                    {/* Top Header */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="relative flex-shrink-0">
+                          <img src={u.avatar_url || DEFAULT_AVATAR} alt="" className={`w-14 h-14 rounded-2xl object-cover border-2 ${u.is_banned ? 'border-red-500/50' : 'border-gray-700'}`} />
+                          <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-gray-800 ${isOnline ? 'bg-green-500' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'غير متصل'}></div>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-white font-extrabold text-sm leading-tight truncate max-w-40">{u.full_name || 'مستخدم'}</p>
+                            {u.is_banned && <span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 text-[10px] rounded-full font-bold">موقوف</span>}
+                          </div>
+                          <p className="text-gray-500 text-[10px] mt-0.5">{u.city || 'بغداد'}</p>
+                        </div>
+                      </div>
+                      
+                      {u.role !== 'owner' && (
+                        <input type="checkbox" className="w-5 h-5 accent-red-500 rounded cursor-pointer border-gray-600 bg-gray-700 text-red-500 flex-shrink-0" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
+                          if (e.target.checked) setSelectedUserIds(prev => [...prev, u.id]);
+                          else setSelectedUserIds(prev => prev.filter(id => id !== u.id));
+                        }} />
                       )}
                     </div>
-                  )}
-                  {u.role!=='owner'&&<button onClick={()=>toggleBan(u.id)} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border ${u.is_banned?'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20':'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20'}`}>
-                    {u.is_banned?<><UserCheck className="w-3.5 h-3.5"/>رفع الإيقاف</>:<><UserX className="w-3.5 h-3.5"/>حظر</>}</button>}
-                </div>
-              </div>
-            );})}
+
+                    {/* Badges */}
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                      {u.role === 'owner' && <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] rounded-lg font-bold flex items-center gap-1"><Crown className="w-2.5 h-2.5"/>مالك المنصة</span>}
+                      {u.role === 'admin' && <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] rounded-lg font-bold flex items-center gap-1"><Shield className="w-2.5 h-2.5"/>مشرف</span>}
+                      {u.role === 'vendor' && <span className="px-2 py-0.5 bg-green-500/20 text-green-400 border border-green-500/30 text-[10px] rounded-lg font-bold flex items-center gap-1"><UserCheck className="w-2.5 h-2.5"/>تاجر موثق</span>}
+                      {u.role === 'pro' && <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 border border-purple-500/30 text-[10px] rounded-lg font-bold flex items-center gap-1"><Star className="w-2.5 h-2.5"/>برو (Pro)</span>}
+                      {u.role === 'user' && <span className="px-2 py-0.5 bg-gray-700/50 text-gray-300 border border-gray-700 text-[10px] rounded-lg font-bold flex items-center gap-1"><User className="w-2.5 h-2.5"/>عضو عادي</span>}
+                    </div>
+
+                    {/* Info */}
+                    <div className="space-y-1.5 text-xs text-gray-400 border-t border-gray-700/50 pt-3 mb-4 flex-1">
+                      {u.email && (
+                        <div className="flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+                          <span className="truncate" title={u.email}>{u.email}</span>
+                        </div>
+                      )}
+                      {u.phone && (
+                        <div className="flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+                          <span>{u.phone}</span>
+                        </div>
+                      )}
+                      <div className="text-[10px] text-gray-500 mt-2">
+                        <p>التسجيل: {u.created_at ? new Date(u.created_at).toLocaleDateString('ar-IQ') : 'غير معروف'}</p>
+                        <p>آخر ظهور: {u.last_seen ? new Date(u.last_seen).toLocaleString('ar-IQ') : 'غير معروف'}</p>
+                      </div>
+                    </div>
+
+                    {/* Actions Group */}
+                    <div className="flex flex-col gap-2 border-t border-gray-700/50 pt-3">
+                      {u.role !== 'owner' && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-gray-500 whitespace-nowrap">الرتبة:</span>
+                          <select 
+                            value={u.role || 'user'} 
+                            onChange={(e) => changeRole(u.id, e.target.value)}
+                            className="flex-1 bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-2 py-1 outline-none focus:border-amber-500 cursor-pointer"
+                          >
+                            <option value="user">مستخدم عادي</option>
+                            <option value="vendor">تاجر موثق</option>
+                            <option value="admin">مشرف منصة</option>
+                            <option value="pro">برو (Pro)</option>
+                          </select>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-1.5 justify-end mt-1">
+                        <button onClick={() => alert('تفاصيل المستخدم: \n' + JSON.stringify(u, null, 2))} className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded-xl border border-blue-500/20" title="عرض التفاصيل الكاملة"><Eye className="w-3.5 h-3.5"/></button>
+                        
+                        {u.phone && (
+                          <a 
+                            href={getWhatsAppResetLink(u.phone)} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="p-2 bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded-xl border border-green-500/20"
+                            title="إرسال رسالة واتساب بالتفاصيل"
+                          >
+                            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
+                          </a>
+                        )}
+
+                        {u.role !== 'owner' && (
+                          <button 
+                            onClick={async () => {
+                              if (confirm('هل أنت متأكد من إعادة تعيين كلمة المرور إلى 123456؟')) {
+                                try {
+                                  const { error } = await supabase.rpc('admin_reset_password', { target_user_id: u.id, new_password: '123456' });
+                                  if (error) throw error;
+                                  alert('تم تغيير كلمة المرور بنجاح إلى: 123456');
+                                } catch (e: any) {
+                                  alert('فشل في إعادة التعيين: ' + (e?.message || e));
+                                }
+                              }
+                            }}
+                            className="p-2 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 rounded-xl border border-amber-500/20"
+                            title="تصفير الرمز السري إلى (123456)"
+                          >
+                            <Key className="w-3.5 h-3.5"/>
+                          </button>
+                        )}
+
+                        {u.role !== 'owner' && (
+                          <button 
+                            onClick={() => toggleBan(u.id)} 
+                            className={`p-2 rounded-xl border transition-all ${u.is_banned ? 'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20' : 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20'}`}
+                            title={u.is_banned ? "رفع الإيقاف" : "حظر الحساب"}
+                          >
+                            {u.is_banned ? <UserCheck className="w-3.5 h-3.5" /> : <UserX className="w-3.5 h-3.5" />}
+                          </button>
+                        )}
+
+                        {u.role !== 'owner' && (
+                          <button 
+                            onClick={() => {
+                              if (window.confirm('تنبيه: سيتم حذف هذا الحساب نهائياً مع كافة إعلاناته المرتبطة به. هل أنت متأكد؟')) {
+                                if (onDeleteProfile) onDeleteProfile(u.id);
+                                setDbUsers(prev => prev.filter(usr => usr.id !== u.id));
+                              }
+                            }} 
+                            className="p-2 bg-red-600/10 text-red-500 hover:bg-red-600/25 border border-red-500/20 rounded-xl" 
+                            title="حذف الحساب نهائياً"
+                          >
+                            <Trash2 className="w-3.5 h-3.5"/>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+                );
+              });
+            })()}
+            </div>
+
           </div>
         )}
-        
-        {tab==='content'&&(
+{tab==='content'&&(
           <div className="space-y-4">
             <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
               <div className="p-4 border-b border-gray-700 flex items-center justify-between"><h3 className="text-white font-bold">الإعلانات ({ads.length})</h3><span className="text-gray-400 text-xs">{ads.reduce((s,a)=>s+a.views,0)} مشاهدة</span></div>
@@ -3547,7 +3745,7 @@ const fetchRecovery = async () => {
               <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center"><Bell className="w-6 h-6 text-amber-500"/></div>
               <div>
                 <h2 className="text-white font-bold text-lg">إرسال إشعار للجميع</h2>
-                <p className="text-gray-400 text-xs">سيصل هذا الإشعار كرسالة منبثقة في التطبيق لجميع المستخدمين ({storedUsers.length} مستخدم).</p>
+                <p className="text-gray-400 text-xs">سيصل هذا الإشعار كرسالة منبثقة في التطبيق لجميع المستخدمين ({dbUsers.length} مستخدم).</p>
               </div>
             </div>
 
@@ -3581,88 +3779,72 @@ const fetchRecovery = async () => {
           </div>
         )}
 
-
-        {tab==='logs'&&(
-          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden space-y-4 p-5">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-3 pb-3 border-b border-gray-700">
-              <div>
-                <h3 className="text-white font-bold text-lg flex items-center gap-2">📋 سجل تغييرات وعمليات النظام</h3>
-                <p className="text-gray-400 text-xs">يسجل كافة تحديثات وإجراءات الإدارة والمشرفين فور حدوثها</p>
-              </div>
-              <div className="flex items-center gap-2 w-full md:w-auto">
-                <input type="text" placeholder="بحث في السجل..." value={logFilter} onChange={e=>setLogFilter(e.target.value)} className="bg-gray-900 border border-gray-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 flex-1 md:w-48" />
-                <button onClick={()=>{if(confirm('هل انت متأكد من مسح جميع السجلات؟')){localStorage.removeItem('souq_system_logs');setSystemLogs([]);}}} className="px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 rounded-xl text-xs font-bold transition">مسح السجل</button>
-              </div>
+        {tab==='messages'&&(
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-white font-bold text-lg flex items-center gap-2">
+                <Mail className="w-5 h-5 text-amber-500" /> رسائل الدعم والشكاوى ({supportMessages.length})
+              </h2>
             </div>
-            <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
-              {systemLogs.filter(l=>!logFilter||l.action.includes(logFilter)||l.details.includes(logFilter)||(l.target&&l.target.includes(logFilter))).length===0?(
-                <div className="text-center py-8 text-gray-500 text-xs">لا توجد سجلات حالية</div>
-              ):(
-                systemLogs.filter(l=>!logFilter||l.action.includes(logFilter)||l.details.includes(logFilter)||(l.target&&l.target.includes(logFilter))).map(log=>(
-                  <div key={log.id} className="bg-gray-900/80 border border-gray-700/60 rounded-xl p-3 flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 font-bold rounded-md text-[11px]">{log.action}</span>
-                        <span className="text-gray-300 font-semibold">{log.details}</span>
+            
+            {isFetchingMessages ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
+              </div>
+            ) : supportMessages.length === 0 ? (
+              <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700 border-dashed">
+                <div className="text-4xl mb-3">💬</div>
+                <p className="text-white font-bold mb-1">لا توجد رسائل دعم</p>
+                <p className="text-gray-400 text-sm">لم يرسل الزوار أي استفسارات أو شكاوى بعد.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {supportMessages.map(msg => (
+                  <div key={msg.id} className={`bg-gray-800 rounded-2xl p-5 border transition-colors ${msg.status === 'resolved' ? 'border-green-500/20 opacity-80' : 'border-gray-700 hover:border-amber-500/30'}`}>
+                    <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
+                      <div>
+                        <h4 className="text-white font-bold text-sm flex items-center gap-2">
+                          {msg.name}
+                          {msg.status === 'resolved' && (
+                            <span className="bg-green-500/20 text-green-400 text-[10px] px-2 py-0.5 rounded-full font-bold">تم الحل ✅</span>
+                          )}
+                          {msg.status === 'pending' && (
+                            <span className="bg-amber-500/20 text-amber-400 text-[10px] px-2 py-0.5 rounded-full font-bold">قيد الانتظار ⏳</span>
+                          )}
+                        </h4>
+                        <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                          <span>📧 للتواصل:</span>
+                          <span className="text-amber-400 select-all font-mono">{msg.contact_info}</span>
+                        </p>
                       </div>
-                      {log.target && <div className="text-gray-500 text-[11px]">الهدف: {log.target}</div>}
+                      <span className="text-[10px] text-gray-500 font-mono">
+                        {new Date(msg.created_at).toLocaleString('ar-IQ')}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-3 text-[11px] text-gray-500 border-t md:border-t-0 border-gray-800 pt-2 md:pt-0">
-                      <span>بواسطة: <strong className="text-gray-400">{log.admin}</strong></span>
-                      <span>{new Date(log.timestamp).toLocaleString('ar-IQ')}</span>
+                    <p className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap bg-gray-900/40 p-3 rounded-xl border border-gray-750 font-medium">
+                      {msg.message}
+                    </p>
+                    <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-gray-700/50">
+                      <button 
+                        onClick={() => handleResolveMessage(msg.id, msg.status)} 
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${msg.status === 'resolved' ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20' : 'bg-green-500/10 border border-green-500/20 text-green-400 hover:bg-green-500/20'}`}
+                      >
+                        {msg.status === 'resolved' ? 'إعادة فتح الرسالة' : 'تم الحل'}
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteMessage(msg.id)} 
+                        className="px-3 py-1.5 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 rounded-lg text-xs font-bold transition-colors"
+                      >
+                        حذف
+                      </button>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {tab==='changelog'&&(
-          <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 space-y-6 max-w-4xl mx-auto">
-            <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-gray-700">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-amber-500/20 border border-amber-500/30 rounded-2xl flex items-center justify-center shadow-lg">
-                  <Sparkles className="w-6 h-6 text-amber-400"/>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-white font-bold text-xl">سجل التحديثات والإصدارات</h2>
-                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.2.0</span>
-                  </div>
-                  <p className="text-gray-400 text-xs mt-1">تتبع كافة التعديلات، التحسينات، والمميزات الجديدة في منصة سوق بغداد</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-gray-900 via-gray-900 to-amber-950/20 border-2 border-amber-500/40 rounded-2xl p-5 space-y-4 shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 left-0 bg-amber-500 text-black text-[10px] font-extrabold px-3 py-1 rounded-br-xl uppercase tracking-wider">
-                الإصدار الحالي المباشر
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-amber-400 font-bold text-lg">🚀 الإصدار v1.2.0</span>
-                <span className="text-gray-400 text-xs font-mono">({new Date().toLocaleDateString('ar-IQ')})</span>
-              </div>
-              <div className="space-y-3 pt-2">
-                <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
-                  <h4 className="text-amber-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">📌 ملاحظات التحديث (ما الجديد؟)</h4>
-                  <p className="text-gray-300 text-xs leading-relaxed">تمت إضافة قسم **سجل العمليات والتغييرات (Activity Logs)** الكامل، وتحديث بيئة البناء والتصدير القياسية لمطابقة خوادم Vercel و GitHub Actions، إضافة لنظام تتبع الإصدارات الحية لضمان وصول التحديث للمستخدم فوراً.</p>
-                </div>
-                <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
-                  <h4 className="text-green-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">⚡ التحسينات والإصلاحات</h4>
-                  <ul className="text-gray-300 text-xs space-y-1.5 list-disc list-inside">
-                    <li>ربط عمليات الحظر، الترقية، حذف الإعلانات، والرسائل العامة بنظام سجل تلقائي يحفظ التوقيت والمنفذ.</li>
-                    <li>تسريع زمن بناء المشروع وتوحيد مسارات التصدير السحابي المباشر.</li>
-                  </ul>
-                </div>
-                <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
-                  <h4 className="text-blue-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">💡 كيف الاستخدام؟</h4>
-                  <p className="text-gray-300 text-xs leading-relaxed">يمكنك التنقل بين تبويبة <strong>"سجل العمليات"</strong> لمتابعة الأنشطة اليومية للمشرفين والمالك، وتبويبة <strong>"التحديثات v1.2"</strong> للتحقق دائماً من رقم الإصدار الحالي للمنصة.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
