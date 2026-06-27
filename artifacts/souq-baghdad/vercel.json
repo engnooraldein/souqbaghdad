@@ -1,6 +1,7 @@
 {
   "framework": "vite",
   "installCommand": "pnpm install --no-frozen-lockfile --ignore-scripts",
+  "buildCommand": "npx vite build --config vite.config.ts",
   "rewrites": [
     {
       "source": "/(.*)",
