@@ -7,7 +7,6 @@ import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 const rawPort = process.env.PORT ?? "5174";
 const port = Number(rawPort);
 
-
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
@@ -43,7 +42,7 @@ export default defineConfig({
   },
   root: path.resolve(import.meta.dirname),
   build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
+    outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
   },
   server: {
