@@ -1303,16 +1303,20 @@ function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDuratio
         </div>
 
         {/* Call Actions */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-2">
           <motion.a href={getWhatsAppLink(ad.phone, 'transport', { title: ad.type==='offer'?'خط متوفر':'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })} target="_blank" rel="noopener noreferrer"
             whileHover={{scale:1.02}} whileTap={{scale:0.98}}
-            className="flex items-center justify-center gap-2 py-3 bg-green-500 text-white font-bold rounded-xl text-sm">
-            <MessageSquare className="w-5 h-5"/> واتساب
+            className="flex items-center justify-center gap-1.5 py-3 bg-green-500 text-white font-bold rounded-xl text-xs">
+            <MessageSquare className="w-4 h-4"/> واتساب
           </motion.a>
           <motion.a href={`tel:${ad.phone}`} whileHover={{scale:1.02}} whileTap={{scale:0.98}}
-            className="flex items-center justify-center gap-2 py-3 bg-blue-500 text-white font-bold rounded-xl text-sm">
-            <PhoneIcon className="w-5 h-5"/> اتصال
+            className="flex items-center justify-center gap-1.5 py-3 bg-blue-500 text-white font-bold rounded-xl text-xs">
+            <PhoneIcon className="w-4 h-4"/> اتصال
           </motion.a>
+          <motion.button onClick={() => onShare?.(ad)} whileHover={{scale:1.02}} whileTap={{scale:0.98}}
+            className="flex items-center justify-center gap-1.5 py-3 bg-emerald-500 text-black font-bold rounded-xl text-xs shadow-lg shadow-emerald-500/20">
+            <Share2 className="w-4 h-4"/> مشاركة الخط
+          </motion.button>
         </div>
 
         <AnimatePresence>
@@ -1956,10 +1960,11 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
 // ─────────────────────────────────────────────
 // Seller Public Page
 // ─────────────────────────────────────────────
-function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, onSelectProduct, favorites, onToggleFav, user, onAuthRequired }:{
+function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, onSelectProduct, favorites, onToggleFav, user, onAuthRequired, onShare }:{
   sellerId:string; allAds:Ad[]; allProducts:Product[]; onBack:()=>void;
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void;
   favorites:number[]; onToggleFav:(id:number)=>void; user:User|null; onAuthRequired:()=>void;
+  onShare?:(seller:any)=>void;
 }) {
   const [tab, setTab] = useState<'ads'|'products'>('ads');
   const [sellerUser, setSellerUser] = useState<any>(null);
