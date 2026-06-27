@@ -2180,22 +2180,74 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
 // Owner Dashboard
 // ─────────────────────────────────────────────
 const DEVICE_COLORS = ['#f59e0b','#3b82f6','#8b5cf6'];
-function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:{ads:Ad[];products:Product[];onDeleteAd:(id:number)=>void;onDeleteProduct:(id:number)=>void;onClose:()=>void}) {
-  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'logs'>('overview');
-  const [storedUsers, setStoredUsers] = useState<StoredUser[]>([]);
-  const [visits, setVisits] = useState<Visit[]>([]);
+function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProduct, onDeleteTransportAd, onClose, onDeleteProfile }: {
+  ads:Ad[];
+  products:Product[];
+  transportAds:TransportAd[];
+  onDeleteAd:(id:string|number)=>void;
+  onDeleteProduct:(id:string|number)=>void;
+  onDeleteTransportAd:(id:number)=>void;
+  onClose:()=>void;
+  onDeleteProfile?:(id:string)=>void;
+}) {
+  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'logs'>('overview');
   const [logs, setLogs] = useState<SystemLog[]>([]);
   const [logSearch, setLogSearch] = useState('');
+  const [verificationRequests, setVerificationRequests] = useState<any[]>([]);
+  const [recoveryRequests, setRecoveryRequests] = useState<any[]>([]);
+  const [storedUsers, setStoredUsers] = useState<StoredUser[]>([]);
+  const [dbUsers, setDbUsers] = useState<any[]>([]);
+  const [dbGuests, setDbGuests] = useState<any[]>([]);
+  const [visits, setVisits] = useState<Visit[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+
   
   // Broadcast State
   const [broadcastTitle, setBroadcastTitle] = useState('');
   const [broadcastMsg, setBroadcastMsg] = useState('');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [broadcastSent, setBroadcastSent] = useState(false);
+  const [viewersModalItem, setViewersModalItem] = useState<{id:string|number, type:'ad'|'product'|'transport'}|null>(null);
+  const onlineStatuses = useOnlineStatuses();
 
   useEffect(()=>{
     try{setStoredUsers(JSON.parse(localStorage.getItem('souqUsers')||'[]'));}catch{}
     try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}
+    const iv=setInterval(()=>{try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}},30_000);
+    
+    
+    const fetchVerification = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('verification_requests')
+          .select(`*, profiles(full_name, phone, email)`)
+          .order('created_at', { ascending: false });
+        if (data && !error) setVerificationRequests(data);
+      } catch (err) {}
+    };
+    fetchVerification();
+const fetchRecovery = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('recovery_requests')
+          .select(`*, profiles(full_name, phone, email)`)
+          .order('request_time', { ascending: false });
+        if (data && !error) setRecoveryRequests(data);
+      } catch (err) {}
+    };
+    fetchRecovery();
+
+    const fetchUsersAndGuests = async () => {
+      try {
+        const { data: profiles } = await supabase.from('profiles').select('*').order('last_seen', { ascending: false });
+        if (profiles) setDbUsers(profiles);
+        const { data: guests } = await supabase.from('guests').select('*').order('last_seen', { ascending: false });
+        if (guests) setDbGuests(guests);
+      } catch (err) {}
+    };
+    fetchUsersAndGuests();
+    const fetchInterval = setInterval(fetchUsersAndGuests, 60_000);
+
     try{
       let storedLogs: SystemLog[] = JSON.parse(localStorage.getItem('souqSystemLogs')||'[]');
       if (storedLogs.length === 0) {
@@ -2212,16 +2264,17 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
       setLogs(storedLogs);
     }catch{}
 
-    const iv=setInterval(()=>{
-      try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}
+    const logsIv = setInterval(()=>{
       try{setLogs(JSON.parse(localStorage.getItem('souqSystemLogs')||'[]'));}catch{}
-    },5000);
-    return()=>clearInterval(iv);
+    }, 5000);
+
+    return () => { clearInterval(iv); clearInterval(fetchInterval); clearInterval(logsIv); };
   },[]);
 
   // Calculate stats
   const today = new Date().toDateString();
   const todayV = visits.filter(v=>new Date(v.timestamp).toDateString()===today);
+  const DEVICE_COLORS = ['#f59e0b','#3b82f6','#8b5cf6'];
   const deviceData=[{name:'موبايل',value:visits.filter(v=>v.device==='mobile').length},{name:'كمبيوتر',value:visits.filter(v=>v.device==='desktop').length},{name:'تابلت',value:visits.filter(v=>v.device==='tablet').length}].filter(d=>d.value>0);
   const locMap:Record<string,number>={};
   visits.forEach(v=>{locMap[v.location]=(locMap[v.location]||0)+1;});
@@ -2245,45 +2298,40 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
   const topCategory = Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'لا يوجد';
 
   // Actions
-  const toggleBan=(id:string)=>{
-    const target = storedUsers.find(u=>u.id===id);
-    const newBannedState = !target?.isBanned;
-    const u=storedUsers.map(u=>u.id===id?{...u,isBanned:newBannedState}:u);
-    setStoredUsers(u);localStorage.setItem('souqUsers',JSON.stringify(u));
-    logSystemAction(
-      newBannedState ? 'حظر مستخدم' : 'فك حظر مستخدم',
-      `تم ${newBannedState ? 'حظر' : 'إلغاء حظر'} المستخدم: ${target?.name || id}`,
-      newBannedState ? 'danger' : 'success',
-      'المالك'
-    );
-    setLogs(JSON.parse(localStorage.getItem('souqSystemLogs')||'[]'));
+  const toggleBan = async (id: string) => {
+    const user = dbUsers.find(u => u.id === id);
+    if (!user) return;
+    const newStatus = !user.is_banned;
+    setDbUsers(prev => prev.map(u => u.id === id ? { ...u, is_banned: newStatus } : u));
+    try {
+      await supabase.from('profiles').update({ is_banned: newStatus }).eq('id', id);
+      logSystemAction(
+        newStatus ? 'حظر مستخدم' : 'فك حظر مستخدم',
+        `تم ${newStatus ? 'حظر' : 'إلغاء حظر'} المستخدم: ${user.full_name || user.email || id}`,
+        newStatus ? 'danger' : 'success',
+        'المالك'
+      );
+      setLogs(JSON.parse(localStorage.getItem('souqSystemLogs')||'[]'));
+    } catch (e) {
+      console.error('Failed to toggle ban', e);
+    }
   };
 
-  const changeRole=(id:string, newRole:string)=>{
-    const target = storedUsers.find(u=>u.id===id);
-    const u=storedUsers.map(u=>u.id===id?{...u,role:newRole as any}:u);
-    setStoredUsers(u);localStorage.setItem('souqUsers',JSON.stringify(u));
-    logSystemAction(
-      'تغيير رتبة مستخدم',
-      `تم تغيير رتبة ${target?.name || id} إلى ${newRole}`,
-      'warning',
-      'المالك'
-    );
-    setLogs(JSON.parse(localStorage.getItem('souqSystemLogs')||'[]'));
-  };
-
-  const handleDeleteAdWithLog = (id: number) => {
-    const target = ads.find(a => a.id === id);
-    onDeleteAd(id);
-    logSystemAction('حذف إعلان', `تم حذف الإعلان: "${target?.title || id}"`, 'danger', 'المالك');
-    setLogs(JSON.parse(localStorage.getItem('souqSystemLogs')||'[]'));
-  };
-
-  const handleDeleteProductWithLog = (id: number) => {
-    const target = products.find(p => p.id === id);
-    onDeleteProduct(id);
-    logSystemAction('حذف منتج', `تم حذف المنتج: "${target?.title || id}"`, 'danger', 'المالك');
-    setLogs(JSON.parse(localStorage.getItem('souqSystemLogs')||'[]'));
+  const changeRole = async (id: string, newRole: string) => {
+    const user = dbUsers.find(u => u.id === id);
+    setDbUsers(prev => prev.map(u => u.id === id ? { ...u, role: newRole } : u));
+    try {
+      await supabase.from('profiles').update({ role: newRole }).eq('id', id);
+      logSystemAction(
+        'تغيير رتبة مستخدم',
+        `تم تغيير رتبة ${user?.full_name || id} إلى ${newRole}`,
+        'warning',
+        'المالك'
+      );
+      setLogs(JSON.parse(localStorage.getItem('souqSystemLogs')||'[]'));
+    } catch (e) {
+      console.error('Failed to change role', e);
+    }
   };
 
   const handleBroadcast = async (e: React.FormEvent) => {
@@ -2317,13 +2365,6 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
           await supabase.from('ads').insert(chunk);
         }
       }
-      logSystemAction(
-        'إرسال إشعار عام',
-        `عنوان الإشعار: "${broadcastTitle}" - تم الإرسال إلى ${userIds.length} مستخدم`,
-        'info',
-        'المالك'
-      );
-      setLogs(JSON.parse(localStorage.getItem('souqSystemLogs')||'[]'));
       setBroadcastSent(true);
       setTimeout(() => { setBroadcastTitle(''); setBroadcastMsg(''); setBroadcastSent(false); }, 3000);
     } catch (err) {
@@ -2361,7 +2402,7 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
         
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['content','📢 المحتوى'],['broadcast','🔔 إشعار عام']] as [string,string][]).map(([t,l])=>(
+          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['broadcast','🔔 إشعار عام'],['logs','📋 سجل التغييرات']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`px-4 py-2 rounded-xl text-sm font-bold ${tab===t?'bg-amber-500 text-black':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
           ))}
         </div>
@@ -2467,22 +2508,68 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
         
         {tab==='users'&&(
           <div className="space-y-3">
-            {storedUsers.length===0?<div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا مستخدمون بعد</p></div>:storedUsers.map(u=>(
-              <div key={u.id} className={`bg-gray-800 rounded-2xl p-4 border ${u.isBanned?'border-red-500/30':'border-gray-700'} flex items-center gap-3 flex-wrap`}>
-                <img src={u.avatar} alt="" className={`w-12 h-12 rounded-full object-cover border-2 ${u.isBanned?'border-red-500/50':'border-gray-600'} flex-shrink-0`}/>
+            {selectedUserIds.length > 0 && (
+               <div className="flex justify-between items-center bg-gray-800 p-3 rounded-xl border border-red-500/30 mb-3">
+                 <span className="text-red-400 font-bold">تم تحديد {selectedUserIds.length} حسابات</span>
+                 <button onClick={async () => {
+                    if (window.confirm(`هل أنت متأكد من حذف ${selectedUserIds.length} حسابات نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`)) {
+                      for (const uid of selectedUserIds) {
+                         if (onDeleteProfile) onDeleteProfile(uid);
+                      }
+                      setDbUsers(prev => prev.filter(u => !selectedUserIds.includes(u.id)));
+                      setSelectedUserIds([]);
+                    }
+                 }} className="bg-red-500 text-white px-4 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-red-600">
+                    <Trash2 className="w-4 h-4"/> حذف الكل
+                 </button>
+               </div>
+            )}
+            {dbUsers.length===0?<div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا مستخدمون بعد</p></div>:dbUsers.map(u=>{
+              const isOnline = new Date().getTime() - new Date(u.last_seen || 0).getTime() < 5 * 60 * 1000;
+              
+              return (
+              <div key={u.id} className={`bg-gray-800 rounded-2xl p-4 border ${u.is_banned?'border-red-500/30':'border-gray-700'} flex items-center gap-3 flex-wrap relative`}>
+                {u.role !== 'owner' && (
+                  <input type="checkbox" className="w-5 h-5 accent-red-500 rounded cursor-pointer hidden sm:block flex-shrink-0" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
+                    if (e.target.checked) setSelectedUserIds(prev => [...prev, u.id]);
+                    else setSelectedUserIds(prev => prev.filter(id => id !== u.id));
+                  }} />
+                )}
+                <div className="relative flex-shrink-0">
+                  <img src={u.avatar_url || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-12 h-12 rounded-full object-cover border-2 ${u.is_banned?'border-red-500/50':'border-gray-600'}`}/>
+                  <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-gray-800 ${isOnline ? 'bg-green-500' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'غير متصل'}></div>
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-white font-bold text-sm">{u.name}</p>
-                    {u.isBanned&&<span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 text-[10px] rounded-full font-bold">موقوف</span>}
+                    {u.role !== 'owner' && (
+                      <input type="checkbox" className="w-4 h-4 accent-red-500 rounded cursor-pointer sm:hidden flex-shrink-0" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
+                        if (e.target.checked) setSelectedUserIds(prev => [...prev, u.id]);
+                        else setSelectedUserIds(prev => prev.filter(id => id !== u.id));
+                      }} />
+                    )}
+                    <p className="text-white font-bold text-sm">{u.full_name}</p>
+                    {u.is_banned&&<span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 text-[10px] rounded-full font-bold">موقوف</span>}
                     {u.role==='owner'&&<span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] rounded-full flex items-center gap-0.5"><Crown className="w-2.5 h-2.5"/>مالك</span>}
                     {u.role==='admin'&&<span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-[10px] rounded-full flex items-center gap-0.5"><Shield className="w-2.5 h-2.5"/>مشرف</span>}
                     {u.role==='vendor'&&<span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[10px] rounded-full flex items-center gap-0.5"><UserCheck className="w-2.5 h-2.5"/>تاجر موثق</span>}
+                    {u.role==='pro'&&<span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-[10px] rounded-full flex items-center gap-0.5"><Star className="w-2.5 h-2.5"/>برو</span>}
                   </div>
-                  <p className="text-gray-400 text-xs">{u.email}</p>
-                  <p className="text-gray-500 text-[10px] mt-0.5">{u.location} • {u.adCount} إعلان • آخر ظهور: {new Date(u.lastSeen).toLocaleDateString('ar-IQ')}</p>
+                  <p className="text-gray-400 text-xs">{u.email || u.phone}</p>
+                  <p className="text-gray-500 text-[10px] mt-0.5">{u.city} • آخر ظهور: {u.last_seen ? new Date(u.last_seen).toLocaleString('ar-IQ') : 'غير معروف'}</p>
                 </div>
                 
-                <div className="flex items-center gap-2 flex-shrink-0 mt-2 sm:mt-0">
+                <div className="flex items-center gap-2 flex-shrink-0 mt-2 sm:mt-0 flex-wrap">
+                  <button onClick={() => alert('تفاصيل المستخدم: \n' + JSON.stringify(u, null, 2))} className="p-2 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-xl" title="معلومات المستخدم"><Eye className="w-4 h-4"/></button>
+                  {u.role !== 'owner' && (
+                    <button onClick={() => {
+                      if(window.confirm('تنبيه: سيتم حذف هذا الحساب نهائياً مع كافة إعلاناته المرتبطة به. هل أنت متأكد؟')) {
+                        if(onDeleteProfile) onDeleteProfile(u.id);
+                        setDbUsers(prev => prev.filter(usr => usr.id !== u.id));
+                      }
+                    }} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20" title="حذف الحساب">
+                      <Trash2 className="w-3.5 h-3.5"/> حذف الحساب
+                    </button>
+                  )}
                   {u.role !== 'owner' && (
                     <select 
                       value={u.role || 'user'} 
@@ -2492,13 +2579,45 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
                       <option value="user">مستخدم عادي</option>
                       <option value="vendor">تاجر موثق</option>
                       <option value="admin">مشرف منصة</option>
+                      <option value="pro">برو (Pro)</option>
                     </select>
                   )}
-                  {u.role!=='owner'&&<button onClick={()=>toggleBan(u.id)} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border ${u.isBanned?'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20':'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20'}`}>
-                    {u.isBanned?<><UserCheck className="w-3.5 h-3.5"/>رفع الإيقاف</>:<><UserX className="w-3.5 h-3.5"/>حظر</>}</button>}
+                  {u.role !== 'owner' && (
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={async () => {
+                          if(confirm('هل أنت متأكد من إعادة تعيين كلمة المرور إلى 123456؟')) {
+                            try {
+                              const { error } = await supabase.rpc('admin_reset_password', { target_user_id: u.id, new_password: '123456' });
+                              if(error) throw error;
+                              alert('تم تغيير كلمة المرور بنجاح إلى: 123456');
+                            } catch(e:any) {
+                              alert('فشل في إعادة التعيين: ' + e.message);
+                            }
+                          }
+                        }}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20"
+                      >
+                        <Key className="w-3.5 h-3.5"/> تصفير الرمز (123456)
+                      </button>
+                      {u.phone && (
+                        <a 
+                          href={getWhatsAppResetLink(u.phone)} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20"
+                          title="إرسال رسالة واتساب بالتفاصيل الجديدة"
+                        >
+                          <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg> واتساب
+                        </a>
+                      )}
+                    </div>
+                  )}
+                  {u.role!=='owner'&&<button onClick={()=>toggleBan(u.id)} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 border ${u.is_banned?'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20':'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20'}`}>
+                    {u.is_banned?<><UserCheck className="w-3.5 h-3.5"/>رفع الإيقاف</>:<><UserX className="w-3.5 h-3.5"/>حظر</>}</button>}
                 </div>
               </div>
-            ))}
+            );})}
           </div>
         )}
         
@@ -2510,8 +2629,8 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
                 <div key={ad.id} className="flex items-center gap-3 p-3 border-t border-gray-700/50 hover:bg-gray-700/30">
                   <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
                   <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{ad.title}</p>
-                    <p className="text-xs text-gray-400">{ad.location} • {formatPrice(ad.price)} د.ع • {ad.views} 👁</p></div>
-                  <button onClick={()=>handleDeleteAdWithLog(ad.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
+                    <p className="text-xs text-gray-400">{ad.location} • {formatPrice(ad.price)} د.ع • <button onClick={() => setViewersModalItem({id: ad.id, type: 'ad'})} className="hover:text-amber-400">{ad.views} 👁</button></p></div>
+                  <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
                 </div>
               ))}
             </div>
@@ -2521,11 +2640,103 @@ function OwnerDashboard({ ads, products, onDeleteAd, onDeleteProduct, onClose }:
                 <div key={p.id} className="flex items-center gap-3 p-3 border-t border-gray-700/50 hover:bg-gray-700/30">
                   <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
                   <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{p.title}</p>
-                    <p className="text-xs text-gray-400">{p.governorate} • {formatPrice(p.price)} د.ع • {p.views} 👁 • {p.condition==='new'?'جديد':'مستعمل'}</p></div>
-                  <button onClick={()=>handleDeleteProductWithLog(p.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
+                    <p className="text-xs text-gray-400">{p.governorate} • {formatPrice(p.price)} د.ع • <button onClick={() => setViewersModalItem({id: p.id, type: 'product'})} className="hover:text-amber-400">{p.views} 👁</button> • {p.condition==='new'?'جديد':'مستعمل'}</p></div>
+                  <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
                 </div>
               ))}
             </div>
+            <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+              <div className="p-4 border-b border-gray-700 flex items-center justify-between"><h3 className="text-white font-bold">خطوط النقل ({transportAds.length})</h3><span className="text-gray-400 text-xs">{transportAds.reduce((s,t)=>s+(t.views||0),0)} مشاهدة</span></div>
+              {transportAds.length===0?<div className="p-6 text-center text-gray-400 text-sm">لا يوجد خطوط نقل</div>:transportAds.map(t=>(
+                <div key={t.id} className="flex items-center gap-3 p-3 border-t border-gray-700/50 hover:bg-gray-700/30">
+                  <div className="w-12 h-12 rounded-lg bg-gray-700 flex items-center justify-center flex-shrink-0">
+                    <Car className="w-6 h-6 text-gray-400"/>
+                  </div>
+                  <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{t.type === 'offer' ? 'متوفر خط' : 'أبحث عن خط'} ({t.university})</p>
+                    <p className="text-xs text-gray-400">{t.regions} • {formatPrice(t.price)} د.ع • <button onClick={() => setViewersModalItem({id: t.id, type: 'transport'})} className="hover:text-amber-400">{t.views||0} 👁</button></p></div>
+                  <button onClick={()=>onDeleteTransportAd(t.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        
+        {tab==='recovery'&&(
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+            <div className="p-4 border-b border-gray-700 flex items-center justify-between"><h3 className="text-white font-bold">طلبات استعادة الحسابات ({recoveryRequests.length})</h3></div>
+            {recoveryRequests.length===0?<div className="p-6 text-center text-gray-400 text-sm">لا توجد طلبات</div>:
+            <div className="space-y-3 p-4">
+              {recoveryRequests.map(req => (
+                <div key={req.id} className="bg-gray-900 rounded-xl p-4 border border-gray-700">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="text-white font-bold">{req.profiles?.full_name || 'مستخدم غير معروف'}</p>
+                      <p className="text-xs text-gray-400">البريد: {req.profiles?.email} • الهاتف: {req.profiles?.phone}</p>
+                    </div>
+                    <span className={`px-2 py-1 rounded-lg text-xs font-bold ${req.status==='pending'?'bg-amber-500/20 text-amber-400':'bg-green-500/20 text-green-400'}`}>
+                      {req.status==='pending' ? 'قيد المراجعة' : 'تمت المعالجة'}
+                    </span>
+                  </div>
+                  {req.notes && <div className="mt-2 p-3 bg-gray-800 rounded-lg text-sm text-gray-300 border border-gray-700"><p className="text-xs text-gray-500 mb-1">تفاصيل الإثبات أو المشكلة:</p>{req.notes}</div>}
+                  <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-800">
+                    <button onClick={async () => {
+                      await supabase.from('recovery_requests').update({ status: req.status === 'pending' ? 'resolved' : 'pending' }).eq('id', req.id);
+                      setRecoveryRequests(prev => prev.map(r => r.id === req.id ? {...r, status: req.status === 'pending' ? 'resolved' : 'pending'} : r));
+                    }} className={`flex-1 py-2 rounded-lg text-sm font-bold border ${req.status==='pending'?'bg-green-500/10 border-green-500/20 text-green-400':'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+                      {req.status==='pending' ? 'تحديد كـ "تمت المعالجة"' : 'إعادة إلى "قيد المراجعة"'}
+                    </button>
+                    {req.profiles?.phone && (
+                      <a href={getWhatsAppResetLink(req.profiles.phone)} target="_blank" rel="noopener noreferrer" className="flex-1 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg text-sm font-bold flex items-center justify-center gap-2">
+                        تواصل واتساب
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            }
+          </div>
+        )}
+        
+        
+        <AnimatePresence>
+          {viewersModalItem && <ViewersModal itemId={viewersModalItem.id} itemType={viewersModalItem.type} onClose={() => setViewersModalItem(null)} />}
+        </AnimatePresence>
+
+        {tab==='verification'&&(
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+            <div className="p-4 border-b border-gray-700 flex items-center justify-between"><h3 className="text-white font-bold">طلبات توثيق الهوية ({verificationRequests.length})</h3></div>
+            {verificationRequests.length===0?<div className="p-6 text-center text-gray-400 text-sm">لا توجد طلبات</div>:
+            <div className="space-y-3 p-4">
+              {verificationRequests.map(req => (
+                <div key={req.id} className="bg-gray-900 rounded-xl p-4 border border-gray-700">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="text-white font-bold">{req.profiles?.full_name || 'مستخدم'}</p>
+                      <p className="text-xs text-gray-400">الهاتف: {req.profiles?.phone}</p>
+                    </div>
+                    <span className={`px-2 py-1 rounded-lg text-xs font-bold ${req.status==='pending'?'bg-amber-500/20 text-amber-400':req.status==='approved'?'bg-green-500/20 text-green-400':'bg-red-500/20 text-red-400'}`}>
+                      {req.status==='pending' ? 'قيد المراجعة' : req.status==='approved' ? 'تمت الموافقة' : 'مرفوض'}
+                    </span>
+                  </div>
+                  <div className="mt-3">
+                    <img src={req.id_image_url} alt="ID" className="w-full max-w-sm rounded-lg border border-gray-700 object-contain" />
+                  </div>
+                  <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-800">
+                    <button onClick={async () => {
+                      await supabase.from('verification_requests').update({ status: 'approved' }).eq('id', req.id);
+                      setVerificationRequests(prev => prev.map(r => r.id === req.id ? {...r, status: 'approved'} : r));
+                    }} className="flex-1 py-2 bg-green-500/10 border border-green-500/20 text-green-400 hover:bg-green-500/20 rounded-lg text-sm font-bold">موافقة</button>
+                    <button onClick={async () => {
+                      await supabase.from('verification_requests').update({ status: 'rejected' }).eq('id', req.id);
+                      setVerificationRequests(prev => prev.map(r => r.id === req.id ? {...r, status: 'rejected'} : r));
+                    }} className="flex-1 py-2 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 rounded-lg text-sm font-bold">رفض</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            }
           </div>
         )}
 

@@ -8,7 +8,9 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   onClose:()=>void;
   onDeleteProfile?:(id:string)=>void;
 }) {
-  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'>('overview');
+  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'logs'>('overview');
+  const [logs, setLogs] = useState<SystemLog[]>([]);
+  const [logSearch, setLogSearch] = useState('');
   const [verificationRequests, setVerificationRequests] = useState<any[]>([]);
   const [recoveryRequests, setRecoveryRequests] = useState<any[]>([]);
   const [storedUsers, setStoredUsers] = useState<StoredUser[]>([]);
@@ -64,7 +66,27 @@ const fetchRecovery = async () => {
     fetchUsersAndGuests();
     const fetchInterval = setInterval(fetchUsersAndGuests, 60_000);
 
-    return () => { clearInterval(iv); clearInterval(fetchInterval); };
+    try{
+      let storedLogs: SystemLog[] = JSON.parse(localStorage.getItem('souqSystemLogs')||'[]');
+      if (storedLogs.length === 0) {
+        storedLogs = [{
+          id: 'init-1',
+          timestamp: new Date().toISOString(),
+          action: 'تحديث النظام',
+          details: 'تم تحديث الاعتماديات ومحرك pnpm ونظام المستودع بنجاح',
+          user: 'النظام الآلي',
+          type: 'success'
+        }];
+        localStorage.setItem('souqSystemLogs', JSON.stringify(storedLogs));
+      }
+      setLogs(storedLogs);
+    }catch{}
+
+    const logsIv = setInterval(()=>{
+      try{setLogs(JSON.parse(localStorage.getItem('souqSystemLogs')||'[]'));}catch{}
+    }, 5000);
+
+    return () => { clearInterval(iv); clearInterval(fetchInterval); clearInterval(logsIv); };
   },[]);
 
   // Calculate stats
@@ -101,15 +123,30 @@ const fetchRecovery = async () => {
     setDbUsers(prev => prev.map(u => u.id === id ? { ...u, is_banned: newStatus } : u));
     try {
       await supabase.from('profiles').update({ is_banned: newStatus }).eq('id', id);
+      logSystemAction(
+        newStatus ? 'حظر مستخدم' : 'فك حظر مستخدم',
+        `تم ${newStatus ? 'حظر' : 'إلغاء حظر'} المستخدم: ${user.full_name || user.email || id}`,
+        newStatus ? 'danger' : 'success',
+        'المالك'
+      );
+      setLogs(JSON.parse(localStorage.getItem('souqSystemLogs')||'[]'));
     } catch (e) {
       console.error('Failed to toggle ban', e);
     }
   };
 
   const changeRole = async (id: string, newRole: string) => {
+    const user = dbUsers.find(u => u.id === id);
     setDbUsers(prev => prev.map(u => u.id === id ? { ...u, role: newRole } : u));
     try {
       await supabase.from('profiles').update({ role: newRole }).eq('id', id);
+      logSystemAction(
+        'تغيير رتبة مستخدم',
+        `تم تغيير رتبة ${user?.full_name || id} إلى ${newRole}`,
+        'warning',
+        'المالك'
+      );
+      setLogs(JSON.parse(localStorage.getItem('souqSystemLogs')||'[]'));
     } catch (e) {
       console.error('Failed to change role', e);
     }
@@ -183,7 +220,7 @@ const fetchRecovery = async () => {
         
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['broadcast','🔔 إشعار عام']] as [string,string][]).map(([t,l])=>(
+          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['broadcast','🔔 إشعار عام'],['logs','📋 سجل التغييرات']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`px-4 py-2 rounded-xl text-sm font-bold ${tab===t?'bg-amber-500 text-black':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
           ))}
         </div>
@@ -557,6 +594,79 @@ const fetchRecovery = async () => {
                   {isBroadcasting ? <Loader2 className="w-5 h-5 animate-spin"/> : <><Mail className="w-5 h-5"/> إرسال الإشعار الآن</>}
                 </button>
               </form>
+            )}
+          </div>
+        )}
+
+        {tab==='logs'&&(
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden space-y-4 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-gray-700">
+              <div>
+                <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-amber-400"/> سجل العمليات والتغييرات ({logs.length})
+                </h3>
+                <p className="text-gray-400 text-xs">يسجل هذا القسم كافة التحديثات والأنشطة المنفذة على المنصة تلقائياً</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-gray-400 absolute right-3 top-2.5"/>
+                  <input
+                    type="text"
+                    placeholder="بحث في السجل..."
+                    value={logSearch}
+                    onChange={e => setLogSearch(e.target.value)}
+                    className="bg-gray-900 border border-gray-700 text-white text-xs rounded-xl pr-9 pl-3 py-2 outline-none focus:border-amber-500 w-48"
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    if (confirm('هل أنت تأكد من مسح سجل العمليات؟')) {
+                      localStorage.removeItem('souqSystemLogs');
+                      setLogs([]);
+                    }
+                  }}
+                  className="px-3 py-2 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5"/> مسح السجل
+                </button>
+              </div>
+            </div>
+
+            {logs.length === 0 ? (
+              <div className="p-10 text-center">
+                <FileText className="w-12 h-12 text-gray-600 mx-auto mb-3"/>
+                <p className="text-gray-400 text-sm">لا توجد عمليات مسجلة حتى الآن</p>
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-[550px] overflow-y-auto pr-1">
+                {logs
+                  .filter(l => l.action.includes(logSearch) || l.details.includes(logSearch) || l.user.includes(logSearch))
+                  .map(log => {
+                    const badgeBg = 
+                      log.type === 'danger' ? 'bg-red-500/10 border-red-500/30 text-red-400' :
+                      log.type === 'warning' ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' :
+                      log.type === 'success' ? 'bg-green-500/10 border-green-500/30 text-green-400' :
+                      'bg-blue-500/10 border-blue-500/30 text-blue-400';
+                    return (
+                      <div key={log.id} className="bg-gray-900/80 border border-gray-700/60 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 hover:border-gray-600 transition-colors">
+                        <div className="flex items-start gap-3 min-w-0 flex-1">
+                          <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex-shrink-0 mt-0.5 ${badgeBg}`}>
+                            {log.action}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-white text-xs font-medium leading-relaxed">{log.details}</p>
+                            <span className="text-gray-500 text-[10px] block mt-1">المفذ: <strong className="text-gray-400">{log.user}</strong></span>
+                          </div>
+                        </div>
+                        <div className="text-left flex-shrink-0">
+                          <span className="text-gray-400 text-[11px] font-mono bg-gray-800 px-2.5 py-1 rounded-lg border border-gray-700/50">
+                            {new Date(log.timestamp).toLocaleString('ar-IQ', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: 'numeric', month: 'short' })}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
             )}
           </div>
         )}
