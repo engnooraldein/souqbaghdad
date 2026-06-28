@@ -3986,6 +3986,7 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
   const [storedUsers, setStoredUsers] = useState<any[]>([]);
+  const onlineStatuses = useOnlineStatuses();
 
   const publishedTransportLines = transportLines.filter(a => a.status === 'published');
 
@@ -3998,65 +3999,104 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
   });
 
   useEffect(() => {
-    try {
-      const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
-      const sellersMap = new Map();
-      
-      // Seed with local users
-      localUsers.forEach((u: any) => {
-        sellersMap.set(u.id, {
-          id: u.id,
-          name: u.name,
-          avatar: u.avatar || DEFAULT_AVATAR,
-          phone: u.phone,
-          location: u.location,
-          adCount: u.adCount || 0,
-          isVerified: u.role === 'owner' || u.role === 'vendor' || u.isVerified
+    let isMounted = true;
+    async function loadAllProfiles() {
+      try {
+        const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
+        const sellersMap = new Map();
+
+        // Fetch registered profiles from DB
+        const { data: dbProfiles } = await supabase.from('profiles').select('*');
+        if (dbProfiles && dbProfiles.length > 0) {
+          dbProfiles.forEach((p: any) => {
+            sellersMap.set(p.id, {
+              id: p.id,
+              name: p.full_name || p.name || 'مستخدم',
+              avatar: p.avatar_url || p.avatar || DEFAULT_AVATAR,
+              phone: p.phone || '',
+              location: p.city || p.location || 'بغداد',
+              adCount: 0,
+              prodCount: 0,
+              rating: 4.9,
+              created_at: p.created_at || new Date().toISOString(),
+              isVerified: p.role === 'owner' || p.role === 'vendor' || p.role === 'admin'
+            });
+          });
+        }
+
+        // Add local users
+        localUsers.forEach((u: any) => {
+          if (!sellersMap.has(u.id)) {
+            sellersMap.set(u.id, {
+              id: u.id,
+              name: u.name,
+              avatar: u.avatar || DEFAULT_AVATAR,
+              phone: u.phone || '',
+              location: u.location || 'بغداد',
+              adCount: u.adCount || 0,
+              prodCount: 0,
+              rating: 4.8,
+              created_at: new Date().toISOString(),
+              isVerified: u.role === 'owner' || u.role === 'vendor' || u.isVerified
+            });
+          }
         });
-      });
 
-      // Add sellers from ads
-      allAds.forEach(ad => {
-        if (ad.postedBy && !sellersMap.has(ad.postedBy)) {
-          sellersMap.set(ad.postedBy, {
-            id: ad.postedBy,
-            name: ad.seller?.name || 'مستخدم',
-            avatar: ad.seller?.avatar || DEFAULT_AVATAR,
-            phone: ad.phone || '',
-            location: ad.location || ad.governorate || '',
-            adCount: 1,
-            isVerified: ad.seller?.isVerified || false
-          });
-        } else if (ad.postedBy) {
-          const existing = sellersMap.get(ad.postedBy);
-          existing.adCount += 1;
-          if (ad.phone && !existing.phone) existing.phone = ad.phone;
-        }
-      });
+        // Aggregate ads
+        allAds.forEach(ad => {
+          if (ad.postedBy) {
+            if (!sellersMap.has(ad.postedBy)) {
+              sellersMap.set(ad.postedBy, {
+                id: ad.postedBy,
+                name: ad.seller?.name || 'مستخدم',
+                avatar: ad.seller?.avatar || DEFAULT_AVATAR,
+                phone: ad.phone || '',
+                location: ad.location || ad.governorate || 'بغداد',
+                adCount: 1,
+                prodCount: 0,
+                rating: ad.seller?.rating || 4.8,
+                created_at: ad.createdAtISO || new Date().toISOString(),
+                isVerified: ad.seller?.isVerified || false
+              });
+            } else {
+              const existing = sellersMap.get(ad.postedBy);
+              existing.adCount = (existing.adCount || 0) + 1;
+              if (ad.phone && !existing.phone) existing.phone = ad.phone;
+            }
+          }
+        });
 
-      // Add sellers from products
-      allProducts.forEach(p => {
-        if (p.postedBy && !sellersMap.has(p.postedBy)) {
-          sellersMap.set(p.postedBy, {
-            id: p.postedBy,
-            name: p.seller?.name || 'مستخدم',
-            avatar: p.seller?.avatar || DEFAULT_AVATAR,
-            phone: p.phone || '',
-            location: p.governorate || '',
-            adCount: 1,
-            isVerified: p.seller?.isVerified || false
-          });
-        } else if (p.postedBy) {
-          const existing = sellersMap.get(p.postedBy);
-          existing.adCount += 1;
-          if (p.phone && !existing.phone) existing.phone = p.phone;
-        }
-      });
+        // Aggregate products
+        allProducts.forEach(p => {
+          if (p.postedBy) {
+            if (!sellersMap.has(p.postedBy)) {
+              sellersMap.set(p.postedBy, {
+                id: p.postedBy,
+                name: p.seller?.name || 'مستخدم',
+                avatar: p.seller?.avatar || DEFAULT_AVATAR,
+                phone: p.phone || '',
+                location: p.governorate || 'بغداد',
+                adCount: 0,
+                prodCount: 1,
+                rating: p.seller?.rating || 4.8,
+                created_at: p.createdAtISO || new Date().toISOString(),
+                isVerified: p.seller?.isVerified || false
+              });
+            } else {
+              const existing = sellersMap.get(p.postedBy);
+              existing.prodCount = (existing.prodCount || 0) + 1;
+              if (p.phone && !existing.phone) existing.phone = p.phone;
+            }
+          }
+        });
 
-      setStoredUsers(Array.from(sellersMap.values()));
-    } catch (e) {
-      console.error(e);
+        if (isMounted) setStoredUsers(Array.from(sellersMap.values()));
+      } catch (e) {
+        console.error(e);
+      }
     }
+    loadAllProfiles();
+    return () => { isMounted = false; };
   }, [allAds, allProducts]);
 
   const filteredProfiles = storedUsers.filter(u => {
@@ -4314,54 +4354,170 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
             </div>
           )}
 
-          {/* Profiles */}
+          {/* Profiles Hub */}
           {contentTab === 'profiles' && (
-            <div className="mb-8">
+            <div className="mb-8 space-y-6">
+              {/* Accounts Dedicated Search & Header Banner */}
+              <div className="bg-gradient-to-r from-gray-800 via-gray-900 to-gray-800 p-5 rounded-3xl border border-gray-700 shadow-xl space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <span>👤 دليل الحسابات والتجار الموثوقين</span>
+                      <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        {filteredProfiles.length} حساب
+                      </span>
+                    </h2>
+                    <p className="text-gray-400 text-xs mt-1">تصفح وابحث عن كبار التجار والشركاء والمستخدمين وتواصل معهم مباشرة</p>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-400" />
+                  <input
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="ابحث عن حساب باسم المستخدم أو رقم الهاتف (077...)"
+                    className="w-full bg-gray-950/80 text-white placeholder-gray-400 rounded-2xl py-3.5 pr-12 pl-4 border border-gray-700 focus:border-amber-400 outline-none text-sm shadow-inner"
+                  />
+                  {search && (
+                    <button onClick={() => setSearch('')} className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-white bg-gray-800 px-2 py-1 rounded-lg">
+                      مسح
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* FEATURED TOP SELLERS SLIDER (If no search active and featured exist) */}
+              {!search && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-sm font-bold text-white flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-amber-400" />
+                      <span>⭐ كبار التجار والحسابات الأكثر نشاطاً</span>
+                    </span>
+                  </div>
+
+                  <div className="flex gap-4 overflow-x-auto pb-3 pt-1 px-1 no-scrollbar scroll-smooth">
+                    {storedUsers.filter(u => u.isVerified || (u.adCount + (u.prodCount || 0)) > 0).slice(0, 8).map(topUser => {
+                      const isOnline = !!onlineStatuses[topUser.id];
+                      return (
+                        <motion.div
+                          key={`top-${topUser.id}`}
+                          whileHover={{ y: -4, scale: 1.02 }}
+                          onClick={() => onSellerClick(topUser.id)}
+                          className="flex-shrink-0 w-64 bg-gradient-to-b from-gray-800 to-gray-900 rounded-2xl p-4 border border-amber-500/40 shadow-lg cursor-pointer relative overflow-hidden group"
+                        >
+                          <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 rounded-bl-full pointer-events-none" />
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="relative shrink-0">
+                              <img src={topUser.avatar} alt="" className="w-12 h-12 rounded-full object-cover border-2 border-amber-400" />
+                              <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-gray-900 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'أوفلاين'} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1">
+                                <h4 className="text-white font-bold text-sm truncate">{topUser.name}</h4>
+                                {topUser.isVerified && <Shield className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />}
+                              </div>
+                              <span className="text-[10px] text-amber-300 font-medium block">⭐ 4.9 تاجر مميز</span>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-center bg-gray-950/60 rounded-xl p-2 border border-gray-800">
+                            <div>
+                              <span className="text-[10px] text-gray-400 block">الإعلانات</span>
+                              <span className="text-xs font-bold text-white">{topUser.adCount || 0}</span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-gray-400 block">المنتجات</span>
+                              <span className="text-xs font-bold text-amber-400">{topUser.prodCount || 0}</span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ALL PROFILES GRID */}
               {filteredProfiles.length === 0 ? (
-                <div className="text-center py-20">
+                <div className="text-center py-20 bg-gray-900/60 rounded-3xl border border-gray-800">
                   <div className="text-5xl mb-4">👤</div>
-                  <h3 className="text-xl font-bold text-white mb-2">لا توجد حسابات مطابقة</h3>
-                  <p className="text-gray-400 text-sm">جرب البحث باسم آخر أو رقم هاتف آخر</p>
+                  <h3 className="text-xl font-bold text-white mb-2">لا توجد حسابات مطابقة للبحث</h3>
+                  <p className="text-gray-400 text-sm">جرب البحث باسم آخر أو تأكد من رقم الهاتف المدخل</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredProfiles.map(profile => (
-                    <motion.div
-                      key={profile.id}
-                      whileHover={{ y: -4 }}
-                      onClick={() => onSellerClick(profile.id)}
-                      className="bg-gray-800 rounded-2xl p-4 border border-gray-700 hover:border-amber-500/50 cursor-pointer transition-all flex items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300"
-                    >
-                      <img
-                        src={profile.avatar}
-                        alt={profile.name}
-                        className="w-14 h-14 rounded-full object-cover border-2 border-gray-700 flex-shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <h3 className="text-white font-bold text-sm truncate">{profile.name}</h3>
-                          {profile.isVerified && (
-                            <span className="text-blue-500 flex-shrink-0">
-                              <Shield className="w-3.5 h-3.5 fill-current text-blue-500" />
-                            </span>
-                          )}
+                  {filteredProfiles.map(profile => {
+                    const isOnline = !!onlineStatuses[profile.id];
+                    return (
+                      <motion.div
+                        key={profile.id}
+                        whileHover={{ y: -4 }}
+                        onClick={() => onSellerClick(profile.id)}
+                        className="bg-gray-800 hover:bg-gray-800/90 rounded-2xl p-4 border border-gray-700/80 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col justify-between shadow-md group"
+                      >
+                        <div className="flex items-start gap-3.5 mb-3">
+                          <div className="relative shrink-0">
+                            <img
+                              src={profile.avatar}
+                              alt={profile.name}
+                              className="w-14 h-14 rounded-full object-cover border-2 border-gray-700 group-hover:border-amber-400 transition-colors"
+                            />
+                            <div 
+                              className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-gray-800 flex items-center justify-center ${
+                                isOnline ? 'bg-green-500 ring-2 ring-green-500/30' : 'bg-gray-500'
+                              }`} 
+                              title={isOnline ? 'متصل الآن' : 'غير متصل'}
+                            />
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <h3 className="text-white font-bold text-sm truncate group-hover:text-amber-300 transition-colors">{profile.name}</h3>
+                              {profile.isVerified && (
+                                <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 flex items-center gap-1">
+                                  <Shield className="w-3 h-3 fill-current" /> موثوق
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 text-xs mb-1">
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${isOnline ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-gray-700 text-gray-400'}`}>
+                                {isOnline ? '🟢 متصل الآن' : '⚪ غير متصل'}
+                              </span>
+                              <span className="text-gray-400 text-[11px] flex items-center gap-1">
+                                <MapPin className="w-3 h-3 text-amber-400" /> {profile.location || 'بغداد'}
+                              </span>
+                            </div>
+
+                            {profile.phone && (
+                              <p className="text-gray-400 text-xs flex items-center gap-1.5 font-mono">
+                                <PhoneIcon className="w-3 h-3 text-emerald-400" />
+                                <span>{profile.phone}</span>
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        {profile.phone && (
-                          <p className="text-gray-400 text-xs flex items-center gap-1 mb-0.5">
-                            <PhoneIcon className="w-3 h-3 text-emerald-400" />
-                            <span className="font-semibold">{profile.phone}</span>
-                          </p>
-                        )}
-                        <p className="text-gray-500 text-[11px] flex items-center gap-1">
-                          <MapPin className="w-3 h-3" />
-                          <span>{profile.location || 'العراق'}</span>
-                          <span className="mx-1">•</span>
-                          <span className="text-amber-400 font-medium">{profile.adCount} إعلان</span>
-                        </p>
-                      </div>
-                      <ChevronLeft className="w-5 h-5 text-gray-500" />
-                    </motion.div>
-                  ))}
+
+                        <div className="pt-3 border-t border-gray-700/60 flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-3">
+                            <span className="text-gray-300 font-bold bg-gray-900/80 px-2.5 py-1 rounded-lg border border-gray-700/50">
+                              📢 {profile.adCount || 0} إعلان
+                            </span>
+                            {(profile.prodCount || 0) > 0 && (
+                              <span className="text-amber-400 font-bold bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                                🛍️ {profile.prodCount} منتج
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-amber-400 font-bold text-xs flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                            الملف <ChevronLeft className="w-4 h-4" />
+                          </span>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               )}
             </div>
