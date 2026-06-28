@@ -4034,7 +4034,7 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
                 </div>
                 <div className="text-right">
                   <p className="text-white font-bold text-sm">🚌 قسم الخطوط</p>
-                  <p className="text-emerald-300 text-xs">رحلات بين مدن العراق</p>
+                  <p className="text-emerald-300 text-xs">نقل يومي للطلاب والموظفين 🎓👔</p>
                 </div>
               </div>
               <ChevronLeft className="w-5 h-5 text-emerald-400 group-hover:-translate-x-1 transition-transform"/>
