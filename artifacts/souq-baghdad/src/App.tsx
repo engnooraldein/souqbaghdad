@@ -5565,7 +5565,7 @@ export default function App() {
 
   useEffect(() => {
     if (!initialHashParsed) return; // Don't push state before initial parse
-    let newHash = '#/';
+    let newHash: string | null = null;
     if (selectedAd) {
       const catSlug = selectedAd.category ? selectedAd.category.toLowerCase().replace(/\s+/g, '-') : 'general';
       newHash = `#/ad/${catSlug}/${selectedAd.short_id || selectedAd.id}`;
@@ -5581,8 +5581,10 @@ export default function App() {
       newHash = `#/owner`;
     }
     
-    if (window.location.hash !== newHash) {
+    if (newHash && window.location.hash !== newHash) {
       window.history.pushState(null, '', newHash);
+    } else if (!newHash && (window.location.hash.includes('/ad/') || window.location.hash.includes('/product/') || window.location.hash.includes('/seller/'))) {
+      window.history.pushState(null, '', '#/');
     }
   }, [view, selectedAd, selectedProduct, selectedSellerId, initialHashParsed]);
   // ------------------------------------
