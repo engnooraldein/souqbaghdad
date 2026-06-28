@@ -321,19 +321,20 @@ export function ShareModal({
 
     if (platform === 'native') {
       triggerToast('📱 جاري فتح نافذة تطبيقات الهاتف الرسمية...');
+      const brandTitle = `سوك بغداد 🇮🇶 | ${title}`;
       if (cardDataUrl && typeof navigator !== 'undefined' && navigator.share) {
         try {
-          const file = await dataUrlToFile(cardDataUrl, `souq-baghdad-card.jpg`);
+          const file = await dataUrlToFile(cardDataUrl, `Souq-Baghdad.jpg`);
           if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({
-              title: title,
+              title: brandTitle,
               files: [file],
             });
             return;
           }
         } catch (e) {}
       }
-      if (navigator.share) navigator.share({ title, text: shareText, url: fullUrl }).catch(()=>{});
+      if (navigator.share) navigator.share({ title: brandTitle, text: shareText, url: fullUrl }).catch(()=>{});
       else handleCopyCaption();
       return;
     }
