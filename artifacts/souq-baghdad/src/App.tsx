@@ -4811,6 +4811,7 @@ export default function App() {
   const [actionMenuTarget, setActionMenuTarget] = useState<{type:'ad'|'product'|'transport'; item:any}|null>(null);
   const [toast, setToast] = useState<{msg:string;type:string;visible:boolean}>({msg:'',type:'info',visible:false});
   const [showCreateTransport, setShowCreateTransport] = useState(false);
+  const [activeDocTab, setActiveDocTab] = useState<string | null>(null);
   const [activeLightbox, setActiveLightbox] = useState<{ src: string; title: string } | null>(null);
   const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; title: string; url: string; image?: string; price?: string; governorate?: string; location?: string; short_id?: string }>({ isOpen: false, title: '', url: '' });
   const playSound = useSound();
