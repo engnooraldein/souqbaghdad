@@ -4088,92 +4088,109 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
   onMarkRead:(id: number | string) => void;
   onArchiveAll:() => void;
 }) {
-  const [tab, setTab] = useState<'incoming' | 'history'>('incoming');
+  const [tab, setTab] = useState<'incoming' | 'history' | 'archived'>('incoming');
   const [selectedNotif, setSelectedNotif] = useState<any>(null);
+  const [archivedIds, setArchivedIds] = useState<Set<string | number>>(new Set());
 
-  const incomingNotifs = notifs.filter(n => n.targetType === 'owner' || !n.targetType);
+  const allIncoming = notifs.filter(n => n.targetType === 'owner' || !n.targetType || n.type === 'message');
+  const incomingNotifs = allIncoming.filter(n => !archivedIds.has(n.id));
+  const archivedNotifs = allIncoming.filter(n => archivedIds.has(n.id));
   const historyNotifs = notifs.filter(n => n.targetType === 'viewer');
-  const activeNotifs = tab === 'incoming' ? incomingNotifs : historyNotifs;
+  
+  const activeNotifs = tab === 'incoming' ? incomingNotifs : tab === 'history' ? historyNotifs : archivedNotifs;
 
   return (
     <AnimatePresence>
       {isOpen&&<motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50" onClick={onClose}>
         <div className="absolute inset-0 bg-black/60"/>
-        <motion.div initial={{x:300}} animate={{x:0}} exit={{x:300}} onClick={e=>e.stopPropagation()} className="absolute right-0 top-0 bottom-0 w-80 bg-gray-900 p-5 overflow-y-auto border-l border-gray-700">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-bold text-white">الإشعارات</h2>
-            <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400"><X className="w-5 h-5"/></button>
+        <motion.div initial={{x:300}} animate={{x:0}} exit={{x:300}} onClick={e=>e.stopPropagation()} className="absolute right-0 top-0 bottom-0 w-84 bg-gray-900 p-5 overflow-y-auto border-l border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2"><Bell className="w-5 h-5 text-amber-400"/>الإشعارات والتنبيهات</h2>
+            <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white"><X className="w-5 h-5"/></button>
           </div>
 
-          <div className="flex gap-2 mb-4 bg-gray-800 p-1 rounded-xl border border-gray-700">
+          <div className="flex gap-1 mb-4 bg-gray-800 p-1 rounded-xl border border-gray-700 text-[11px]">
             <button 
               onClick={() => setTab('incoming')} 
-              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${tab === 'incoming' ? 'bg-amber-500 text-black' : 'text-gray-400 hover:text-white'}`}
+              className={`flex-1 py-2 rounded-lg font-bold transition-all ${tab === 'incoming' ? 'bg-amber-500 text-black shadow-sm' : 'text-gray-400 hover:text-white'}`}
             >
-              🔔 المهتمين بي ({incomingNotifs.length})
+              🔔 الواردة ({incomingNotifs.length})
             </button>
             <button 
               onClick={() => setTab('history')} 
-              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${tab === 'history' ? 'bg-amber-500 text-black' : 'text-gray-400 hover:text-white'}`}
+              className={`flex-1 py-2 rounded-lg font-bold transition-all ${tab === 'history' ? 'bg-amber-500 text-black shadow-sm' : 'text-gray-400 hover:text-white'}`}
             >
-              🕒 سجل مشاهداتي ({historyNotifs.length})
+              🕒 مشاهداتي ({historyNotifs.length})
+            </button>
+            <button 
+              onClick={() => setTab('archived')} 
+              className={`flex-1 py-2 rounded-lg font-bold transition-all ${tab === 'archived' ? 'bg-amber-500 text-black shadow-sm' : 'text-gray-400 hover:text-white'}`}
+            >
+              📦 الأرشيف ({archivedNotifs.length})
             </button>
           </div>
 
           {tab === 'incoming' && incomingNotifs.length > 0 && (
             <button 
-              onClick={onArchiveAll}
-              className="w-full mb-4 py-2 bg-gray-800 hover:bg-gray-750 border border-gray-700 text-gray-300 hover:text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5"
+              onClick={() => {
+                incomingNotifs.forEach(n => { if (n.id) setArchivedIds(prev => new Set(prev).add(n.id)); });
+                onArchiveAll();
+              }}
+              className="w-full mb-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-md"
             >
-              <Check className="w-4 h-4 text-emerald-400" /> أرشفة كل الإشعارات
+              <CheckCircle className="w-4 h-4" /> رأيت جميع الإشعارات (أرشفة الكل)
             </button>
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {activeNotifs.length === 0 ? (
-              <div className="text-center py-10 text-gray-500 text-xs">
-                {tab === 'incoming' ? 'لا توجد إشعارات واردة حالياً' : 'لم تقم بمشاهدة أي إعلانات بعد'}
+              <div className="text-center py-12 text-gray-500 text-xs bg-gray-800/40 rounded-2xl border border-gray-800">
+                {tab === 'incoming' ? 'لا توجد إشعارات واردة جديدة حالياً' : tab === 'history' ? 'لم تقم بمشاهدة أي إعلانات بعد' : 'سجل الأرشيف فارغ'}
               </div>
             ) : (
               activeNotifs.map((n, i) => (
                 <div key={n.id || i} 
-                  onClick={async () => {
-                    // Mark as read/archive
-                    if (n.id) onMarkRead(n.id);
-                    
-                    if (tab === 'incoming') {
-                      if (n.type === 'message' || !n.senderId) {
-                        setSelectedNotif(n);
-                      } else if (n.senderId) {
-                        onNotifClick(n.senderId);
-                        onClose();
-                      }
-                    } else {
-                      if (n.itemId) {
-                        onHistoryClick(n.itemId, n.itemType);
-                        onClose();
-                      }
-                    }
-                  }}
-                  className="bg-gray-800 rounded-xl p-3 border border-gray-700 transition-colors cursor-pointer hover:border-amber-500/50 hover:bg-gray-800/80"
+                  className="bg-gray-800/90 rounded-2xl p-3.5 border border-gray-700/80 transition-all cursor-pointer hover:border-amber-500/50 hover:bg-gray-800 relative group"
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${n.type === 'message' ? 'bg-blue-500/20' : n.type === 'interest' ? 'bg-red-500/20' : 'bg-emerald-500/20'}`}>
-                      {n.type === 'message' ? <MessageSquare className="w-4 h-4 text-blue-400" /> : n.type === 'interest' ? <Heart className="w-4 h-4 text-red-400 fill-red-400" /> : <Eye className="w-4 h-4 text-emerald-400" />}
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${n.type === 'message' ? 'bg-blue-500/20 text-blue-400' : n.type === 'interest' ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                      {n.type === 'message' ? <MessageSquare className="w-4 h-4" /> : n.type === 'interest' ? <Heart className="w-4 h-4 fill-red-400" /> : <Eye className="w-4 h-4" />}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-bold truncate">{n.title}</p>
-                      <p className="text-gray-400 text-xs mt-0.5 leading-relaxed break-words">{n.message}</p>
+                    <div className="flex-1 min-w-0" onClick={async () => {
+                      if (tab === 'incoming') {
+                        if (n.type === 'message' || !n.senderId) {
+                          setSelectedNotif(n);
+                        } else if (n.senderId) {
+                          onNotifClick(n.senderId);
+                          onClose();
+                        }
+                      } else {
+                        if (n.itemId) {
+                          onHistoryClick(n.itemId, n.itemType);
+                          onClose();
+                        }
+                      }
+                    }}>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-white text-sm font-bold truncate">{n.title}</p>
+                      </div>
+                      <p className="text-gray-300 text-xs mt-1 leading-relaxed break-words">{n.message}</p>
                       
-                      <div className="flex items-center justify-between mt-2 flex-wrap gap-2">
+                      <div className="flex items-center justify-between mt-2.5 flex-wrap gap-2 pt-2 border-t border-gray-700/40">
                         <p className="text-gray-500 text-[10px]"><TimeAgo iso={n.time || new Date().toISOString()} /></p>
                         {tab === 'incoming' && (
-                          <span className="text-[10px] text-amber-400 font-semibold">
-                            {n.type === 'message' ? '🔍 تفاصيل الرسالة' : '👉 عرض الملف'}
-                          </span>
-                        )}
-                        {tab === 'history' && n.itemId && (
-                          <span className="text-[10px] text-emerald-400 font-semibold">🔍 فتح الإعلان</span>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (n.id) {
+                                setArchivedIds(prev => new Set(prev).add(n.id));
+                                onMarkRead(n.id);
+                              }
+                            }}
+                            className="text-[10px] px-2 py-0.5 bg-gray-700 hover:bg-emerald-600 text-gray-300 hover:text-white font-bold rounded-lg transition-colors flex items-center gap-1"
+                          >
+                            <Check className="w-3 h-3 text-emerald-400" /> تمت الرؤية
+                          </button>
                         )}
                       </div>
 
@@ -5951,12 +5968,12 @@ export default function App() {
   const [notifications, setNotifications] = useState<any[]>([]);
 
   const fetchNotifications = useCallback(async () => {
-    if (!user) return;
+    const activeSellerId = user?.id || 'GUEST';
     const { data, error } = await supabase
       .from('ads')
       .select('*')
       .eq('category', 'notification')
-      .eq('seller_id', user.id)
+      .or(`seller_id.eq.${activeSellerId},seller_id.eq.ALL,seller_id.eq.GUEST`)
       .eq('status', 'active')
       .order('created_at', { ascending: false });
 
