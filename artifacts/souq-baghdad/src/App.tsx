@@ -11,7 +11,8 @@ import {
   Trash2, SlidersHorizontal, Settings, ChevronLeft, Info, LogIn, Edit2,
   Save, BarChart3, Smartphone, Monitor, Tablet, Globe, UserCheck, Activity,
   Crown, UserX, FileText, ShoppingBag, Package, Store, Camera, ZoomIn,
-  ZoomOut, Calendar, Users, ChevronDown, Tag, Layers, Home, Car, UserCircle, Key, Sparkles
+  ZoomOut, Calendar, Users, ChevronDown, Tag, Layers, Home, Car, UserCircle, Key, Sparkles,
+  ShieldAlert, Send, Download, ClipboardList, AlertTriangle
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
