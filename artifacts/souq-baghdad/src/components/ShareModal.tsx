@@ -16,9 +16,10 @@ export interface ShareModalProps {
   governorate?: string;
   location?: string;
   short_id?: string;
+  description?: string;
 }
 
-type PlatformType = 'instagram' | 'facebook' | 'whatsapp' | 'telegram';
+type PlatformType = 'instagram' | 'facebook' | 'whatsapp' | 'telegram' | 'copy_link';
 
 export function ShareModal({ 
   isOpen, 
@@ -29,9 +30,9 @@ export function ShareModal({
   price, 
   governorate, 
   location,
-  short_id 
+  short_id,
+  description 
 }: ShareModalProps) {
-  // Navigation: null = Main TikTok Slider, platform = TikTok Sub-screen (Share to App)
   const [activePlatform, setActivePlatform] = useState<PlatformType | null>(null);
   const [cardFormat, setCardFormat] = useState<'story' | 'post'>('story');
   
@@ -47,14 +48,15 @@ export function ShareModal({
   const idBadge = short_id ? `#${short_id}` : '';
   const fullUrl = url.startsWith('http') ? url : `https://www.souqbaghdad.store${url.startsWith('/') ? url : '/' + url}`;
 
-  // Formatted caption
-  const shareText = `📢 *عرض خاص من منصة سوق بغداد:* 🇮🇶\n\n🛍️ *${title}* ${idBadge}\n📍 *الموقع:* ${locText}${price ? `\n🏷️ *السعر:* ${price} د.ع` : ''}\n\nتواصل مباشر وسريع بين البائع والمشتري! 🚀🤝\n\n🔗 *رابط التفاصيل:* ${fullUrl}`;
+  // Formatted caption with ad description snippet
+  const descSnippet = description ? `\n📝 *الوصف:* ${description.slice(0, 100)}${description.length > 100 ? '...' : ''}` : '';
+  const shareText = `📢 *عرض خاص من منصة سوق بغداد:* 🇮🇶\n\n🛍️ *${title}* ${idBadge}\n📍 *الموقع:* ${locText}${price ? `\n🏷️ *السعر:* ${price} د.ع` : ''}${descSnippet}\n\nتواصل مباشر وسريع بين البائع والمشتري! 🚀🤝\n\n🔗 *رابط التفاصيل:* ${fullUrl}`;
 
   useEffect(() => {
     if (isOpen) {
       generateCanvasCard(cardFormat);
     }
-  }, [isOpen, cardFormat, title, price, image, locText]);
+  }, [isOpen, cardFormat, title, price, image, locText, description]);
 
   const triggerToast = (msg: string) => {
     setToastMsg(msg);
@@ -64,18 +66,18 @@ export function ShareModal({
   const handleCopyLink = () => {
     navigator.clipboard.writeText(fullUrl);
     setCopiedLink(true);
-    triggerToast('📋 تم نسخ رابط الإعان بنجاح!');
+    triggerToast('📋 تم نسخ رابط الإعلان بنجاح!');
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
   const handleCopyCaption = () => {
     navigator.clipboard.writeText(shareText);
     setCopiedText(true);
-    triggerToast('📝 تم نسخ نص الإعلان بالكامل!');
+    triggerToast('📝 تم نسخ نص الإعلان والتفاصيل بالكامل!');
     setTimeout(() => setCopiedText(false), 2500);
   };
 
-  // Canvas Drawing Generator (Vertical Story / Square Post Card)
+  // Canvas Drawing Generator (Fixing Base64 CORS & Adding Description)
   const generateCanvasCard = async (format: 'story' | 'post') => {
     setIsGeneratingCard(true);
     try {
@@ -106,7 +108,7 @@ export function ShareModal({
       ctx.restore();
 
       // Header Badge
-      const headerY = isStory ? 120 : 60;
+      const headerY = isStory ? 110 : 50;
       ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
       ctx.roundRect ? ctx.roundRect(width / 2 - 270, headerY, 540, 90, 45) : ctx.fillRect(width / 2 - 270, headerY, 540, 90);
       ctx.fill();
@@ -121,9 +123,9 @@ export function ShareModal({
       ctx.fillText('سوك بغداد 🇮🇶 SOUQ BAGHDAD', width / 2, headerY + 45);
 
       // Image Area
-      const imgSize = isStory ? 760 : 520;
+      const imgSize = isStory ? 720 : 480;
       const imgX = (width - imgSize) / 2;
-      const imgY = isStory ? 270 : 180;
+      const imgY = isStory ? 240 : 160;
 
       ctx.save();
       ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
@@ -139,10 +141,13 @@ export function ShareModal({
       }
       ctx.restore();
 
+      // Fix Base64 image loading on Canvas (Do NOT set crossOrigin for base64 data URLs)
       if (image) {
         try {
           const img = new Image();
-          img.crossOrigin = 'anonymous';
+          if (!image.startsWith('data:')) {
+            img.crossOrigin = 'anonymous';
+          }
           img.src = image;
           await new Promise((res, rej) => {
             img.onload = res;
@@ -180,7 +185,8 @@ export function ShareModal({
             ctx.roundRect(imgX, imgY, imgSize, imgSize, 36);
             ctx.stroke();
           }
-        } catch {
+        } catch (err) {
+          console.error('Image draw error:', err);
           ctx.fillStyle = '#f59e0b';
           ctx.font = 'bold 120px system-ui';
           ctx.fillText('🛍️', width / 2, imgY + imgSize / 2);
@@ -192,8 +198,8 @@ export function ShareModal({
       }
 
       // Content Box
-      const contentY = imgY + imgSize + (isStory ? 70 : 40);
-      ctx.font = 'bold 50px system-ui, sans-serif';
+      const contentY = imgY + imgSize + (isStory ? 60 : 35);
+      ctx.font = 'bold 48px system-ui, sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       
@@ -203,42 +209,55 @@ export function ShareModal({
       }
       ctx.fillText(displayTitle, width / 2, contentY);
 
-      const badgeY = contentY + 75;
-      ctx.font = 'bold 34px system-ui, sans-serif';
+      const badgeY = contentY + 65;
+      ctx.font = 'bold 32px system-ui, sans-serif';
       ctx.fillStyle = '#94a3b8';
       ctx.fillText(`📍 ${locText} ${idBadge}`, width / 2, badgeY);
 
+      // Render Brief Description Snippet on Canvas Card
+      let nextY = badgeY + 55;
+      if (description) {
+        ctx.font = '28px system-ui, sans-serif';
+        ctx.fillStyle = '#cbd5e1';
+        let cleanDesc = description.replace(/[\r\n]+/g, ' ').trim();
+        if (cleanDesc.length > 60) {
+          cleanDesc = cleanDesc.substring(0, 57) + '...';
+        }
+        ctx.fillText(cleanDesc, width / 2, nextY);
+        nextY += 55;
+      }
+
       if (price) {
-        const priceY = badgeY + (isStory ? 100 : 70);
+        const priceY = nextY + (isStory ? 35 : 20);
         const priceText = `${price} د.ع`;
-        ctx.font = 'bold 60px system-ui, sans-serif';
-        const pWidth = ctx.measureText(priceText).width + 100;
+        ctx.font = 'bold 56px system-ui, sans-serif';
+        const pWidth = ctx.measureText(priceText).width + 90;
         
-        const pGrad = ctx.createLinearGradient(width/2 - pWidth/2, priceY - 50, width/2 + pWidth/2, priceY + 50);
+        const pGrad = ctx.createLinearGradient(width/2 - pWidth/2, priceY - 45, width/2 + pWidth/2, priceY + 45);
         pGrad.addColorStop(0, '#fbbf24');
         pGrad.addColorStop(1, '#d97706');
         ctx.fillStyle = pGrad;
 
         if (ctx.roundRect) {
           ctx.beginPath();
-          ctx.roundRect(width / 2 - pWidth / 2, priceY - 50, pWidth, 100, 50);
+          ctx.roundRect(width / 2 - pWidth / 2, priceY - 45, pWidth, 90, 45);
           ctx.fill();
         } else {
-          ctx.fillRect(width / 2 - pWidth / 2, priceY - 50, pWidth, 100);
+          ctx.fillRect(width / 2 - pWidth / 2, priceY - 45, pWidth, 90);
         }
 
         ctx.fillStyle = '#0f172a';
-        ctx.fillText(priceText, width / 2, priceY + 5);
+        ctx.fillText(priceText, width / 2, priceY + 4);
       }
 
-      const footerY = isStory ? height - 140 : height - 55;
-      ctx.font = 'bold 36px system-ui, sans-serif';
+      const footerY = isStory ? height - 130 : height - 50;
+      ctx.font = 'bold 34px system-ui, sans-serif';
       ctx.fillStyle = '#cbd5e1';
       ctx.fillText('تصفح الإعلان والتواصل المباشر عبر المنصة 🚀', width / 2, footerY);
       
-      ctx.font = 'bold 32px system-ui, sans-serif';
+      ctx.font = 'bold 30px system-ui, sans-serif';
       ctx.fillStyle = '#f59e0b';
-      ctx.fillText('www.souqbaghdad.store', width / 2, footerY + 50);
+      ctx.fillText('www.souqbaghdad.store', width / 2, footerY + 45);
 
       const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
       setCardDataUrl(dataUrl);
@@ -270,72 +289,66 @@ export function ShareModal({
     }
   };
 
-  // Execute Sub-screen Target Action (Story / Reels / Messages)
-  const executeTargetAction = async (target: 'story' | 'reels' | 'messages') => {
-    // 1. Copy caption & link immediately
+  // Immediate App Launcher & Target Handler
+  const handleAppClick = async (platform: PlatformType | 'native') => {
+    if (platform === 'copy_link') {
+      handleCopyLink();
+      return;
+    }
+
+    if (platform === 'native') {
+      if (navigator.share) navigator.share({ title, text: shareText, url: fullUrl }).catch(()=>{});
+      else handleCopyCaption();
+      return;
+    }
+
+    // Copy caption immediately
     try {
       await navigator.clipboard.writeText(shareText);
     } catch {
-      // Fallback
+      // ignore
     }
 
-    const platformName = activePlatform === 'instagram' ? 'انستغرام' 
-      : activePlatform === 'facebook' ? 'فيسبوك' 
-      : activePlatform === 'whatsapp' ? 'واتساب' : 'تليجرام';
+    const platformName = platform === 'instagram' ? 'انستغرام' 
+      : platform === 'facebook' ? 'فيسبوك' 
+      : platform === 'whatsapp' ? 'واتساب' : 'تليجرام';
 
-    // 2. Download card image for reference
-    if (target === 'story' || target === 'reels') {
-      downloadCard();
-    }
+    // Download card for user reference
+    downloadCard();
 
-    // 3. Try Native Web Share with file if supported on Mobile
-    if (cardDataUrl && typeof navigator !== 'undefined' && navigator.share) {
-      const file = await dataUrlToFile(cardDataUrl, `souq-baghdad-${target}.jpg`);
-      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({
-            title: title,
-            text: shareText,
-            files: [file],
-          });
-          triggerToast(`🚀 تم المشاركة بنجاح!`);
-          return;
-        } catch (err) {
-          console.log('Native file share skipped:', err);
-        }
-      }
-    }
+    // Trigger immediate open/share
+    triggerToast(`🚀 تم نسخ النص والتصميم! جاري فتح ${platformName}...`);
 
-    // 4. Direct App Redirect (Immediate Synchronous Trigger)
-    triggerToast(`🚀 تم نسخ النص والتصميم! جاري تحويلك إلى ${platformName}...`);
-
-    if (activePlatform === 'instagram') {
-      // Try Instagram Story scheme on mobile or web fallback
-      if (target === 'story') {
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        if (isMobile) {
-          window.location.href = 'instagram-stories://share';
-          setTimeout(() => {
-            window.open('https://www.instagram.com/', '_blank');
-          }, 800);
-        } else {
+    if (platform === 'instagram') {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        window.location.href = 'instagram-stories://share';
+        setTimeout(() => {
           window.open('https://www.instagram.com/', '_blank');
-        }
+        }, 600);
       } else {
         window.open('https://www.instagram.com/', '_blank');
       }
-    } else if (activePlatform === 'facebook') {
+    } else if (platform === 'facebook') {
       window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(fullUrl)}`, '_blank');
-    } else if (activePlatform === 'whatsapp') {
+    } else if (platform === 'whatsapp') {
       window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
-    } else if (activePlatform === 'telegram') {
+    } else if (platform === 'telegram') {
       window.open(`https://t.me/share/url?url=${encodeURIComponent(fullUrl)}&text=${encodeURIComponent(shareText)}`, '_blank');
     }
   };
 
   if (!isOpen) return null;
 
+  // TikTok Style App Slider Items (with Dedicated Circular "Copy Link" Button)
   const appSliderItems: { id: PlatformType | 'native'; name: string; tag: string; icon: any; bg: string }[] = [
+    { 
+      id: 'copy_link', 
+      name: 'نسخ الرابط', 
+      tag: 'رابط مباشر 🔗', 
+      icon: <Link2 className="w-7 h-7 text-white" />, 
+      bg: 'bg-blue-500 shadow-blue-500/30' 
+    },
     { 
       id: 'instagram', 
       name: 'انستغرام', 
@@ -405,190 +418,93 @@ export function ShareModal({
             </motion.div>
           )}
 
-          {/* SCREEN 1: MAIN TIKTOK SLIDER */}
-          {!activePlatform && (
-            <div className="space-y-4 overflow-y-auto pr-1 custom-scrollbar flex-1 pb-2">
-              {/* Header Preview Item */}
-              <div className="flex items-center justify-between pb-3 border-b border-gray-800 shrink-0">
-                <div className="flex items-center gap-3 min-w-0">
-                  {image ? (
-                    <img src={image} alt="" className="w-12 h-12 rounded-xl object-cover border border-gray-700 shrink-0" />
-                  ) : (
-                    <div className="w-12 h-12 rounded-xl bg-gray-800 flex items-center justify-center text-xl shrink-0">🛍️</div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <h4 className="text-white font-bold text-sm truncate">{title}</h4>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {price && <span className="text-amber-400 font-bold text-xs">{price} د.ع</span>}
-                      <span className="text-gray-400 text-[11px]">• {locText}</span>
-                    </div>
+          {/* MAIN TIKTOK SLIDER SCREEN */}
+          <div className="space-y-4 overflow-y-auto pr-1 custom-scrollbar flex-1 pb-2">
+            {/* Header Preview Item */}
+            <div className="flex items-center justify-between pb-3 border-b border-gray-800 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                {image ? (
+                  <img src={image} alt="" className="w-12 h-12 rounded-xl object-cover border border-gray-700 shrink-0" />
+                ) : (
+                  <div className="w-12 h-12 rounded-xl bg-gray-800 flex items-center justify-center text-xl shrink-0">🛍️</div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-white font-bold text-sm truncate">{title}</h4>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {price && <span className="text-amber-400 font-bold text-xs">{price} د.ع</span>}
+                    <span className="text-gray-400 text-[11px]">• {locText}</span>
                   </div>
                 </div>
-                <button
-                  onClick={onClose}
-                  className="p-2 bg-gray-800 hover:bg-gray-700 rounded-xl text-gray-400 transition-colors shrink-0 mr-2"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-2 bg-gray-800 hover:bg-gray-700 rounded-xl text-gray-400 transition-colors shrink-0 mr-2"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* TIKTOK APPS SLIDER ROW */}
+            <div>
+              <div className="flex items-center justify-between mb-2 px-1">
+                <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
+                  <Share2 className="w-3.5 h-3.5 text-amber-400" />
+                  <span>اختر التطبيق للمشاركة 🚀</span>
+                </span>
+                <span className="text-[10px] text-gray-500">سحب لليمين/اليسار ➔</span>
               </div>
 
-              {/* TIKTOK APPS SLIDER ROW */}
-              <div>
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
-                    <Share2 className="w-3.5 h-3.5 text-amber-400" />
-                    <span>اختر التطبيق للمشاركة 🚀</span>
-                  </span>
-                  <span className="text-[10px] text-gray-500">سحب لليمين/اليسار ➔</span>
-                </div>
-
-                <div className="flex items-center gap-3 overflow-x-auto pb-3 pt-1 px-1 no-scrollbar scroll-smooth">
-                  {appSliderItems.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        if (item.id === 'native') {
-                          if (navigator.share) navigator.share({ title, text: shareText, url: fullUrl }).catch(()=>{});
-                          else handleCopyCaption();
-                        } else {
-                          setActivePlatform(item.id);
-                          generateCanvasCard('story');
-                        }
-                      }}
-                      className="flex flex-col items-center shrink-0 group focus:outline-none"
-                    >
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-all group-hover:scale-110 group-active:scale-95 ${item.bg}`}>
-                        {item.icon}
-                      </div>
-                      <span className="text-xs font-bold text-white mt-1.5">{item.name}</span>
-                      <span className="text-[9px] text-gray-400 font-medium">{item.tag}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* ACTION UTILITIES ROW */}
-              <div className="pt-2 border-t border-gray-800/80">
-                <div className="mb-2 px-1">
-                  <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    <span>أدوات سريعة</span>
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
+              <div className="flex items-center gap-3 overflow-x-auto pb-3 pt-1 px-1 no-scrollbar scroll-smooth">
+                {appSliderItems.map((item) => (
                   <button
-                    onClick={handleCopyCaption}
-                    className={`p-3 rounded-2xl border flex items-center justify-center gap-2 transition-all ${
-                      copiedText 
-                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300' 
-                        : 'bg-gray-800/60 hover:bg-gray-800 border-gray-700/60 text-gray-200'
-                    }`}
+                    key={item.id}
+                    onClick={() => handleAppClick(item.id)}
+                    className="flex flex-col items-center shrink-0 group focus:outline-none"
                   >
-                    {copiedText ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-amber-400" />}
-                    <span className="text-xs font-bold">نسخ الكابشن والهاشتاقات</span>
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-all group-hover:scale-110 group-active:scale-95 ${item.bg}`}>
+                      {item.icon}
+                    </div>
+                    <span className="text-xs font-bold text-white mt-1.5">{item.name}</span>
+                    <span className="text-[9px] text-gray-400 font-medium">{item.tag}</span>
                   </button>
-
-                  <button
-                    onClick={handleCopyLink}
-                    className={`p-3 rounded-2xl border flex items-center justify-center gap-2 transition-all ${
-                      copiedLink 
-                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300' 
-                        : 'bg-gray-800/60 hover:bg-gray-800 border-gray-700/60 text-gray-200'
-                    }`}
-                  >
-                    {copiedLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Link2 className="w-4 h-4 text-sky-400" />}
-                    <span className="text-xs font-bold">نسخ الرابط المباشر</span>
-                  </button>
-                </div>
+                ))}
               </div>
             </div>
-          )}
 
-          {/* SCREEN 2: TIKTOK SUB-SCREEN (SHARE TO INSTAGRAM / FACEBOOK / WHATSAPP) - MATCHING USER SCREENSHOTS */}
-          {activePlatform && (
-            <div className="space-y-4 overflow-y-auto pr-1 custom-scrollbar flex-1 pb-2">
-              {/* Sub-screen Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-gray-800 shrink-0">
-                <button
-                  onClick={() => setActivePlatform(null)}
-                  className="flex items-center gap-1 text-xs font-bold text-amber-400 hover:text-amber-300 transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4 rotate-180" />
-                  <span>رجوع</span>
-                </button>
-                
-                <h3 className="text-white font-bold text-sm sm:text-base flex items-center gap-2">
-                  <span>المشاركة إلى {activePlatform === 'instagram' ? 'انستغرام' : activePlatform === 'facebook' ? 'فيسبوك' : activePlatform === 'whatsapp' ? 'واتساب' : 'تليجرام'}</span>
-                </h3>
-
-                <button
-                  onClick={onClose}
-                  className="p-1.5 bg-gray-800 hover:bg-gray-700 rounded-xl text-gray-400 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+            {/* ACTION UTILITIES ROW */}
+            <div className="pt-2 border-t border-gray-800/80">
+              <div className="mb-2 px-1">
+                <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>أدوات وتصاميم سريعة</span>
+                </span>
               </div>
 
-              {/* Sub-screen Card Preview (Center) */}
-              <div className="bg-gray-950 rounded-2xl p-3 border border-gray-800 flex flex-col items-center justify-center min-h-[260px] relative overflow-hidden">
-                {isGeneratingCard ? (
-                  <div className="text-xs text-amber-400 font-bold py-12 flex flex-col items-center gap-2">
-                    <Sparkles className="w-6 h-6 animate-spin" />
-                    <span>جاري إعداد التصميم للتطبيق...</span>
-                  </div>
-                ) : cardDataUrl ? (
-                  <div className="relative flex flex-col items-center">
-                    <img 
-                      src={cardDataUrl} 
-                      alt="Story Preview" 
-                      className="max-h-[250px] w-auto rounded-xl object-contain border border-gray-700/80 shadow-2xl"
-                    />
-                    <div className="mt-2 text-[11px] text-gray-400 font-medium">
-                      سيتم تنزيل البطاقة ونسخ الكابشن تلقائياً عند اختيار الوجهة 👇
-                    </div>
-                  </div>
-                ) : null}
-              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={handleCopyCaption}
+                  className={`p-3 rounded-2xl border flex items-center justify-center gap-2 transition-all ${
+                    copiedText 
+                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300' 
+                      : 'bg-gray-800/60 hover:bg-gray-800 border-gray-700/60 text-gray-200'
+                  }`}
+                >
+                  {copiedText ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-amber-400" />}
+                  <span className="text-xs font-bold">نسخ الكابشن والتفاصيل</span>
+                </button>
 
-              {/* Sub-screen Bottom Target Actions (Story / Reels / Messages) - EXACT MATCHING USER SCREENSHOT */}
-              <div className="pt-2">
-                <div className="text-xs font-bold text-gray-300 mb-2.5 text-center">اختر وجهة النشر في التطبيق:</div>
-                <div className="grid grid-cols-3 gap-2.5">
-                  <button
-                    onClick={() => executeTargetAction('story')}
-                    className="flex flex-col items-center justify-center p-3.5 bg-gray-800/80 hover:bg-gray-800 border border-gray-700/80 rounded-2xl transition-all hover:scale-105 active:scale-95 group"
-                  >
-                    <div className="p-2.5 bg-pink-500/20 text-pink-400 rounded-xl mb-1.5 group-hover:bg-pink-500 group-hover:text-white transition-colors">
-                      <PlusCircle className="w-6 h-6" />
-                    </div>
-                    <span className="text-xs font-bold text-white">Story (ستوري)</span>
-                  </button>
-
-                  <button
-                    onClick={() => executeTargetAction('reels')}
-                    className="flex flex-col items-center justify-center p-3.5 bg-gray-800/80 hover:bg-gray-800 border border-gray-700/80 rounded-2xl transition-all hover:scale-105 active:scale-95 group"
-                  >
-                    <div className="p-2.5 bg-purple-500/20 text-purple-400 rounded-xl mb-1.5 group-hover:bg-purple-500 group-hover:text-white transition-colors">
-                      <PlayCircle className="w-6 h-6" />
-                    </div>
-                    <span className="text-xs font-bold text-white">Reels / بوست</span>
-                  </button>
-
-                  <button
-                    onClick={() => executeTargetAction('messages')}
-                    className="flex flex-col items-center justify-center p-3.5 bg-gray-800/80 hover:bg-gray-800 border border-gray-700/80 rounded-2xl transition-all hover:scale-105 active:scale-95 group"
-                  >
-                    <div className="p-2.5 bg-sky-500/20 text-sky-400 rounded-xl mb-1.5 group-hover:bg-sky-500 group-hover:text-white transition-colors">
-                      <SendHorizontal className="w-6 h-6" />
-                    </div>
-                    <span className="text-xs font-bold text-white">Messages / خاص</span>
-                  </button>
-                </div>
+                <button
+                  onClick={downloadCard}
+                  disabled={!cardDataUrl || isGeneratingCard}
+                  className="p-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                  <Download className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-bold">تحميل بطاقة التصميم 📸</span>
+                </button>
               </div>
             </div>
-          )}
 
+          </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>

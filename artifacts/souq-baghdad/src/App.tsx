@@ -4831,6 +4831,7 @@ export default function App() {
         price: d.price ? String(d.price) : undefined,
         governorate: itemLoc,
         short_id: d.short_id || (d.id ? String(d.id).substring(0, 5) : undefined),
+        description: d.description || d.details || '',
       });
     };
     window.addEventListener('open-share-modal', handleOpenShare);
@@ -5912,6 +5913,7 @@ export default function App() {
             governorate={shareModalData.governorate}
             location={shareModalData.location}
             short_id={shareModalData.short_id}
+            description={(shareModalData as any).description}
           />
         )}
       </AnimatePresence>
