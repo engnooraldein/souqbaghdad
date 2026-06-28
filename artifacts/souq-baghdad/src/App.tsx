@@ -3931,7 +3931,7 @@ const fetchRecovery = async () => {
                   <label className="block text-gray-300 text-xs font-bold mb-1.5">نطاق الاستهداف (المحافظات)</label>
                   <select value={targetGovNotif} onChange={e=>setTargetGovNotif(e.target.value)} className="w-full bg-gray-900 text-white rounded-xl p-3 border border-gray-700 outline-none text-xs">
                     <option value="الكل">🌐 جميع المحافظات العراقية (عام)</option>
-                    {GOVERNORATES.map(g=><option key={g} value={g}>📍 محافظة {g}</option>)}
+                    {IRAQI_GOVERNORATES.filter(g=>g!=='الكل').map(g=><option key={g} value={g}>📍 محافظة {g}</option>)}
                   </select>
                 </div>
                 <div>
