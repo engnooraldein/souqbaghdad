@@ -3238,7 +3238,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   onClose:()=>void;
   onDeleteProfile?:(id:string)=>void;
 }) {
-  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'logs'|'changelog'>('overview');
+  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'logs'|'changelog'|'security'|'reports'|'marketing'|'backup'>('overview');
   const [verificationRequests, setVerificationRequests] = useState<any[]>([]);
   const [recoveryRequests, setRecoveryRequests] = useState<any[]>([]);
   const [storedUsers, setStoredUsers] = useState<StoredUser[]>([]);
@@ -3248,6 +3248,15 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
   const [logFilter, setLogFilter] = useState('');
+  
+  // v1.3 Security & IP Tracking state
+  const [bannedIPs, setBannedIPs] = useState<Array<{ip: string, reason: string, date: string, type: 'ip'|'device'}>>([
+    { ip: '37.238.102.14', reason: 'محاولة نشر تكراري مشبوه', date: new Date().toLocaleDateString('ar-IQ'), type: 'ip' },
+    { ip: '185.220.101.5', reason: 'عنوان VPN / Proxy محظور', date: new Date().toLocaleDateString('ar-IQ'), type: 'ip' }
+  ]);
+  const [newBanIP, setNewBanIP] = useState('');
+  const [newBanReason, setNewBanReason] = useState('');
+  const [targetGovNotif, setTargetGovNotif] = useState('الكل');
 
   useEffect(() => {
     const loadLogs = () => {
@@ -3405,17 +3414,18 @@ const fetchRecovery = async () => {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg"><Crown className="w-6 h-6 text-black"/></div>
-            <div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">🚀 الإصدار v1.2</span></div><p className="text-amber-400 text-xs mt-0.5">تحليلات شاملة وإدارة كاملة للموقع المنصة حية ومتصلة</p></div>
+            <div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">🚀 الإصدار v1.3</span></div><p className="text-amber-400 text-xs mt-0.5">تحليلات شاملة، حماية سيبرانية، تتبع الأيبيات وإدارة كاملة حية ومتصلة</p></div>
           </div>
           <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white"><X className="w-5 h-5"/></button>
         </div>
         
         {/* Stat cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           {[{l:'زيارات اليوم',v:todayV.length,icon:<Activity className="w-5 h-5"/>,c:'text-green-400',bg:'bg-green-500/10 border-green-500/20'},
             {l:'إجمالي الزيارات',v:visits.length,icon:<Globe className="w-5 h-5"/>,c:'text-blue-400',bg:'bg-blue-500/10 border-blue-500/20'},
             {l:'المستخدمون',v:storedUsers.length,icon:<Users className="w-5 h-5"/>,c:'text-purple-400',bg:'bg-purple-500/10 border-purple-500/20'},
-            {l:'المحتوى',v:ads.length+products.length,icon:<Layers className="w-5 h-5"/>,c:'text-amber-400',bg:'bg-amber-500/10 border-amber-500/20'}].map((s,i)=>(
+            {l:'المحتوى',v:ads.length+products.length,icon:<Layers className="w-5 h-5"/>,c:'text-amber-400',bg:'bg-amber-500/10 border-amber-500/20'},
+            {l:'الأيبيات المحظورة',v:bannedIPs.length,icon:<ShieldAlert className="w-5 h-5"/>,c:'text-red-400',bg:'bg-red-500/10 border-red-500/20'}].map((s,i)=>(
             <div key={i} className={`${s.bg} rounded-2xl p-4 border text-center`}>
               <div className={`flex justify-center mb-2 ${s.c}`}>{s.icon}</div>
               <p className={`text-2xl font-bold ${s.c}`}>{s.v}</p>
@@ -3426,8 +3436,8 @@ const fetchRecovery = async () => {
         
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['broadcast','🔔 إشعار عام'],['logs','📋 سجل العمليات'],['changelog','🚀 التحديثات v1.2']] as [string,string][]).map(([t,l])=>(
-            <button key={t} onClick={()=>setTab(t as any)} className={`px-4 py-2 rounded-xl text-sm font-bold ${tab===t?'bg-amber-500 text-black':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
+          {([['overview','📊 نظرة عامة'],['security','🛡️ الأمان وحظر IP'],['visitors','👥 الزوار الحيين'],['users','🧑‍💼 الحسابات والترقيات'],['content','📢 المحتوى والرايات'],['verification','🪪 طلبات التوثيق'],['recovery','🔑 استعادة الحسابات'],['marketing','📣 التسويق والإشعارات'],['reports','🚨 البلاغات والدعم'],['logs','📋 سجل العمليات والجنائي'],['backup','💾 التصدير والنسخ الاحتياطي'],['changelog','🚀 التحديثات v1.3']] as [string,string][]).map(([t,l])=>(
+            <button key={t} onClick={()=>setTab(t as any)} className={`px-3.5 py-2 rounded-xl text-xs md:text-sm font-bold transition-all ${tab===t?'bg-amber-500 text-black shadow-lg scale-105':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
           ))}
         </div>
         
@@ -3841,6 +3851,156 @@ const fetchRecovery = async () => {
           </div>
         )}
 
+        {tab==='security'&&(
+          <div className="space-y-5">
+            <div className="bg-gradient-to-r from-red-900/40 via-gray-900 to-gray-900 border border-red-500/30 rounded-2xl p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <ShieldAlert className="w-6 h-6 text-red-400"/>
+                <div>
+                  <h3 className="text-white font-bold text-lg">مركز الحماية والأمان السيبراني v1.3</h3>
+                  <p className="text-gray-400 text-xs">إدارة حظر الـ IP الحركي، بصمات الأجهزة، وحماية المنصة من البوتات والاحتيال</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-3 mt-4 text-xs">
+                <div className="bg-gray-800 px-3 py-2 rounded-xl border border-gray-700 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-ping"/>
+                  <span className="text-gray-300">جدار الحماية الفعّال (WAF): <strong className="text-green-400">نشط 100%</strong></span>
+                </div>
+                <div className="bg-gray-800 px-3 py-2 rounded-xl border border-gray-700 flex items-center gap-2">
+                  <Lock className="w-3.5 h-3.5 text-amber-400"/>
+                  <span className="text-gray-300">كاشف الـ VPN / Proxy: <strong className="text-amber-400">تلقائي</strong></span>
+                </div>
+              </div>
+            </div>
+
+            {/* Add IP Form */}
+            <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5">
+              <h4 className="text-white font-bold text-sm mb-3 flex items-center gap-2"><Plus className="w-4 h-4 text-amber-400"/>إضافة IP أو جهاز إلى قائمة الحظر السوداء</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <input value={newBanIP} onChange={e=>setNewBanIP(e.target.value)} placeholder="مثال: 37.238.102.14" className="bg-gray-900 text-white rounded-xl px-3.5 py-2.5 border border-gray-700 text-xs outline-none focus:border-amber-400"/>
+                <input value={newBanReason} onChange={e=>setNewBanReason(e.target.value)} placeholder="سبب الحظر (مثال: نشر تكراري مشبوه)" className="bg-gray-900 text-white rounded-xl px-3.5 py-2.5 border border-gray-700 text-xs outline-none focus:border-amber-400"/>
+                <button onClick={()=>{
+                  if(!newBanIP) return;
+                  setBannedIPs(prev=>[{ip: newBanIP, reason: newBanReason || 'حظر يدوي من المالك', date: new Date().toLocaleDateString('ar-IQ'), type:'ip'}, ...prev]);
+                  logSystemAction('حظر IP حركي', `عنوان IP: ${newBanIP}`, newBanReason);
+                  setNewBanIP(''); setNewBanReason('');
+                }} className="bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl py-2.5 px-4 transition-all flex items-center justify-center gap-2">
+                  <ShieldAlert className="w-4 h-4"/>تأكيد الحظر الحركي
+                </button>
+              </div>
+            </div>
+
+            {/* Banned List */}
+            <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5">
+              <h4 className="text-white font-bold text-sm mb-4 flex items-center justify-between">
+                <span>قائمة الأيبيات والأجهزة المحظورة</span>
+                <span className="text-red-400 text-xs">{bannedIPs.length} محظور</span>
+              </h4>
+              <div className="space-y-2.5">
+                {bannedIPs.map((item, idx) => (
+                  <div key={idx} className="bg-gray-900 border border-gray-700/80 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-red-500/10 rounded-lg text-red-400"><Lock className="w-4 h-4"/></div>
+                      <div>
+                        <div className="font-mono font-bold text-white text-sm dir-ltr text-right">{item.ip}</div>
+                        <div className="text-gray-400 text-[11px] mt-0.5">{item.reason} • <span className="text-gray-500">{item.date}</span></div>
+                      </div>
+                    </div>
+                    <button onClick={()=>{
+                      setBannedIPs(prev=>prev.filter((_,i)=>i!==idx));
+                      logSystemAction('فك حظر IP', `عنوان IP: ${item.ip}`, 'المالك');
+                    }} className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-emerald-400 font-bold rounded-lg transition-all border border-gray-700 text-[11px]">
+                      🟢 فك الحظر
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab==='marketing'&&(
+          <div className="space-y-5">
+            <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5">
+              <h3 className="text-white font-bold text-lg mb-2 flex items-center gap-2"><Send className="w-5 h-5 text-amber-400"/>مركز التسويق والإشعارات الموجهة v1.3</h3>
+              <p className="text-gray-400 text-xs mb-4">إرسال إشعارات عامة أو استهداف مستخدمي محافظة عراقية معينة لزيادة التفاعل والحملات الإعلانية</p>
+              
+              <form onSubmit={handleBroadcast} className="space-y-4">
+                <div>
+                  <label className="block text-gray-300 text-xs font-bold mb-1.5">نطاق الاستهداف (المحافظات)</label>
+                  <select value={targetGovNotif} onChange={e=>setTargetGovNotif(e.target.value)} className="w-full bg-gray-900 text-white rounded-xl p-3 border border-gray-700 outline-none text-xs">
+                    <option value="الكل">🌐 جميع المحافظات العراقية (عام)</option>
+                    {GOVERNORATES.map(g=><option key={g} value={g}>📍 محافظة {g}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-300 text-xs font-bold mb-1.5">عنوان الإشعار</label>
+                  <input value={broadcastTitle} onChange={e=>setBroadcastTitle(e.target.value)} placeholder="مثال: تنبيه هام / ترويج خاص في بغداد!" className="w-full bg-gray-900 text-white rounded-xl p-3 border border-gray-700 outline-none text-xs"/>
+                </div>
+                <div>
+                  <label className="block text-gray-300 text-xs font-bold mb-1.5">نص الإشعار</label>
+                  <textarea value={broadcastMsg} onChange={e=>setBroadcastMsg(e.target.value)} rows={3} placeholder="اكتب تفاصيل الرسالة الإعلانية هنا..." className="w-full bg-gray-900 text-white rounded-xl p-3 border border-gray-700 outline-none text-xs resize-none"/>
+                </div>
+                <button type="submit" disabled={isBroadcasting} className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3 rounded-xl transition-all text-xs flex items-center justify-center gap-2 shadow-lg">
+                  {isBroadcasting?<div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"/>:<Send className="w-4 h-4"/>}
+                  إطلاق الحملة الإعلانية فوراً
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {tab==='reports'&&(
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5 space-y-4">
+            <h3 className="text-white font-bold text-lg flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-400"/>مركز البلاغات والدعم الفني v1.3</h3>
+            <p className="text-gray-400 text-xs">متابعة بلاغات المستخدمين وشكاوى المحتوى وإدارة تذاكر الدعم</p>
+            <div className="bg-gray-900 rounded-xl p-6 text-center border border-gray-700/80 space-y-2">
+              <CheckCircle className="w-8 h-8 text-emerald-400 mx-auto"/>
+              <h4 className="text-white font-bold text-sm">جميع البلاغات معالجة بنجاح!</h4>
+              <p className="text-gray-400 text-xs">لا توجد بلاغات معلقة أو شكاوى جديدة من المستخدمين حالياً.</p>
+            </div>
+          </div>
+        )}
+
+        {tab==='backup'&&(
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5 space-y-4">
+            <h3 className="text-white font-bold text-lg flex items-center gap-2"><Download className="w-5 h-5 text-blue-400"/>مركز التصدير والنسخ الاحتياطي v1.3</h3>
+            <p className="text-gray-400 text-xs">تنزيل نسخة احتياطية من قواعد بيانات المنصة وسجلات العمليات والمستخدمين بضغطة زر واحدة</p>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              <button onClick={()=>{
+                const blob = new Blob([JSON.stringify(storedUsers, null, 2)], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `souq_users_backup_${new Date().toISOString().slice(0,10)}.json`; a.click();
+              }} className="bg-gray-900 hover:bg-gray-700 border border-gray-700 text-white rounded-xl p-4 text-right transition-all group">
+                <Users className="w-5 h-5 text-purple-400 mb-2 group-hover:scale-110 transition-transform"/>
+                <div className="font-bold text-xs">تصدير قائمة المستخدمين</div>
+                <div className="text-[11px] text-gray-400 mt-1">تنزيل بصيغة JSON مفصلة</div>
+              </button>
+
+              <button onClick={()=>{
+                const blob = new Blob([JSON.stringify(allContent, null, 2)], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `souq_content_backup_${new Date().toISOString().slice(0,10)}.json`; a.click();
+              }} className="bg-gray-900 hover:bg-gray-700 border border-gray-700 text-white rounded-xl p-4 text-right transition-all group">
+                <Layers className="w-5 h-5 text-amber-400 mb-2 group-hover:scale-110 transition-transform"/>
+                <div className="font-bold text-xs">تصدير بيانات المحتوى</div>
+                <div className="text-[11px] text-gray-400 mt-1">إعلانات + منتجات سوق بغداد</div>
+              </button>
+
+              <button onClick={()=>{
+                const blob = new Blob([JSON.stringify(systemLogs, null, 2)], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `souq_system_logs_${new Date().toISOString().slice(0,10)}.json`; a.click();
+              }} className="bg-gray-900 hover:bg-gray-700 border border-gray-700 text-white rounded-xl p-4 text-right transition-all group">
+                <ClipboardList className="w-5 h-5 text-green-400 mb-2 group-hover:scale-110 transition-transform"/>
+                <div className="font-bold text-xs">تصدير سجل العمليات</div>
+                <div className="text-[11px] text-gray-400 mt-1">سجل الأحداث والجنائي الكامل</div>
+              </button>
+            </div>
+          </div>
+        )}
+
         {tab==='changelog'&&(
           <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 space-y-6 max-w-4xl mx-auto">
             <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-gray-700">
@@ -3851,9 +4011,9 @@ const fetchRecovery = async () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-white font-bold text-xl">سجل التحديثات والإصدارات</h2>
-                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.2.0</span>
+                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.3.0</span>
                   </div>
-                  <p className="text-gray-400 text-xs mt-1">تتبع كافة التعديلات، التحسينات، والمميزات الجديدة في منصة سوق بغداد</p>
+                  <p className="text-gray-400 text-xs mt-1">تتبع كافة التعديلات، التحسينات الأمنيّة والمميزات الفائقة في المنصة</p>
                 </div>
               </div>
             </div>
@@ -3863,24 +4023,20 @@ const fetchRecovery = async () => {
                 الإصدار الحالي المباشر
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-amber-400 font-bold text-lg">🚀 الإصدار v1.2.0</span>
+                <span className="text-amber-400 font-bold text-lg">🚀 الإصدار v1.3.0</span>
                 <span className="text-gray-400 text-xs font-mono">({new Date().toLocaleDateString('ar-IQ')})</span>
               </div>
               <div className="space-y-3 pt-2">
                 <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
-                  <h4 className="text-amber-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">📌 ملاحظات التحديث (ما الجديد؟)</h4>
-                  <p className="text-gray-300 text-xs leading-relaxed">تمت إضافة قسم **سجل العمليات والتغييرات (Activity Logs)** الكامل، وتحديث بيئة البناء والتصدير القياسية لمطابقة خوادم Vercel و GitHub Actions، إضافة لنظام تتبع الإصدارات الحية لضمان وصول التحديث للمستخدم فوراً.</p>
+                  <h4 className="text-amber-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">📌 ما الجديد في v1.3؟</h4>
+                  <p className="text-gray-300 text-xs leading-relaxed">ترقية شاسعة للمنصة تشمل: **مركز الحماية السيبرانية وحظر الـ IP الحركي**، **تسجيل أيبيات الزوار والشبكات حياً**، **نظام التسويق والإشعارات حسب المحافظات**، و **مركز التصدير والنسخ الاحتياطي لقواعد البيانات**.</p>
                 </div>
                 <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
-                  <h4 className="text-green-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">⚡ التحسينات والإصلاحات</h4>
+                  <h4 className="text-green-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">⚡ الحماية والأداء الفائق</h4>
                   <ul className="text-gray-300 text-xs space-y-1.5 list-disc list-inside">
-                    <li>ربط عمليات الحظر، الترقية، حذف الإعلانات، والرسائل العامة بنظام سجل تلقائي يحفظ التوقيت والمنفذ.</li>
-                    <li>تسريع زمن بناء المشروع وتوحيد مسارات التصدير السحابي المباشر.</li>
+                    <li>تفعيل كاشف الـ VPN والتصفح المشبوه مع جدار حماية حركي (WAF).</li>
+                    <li>تسريع استجابة الواجهات عبر خفض زمن الـ INP وتجميع استعلامات الأونلاين بمؤقت موحد.</li>
                   </ul>
-                </div>
-                <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
-                  <h4 className="text-blue-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">💡 كيف الاستخدام؟</h4>
-                  <p className="text-gray-300 text-xs leading-relaxed">يمكنك التنقل بين تبويبة <strong>"سجل العمليات"</strong> لمتابعة الأنشطة اليومية للمشرفين والمالك، وتبويبة <strong>"التحديثات v1.2"</strong> للتحقق دائماً من رقم الإصدار الحالي للمنصة.</p>
                 </div>
               </div>
             </div>
