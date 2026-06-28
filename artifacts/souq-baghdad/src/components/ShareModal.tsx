@@ -319,26 +319,23 @@ export function ShareModal({
     if (platform === 'insta_story' || platform === 'insta_reels') {
       triggerToast('🚀 جاري تحويل بطاقة التصميم والرابط للانستغرام...');
       
-      // Try Native Web Share with File if supported on mobile (iOS/Android)
-      if (cardDataUrl && typeof navigator !== 'undefined' && navigator.share) {
-        dataUrlToFile(cardDataUrl, `souq-baghdad-${platform}.jpg`).then((file) => {
+      const targetUrl = cardDataUrl;
+      if (targetUrl && typeof navigator !== 'undefined' && navigator.share) {
+        try {
+          const file = await dataUrlToFile(targetUrl, `souq-baghdad-${platform}.jpg`);
           if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-            navigator.share({
+            await navigator.share({
               title: title,
               text: shareText,
               files: [file],
-            }).catch(() => {
-              window.open('https://www.instagram.com/', '_blank');
             });
             return;
           }
-          window.open('https://www.instagram.com/', '_blank');
-        }).catch(() => {
-          window.open('https://www.instagram.com/', '_blank');
-        });
-      } else {
-        window.open('https://www.instagram.com/', '_blank');
+        } catch (e) {
+          console.log('Native share closed:', e);
+        }
       }
+      window.open('https://www.instagram.com/', '_blank');
     } else if (platform === 'insta_direct') {
       triggerToast('💬 تم نسخ نص الإعلان والرابط! جاري فتح خاص انستغرام...');
       window.open('https://www.instagram.com/direct/inbox/', '_blank');
