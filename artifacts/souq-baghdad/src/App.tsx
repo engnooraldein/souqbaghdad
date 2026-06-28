@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from './lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
@@ -266,31 +266,18 @@ const useSound = () => {
 // Online Statuses Cache
 // ─────────────────────────────────────────────
 let globalOnlineStatuses: Record<string, boolean> = {};
-let onlineListeners: Array<() => void> = [];
-
-export const useOnlineStatuses = () => {
-  const [statuses, setStatuses] = useState(globalOnlineStatuses);
-  useEffect(() => {
-    const trigger = () => setStatuses({...globalOnlineStatuses});
-    onlineListeners.push(trigger);
-    fetchGlobalOnlineStatuses();
-    const interval = setInterval(fetchGlobalOnlineStatuses, 15000);
-    return () => { 
-      onlineListeners = onlineListeners.filter(l => l !== trigger); 
-      clearInterval(interval);
-    };
-  }, []);
-  return statuses;
-}
+let onlineListeners: Set<() => void> = new Set();
+let globalOnlineTimer: any = null;
 
 const fetchGlobalOnlineStatuses = async () => {
   try {
     const { data } = await supabase.from('profiles').select('id, phone, last_seen');
     if (data) {
       const map: Record<string, boolean> = {};
+      const now = Date.now();
       data.forEach(p => {
         if(p.last_seen) {
-          const isRecentlySeen = new Date().getTime() - new Date(p.last_seen).getTime() < 5 * 60 * 1000;
+          const isRecentlySeen = now - new Date(p.last_seen).getTime() < 5 * 60 * 1000;
           if (p.id) map[p.id] = isRecentlySeen;
           if (p.phone) map[p.phone] = isRecentlySeen;
         }
@@ -299,6 +286,26 @@ const fetchGlobalOnlineStatuses = async () => {
       onlineListeners.forEach(l => l());
     }
   } catch(e) {}
+};
+
+export const useOnlineStatuses = () => {
+  const [statuses, setStatuses] = useState(globalOnlineStatuses);
+  useEffect(() => {
+    const trigger = () => setStatuses(globalOnlineStatuses);
+    onlineListeners.add(trigger);
+    if (onlineListeners.size === 1) {
+      fetchGlobalOnlineStatuses();
+      globalOnlineTimer = setInterval(fetchGlobalOnlineStatuses, 15000);
+    }
+    return () => { 
+      onlineListeners.delete(trigger); 
+      if (onlineListeners.size === 0 && globalOnlineTimer) {
+        clearInterval(globalOnlineTimer);
+        globalOnlineTimer = null;
+      }
+    };
+  }, []);
+  return statuses;
 };
 
 // ─────────────────────────────────────────────
@@ -4286,30 +4293,44 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
     return () => { isMounted = false; };
   }, [allAds, allProducts]);
 
-  const filteredProfiles = storedUsers.filter(u => {
+  const filteredProfiles = useMemo(() => {
     const term = search.toLowerCase();
-    return !search || 
+    return storedUsers.filter(u => 
+      !search || 
       (u.name && u.name.toLowerCase().includes(term)) || 
-      (u.phone && u.phone.includes(term));
-  });
+      (u.phone && u.phone.includes(term))
+    );
+  }, [storedUsers, search]);
 
   const fmt=(v:string)=>v.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',');
 
-  const filterAds = allAds.filter(a=>{
-    if (a.status !== 'active') return false;
-    const ms=!search||String(a.id).includes(search)||(a.short_id&&a.short_id.toLowerCase().includes(search.toLowerCase()))||a.title.toLowerCase().includes(search.toLowerCase())||a.location.toLowerCase().includes(search.toLowerCase());
-    const mc=cat==='all'||a.category===cat; const mg=gov==='الكل'||a.governorate===gov;
-    const min=priceMin?parseInt(priceMin.replace(/,/g,'')):0, max=priceMax?parseInt(priceMax.replace(/,/g,'')):Infinity, ap=parseInt(a.price)||0;
-    return ms&&mc&&mg&&ap>=min&&ap<=max;
-  }).sort((a,b)=>sort==='views'?b.views-a.views:sort==='price-low'?parseInt(a.price)-parseInt(b.price):sort==='price-high'?parseInt(b.price)-parseInt(a.price):new Date(b.createdAtISO).getTime()-new Date(a.createdAtISO).getTime());
+  const filterAds = useMemo(() => {
+    const term = search.toLowerCase();
+    const min = priceMin ? parseInt(priceMin.replace(/,/g, '')) : 0;
+    const max = priceMax ? parseInt(priceMax.replace(/,/g, '')) : Infinity;
+    return allAds.filter(a => {
+      if (a.status !== 'active') return false;
+      const ms = !search || String(a.id).includes(search) || (a.short_id && a.short_id.toLowerCase().includes(term)) || a.title.toLowerCase().includes(term) || a.location.toLowerCase().includes(term);
+      const mc = cat === 'all' || a.category === cat;
+      const mg = gov === 'الكل' || a.governorate === gov;
+      const ap = parseInt(a.price) || 0;
+      return ms && mc && mg && ap >= min && ap <= max;
+    }).sort((a, b) => sort === 'views' ? b.views - a.views : sort === 'price-low' ? parseInt(a.price) - parseInt(b.price) : sort === 'price-high' ? parseInt(b.price) - parseInt(a.price) : new Date(b.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
+  }, [allAds, search, cat, gov, priceMin, priceMax, sort]);
 
-  const filterProds = allProducts.filter(p=>{
-    if (p.status !== 'active') return false;
-    const ms=!search||String(p.id).includes(search)||(p.short_id&&p.short_id.toLowerCase().includes(search.toLowerCase()))||p.title.toLowerCase().includes(search.toLowerCase())||p.governorate.toLowerCase().includes(search.toLowerCase());
-    const mc=cat==='all'||p.category===cat; const mg=gov==='الكل'||p.governorate===gov;
-    const min=priceMin?parseInt(priceMin.replace(/,/g,'')):0, max=priceMax?parseInt(priceMax.replace(/,/g,'')):Infinity, pp=parseInt(p.price)||0;
-    return ms&&mc&&mg&&pp>=min&&pp<=max;
-  }).sort((a,b)=>sort==='views'?b.views-a.views:sort==='price-low'?parseInt(a.price)-parseInt(b.price):sort==='price-high'?parseInt(b.price)-parseInt(a.price):new Date(b.createdAtISO).getTime()-new Date(a.createdAtISO).getTime());
+  const filterProds = useMemo(() => {
+    const term = search.toLowerCase();
+    const min = priceMin ? parseInt(priceMin.replace(/,/g, '')) : 0;
+    const max = priceMax ? parseInt(priceMax.replace(/,/g, '')) : Infinity;
+    return allProducts.filter(p => {
+      if (p.status !== 'active') return false;
+      const ms = !search || String(p.id).includes(search) || (p.short_id && p.short_id.toLowerCase().includes(term)) || p.title.toLowerCase().includes(term) || p.governorate.toLowerCase().includes(term);
+      const mc = cat === 'all' || p.category === cat;
+      const mg = gov === 'الكل' || p.governorate === gov;
+      const pp = parseInt(p.price) || 0;
+      return ms && mc && mg && pp >= min && pp <= max;
+    }).sort((a, b) => sort === 'views' ? b.views - a.views : sort === 'price-low' ? parseInt(a.price) - parseInt(b.price) : sort === 'price-high' ? parseInt(b.price) - parseInt(a.price) : new Date(b.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
+  }, [allProducts, search, cat, gov, priceMin, priceMax, sort]);
 
   const showAds = contentTab==='ads'||contentTab==='all';
   const showProds = contentTab==='products'||contentTab==='all';
