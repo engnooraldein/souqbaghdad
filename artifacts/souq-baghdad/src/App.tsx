@@ -1166,18 +1166,42 @@ function InfoDocsModal({ activeTab, onClose }: { activeTab: string; onClose: () 
 // ─────────────────────────────────────────────
 // Image Lightbox Modal with Watermark Download
 // ─────────────────────────────────────────────
-function ImageLightboxModal({ src, title, onClose }: { src: string; title: string; onClose: () => void }) {
+function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { src: string; title: string; images?: string[]; initialIdx?: number; onClose: () => void }) {
+  const [currentIdx, setCurrentIdx] = useState(initialIdx);
   const [downloading, setDownloading] = useState(false);
   const [longPressActive, setLongPressActive] = useState(false);
   const timerRef = useRef<any>(null);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
 
-  const handleTouchStart = () => {
+  const galleryList = images && images.length > 0 ? images : [src];
+  const activeSrc = galleryList[currentIdx] || src;
+  const totalCount = galleryList.length;
+
+  const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
+    if ('targetTouches' in e) {
+      setTouchStartX(e.targetTouches[0].clientX);
+      setTouchEndX(null);
+    }
     timerRef.current = setTimeout(() => {
       setLongPressActive(true);
     }, 600);
   };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEndX(e.targetTouches[0].clientX);
+  };
+
   const handleTouchEnd = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
+    if (touchStartX !== null && touchEndX !== null && totalCount > 1) {
+      const distance = touchStartX - touchEndX;
+      if (distance > 35) {
+        setCurrentIdx(i => (i + 1) % totalCount);
+      } else if (distance < -35) {
+        setCurrentIdx(i => (i - 1 + totalCount) % totalCount);
+      }
+    }
   };
 
   const handleDownload = async () => {
@@ -1185,7 +1209,7 @@ function ImageLightboxModal({ src, title, onClose }: { src: string; title: strin
       setDownloading(true);
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      img.src = src;
+      img.src = activeSrc;
       await new Promise((resolve, reject) => {
         img.onload = resolve;
         img.onerror = reject;
@@ -1277,21 +1301,36 @@ function ImageLightboxModal({ src, title, onClose }: { src: string; title: strin
       className="fixed inset-0 z-[250] bg-black/95 backdrop-blur-md flex flex-col justify-between p-4 select-none">
       
       <div className="flex items-center justify-between w-full max-w-4xl mx-auto z-10 pt-2">
-        <h4 className="text-white font-bold text-sm truncate max-w-[200px] sm:max-w-xs">{title}</h4>
+        <div>
+          <h4 className="text-white font-bold text-sm truncate max-w-[200px] sm:max-w-xs">{title}</h4>
+          {totalCount > 1 && <span className="text-amber-400 text-xs font-semibold">{currentIdx + 1} من {totalCount}</span>}
+        </div>
         <button onClick={onClose} className="p-2 bg-gray-900/80 hover:bg-gray-800 rounded-full text-gray-400 hover:text-white transition-colors">
           <X className="w-5 h-5" />
         </button>
       </div>
 
-      <div className="flex-1 flex items-center justify-center max-w-4xl w-full mx-auto relative overflow-hidden my-4"
+      <div className="flex-1 flex items-center justify-center max-w-4xl w-full mx-auto relative overflow-hidden my-4 touch-pan-y"
         onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onMouseDown={handleTouchStart}
         onMouseUp={handleTouchEnd}
         onMouseLeave={handleTouchEnd}
       >
-        <img src={src} alt={title} className="max-w-full max-h-[75vh] object-contain rounded-xl shadow-2xl pointer-events-none" />
+        <img src={activeSrc} alt={title} className="max-w-full max-h-[75vh] object-contain rounded-xl shadow-2xl pointer-events-none transition-all duration-200" />
         
+        {totalCount > 1 && (
+          <>
+            <button onClick={(e) => { e.stopPropagation(); setCurrentIdx(i => (i - 1 + totalCount) % totalCount); }} className="absolute right-2 top-1/2 -translate-y-1/2 p-3 bg-black/70 hover:bg-black/90 text-white rounded-full transition-all">
+              <ChevronRight className="w-6 h-6" />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); setCurrentIdx(i => (i + 1) % totalCount); }} className="absolute left-2 top-1/2 -translate-y-1/2 p-3 bg-black/70 hover:bg-black/90 text-white rounded-full transition-all">
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+          </>
+        )}
+
         {longPressActive && (
           <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
             className="absolute bg-gray-900/90 border border-gray-700 rounded-2xl p-4 text-center space-y-3 shadow-2xl max-w-xs z-[260]">
@@ -1307,7 +1346,7 @@ function ImageLightboxModal({ src, title, onClose }: { src: string; title: strin
       </div>
 
       <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-3 pb-6 z-10">
-        <p className="text-gray-500 text-[10px] text-center">اضغط مطولاً على الصورة أو اضغط الزر أدناه للتحميل مع الشعار لمشاركتها</p>
+        <p className="text-gray-400 text-xs text-center font-medium">👈 اسحب باللمس للتقليب أو اضغط مطولاً للتحميل بشعار المنصة 👉</p>
         <div className="flex gap-3 w-full max-w-xs justify-center">
           <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
             onClick={handleDownload} disabled={downloading}
@@ -1404,9 +1443,9 @@ function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionM
 // ─────────────────────────────────────────────
 // Ad Detail Modal
 // ─────────────────────────────────────────────
-function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom }:{
-  ad:Ad|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; onAuthRequired:()=>void; onSellerClick?:(sellerId:string)=>void;
-  onViewDurationLogged?:(seconds:number)=>void; onImageZoom?:(src:string, title:string)=>void;
+function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom }:{
+  ad:Ad|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; storedUsers?:any[]; onAuthRequired:()=>void; onSellerClick?:(sellerId:string)=>void;
+  onViewDurationLogged?:(seconds:number)=>void; onImageZoom?:(src:string, title:string, images?:string[], initialIdx?:number)=>void;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
@@ -1447,16 +1486,18 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
     if (total <= 1) return;
 
     if (distance > 35) {
-      // Swiped Left -> Next image
       setImgIdx(i => (i + 1) % total);
     } else if (distance < -35) {
-      // Swiped Right -> Previous image
       setImgIdx(i => (i - 1 + total) % total);
     }
   };
 
   if(!ad) return null;
   const totalImgs = ad.images?.length || 0;
+  const liveSeller = storedUsers.find(u => String(u.id) === String(ad.postedBy)) || ad.seller;
+  const isOnline = !!onlineStatuses[ad.postedBy];
+  const catObj = CATEGORIES.find(c => c.id === ad.category);
+  const catName = catObj ? `${catObj.emoji} ${catObj.name}` : ad.category || 'عام';
 
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1474,7 +1515,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
             <img src={ad.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={ad.title}
               decoding="async"
               fetchPriority="high"
-              onClick={() => onImageZoom?.(ad.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700', ad.title)}
+              onClick={() => onImageZoom?.(ad.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700', ad.title, ad.images, imgIdx)}
               className="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition-all duration-300"/>
             
             <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-lg pointer-events-none flex items-center gap-1 opacity-85 group-hover:opacity-100 transition-opacity">
@@ -1498,15 +1539,18 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
         <div className="p-5">
           <div className="flex items-start justify-between mb-3">
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <h2 className="text-xl font-bold text-white">{ad.title}</h2>
-                <div className="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded-lg border border-gray-700">
-                  <span className="text-xs text-gray-400">{ad.short_id ? `#${ad.short_id}` : `#${String(ad.id).substring(0, 5)}`}</span>
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold px-3 py-1 rounded-xl flex items-center gap-1">
+                  {catName}
+                </span>
+                <div className="flex items-center gap-1.5 bg-gray-800 px-2.5 py-1 rounded-xl border border-gray-700 text-xs text-gray-400">
+                  <span>{ad.short_id ? `#${ad.short_id}` : `#${String(ad.id).substring(0, 5)}`}</span>
                   <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(String(ad.short_id || String(ad.id).substring(0, 5))); alert('تم نسخ رقم الإعلان!'); }} className="text-amber-400 hover:text-amber-300">
-                    <Copy className="w-4 h-4" />
+                    <Copy className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
+              <h2 className="text-xl font-bold text-white mb-2">{ad.title}</h2>
               <div className="flex items-center gap-3 text-sm text-gray-400">
                 <span className="flex items-center gap-1"><MapPin className="w-3 h-3"/>{ad.location}</span>
                 <TimeAgo iso={ad.createdAtISO} className="text-green-400 font-medium"/>
@@ -1515,7 +1559,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
                 </button>
               </div>
             </div>
-            <div className="text-left"><p className="text-2xl font-bold text-amber-400">{formatPrice(ad.price)}</p><p className="text-gray-400 text-xs">دينار عراقي</p></div>
+            <div className="text-left shrink-0"><p className="text-2xl font-bold text-amber-400">{formatPrice(ad.price)}</p><p className="text-gray-400 text-xs">دينار عراقي</p></div>
           </div>
           <AnimatePresence>
             {showViewers && <ViewersModal itemId={ad.id} itemType="ad" onClose={() => setShowViewers(false)} />}
@@ -1524,15 +1568,23 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
           {/* Seller */}
           <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 mb-4">
             <div className="flex items-center gap-3">
-              <button onClick={()=>onSellerClick?.(ad.postedBy||'')} className="relative hover:opacity-80 transition-opacity">
-                <img src={ad.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
-                {ad.seller?.isVerified&&<div className="absolute -bottom-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center"><CheckCircle className="w-3 h-3 text-white"/></div>}
+              <button onClick={()=>onSellerClick?.(ad.postedBy||'')} className="relative hover:opacity-80 transition-opacity shrink-0">
+                <img src={liveSeller?.avatar || ad.seller?.avatar || DEFAULT_AVATAR} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
+                <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-gray-900 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'أوفلاين'} />
               </button>
-              <div className="flex-1">
-                <button onClick={()=>onSellerClick?.(ad.postedBy||'')} className="text-white font-bold text-sm hover:text-amber-400">{ad.seller?.name || 'مستخدم'}</button>
-                <div className="flex items-center gap-1">{[...Array(5)].map((_,i)=><Star key={i} className={`w-3 h-3 ${i<Math.floor(ad.seller?.rating || 0)?'fill-amber-400 text-amber-400':'text-gray-600'}`}/>)}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <button onClick={()=>onSellerClick?.(ad.postedBy||'')} className="text-white font-bold text-sm hover:text-amber-400 truncate">{liveSeller?.name || ad.seller?.name || 'مستخدم'}</button>
+                  {liveSeller?.isVerified && <Shield className="w-3.5 h-3.5 text-blue-400 fill-blue-400 shrink-0" />}
+                </div>
+                <div className="flex items-center gap-2 text-xs mt-0.5">
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isOnline ? 'bg-green-500/20 text-green-300' : 'bg-gray-700 text-gray-400'}`}>
+                    {isOnline ? '🟢 متصل الآن' : '⚪ غير متصل'}
+                  </span>
+                  <div className="flex items-center gap-0.5">{[...Array(5)].map((_,i)=><Star key={i} className={`w-3 h-3 ${i<Math.floor(liveSeller?.rating || ad.seller?.rating || 4.8)?'fill-amber-400 text-amber-400':'text-gray-600'}`}/>)}</div>
+                </div>
               </div>
-              <button onClick={()=>onSellerClick?.(ad.postedBy||'')} className="text-xs text-amber-400 hover:underline flex items-center gap-1">صفحة البائع<ChevronRight className="w-3 h-3"/></button>
+              <button onClick={()=>onSellerClick?.(ad.postedBy||'')} className="text-xs text-amber-400 hover:underline flex items-center gap-1 shrink-0">صفحة البائع<ChevronRight className="w-3 h-3"/></button>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 mb-3">
@@ -1559,14 +1611,15 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
 // ─────────────────────────────────────────────
 // Product Detail Modal
 // ─────────────────────────────────────────────
-function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom }:{
-  product:Product|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; onAuthRequired:()=>void; onSellerClick?:(id:any)=>void;
-  onViewDurationLogged?:(seconds:number)=>void; onImageZoom?:(src:string, title:string)=>void;
+function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers = [], onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom }:{
+  product:Product|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; storedUsers?:any[]; onAuthRequired:()=>void; onSellerClick?:(id:any)=>void;
+  onViewDurationLogged?:(seconds:number)=>void; onImageZoom?:(src:string, title:string, images?:string[], initialIdx?:number)=>void;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
+  const onlineStatuses = useOnlineStatuses();
 
   useEffect(()=>{
     setImgIdx(0);
@@ -1601,16 +1654,16 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
     if (total <= 1) return;
 
     if (distance > 35) {
-      // Swiped Left -> Next image
       setImgIdx(i => (i + 1) % total);
     } else if (distance < -35) {
-      // Swiped Right -> Previous image
       setImgIdx(i => (i - 1 + total) % total);
     }
   };
 
   if(!product) return null;
   const totalImgs = product.images?.length || 0;
+  const liveSeller = storedUsers.find(u => String(u.id) === String(product.postedBy)) || product.seller;
+  const isOnline = !!onlineStatuses[product.postedBy];
 
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1628,7 +1681,7 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
             <img src={product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={product.title}
               decoding="async"
               fetchPriority="high"
-              onClick={() => onImageZoom?.(product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700', product.title)}
+              onClick={() => onImageZoom?.(product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700', product.title, product.images, imgIdx)}
               className="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition-all duration-300"/>
             
             <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-lg pointer-events-none flex items-center gap-1 opacity-85 group-hover:opacity-100 transition-opacity">
@@ -1653,7 +1706,19 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
         </div>
         <div className="p-5">
           <div className="flex items-start justify-between mb-3">
-            <div><h2 className="text-xl font-bold text-white mb-1">{product.title}</h2>
+            <div>
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-bold px-3 py-1 rounded-xl flex items-center gap-1">
+                  🛍️ منتج للتسوق
+                </span>
+                <div className="flex items-center gap-1.5 bg-gray-800 px-2.5 py-1 rounded-xl border border-gray-700 text-xs text-gray-400">
+                  <span>{product.short_id ? `#${product.short_id}` : `#${String(product.id).substring(0, 5)}`}</span>
+                  <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(String(product.short_id || String(product.id).substring(0, 5))); alert('تم نسخ رقم المنتج!'); }} className="text-amber-400 hover:text-amber-300">
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">{product.title}</h2>
               <div className="flex items-center gap-3 text-sm text-gray-400">
                 <span className="flex items-center gap-1"><MapPin className="w-3 h-3"/>{product.governorate}</span>
                 <TimeAgo iso={product.createdAtISO} className="text-green-400 font-medium"/>
@@ -1662,7 +1727,7 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
                 </button>
               </div>
             </div>
-            <div className="text-left"><p className="text-2xl font-bold text-amber-400">{formatPrice(product.price)}</p><p className="text-gray-400 text-xs">دينار عراقي</p></div>
+            <div className="text-left shrink-0"><p className="text-2xl font-bold text-amber-400">{formatPrice(product.price)}</p><p className="text-gray-400 text-xs">دينار عراقي</p></div>
           </div>
           <AnimatePresence>
             {showViewers && <ViewersModal itemId={product.id} itemType="product" onClose={() => setShowViewers(false)} />}
@@ -1671,14 +1736,23 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
           {product.description&&<div className="bg-gray-800 rounded-xl p-4 mb-4"><h3 className="text-white font-bold text-sm mb-2">الوصف</h3><p className="text-gray-300 text-sm leading-relaxed">{product.description}</p></div>}
           <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 mb-4">
             <div className="flex items-center gap-3">
-              <button onClick={()=>onSellerClick?.(product.postedBy)} className="hover:opacity-80">
-                <img src={product.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
+              <button onClick={()=>onSellerClick?.(product.postedBy)} className="relative hover:opacity-80 transition-opacity shrink-0">
+                <img src={liveSeller?.avatar || product.seller?.avatar || DEFAULT_AVATAR} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
+                <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-gray-900 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'أوفلاين'} />
               </button>
-              <div className="flex-1">
-                <button onClick={()=>onSellerClick?.(product.postedBy)} className="text-white font-bold text-sm hover:text-amber-400">{product.seller?.name || 'مستخدم'}</button>
-                <p className="text-gray-400 text-xs">{product.seller?.location || 'غير محدد'}</p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <button onClick={()=>onSellerClick?.(product.postedBy)} className="text-white font-bold text-sm hover:text-amber-400 truncate">{liveSeller?.name || product.seller?.name || 'مستخدم'}</button>
+                  {liveSeller?.isVerified && <Shield className="w-3.5 h-3.5 text-blue-400 fill-blue-400 shrink-0" />}
+                </div>
+                <div className="flex items-center gap-2 text-xs mt-0.5">
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isOnline ? 'bg-green-500/20 text-green-300' : 'bg-gray-700 text-gray-400'}`}>
+                    {isOnline ? '🟢 متصل الآن' : '⚪ غير متصل'}
+                  </span>
+                  <p className="text-gray-400 text-xs">{liveSeller?.location || product.seller?.location || 'بغداد'}</p>
+                </div>
               </div>
-              <button onClick={()=>onSellerClick?.(product.postedBy)} className="text-xs text-amber-400 hover:underline flex items-center gap-1">صفحة البائع<ChevronRight className="w-3 h-3"/></button>
+              <button onClick={()=>onSellerClick?.(product.postedBy)} className="text-xs text-amber-400 hover:underline flex items-center gap-1 shrink-0">صفحة البائع<ChevronRight className="w-3 h-3"/></button>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 mb-3">
@@ -2215,12 +2289,6 @@ function MyLinesTab({ userId, lines, onUpdateStatus, onDelete }: {
   );
 }
 
-
-// Profile View
-// ─────────────────────────────────────────────
-// ─────────────────────────────────────────────
-// Password Change Modal Component
-// ─────────────────────────────────────────────
 function PasswordChangeModal({ isOpen, onClose, userEmail, userPhone }:{
   isOpen: boolean;
   onClose: () => void;
@@ -2276,7 +2344,7 @@ function PasswordChangeModal({ isOpen, onClose, userEmail, userPhone }:{
         setConfirmPassword('');
         setTimeout(onClose, 2000);
       }
-    } catch (err) {
+    } catch {
       setErrorMsg('حدث خطأ غير متوقع');
     } finally {
       setLoading(false);
@@ -2288,76 +2356,30 @@ function PasswordChangeModal({ isOpen, onClose, userEmail, userPhone }:{
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-      <motion.div 
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="relative bg-gray-900 border border-gray-800 rounded-3xl p-6 w-full max-w-md shadow-2xl overflow-hidden"
-      >
+      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative bg-gray-900 border border-gray-800 rounded-3xl p-6 w-full max-w-md shadow-2xl overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-yellow-500" />
         <button onClick={onClose} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white transition-colors">
           <X className="w-5 h-5" />
         </button>
-        
         <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
           <Key className="w-5 h-5 text-amber-400" /> تعديل كلمة المرور
         </h2>
-
-        {errorMsg && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
-
-        {successMsg && (
-          <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 text-green-400 rounded-xl text-xs flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 flex-shrink-0" />
-            <span>{successMsg}</span>
-          </div>
-        )}
-
+        {errorMsg && <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-xs flex items-center gap-2"><AlertCircle className="w-4 h-4 shrink-0" /><span>{errorMsg}</span></div>}
+        {successMsg && <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 text-green-400 rounded-xl text-xs flex items-center gap-2"><CheckCircle className="w-4 h-4 shrink-0" /><span>{successMsg}</span></div>}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-gray-400 text-xs font-semibold mb-1.5">كلمة المرور السابقة</label>
-            <input 
-              type="password" 
-              required 
-              value={oldPassword} 
-              onChange={e => setOldPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full bg-gray-850 border border-gray-700 text-white px-4 py-2.5 rounded-xl outline-none focus:border-amber-500 transition-colors text-sm"
-            />
+            <input type="password" required value={oldPassword} onChange={e => setOldPassword(e.target.value)} placeholder="••••••••" className="w-full bg-gray-800 border border-gray-700 text-white px-4 py-2.5 rounded-xl outline-none focus:border-amber-500 text-sm" />
           </div>
-
           <div>
             <label className="block text-gray-400 text-xs font-semibold mb-1.5">كلمة المرور الجديدة</label>
-            <input 
-              type="password" 
-              required 
-              value={newPassword} 
-              onChange={e => setNewPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full bg-gray-855 border border-gray-700 text-white px-4 py-2.5 rounded-xl outline-none focus:border-amber-500 transition-colors text-sm"
-            />
+            <input type="password" required value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="••••••••" className="w-full bg-gray-800 border border-gray-700 text-white px-4 py-2.5 rounded-xl outline-none focus:border-amber-500 text-sm" />
           </div>
-
           <div>
             <label className="block text-gray-400 text-xs font-semibold mb-1.5">تأكيد كلمة المرور الجديدة</label>
-            <input 
-              type="password" 
-              required 
-              value={confirmPassword} 
-              onChange={e => setConfirmPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full bg-gray-855 border border-gray-700 text-white px-4 py-2.5 rounded-xl outline-none focus:border-amber-500 transition-colors text-sm"
-            />
+            <input type="password" required value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="••••••••" className="w-full bg-gray-800 border border-gray-700 text-white px-4 py-2.5 rounded-xl outline-none focus:border-amber-500 text-sm" />
           </div>
-
-          <button 
-            type="submit" 
-            disabled={loading}
-            className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-amber-500/50 disabled:cursor-not-allowed text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors mt-2"
-          >
+          <button type="submit" disabled={loading} className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-amber-500/50 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors mt-2">
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'تحديث كلمة المرور'}
           </button>
         </form>
@@ -2366,7 +2388,7 @@ function PasswordChangeModal({ isOpen, onClose, userEmail, userPhone }:{
   );
 }
 
-function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeleteProduct, onEditProduct, onUpdateUser, onAddAd, onAddProduct, transportLines, onUpdateTransportStatus, onDeleteTransportAd, onMarkAdSold, onMarkProductSold }:{
+function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeleteProduct, onEditProduct, onUpdateUser, onAddAd, onAddProduct, transportLines, onUpdateTransportStatus, onDeleteTransportAd, onMarkAdSold, onMarkProductSold, favorites = [], allAds = [], allProducts = [], onAdSelect, onProductSelect, onFav }:{
   user:User; myAds:Ad[]; myProducts:Product[]; onDeleteAd:(id:number)=>void; onEditAd:(ad:Ad)=>void;
   onDeleteProduct:(id:number)=>void; onEditProduct:(p:Product)=>void; onUpdateUser:(u:User)=>void;
   onAddAd:()=>void; onAddProduct:()=>void;
@@ -2375,8 +2397,14 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
   onDeleteTransportAd: (id: number) => void;
   onMarkAdSold:(ad:Ad)=>void;
   onMarkProductSold:(p:Product)=>void;
+  favorites?: number[];
+  allAds?: Ad[];
+  allProducts?: Product[];
+  onAdSelect?: (ad: Ad) => void;
+  onProductSelect?: (p: Product) => void;
+  onFav?: (id: number) => void;
 }) {
-  const [tab, setTab] = useState<'ads'|'store'|'archive'|'lines'|'account'>('ads');
+  const [tab, setTab] = useState<'ads'|'store'|'favs'|'archive'|'lines'|'account'>('ads');
   const [editing, setEditing] = useState(false);
   const [ef, setEf] = useState({ name:user.name, phone:user.phone, location:user.location, bio:user.bio||'', email:user.email||'' });
   const [showVerifyModal, setShowVerifyModal] = useState(false);
@@ -2390,6 +2418,9 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
   const [avatarPreview, setAvatarPreview] = useState(user.avatar||DEFAULT_AVATAR);
   const [coverPreview, setCoverPreview] = useState(getCoverImage(user));
   const playSound = useSound();
+
+  const favAds = allAds.filter(a => favorites.includes(a.id));
+  const favProducts = allProducts.filter(p => favorites.includes(p.id));
 
   const formatJoinedDate = (isoString: string) => {
     try {
@@ -6085,7 +6116,7 @@ export default function App() {
           {view==='home'&&<motion.div key="home" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <MarketView user={user} allAds={allAds} allProducts={allProducts} favorites={favorites} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} onToggleFav={handleToggleFav} onRequireAuth={requireAuth} onSellerClick={handleSellerClick} onTransportClick={()=>{setView('transport');setBottomNavActive('transport');}} onSelectTransportAd={setSelectedTransportAd} transportLines={allTransportAds}/></motion.div>}
           {view==='profile'&&user&&<motion.div key="profile" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold}/></motion.div>}
+            <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold} favorites={favorites} allAds={allAds} allProducts={allProducts} onAdSelect={setSelectedAd} onProductSelect={setSelectedProduct} onFav={handleToggleFav}/></motion.div>}
           {view==='seller'&&selectedSellerId&&<motion.div key="seller" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <SellerPublicPage sellerId={selectedSellerId} allAds={allAds} allProducts={allProducts} onBack={()=>setView('home')} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile} onActionMenu={setActionMenuTarget}/></motion.div>}
           {view==='transport'&&<motion.div key="transport" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
@@ -6191,14 +6222,14 @@ export default function App() {
       <AnimatePresence>
         {showOnboarding&&<OnboardingModal onClose={()=>{setShowOnboarding(false);localStorage.setItem('souqOnboarded','1');}}/>}
         {showAuth&&<AuthModal onClose={()=>setShowAuth(false)} onLogin={handleLogin}/>}
-        {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title) => setActiveLightbox({ src, title })}/>}
-        {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title) => setActiveLightbox({ src, title })}/>}
+        {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })}/>}
+        {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })}/>}
         {selectedTransportAd&&<TransportDetailModal ad={selectedTransportAd} onClose={()=>setSelectedTransportAd(null)} user={user} onAuthRequired={requireAuth} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedTransportAd.id, selectedTransportAd.type==='offer'?'خط متوفر':'طلب خط', selectedTransportAd.postedBy || '', 'transport', sec)}/>}
         {showCreateAd&&user&&<AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd}/>}
         {showCreateProduct&&user&&<ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct}/>}
         {showNotifs&&<NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick} onMarkRead={markNotifAsRead} onArchiveAll={handleArchiveAllNotifications}/>}
         {activeDocTab&&<InfoDocsModal activeTab={activeDocTab} onClose={()=>setActiveDocTab(null)}/>}
-        {activeLightbox&&<ImageLightboxModal src={activeLightbox.src} title={activeLightbox.title} onClose={()=>setActiveLightbox(null)}/>}
+        {activeLightbox&&<ImageLightboxModal src={activeLightbox.src} title={activeLightbox.title} images={(activeLightbox as any).images} initialIdx={(activeLightbox as any).initialIdx} onClose={()=>setActiveLightbox(null)}/>}
         {congratulationsItem && <CongratulationsModal item={congratulationsItem} onClose={() => setCongratulationsItem(null)} />}
         {shareModalData.isOpen && (
           <ShareModal
