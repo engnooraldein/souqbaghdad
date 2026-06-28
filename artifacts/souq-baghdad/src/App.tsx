@@ -5465,19 +5465,23 @@ export default function App() {
       return;
     }
     
-    const parts = hash.split('/');
-    const type = parts[1];
-    const id = parts[2];
+    const parts = hash.split('/').filter(Boolean);
+    // parts[0] is route type ('ad', 'product', 'accounts', 'seller', 'profile', 'transport', 'admin', 'owner')
+    const type = parts[0];
+    const targetId = parts[parts.length - 1]; // Get last segment as ID or slug
     
-    if (type === 'ad' && id) {
-      const ad = allAds.find(a => String(a.id) === id || a.short_id === id);
+    if (type === 'ad' && targetId) {
+      const ad = allAds.find(a => String(a.id) === targetId || a.short_id === targetId || (a.title && targetId.includes(encodeURIComponent(a.title))));
       if (ad) setSelectedAd(ad);
-    } else if (type === 'product' && id) {
-      const prod = allProducts.find(p => String(p.id) === id || p.short_id === id);
+    } else if (type === 'product' && targetId) {
+      const prod = allProducts.find(p => String(p.id) === targetId || p.short_id === targetId);
       if (prod) setSelectedProduct(prod);
-    } else if (type === 'profile' && id || type === 'seller' && id) {
-      setSelectedSellerId(id);
-      setView('profile');
+    } else if ((type === 'profile' || type === 'seller') && targetId) {
+      setSelectedSellerId(targetId);
+      setView('seller');
+    } else if (type === 'accounts' || type === 'sellers') {
+      setView('home');
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('switch-to-profiles-tab'));
     } else if (type === 'transport') {
       setView('transport');
     } else if (type === 'admin') {
@@ -5498,7 +5502,6 @@ export default function App() {
 
   useEffect(() => {
     if (initialHashParsed) return;
-    if (allAds.length === 0 && allProducts.length === 0) return; // Wait for data
     syncStateFromHash();
     setInitialHashParsed(true);
   }, [allAds, allProducts, initialHashParsed]);
@@ -5513,11 +5516,12 @@ export default function App() {
     if (!initialHashParsed) return; // Don't push state before initial parse
     let newHash = '#/';
     if (selectedAd) {
-      newHash = `#/ad/${selectedAd.short_id || selectedAd.id}`;
+      const catSlug = selectedAd.category ? selectedAd.category.toLowerCase().replace(/\s+/g, '-') : 'general';
+      newHash = `#/ad/${catSlug}/${selectedAd.short_id || selectedAd.id}`;
     } else if (selectedProduct) {
       newHash = `#/product/${selectedProduct.short_id || selectedProduct.id}`;
-    } else if (view === 'profile' && selectedSellerId) {
-      newHash = `#/profile/${selectedSellerPhone || selectedSellerId}`;
+    } else if (view === 'seller' && selectedSellerId) {
+      newHash = `#/seller/${selectedSellerPhone || selectedSellerId}`;
     } else if (view === 'transport') {
       newHash = `#/transport`;
     } else if (view === 'admin') {
