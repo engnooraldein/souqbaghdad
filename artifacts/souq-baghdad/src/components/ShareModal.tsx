@@ -266,14 +266,34 @@ export function ShareModal({
     }
   };
 
-  const downloadCard = () => {
+  const downloadCard = async () => {
     if (!cardDataUrl) return;
+
+    // Check if on mobile with native Web Share API supporting files (iOS Safari / Android Chrome)
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      const file = await dataUrlToFile(cardDataUrl, `souq-baghdad-${(title || 'item').replace(/\s+/g, '-')}.jpg`);
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: title,
+            files: [file],
+          });
+          triggerToast('📸 اختر "حفظ الصورة (Save Image)" لحفظها فوراً بالاستوديو!');
+          return;
+        } catch (e) {
+          // Fallback to standard download if user closes native menu
+        }
+      }
+    }
+
+    // Standard Download Fallback
     const a = document.createElement('a');
     a.href = cardDataUrl;
     a.download = `souq-baghdad-${cardFormat}-${(title || 'item').replace(/\s+/g, '-')}.jpg`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    triggerToast('📸 تم تنزيل الصورة! اضغط عليها واختر "إضافة للصور"');
   };
 
   // Immediate App Launcher & Target Handler
@@ -513,7 +533,7 @@ export function ShareModal({
                   className="p-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                 >
                   <Download className="w-4 h-4 text-amber-400" />
-                  <span className="text-xs font-bold">تحميل بطاقة التصميم 📸</span>
+                  <span className="text-xs font-bold">حفظ التصميم بالاستوديو 📸</span>
                 </button>
               </div>
             </div>
