@@ -4093,20 +4093,50 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
   onActionMenu?: any;
 }) {
   const [search, setSearch] = useState('');
-  const [cat, setCat] = useState('all');
+  const [cat, setCat] = useState(() => {
+    if (typeof window === 'undefined') return 'all';
+    const h = window.location.hash;
+    if (h.startsWith('#/category/')) return h.split('/')[2] || 'all';
+    if (h.startsWith('#/ads/')) return h.split('/')[2] || 'all';
+    if (h.startsWith('#/products/')) return h.split('/')[2] || 'all';
+    return 'all';
+  });
   const [gov, setGov] = useState('الكل');
   const [sort, setSort] = useState<'recent'|'views'|'price-low'|'price-high'>('recent');
   const [viewMode, setViewMode] = useState<'grid'|'list'>('grid');
   const [contentTab, setContentTab] = useState<'ads'|'products'|'profiles'|'transport'|'all'>(() => {
-    if (typeof window !== 'undefined' && (window.location.hash === '#/accounts' || window.location.hash === '#/sellers')) return 'profiles';
+    if (typeof window === 'undefined') return 'all';
+    const h = window.location.hash;
+    if (h === '#/accounts' || h === '#/sellers') return 'profiles';
+    if (h === '#/transport') return 'transport';
+    if (h.startsWith('#/products')) return 'products';
+    if (h.startsWith('#/ads')) return 'ads';
     return 'all';
   });
 
+  // Sync state when URL hash changes externally
   useEffect(() => {
     const handleSwitch = () => setContentTab('profiles');
     const handleHash = () => {
-      if (window.location.hash === '#/accounts' || window.location.hash === '#/sellers') {
+      const h = window.location.hash;
+      if (h === '#/accounts' || h === '#/sellers') {
         setContentTab('profiles');
+      } else if (h === '#/transport') {
+        setContentTab('transport');
+      } else if (h.startsWith('#/products')) {
+        setContentTab('products');
+        const parts = h.split('/');
+        if (parts[2]) setCat(parts[2]);
+      } else if (h.startsWith('#/ads')) {
+        setContentTab('ads');
+        const parts = h.split('/');
+        if (parts[2]) setCat(parts[2]);
+      } else if (h.startsWith('#/category/')) {
+        const parts = h.split('/');
+        if (parts[2]) setCat(parts[2]);
+      } else if (h === '#/' || h === '') {
+        setContentTab('all');
+        setCat('all');
       }
     };
     window.addEventListener('switch-to-profiles-tab', handleSwitch);
@@ -4117,6 +4147,27 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
       window.removeEventListener('hashchange', handleHash);
     };
   }, []);
+
+  // Push updated hash when user clicks category or content tab
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let targetHash = '#/';
+    if (contentTab === 'profiles') {
+      targetHash = '#/accounts';
+    } else if (contentTab === 'transport') {
+      targetHash = '#/transport';
+    } else if (contentTab === 'products') {
+      targetHash = cat !== 'all' ? `#/products/${cat}` : '#/products';
+    } else if (contentTab === 'ads') {
+      targetHash = cat !== 'all' ? `#/ads/${cat}` : '#/ads';
+    } else if (contentTab === 'all') {
+      targetHash = cat !== 'all' ? `#/category/${cat}` : '#/';
+    }
+
+    if (window.location.hash !== targetHash && !window.location.hash.includes('/ad/') && !window.location.hash.includes('/seller/')) {
+      window.history.pushState(null, '', targetHash);
+    }
+  }, [cat, contentTab]);
   const [showFilters, setShowFilters] = useState(false);
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
