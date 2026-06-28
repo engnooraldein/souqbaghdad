@@ -296,23 +296,33 @@ export function ShareModal({
       // ignore
     }
 
-    if (platform === 'insta_story') {
+    if (platform === 'insta_story' || platform === 'insta_reels') {
       downloadCard();
-      triggerToast('🚀 تم تنزيل بطاقة التصميم ونسخ الرابط! جاري تحويلك إلى ستوري انستغرام...');
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      if (isMobile) {
-        window.location.href = 'instagram-stories://share';
-        setTimeout(() => { window.open('https://www.instagram.com/', '_blank'); }, 600);
+      triggerToast('🚀 تم تنزيل بطاقة التصميم ونسخ الرابط! جاري تحويلك للانستغرام...');
+      
+      // Try Native Web Share with File if supported on mobile (iOS/Android)
+      if (cardDataUrl && typeof navigator !== 'undefined' && navigator.share) {
+        dataUrlToFile(cardDataUrl, `souq-baghdad-${platform}.jpg`).then((file) => {
+          if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+            navigator.share({
+              title: title,
+              text: shareText,
+              files: [file],
+            }).catch(() => {
+              window.open('https://www.instagram.com/', '_blank');
+            });
+            return;
+          }
+          window.open('https://www.instagram.com/', '_blank');
+        }).catch(() => {
+          window.open('https://www.instagram.com/', '_blank');
+        });
       } else {
         window.open('https://www.instagram.com/', '_blank');
       }
     } else if (platform === 'insta_direct') {
-      triggerToast('💬 تم نسخ نص الإعلان والرابط فقط! جاريفتح خاص انستغرام...');
+      triggerToast('💬 تم نسخ نص الإعلان والرابط فقط! جاري فتح خاص انستغرام...');
       window.open('https://www.instagram.com/direct/inbox/', '_blank');
-    } else if (platform === 'insta_reels') {
-      downloadCard();
-      triggerToast('📸 تم تنزيل صورة التصميم ونسخ الكابشن! جاري فتح انستغرام...');
-      window.open('https://www.instagram.com/', '_blank');
     } else if (platform === 'facebook') {
       downloadCard();
       triggerToast('🚀 تم نسخ النص وتنزيل الصورة! جاري تحويلك لفيسبوك...');
