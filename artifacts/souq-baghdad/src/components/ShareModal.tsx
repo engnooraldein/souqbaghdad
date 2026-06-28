@@ -297,8 +297,7 @@ export function ShareModal({
     }
 
     if (platform === 'insta_story' || platform === 'insta_reels') {
-      downloadCard();
-      triggerToast('🚀 تم تنزيل بطاقة التصميم ونسخ الرابط! جاري تحويلك للانستغرام...');
+      triggerToast('🚀 جاري تحويل بطاقة التصميم والرابط للانستغرام...');
       
       // Try Native Web Share with File if supported on mobile (iOS/Android)
       if (cardDataUrl && typeof navigator !== 'undefined' && navigator.share) {
@@ -321,11 +320,10 @@ export function ShareModal({
         window.open('https://www.instagram.com/', '_blank');
       }
     } else if (platform === 'insta_direct') {
-      triggerToast('💬 تم نسخ نص الإعلان والرابط فقط! جاري فتح خاص انستغرام...');
+      triggerToast('💬 تم نسخ نص الإعلان والرابط! جاري فتح خاص انستغرام...');
       window.open('https://www.instagram.com/direct/inbox/', '_blank');
     } else if (platform === 'facebook') {
-      downloadCard();
-      triggerToast('🚀 تم نسخ النص وتنزيل الصورة! جاري تحويلك لفيسبوك...');
+      triggerToast('🚀 تم نسخ النص والرابط! جاري تحويلك لفيسبوك...');
       window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(fullUrl)}`, '_blank');
     } else if (platform === 'whatsapp') {
       triggerToast('💬 تم نسخ النص والرابط! جاري فتح واتساب...');
