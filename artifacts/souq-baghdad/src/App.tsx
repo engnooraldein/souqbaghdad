@@ -4901,9 +4901,9 @@ export default function App() {
     { id: 3, title: 'دراجة هوائية ماونتن بايك', category: 'دراجات', governorate: 'أربيل', price: '500000', description: 'دراجة رياضية احترافية', images: ['https://images.unsplash.com/photo-1558618666-fcd25c85cd58?w=500&h=500&fit=crop'], postedBy: 'demo-seller-3', createdAtISO: new Date(Date.now() - 259200000).toISOString(), views: 150, phone: '07700000000', condition: 'used', stock: 1, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'أربيل' }, status: 'active' },
   ];
 
-  const [allAds, setAllAds] = useState<Ad[]>([]);
+  const [allAds, setAllAds] = useState<Ad[]>(getDefaultAds);
   const [allTransportAds, setAllTransportAds] = useState<TransportAd[]>([]);
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>(getDefaultProducts);
   const [congratulationsItem, setCongratulationsItem] = useState<{ title: string; type: 'ad' | 'product' } | null>(null);
   const [favorites, setFavorites] = useState<number[]>(()=>{
     try{return JSON.parse(localStorage.getItem('souqFavs')||'[]');}catch{return[];}
@@ -5081,7 +5081,8 @@ export default function App() {
         };
       });
 
-      setAllAds(normalMapped.filter(a => a.status === 'active' || a.status === 'sold'));
+      const activeMapped = normalMapped.filter(a => a.status === 'active' || a.status === 'sold');
+      setAllAds(activeMapped.length > 0 ? activeMapped : getDefaultAds());
       setAllTransportAds(transportMapped);
     }
   }, []);
@@ -5149,7 +5150,7 @@ export default function App() {
         stock: row.stock || 1,
         status: row.status || 'active',
       }));
-      setAllProducts(mapped);
+      setAllProducts(mapped.length > 0 ? mapped : getDefaultProducts());
     }
   }, []);
 
