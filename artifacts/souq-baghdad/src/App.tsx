@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from './lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
+import { ShareModal } from './components/ShareModal';
 import {
   Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, Check,
   Gamepad2, Heart, Bell, Plus, LogOut, Star, X, Search, MapPin,
@@ -174,54 +175,9 @@ www.souqbaghdad.store
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
 }
 
-export function handleUniversalShare(details: { title?: string; university?: string; type?: string; location?: string; governorate?: string; regions?: string; id?: any; short_id?: string; price?: string }) {
-  const title = details.title || (details.university ? `${details.type === 'offer' ? 'خط متوفر' : 'طلب خط'} - ${details.university}` : 'إعلان في سوق بغداد');
-  const location = details.location || details.governorate || details.regions || 'العراق';
-  const idStr = details.short_id ? `#${details.short_id}` : details.id ? `#${String(details.id).substring(0, 5)}` : '';
-  
-  const shareText = `📢 *رسالة من منصة سوق بغداد:* 🇮🇶
-
-شاهد تفاصيل (${title}) ${idStr} 
-📍 الموقع: ${location} ${details.price ? `\n🏷️ السعر: ${details.price}` : ''}
-
-سوق بغداد هو السوق الرقمي العراقي الحديث، نسهل عليكم التواصل المباشر بين البائع والمشتري بكل سرعة وأمان. 🚀🤝
-
-🛍️ تصفحوا المزيد من العروض عبر موقعنا:
-https://www.souqbaghdad.store 🔗
-
-بانتظار ردكم، شكراً! 🙏✨`;
-
-  const shareUrl = window.location.href.includes('souqbaghdad.store') ? window.location.href : 'https://www.souqbaghdad.store';
-
-  if (navigator.share) {
-    navigator.share({
-      title: title,
-      text: shareText,
-      url: shareUrl,
-    }).catch((err) => console.log('Error sharing:', err));
-  } else {
-    const fullTextToCopy = `${shareText}\n${shareUrl}`;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(fullTextToCopy).then(() => {
-        alert('تم نسخ نص الإعلان والرابط بنجاح! يمكنك لصقه في أي تطبيق.');
-      }).catch(() => {
-        window.prompt('نسخ نص الإعلان والمشاركة:', fullTextToCopy);
-      });
-    } else {
-      try {
-        const textArea = document.createElement('textarea');
-        textArea.value = fullTextToCopy;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-999999px';
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        alert('تم نسخ نص الإعلان والرابط بنجاح! يمكنك لصقه في أي تطبيق.');
-      } catch {
-        window.prompt('انسخ نص الإعلان والمشاركة:', fullTextToCopy);
-      }
-    }
+export function handleUniversalShare(details: { title?: string; university?: string; type?: string; location?: string; governorate?: string; regions?: string; id?: any; short_id?: string; price?: string; image?: string; images?: string[]; url?: string }) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('open-share-modal', { detail: details }));
   }
 }
 
@@ -4855,9 +4811,30 @@ export default function App() {
   const [actionMenuTarget, setActionMenuTarget] = useState<{type:'ad'|'product'|'transport'; item:any}|null>(null);
   const [toast, setToast] = useState<{msg:string;type:string;visible:boolean}>({msg:'',type:'info',visible:false});
   const [showCreateTransport, setShowCreateTransport] = useState(false);
-  const [activeDocTab, setActiveDocTab] = useState<string | null>(null);
   const [activeLightbox, setActiveLightbox] = useState<{ src: string; title: string } | null>(null);
+  const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; title: string; url: string; image?: string; price?: string; governorate?: string; location?: string; short_id?: string }>({ isOpen: false, title: '', url: '' });
   const playSound = useSound();
+
+  useEffect(() => {
+    const handleOpenShare = (e: any) => {
+      const d = e.detail || {};
+      const itemTitle = d.title || (d.university ? `${d.type === 'offer' ? 'خط متوفر' : 'طلب خط'} - ${d.university}` : 'إعلان في سوق بغداد');
+      const itemLoc = d.location || d.governorate || d.regions || 'العراق';
+      const itemImg = d.image || (Array.isArray(d.images) && d.images[0] ? d.images[0] : undefined);
+      const itemUrl = d.url || (typeof window !== 'undefined' ? window.location.href : 'https://www.souqbaghdad.store');
+      setShareModalData({
+        isOpen: true,
+        title: itemTitle,
+        url: itemUrl,
+        image: itemImg,
+        price: d.price ? String(d.price) : undefined,
+        governorate: itemLoc,
+        short_id: d.short_id || (d.id ? String(d.id).substring(0, 5) : undefined),
+      });
+    };
+    window.addEventListener('open-share-modal', handleOpenShare);
+    return () => window.removeEventListener('open-share-modal', handleOpenShare);
+  }, []);
 
   // ── دالة تحميل بيانات المستخدم من Supabase ──────────────────────────
   const loadUserFromSupabase = async (authUser: any) => {
@@ -5923,6 +5900,19 @@ export default function App() {
         {activeDocTab&&<InfoDocsModal activeTab={activeDocTab} onClose={()=>setActiveDocTab(null)}/>}
         {activeLightbox&&<ImageLightboxModal src={activeLightbox.src} title={activeLightbox.title} onClose={()=>setActiveLightbox(null)}/>}
         {congratulationsItem && <CongratulationsModal item={congratulationsItem} onClose={() => setCongratulationsItem(null)} />}
+        {shareModalData.isOpen && (
+          <ShareModal
+            isOpen={shareModalData.isOpen}
+            onClose={() => setShareModalData(prev => ({ ...prev, isOpen: false }))}
+            title={shareModalData.title}
+            url={shareModalData.url}
+            image={shareModalData.image}
+            price={shareModalData.price}
+            governorate={shareModalData.governorate}
+            location={shareModalData.location}
+            short_id={shareModalData.short_id}
+          />
+        )}
       </AnimatePresence>
     </div>
   );
