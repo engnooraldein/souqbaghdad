@@ -4315,6 +4315,7 @@ const UNIVERSITIES = [
 interface TransportAd {
   id: number;
   type: 'offer' | 'request'; // متوفر خط أو أبحث عن خط
+  categoryType?: 'student' | 'employee'; // طلاب أم موظفين
   university: string;
   regions: string;
   price: string;
@@ -4345,6 +4346,7 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
 }) {
   const isEdit = !!editAd;
   const [type, setType] = useState<'offer'|'request'>(editAd?.type || 'offer');
+  const [categoryType, setCategoryType] = useState<'student'|'employee'>(editAd?.categoryType || 'student');
   
   const dynamicFormUniversities = Array.from(new Set([
     ...UNIVERSITIES.slice(1).filter(u => u !== 'أخرى'),
@@ -4378,7 +4380,7 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
     if (!finalUniversity || !regions || !phone) return;
     onSubmit({
       id: isEdit ? editAd.id : Date.now(),
-      type, university: finalUniversity, regions, price, seats: type==='offer'?parseInt(seats)||4:0,
+      type, categoryType, university: finalUniversity, regions, price, seats: type==='offer'?parseInt(seats)||4:0,
       shift, vehicleType, targetAudience, phone, note,
       postedBy: isEdit ? editAd.postedBy : user.id, sellerName: isEdit ? editAd.sellerName : user.name, sellerAvatar: isEdit ? editAd.sellerAvatar : user.avatar,
       createdAt: isEdit ? editAd.createdAt : new Date().toISOString(),
@@ -4412,7 +4414,21 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
           
           <div className="flex bg-gray-800 p-1 rounded-xl">
             <button type="button" onClick={()=>setType('offer')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${type==='offer'?'bg-emerald-500 text-white':'text-gray-400 hover:text-white'}`}>صاحب خط (أوفر مقاعد)</button>
-            <button type="button" onClick={()=>setType('request')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${type==='request'?'bg-emerald-500 text-white':'text-gray-400 hover:text-white'}`}>طالب (أبحث عن خط)</button>
+            <button type="button" onClick={()=>setType('request')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${type==='request'?'bg-emerald-500 text-white':'text-gray-400 hover:text-white'}`}>أبحث عن خط</button>
+          </div>
+
+          <div>
+            <label className="text-gray-400 text-xs mb-1 block">فئة الخط والجمهور المستهدف</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setCategoryType('student')}
+                className={`py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${categoryType==='student'?'bg-emerald-500 text-white shadow-md shadow-emerald-500/20 ring-2 ring-emerald-400':'bg-gray-800 text-gray-400 border border-gray-700 hover:text-white'}`}>
+                🎓 خط طلاب (جامعات/مدارس)
+              </button>
+              <button type="button" onClick={() => setCategoryType('employee')}
+                className={`py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${categoryType==='employee'?'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-2 ring-indigo-400':'bg-gray-800 text-gray-400 border border-gray-700 hover:text-white'}`}>
+                👔 خط موظفين (دوائر/شركات)
+              </button>
+            </div>
           </div>
 
           <div>
@@ -4504,6 +4520,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
   onDeleteAd?: (id: number) => void;
   onActionMenu?: (target: {type:"transport", item:TransportAd}) => void;
 }) {
+  const [mainCategoryFilter, setMainCategoryFilter] = useState<'student'|'employee'|'all'>('student');
   const [filterUniversity, setFilterUniversity] = useState('الكل');
   const [filterType, setFilterType] = useState('الكل');
   const [searchQuery, setSearchQuery] = useState('');
@@ -4536,6 +4553,8 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
 
   const filtered = lines.filter(a => {
     if (a.status !== 'published') return false;
+    const adCat = a.categoryType || 'student';
+    if (mainCategoryFilter !== 'all' && adCat !== mainCategoryFilter) return false;
     if (filterUniversity !== 'الكل' && a.university !== filterUniversity) return false;
     if (filterType !== 'الكل' && a.type !== (filterType === 'خطوط متوفرة' ? 'offer' : 'طلبات خطوط')) return false;
     if (searchQuery) {
@@ -4563,22 +4582,39 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
               <ChevronLeft className="w-5 h-5"/>
             </button>
             <div>
-              <h1 className="text-white font-bold text-xl">🎓 خطوط الجامعات</h1>
-              <p className="text-emerald-200 text-sm">أسرع وأأمن طريق لدوامك</p>
+              <h1 className="text-white font-bold text-xl">🚌 قسم الخطوط والنقل اليومي</h1>
+              <p className="text-emerald-200 text-sm">أسرع وأأمن طريق لدوامك اليومي</p>
             </div>
           </div>
           
           {/* Smart Search & Filters */}
           <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 mb-4 space-y-3">
+            
+            {/* Main Category Tabs (Student vs Employee) */}
+            <div className="flex items-center gap-2 p-1 bg-gray-900/80 rounded-2xl border border-emerald-500/20 shadow-inner">
+              <button onClick={() => setMainCategoryFilter('student')}
+                className={`flex-1 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${mainCategoryFilter === 'student' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30' : 'text-gray-400 hover:text-white'}`}>
+                🎓 خطوط الطلاب
+              </button>
+              <button onClick={() => setMainCategoryFilter('employee')}
+                className={`flex-1 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${mainCategoryFilter === 'employee' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-1 ring-indigo-400' : 'text-gray-400 hover:text-white'}`}>
+                👔 خطوط الموظفين
+              </button>
+              <button onClick={() => setMainCategoryFilter('all')}
+                className={`px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1 transition-all ${mainCategoryFilter === 'all' ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20' : 'text-gray-400 hover:text-white'}`}>
+                ⚡ الكل
+              </button>
+            </div>
+
             <div className="relative">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-300"/>
-              <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="ابحث عن منطقة، جامعة..."
+              <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="ابحث عن منطقة، مقصد..."
                 className="w-full bg-gray-900/50 text-white placeholder-emerald-200/50 rounded-xl py-3 pr-10 pl-3 border border-emerald-500/30 focus:border-emerald-400 outline-none text-sm"/>
             </div>
             
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-emerald-300 text-xs mb-1 block">الجامعة</label>
+                <label className="text-emerald-300 text-xs mb-1 block">الوجهة / المؤسسة</label>
                 <select value={filterUniversity} onChange={e=>setFilterUniversity(e.target.value)}
                   className="w-full bg-gray-900/50 text-white border border-emerald-500/30 rounded-xl py-2.5 px-3 outline-none text-sm backdrop-blur [color-scheme:dark]">
                   {dynamicUniversities.map(c=><option key={c} value={c}>{c}</option>)}
@@ -4617,8 +4653,8 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
         {filtered.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-6xl mb-4">🚐</div>
-            <h3 className="text-white font-bold text-lg mb-2">لا توجد إعلانات حالياً</h3>
-            <p className="text-gray-400 text-sm mb-6">كن أول من يضيف إعلاناً في هذا القسم</p>
+            <h3 className="text-white font-bold text-lg mb-2">لا توجد إعلانات حالياً في هذا القسم</h3>
+            <p className="text-gray-400 text-sm mb-6">كن أول من يضيف إعلاناً خط جديد</p>
             <motion.button whileHover={{scale:1.02}} whileTap={{scale:0.98}} onClick={()=>{if(!user){onCreateAd();return;}setShowForm(true);}}
               className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl">
               إضافة إعلان الآن
@@ -4627,7 +4663,9 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
         ) : (
           <div className="space-y-4">
             <p className="text-gray-400 text-sm">تم العثور على <span className="text-emerald-400 font-bold">{filtered.length}</span> إعلان</p>
-            {filtered.map(ad=>(
+            {filtered.map(ad=>{
+              const isEmployee = ad.categoryType === 'employee';
+              return (
               <motion.div key={ad.id} initial={{opacity:0,y:20}} animate={{opacity:1,y:0}}
                 onClick={() => onSelectAd?.(ad)}
                 onTouchStart={() => handleTouchStart(ad)}
@@ -4637,11 +4675,23 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
                 onMouseUp={handleTouchEnd}
                 onMouseLeave={handleTouchEnd}
                 onContextMenu={(e) => handleContextMenu(e, ad)}
-                className={`bg-gray-800 rounded-2xl border transition-all overflow-hidden relative cursor-pointer hover:border-emerald-500/60 ${ad.type === 'offer' ? 'border-emerald-500/30' : 'border-amber-500/30'}`}>
+                className={`bg-gray-800 rounded-2xl border transition-all overflow-hidden relative cursor-pointer ${
+                  isEmployee 
+                    ? 'border-indigo-500/50 hover:border-indigo-400 shadow-lg shadow-indigo-950/40' 
+                    : ad.type === 'offer' ? 'border-emerald-500/30 hover:border-emerald-500/60' : 'border-amber-500/30 hover:border-amber-500/60'
+                }`}>
                 
-                {/* Type Badge */}
-                <div className={`absolute top-0 right-0 px-3 py-1 rounded-bl-xl text-[10px] font-bold ${ad.type === 'offer' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-black'}`}>
-                  {ad.type === 'offer' ? 'متوفر خط' : 'أبحث عن خط'}
+                {/* Type & Category Badges */}
+                <div className="absolute top-0 right-0 flex items-center gap-1">
+                  {isEmployee && (
+                    <div className="px-2.5 py-1 rounded-bl-xl text-[10px] font-bold bg-indigo-600 text-white shadow-sm flex items-center gap-1">
+                      <span>👔</span>
+                      <span>خط موظفين</span>
+                    </div>
+                  )}
+                  <div className={`px-3 py-1 text-[10px] font-bold ${!isEmployee ? 'rounded-bl-xl' : 'rounded-b-xl'} ${ad.type === 'offer' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-black'}`}>
+                    {ad.type === 'offer' ? 'متوفر خط' : 'أبحث عن خط'}
+                  </div>
                 </div>
 
                 <div className="p-4 pt-6">
@@ -4720,7 +4770,8 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
                   </div>
                 </div>
               </motion.div>
-            ))}
+            );
+          })}
           </div>
         )}
       </div>
@@ -5042,6 +5093,7 @@ export default function App() {
           seats: 4,
           vehicleType: 'خصوصي',
           targetAudience: 'مختلط',
+          categoryType: 'student' as 'student' | 'employee',
           note: '',
           interest: 0,
           whatsappClicks: 0,
@@ -5059,6 +5111,7 @@ export default function App() {
         return {
           id: row.id,
           type: row.type || 'offer',
+          categoryType: extra.categoryType || 'student',
           university: row.city || '',
           regions: row.location || '',
           shift: extra.shift,
@@ -5487,6 +5540,7 @@ export default function App() {
         seats: ad.seats,
         vehicleType: ad.vehicleType,
         targetAudience: ad.targetAudience,
+        categoryType: ad.categoryType || 'student',
         note: ad.note,
         interest: ad.interest || 0,
         whatsappClicks: ad.whatsappClicks || 0,
