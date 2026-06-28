@@ -6301,7 +6301,11 @@ export default function App() {
         <meta property="og:title" content={pageTitle} />
         <meta property="og:description" content={pageDescription} />
         <meta property="og:image" content={pageImage} />
+        <meta property="og:image:secure_url" content={pageImage} />
         <meta property="og:url" content={canonicalUrl} />
+        <meta name="twitter:title" content={pageTitle} />
+        <meta name="twitter:description" content={pageDescription} />
+        <meta name="twitter:image" content={pageImage} />
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
       <Toast msg={toast.msg} type={toast.type} visible={toast.visible} onClose={()=>setToast(t=>({...t,visible:false}))}/>
