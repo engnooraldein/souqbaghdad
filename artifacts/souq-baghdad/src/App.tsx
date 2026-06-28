@@ -1410,7 +1410,10 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
   const onlineStatuses = useOnlineStatuses();
+
   useEffect(()=>{
     setImgIdx(0);
     if (ad) {
@@ -1428,28 +1431,68 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
     };
   }, [ad?.id]);
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartX(e.targetTouches[0].clientX);
+    setTouchEndX(null);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEndX(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX === null || touchEndX === null) return;
+    const distance = touchStartX - touchEndX;
+    const total = ad?.images?.length || 0;
+    if (total <= 1) return;
+
+    if (distance > 35) {
+      // Swiped Left -> Next image
+      setImgIdx(i => (i + 1) % total);
+    } else if (distance < -35) {
+      // Swiped Right -> Previous image
+      setImgIdx(i => (i - 1 + total) % total);
+    }
+  };
+
   if(!ad) return null;
+  const totalImgs = ad.images?.length || 0;
+
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80" onClick={onClose}/>
       <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}}
         className="relative bg-gray-900 rounded-3xl w-full max-w-2xl max-h-[92vh] overflow-y-auto border border-gray-700 z-10">
         <InterestTimer itemId={ad.id} itemType="ad" />
-        <div className="relative"><div className="aspect-video overflow-hidden rounded-t-3xl bg-gray-800 relative group">
-          <img src={ad.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={ad.title}
-            decoding="async"
-            fetchPriority="high"
-            onClick={() => onImageZoom?.(ad.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700', ad.title)}
-            className="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition-all duration-300"/>
-          <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-lg pointer-events-none flex items-center gap-1 opacity-85 group-hover:opacity-100 transition-opacity">
-            <span>🔍 اضغط لتكبير وتحميل الصورة</span>
+        <div className="relative">
+          <div 
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className="aspect-video overflow-hidden rounded-t-3xl bg-gray-800 relative group touch-pan-y"
+          >
+            <img src={ad.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={ad.title}
+              decoding="async"
+              fetchPriority="high"
+              onClick={() => onImageZoom?.(ad.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700', ad.title)}
+              className="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition-all duration-300"/>
+            
+            <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-lg pointer-events-none flex items-center gap-1 opacity-85 group-hover:opacity-100 transition-opacity">
+              <span>🔍 اضغط لتكبير وتحميل الصورة</span>
+            </div>
+
+            {totalImgs > 1 && (
+              <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md text-amber-300 text-[10px] font-bold px-2.5 py-1 rounded-lg pointer-events-none flex items-center gap-1">
+                <span>👈 اسحب باللمس للتقليب 👉</span>
+              </div>
+            )}
           </div>
-        </div>
-          <button onClick={onClose} className="absolute top-3 right-3 p-2 bg-black/60 rounded-xl text-white"><X className="w-5 h-5"/></button>
-          {(ad.images?.length || 0)>1&&<>
-            <button onClick={()=>setImgIdx(i=>Math.max(0,i-1))} className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-black/60 rounded-xl text-white"><ChevronRight className="w-5 h-5"/></button>
-            <button onClick={()=>setImgIdx(i=>Math.min((ad.images?.length || 0)-1,i+1))} className="absolute left-3 top-1/2 -translate-y-1/2 p-2 bg-black/60 rounded-xl text-white"><ChevronLeft className="w-5 h-5"/></button>
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">{ad.images?.map((_,i)=><button key={i} onClick={()=>setImgIdx(i)} className={`h-1.5 rounded-full transition-all ${i===imgIdx?'w-5 bg-white':'w-1.5 bg-white/50'}`}/>)}</div>
+
+          <button onClick={onClose} className="absolute top-3 right-3 p-2 bg-black/60 rounded-xl text-white z-10 hover:bg-black/80"><X className="w-5 h-5"/></button>
+          {totalImgs > 1 && <>
+            <button onClick={()=>setImgIdx(i=>(i - 1 + totalImgs) % totalImgs)} className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 rounded-xl text-white z-10 transition-all"><ChevronRight className="w-6 h-6"/></button>
+            <button onClick={()=>setImgIdx(i=>(i + 1) % totalImgs)} className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 rounded-xl text-white z-10 transition-all"><ChevronLeft className="w-6 h-6"/></button>
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">{ad.images?.map((_,i)=><button key={i} onClick={()=>setImgIdx(i)} className={`h-2 rounded-full transition-all ${i===imgIdx?'w-6 bg-amber-400':'w-2 bg-white/60'}`}/>)}</div>
           </>}
         </div>
         <div className="p-5">
@@ -1522,6 +1565,9 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
+
   useEffect(()=>{
     setImgIdx(0);
     if (product) {
@@ -1539,29 +1585,70 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
     };
   }, [product?.id]);
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartX(e.targetTouches[0].clientX);
+    setTouchEndX(null);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEndX(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX === null || touchEndX === null) return;
+    const distance = touchStartX - touchEndX;
+    const total = product?.images?.length || 0;
+    if (total <= 1) return;
+
+    if (distance > 35) {
+      // Swiped Left -> Next image
+      setImgIdx(i => (i + 1) % total);
+    } else if (distance < -35) {
+      // Swiped Right -> Previous image
+      setImgIdx(i => (i - 1 + total) % total);
+    }
+  };
+
   if(!product) return null;
+  const totalImgs = product.images?.length || 0;
+
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80" onClick={onClose}/>
       <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}}
         className="relative bg-gray-900 rounded-3xl w-full max-w-2xl max-h-[92vh] overflow-y-auto border border-gray-700 z-10">
         <InterestTimer itemId={product.id} itemType="product" />
-        <div className="relative"><div className="aspect-video overflow-hidden rounded-t-3xl bg-gray-800 relative group">
-          <img src={product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={product.title}
-            decoding="async"
-            fetchPriority="high"
-            onClick={() => onImageZoom?.(product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700', product.title)}
-            className="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition-all duration-300"/>
-          <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-lg pointer-events-none flex items-center gap-1 opacity-85 group-hover:opacity-100 transition-opacity">
-            <span>🔍 اضغط لتكبير وتحميل الصورة</span>
+        <div className="relative">
+          <div 
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className="aspect-video overflow-hidden rounded-t-3xl bg-gray-800 relative group touch-pan-y"
+          >
+            <img src={product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={product.title}
+              decoding="async"
+              fetchPriority="high"
+              onClick={() => onImageZoom?.(product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700', product.title)}
+              className="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition-all duration-300"/>
+            
+            <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-lg pointer-events-none flex items-center gap-1 opacity-85 group-hover:opacity-100 transition-opacity">
+              <span>🔍 اضغط لتكبير وتحميل الصورة</span>
+            </div>
+
+            {totalImgs > 1 && (
+              <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md text-amber-300 text-[10px] font-bold px-2.5 py-1 rounded-lg pointer-events-none flex items-center gap-1">
+                <span>👈 اسحب باللمس للتقليب 👉</span>
+              </div>
+            )}
           </div>
-        </div>
-          <button onClick={onClose} className="absolute top-3 right-3 p-2 bg-black/60 rounded-xl text-white"><X className="w-5 h-5"/></button>
-          {(product.images?.length || 0)>1&&<>
-            <button onClick={()=>setImgIdx(i=>Math.max(0,i-1))} className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-black/60 rounded-xl text-white"><ChevronRight className="w-5 h-5"/></button>
-            <button onClick={()=>setImgIdx(i=>Math.min((product.images?.length || 0)-1,i+1))} className="absolute left-3 top-1/2 -translate-y-1/2 p-2 bg-black/60 rounded-xl text-white"><ChevronLeft className="w-5 h-5"/></button>
+
+          <button onClick={onClose} className="absolute top-3 right-3 p-2 bg-black/60 rounded-xl text-white z-10 hover:bg-black/80"><X className="w-5 h-5"/></button>
+          {totalImgs > 1 && <>
+            <button onClick={()=>setImgIdx(i=>(i - 1 + totalImgs) % totalImgs)} className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 rounded-xl text-white z-10 transition-all"><ChevronRight className="w-6 h-6"/></button>
+            <button onClick={()=>setImgIdx(i=>(i + 1) % totalImgs)} className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 rounded-xl text-white z-10 transition-all"><ChevronLeft className="w-6 h-6"/></button>
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">{product.images?.map((_,i)=><button key={i} onClick={()=>setImgIdx(i)} className={`h-2 rounded-full transition-all ${i===imgIdx?'w-6 bg-amber-400':'w-2 bg-white/60'}`}/>)}</div>
           </>}
-          <div className="absolute top-3 left-12 px-3 py-1 rounded-full text-xs font-bold text-white" style={{background:product.condition==='new'?'#22c55e':'#f59e0b'}}>
+          <div className="absolute top-3 left-12 px-3 py-1 rounded-full text-xs font-bold text-white z-10" style={{background:product.condition==='new'?'#22c55e':'#f59e0b'}}>
             {product.condition==='new'?'جديد':'مستعمل'}</div>
         </div>
         <div className="p-5">
