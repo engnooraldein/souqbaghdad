@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Copy, Check, Share2, MessageCircle, Send, Facebook, 
   Smartphone, Download, Sparkles, Image as ImageIcon, 
-  Layers, Link2, PlusCircle, PlayCircle, SendHorizontal, Lightbulb, HelpCircle, Info
+  Layers, Link2, PlusCircle, PlayCircle, SendHorizontal, Lightbulb, HelpCircle, Info, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 export interface ShareModalProps {
@@ -19,7 +19,7 @@ export interface ShareModalProps {
   description?: string;
 }
 
-type PlatformType = 'insta_story' | 'insta_direct' | 'insta_reels' | 'facebook' | 'whatsapp' | 'telegram' | 'copy_link' | 'native';
+type PlatformType = 'insta_story' | 'insta_direct' | 'insta_reels' | 'facebook' | 'whatsapp' | 'telegram' | 'copy_link' | 'native' | 'show_more';
 
 export function ShareModal({ 
   isOpen, 
@@ -39,6 +39,7 @@ export function ShareModal({
   const [isGeneratingCard, setIsGeneratingCard] = useState(false);
   const [cardDataUrl, setCardDataUrl] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
+  const [showAllApps, setShowAllApps] = useState(false);
 
   // Toast feedback
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -47,10 +48,10 @@ export function ShareModal({
   const idBadge = short_id ? `#${short_id}` : '';
   const fullUrl = url.startsWith('http') ? url : `https://www.souqbaghdad.store${url.startsWith('/') ? url : '/' + url}`;
 
-  // Formatted captions
+  // Formatted captions with welcoming headers
   const descSnippet = description ? `\n📝 *الوصف:* ${description.slice(0, 100)}${description.length > 100 ? '...' : ''}` : '';
-  const shareText = `📢 *عرض خاص من منصة سوق بغداد:* 🇮🇶\n\n🛍️ *${title}* ${idBadge}\n📍 *الموقع:* ${locText}${price ? `\n🏷️ *السعر:* ${price} د.ع` : ''}${descSnippet}\n\nتواصل مباشر وسريع بين البائع والمشتري! 🚀🤝\n\n🔗 *رابط التفاصيل:* ${fullUrl}`;
-  const telegramText = `🛍️ *${title}* ${idBadge}\n📍 الموقع: ${locText}${price ? `\n🏷️ السعر: ${price} د.ع` : ''}\n\nتصفح الإعلان والتواصل المباشر عبر المنصة 🚀\n👇🔗\n${fullUrl}`;
+  const shareText = `✨ *أهلاً بك في منصة سوق بغداد الرقمية* 🇮🇶✨\n\n🛍️ *${title}* ${idBadge}\n📍 *الموقع:* ${locText}${price ? `\n🏷️ *السعر:* ${price} د.ع` : ''}${descSnippet}\n\nتواصل مباشر وسريع بين البائع والمشتري! 🚀🤝\n\n🔗 *رابط التفاصيل:* ${fullUrl}`;
+  const telegramText = `✨ *أهلاً بك في منصة سوق بغداد الرقمية* 🇮🇶✨\n\n🛍️ *${title}* ${idBadge}\n📍 *الموقع:* ${locText}${price ? `\n🏷️ *السعر:* ${price} د.ع` : ''}\n\nتصفح كافة التفاصيل وتواصل مباشر مع البائع عبر المنصة 🚀\n👇🔗\n${fullUrl}`;
 
   useEffect(() => {
     if (isOpen) {
@@ -77,7 +78,7 @@ export function ShareModal({
     setTimeout(() => setCopiedText(false), 2500);
   };
 
-  // Canvas Drawing Generator (Fixing Base64 CORS & Adding Description)
+  // Canvas Drawing Generator
   const generateCanvasCard = async (format: 'story' | 'post') => {
     setIsGeneratingCard(true);
     try {
@@ -141,7 +142,6 @@ export function ShareModal({
       }
       ctx.restore();
 
-      // Fix Base64 image loading on Canvas (Do NOT set crossOrigin for base64 data URLs)
       if (image) {
         try {
           const img = new Image();
@@ -282,7 +282,6 @@ export function ShareModal({
   const downloadCard = async () => {
     if (!cardDataUrl) return;
 
-    // Check if on mobile with native Web Share API supporting files (iOS Safari / Android Chrome)
     if (typeof navigator !== 'undefined' && navigator.share) {
       const file = await dataUrlToFile(cardDataUrl, `souq-baghdad-${(title || 'item').replace(/\s+/g, '-')}.jpg`);
       if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -299,7 +298,6 @@ export function ShareModal({
       }
     }
 
-    // Standard Download Fallback
     const a = document.createElement('a');
     a.href = cardDataUrl;
     a.download = `souq-baghdad-${cardFormat}-${(title || 'item').replace(/\s+/g, '-')}.jpg`;
@@ -311,6 +309,11 @@ export function ShareModal({
 
   // Immediate App Launcher & Target Handler
   const handleAppClick = async (platform: PlatformType) => {
+    if (platform === 'show_more') {
+      setShowAllApps(!showAllApps);
+      return;
+    }
+
     if (platform === 'copy_link') {
       handleCopyLink();
       return;
@@ -320,11 +323,10 @@ export function ShareModal({
       triggerToast('📱 جاري فتح نافذة تطبيقات الهاتف الرسمية...');
       if (cardDataUrl && typeof navigator !== 'undefined' && navigator.share) {
         try {
-          const file = await dataUrlToFile(cardDataUrl, `souq-baghdad-share.jpg`);
+          const file = await dataUrlToFile(cardDataUrl, `souq-baghdad-card.jpg`);
           if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({
               title: title,
-              text: shareText,
               files: [file],
             });
             return;
@@ -353,14 +355,11 @@ export function ShareModal({
           if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({
               title: title,
-              text: shareText,
               files: [file],
             });
             return;
           }
-        } catch (e) {
-          console.log('Native share closed:', e);
-        }
+        } catch (e) {}
       }
       window.open('https://www.instagram.com/', '_blank');
     } else if (platform === 'insta_direct') {
@@ -373,15 +372,15 @@ export function ShareModal({
       triggerToast('💬 تم نسخ النص والرابط! جاري فتح واتساب...');
       window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
     } else if (platform === 'telegram') {
-      triggerToast('✈️ تم نسخ الإعلان الكامل! جاري فتح تليجرام...');
+      triggerToast('✈️ تم نسخ الإعلان المرفق! جاري فتح تليجرام...');
       window.open(`https://t.me/share/url?url=${encodeURIComponent(fullUrl)}&text=${encodeURIComponent(telegramText)}`, '_blank');
     }
   };
 
   if (!isOpen) return null;
 
-  // TikTok Style App Slider Items
-  const appSliderItems: { id: PlatformType; name: string; tag: string; icon: any; bg: string }[] = [
+  // Primary Essential Apps Slider (User Specified Top 4)
+  const primaryApps: { id: PlatformType; name: string; tag: string; icon: any; bg: string }[] = [
     { 
       id: 'native', 
       name: 'تطبيقات الهاتف', 
@@ -396,6 +395,24 @@ export function ShareModal({
       icon: <Link2 className="w-7 h-7 text-white" />, 
       bg: 'bg-blue-500 shadow-blue-500/30' 
     },
+    { 
+      id: 'whatsapp', 
+      name: 'واتساب', 
+      tag: 'ستوري / خاص 💬', 
+      icon: <MessageCircle className="w-7 h-7 text-white" />, 
+      bg: 'bg-emerald-500 shadow-emerald-500/30' 
+    },
+    { 
+      id: 'telegram', 
+      name: 'تليجرام', 
+      tag: 'إعلان كامل ✈️', 
+      icon: <Send className="w-7 h-7 text-white" />, 
+      bg: 'bg-sky-500 shadow-sky-500/30' 
+    },
+  ];
+
+  // Secondary Extra Apps (Shown when clicking Show More)
+  const secondaryApps: { id: PlatformType; name: string; tag: string; icon: any; bg: string }[] = [
     { 
       id: 'insta_story', 
       name: 'انستا ستوري', 
@@ -420,25 +437,13 @@ export function ShareModal({
     { 
       id: 'facebook', 
       name: 'فيسبوك', 
-      tag: 'بوست / ستوري', 
+      tag: 'بوست / ستوري 📘', 
       icon: <Facebook className="w-7 h-7 text-white" />, 
       bg: 'bg-blue-600 shadow-blue-500/30' 
     },
-    { 
-      id: 'whatsapp', 
-      name: 'واتساب', 
-      tag: 'ستوري / خاص', 
-      icon: <MessageCircle className="w-7 h-7 text-white" />, 
-      bg: 'bg-emerald-500 shadow-emerald-500/30' 
-    },
-    { 
-      id: 'telegram', 
-      name: 'تليجرام', 
-      tag: 'إعلان كامل ✈️', 
-      icon: <Send className="w-7 h-7 text-white" />, 
-      bg: 'bg-sky-500 shadow-sky-500/30' 
-    },
   ];
+
+  const currentSliderItems = showAllApps ? [...primaryApps, ...secondaryApps] : primaryApps;
 
   return (
     <AnimatePresence>
@@ -548,11 +553,17 @@ export function ShareModal({
                   <Share2 className="w-3.5 h-3.5 text-amber-400" />
                   <span>اختر المنصة والوجهة للمشاركة 🚀</span>
                 </span>
-                <span className="text-[10px] text-gray-500">سحب لليمين/اليسار ➔</span>
+                <button 
+                  onClick={() => setShowAllApps(!showAllApps)}
+                  className="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors"
+                >
+                  <span>{showAllApps ? 'إخفاء المزيد' : 'إظهار المزيد'}</span>
+                  {showAllApps ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
               </div>
 
               <div className="flex items-center gap-3 overflow-x-auto pb-3 pt-1 px-1 no-scrollbar scroll-smooth">
-                {appSliderItems.map((item) => (
+                {currentSliderItems.map((item) => (
                   <button
                     key={item.id}
                     onClick={() => handleAppClick(item.id)}
@@ -565,6 +576,19 @@ export function ShareModal({
                     <span className="text-[9px] text-gray-400 font-medium">{item.tag}</span>
                   </button>
                 ))}
+                
+                {!showAllApps && (
+                  <button
+                    onClick={() => setShowAllApps(true)}
+                    className="flex flex-col items-center shrink-0 group focus:outline-none"
+                  >
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-all group-hover:scale-110 group-active:scale-95 bg-gray-800 border border-gray-700 text-amber-400">
+                      <ChevronDown className="w-7 h-7" />
+                    </div>
+                    <span className="text-xs font-bold text-white mt-1.5">المزيد</span>
+                    <span className="text-[9px] text-gray-400 font-medium">باقي المنصات</span>
+                  </button>
+                )}
               </div>
             </div>
 
