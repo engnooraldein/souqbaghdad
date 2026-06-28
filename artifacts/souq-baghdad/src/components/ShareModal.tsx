@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Copy, Check, Share2, MessageCircle, Send, Facebook, 
   Smartphone, Download, Sparkles, Image as ImageIcon, 
-  Layers, ChevronLeft, Link2, PlusCircle, PlayCircle, SendHorizontal
+  Layers, Link2, PlusCircle, PlayCircle, SendHorizontal, Lightbulb
 } from 'lucide-react';
 
 export interface ShareModalProps {
@@ -19,7 +19,7 @@ export interface ShareModalProps {
   description?: string;
 }
 
-type PlatformType = 'instagram' | 'facebook' | 'whatsapp' | 'telegram' | 'copy_link';
+type PlatformType = 'insta_story' | 'insta_direct' | 'insta_reels' | 'facebook' | 'whatsapp' | 'telegram' | 'copy_link' | 'native';
 
 export function ShareModal({ 
   isOpen, 
@@ -33,9 +33,7 @@ export function ShareModal({
   short_id,
   description 
 }: ShareModalProps) {
-  const [activePlatform, setActivePlatform] = useState<PlatformType | null>(null);
   const [cardFormat, setCardFormat] = useState<'story' | 'post'>('story');
-  
   const [copiedText, setCopiedText] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [isGeneratingCard, setIsGeneratingCard] = useState(false);
@@ -48,7 +46,7 @@ export function ShareModal({
   const idBadge = short_id ? `#${short_id}` : '';
   const fullUrl = url.startsWith('http') ? url : `https://www.souqbaghdad.store${url.startsWith('/') ? url : '/' + url}`;
 
-  // Formatted caption with ad description snippet
+  // Formatted caption
   const descSnippet = description ? `\n📝 *الوصف:* ${description.slice(0, 100)}${description.length > 100 ? '...' : ''}` : '';
   const shareText = `📢 *عرض خاص من منصة سوق بغداد:* 🇮🇶\n\n🛍️ *${title}* ${idBadge}\n📍 *الموقع:* ${locText}${price ? `\n🏷️ *السعر:* ${price} د.ع` : ''}${descSnippet}\n\nتواصل مباشر وسريع بين البائع والمشتري! 🚀🤝\n\n🔗 *رابط التفاصيل:* ${fullUrl}`;
 
@@ -60,13 +58,13 @@ export function ShareModal({
 
   const triggerToast = (msg: string) => {
     setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3000);
+    setTimeout(() => setToastMsg(null), 3500);
   };
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(fullUrl);
     setCopiedLink(true);
-    triggerToast('📋 تم نسخ رابط الإعلان بنجاح!');
+    triggerToast('📋 تم نسخ رابط الإعلان المباشر بنجاح!');
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
@@ -214,7 +212,7 @@ export function ShareModal({
       ctx.fillStyle = '#94a3b8';
       ctx.fillText(`📍 ${locText} ${idBadge}`, width / 2, badgeY);
 
-      // Render Brief Description Snippet on Canvas Card
+      // Render Description Snippet
       let nextY = badgeY + 55;
       if (description) {
         ctx.font = '28px system-ui, sans-serif';
@@ -278,19 +276,8 @@ export function ShareModal({
     document.body.removeChild(a);
   };
 
-  // Helper to convert base64 dataUrl to File object
-  const dataUrlToFile = async (dataUrl: string, filename: string): Promise<File | null> => {
-    try {
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
-      return new File([blob], filename, { type: 'image/jpeg' });
-    } catch {
-      return null;
-    }
-  };
-
   // Immediate App Launcher & Target Handler
-  const handleAppClick = async (platform: PlatformType | 'native') => {
+  const handleAppClick = async (platform: PlatformType) => {
     if (platform === 'copy_link') {
       handleCopyLink();
       return;
@@ -302,46 +289,47 @@ export function ShareModal({
       return;
     }
 
-    // Copy caption immediately
+    // Copy caption & link immediately
     try {
       await navigator.clipboard.writeText(shareText);
     } catch {
       // ignore
     }
 
-    const platformName = platform === 'instagram' ? 'انستغرام' 
-      : platform === 'facebook' ? 'فيسبوك' 
-      : platform === 'whatsapp' ? 'واتساب' : 'تليجرام';
-
-    // Download card for user reference
-    downloadCard();
-
-    // Trigger immediate open/share
-    triggerToast(`🚀 تم نسخ النص والتصميم! جاري فتح ${platformName}...`);
-
-    if (platform === 'instagram') {
+    if (platform === 'insta_story') {
+      downloadCard();
+      triggerToast('🚀 تم تنزيل بطاقة التصميم ونسخ الرابط! جاري تحويلك إلى ستوري انستغرام...');
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       if (isMobile) {
         window.location.href = 'instagram-stories://share';
-        setTimeout(() => {
-          window.open('https://www.instagram.com/', '_blank');
-        }, 600);
+        setTimeout(() => { window.open('https://www.instagram.com/', '_blank'); }, 600);
       } else {
         window.open('https://www.instagram.com/', '_blank');
       }
+    } else if (platform === 'insta_direct') {
+      triggerToast('💬 تم نسخ نص الإعلان والرابط فقط! جاريفتح خاص انستغرام...');
+      window.open('https://www.instagram.com/direct/inbox/', '_blank');
+    } else if (platform === 'insta_reels') {
+      downloadCard();
+      triggerToast('📸 تم تنزيل صورة التصميم ونسخ الكابشن! جاري فتح انستغرام...');
+      window.open('https://www.instagram.com/', '_blank');
     } else if (platform === 'facebook') {
+      downloadCard();
+      triggerToast('🚀 تم نسخ النص وتنزيل الصورة! جاري تحويلك لفيسبوك...');
       window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(fullUrl)}`, '_blank');
     } else if (platform === 'whatsapp') {
+      triggerToast('💬 تم نسخ النص والرابط! جاري فتح واتساب...');
       window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
     } else if (platform === 'telegram') {
+      triggerToast('✈️ تم نسخ النص والرابط! جاري فتح تليجرام...');
       window.open(`https://t.me/share/url?url=${encodeURIComponent(fullUrl)}&text=${encodeURIComponent(shareText)}`, '_blank');
     }
   };
 
   if (!isOpen) return null;
 
-  // TikTok Style App Slider Items (with Dedicated Circular "Copy Link" Button)
-  const appSliderItems: { id: PlatformType | 'native'; name: string; tag: string; icon: any; bg: string }[] = [
+  // TikTok Style App Slider Items (Custom Tailored per user request)
+  const appSliderItems: { id: PlatformType; name: string; tag: string; icon: any; bg: string }[] = [
     { 
       id: 'copy_link', 
       name: 'نسخ الرابط', 
@@ -350,11 +338,25 @@ export function ShareModal({
       bg: 'bg-blue-500 shadow-blue-500/30' 
     },
     { 
-      id: 'instagram', 
-      name: 'انستغرام', 
-      tag: 'ستوري / ريلز', 
-      icon: <ImageIcon className="w-7 h-7 text-white" />, 
+      id: 'insta_story', 
+      name: 'انستا ستوري', 
+      tag: 'تصميم + رابط 📸', 
+      icon: <PlusCircle className="w-7 h-7 text-white" />, 
       bg: 'bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 shadow-pink-500/30' 
+    },
+    { 
+      id: 'insta_direct', 
+      name: 'انستا دايركت', 
+      tag: 'نص ورابط 💬', 
+      icon: <SendHorizontal className="w-7 h-7 text-white" />, 
+      bg: 'bg-gradient-to-tr from-purple-600 to-indigo-600 shadow-purple-500/30' 
+    },
+    { 
+      id: 'insta_reels', 
+      name: 'انستا ريلز/بوست', 
+      tag: 'صورة + كابشن 🖼️', 
+      icon: <PlayCircle className="w-7 h-7 text-white" />, 
+      bg: 'bg-gradient-to-tr from-pink-600 to-purple-800 shadow-pink-500/30' 
     },
     { 
       id: 'facebook', 
@@ -376,13 +378,6 @@ export function ShareModal({
       tag: 'قنوات وخاص', 
       icon: <Send className="w-7 h-7 text-white" />, 
       bg: 'bg-sky-500 shadow-sky-500/30' 
-    },
-    { 
-      id: 'native', 
-      name: 'المزيد', 
-      tag: 'تطبيقات الهاتف', 
-      icon: <Smartphone className="w-7 h-7 text-black" />, 
-      bg: 'bg-amber-400 shadow-amber-500/30' 
     },
   ];
 
@@ -411,7 +406,7 @@ export function ShareModal({
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-3 p-2.5 bg-amber-500/20 border border-amber-500/40 rounded-xl text-center text-xs font-bold text-amber-300 flex items-center justify-center gap-2 shrink-0"
+              className="mb-3 p-2.5 bg-amber-500/20 border border-amber-500/40 rounded-xl text-center text-xs font-bold text-amber-300 flex items-center justify-center gap-2 shrink-0 shadow-lg"
             >
               <Sparkles className="w-4 h-4 text-amber-400 animate-spin" />
               <span>{toastMsg}</span>
@@ -449,7 +444,7 @@ export function ShareModal({
               <div className="flex items-center justify-between mb-2 px-1">
                 <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
                   <Share2 className="w-3.5 h-3.5 text-amber-400" />
-                  <span>اختر التطبيق للمشاركة 🚀</span>
+                  <span>اختر المنصة والوجهة للمشاركة 🚀</span>
                 </span>
                 <span className="text-[10px] text-gray-500">سحب لليمين/اليسار ➔</span>
               </div>
@@ -468,6 +463,17 @@ export function ShareModal({
                     <span className="text-[9px] text-gray-400 font-medium">{item.tag}</span>
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* PROMINENT USER TIP BOX FOR STORY LINK STICKER */}
+            <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-2xl text-xs text-blue-200 flex items-start gap-2.5 my-2 text-right dir-rtl">
+              <Lightbulb className="w-5 h-5 text-amber-400 shrink-0 mt-0.5 animate-pulse" />
+              <div className="flex-1">
+                <span className="font-bold block text-blue-300 text-xs mb-0.5">💡 نصيحة للنشر الذكي في الستوري:</span>
+                <span className="text-[11px] leading-relaxed text-gray-300 block">
+                  تم نسخ رابط إعلانك تلقائياً! عند تحويلك للانستغرام، اضغط على **ملصق الرابط (Link Sticker 🔗)** واضغط **لصق (Paste)** حتى يسهل على المتابعين الدخول لإعلانك بنقرة واحدة!
+                </span>
               </div>
             </div>
 

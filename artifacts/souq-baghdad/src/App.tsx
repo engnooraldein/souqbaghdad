@@ -1503,7 +1503,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, onAuthRequired, onSell
             <button onClick={()=>{if(!user){onAuthRequired();return;}onFav();}}
               className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-medium ${isFav?'bg-red-500 text-white':'bg-gray-800 text-white'}`}>
               <Heart className={`w-4 h-4 ${isFav?'fill-current':''}`}/>{isFav?'في المفضلة':'أضف للمفضلة'}</button>
-            <button onClick={()=>handleUniversalShare({ id: ad.id, short_id: ad.short_id, title: ad.title, location: ad.location, price: ad.price })}
+            <button onClick={()=>handleUniversalShare({ id: ad.id, short_id: ad.short_id, title: ad.title, location: ad.location, price: ad.price, image: ad.images?.[0], description: ad.description })}
               className="flex-1 py-3 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl flex items-center justify-center gap-2 text-sm font-bold hover:bg-amber-500/30">
               <Share2 className="w-4 h-4"/> مشاركة</button>
           </div>
@@ -1605,7 +1605,7 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, onAuthRequir
             <button onClick={()=>{if(!user){onAuthRequired();return;}onFav();}}
               className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-medium ${isFav?'bg-red-500 text-white':'bg-gray-800 text-white'}`}>
               <Heart className={`w-4 h-4 ${isFav?'fill-current':''}`}/>{isFav?'في المفضلة':'أضف للمفضلة'}</button>
-            <button onClick={()=>handleUniversalShare({ id: product.id, short_id: product.short_id, title: product.title, governorate: product.governorate, price: formatPrice(product.price) })}
+            <button onClick={()=>handleUniversalShare({ id: product.id, short_id: product.short_id, title: product.title, governorate: product.governorate, price: formatPrice(product.price), image: product.images?.[0], description: product.description })}
               className="flex-1 py-3 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl flex items-center justify-center gap-2 text-sm font-bold hover:bg-amber-500/30">
               <Share2 className="w-4 h-4"/> مشاركة</button>
           </div>
