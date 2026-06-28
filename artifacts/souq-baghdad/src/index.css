@@ -84,11 +84,21 @@
     border-color: hsl(var(--border));
   }
 
+  html {
+    background-color: #030712 !important;
+    height: 100%;
+  }
+
   body {
-    background-color: hsl(var(--background));
+    background-color: #030712 !important;
     color: hsl(var(--foreground));
     font-family: 'Cairo', sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
   }
 
   /* Custom Scrollbar */
@@ -247,6 +257,15 @@
 
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Safe Area Utility Classes for Edge-to-Edge display on mobile */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 
