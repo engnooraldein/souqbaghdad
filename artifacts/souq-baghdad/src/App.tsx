@@ -3998,8 +3998,8 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
 // ─────────────────────────────────────────────
 // Market View
 // ─────────────────────────────────────────────
-function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelectProduct, onToggleFav, onRequireAuth, onSellerClick, onTransportClick, onSelectTransportAd, transportLines, onActionMenu }:{
-  user:User|null; allAds:Ad[]; allProducts:Product[]; favorites:number[];
+function MarketView({ user, allAds, allProducts, favorites, storedUsers: propStoredUsers, onSelectAd, onSelectProduct, onToggleFav, onRequireAuth, onSellerClick, onTransportClick, onSelectTransportAd, transportLines, onActionMenu }:{
+  user:User|null; allAds:Ad[]; allProducts:Product[]; favorites:number[]; storedUsers?: any[];
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void;
   onToggleFav:(id:number)=>void; onRequireAuth:()=>void; onSellerClick:(id:string)=>void;
   onTransportClick?:()=>void;
@@ -4016,7 +4016,8 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
   const [showFilters, setShowFilters] = useState(false);
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
-  const [storedUsers, setStoredUsers] = useState<any[]>([]);
+  const [localStoredUsers, setLocalStoredUsers] = useState<any[]>([]);
+  const storedUsers = propStoredUsers && propStoredUsers.length > 0 ? propStoredUsers : localStoredUsers;
   const onlineStatuses = useOnlineStatuses();
 
   const publishedTransportLines = transportLines.filter(a => a.status === 'published');
@@ -4121,7 +4122,7 @@ function MarketView({ user, allAds, allProducts, favorites, onSelectAd, onSelect
           }
         });
 
-        if (isMounted) setStoredUsers(Array.from(sellersMap.values()));
+        if (isMounted) setLocalStoredUsers(Array.from(sellersMap.values()));
       } catch (e) {
         console.error(e);
       }
@@ -5139,7 +5140,105 @@ export default function App() {
   const [activeDocTab, setActiveDocTab] = useState<string | null>(null);
   const [activeLightbox, setActiveLightbox] = useState<{ src: string; title: string } | null>(null);
   const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; title: string; url: string; image?: string; price?: string; governorate?: string; location?: string; short_id?: string }>({ isOpen: false, title: '', url: '' });
+  const [storedUsers, setStoredUsers] = useState<any[]>([]);
   const playSound = useSound();
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadAllProfilesGlobal() {
+      try {
+        const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
+        const sellersMap = new Map();
+
+        const { data: dbProfiles } = await supabase.from('profiles').select('*');
+        if (dbProfiles && dbProfiles.length > 0) {
+          dbProfiles.forEach((p: any) => {
+            sellersMap.set(p.id, {
+              id: p.id,
+              name: p.full_name || p.name || 'مستخدم',
+              avatar: p.avatar_url || p.avatar || DEFAULT_AVATAR,
+              phone: p.phone || '',
+              location: p.city || p.location || 'بغداد',
+              adCount: 0,
+              prodCount: 0,
+              rating: 4.9,
+              created_at: p.created_at || new Date().toISOString(),
+              isVerified: p.role === 'owner' || p.role === 'vendor' || p.role === 'admin'
+            });
+          });
+        }
+
+        localUsers.forEach((u: any) => {
+          if (!sellersMap.has(u.id)) {
+            sellersMap.set(u.id, {
+              id: u.id,
+              name: u.name,
+              avatar: u.avatar || DEFAULT_AVATAR,
+              phone: u.phone || '',
+              location: u.location || 'بغداد',
+              adCount: u.adCount || 0,
+              prodCount: 0,
+              rating: 4.8,
+              created_at: new Date().toISOString(),
+              isVerified: u.role === 'owner' || u.role === 'vendor' || u.isVerified
+            });
+          }
+        });
+
+        allAds.forEach(ad => {
+          if (ad.postedBy) {
+            if (!sellersMap.has(ad.postedBy)) {
+              sellersMap.set(ad.postedBy, {
+                id: ad.postedBy,
+                name: ad.seller?.name || 'مستخدم',
+                avatar: ad.seller?.avatar || DEFAULT_AVATAR,
+                phone: ad.phone || '',
+                location: ad.location || ad.governorate || 'بغداد',
+                adCount: 1,
+                prodCount: 0,
+                rating: ad.seller?.rating || 4.8,
+                created_at: ad.createdAtISO || new Date().toISOString(),
+                isVerified: ad.seller?.isVerified || false
+              });
+            } else {
+              const existing = sellersMap.get(ad.postedBy);
+              existing.adCount = (existing.adCount || 0) + 1;
+              if (ad.phone && !existing.phone) existing.phone = ad.phone;
+            }
+          }
+        });
+
+        allProducts.forEach(p => {
+          if (p.postedBy) {
+            if (!sellersMap.has(p.postedBy)) {
+              sellersMap.set(p.postedBy, {
+                id: p.postedBy,
+                name: p.seller?.name || 'مستخدم',
+                avatar: p.seller?.avatar || DEFAULT_AVATAR,
+                phone: p.phone || '',
+                location: p.governorate || 'بغداد',
+                adCount: 0,
+                prodCount: 1,
+                rating: p.seller?.rating || 4.8,
+                created_at: p.createdAtISO || new Date().toISOString(),
+                isVerified: p.seller?.isVerified || false
+              });
+            } else {
+              const existing = sellersMap.get(p.postedBy);
+              existing.prodCount = (existing.prodCount || 0) + 1;
+              if (p.phone && !existing.phone) existing.phone = p.phone;
+            }
+          }
+        });
+
+        if (isMounted) setStoredUsers(Array.from(sellersMap.values()));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    loadAllProfilesGlobal();
+    return () => { isMounted = false; };
+  }, [allAds, allProducts]);
 
   useEffect(() => {
     const handleOpenShare = (e: any) => {
@@ -6114,7 +6213,7 @@ export default function App() {
       <main className="pt-16">
         <AnimatePresence mode="wait">
           {view==='home'&&<motion.div key="home" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <MarketView user={user} allAds={allAds} allProducts={allProducts} favorites={favorites} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} onToggleFav={handleToggleFav} onRequireAuth={requireAuth} onSellerClick={handleSellerClick} onTransportClick={()=>{setView('transport');setBottomNavActive('transport');}} onSelectTransportAd={setSelectedTransportAd} transportLines={allTransportAds}/></motion.div>}
+            <MarketView user={user} allAds={allAds} allProducts={allProducts} favorites={favorites} storedUsers={storedUsers} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} onToggleFav={handleToggleFav} onRequireAuth={requireAuth} onSellerClick={handleSellerClick} onTransportClick={()=>{setView('transport');setBottomNavActive('transport');}} onSelectTransportAd={setSelectedTransportAd} transportLines={allTransportAds}/></motion.div>}
           {view==='profile'&&user&&<motion.div key="profile" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold} favorites={favorites} allAds={allAds} allProducts={allProducts} onAdSelect={setSelectedAd} onProductSelect={setSelectedProduct} onFav={handleToggleFav}/></motion.div>}
           {view==='seller'&&selectedSellerId&&<motion.div key="seller" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
