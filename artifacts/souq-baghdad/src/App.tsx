@@ -5139,7 +5139,28 @@ export default function App() {
   const [showCreateTransport, setShowCreateTransport] = useState(false);
   const [activeDocTab, setActiveDocTab] = useState<string | null>(null);
   const [activeLightbox, setActiveLightbox] = useState<{ src: string; title: string } | null>(null);
-  const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; title: string; url: string; image?: string; price?: string; governorate?: string; location?: string; short_id?: string }>({ isOpen: false, title: '', url: '' });
+  const getDefaultAds = (): Ad[] => [
+    { id: 1, title: 'هاتف ايفون 14 برو', category: 'هواتف', governorate: 'بغداد', price: '850000', description: 'هاتف ايفون 14 برو جديد، لم يستخدم', images: ['https://images.unsplash.com/photo-1591290619762-bcc52fb0a910?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-1', createdAtISO: new Date(Date.now() - 86400000).toISOString(), views: 250, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
+    { id: 2, title: 'عقار في الكرادة - منزل 3 غرف', category: 'عقارات', governorate: 'بغداد', price: '250000000', description: 'منزل فاخر في موقع ممتاز بالكرادة', images: ['https://images.unsplash.com/photo-1575373342425-76569f2865d2?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-2', createdAtISO: new Date(Date.now() - 172800000).toISOString(), views: 420, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
+    { id: 3, title: 'سيارة BMW 520 موديل 2022', category: 'سيارات', governorate: 'بغداد', price: '75000000', description: 'سيارة جديدة بحالة ممتازة، مع ضمان كامل', images: ['https://images.unsplash.com/photo-1552519507-da3effff991c?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-3', createdAtISO: new Date(Date.now() - 259200000).toISOString(), views: 580, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
+    { id: 4, title: 'خدمة تدريس خصوصي - رياضيات وإنجليزي', category: 'خدمات', governorate: 'بغداد', price: '50000', description: 'معلم ذو خبرة يقدم دروس خصوصية', images: ['https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'service', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-4', createdAtISO: new Date(Date.now() - 345600000).toISOString(), views: 180, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
+    { id: 5, title: 'لابتوب Dell XPS 13 - شبه جديد', category: 'إلكترونيات', governorate: 'البصرة', price: '1200000', description: 'لابتوب عالي المواصفات، استخدام خفيف فقط', images: ['https://images.unsplash.com/photo-1588872657839-cd2f3e5614f0?w=500&h=500&fit=crop'], location: 'البصرة', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-5', createdAtISO: new Date(Date.now() - 432000000).toISOString(), views: 320, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'البصرة' } },
+  ];
+
+  const getDefaultProducts = (): Product[] => [
+    { id: 1, title: 'معطف شتوي فخم', category: 'ملابس', governorate: 'بغداد', price: '150000', description: 'معطف برند عالمي، أصلي 100%', images: ['https://images.unsplash.com/photo-1539533057440-7814baea1002?w=500&h=500&fit=crop'], postedBy: 'demo-seller-1', createdAtISO: new Date(Date.now() - 86400000).toISOString(), views: 180, phone: '07700000000', condition: 'new', stock: 10, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' }, status: 'active' },
+    { id: 2, title: 'أثاث غرفة نوم كامل', category: 'أثاث', governorate: 'البصرة', price: '2500000', description: 'مجموعة أثاث فاخرة - سرير + دولاب + تسريحة', images: ['https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500&h=500&fit=crop'], postedBy: 'demo-seller-2', createdAtISO: new Date(Date.now() - 172800000).toISOString(), views: 290, phone: '07700000000', condition: 'new', stock: 5, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'البصرة' }, status: 'active' },
+    { id: 3, title: 'دراجة هوائية ماونتن بايك', category: 'دراجات', governorate: 'أربيل', price: '500000', description: 'دراجة رياضية احترافية', images: ['https://images.unsplash.com/photo-1558618666-fcd25c85cd58?w=500&h=500&fit=crop'], postedBy: 'demo-seller-3', createdAtISO: new Date(Date.now() - 259200000).toISOString(), views: 150, phone: '07700000000', condition: 'used', stock: 1, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'أربيل' }, status: 'active' },
+  ];
+
+  const [allAds, setAllAds] = useState<Ad[]>(getDefaultAds);
+  const [allTransportAds, setAllTransportAds] = useState<TransportAd[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>(getDefaultProducts);
+  const [congratulationsItem, setCongratulationsItem] = useState<{ title: string; type: 'ad' | 'product' } | null>(null);
+  const [favorites, setFavorites] = useState<number[]>(()=>{
+    try{return JSON.parse(localStorage.getItem('souqFavs')||'[]');}catch{return[];}
+  });
+  const [initialHashParsed, setInitialHashParsed] = useState(false);
   const [storedUsers, setStoredUsers] = useState<any[]>([]);
   const playSound = useSound();
 
@@ -5308,32 +5329,7 @@ export default function App() {
 
   // Notifications handlers and effects are initialized below notifications state
 
-  // Default demo ads to show for all users
-  const getDefaultAds = (): Ad[] => [
-    { id: 1, title: 'هاتف ايفون 14 برو', category: 'هواتف', governorate: 'بغداد', price: '850000', description: 'هاتف ايفون 14 برو جديد، لم يستخدم', images: ['https://images.unsplash.com/photo-1591290619762-bcc52fb0a910?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-1', createdAtISO: new Date(Date.now() - 86400000).toISOString(), views: 250, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
-    { id: 2, title: 'عقار في الكرادة - منزل 3 غرف', category: 'عقارات', governorate: 'بغداد', price: '250000000', description: 'منزل فاخر في موقع ممتاز بالكرادة', images: ['https://images.unsplash.com/photo-1575373342425-76569f2865d2?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-2', createdAtISO: new Date(Date.now() - 172800000).toISOString(), views: 420, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
-    { id: 3, title: 'سيارة BMW 520 موديل 2022', category: 'سيارات', governorate: 'بغداد', price: '75000000', description: 'سيارة جديدة بحالة ممتازة، مع ضمان كامل', images: ['https://images.unsplash.com/photo-1552519507-da3effff991c?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-3', createdAtISO: new Date(Date.now() - 259200000).toISOString(), views: 580, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
-    { id: 4, title: 'خدمة تدريس خصوصي - رياضيات وإنجليزي', category: 'خدمات', governorate: 'بغداد', price: '50000', description: 'معلم ذو خبرة يقدم دروس خصوصية', images: ['https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'service', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-4', createdAtISO: new Date(Date.now() - 345600000).toISOString(), views: 180, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
-    { id: 5, title: 'لابتوب Dell XPS 13 - شبه جديد', category: 'إلكترونيات', governorate: 'البصرة', price: '1200000', description: 'لابتوب عالي المواصفات، استخدام خفيف فقط', images: ['https://images.unsplash.com/photo-1588872657839-cd2f3e5614f0?w=500&h=500&fit=crop'], location: 'البصرة', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-5', createdAtISO: new Date(Date.now() - 432000000).toISOString(), views: 320, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'البصرة' } },
-  ];
-
-  // Misplaced handlers moved down below notifications state declaration
-
-  const getDefaultProducts = (): Product[] => [
-    { id: 1, title: 'معطف شتوي فخم', category: 'ملابس', governorate: 'بغداد', price: '150000', description: 'معطف برند عالمي، أصلي 100%', images: ['https://images.unsplash.com/photo-1539533057440-7814baea1002?w=500&h=500&fit=crop'], postedBy: 'demo-seller-1', createdAtISO: new Date(Date.now() - 86400000).toISOString(), views: 180, phone: '07700000000', condition: 'new', stock: 10, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' }, status: 'active' },
-    { id: 2, title: 'أثاث غرفة نوم كامل', category: 'أثاث', governorate: 'البصرة', price: '2500000', description: 'مجموعة أثاث فاخرة - سرير + دولاب + تسريحة', images: ['https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500&h=500&fit=crop'], postedBy: 'demo-seller-2', createdAtISO: new Date(Date.now() - 172800000).toISOString(), views: 290, phone: '07700000000', condition: 'new', stock: 5, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'البصرة' }, status: 'active' },
-    { id: 3, title: 'دراجة هوائية ماونتن بايك', category: 'دراجات', governorate: 'أربيل', price: '500000', description: 'دراجة رياضية احترافية', images: ['https://images.unsplash.com/photo-1558618666-fcd25c85cd58?w=500&h=500&fit=crop'], postedBy: 'demo-seller-3', createdAtISO: new Date(Date.now() - 259200000).toISOString(), views: 150, phone: '07700000000', condition: 'used', stock: 1, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'أربيل' }, status: 'active' },
-  ];
-
-  const [allAds, setAllAds] = useState<Ad[]>(getDefaultAds);
-  const [allTransportAds, setAllTransportAds] = useState<TransportAd[]>([]);
-  const [allProducts, setAllProducts] = useState<Product[]>(getDefaultProducts);
-  const [congratulationsItem, setCongratulationsItem] = useState<{ title: string; type: 'ad' | 'product' } | null>(null);
-  const [favorites, setFavorites] = useState<number[]>(()=>{
-    try{return JSON.parse(localStorage.getItem('souqFavs')||'[]');}catch{return[];}
-  });
   // --- DEEP LINKING & ROUTING HOOKS ---
-  const [initialHashParsed, setInitialHashParsed] = useState(false);
 
   const syncStateFromHash = () => {
     let hash = window.location.hash;
