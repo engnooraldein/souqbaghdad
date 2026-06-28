@@ -273,19 +273,26 @@ export const useOnlineStatuses = () => {
   useEffect(() => {
     const trigger = () => setStatuses({...globalOnlineStatuses});
     onlineListeners.push(trigger);
-    return () => { onlineListeners = onlineListeners.filter(l => l !== trigger); };
+    fetchGlobalOnlineStatuses();
+    const interval = setInterval(fetchGlobalOnlineStatuses, 15000);
+    return () => { 
+      onlineListeners = onlineListeners.filter(l => l !== trigger); 
+      clearInterval(interval);
+    };
   }, []);
   return statuses;
 }
 
 const fetchGlobalOnlineStatuses = async () => {
   try {
-    const { data } = await supabase.from('profiles').select('id, last_seen');
+    const { data } = await supabase.from('profiles').select('id, phone, last_seen');
     if (data) {
       const map: Record<string, boolean> = {};
       data.forEach(p => {
         if(p.last_seen) {
-          map[p.id] = new Date().getTime() - new Date(p.last_seen).getTime() < 5 * 60 * 1000;
+          const isRecentlySeen = new Date().getTime() - new Date(p.last_seen).getTime() < 5 * 60 * 1000;
+          if (p.id) map[p.id] = isRecentlySeen;
+          if (p.phone) map[p.phone] = isRecentlySeen;
         }
       });
       globalOnlineStatuses = map;
@@ -2871,8 +2878,8 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
 // ─────────────────────────────────────────────
 // Seller Public Page
 // ─────────────────────────────────────────────
-function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, onSelectProduct, favorites, onToggleFav, user, onAuthRequired, onDeleteProfile, onActionMenu }:{
-  sellerId:string; allAds:Ad[]; allProducts:Product[]; onBack:()=>void;
+function SellerPublicPage({ sellerId, allAds, allProducts, storedUsers = [], onBack, onSelectAd, onSelectProduct, favorites, onToggleFav, user, onAuthRequired, onDeleteProfile, onActionMenu }:{
+  sellerId:string; allAds:Ad[]; allProducts:Product[]; storedUsers?: any[]; onBack:()=>void;
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void;
   favorites:number[]; onToggleFav:(id:number)=>void; user:User|null; onAuthRequired:()=>void;
   onDeleteProfile?:(id:string)=>void; onActionMenu?:any;
@@ -2880,32 +2887,81 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
   const onlineStatuses = useOnlineStatuses();
   const [tab, setTab] = useState<'ads'|'products'>('ads');
   const [sellerUser, setSellerUser] = useState<any>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
 
   // Fallback to searching by ID or phone
-  const sellerAds = allAds.filter(a=>a.postedBy===sellerId || a.phone===sellerId);
-  const sellerProds = allProducts.filter(p=>p.postedBy===sellerId || p.phone===sellerId);
+  const sellerAds = allAds.filter(a=>String(a.postedBy)===String(sellerId) || String(a.phone)===String(sellerId));
+  const sellerProds = allProducts.filter(p=>String(p.postedBy)===String(sellerId) || String(p.phone)===String(sellerId));
   const sellerInfo: SellerInfo|null = sellerAds[0]?.seller || sellerProds[0]?.seller || null;
 
   useEffect(() => {
-    try {
-      const users = JSON.parse(localStorage.getItem('souqUsers') || '[]');
-      const found = users.find((u: any) => u.id === sellerId || u.phone === sellerId);
-      if (found) {
-        setSellerUser(found);
-      } else if (sellerInfo) {
-        setSellerUser({
-          id: sellerId,
-          name: sellerInfo.name,
-          avatar: sellerInfo.avatar,
-          location: sellerInfo.location,
-          isVerified: sellerInfo.isVerified,
-          rating: sellerInfo.rating || 5,
-          ratingCount: 1,
-          cover: DEFAULT_COVER
-        });
+    let isMounted = true;
+    async function loadSellerDetails() {
+      setLoadingProfile(true);
+      try {
+        // 1. Check storedUsers prop
+        const foundStored = storedUsers.find((u: any) => String(u.id) === String(sellerId) || String(u.phone) === String(sellerId));
+        if (foundStored) {
+          if (isMounted) { setSellerUser(foundStored); setLoadingProfile(false); }
+          return;
+        }
+
+        // 2. Check local users
+        const users = JSON.parse(localStorage.getItem('souqUsers') || '[]');
+        const foundLocal = users.find((u: any) => String(u.id) === String(sellerId) || String(u.phone) === String(sellerId));
+        if (foundLocal) {
+          if (isMounted) { setSellerUser(foundLocal); setLoadingProfile(false); }
+          return;
+        }
+
+        // 3. Check sellerInfo from ads
+        if (sellerInfo) {
+          if (isMounted) {
+            setSellerUser({
+              id: sellerId,
+              name: sellerInfo.name,
+              avatar: sellerInfo.avatar || DEFAULT_AVATAR,
+              location: sellerInfo.location || 'العراق',
+              isVerified: sellerInfo.isVerified,
+              rating: sellerInfo.rating || 4.9,
+              ratingCount: 1,
+              cover: DEFAULT_COVER
+            });
+            setLoadingProfile(false);
+          }
+          return;
+        }
+
+        // 4. Query Supabase profiles table directly
+        const { data: dbProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .or(`id.eq.${sellerId},phone.eq.${sellerId}`)
+          .maybeSingle();
+
+        if (dbProfile && isMounted) {
+          setSellerUser({
+            id: dbProfile.id,
+            name: dbProfile.full_name || dbProfile.name || 'بائع في سوق بغداد',
+            avatar: dbProfile.avatar_url || dbProfile.avatar || DEFAULT_AVATAR,
+            phone: dbProfile.phone || '',
+            location: dbProfile.city || dbProfile.location || 'بغداد',
+            isVerified: dbProfile.role === 'owner' || dbProfile.role === 'vendor' || dbProfile.role === 'admin',
+            rating: 4.9,
+            ratingCount: 5,
+            cover: dbProfile.cover_url || DEFAULT_COVER,
+            created_at: dbProfile.created_at
+          });
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        if (isMounted) setLoadingProfile(false);
       }
-    } catch (e) {}
-  }, [sellerId, sellerInfo]);
+    }
+    loadSellerDetails();
+    return () => { isMounted = false; };
+  }, [sellerId, sellerInfo, storedUsers]);
 
   const formatJoinedDate = (isoString: string) => {
     try {
@@ -2969,21 +3025,32 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
     }
   };
 
-  if(!sellerUser && !sellerInfo) return (
+  if (loadingProfile) return (
     <div className="min-h-screen bg-gray-950 pt-16 flex flex-col items-center justify-center">
-      <div className="text-5xl mb-4">🔍</div>
-      <h2 className="text-white font-bold text-xl mb-2">لم يتم العثور على البائع</h2>
-      <button onClick={onBack} className="mt-4 px-6 py-2 bg-amber-500 text-black rounded-xl font-bold">عودة</button>
+      <Loader2 className="w-10 h-10 text-amber-400 animate-spin mb-3" />
+      <p className="text-gray-400 text-sm font-medium">جاري تحميل ملف البائع...</p>
     </div>
   );
+
+  const effectiveSeller = sellerUser || {
+    id: sellerId,
+    name: sellerInfo?.name || 'مستخدم في سوق بغداد',
+    avatar: sellerInfo?.avatar || DEFAULT_AVATAR,
+    cover: DEFAULT_COVER,
+    location: sellerInfo?.location || 'بغداد',
+    isVerified: sellerInfo?.isVerified || false,
+    rating: sellerInfo?.rating || 4.8,
+    ratingCount: 5,
+    created_at: new Date().toISOString()
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 pt-16 pb-10">
       {/* Cover */}
       <div className="w-full aspect-[3/1] md:aspect-[4/1] bg-gray-900 relative overflow-hidden flex items-center justify-center">
-        <img src={sellerUser?.cover || DEFAULT_COVER} alt="" className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110"/>
+        <img src={effectiveSeller?.cover || DEFAULT_COVER} alt="" className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110"/>
         <img 
-          src={sellerUser?.cover || DEFAULT_COVER} 
+          src={effectiveSeller?.cover || DEFAULT_COVER} 
           alt="Cover" 
           className="relative w-full h-full object-cover z-0"
         />
@@ -3002,18 +3069,36 @@ function SellerPublicPage({ sellerId, allAds, allProducts, onBack, onSelectAd, o
       <div className="container mx-auto px-4 max-w-3xl relative">
         {/* Avatar Area */}
         <div className="flex justify-between items-end -mt-12 sm:-mt-16 mb-4 relative z-10">
-          <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl border-4 border-gray-950 shadow-xl overflow-hidden bg-white flex-shrink-0 flex items-center justify-center">
-            <img src={sellerUser?.avatar || sellerInfo.avatar} alt={sellerUser?.name || sellerInfo.name} className="w-full h-full object-cover"/>
+          <div className="relative">
+            <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl border-4 border-gray-950 shadow-xl overflow-hidden bg-white flex-shrink-0 flex items-center justify-center">
+              <img src={effectiveSeller?.avatar || DEFAULT_AVATAR} alt={effectiveSeller?.name} className="w-full h-full object-cover"/>
+            </div>
+            {Boolean((user && (String(effectiveSeller.id) === String(user.id) || String(effectiveSeller.phone) === String(user.phone))) || onlineStatuses[effectiveSeller.id] || onlineStatuses[effectiveSeller.phone]) ? (
+              <span className="absolute bottom-2 right-2 w-5 h-5 bg-emerald-500 rounded-full border-2 border-gray-950 flex items-center justify-center shadow-lg" title="متصل الآن">
+                <span className="w-2 h-2 bg-white rounded-full animate-ping" />
+              </span>
+            ) : (
+              <span className="absolute bottom-2 right-2 w-5 h-5 bg-gray-500 rounded-full border-2 border-gray-950 shadow-lg" title="غير متصل" />
+            )}
           </div>
         </div>
 
         {/* User Details */}
         <div className="mb-5">
           <div className="flex flex-wrap items-center gap-2 mb-1">
-            <h2 className="text-xl sm:text-2xl font-bold text-white">{sellerUser?.name || sellerInfo.name}</h2>
-            {(sellerUser?.isVerified || sellerInfo.isVerified) && (
+            <h2 className="text-xl sm:text-2xl font-bold text-white">{effectiveSeller?.name}</h2>
+            {effectiveSeller?.isVerified && (
               <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full font-bold">
                 <Shield className="w-3 h-3"/>موثق
+              </span>
+            )}
+            {Boolean((user && (String(effectiveSeller.id) === String(user.id) || String(effectiveSeller.phone) === String(user.phone))) || onlineStatuses[effectiveSeller.id] || onlineStatuses[effectiveSeller.phone]) ? (
+              <span className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs rounded-full font-bold">
+                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> متصل الآن
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 px-2.5 py-0.5 bg-gray-800 text-gray-400 border border-gray-700 text-xs rounded-full font-medium">
+                غير متصل
               </span>
             )}
           </div>
@@ -4012,7 +4097,26 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
   const [gov, setGov] = useState('الكل');
   const [sort, setSort] = useState<'recent'|'views'|'price-low'|'price-high'>('recent');
   const [viewMode, setViewMode] = useState<'grid'|'list'>('grid');
-  const [contentTab, setContentTab] = useState<'ads'|'products'|'profiles'|'transport'|'all'>('all');
+  const [contentTab, setContentTab] = useState<'ads'|'products'|'profiles'|'transport'|'all'>(() => {
+    if (typeof window !== 'undefined' && (window.location.hash === '#/accounts' || window.location.hash === '#/sellers')) return 'profiles';
+    return 'all';
+  });
+
+  useEffect(() => {
+    const handleSwitch = () => setContentTab('profiles');
+    const handleHash = () => {
+      if (window.location.hash === '#/accounts' || window.location.hash === '#/sellers') {
+        setContentTab('profiles');
+      }
+    };
+    window.addEventListener('switch-to-profiles-tab', handleSwitch);
+    window.addEventListener('hashchange', handleHash);
+    handleHash();
+    return () => {
+      window.removeEventListener('switch-to-profiles-tab', handleSwitch);
+      window.removeEventListener('hashchange', handleHash);
+    };
+  }, []);
   const [showFilters, setShowFilters] = useState(false);
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
@@ -4436,7 +4540,7 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
                         <motion.div
                           key={`top-${topUser.id}`}
                           whileHover={{ y: -4, scale: 1.02 }}
-                          onClick={() => onSellerClick(topUser.id)}
+                          onClick={() => onSellerClick(topUser.id, 'accounts')}
                           className="flex-shrink-0 w-64 bg-gradient-to-b from-gray-800 to-gray-900 rounded-2xl p-4 border border-amber-500/40 shadow-lg cursor-pointer relative overflow-hidden group"
                         >
                           <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 rounded-bl-full pointer-events-none" />
@@ -4481,12 +4585,12 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredProfiles.map(profile => {
-                    const isOnline = !!onlineStatuses[profile.id];
+                    const isOnline = Boolean((user && (String(profile.id) === String(user.id) || String(profile.phone) === String(user.phone))) || onlineStatuses[profile.id] || onlineStatuses[profile.phone]);
                     return (
                       <motion.div
                         key={profile.id}
                         whileHover={{ y: -4 }}
-                        onClick={() => onSellerClick(profile.id)}
+                        onClick={() => onSellerClick(profile.id, 'accounts')}
                         className="bg-gray-800 hover:bg-gray-800/90 rounded-2xl p-4 border border-gray-700/80 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col justify-between shadow-md group"
                       >
                         <div className="flex items-start gap-3.5 mb-3">
@@ -4532,20 +4636,34 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
                           </div>
                         </div>
 
-                        <div className="pt-3 border-t border-gray-700/60 flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-3">
-                            <span className="text-gray-300 font-bold bg-gray-900/80 px-2.5 py-1 rounded-lg border border-gray-700/50">
+                        <div className="pt-3 border-t border-gray-700/60 flex items-center justify-between text-xs gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-300 font-bold bg-gray-900/80 px-2 py-1 rounded-lg border border-gray-700/50">
                               📢 {profile.adCount || 0} إعلان
                             </span>
                             {(profile.prodCount || 0) > 0 && (
-                              <span className="text-amber-400 font-bold bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
-                                🛍️ {profile.prodCount} منتج
+                              <span className="text-amber-400 font-bold bg-amber-500/10 px-2 py-1 rounded-lg border border-amber-500/20">
+                                🛍️ {profile.prodCount}
                               </span>
                             )}
                           </div>
-                          <span className="text-amber-400 font-bold text-xs flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                            الملف <ChevronLeft className="w-4 h-4" />
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {profile.phone && (
+                              <a
+                                href={`https://wa.me/964${profile.phone.replace(/^0/, '')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="px-2.5 py-1 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg text-[10px] flex items-center gap-1 transition-all shadow-md shadow-green-500/10"
+                                title="مراسلة واتساب"
+                              >
+                                <MessageSquare className="w-3 h-3" /> مراسلة
+                              </a>
+                            )}
+                            <span className="text-amber-400 font-bold text-xs flex items-center gap-0.5 group-hover:translate-x-1 transition-transform">
+                              الملف <ChevronLeft className="w-3.5 h-3.5" />
+                            </span>
+                          </div>
                         </div>
                       </motion.div>
                     );
@@ -6060,7 +6178,15 @@ export default function App() {
   };
 
   
-  const handleSellerClick = (sellerId:string)=>{if(sellerId){setSelectedSellerId(sellerId);setView('seller');}};
+  const [previousSellerSource, setPreviousSellerSource] = useState<'home'|'accounts'>('home');
+  const handleSellerClick = (sellerId:string, source: 'home'|'accounts' = 'home') => {
+    if(sellerId) {
+      setPreviousSellerSource(source);
+      setSelectedSellerId(sellerId);
+      setView('seller');
+      if (typeof window !== 'undefined') window.location.hash = `#/seller/${sellerId}`;
+    }
+  };
 
   const myAds = allAds.filter(a=>a.postedBy===user?.id);
   const myProducts = allProducts.filter(p=>p.postedBy===user?.id);
@@ -6214,7 +6340,15 @@ export default function App() {
           {view==='profile'&&user&&<motion.div key="profile" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold} favorites={favorites} allAds={allAds} allProducts={allProducts} onAdSelect={setSelectedAd} onProductSelect={setSelectedProduct} onFav={handleToggleFav}/></motion.div>}
           {view==='seller'&&selectedSellerId&&<motion.div key="seller" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <SellerPublicPage sellerId={selectedSellerId} allAds={allAds} allProducts={allProducts} onBack={()=>setView('home')} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile} onActionMenu={setActionMenuTarget}/></motion.div>}
+            <SellerPublicPage sellerId={selectedSellerId} allAds={allAds} allProducts={allProducts} storedUsers={storedUsers} onBack={() => {
+              setView('home');
+              if (previousSellerSource === 'accounts') {
+                if (typeof window !== 'undefined') window.location.hash = '#/accounts';
+                setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-profiles-tab')), 50);
+              } else {
+                if (typeof window !== 'undefined') window.location.hash = '#/';
+              }
+            }} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile} onActionMenu={setActionMenuTarget}/></motion.div>}
           {view==='transport'&&<motion.div key="transport" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd} onActionMenu={setActionMenuTarget}/></motion.div>}
           {view==='admin'&&isAdmin&&!isOwner&&<motion.div key="admin" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
