@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Copy, Check, Share2, MessageCircle, Send, Facebook, 
   Smartphone, Download, Sparkles, Image as ImageIcon, 
-  Layers, Link2, PlusCircle, PlayCircle, SendHorizontal, Lightbulb
+  Layers, Link2, PlusCircle, PlayCircle, SendHorizontal, Lightbulb, HelpCircle, Info
 } from 'lucide-react';
 
 export interface ShareModalProps {
@@ -38,6 +38,7 @@ export function ShareModal({
   const [copiedLink, setCopiedLink] = useState(false);
   const [isGeneratingCard, setIsGeneratingCard] = useState(false);
   const [cardDataUrl, setCardDataUrl] = useState<string | null>(null);
+  const [showGuide, setShowGuide] = useState(false);
 
   // Toast feedback
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -46,9 +47,10 @@ export function ShareModal({
   const idBadge = short_id ? `#${short_id}` : '';
   const fullUrl = url.startsWith('http') ? url : `https://www.souqbaghdad.store${url.startsWith('/') ? url : '/' + url}`;
 
-  // Formatted caption
+  // Formatted captions
   const descSnippet = description ? `\n📝 *الوصف:* ${description.slice(0, 100)}${description.length > 100 ? '...' : ''}` : '';
   const shareText = `📢 *عرض خاص من منصة سوق بغداد:* 🇮🇶\n\n🛍️ *${title}* ${idBadge}\n📍 *الموقع:* ${locText}${price ? `\n🏷️ *السعر:* ${price} د.ع` : ''}${descSnippet}\n\nتواصل مباشر وسريع بين البائع والمشتري! 🚀🤝\n\n🔗 *رابط التفاصيل:* ${fullUrl}`;
+  const telegramText = `🛍️ *${title}* ${idBadge}\n📍 الموقع: ${locText}${price ? `\n🏷️ السعر: ${price} د.ع` : ''}\n\nتصفح الإعلان والتواصل المباشر عبر المنصة 🚀\n👇🔗\n${fullUrl}`;
 
   useEffect(() => {
     if (isOpen) {
@@ -266,6 +268,17 @@ export function ShareModal({
     }
   };
 
+  // Helper to convert base64 dataUrl to File object
+  const dataUrlToFile = async (dataUrl: string, filename: string): Promise<File | null> => {
+    try {
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      return new File([blob], filename, { type: 'image/jpeg' });
+    } catch {
+      return null;
+    }
+  };
+
   const downloadCard = async () => {
     if (!cardDataUrl) return;
 
@@ -281,7 +294,7 @@ export function ShareModal({
           triggerToast('📸 اختر "حفظ الصورة (Save Image)" لحفظها فوراً بالاستوديو!');
           return;
         } catch (e) {
-          // Fallback to standard download if user closes native menu
+          // Fallback
         }
       }
     }
@@ -304,6 +317,20 @@ export function ShareModal({
     }
 
     if (platform === 'native') {
+      triggerToast('📱 جاري فتح نافذة تطبيقات الهاتف الرسمية...');
+      if (cardDataUrl && typeof navigator !== 'undefined' && navigator.share) {
+        try {
+          const file = await dataUrlToFile(cardDataUrl, `souq-baghdad-share.jpg`);
+          if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: title,
+              text: shareText,
+              files: [file],
+            });
+            return;
+          }
+        } catch (e) {}
+      }
       if (navigator.share) navigator.share({ title, text: shareText, url: fullUrl }).catch(()=>{});
       else handleCopyCaption();
       return;
@@ -346,15 +373,22 @@ export function ShareModal({
       triggerToast('💬 تم نسخ النص والرابط! جاري فتح واتساب...');
       window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
     } else if (platform === 'telegram') {
-      triggerToast('✈️ تم نسخ النص والرابط! جاري فتح تليجرام...');
-      window.open(`https://t.me/share/url?url=${encodeURIComponent(fullUrl)}&text=${encodeURIComponent(shareText)}`, '_blank');
+      triggerToast('✈️ تم نسخ الإعلان الكامل! جاري فتح تليجرام...');
+      window.open(`https://t.me/share/url?url=${encodeURIComponent(fullUrl)}&text=${encodeURIComponent(telegramText)}`, '_blank');
     }
   };
 
   if (!isOpen) return null;
 
-  // TikTok Style App Slider Items (Custom Tailored per user request)
+  // TikTok Style App Slider Items
   const appSliderItems: { id: PlatformType; name: string; tag: string; icon: any; bg: string }[] = [
+    { 
+      id: 'native', 
+      name: 'تطبيقات الهاتف', 
+      tag: 'القائمة الأصلية 📱', 
+      icon: <Smartphone className="w-7 h-7 text-black" />, 
+      bg: 'bg-amber-400 shadow-amber-500/30 ring-2 ring-amber-300' 
+    },
     { 
       id: 'copy_link', 
       name: 'نسخ الرابط', 
@@ -400,7 +434,7 @@ export function ShareModal({
     { 
       id: 'telegram', 
       name: 'تليجرام', 
-      tag: 'قنوات وخاص', 
+      tag: 'إعلان كامل ✈️', 
       icon: <Send className="w-7 h-7 text-white" />, 
       bg: 'bg-sky-500 shadow-sky-500/30' 
     },
@@ -456,13 +490,56 @@ export function ShareModal({
                   </div>
                 </div>
               </div>
-              <button
-                onClick={onClose}
-                className="p-2 bg-gray-800 hover:bg-gray-700 rounded-xl text-gray-400 transition-colors shrink-0 mr-2"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              
+              <div className="flex items-center gap-1.5 mr-2 shrink-0">
+                <button
+                  onClick={() => setShowGuide(!showGuide)}
+                  className={`p-2 rounded-xl border transition-colors flex items-center gap-1 text-xs font-bold ${
+                    showGuide ? 'bg-amber-500 text-black border-amber-400' : 'bg-gray-800 hover:bg-gray-700 text-amber-400 border-amber-500/30'
+                  }`}
+                >
+                  <HelpCircle className="w-4 h-4" />
+                  <span>دليل الشرح</span>
+                </button>
+                <button
+                  onClick={onClose}
+                  className="p-2 bg-gray-800 hover:bg-gray-700 rounded-xl text-gray-400 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
+
+            {/* INTERACTIVE GUIDE BOX (HOW TO USE) */}
+            <AnimatePresence>
+              {showGuide && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="p-3.5 bg-gradient-to-r from-amber-500/15 to-amber-600/10 border border-amber-500/30 rounded-2xl text-xs text-amber-200 space-y-2 dir-rtl overflow-hidden shrink-0"
+                >
+                  <div className="flex items-center gap-2 font-bold text-amber-300 text-sm border-b border-amber-500/20 pb-2">
+                    <Info className="w-4 h-4 text-amber-400" />
+                    <span>📖 دليل استخدام ميزات المشاركة:</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 text-[11px] text-gray-300 leading-relaxed">
+                    <div className="flex items-start gap-2">
+                      <span className="bg-amber-500 text-black font-bold px-1.5 py-0.5 rounded text-[10px] shrink-0 mt-0.5">1</span>
+                      <span><strong>تطبيقات الهاتف 📱:</strong> يفتح قائمة الموبايل الرسمية لمشاركة بطاقة التصميم مباشرة مع أي تطبيق أو جهة اتصال.</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="bg-amber-500 text-black font-bold px-1.5 py-0.5 rounded text-[10px] shrink-0 mt-0.5">2</span>
+                      <span><strong>حفظ التصميم بالاستوديو 📸:</strong> يحفظ بطاقة إعلانك الفاخرة مباشرة في ألبوم صور جهازك.</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="bg-amber-500 text-black font-bold px-1.5 py-0.5 rounded text-[10px] shrink-0 mt-0.5">3</span>
+                      <span><strong>نسخ الرابط 🔗:</strong> ينسخ رابط الإعلان المباشر لشاركه في أي مكان.</span>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* TIKTOK APPS SLIDER ROW */}
             <div>
