@@ -3372,33 +3372,16 @@ const fetchRecovery = async () => {
     if(!broadcastTitle || !broadcastMsg) return;
     setIsBroadcasting(true);
     try {
-      const userIds = storedUsers.map(u => u.id).filter(id => id);
-      if (userIds.length > 0) {
-        const notifications = userIds.map(uid => ({
-          seller_id: uid,
-          title: broadcastTitle,
-          description: broadcastMsg,
-          price: '0',
-          category: 'notification',
-          location: '',
-          city: '',
-          images: [],
-          phone: '',
-          type: 'notification',
-          status: 'active',
-          is_demo: false,
-          seller_name: 'إدارة الموقع',
-          seller_avatar: '',
-          metadata: { type: 'message', message: broadcastMsg, title: broadcastTitle }
-        }));
-        
-        const chunkSize = 100;
-        for (let i = 0; i < notifications.length; i += chunkSize) {
-          const chunk = notifications.slice(i, i + chunkSize);
-          await supabase.from('ads').insert(chunk);
-        }
-      }
-      logSystemAction('إرسال إشعار عام', `عنوان الإشعار: ${broadcastTitle}`, 'جميع المستخدمين');
+      const globalRows = [
+        { seller_id: 'ALL', title: broadcastTitle, description: JSON.stringify({ message: broadcastMsg, type: 'message', senderName: 'إدارة الموقع' }), price: '0', category: 'notification', location: targetGovNotif || 'الكل', city: targetGovNotif || 'الكل', images: [], phone: '', type: 'notification', status: 'active', is_demo: false, seller_name: 'إدارة الموقع', seller_avatar: '' },
+        { seller_id: 'GUEST', title: broadcastTitle, description: JSON.stringify({ message: broadcastMsg, type: 'message', senderName: 'إدارة الموقع' }), price: '0', category: 'notification', location: targetGovNotif || 'الكل', city: targetGovNotif || 'الكل', images: [], phone: '', type: 'notification', status: 'active', is_demo: false, seller_name: 'إدارة الموقع', seller_avatar: '' }
+      ];
+
+      try {
+        await supabase.from('ads').insert(globalRows);
+      } catch (err) {}
+
+      logSystemAction('إرسال إشعار عام', `عنوان الإشعار: ${broadcastTitle}`, 'جميع المستخدمين والضيوف');
       setBroadcastSent(true);
       setTimeout(() => { setBroadcastTitle(''); setBroadcastMsg(''); setBroadcastSent(false); }, 3000);
     } catch (err) {
@@ -5967,66 +5950,79 @@ export default function App() {
 
   const [notifications, setNotifications] = useState<any[]>([]);
 
-  const fetchNotifications = useCallback(async () => {
-    const activeSellerId = user?.id || 'GUEST';
-    const { data, error } = await supabase
-      .from('ads')
-      .select('*')
-      .eq('category', 'notification')
-      .or(`seller_id.eq.${activeSellerId},seller_id.eq.ALL,seller_id.eq.GUEST`)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false });
-
-    if (error) { console.error('Error fetching notifications:', error); return; }
-    if (data) {
-      const mapped = data.map((row: any) => {
-        let extra = {
-          message: '',
-          type: 'view',
-          senderId: '',
-          senderName: 'مستخدم',
-          senderPhone: '',
-          itemTitle: '',
-          itemType: 'ad',
-          itemId: '',
-          duration: 0,
-          targetType: 'owner'
-        };
-        try {
-          if (row.description) {
-            extra = { ...extra, ...JSON.parse(row.description) };
-          }
-        } catch (e) {
-          extra.message = row.description || '';
-        }
-        return {
-          id: row.id,
-          type: extra.type,
-          title: row.title,
-          message: extra.message,
-          time: row.created_at,
-          senderId: extra.senderId,
-          senderName: extra.senderName,
-          senderPhone: extra.senderPhone,
-          itemTitle: extra.itemTitle,
-          itemType: extra.itemType,
-          itemId: extra.itemId,
-          duration: extra.duration,
-          targetType: extra.targetType
-        };
-      });
-      setNotifications(mapped);
+  const getLocalNotifs = useCallback(() => {
+    try {
+      const key = user ? `souq_notifs_${user.id}` : 'souq_notifs_guest';
+      return JSON.parse(localStorage.getItem(key) || '[]');
+    } catch {
+      return [];
     }
   }, [user]);
 
+  const saveLocalNotifs = useCallback((newNotifs: any[]) => {
+    try {
+      const key = user ? `souq_notifs_${user.id}` : 'souq_notifs_guest';
+      localStorage.setItem(key, JSON.stringify(newNotifs.slice(0, 50)));
+    } catch {}
+  }, [user]);
+
+  const fetchNotifications = useCallback(async () => {
+    const activeSellerId = user?.id || 'GUEST';
+    const localNotifs = getLocalNotifs();
+
+    try {
+      const { data, error } = await supabase
+        .from('ads')
+        .select('*')
+        .eq('category', 'notification')
+        .or(`seller_id.eq.${activeSellerId},seller_id.eq.ALL,seller_id.eq.GUEST`)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+
+      if (data && data.length > 0) {
+        const mapped = data.map((row: any) => {
+          let extra = {
+            message: '', type: 'view', senderId: '', senderName: 'مستخدم',
+            senderPhone: '', itemTitle: '', itemType: 'ad', itemId: '', duration: 0, targetType: 'owner'
+          };
+          try {
+            if (row.description) extra = { ...extra, ...JSON.parse(row.description) };
+          } catch (e) {
+            extra.message = row.description || '';
+          }
+          return {
+            id: row.id,
+            type: extra.type || 'message',
+            title: row.title,
+            message: extra.message || row.title,
+            time: row.created_at,
+            senderId: extra.senderId,
+            senderName: extra.senderName,
+            senderPhone: extra.senderPhone || row.phone,
+            itemTitle: extra.itemTitle,
+            itemType: extra.itemType,
+            itemId: extra.itemId,
+            duration: extra.duration,
+            targetType: extra.targetType || 'owner'
+          };
+        });
+
+        const combinedMap = new Map();
+        [...mapped, ...localNotifs].forEach(n => combinedMap.set(String(n.id), n));
+        const combined = Array.from(combinedMap.values()).sort((a,b) => new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime());
+        setNotifications(combined);
+        saveLocalNotifs(combined);
+        return;
+      }
+    } catch (err) {}
+
+    setNotifications(localNotifs);
+  }, [user, getLocalNotifs, saveLocalNotifs]);
+
   useEffect(() => {
     let iv: any;
-    if (user) {
-      fetchNotifications();
-      iv = setInterval(fetchNotifications, 10000);
-    } else {
-      setNotifications([]);
-    }
+    fetchNotifications();
+    iv = setInterval(fetchNotifications, 10000);
     return () => {
       if (iv) clearInterval(iv);
     };
@@ -6061,106 +6057,59 @@ export default function App() {
   };
 
   const markNotifAsRead = async (notifId: number | string) => {
+    const updated = notifications.filter(n => String(n.id) !== String(notifId));
+    setNotifications(updated);
+    saveLocalNotifs(updated);
     try {
-      const { error } = await supabase
-        .from('ads')
-        .update({ status: 'archived' })
-        .eq('id', notifId);
-      if (!error) {
-        setNotifications(prev => prev.filter(n => n.id !== notifId));
-      }
-    } catch (e) {
-      console.error('Failed to mark notification as read', e);
-    }
+      await supabase.from('ads').update({ status: 'archived' }).eq('id', notifId);
+    } catch (e) {}
   };
 
   const handleArchiveAllNotifications = async () => {
+    setNotifications([]);
+    saveLocalNotifs([]);
     if (!user) return;
     try {
-      const { error } = await supabase
-        .from('ads')
-        .update({ status: 'archived' })
-        .eq('category', 'notification')
-        .eq('seller_id', user.id)
-        .eq('status', 'active');
-      if (!error) {
-        setNotifications([]);
-      }
-    } catch (e) {
-      console.error('Failed to archive all notifications', e);
-    }
+      await supabase.from('ads').update({ status: 'archived' }).eq('category', 'notification').eq('seller_id', user.id);
+    } catch (e) {}
   };
 
   const handleViewDurationLogged = async (itemId: number | string, itemTitle: string, ownerId: string, itemType: string, seconds: number) => {
-    if (!user) return;
-    if (user.id === ownerId) return;
+    if (!user || user.id === ownerId) return;
 
     const viewerName = user.name || 'مستخدم';
     const viewerId = user.id;
     const viewerPhone = user.phone || '';
 
-    // 1. Owner notification row
+    const newViewerObj = {
+      id: `viewer_${Date.now()}`,
+      title: '🕒 سجل المشاهدة',
+      message: `شاهدت إعلان "${itemTitle}" لـ ${seconds} ثوانٍ.`,
+      type: 'history',
+      time: new Date().toISOString(),
+      senderId: ownerId,
+      itemTitle, itemType, itemId, duration: seconds, targetType: 'viewer'
+    };
+
+    const updated = [newViewerObj, ...notifications];
+    setNotifications(updated);
+    saveLocalNotifs(updated);
+
     const ownerNotifRow = {
       seller_id: ownerId,
       title: seconds >= 15 ? '🔥 اهتمام كبير بإعلانك' : '👀 مشاهدة جديدة لإعلانك',
       description: JSON.stringify({
         message: `قام الحساب (${viewerName}) بمشاهدة إعلانك "${itemTitle}" لمدة ${seconds} ثوانٍ.`,
         type: seconds >= 15 ? 'interest' : 'view',
-        senderId: viewerId,
-        senderName: viewerName,
-        senderPhone: viewerPhone,
-        itemTitle: itemTitle,
-        itemType: itemType,
-        itemId: itemId,
-        duration: seconds,
-        targetType: 'owner'
+        senderId: viewerId, senderName: viewerName, senderPhone: viewerPhone,
+        itemTitle, itemType, itemId, duration: seconds, targetType: 'owner'
       }),
-      price: '0',
-      category: 'notification',
-      location: '',
-      city: '',
-      images: [],
-      phone: viewerPhone,
-      type: 'notification',
-      status: 'active',
-      is_demo: false,
-      seller_name: viewerName,
-      seller_avatar: user.avatar,
+      price: '0', category: 'notification', location: '', city: '', images: [], phone: viewerPhone, type: 'notification', status: 'active', is_demo: false, seller_name: viewerName, seller_avatar: user.avatar || ''
     };
 
-    // 2. Viewer history row
-    const viewerNotifRow = {
-      seller_id: viewerId,
-      title: '🕒 سجل المشاهدة',
-      description: JSON.stringify({
-        message: `شاهدت إعلان "${itemTitle}" (${itemType === 'ad' ? 'إعلان' : itemType === 'product' ? 'منتج' : 'خط'}) لـ ${seconds} ثوانٍ.`,
-        type: 'history',
-        senderId: ownerId,
-        senderName: '',
-        senderPhone: '',
-        itemTitle: itemTitle,
-        itemType: itemType,
-        itemId: itemId,
-        duration: seconds,
-        targetType: 'viewer'
-      }),
-      price: '0',
-      category: 'notification',
-      location: '',
-      city: '',
-      images: [],
-      phone: '',
-      type: 'notification',
-      status: 'active',
-      is_demo: false,
-      seller_name: '',
-      seller_avatar: '',
-    };
-
-    const { error } = await supabase.from('ads').insert([ownerNotifRow, viewerNotifRow]);
-    if (!error) {
-      fetchNotifications();
-    }
+    try {
+      await supabase.from('ads').insert([ownerNotifRow]);
+    } catch (e) {}
   };
 
 
