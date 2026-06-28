@@ -175,7 +175,7 @@ www.souqbaghdad.store
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
 }
 
-export function handleUniversalShare(details: { title?: string; university?: string; type?: string; location?: string; governorate?: string; regions?: string; id?: any; short_id?: string; price?: string; image?: string; images?: string[]; url?: string }) {
+export function handleUniversalShare(details: { title?: string; university?: string; type?: string; location?: string; governorate?: string; regions?: string; id?: any; short_id?: string; price?: string; image?: string; images?: string[]; url?: string; description?: string }) {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('open-share-modal', { detail: details }));
   }
@@ -1502,7 +1502,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
   if(!ad) return null;
   const totalImgs = ad.images?.length || 0;
   const liveSeller = storedUsers.find(u => String(u.id) === String(ad.postedBy)) || ad.seller;
-  const isOnline = !!onlineStatuses[ad.postedBy];
+  const isOnline = Boolean(ad.postedBy && onlineStatuses[ad.postedBy]);
   const catObj = CATEGORIES.find(c => c.id === ad.category);
   const catName = catObj ? `${catObj.emoji} ${catObj.name}` : ad.category || 'عام';
 
@@ -4086,7 +4086,7 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
 function MarketView({ user, allAds, allProducts, favorites, storedUsers: propStoredUsers, onSelectAd, onSelectProduct, onToggleFav, onRequireAuth, onSellerClick, onTransportClick, onSelectTransportAd, transportLines, onActionMenu }:{
   user:User|null; allAds:Ad[]; allProducts:Product[]; favorites:number[]; storedUsers?: any[];
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void;
-  onToggleFav:(id:number)=>void; onRequireAuth:()=>void; onSellerClick:(id:string)=>void;
+  onToggleFav:(id:number)=>void; onRequireAuth:()=>void; onSellerClick:(id:string, source?: 'home'|'accounts')=>void;
   onTransportClick?:()=>void;
   onSelectTransportAd?:(ad:any)=>void;
   transportLines: TransportAd[];
@@ -5324,8 +5324,8 @@ export default function App() {
   const [toast, setToast] = useState<{msg:string;type:string;visible:boolean}>({msg:'',type:'info',visible:false});
   const [showCreateTransport, setShowCreateTransport] = useState(false);
   const [activeDocTab, setActiveDocTab] = useState<string | null>(null);
-  const [activeLightbox, setActiveLightbox] = useState<{ src: string; title: string } | null>(null);
-  const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; title: string; url: string; image?: string; price?: string; governorate?: string; location?: string; short_id?: string }>({ isOpen: false, title: '', url: '' });
+  const [activeLightbox, setActiveLightbox] = useState<{ src: string; title: string; images?: string[]; initialIdx?: number } | null>(null);
+  const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; title: string; url: string; image?: string; price?: string; governorate?: string; location?: string; short_id?: string; description?: string }>({ isOpen: false, title: '', url: '' });
   const getDefaultAds = (): Ad[] => [
     { id: 1, title: 'هاتف ايفون 14 برو', category: 'هواتف', governorate: 'بغداد', price: '850000', description: 'هاتف ايفون 14 برو جديد، لم يستخدم', images: ['https://images.unsplash.com/photo-1591290619762-bcc52fb0a910?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-1', createdAtISO: new Date(Date.now() - 86400000).toISOString(), views: 250, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
     { id: 2, title: 'عقار في الكرادة - منزل 3 غرف', category: 'عقارات', governorate: 'بغداد', price: '250000000', description: 'منزل فاخر في موقع ممتاز بالكرادة', images: ['https://images.unsplash.com/photo-1575373342425-76569f2865d2?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-2', createdAtISO: new Date(Date.now() - 172800000).toISOString(), views: 420, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
