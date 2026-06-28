@@ -259,38 +259,78 @@ export function ShareModal({
     document.body.removeChild(a);
   };
 
+  // Helper to convert base64 dataUrl to File object
+  const dataUrlToFile = async (dataUrl: string, filename: string): Promise<File | null> => {
+    try {
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      return new File([blob], filename, { type: 'image/jpeg' });
+    } catch {
+      return null;
+    }
+  };
+
   // Execute Sub-screen Target Action (Story / Reels / Messages)
-  const executeTargetAction = (target: 'story' | 'reels' | 'messages') => {
-    // 1. Copy caption & link
-    navigator.clipboard.writeText(shareText);
-    
-    // 2. Download Card Image automatically for story or reels
-    if (target === 'story' || target === 'reels') {
-      downloadCard();
+  const executeTargetAction = async (target: 'story' | 'reels' | 'messages') => {
+    // 1. Copy caption & link immediately
+    try {
+      await navigator.clipboard.writeText(shareText);
+    } catch {
+      // Fallback
     }
 
     const platformName = activePlatform === 'instagram' ? 'انستغرام' 
       : activePlatform === 'facebook' ? 'فيسبوك' 
       : activePlatform === 'whatsapp' ? 'واتساب' : 'تليجرام';
 
-    triggerToast(`🚀 تم نسخ الكابشن وتنزيل التصميم! جاري فتح ${platformName}...`);
+    // 2. Download card image for reference
+    if (target === 'story' || target === 'reels') {
+      downloadCard();
+    }
 
-    setTimeout(() => {
-      switch (activePlatform) {
-        case 'instagram':
-          window.open('https://www.instagram.com/', '_blank');
-          break;
-        case 'facebook':
-          window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(fullUrl)}`, '_blank');
-          break;
-        case 'whatsapp':
-          window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
-          break;
-        case 'telegram':
-          window.open(`https://t.me/share/url?url=${encodeURIComponent(fullUrl)}&text=${encodeURIComponent(shareText)}`, '_blank');
-          break;
+    // 3. Try Native Web Share with file if supported on Mobile
+    if (cardDataUrl && typeof navigator !== 'undefined' && navigator.share) {
+      const file = await dataUrlToFile(cardDataUrl, `souq-baghdad-${target}.jpg`);
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: title,
+            text: shareText,
+            files: [file],
+          });
+          triggerToast(`🚀 تم المشاركة بنجاح!`);
+          return;
+        } catch (err) {
+          console.log('Native file share skipped:', err);
+        }
       }
-    }, 1200);
+    }
+
+    // 4. Direct App Redirect (Immediate Synchronous Trigger)
+    triggerToast(`🚀 تم نسخ النص والتصميم! جاري تحويلك إلى ${platformName}...`);
+
+    if (activePlatform === 'instagram') {
+      // Try Instagram Story scheme on mobile or web fallback
+      if (target === 'story') {
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) {
+          window.location.href = 'instagram-stories://share';
+          setTimeout(() => {
+            window.open('https://www.instagram.com/', '_blank');
+          }, 800);
+        } else {
+          window.open('https://www.instagram.com/', '_blank');
+        }
+      } else {
+        window.open('https://www.instagram.com/', '_blank');
+      }
+    } else if (activePlatform === 'facebook') {
+      window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(fullUrl)}`, '_blank');
+    } else if (activePlatform === 'whatsapp') {
+      window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
+    } else if (activePlatform === 'telegram') {
+      window.open(`https://t.me/share/url?url=${encodeURIComponent(fullUrl)}&text=${encodeURIComponent(shareText)}`, '_blank');
+    }
   };
 
   if (!isOpen) return null;
