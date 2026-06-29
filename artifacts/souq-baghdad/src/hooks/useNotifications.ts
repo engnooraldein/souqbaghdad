@@ -94,33 +94,49 @@ function buildOrClause(user: UseNotificationsOptions['user']): string {
   if (user.name)  parts.push(`seller_id.eq.${user.name}`);
   return parts.join(',');
 }
-
 // ══════════════════════════════════════════════════════════════════════════════
 export function useNotifications({ user, storedUsers = [] }: UseNotificationsOptions) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const prevLen = useRef(0);
 
-  // ─── جلب الإشعارات من Supabase ────────────────────────────────────────────
+  // ─── جلب الإشعارات من Supabase ────────────────────────────────────────
   const fetchNotifications = useCallback(async () => {
-    const orClause = buildOrClause(user);
     try {
+      const userId   = user?.id || 'GUEST';
+      const phone    = user?.phone || '';
+      const cleanPh  = phone.replace(/[^0-9]/g, '').replace(/^0/, '');
+      const email    = user?.email || '';
+      const name     = user?.name || '';
+
+      // بناء شرط OR شامل لجميع معرّفات المستخدم + 'ALL'
+      const ids: string[] = [userId, 'ALL', 'GUEST'];
+      if (phone)   ids.push(phone);
+      if (cleanPh) { ids.push(cleanPh); ids.push('0' + cleanPh); }
+      if (email)   ids.push(email);
+      if (name)    ids.push(name);
+
+      const orFilter = ids
+        .filter((v, i, a) => v && a.indexOf(v) === i)
+        .map(id => `seller_id.eq.${id}`)
+        .join(',');
+
       const { data, error } = await supabase
         .from('ads')
-        .select('*')
+        .select('id, seller_id, title, description, phone, created_at, status')
         .eq('category', 'notification')
-        .or(orClause)
-        .in('status', ['active', 'archived'])
+        .not('status', 'eq', 'deleted')
+        .or(orFilter)
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(150);
 
-      if (error) throw error;
-      if (data && data.length > 0) {
-        setNotifications(data.map(mapAdsRow));
-      } else {
-        setNotifications([]);
+      if (error) {
+        console.warn('[useNotifications] Supabase error:', error.message);
+        return;
       }
+
+      setNotifications((data ?? []).map(mapAdsRow));
     } catch (err) {
-      console.warn('[useNotifications] fetch error:', err);
+      console.warn('[useNotifications] unexpected error:', err);
     }
   }, [user]);
 
@@ -183,13 +199,18 @@ export function useNotifications({ user, storedUsers = [] }: UseNotificationsOpt
     setNotifications(prev => prev.map(n => ({ ...n, isArchived: true })));
     if (!user) return;
     try {
-      const orClause = buildOrClause(user);
-      // أرشفة كل إشعارات المستخدم
-      await supabase
-        .from('ads')
-        .update({ status: 'archived' })
-        .eq('category', 'notification')
-        .or(orClause);
+      // جمع كل معرّفات المستخدم
+      const ids = [user.id];
+      if (user.phone) ids.push(user.phone);
+      if (user.email) ids.push(user.email);
+      // تحديث الإشعارات لكل معرّف على حدة
+      await Promise.all(ids.map(id =>
+        supabase
+          .from('ads')
+          .update({ status: 'archived' })
+          .eq('category', 'notification')
+          .eq('seller_id', id)
+      ));
     } catch (e) {
       console.warn('[useNotifications] archiveAll error:', e);
     }
