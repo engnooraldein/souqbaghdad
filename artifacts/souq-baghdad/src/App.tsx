@@ -1188,8 +1188,6 @@ function InfoDocsModal({ activeTab, onClose }: { activeTab: string; onClose: () 
 function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { src: string; title: string; images?: string[]; initialIdx?: number; onClose: () => void }) {
   const [currentIdx, setCurrentIdx] = useState(initialIdx);
   const [downloading, setDownloading] = useState(false);
-  const [longPressActive, setLongPressActive] = useState(false);
-  const timerRef = useRef<any>(null);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
 
@@ -1202,9 +1200,6 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
       setTouchStartX(e.targetTouches[0].clientX);
       setTouchEndX(null);
     }
-    timerRef.current = setTimeout(() => {
-      setLongPressActive(true);
-    }, 600);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -1212,7 +1207,6 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
   };
 
   const handleTouchEnd = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
     if (touchStartX !== null && touchEndX !== null && totalCount > 1) {
       const distance = touchStartX - touchEndX;
       if (distance > 35) {
@@ -1223,7 +1217,7 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
     }
   };
 
-  const handleDownload = async () => {
+  const handleDownload = async (withLogo: boolean = true) => {
     try {
       setDownloading(true);
       const img = new Image();
@@ -1240,23 +1234,24 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
 
       const w = img.naturalWidth;
       const h = img.naturalHeight;
-      const bannerH = Math.max(70, Math.round(h * 0.09));
+      const bannerH = withLogo ? Math.max(70, Math.round(h * 0.09)) : 0;
 
       canvas.width = w;
       canvas.height = h + bannerH;
 
       ctx.drawImage(img, 0, 0);
 
-      ctx.fillStyle = '#0b1329';
-      ctx.fillRect(0, h, w, bannerH);
+      if (withLogo) {
+        ctx.fillStyle = '#0b1329';
+        ctx.fillRect(0, h, w, bannerH);
 
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillRect(0, h, w, Math.max(3, Math.round(bannerH * 0.04)));
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillRect(0, h, w, Math.max(3, Math.round(bannerH * 0.04)));
 
-      const logoSize = Math.round(bannerH * 0.7);
-      const margin = Math.round(bannerH * 0.15);
-      const logoX = w - logoSize - margin;
-      const logoY = h + margin;
+        const logoSize = Math.round(bannerH * 0.7);
+        const margin = Math.round(bannerH * 0.15);
+        const logoX = w - logoSize - margin;
+        const logoY = h + margin;
 
       ctx.fillStyle = '#1e3a8a';
       ctx.beginPath();
@@ -1349,29 +1344,21 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
             </button>
           </>
         )}
-
-        {longPressActive && (
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            className="absolute bg-gray-900/90 border border-gray-700 rounded-2xl p-4 text-center space-y-3 shadow-2xl max-w-xs z-[260]">
-            <p className="text-white text-xs font-bold">خيارات الصورة</p>
-            <button onClick={handleDownload} disabled={downloading}
-              className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-700 text-black font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors">
-              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4 rotate-45" />}
-              تحميل مع الشعار 📥
-            </button>
-            <button onClick={() => setLongPressActive(false)} className="w-full py-2 bg-gray-800 text-gray-400 rounded-xl text-xs">إلغاء</button>
-          </motion.div>
-        )}
       </div>
 
       <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-3 pb-6 z-10">
-        <p className="text-gray-400 text-xs text-center font-medium">👈 اسحب باللمس للتقليب أو اضغط مطولاً للتحميل بشعار المنصة 👉</p>
-        <div className="flex gap-3 w-full max-w-xs justify-center">
+        <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md justify-center px-4">
           <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-            onClick={handleDownload} disabled={downloading}
-            className="flex-1 py-3 px-6 bg-gradient-to-r from-amber-500 to-yellow-500 disabled:from-gray-700 disabled:to-gray-700 text-black font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20">
-            {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4 rotate-45" />}
-            تحميل الصورة بالشعار 📥
+            onClick={() => handleDownload(false)} disabled={downloading}
+            className="flex-1 py-3 px-4 bg-gray-800 disabled:opacity-50 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 border border-gray-700">
+            {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : '📥'}
+            تحميل بدون شعار
+          </motion.button>
+          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+            onClick={() => handleDownload(true)} disabled={downloading}
+            className="flex-1 py-3 px-4 bg-gradient-to-r from-amber-500 to-yellow-500 disabled:opacity-50 text-black font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20">
+            {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : '📥'}
+            تحميل مع شعار المنصة
           </motion.button>
         </div>
       </div>
