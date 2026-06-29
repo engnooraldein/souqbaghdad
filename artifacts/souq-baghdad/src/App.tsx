@@ -4072,6 +4072,7 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
   onArchiveAll:() => void;
 }) {
   const [tab, setTab] = useState<'incoming' | 'history' | 'archived'>('incoming');
+  const [archiveSubTab, setArchiveSubTab] = useState<'all' | 'incoming' | 'history'>('all');
   const [selectedNotif, setSelectedNotif] = useState<any>(null);
   const [archivedIds, setArchivedIds] = useState<Set<string | number>>(new Set());
   const [retentionPeriod, setRetentionPeriod] = useState<'24h' | '1m' | '3m' | '6m' | 'forever'>(
@@ -4120,7 +4121,7 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
   const cutoffMs = getCutoffMs(retentionPeriod);
 
   const isExpiredOrArchived = (n: any) => {
-    if (archivedIds.has(n.id)) return true;
+    if (n.isArchived || archivedIds.has(n.id)) return true;
     if (cutoffMs === Infinity) return false;
     const itemTime = new Date(n.time || Date.now()).getTime();
     return (now - itemTime) > cutoffMs;
@@ -4131,9 +4132,13 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
 
   const incomingNotifs = allIncoming.filter(n => !isExpiredOrArchived(n));
   const historyNotifs = allHistory.filter(n => !isExpiredOrArchived(n));
+
+  const archivedIncoming = allIncoming.filter(n => isExpiredOrArchived(n));
+  const archivedHistory = allHistory.filter(n => isExpiredOrArchived(n));
   const archivedNotifs = [...allIncoming, ...allHistory].filter(n => isExpiredOrArchived(n));
 
-  const activeNotifs = tab === 'incoming' ? incomingNotifs : tab === 'history' ? historyNotifs : archivedNotifs;
+  const filteredArchived = archiveSubTab === 'incoming' ? archivedIncoming : archiveSubTab === 'history' ? archivedHistory : archivedNotifs;
+  const activeNotifs = tab === 'incoming' ? incomingNotifs : tab === 'history' ? historyNotifs : filteredArchived;
 
   return (
     <AnimatePresence>
@@ -4185,6 +4190,29 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
               📦 الأرشيف ({archivedNotifs.length})
             </button>
           </div>
+
+          {tab === 'archived' && (
+            <div className="flex gap-1 mb-4 bg-gray-900 p-1 rounded-xl border border-gray-800 text-[10px]">
+              <button
+                onClick={() => setArchiveSubTab('all')}
+                className={`flex-1 py-1.5 rounded-lg font-bold transition-all ${archiveSubTab === 'all' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}
+              >
+                الكل ({archivedNotifs.length})
+              </button>
+              <button
+                onClick={() => setArchiveSubTab('incoming')}
+                className={`flex-1 py-1.5 rounded-lg font-bold transition-all ${archiveSubTab === 'incoming' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'text-gray-400 hover:text-white'}`}
+              >
+                🔔 الواردة ({archivedIncoming.length})
+              </button>
+              <button
+                onClick={() => setArchiveSubTab('history')}
+                className={`flex-1 py-1.5 rounded-lg font-bold transition-all ${archiveSubTab === 'history' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'text-gray-400 hover:text-white'}`}
+              >
+                🕒 مشاهداتي ({archivedHistory.length})
+              </button>
+            </div>
+          )}
 
           {tab === 'incoming' && incomingNotifs.length > 0 && (
             <button 
@@ -6086,14 +6114,14 @@ export default function App() {
         .select('*')
         .eq('category', 'notification')
         .or(`seller_id.eq.${activeSellerId},seller_id.eq.ALL,seller_id.eq.GUEST`)
-        .eq('status', 'active')
+        .in('status', ['active', 'archived'])
         .order('created_at', { ascending: false });
 
       if (data && data.length > 0) {
         const mapped = data.map((row: any) => {
           let extra = {
             message: '', type: 'view', senderId: '', senderName: 'مستخدم',
-            senderPhone: '', itemTitle: '', itemType: 'ad', itemId: '', shortId: '', duration: 0, targetType: 'owner'
+            senderPhone: '', itemTitle: '', itemType: 'ad', itemId: '', shortId: '', duration: 0, targetType: 'owner', isArchived: false
           };
           try {
             if (row.description) extra = { ...extra, ...JSON.parse(row.description) };
@@ -6114,7 +6142,8 @@ export default function App() {
             itemId: extra.itemId,
             shortId: extra.shortId,
             duration: extra.duration,
-            targetType: extra.targetType || 'owner'
+            targetType: extra.targetType || 'owner',
+            isArchived: row.status === 'archived' || Boolean(extra.isArchived)
           };
         });
 
@@ -6168,7 +6197,7 @@ export default function App() {
   };
 
   const markNotifAsRead = async (notifId: number | string) => {
-    const updated = notifications.filter(n => String(n.id) !== String(notifId));
+    const updated = notifications.map(n => String(n.id) === String(notifId) ? { ...n, isArchived: true } : n);
     setNotifications(updated);
     saveLocalNotifs(updated);
     try {
@@ -6177,8 +6206,9 @@ export default function App() {
   };
 
   const handleArchiveAllNotifications = async () => {
-    setNotifications([]);
-    saveLocalNotifs([]);
+    const updated = notifications.map(n => ({ ...n, isArchived: true }));
+    setNotifications(updated);
+    saveLocalNotifs(updated);
     if (!user) return;
     try {
       await supabase.from('ads').update({ status: 'archived' }).eq('category', 'notification').eq('seller_id', user.id);
