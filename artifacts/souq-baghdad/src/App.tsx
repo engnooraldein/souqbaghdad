@@ -275,7 +275,8 @@ let globalOnlineTimer: any = null;
 
 const fetchGlobalOnlineStatuses = async () => {
   try {
-    const { data } = await supabase.from('profiles').select('id, phone, last_seen');
+    // تحسين: جلب أعمدة محددة فقط بدل select('*') لتوفير Egress
+    const { data } = await supabase.from('profiles').select('id, phone, last_seen').limit(500);
     if (data) {
       const map: Record<string, boolean> = {};
       const now = Date.now();
@@ -5607,9 +5608,10 @@ export default function App() {
 
   // ── دالة تحميل بيانات المستخدم من Supabase ──────────────────────────
   const loadUserFromSupabase = async (authUser: any) => {
+    // تحسين: جلب الأعمدة المطلوبة فقط بدل select('*')
     const { data: profile } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, full_name, phone, role, avatar_url, cover_url, city, bio, ads_count, favorites_count, views_count, created_at')
       .eq('id', authUser.id)
       .maybeSingle();
     const role = authUser.email === OWNER_EMAIL ? 'owner'
@@ -5743,11 +5745,28 @@ export default function App() {
 
   // ── Fetch ads & products from Supabase ─────────────────────────
   const fetchAds = useCallback(async () => {
+    // تحسين Egress: cache محلي لمدة 3 دقائق
+    const CACHE_KEY = 'souq_ads_cache';
+    const CACHE_TIME_KEY = 'souq_ads_cache_time';
+    const CACHE_TTL = 3 * 60 * 1000; // 3 دقائق
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      const cacheTime = localStorage.getItem(CACHE_TIME_KEY);
+      if (cached && cacheTime && Date.now() - Number(cacheTime) < CACHE_TTL) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.ads?.length > 0) {
+          setAllAds(parsed.ads);
+          setAllTransportAds(parsed.transport);
+          return;
+        }
+      }
+    } catch(_) {}
     const { data, error } = await supabase
       .from('ads')
-      .select('*')
+      .select('id, title, price, city, location, phone, category, images, seller_name, seller_avatar, seller_rating, seller_id, created_at, views, status, type, description, is_demo, short_id')
       .eq('is_demo', false)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(300);
     if (error) { console.error('Error fetching ads:', error); return; }
     if (data) {
       // Map normal ads
@@ -5834,6 +5853,11 @@ export default function App() {
       const activeMapped = normalMapped.filter(a => a.status === 'active' || a.status === 'sold');
       setAllAds(activeMapped.length > 0 ? activeMapped : getDefaultAds());
       setAllTransportAds(transportMapped);
+      // حفظ في cache المتصفح
+      try {
+        localStorage.setItem('souq_ads_cache', JSON.stringify({ ads: activeMapped, transport: transportMapped }));
+        localStorage.setItem('souq_ads_cache_time', Date.now().toString());
+      } catch(_) {}
     }
   }, []);
 
@@ -5870,10 +5894,23 @@ export default function App() {
   };
 
   const fetchProducts = useCallback(async () => {
+    // تحسين Egress: cache محلي للمنتجات
+    const PROD_CACHE_KEY = 'souq_products_cache';
+    const PROD_TIME_KEY = 'souq_products_cache_time';
+    const CACHE_TTL = 3 * 60 * 1000;
+    try {
+      const cached = localStorage.getItem(PROD_CACHE_KEY);
+      const cacheTime = localStorage.getItem(PROD_TIME_KEY);
+      if (cached && cacheTime && Date.now() - Number(cacheTime) < CACHE_TTL) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.length > 0) { setAllProducts(parsed); return; }
+      }
+    } catch(_) {}
     const { data, error } = await supabase
       .from('products')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('id, title, price, description, category, images, governorate, city, phone, condition, seller_name, seller_avatar, seller_id, created_at, views, stock, short_id, status')
+      .order('created_at', { ascending: false })
+      .limit(200);
     if (error) { console.error('Error fetching products:', error); return; }
     if (data) {
       const mapped: Product[] = data.map((row: any) => ({
