@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from './lib/supabase';
+import { requestWebNotificationPermission } from './lib/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
 import { ShareModal } from './components/ShareModal';
@@ -5407,6 +5408,20 @@ export default function App() {
       return null;
     }
   });
+  
+  useEffect(() => {
+    if (user && typeof window !== 'undefined') {
+      requestWebNotificationPermission().then(token => {
+        if (token) {
+          // حفظ رمز الإشعار في قاعدة البيانات
+          supabase.from('profiles').update({ fcm_token: token }).eq('id', user.id).then(({error}) => {
+            if (error) console.error("Error saving FCM token:", error);
+          });
+        }
+      });
+    }
+  }, [user]);
+
   const getInitialRouteInfo = () => {
     if (typeof window === 'undefined') return { hash: '', path: '' };
     let hash = window.location.hash;
