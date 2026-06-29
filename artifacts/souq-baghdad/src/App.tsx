@@ -4074,12 +4074,65 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
   const [tab, setTab] = useState<'incoming' | 'history' | 'archived'>('incoming');
   const [selectedNotif, setSelectedNotif] = useState<any>(null);
   const [archivedIds, setArchivedIds] = useState<Set<string | number>>(new Set());
+  const [retentionPeriod, setRetentionPeriod] = useState<'24h' | '1m' | '3m' | '6m' | 'forever'>(
+    () => (localStorage.getItem('souq_notif_retention') as any) || '24h'
+  );
 
-  const allIncoming = notifs.filter(n => n.targetType === 'owner' || !n.targetType || n.type === 'message');
-  const incomingNotifs = allIncoming.filter(n => !archivedIds.has(n.id));
-  const archivedNotifs = allIncoming.filter(n => archivedIds.has(n.id));
-  const historyNotifs = notifs.filter(n => n.targetType === 'viewer');
-  
+  const handleRetentionChange = (period: '24h' | '1m' | '3m' | '6m' | 'forever') => {
+    setRetentionPeriod(period);
+    localStorage.setItem('souq_notif_retention', period);
+  };
+
+  const getWhatsAppUrl = (n: any) => {
+    const phoneRaw = n.senderPhone || n.phone || '';
+    const cleanPhone = phoneRaw.replace(/[^0-9]/g, '').replace(/^0/, '');
+    if (!cleanPhone) return null;
+
+    const isHigh = (n.duration || 0) >= 15;
+    const interestTag = isHigh ? "مهتم جداً 🔥" : "مهتم 👍";
+    const durationText = n.duration ? `${n.duration} ثوانٍ` : 'عدة ثوانٍ';
+    const itemTitle = n.itemTitle || n.title || 'الإعلان';
+    const displayId = n.shortId ? `#${n.shortId}` : (n.itemId ? `#${n.itemId}` : '');
+
+    const text = 
+`سلام عليكم ورحمة الله 👋
+أتواصل معك بخصوص اهتمامك على منصة سوق بغداد 🛒
+
+لاحظنا اهتمامك بالإعلان:
+📌 ${itemTitle} ${displayId}
+⏱️ وقت المشاهدة: ${durationText} (${interestTag})
+
+يسعدنا تزويدك بكافة التفاصيل المطلوبة والرد على جميع استفساراتك حول هذا الإعلان.
+نتمنى لك تجربة ممتعة وموفقة على سوق بغداد! ✨`;
+
+    return `https://wa.me/964${cleanPhone}?text=${encodeURIComponent(text)}`;
+  };
+
+  const getCutoffMs = (period: string) => {
+    if (period === '24h') return 24 * 60 * 60 * 1000;
+    if (period === '1m') return 30 * 24 * 60 * 60 * 1000;
+    if (period === '3m') return 90 * 24 * 60 * 60 * 1000;
+    if (period === '6m') return 180 * 24 * 60 * 60 * 1000;
+    return Infinity;
+  };
+
+  const now = Date.now();
+  const cutoffMs = getCutoffMs(retentionPeriod);
+
+  const isExpiredOrArchived = (n: any) => {
+    if (archivedIds.has(n.id)) return true;
+    if (cutoffMs === Infinity) return false;
+    const itemTime = new Date(n.time || Date.now()).getTime();
+    return (now - itemTime) > cutoffMs;
+  };
+
+  const allIncoming = notifs.filter(n => n.targetType === 'owner' || !n.targetType || n.type === 'message' || n.type === 'interest');
+  const allHistory = notifs.filter(n => n.targetType === 'viewer');
+
+  const incomingNotifs = allIncoming.filter(n => !isExpiredOrArchived(n));
+  const historyNotifs = allHistory.filter(n => !isExpiredOrArchived(n));
+  const archivedNotifs = [...allIncoming, ...allHistory].filter(n => isExpiredOrArchived(n));
+
   const activeNotifs = tab === 'incoming' ? incomingNotifs : tab === 'history' ? historyNotifs : archivedNotifs;
 
   return (
@@ -4090,6 +4143,26 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-white flex items-center gap-2"><Bell className="w-5 h-5 text-amber-400"/>الإشعارات والتنبيهات</h2>
             <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white"><X className="w-5 h-5"/></button>
+          </div>
+
+          {/* Retention Selector */}
+          <div className="mb-4 bg-gray-800/80 p-2.5 rounded-xl border border-gray-700/80">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1">
+                <Package className="w-3.5 h-3.5" /> فترة الحفظ والتصفية التلقائية:
+              </span>
+            </div>
+            <select 
+              value={retentionPeriod} 
+              onChange={(e) => handleRetentionChange(e.target.value as any)}
+              className="w-full bg-gray-900 text-white text-xs font-bold p-2 rounded-lg border border-gray-700 outline-none focus:border-amber-500 transition-colors"
+            >
+              <option value="24h">🕒 كل 24 ساعة (رئيسي وتلقائي)</option>
+              <option value="1m">📅 شهر واحد (30 يوم)</option>
+              <option value="3m">📅 3 أشهر (90 يوم)</option>
+              <option value="6m">📅 6 أشهر (180 يوم)</option>
+              <option value="forever">♾️ حفظ دائم بدون أرشفة تلقائية</option>
+            </select>
           </div>
 
           <div className="flex gap-1 mb-4 bg-gray-800 p-1 rounded-xl border border-gray-700 text-[11px]">
@@ -4136,17 +4209,12 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
                   className="bg-gray-800/90 rounded-2xl p-3.5 border border-gray-700/80 transition-all cursor-pointer hover:border-amber-500/50 hover:bg-gray-800 relative group"
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${n.type === 'message' ? 'bg-blue-500/20 text-blue-400' : n.type === 'interest' ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                      {n.type === 'message' ? <MessageSquare className="w-4 h-4" /> : n.type === 'interest' ? <Heart className="w-4 h-4 fill-red-400" /> : <Eye className="w-4 h-4" />}
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${n.type === 'message' ? 'bg-blue-500/20 text-blue-400' : n.type === 'interest' ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                      {n.type === 'message' ? <MessageSquare className="w-4 h-4" /> : n.type === 'interest' ? <Heart className="w-4 h-4 fill-amber-400" /> : <Eye className="w-4 h-4" />}
                     </div>
                     <div className="flex-1 min-w-0" onClick={async () => {
                       if (tab === 'incoming') {
-                        if (n.type === 'message' || !n.senderId) {
-                          setSelectedNotif(n);
-                        } else if (n.senderId) {
-                          onNotifClick(n.senderId);
-                          onClose();
-                        }
+                        setSelectedNotif(n);
                       } else {
                         if (n.itemId) {
                           onHistoryClick(n.itemId, n.itemType);
@@ -4161,32 +4229,49 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
                       
                       <div className="flex items-center justify-between mt-2.5 flex-wrap gap-2 pt-2 border-t border-gray-700/40">
                         <p className="text-gray-500 text-[10px]"><TimeAgo iso={n.time || new Date().toISOString()} /></p>
-                        {tab === 'incoming' && (
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (n.id) {
-                                setArchivedIds(prev => new Set(prev).add(n.id));
-                                onMarkRead(n.id);
-                              }
-                            }}
-                            className="text-[10px] px-2 py-0.5 bg-gray-700 hover:bg-emerald-600 text-gray-300 hover:text-white font-bold rounded-lg transition-colors flex items-center gap-1"
-                          >
-                            <Check className="w-3 h-3 text-emerald-400" /> تمت الرؤية
-                          </button>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {tab === 'incoming' && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (n.id) {
+                                  setArchivedIds(prev => new Set(prev).add(n.id));
+                                  onMarkRead(n.id);
+                                }
+                              }}
+                              className="text-[10px] px-2 py-0.5 bg-gray-700 hover:bg-emerald-600 text-gray-300 hover:text-white font-bold rounded-lg transition-colors flex items-center gap-1"
+                            >
+                              <Check className="w-3 h-3 text-emerald-400" /> تمت الرؤية
+                            </button>
+                          )}
+                          {tab !== 'archived' && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (n.id) {
+                                  setArchivedIds(prev => new Set(prev).add(n.id));
+                                  onMarkRead(n.id);
+                                }
+                              }}
+                              className="text-[10px] px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-black font-bold rounded-lg transition-all flex items-center gap-1 border border-amber-500/30"
+                              title="أرشفة هذا الإشعار"
+                            >
+                              <Package className="w-3 h-3" /> أرشفة
+                            </button>
+                          )}
+                        </div>
                       </div>
 
-                      {tab === 'incoming' && n.senderPhone && (
-                        <div className="mt-2 pt-2 border-t border-gray-700/50">
+                      {tab === 'incoming' && getWhatsAppUrl(n) && (
+                        <div className="mt-2.5 pt-2 border-t border-gray-700/50 flex items-center justify-between gap-2">
                           <a 
-                            href={`https://wa.me/964${n.senderPhone.replace(/^0/, '')}`}
+                            href={getWhatsAppUrl(n)!}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-[10px] font-bold transition-all shadow-md shadow-green-500/10"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-green-600/20"
                           >
-                            <MessageSquare className="w-3 h-3" /> مراسلة واتساب
+                            <MessageSquare className="w-3.5 h-3.5" /> مراسلة عبر واتساب
                           </a>
                         </div>
                       )}
@@ -4218,8 +4303,8 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
                 </button>
                 
                 <div className="flex items-center gap-3 mb-4 mt-2">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                    <Bell className="w-5 h-5 text-blue-400" />
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                    <Bell className="w-5 h-5 text-amber-400" />
                   </div>
                   <div>
                     <h3 className="text-white font-bold text-base leading-tight">{selectedNotif.title}</h3>
@@ -4228,13 +4313,38 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
                 </div>
                 
                 <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap mb-6">{selectedNotif.message}</p>
-                
-                <button 
-                  onClick={() => setSelectedNotif(null)}
-                  className="w-full py-2.5 bg-gray-800 hover:bg-gray-750 text-white font-bold text-xs rounded-xl border border-gray-700 transition-colors"
-                >
-                  إغلاق
-                </button>
+
+                {getWhatsAppUrl(selectedNotif) && (
+                  <a 
+                    href={getWhatsAppUrl(selectedNotif)!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full mb-3 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-green-600/20 transition-all"
+                  >
+                    <MessageSquare className="w-4 h-4" /> مراسلة الزبون المهتم عبر واتساب
+                  </a>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => {
+                      if (selectedNotif?.id) {
+                        setArchivedIds(prev => new Set(prev).add(selectedNotif.id));
+                        onMarkRead(selectedNotif.id);
+                        setSelectedNotif(null);
+                      }
+                    }}
+                    className="flex-1 py-2.5 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-black font-bold text-xs rounded-xl border border-amber-500/30 transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Package className="w-4 h-4" /> أرشفة الإشعار
+                  </button>
+                  <button 
+                    onClick={() => setSelectedNotif(null)}
+                    className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-750 text-white font-bold text-xs rounded-xl border border-gray-700 transition-colors"
+                  >
+                    إغلاق
+                  </button>
+                </div>
               </motion.div>
             </div>
           )}
@@ -5983,7 +6093,7 @@ export default function App() {
         const mapped = data.map((row: any) => {
           let extra = {
             message: '', type: 'view', senderId: '', senderName: 'مستخدم',
-            senderPhone: '', itemTitle: '', itemType: 'ad', itemId: '', duration: 0, targetType: 'owner'
+            senderPhone: '', itemTitle: '', itemType: 'ad', itemId: '', shortId: '', duration: 0, targetType: 'owner'
           };
           try {
             if (row.description) extra = { ...extra, ...JSON.parse(row.description) };
@@ -6002,6 +6112,7 @@ export default function App() {
             itemTitle: extra.itemTitle,
             itemType: extra.itemType,
             itemId: extra.itemId,
+            shortId: extra.shortId,
             duration: extra.duration,
             targetType: extra.targetType || 'owner'
           };
@@ -6074,38 +6185,64 @@ export default function App() {
     } catch (e) {}
   };
 
-  const handleViewDurationLogged = async (itemId: number | string, itemTitle: string, ownerId: string, itemType: string, seconds: number) => {
-    if (!user || user.id === ownerId) return;
+  const handleViewDurationLogged = async (itemId: number | string, itemTitle: string, ownerId: string, itemType: string, seconds: number, shortId?: string) => {
+    const viewerName = user?.name || 'زائر في الموقع';
+    const viewerId = user?.id || 'GUEST';
+    const viewerPhone = user?.phone || '';
+    const displayId = shortId || (typeof itemId === 'string' && itemId.length > 8 ? itemId.slice(0, 6) : String(itemId));
 
-    const viewerName = user.name || 'مستخدم';
-    const viewerId = user.id;
-    const viewerPhone = user.phone || '';
+    if (seconds >= 1) {
+      const newViewerObj = {
+        id: `viewer_${Date.now()}_${Math.random()}`,
+        title: '🕒 سجل المشاهدة',
+        message: `شاهدت إعلان "${itemTitle}" (#${displayId}) لـ ${seconds} ثوانٍ.`,
+        type: 'history',
+        time: new Date().toISOString(),
+        senderId: ownerId,
+        itemTitle, itemType, itemId, shortId: displayId, duration: seconds, targetType: 'viewer'
+      };
 
-    const newViewerObj = {
-      id: `viewer_${Date.now()}`,
-      title: '🕒 سجل المشاهدة',
-      message: `شاهدت إعلان "${itemTitle}" لـ ${seconds} ثوانٍ.`,
-      type: 'history',
-      time: new Date().toISOString(),
-      senderId: ownerId,
-      itemTitle, itemType, itemId, duration: seconds, targetType: 'viewer'
-    };
+      const updated = [newViewerObj, ...notifications];
+      setNotifications(updated);
+      saveLocalNotifs(updated);
+    }
 
-    const updated = [newViewerObj, ...notifications];
-    setNotifications(updated);
-    saveLocalNotifs(updated);
+    // Per agreement: 5s to 14s is interested 👍, >=15s is very interested 🔥. Under 5s -> no interest notification to owner.
+    if (seconds < 5 || !ownerId) return;
+    if (user && user.id === ownerId) return;
+
+    const isHighInterest = seconds >= 15;
+    const interestTag = isHighInterest ? 'مهتم جداً 🔥' : 'مهتم 👍';
+    const ownerNotifTitle = isHighInterest ? '🔥 زبون مهتم جداً بإعلانك' : '👍 زبون مهتم بإعلانك';
+    const ownerNotifMessage = `قام الزبون (${viewerName}) بمشاهدة إعلانك "${itemTitle}" (#${displayId}) لمدة ${seconds} ثوانٍ (${interestTag}).`;
 
     const ownerNotifRow = {
       seller_id: ownerId,
-      title: seconds >= 15 ? '🔥 اهتمام كبير بإعلانك' : '👀 مشاهدة جديدة لإعلانك',
+      title: ownerNotifTitle,
       description: JSON.stringify({
-        message: `قام الحساب (${viewerName}) بمشاهدة إعلانك "${itemTitle}" لمدة ${seconds} ثوانٍ.`,
-        type: seconds >= 15 ? 'interest' : 'view',
+        message: ownerNotifMessage,
+        type: 'interest',
         senderId: viewerId, senderName: viewerName, senderPhone: viewerPhone,
-        itemTitle, itemType, itemId, duration: seconds, targetType: 'owner'
+        itemTitle, itemType, itemId, shortId: displayId, duration: seconds, targetType: 'owner'
       }),
-      price: '0', category: 'notification', location: '', city: '', images: [], phone: viewerPhone, type: 'notification', status: 'active', is_demo: false, seller_name: viewerName, seller_avatar: user.avatar || ''
+      price: '0', category: 'notification', location: '', city: '', images: [], phone: viewerPhone, type: 'notification', status: 'active', is_demo: false, seller_name: viewerName, seller_avatar: user?.avatar || ''
     };
+
+    // Store in owner local notifications storage for instant local/demo synchronization
+    try {
+      const ownerKey = `souq_notifs_${ownerId}`;
+      const existingOwnerNotifs = JSON.parse(localStorage.getItem(ownerKey) || '[]');
+      const localOwnerObj = {
+        id: `notif_owner_${Date.now()}_${Math.random()}`,
+        type: 'interest',
+        title: ownerNotifTitle,
+        message: ownerNotifMessage,
+        time: new Date().toISOString(),
+        senderId: viewerId, senderName: viewerName, senderPhone: viewerPhone,
+        itemTitle, itemType, itemId, shortId: displayId, duration: seconds, targetType: 'owner'
+      };
+      localStorage.setItem(ownerKey, JSON.stringify([localOwnerObj, ...existingOwnerNotifs].slice(0, 50)));
+    } catch (e) {}
 
     try {
       await supabase.from('ads').insert([ownerNotifRow]);
@@ -6674,9 +6811,9 @@ export default function App() {
       <AnimatePresence>
         {showOnboarding&&<OnboardingModal onClose={()=>{setShowOnboarding(false);localStorage.setItem('souqOnboarded','1');}}/>}
         {showAuth&&<AuthModal onClose={()=>setShowAuth(false)} onLogin={handleLogin}/>}
-        {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })}/>}
-        {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })}/>}
-        {selectedTransportAd&&<TransportDetailModal ad={selectedTransportAd} onClose={()=>setSelectedTransportAd(null)} user={user} onAuthRequired={requireAuth} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedTransportAd.id, selectedTransportAd.type==='offer'?'خط متوفر':'طلب خط', selectedTransportAd.postedBy || '', 'transport', sec)}/>}
+        {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec, (selectedAd as any).short_id)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })}/>}
+        {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec, (selectedProduct as any).short_id)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })}/>}
+        {selectedTransportAd&&<TransportDetailModal ad={selectedTransportAd} onClose={()=>setSelectedTransportAd(null)} user={user} onAuthRequired={requireAuth} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedTransportAd.id, selectedTransportAd.type==='offer'?'خط متوفر':'طلب خط', selectedTransportAd.postedBy || '', 'transport', sec, (selectedTransportAd as any).short_id)}/>}
         {showCreateAd&&user&&<AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd}/>}
         {showCreateProduct&&user&&<ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct}/>}
         {showNotifs&&<NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick} onMarkRead={markNotifAsRead} onArchiveAll={handleArchiveAllNotifications}/>}
