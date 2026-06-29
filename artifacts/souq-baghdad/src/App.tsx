@@ -6106,14 +6106,22 @@ export default function App() {
 
   const fetchNotifications = useCallback(async () => {
     const activeSellerId = user?.id || 'GUEST';
+    const rawPhone = user?.phone || '';
+    const activePhone = rawPhone ? rawPhone.replace(/[^0-9]/g, '').replace(/^0/, '') : '';
+    const activeEmail = user?.email || '';
     const localNotifs = getLocalNotifs();
+
+    let orClause = `seller_id.eq.${activeSellerId},seller_id.eq.ALL,seller_id.eq.GUEST`;
+    if (rawPhone) orClause += `,seller_id.eq.${rawPhone}`;
+    if (activePhone) orClause += `,seller_id.eq.${activePhone},seller_id.eq.0${activePhone}`;
+    if (activeEmail) orClause += `,seller_id.eq.${activeEmail}`;
 
     try {
       const { data, error } = await supabase
         .from('ads')
         .select('*')
         .eq('category', 'notification')
-        .or(`seller_id.eq.${activeSellerId},seller_id.eq.ALL,seller_id.eq.GUEST`)
+        .or(orClause)
         .in('status', ['active', 'archived'])
         .order('created_at', { ascending: false });
 
@@ -6239,7 +6247,13 @@ export default function App() {
 
     // Per agreement: 5s to 14s is interested 👍, >=15s is very interested 🔥. Under 5s -> no interest notification to owner.
     if (seconds < 5 || !ownerId) return;
-    if (user && user.id === ownerId) return;
+    if (user && (user.id === ownerId || user.phone === ownerId || user.email === ownerId)) return;
+
+    let targetSellerId = ownerId;
+    if (storedUsers && storedUsers.length > 0) {
+      const foundUser = storedUsers.find((u: any) => String(u.id) === String(ownerId) || String(u.phone) === String(ownerId) || String(u.email) === String(ownerId));
+      if (foundUser?.id) targetSellerId = foundUser.id;
+    }
 
     const isHighInterest = seconds >= 15;
     const interestTag = isHighInterest ? 'مهتم جداً 🔥' : 'مهتم 👍';
@@ -6247,7 +6261,7 @@ export default function App() {
     const ownerNotifMessage = `قام الزبون (${viewerName}) بمشاهدة إعلانك "${itemTitle}" (#${displayId}) لمدة ${seconds} ثوانٍ (${interestTag}).`;
 
     const ownerNotifRow = {
-      seller_id: ownerId,
+      seller_id: targetSellerId,
       title: ownerNotifTitle,
       description: JSON.stringify({
         message: ownerNotifMessage,
@@ -6260,18 +6274,21 @@ export default function App() {
 
     // Store in owner local notifications storage for instant local/demo synchronization
     try {
-      const ownerKey = `souq_notifs_${ownerId}`;
-      const existingOwnerNotifs = JSON.parse(localStorage.getItem(ownerKey) || '[]');
-      const localOwnerObj = {
-        id: `notif_owner_${Date.now()}_${Math.random()}`,
-        type: 'interest',
-        title: ownerNotifTitle,
-        message: ownerNotifMessage,
-        time: new Date().toISOString(),
-        senderId: viewerId, senderName: viewerName, senderPhone: viewerPhone,
-        itemTitle, itemType, itemId, shortId: displayId, duration: seconds, targetType: 'owner'
-      };
-      localStorage.setItem(ownerKey, JSON.stringify([localOwnerObj, ...existingOwnerNotifs].slice(0, 50)));
+      const keysToUpdate = [targetSellerId, ownerId].filter(Boolean);
+      keysToUpdate.forEach(k => {
+        const ownerKey = `souq_notifs_${k}`;
+        const existingOwnerNotifs = JSON.parse(localStorage.getItem(ownerKey) || '[]');
+        const localOwnerObj = {
+          id: `notif_owner_${Date.now()}_${Math.random()}`,
+          type: 'interest',
+          title: ownerNotifTitle,
+          message: ownerNotifMessage,
+          time: new Date().toISOString(),
+          senderId: viewerId, senderName: viewerName, senderPhone: viewerPhone,
+          itemTitle, itemType, itemId, shortId: displayId, duration: seconds, targetType: 'owner'
+        };
+        localStorage.setItem(ownerKey, JSON.stringify([localOwnerObj, ...existingOwnerNotifs].slice(0, 50)));
+      });
     } catch (e) {}
 
     try {
