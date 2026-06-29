@@ -3377,6 +3377,24 @@ const fetchRecovery = async () => {
         { seller_id: 'GUEST', title: broadcastTitle, description: JSON.stringify({ message: broadcastMsg, type: 'message', senderName: 'إدارة الموقع' }), price: '0', category: 'notification', location: targetGovNotif || 'الكل', city: targetGovNotif || 'الكل', images: [], phone: '', type: 'notification', status: 'active', is_demo: false, seller_name: 'إدارة الموقع', seller_avatar: '' }
       ];
 
+      const newBroadcastObj = {
+        id: `broadcast_${Date.now()}_${Math.random()}`,
+        type: 'message',
+        title: broadcastTitle,
+        message: broadcastMsg,
+        time: new Date().toISOString(),
+        senderId: 'ALL',
+        senderName: 'إدارة الموقع',
+        targetType: 'owner'
+      };
+
+      setNotifications(prev => [newBroadcastObj, ...prev]);
+
+      try {
+        const existingBroadcasts = JSON.parse(localStorage.getItem('souq_global_broadcasts') || '[]');
+        localStorage.setItem('souq_global_broadcasts', JSON.stringify([newBroadcastObj, ...existingBroadcasts].slice(0, 50)));
+      } catch (e) {}
+
       try {
         await supabase.from('ads').insert(globalRows);
       } catch (err) {}
@@ -6292,7 +6310,19 @@ export default function App() {
     } catch (e) {}
 
     try {
-      await supabase.from('ads').insert([ownerNotifRow]);
+      const idsToInsert = new Set([targetSellerId, ownerId].filter(Boolean));
+      if (storedUsers && storedUsers.length > 0) {
+        const foundUser = storedUsers.find((u: any) => String(u.id) === String(ownerId) || String(u.phone) === String(ownerId) || String(u.email) === String(ownerId));
+        if (foundUser) {
+          if (foundUser.id) idsToInsert.add(foundUser.id);
+          if (foundUser.phone) idsToInsert.add(foundUser.phone);
+        }
+      }
+      const rows = Array.from(idsToInsert).map(id => ({
+        ...ownerNotifRow,
+        seller_id: id
+      }));
+      await supabase.from('ads').insert(rows);
     } catch (e) {}
   };
 
