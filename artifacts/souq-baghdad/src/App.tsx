@@ -12,7 +12,7 @@ import {
   Save, BarChart3, Smartphone, Monitor, Tablet, Globe, UserCheck, Activity,
   Crown, UserX, FileText, ShoppingBag, Package, Store, Camera, ZoomIn,
   ZoomOut, Calendar, Users, ChevronDown, Tag, Layers, Home, Car, UserCircle, Key, Sparkles,
-  ShieldAlert, Send, Download, ClipboardList, AlertTriangle
+  ShieldAlert, Send, Download, ClipboardList, AlertTriangle, Volume2, VolumeX, Filter
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -3273,16 +3273,54 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   // Broadcast State
   const [broadcastTitle, setBroadcastTitle] = useState('');
   const [broadcastMsg, setBroadcastMsg] = useState('');
+  const [targetAudienceType, setTargetAudienceType] = useState<'all' | 'active_only'>('all');
+  const [campaignsList, setCampaignsList] = useState<any[]>([]);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [broadcastSent, setBroadcastSent] = useState(false);
   const [viewersModalItem, setViewersModalItem] = useState<{id:string|number, type:'ad'|'product'|'transport'}|null>(null);
   const onlineStatuses = useOnlineStatuses();
 
+  const fetchCampaigns = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from('ads')
+        .select('*')
+        .eq('category', 'notification_campaign')
+        .order('created_at', { ascending: false });
+      if (data && data.length > 0) {
+        const mapped = data.map((row: any) => {
+          let extra: any = {};
+          try { if (row.description) extra = JSON.parse(row.description); } catch (e) {}
+          return {
+            id: row.id,
+            title: row.title,
+            message: extra.message || '',
+            targetAudience: extra.targetAudience || 'all',
+            location: row.location || 'الكل',
+            onlineCount: extra.onlineCount || 0,
+            created_at: row.created_at
+          };
+        });
+        setCampaignsList(mapped);
+      } else {
+        try {
+          const local = JSON.parse(localStorage.getItem('souq_campaigns_log') || '[]');
+          setCampaignsList(local);
+        } catch (e) {}
+      }
+    } catch (e) {
+      try {
+        const local = JSON.parse(localStorage.getItem('souq_campaigns_log') || '[]');
+        setCampaignsList(local);
+      } catch (err) {}
+    }
+  }, []);
+
   useEffect(()=>{
+    fetchCampaigns();
     try{setStoredUsers(JSON.parse(localStorage.getItem('souqUsers')||'[]'));}catch{}
     try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}
     const iv=setInterval(()=>{try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}},30_000);
-    
     
     const fetchVerification = async () => {
       try {
@@ -3294,7 +3332,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
       } catch (err) {}
     };
     fetchVerification();
-const fetchRecovery = async () => {
+    const fetchRecovery = async () => {
       try {
         const { data, error } = await supabase
           .from('recovery_requests')
@@ -3317,7 +3355,7 @@ const fetchRecovery = async () => {
     const fetchInterval = setInterval(fetchUsersAndGuests, 60_000);
 
     return () => { clearInterval(iv); clearInterval(fetchInterval); };
-  },[]);
+  },[fetchCampaigns]);
 
   // Calculate stats
   const today = new Date().toDateString();
@@ -3372,14 +3410,27 @@ const fetchRecovery = async () => {
     if(!broadcastTitle || !broadcastMsg) return;
     setIsBroadcasting(true);
     try {
+      const activeCount = Object.values(onlineStatuses || {}).filter(Boolean).length || storedUsers.length || 1;
       const globalRows = [
-        { seller_id: 'ALL', title: broadcastTitle, description: JSON.stringify({ message: broadcastMsg, type: 'message', senderName: 'إدارة الموقع' }), price: '0', category: 'notification', location: targetGovNotif || 'الكل', city: targetGovNotif || 'الكل', images: [], phone: '', type: 'notification', status: 'active', is_demo: false, seller_name: 'إدارة الموقع', seller_avatar: '' },
-        { seller_id: 'GUEST', title: broadcastTitle, description: JSON.stringify({ message: broadcastMsg, type: 'message', senderName: 'إدارة الموقع' }), price: '0', category: 'notification', location: targetGovNotif || 'الكل', city: targetGovNotif || 'الكل', images: [], phone: '', type: 'notification', status: 'active', is_demo: false, seller_name: 'إدارة الموقع', seller_avatar: '' }
+        { seller_id: 'ALL', title: broadcastTitle, description: JSON.stringify({ message: broadcastMsg, type: 'broadcast', senderName: 'إدارة الموقع', targetAudience: targetAudienceType }), price: '0', category: 'notification', location: targetGovNotif || 'الكل', city: targetGovNotif || 'الكل', images: [], phone: '', type: 'notification', status: 'active', is_demo: false, seller_name: 'إدارة الموقع', seller_avatar: '' },
+        { seller_id: 'GUEST', title: broadcastTitle, description: JSON.stringify({ message: broadcastMsg, type: 'broadcast', senderName: 'إدارة الموقع', targetAudience: targetAudienceType }), price: '0', category: 'notification', location: targetGovNotif || 'الكل', city: targetGovNotif || 'الكل', images: [], phone: '', type: 'notification', status: 'active', is_demo: false, seller_name: 'إدارة الموقع', seller_avatar: '' }
       ];
+
+      const campaignRow = {
+        seller_id: dbUsers[0]?.id || 'OWNER',
+        title: broadcastTitle,
+        description: JSON.stringify({
+          message: broadcastMsg,
+          targetAudience: targetAudienceType,
+          onlineCount: activeCount,
+          location: targetGovNotif || 'الكل'
+        }),
+        price: '0', category: 'notification_campaign', location: targetGovNotif || 'الكل', city: targetGovNotif || 'الكل', images: [], phone: '', type: 'campaign', status: 'active', is_demo: false, seller_name: 'إدارة الموقع', seller_avatar: ''
+      };
 
       const newBroadcastObj = {
         id: `broadcast_${Date.now()}_${Math.random()}`,
-        type: 'message',
+        type: 'broadcast',
         title: broadcastTitle,
         message: broadcastMsg,
         time: new Date().toISOString(),
@@ -3394,7 +3445,22 @@ const fetchRecovery = async () => {
       } catch (e) {}
 
       try {
-        await supabase.from('ads').insert(globalRows);
+        const localLog = JSON.parse(localStorage.getItem('souq_campaigns_log') || '[]');
+        const newCampObj = {
+          id: `camp_${Date.now()}`,
+          title: broadcastTitle,
+          message: broadcastMsg,
+          targetAudience: targetAudienceType,
+          location: targetGovNotif || 'الكل',
+          onlineCount: activeCount,
+          created_at: new Date().toISOString()
+        };
+        localStorage.setItem('souq_campaigns_log', JSON.stringify([newCampObj, ...localLog].slice(0, 50)));
+        setCampaignsList(prev => [newCampObj, ...prev]);
+      } catch (e) {}
+
+      try {
+        await supabase.from('ads').insert([campaignRow, ...globalRows]);
       } catch (err) {}
 
       logSystemAction('إرسال إشعار عام', `عنوان الإشعار: ${broadcastTitle}`, 'جميع المستخدمين والضيوف');
@@ -3926,12 +3992,21 @@ const fetchRecovery = async () => {
               <p className="text-gray-400 text-xs mb-4">إرسال إشعارات عامة أو استهداف مستخدمي محافظة عراقية معينة لزيادة التفاعل والحملات الإعلانية</p>
               
               <form onSubmit={handleBroadcast} className="space-y-4">
-                <div>
-                  <label className="block text-gray-300 text-xs font-bold mb-1.5">نطاق الاستهداف (المحافظات)</label>
-                  <select value={targetGovNotif} onChange={e=>setTargetGovNotif(e.target.value)} className="w-full bg-gray-900 text-white rounded-xl p-3 border border-gray-700 outline-none text-xs">
-                    <option value="الكل">🌐 جميع المحافظات العراقية (عام)</option>
-                    {IRAQI_GOVERNORATES.filter(g=>g!=='الكل').map(g=><option key={g} value={g}>📍 محافظة {g}</option>)}
-                  </select>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-300 text-xs font-bold mb-1.5">نطاق الاستهداف (المحافظات)</label>
+                    <select value={targetGovNotif} onChange={e=>setTargetGovNotif(e.target.value)} className="w-full bg-gray-900 text-white rounded-xl p-3 border border-gray-700 outline-none text-xs">
+                      <option value="الكل">🌐 جميع المحافظات العراقية (عام)</option>
+                      {IRAQI_GOVERNORATES.filter(g=>g!=='الكل').map(g=><option key={g} value={g}>📍 محافظة {g}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-gray-300 text-xs font-bold mb-1.5">تحديد فئة المستهدفين</label>
+                    <select value={targetAudienceType} onChange={e=>setTargetAudienceType(e.target.value as any)} className="w-full bg-gray-900 text-white rounded-xl p-3 border border-gray-700 outline-none text-xs">
+                      <option value="all">🌐 جميع المستهلكين والضيوف (عام)</option>
+                      <option value="active_only">🟢 المستخدمين النشطين حالياً فقط (الأونلاين)</option>
+                    </select>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-gray-300 text-xs font-bold mb-1.5">عنوان الإشعار</label>
@@ -3946,6 +4021,64 @@ const fetchRecovery = async () => {
                   إطلاق الحملة الإعلانية فوراً
                 </button>
               </form>
+            </div>
+
+            {/* Campaign Analytics Log Table */}
+            <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-white font-bold text-sm flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-amber-400" /> سجل إحصائيات حملات التسويق المرسلة
+                </h4>
+                <span className="text-xs px-2.5 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/30 rounded-lg font-bold">
+                  {campaignsList.length} حملة مرسلة
+                </span>
+              </div>
+
+              {campaignsList.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 text-xs bg-gray-900/60 rounded-xl border border-gray-700/60">
+                  لم يتم إرسال أي حملات إعلانية تسويقية حتى الآن.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right text-xs text-gray-300">
+                    <thead className="bg-gray-900 text-gray-400 font-bold border-b border-gray-700">
+                      <tr>
+                        <th className="p-3">عنوان ونص الحملة</th>
+                        <th className="p-3">نطاق الاستهداف</th>
+                        <th className="p-3">فئة المستهدفين</th>
+                        <th className="p-3">الأونلاين وقت الإرسال</th>
+                        <th className="p-3">وقت وتاريخ الإرسال</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-700/60">
+                      {campaignsList.map((c, i) => (
+                        <tr key={c.id || i} className="hover:bg-gray-750/50 transition-colors">
+                          <td className="p-3 font-bold text-white">
+                            <div>{c.title}</div>
+                            <div className="text-[11px] font-normal text-gray-400 mt-0.5 truncate max-w-xs">{c.message}</div>
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 bg-blue-500/10 text-blue-300 rounded border border-blue-500/30 text-[10px] font-bold">
+                              📍 {c.location || 'الكل'}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${c.targetAudience === 'active_only' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'}`}>
+                              {c.targetAudience === 'active_only' ? '🟢 النشطين فقط' : '🌐 جميع المستخدمين'}
+                            </span>
+                          </td>
+                          <td className="p-3 font-bold text-amber-400">
+                            👥 {c.onlineCount || 1} متصفح
+                          </td>
+                          <td className="p-3 text-gray-400 text-[11px]">
+                            <TimeAgo iso={c.created_at || new Date().toISOString()} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -4090,10 +4223,28 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
   const [tab, setTab] = useState<'incoming' | 'history' | 'archived'>('incoming');
   const [archiveSubTab, setArchiveSubTab] = useState<'all' | 'incoming' | 'history'>('all');
   const [selectedNotif, setSelectedNotif] = useState<any>(null);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(
+    () => localStorage.getItem('souq_notif_sound') !== 'disabled'
+  );
+  const [interestFilterLevel, setInterestFilterLevel] = useState<'all' | 'high_only'>(
+    () => (localStorage.getItem('souq_notif_filter_interest') as any) || 'all'
+  );
   const [archivedIds, setArchivedIds] = useState<Set<string | number>>(new Set());
   const [retentionPeriod, setRetentionPeriod] = useState<'24h' | '1m' | '3m' | '6m' | 'forever'>(
     () => (localStorage.getItem('souq_notif_retention') as any) || '24h'
   );
+
+  const handleSoundToggle = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    localStorage.setItem('souq_notif_sound', next ? 'enabled' : 'disabled');
+  };
+
+  const handleInterestFilterChange = (level: 'all' | 'high_only') => {
+    setInterestFilterLevel(level);
+    localStorage.setItem('souq_notif_filter_interest', level);
+  };
 
   const handleRetentionChange = (period: '24h' | '1m' | '3m' | '6m' | 'forever') => {
     setRetentionPeriod(period);
@@ -4163,8 +4314,61 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
         <motion.div initial={{x:300}} animate={{x:0}} exit={{x:300}} onClick={e=>e.stopPropagation()} className="absolute right-0 top-0 bottom-0 w-84 bg-gray-900 p-5 overflow-y-auto border-l border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-white flex items-center gap-2"><Bell className="w-5 h-5 text-amber-400"/>الإشعارات والتنبيهات</h2>
-            <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white"><X className="w-5 h-5"/></button>
+            <div className="flex items-center gap-1.5">
+              <button 
+                onClick={() => setShowSettingsModal(!showSettingsModal)} 
+                className={`p-2 rounded-xl transition-all ${showSettingsModal ? 'bg-amber-500 text-black shadow-md' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+                title="إعدادات الإشعارات والتنبيهات"
+              >
+                <Settings className="w-5 h-5"/>
+              </button>
+              <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white"><X className="w-5 h-5"/></button>
+            </div>
           </div>
+
+          {/* Embedded Notification Settings Panel */}
+          {showSettingsModal && (
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-4 bg-gradient-to-br from-gray-800 to-gray-900 p-3.5 rounded-2xl border border-amber-500/40 shadow-xl space-y-3">
+              <div className="flex items-center justify-between border-b border-gray-700/80 pb-2">
+                <h4 className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                  <Settings className="w-4 h-4" /> إعدادات وتصنيفات التنبيهات
+                </h4>
+                <button onClick={() => setShowSettingsModal(false)} className="text-[10px] text-gray-400 hover:text-white">إغلاق ✕</button>
+              </div>
+
+              {/* Sound toggle */}
+              <div className="flex items-center justify-between bg-gray-900/80 p-2.5 rounded-xl border border-gray-700/60">
+                <div className="flex items-center gap-2">
+                  {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4 text-red-400" />}
+                  <div>
+                    <div className="text-xs font-bold text-white">التنبيهات الصوتية</div>
+                    <div className="text-[10px] text-gray-400">تشغيل الصوت عند وصول إشعار جديد</div>
+                  </div>
+                </div>
+                <button 
+                  onClick={handleSoundToggle}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${soundEnabled ? 'bg-emerald-500 text-black' : 'bg-gray-700 text-gray-400'}`}
+                >
+                  {soundEnabled ? 'مفعل 🔊' : 'معطل 🔇'}
+                </button>
+              </div>
+
+              {/* Interest Filter */}
+              <div className="bg-gray-900/80 p-2.5 rounded-xl border border-gray-700/60 space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-bold text-white">
+                  <span className="flex items-center gap-1.5"><Filter className="w-3.5 h-3.5 text-amber-400" /> تصفية إشعارات الاهتمام الواردة:</span>
+                </div>
+                <select
+                  value={interestFilterLevel}
+                  onChange={(e) => handleInterestFilterChange(e.target.value as any)}
+                  className="w-full bg-gray-800 text-white text-xs font-bold p-2 rounded-lg border border-gray-700 outline-none focus:border-amber-500"
+                >
+                  <option value="all">👍 جميع درجات الاهتمام (مهتم ومهتم جداً)</option>
+                  <option value="high_only">🔥 المتابعات العالية فقط (مهتم جداً ≥ 15ث)</option>
+                </select>
+              </div>
+            </motion.div>
+          )}
 
           {/* Retention Selector */}
           <div className="mb-4 bg-gray-800/80 p-2.5 rounded-xl border border-gray-700/80">
@@ -4248,28 +4452,35 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
                 {tab === 'incoming' ? 'لا توجد إشعارات واردة جديدة حالياً' : tab === 'history' ? 'لم تقم بمشاهدة أي إعلانات بعد' : 'سجل الأرشيف فارغ'}
               </div>
             ) : (
-              activeNotifs.map((n, i) => (
-                <div key={n.id || i} 
-                  className="bg-gray-800/90 rounded-2xl p-3.5 border border-gray-700/80 transition-all cursor-pointer hover:border-amber-500/50 hover:bg-gray-800 relative group"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${n.type === 'message' ? 'bg-blue-500/20 text-blue-400' : n.type === 'interest' ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                      {n.type === 'message' ? <MessageSquare className="w-4 h-4" /> : n.type === 'interest' ? <Heart className="w-4 h-4 fill-amber-400" /> : <Eye className="w-4 h-4" />}
-                    </div>
-                    <div className="flex-1 min-w-0" onClick={async () => {
-                      if (tab === 'incoming') {
-                        setSelectedNotif(n);
-                      } else {
-                        if (n.itemId) {
-                          onHistoryClick(n.itemId, n.itemType);
-                          onClose();
-                        }
-                      }
-                    }}>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-white text-sm font-bold truncate">{n.title}</p>
+              activeNotifs.map((n, i) => {
+                const isAdminBroadcast = n.type === 'broadcast' || n.senderId === 'ALL' || n.senderName === 'إدارة الموقع';
+                return (
+                  <div key={n.id || i} 
+                    className={`rounded-2xl p-3.5 border transition-all cursor-pointer relative group ${isAdminBroadcast ? 'bg-gradient-to-br from-amber-950/60 via-gray-900 to-amber-950/40 border-amber-500/90 shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:border-amber-400' : 'bg-gray-800/90 border-gray-700/80 hover:border-amber-500/50 hover:bg-gray-800'}`}
+                  >
+                    {isAdminBroadcast && (
+                      <div className="mb-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[10px] font-black rounded-lg shadow-md">
+                        <Crown className="w-3 h-3 text-black fill-black"/> 👑 إشعار رسمي موجه من إدارة سوق بغداد
                       </div>
-                      <p className="text-gray-300 text-xs mt-1 leading-relaxed break-words">{n.message}</p>
+                    )}
+                    <div className="flex items-start gap-3">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${isAdminBroadcast ? 'bg-amber-500 text-black font-bold shadow-lg' : n.type === 'message' ? 'bg-blue-500/20 text-blue-400' : n.type === 'interest' ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                        {isAdminBroadcast ? <Crown className="w-5 h-5 fill-black"/> : n.type === 'message' ? <MessageSquare className="w-4 h-4" /> : n.type === 'interest' ? <Heart className="w-4 h-4 fill-amber-400" /> : <Eye className="w-4 h-4" />}
+                      </div>
+                      <div className="flex-1 min-w-0" onClick={async () => {
+                        if (tab === 'incoming') {
+                          setSelectedNotif(n);
+                        } else {
+                          if (n.itemId) {
+                            onHistoryClick(n.itemId, n.itemType);
+                            onClose();
+                          }
+                        }
+                      }}>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className={`text-sm font-bold truncate ${isAdminBroadcast ? 'text-amber-300' : 'text-white'}`}>{n.title}</p>
+                        </div>
+                        <p className="text-gray-300 text-xs mt-1 leading-relaxed break-words">{n.message}</p>
                       
                       <div className="flex items-center justify-between mt-2.5 flex-wrap gap-2 pt-2 border-t border-gray-700/40">
                         <p className="text-gray-500 text-[10px]"><TimeAgo iso={n.time || new Date().toISOString()} /></p>
@@ -4322,7 +4533,8 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
                     </div>
                   </div>
                 </div>
-              ))
+              );
+            })
             )}
           </div>
         </motion.div>
@@ -6206,11 +6418,21 @@ export default function App() {
   useEffect(() => {
     if (notifications.length > prevNotifsLength.current) {
       if (prevNotifsLength.current > 0) {
-        const hasNewIncoming = notifications.some(n => n.targetType === 'owner' || !n.targetType);
-        if (hasNewIncoming) {
-          const audio = new Audio('https://cdn.pixabay.com/audio/2022/03/24/audio_783d1a0e1c.mp3');
-          audio.volume = 0.6;
+        const isSoundEnabled = localStorage.getItem('souq_notif_sound') !== 'disabled';
+        const latestNotif = notifications[0];
+        const isAdminBroadcast = latestNotif && (latestNotif.type === 'broadcast' || latestNotif.senderId === 'ALL' || latestNotif.senderName === 'إدارة الموقع');
+
+        if (isAdminBroadcast) {
+          const audio = new Audio('https://cdn.pixabay.com/audio/2021/08/04/audio_062b9a1176.mp3');
+          audio.volume = 0.8;
           audio.play().catch(() => {});
+        } else if (isSoundEnabled) {
+          const hasNewIncoming = notifications.some(n => n.targetType === 'owner' || !n.targetType);
+          if (hasNewIncoming) {
+            const audio = new Audio('https://cdn.pixabay.com/audio/2022/03/24/audio_783d1a0e1c.mp3');
+            audio.volume = 0.6;
+            audio.play().catch(() => {});
+          }
         }
       }
     }
