@@ -6495,7 +6495,6 @@ export default function App() {
 
     // Per agreement: 5s to 14s is interested 👍, >=15s is very interested 🔥. Under 5s -> no interest notification to owner.
     if (seconds < 5 || !ownerId) return;
-    if (user && (user.id === ownerId || user.phone === ownerId || user.email === ownerId)) return;
 
     let targetSellerId = ownerId;
     if (storedUsers && storedUsers.length > 0) {
@@ -6520,21 +6519,24 @@ export default function App() {
       price: '0', category: 'notification', location: '', city: '', images: [], phone: viewerPhone, type: 'notification', status: 'active', is_demo: false, seller_name: viewerName, seller_avatar: user?.avatar || ''
     };
 
+    const localOwnerObj = {
+      id: `notif_owner_${Date.now()}_${Math.random()}`,
+      type: 'interest',
+      title: ownerNotifTitle,
+      message: ownerNotifMessage,
+      time: new Date().toISOString(),
+      senderId: viewerId, senderName: viewerName, senderPhone: viewerPhone,
+      itemTitle, itemType, itemId, shortId: displayId, duration: seconds, targetType: 'owner'
+    };
+
+    setNotifications(prev => [localOwnerObj, ...prev]);
+
     // Store in owner local notifications storage for instant local/demo synchronization
     try {
       const keysToUpdate = [targetSellerId, ownerId].filter(Boolean);
       keysToUpdate.forEach(k => {
         const ownerKey = `souq_notifs_${k}`;
         const existingOwnerNotifs = JSON.parse(localStorage.getItem(ownerKey) || '[]');
-        const localOwnerObj = {
-          id: `notif_owner_${Date.now()}_${Math.random()}`,
-          type: 'interest',
-          title: ownerNotifTitle,
-          message: ownerNotifMessage,
-          time: new Date().toISOString(),
-          senderId: viewerId, senderName: viewerName, senderPhone: viewerPhone,
-          itemTitle, itemType, itemId, shortId: displayId, duration: seconds, targetType: 'owner'
-        };
         localStorage.setItem(ownerKey, JSON.stringify([localOwnerObj, ...existingOwnerNotifs].slice(0, 50)));
       });
     } catch (e) {}
