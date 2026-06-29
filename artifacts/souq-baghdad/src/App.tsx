@@ -1,9 +1,10 @@
-﻿import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from './lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
 import { ShareModal } from './components/ShareModal';
 import { NotifPanel } from './components/NotifPanel';
+import { useNotifications } from './hooks/useNotifications';
 import {
   Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, Check,
   Gamepad2, Heart, Bell, Plus, LogOut, Star, X, Search, MapPin,
@@ -5913,130 +5914,14 @@ export default function App() {
   }, []);
 
 
-  const [notifications, setNotifications] = useState<any[]>([]);
-
-  const getLocalNotifs = useCallback(() => {
-    try {
-      const key = user ? `souq_notifs_${user.id}` : 'souq_notifs_guest';
-      return JSON.parse(localStorage.getItem(key) || '[]');
-    } catch {
-      return [];
-    }
-  }, [user]);
-
-  const saveLocalNotifs = useCallback((newNotifs: any[]) => {
-    try {
-      const key = user ? `souq_notifs_${user.id}` : 'souq_notifs_guest';
-      localStorage.setItem(key, JSON.stringify(newNotifs.slice(0, 50)));
-    } catch {}
-  }, [user]);
-
-  const fetchNotifications = useCallback(async () => {
-    const activeSellerId = user?.id || 'GUEST';
-    const rawPhone = user?.phone || '';
-    const activePhone = rawPhone ? rawPhone.replace(/[^0-9]/g, '').replace(/^0/, '') : '';
-    const activeEmail = user?.email || '';
-    const localNotifs = getLocalNotifs();
-
-    let orClause = `seller_id.eq.${activeSellerId},seller_id.eq.ALL,seller_id.eq.GUEST`;
-    if (rawPhone) orClause += `,seller_id.eq.${rawPhone}`;
-    if (activePhone) orClause += `,seller_id.eq.${activePhone},seller_id.eq.0${activePhone}`;
-    if (activeEmail) orClause += `,seller_id.eq.${activeEmail}`;
-    if (user?.name) orClause += `,seller_id.eq.${user.name}`;
-
-    try {
-      const { data, error } = await supabase
-        .from('ads')
-        .select('*')
-        .eq('category', 'notification')
-        .or(orClause)
-        .in('status', ['active', 'archived'])
-        .order('created_at', { ascending: false });
-
-      if (data && data.length > 0) {
-        const mapped = data.map((row: any) => {
-          let extra = {
-            message: '', type: 'view', senderId: '', senderName: 'مستخدم',
-            senderPhone: '', itemTitle: '', itemType: 'ad', itemId: '', shortId: '', duration: 0, targetType: 'owner', isArchived: false
-          };
-          try {
-            if (row.description) extra = { ...extra, ...JSON.parse(row.description) };
-          } catch (e) {
-            extra.message = row.description || '';
-          }
-          return {
-            id: row.id,
-            type: extra.type || 'message',
-            title: row.title,
-            message: extra.message || row.title,
-            time: row.created_at,
-            senderId: extra.senderId,
-            senderName: extra.senderName,
-            senderPhone: extra.senderPhone || row.phone,
-            itemTitle: extra.itemTitle,
-            itemType: extra.itemType,
-            itemId: extra.itemId,
-            shortId: extra.shortId,
-            duration: extra.duration,
-            targetType: extra.targetType || 'owner',
-            isArchived: row.status === 'archived' || Boolean(extra.isArchived)
-          };
-        });
-
-        const combinedMap = new Map();
-        [...mapped, ...localNotifs].forEach(n => combinedMap.set(String(n.id), n));
-        const combined = Array.from(combinedMap.values()).sort((a,b) => new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime());
-        setNotifications(combined);
-        saveLocalNotifs(combined);
-        return;
-      }
-    } catch (err) {}
-
-    setNotifications(localNotifs);
-  }, [user, getLocalNotifs, saveLocalNotifs]);
-
-  useEffect(() => {
-    fetchNotifications();
-    const channel = supabase
-      .channel('public:ads_notifs')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ads' }, (payload) => {
-        if (payload.new && payload.new.category === 'notification') {
-          fetchNotifications();
-        }
-      })
-      .subscribe();
-
-    const iv = setInterval(fetchNotifications, 4000);
-    return () => {
-      clearInterval(iv);
-      supabase.removeChannel(channel);
-    };
-  }, [user, fetchNotifications]);
-
-  const prevNotifsLength = useRef(0);
-  useEffect(() => {
-    if (notifications.length > prevNotifsLength.current) {
-      if (prevNotifsLength.current > 0) {
-        const isSoundEnabled = localStorage.getItem('souq_notif_sound') !== 'disabled';
-        const latestNotif = notifications[0];
-        const isAdminBroadcast = latestNotif && (latestNotif.type === 'broadcast' || latestNotif.senderId === 'ALL' || latestNotif.senderName === 'إدارة الموقع');
-
-        if (isAdminBroadcast) {
-          const audio = new Audio('https://cdn.pixabay.com/audio/2021/08/04/audio_062b9a1176.mp3');
-          audio.volume = 0.8;
-          audio.play().catch(() => {});
-        } else if (isSoundEnabled) {
-          const hasNewIncoming = notifications.some(n => n.targetType === 'owner' || !n.targetType);
-          if (hasNewIncoming) {
-            const audio = new Audio('https://cdn.pixabay.com/audio/2022/03/24/audio_783d1a0e1c.mp3');
-            audio.volume = 0.6;
-            audio.play().catch(() => {});
-          }
-        }
-      }
-    }
-    prevNotifsLength.current = notifications.length;
-  }, [notifications]);
+  // ─── إدارة الإشعارات — Supabase فقط ────────────────────────────────────────
+  const {
+    notifications,
+    markAsRead: markNotifAsRead,
+    archiveAll: handleArchiveAllNotifications,
+    addViewerHistory,
+    createInterestNotification,
+  } = useNotifications({ user, storedUsers });
 
   const handleHistoryClick = (itemId: string | number, itemType: string) => {
     if (itemType === 'ad') {
@@ -6051,110 +5936,18 @@ export default function App() {
     }
   };
 
-  const markNotifAsRead = async (notifId: number | string) => {
-    const updated = notifications.map(n => String(n.id) === String(notifId) ? { ...n, isArchived: true } : n);
-    setNotifications(updated);
-    saveLocalNotifs(updated);
-    try {
-      await supabase.from('ads').update({ status: 'archived' }).eq('id', notifId);
-    } catch (e) {}
-  };
-
-  const handleArchiveAllNotifications = async () => {
-    const updated = notifications.map(n => ({ ...n, isArchived: true }));
-    setNotifications(updated);
-    saveLocalNotifs(updated);
-    if (!user) return;
-    try {
-      await supabase.from('ads').update({ status: 'archived' }).eq('category', 'notification').eq('seller_id', user.id);
-    } catch (e) {}
-  };
-
-  const handleViewDurationLogged = async (itemId: number | string, itemTitle: string, ownerId: string, itemType: string, seconds: number, shortId?: string) => {
-    const viewerName = user?.name || 'زائر في الموقع';
-    const viewerId = user?.id || 'GUEST';
-    const viewerPhone = user?.phone || '';
-    const displayId = shortId || (typeof itemId === 'string' && itemId.length > 8 ? itemId.slice(0, 6) : String(itemId));
-
-    if (seconds >= 1) {
-      const newViewerObj = {
-        id: `viewer_${Date.now()}_${Math.random()}`,
-        title: '🕒 سجل المشاهدة',
-        message: `شاهدت إعلان "${itemTitle}" (#${displayId}) لـ ${seconds} ثوانٍ.`,
-        type: 'history',
-        time: new Date().toISOString(),
-        senderId: ownerId,
-        itemTitle, itemType, itemId, shortId: displayId, duration: seconds, targetType: 'viewer'
-      };
-
-      const updated = [newViewerObj, ...notifications];
-      setNotifications(updated);
-      saveLocalNotifs(updated);
-    }
-
-    // Per agreement: 5s to 14s is interested 👍, >=15s is very interested 🔥. Under 5s -> no interest notification to owner.
-    if (seconds < 5 || !ownerId) return;
-
-    let targetSellerId = ownerId;
-    if (storedUsers && storedUsers.length > 0) {
-      const foundUser = storedUsers.find((u: any) => String(u.id) === String(ownerId) || String(u.phone) === String(ownerId) || String(u.email) === String(ownerId));
-      if (foundUser?.id) targetSellerId = foundUser.id;
-    }
-
-    const isHighInterest = seconds >= 15;
-    const interestTag = isHighInterest ? 'مهتم جداً 🔥' : 'مهتم 👍';
-    const ownerNotifTitle = isHighInterest ? '🔥 زبون مهتم جداً بإعلانك' : '👍 زبون مهتم بإعلانك';
-    const ownerNotifMessage = `قام الزبون (${viewerName}) بمشاهدة إعلانك "${itemTitle}" (#${displayId}) لمدة ${seconds} ثوانٍ (${interestTag}).`;
-
-    const ownerNotifRow = {
-      seller_id: targetSellerId,
-      title: ownerNotifTitle,
-      description: JSON.stringify({
-        message: ownerNotifMessage,
-        type: 'interest',
-        senderId: viewerId, senderName: viewerName, senderPhone: viewerPhone,
-        itemTitle, itemType, itemId, shortId: displayId, duration: seconds, targetType: 'owner'
-      }),
-      price: '0', category: 'notification', location: '', city: '', images: [], phone: viewerPhone, type: 'notification', status: 'active', is_demo: false, seller_name: viewerName, seller_avatar: user?.avatar || ''
-    };
-
-    const localOwnerObj = {
-      id: `notif_owner_${Date.now()}_${Math.random()}`,
-      type: 'interest',
-      title: ownerNotifTitle,
-      message: ownerNotifMessage,
-      time: new Date().toISOString(),
-      senderId: viewerId, senderName: viewerName, senderPhone: viewerPhone,
-      itemTitle, itemType, itemId, shortId: displayId, duration: seconds, targetType: 'owner'
-    };
-
-    setNotifications(prev => [localOwnerObj, ...prev]);
-
-    // Store in owner local notifications storage for instant local/demo synchronization
-    try {
-      const keysToUpdate = [targetSellerId, ownerId].filter(Boolean);
-      keysToUpdate.forEach(k => {
-        const ownerKey = `souq_notifs_${k}`;
-        const existingOwnerNotifs = JSON.parse(localStorage.getItem(ownerKey) || '[]');
-        localStorage.setItem(ownerKey, JSON.stringify([localOwnerObj, ...existingOwnerNotifs].slice(0, 50)));
-      });
-    } catch (e) {}
-
-    try {
-      const idsToInsert = new Set([targetSellerId, ownerId].filter(Boolean));
-      if (storedUsers && storedUsers.length > 0) {
-        const foundUser = storedUsers.find((u: any) => String(u.id) === String(ownerId) || String(u.phone) === String(ownerId) || String(u.email) === String(ownerId));
-        if (foundUser) {
-          if (foundUser.id) idsToInsert.add(foundUser.id);
-          if (foundUser.phone) idsToInsert.add(foundUser.phone);
-        }
-      }
-      const rows = Array.from(idsToInsert).map(id => ({
-        ...ownerNotifRow,
-        seller_id: id
-      }));
-      await supabase.from('ads').insert(rows);
-    } catch (e) {}
+  const handleViewDurationLogged = async (
+    itemId: number | string,
+    itemTitle: string,
+    ownerId: string,
+    itemType: string,
+    seconds: number,
+    shortId?: string
+  ) => {
+    // إضافة سجل المشاهدة محلياً
+    addViewerHistory({ itemId, itemTitle, ownerId, itemType, seconds, shortId });
+    // إرسال إشعار الاهتمام إلى Supabase
+    await createInterestNotification({ itemId, itemTitle, ownerId, itemType, seconds, shortId });
   };
 
 
