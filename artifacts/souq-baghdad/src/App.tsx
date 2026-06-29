@@ -1295,6 +1295,7 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
       ctx.fillStyle = '#6b7280';
       ctx.font = `${Math.max(8, Math.round(bannerH * 0.16))}px system-ui, sans-serif`;
       ctx.fillText('souqbaghdad.store', margin * 2, h + bannerH * 0.7);
+      }
 
       const link = document.createElement('a');
       link.download = `souq-baghdad-${title.replace(/\s+/g, '-')}.jpg`;
@@ -1306,7 +1307,6 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
       console.error('Failed to download image', err);
     } finally {
       setDownloading(false);
-      setLongPressActive(false);
     }
   };
 
