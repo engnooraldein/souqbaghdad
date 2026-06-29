@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from './lib/supabase';
-import { requestWebNotificationPermission } from './lib/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
 import { ShareModal } from './components/ShareModal';
@@ -4153,7 +4152,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
               <div className="space-y-3 pt-2">
                 <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
                   <h4 className="text-amber-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">📌 ما الجديد في v1.4؟</h4>
-                  <p className="text-gray-300 text-xs leading-relaxed">ترقية هيكلية كبرى (Lean Architecture) تشمل: **دمج نظام Firebase Cloud Messaging للإشعارات المجانية** لتوفير تكاليف Supabase، **انتقال بيئة العمل بالكامل من pnpm إلى npm** لضمان التوافق التام، وإصلاح توافقية **Vercel و GitHub Actions** مع البنية الجديدة.</p>
+                  <p className="text-gray-300 text-xs leading-relaxed">ترقية هيكلية كبرى (Lean Architecture) تشمل: **انتقال بيئة العمل بالكامل من pnpm إلى npm** لضمان التوافق التام، وإصلاح توافقية **Vercel و GitHub Actions** مع البنية الجديدة.</p>
                 </div>
                 <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
                   <h4 className="text-green-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">⚡ الحماية والأداء الفائق</h4>
