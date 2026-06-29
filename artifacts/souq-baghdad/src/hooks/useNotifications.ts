@@ -140,7 +140,7 @@ export function useNotifications({ user, storedUsers = [] }: UseNotificationsOpt
       )
       .subscribe();
 
-    const iv = setInterval(fetchNotifications, 5000);
+    const iv = setInterval(fetchNotifications, 60 * 60 * 1000); // 1 hour
 
     return () => {
       clearInterval(iv);

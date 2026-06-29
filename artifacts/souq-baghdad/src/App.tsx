@@ -3470,7 +3470,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg"><Crown className="w-6 h-6 text-black"/></div>
-            <div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">🚀 الإصدار v1.3</span></div><p className="text-amber-400 text-xs mt-0.5">تحليلات شاملة، حماية سيبرانية، تتبع الأيبيات وإدارة كاملة حية ومتصلة</p></div>
+            <div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">🚀 الإصدار v1.4.1</span></div><p className="text-amber-400 text-xs mt-0.5">تحليلات شاملة، حماية سيبرانية، تتبع الأيبيات وإدارة كاملة حية ومتصلة</p></div>
           </div>
           <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white"><X className="w-5 h-5"/></button>
         </div>
@@ -3913,7 +3913,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
               <div className="flex items-center gap-3 mb-3">
                 <ShieldAlert className="w-6 h-6 text-red-400"/>
                 <div>
-                  <h3 className="text-white font-bold text-lg">مركز الحماية والأمان السيبراني v1.3</h3>
+                  <h3 className="text-white font-bold text-lg">مركز الحماية والأمان السيبراني v1.4.1</h3>
                   <p className="text-gray-400 text-xs">إدارة حظر الـ IP الحركي، بصمات الأجهزة، وحماية المنصة من البوتات والاحتيال</p>
                 </div>
               </div>
@@ -3978,7 +3978,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
         {tab==='marketing'&&(
           <div className="space-y-5">
             <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5">
-              <h3 className="text-white font-bold text-lg mb-2 flex items-center gap-2"><Send className="w-5 h-5 text-amber-400"/>مركز التسويق والإشعارات الموجهة v1.3</h3>
+              <h3 className="text-white font-bold text-lg mb-2 flex items-center gap-2"><Send className="w-5 h-5 text-amber-400"/>مركز التسويق والإشعارات الموجهة v1.4.1</h3>
               <p className="text-gray-400 text-xs mb-4">إرسال إشعارات عامة أو استهداف مستخدمي محافظة عراقية معينة لزيادة التفاعل والحملات الإعلانية</p>
               
               <form onSubmit={handleBroadcast} className="space-y-4">
@@ -4075,7 +4075,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
 
         {tab==='reports'&&(
           <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5 space-y-4">
-            <h3 className="text-white font-bold text-lg flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-400"/>مركز البلاغات والدعم الفني v1.3</h3>
+            <h3 className="text-white font-bold text-lg flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-400"/>مركز البلاغات والدعم الفني v1.4.1</h3>
             <p className="text-gray-400 text-xs">متابعة بلاغات المستخدمين وشكاوى المحتوى وإدارة تذاكر الدعم</p>
             <div className="bg-gray-900 rounded-xl p-6 text-center border border-gray-700/80 space-y-2">
               <CheckCircle className="w-8 h-8 text-emerald-400 mx-auto"/>
@@ -4087,7 +4087,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
 
         {tab==='backup'&&(
           <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5 space-y-4">
-            <h3 className="text-white font-bold text-lg flex items-center gap-2"><Download className="w-5 h-5 text-blue-400"/>مركز التصدير والنسخ الاحتياطي v1.3</h3>
+            <h3 className="text-white font-bold text-lg flex items-center gap-2"><Download className="w-5 h-5 text-blue-400"/>مركز التصدير والنسخ الاحتياطي v1.4.1</h3>
             <p className="text-gray-400 text-xs">تنزيل نسخة احتياطية من قواعد بيانات المنصة وسجلات العمليات والمستخدمين بضغطة زر واحدة</p>
             
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
