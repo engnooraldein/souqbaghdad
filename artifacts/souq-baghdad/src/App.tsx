@@ -299,7 +299,7 @@ export const useOnlineStatuses = () => {
     onlineListeners.add(trigger);
     if (onlineListeners.size === 1) {
       fetchGlobalOnlineStatuses();
-      globalOnlineTimer = setInterval(fetchGlobalOnlineStatuses, 15000);
+      globalOnlineTimer = setInterval(fetchGlobalOnlineStatuses, 300000); // كل 5 دقائق بدل 15 ثانية (توفير ~95% Egress)
     }
     return () => { 
       onlineListeners.delete(trigger); 
