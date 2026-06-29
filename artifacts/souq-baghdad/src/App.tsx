@@ -5,6 +5,7 @@ import { Helmet } from 'react-helmet-async';
 import { ShareModal } from './components/ShareModal';
 import { NotifPanel } from './components/NotifPanel';
 import { useNotifications } from './hooks/useNotifications';
+import { stringToUuid, SPECIAL_UUIDS } from './lib/utils';
 import {
   Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, Check,
   Gamepad2, Heart, Bell, Plus, LogOut, Star, X, Search, MapPin,
@@ -3414,12 +3415,12 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
     try {
       const activeCount = Object.values(onlineStatuses || {}).filter(Boolean).length || storedUsers.length || 1;
       const globalRows = [
-        { seller_id: 'ALL', title: broadcastTitle, description: JSON.stringify({ message: broadcastMsg, type: 'broadcast', senderName: 'إدارة الموقع', targetAudience: targetAudienceType }), price: '0', category: 'notification', location: targetGovNotif || 'الكل', city: targetGovNotif || 'الكل', images: [], phone: '', type: 'notification', status: 'active', is_demo: false, seller_name: 'إدارة الموقع', seller_avatar: '' },
-        { seller_id: 'GUEST', title: broadcastTitle, description: JSON.stringify({ message: broadcastMsg, type: 'broadcast', senderName: 'إدارة الموقع', targetAudience: targetAudienceType }), price: '0', category: 'notification', location: targetGovNotif || 'الكل', city: targetGovNotif || 'الكل', images: [], phone: '', type: 'notification', status: 'active', is_demo: false, seller_name: 'إدارة الموقع', seller_avatar: '' }
+        { seller_id: SPECIAL_UUIDS.ALL, title: broadcastTitle, description: JSON.stringify({ message: broadcastMsg, type: 'broadcast', senderName: 'إدارة الموقع', targetAudience: targetAudienceType }), price: '0', category: 'notification', location: targetGovNotif || 'الكل', city: targetGovNotif || 'الكل', images: [], phone: '', type: 'notification', status: 'active', is_demo: false, seller_name: 'إدارة الموقع', seller_avatar: '' },
+        { seller_id: SPECIAL_UUIDS.GUEST, title: broadcastTitle, description: JSON.stringify({ message: broadcastMsg, type: 'broadcast', senderName: 'إدارة الموقع', targetAudience: targetAudienceType }), price: '0', category: 'notification', location: targetGovNotif || 'الكل', city: targetGovNotif || 'الكل', images: [], phone: '', type: 'notification', status: 'active', is_demo: false, seller_name: 'إدارة الموقع', seller_avatar: '' }
       ];
 
       const campaignRow = {
-        seller_id: dbUsers[0]?.id || 'OWNER',
+        seller_id: stringToUuid(dbUsers[0]?.id || 'OWNER'),
         title: broadcastTitle,
         description: JSON.stringify({
           message: broadcastMsg,

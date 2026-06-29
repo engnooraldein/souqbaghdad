@@ -20,6 +20,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { stringToUuid } from '../lib/utils';
 
 export interface Notification {
   id: string | number;
@@ -75,25 +76,6 @@ function mapAdsRow(row: any): Notification {
   };
 }
 
-// ─── بناء OR clause لجلب إشعارات المستخدم من Supabase ──────────────────────
-function buildOrClause(user: UseNotificationsOptions['user']): string {
-  if (!user) return 'seller_id.eq.GUEST,seller_id.eq.ALL';
-  const rawPhone = user.phone || '';
-  const cleanPhone = rawPhone.replace(/[^0-9]/g, '').replace(/^0/, '');
-  const parts = [
-    `seller_id.eq.${user.id}`,
-    'seller_id.eq.ALL',
-    'seller_id.eq.GUEST',
-  ];
-  if (rawPhone) parts.push(`seller_id.eq.${rawPhone}`);
-  if (cleanPhone) {
-    parts.push(`seller_id.eq.${cleanPhone}`);
-    parts.push(`seller_id.eq.0${cleanPhone}`);
-  }
-  if (user.email) parts.push(`seller_id.eq.${user.email}`);
-  if (user.name)  parts.push(`seller_id.eq.${user.name}`);
-  return parts.join(',');
-}
 // ══════════════════════════════════════════════════════════════════════════════
 export function useNotifications({ user, storedUsers = [] }: UseNotificationsOptions) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -108,16 +90,17 @@ export function useNotifications({ user, storedUsers = [] }: UseNotificationsOpt
       const email    = user?.email || '';
       const name     = user?.name || '';
 
-      // بناء شرط OR شامل لجميع معرّفات المستخدم + 'ALL'
-      const ids: string[] = [userId, 'ALL', 'GUEST'];
-      if (phone)   ids.push(phone);
-      if (cleanPh) { ids.push(cleanPh); ids.push('0' + cleanPh); }
-      if (email)   ids.push(email);
-      if (name)    ids.push(name);
+      // بناء شرط OR شامل لجميع معرّفات المستخدم + 'ALL' تحوّل كلها لـ UUIDs صالحة
+      const rawIds: string[] = [userId, 'ALL', 'GUEST'];
+      if (phone)   rawIds.push(phone);
+      if (cleanPh) { rawIds.push(cleanPh); rawIds.push('0' + cleanPh); }
+      if (email)   rawIds.push(email);
+      if (name)    rawIds.push(name);
 
-      const orFilter = ids
+      const uuidFilter = rawIds
+        .map(id => stringToUuid(id))
         .filter((v, i, a) => v && a.indexOf(v) === i)
-        .map(id => `seller_id.eq.${id}`)
+        .map(uuid => `seller_id.eq.${uuid}`)
         .join(',');
 
       const { data, error } = await supabase
@@ -125,7 +108,7 @@ export function useNotifications({ user, storedUsers = [] }: UseNotificationsOpt
         .select('id, seller_id, title, description, phone, created_at, status')
         .eq('category', 'notification')
         .not('status', 'eq', 'deleted')
-        .or(orFilter)
+        .or(uuidFilter)
         .order('created_at', { ascending: false })
         .limit(150);
 
@@ -182,11 +165,9 @@ export function useNotifications({ user, storedUsers = [] }: UseNotificationsOpt
 
   // ─── أرشفة إشعار واحد ─────────────────────────────────────────────────────
   const markAsRead = useCallback(async (notifId: string | number) => {
-    // تحديث محلي فوري
     setNotifications(prev =>
       prev.map(n => String(n.id) === String(notifId) ? { ...n, isArchived: true } : n)
     );
-    // تحديث Supabase
     try {
       await supabase.from('ads').update({ status: 'archived' }).eq('id', notifId);
     } catch (e) {
@@ -199,24 +180,22 @@ export function useNotifications({ user, storedUsers = [] }: UseNotificationsOpt
     setNotifications(prev => prev.map(n => ({ ...n, isArchived: true })));
     if (!user) return;
     try {
-      // جمع كل معرّفات المستخدم
       const ids = [user.id];
       if (user.phone) ids.push(user.phone);
       if (user.email) ids.push(user.email);
-      // تحديث الإشعارات لكل معرّف على حدة
       await Promise.all(ids.map(id =>
         supabase
           .from('ads')
           .update({ status: 'archived' })
           .eq('category', 'notification')
-          .eq('seller_id', id)
+          .eq('seller_id', stringToUuid(id))
       ));
     } catch (e) {
       console.warn('[useNotifications] archiveAll error:', e);
     }
   }, [user]);
 
-  // ─── إضافة إشعار مؤقت محلياً (للاستخدام الفوري قبل Supabase insert) ─────
+  // ─── إضافة إشعار مؤقت محلياً ────────────────────────────────────────────
   const addLocalNotif = useCallback((notif: Notification) => {
     setNotifications(prev => [notif, ...prev]);
   }, []);
@@ -243,7 +222,6 @@ export function useNotifications({ user, storedUsers = [] }: UseNotificationsOpt
     const notifTitle     = isHighInterest ? '🔥 زبون مهتم جداً بإعلانك' : '👍 زبون مهتم بإعلانك';
     const notifMessage   = `قام الزبون (${viewerName}) بمشاهدة إعلانك "${itemTitle}" (#${displayId}) لمدة ${seconds} ثوانٍ (${interestTag}).`;
 
-    // جمع كل معرّفات المالك الممكنة لضمان التسليم
     const targetIds = new Set<string>([ownerId]);
     if (storedUsers.length > 0) {
       const found = storedUsers.find((u: any) =>
@@ -264,7 +242,7 @@ export function useNotifications({ user, storedUsers = [] }: UseNotificationsOpt
     });
 
     const rows = Array.from(targetIds).map(id => ({
-      seller_id: id,
+      seller_id: stringToUuid(id),
       title: notifTitle,
       description: extraJson,
       price: '0',
@@ -282,7 +260,6 @@ export function useNotifications({ user, storedUsers = [] }: UseNotificationsOpt
 
     try {
       await supabase.from('ads').insert(rows);
-      // Realtime سيحدّث القائمة تلقائياً — لا حاجة لـ fetchNotifications يدوياً
     } catch (e) {
       console.warn('[useNotifications] createInterestNotification error:', e);
     }
