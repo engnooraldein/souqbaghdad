@@ -3506,7 +3506,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
         
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {([['overview','📊 نظرة عامة'],['security','🛡️ الأمان وحظر IP'],['visitors','👥 الزوار الحيين'],['users','🧑‍💼 الحسابات والترقيات'],['content','📢 المحتوى والرايات'],['verification','🪪 طلبات التوثيق'],['recovery','🔑 استعادة الحسابات'],['marketing','📣 التسويق والإشعارات'],['reports','🚨 البلاغات والدعم'],['logs','📋 سجل العمليات والجنائي'],['backup','💾 التصدير والنسخ الاحتياطي'],['changelog','🚀 التحديثات v1.3']] as [string,string][]).map(([t,l])=>(
+          {([['overview','📊 نظرة عامة'],['security','🛡️ الأمان وحظر IP'],['visitors','👥 الزوار الحيين'],['users','🧑‍💼 الحسابات والترقيات'],['content','📢 المحتوى والرايات'],['verification','🪪 طلبات التوثيق'],['recovery','🔑 استعادة الحسابات'],['marketing','📣 التسويق والإشعارات'],['reports','🚨 البلاغات والدعم'],['logs','📋 سجل العمليات والجنائي'],['backup','💾 التصدير والنسخ الاحتياطي'],['changelog','🚀 التحديثات v1.4']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`px-3.5 py-2 rounded-xl text-xs md:text-sm font-bold transition-all ${tab===t?'bg-amber-500 text-black shadow-lg scale-105':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
           ))}
         </div>
@@ -4148,7 +4148,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-white font-bold text-xl">سجل التحديثات والإصدارات</h2>
-                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.3.0</span>
+                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.4.0</span>
                   </div>
                   <p className="text-gray-400 text-xs mt-1">تتبع كافة التعديلات، التحسينات الأمنيّة والمميزات الفائقة في المنصة</p>
                 </div>
@@ -4160,18 +4160,18 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
                 الإصدار الحالي المباشر
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-amber-400 font-bold text-lg">🚀 الإصدار v1.3.0</span>
+                <span className="text-amber-400 font-bold text-lg">🚀 الإصدار v1.4.0</span>
                 <span className="text-gray-400 text-xs font-mono">({new Date().toLocaleDateString('ar-IQ')})</span>
               </div>
               <div className="space-y-3 pt-2">
                 <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
-                  <h4 className="text-amber-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">📌 ما الجديد في v1.3؟</h4>
-                  <p className="text-gray-300 text-xs leading-relaxed">ترقية شاسعة للمنصة تشمل: **مركز الحماية السيبرانية وحظر الـ IP الحركي**، **تسجيل أيبيات الزوار والشبكات حياً**، **نظام التسويق والإشعارات حسب المحافظات**، و **مركز التصدير والنسخ الاحتياطي لقواعد البيانات**.</p>
+                  <h4 className="text-amber-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">📌 ما الجديد في v1.4؟</h4>
+                  <p className="text-gray-300 text-xs leading-relaxed">ترقية هيكلية كبرى (Lean Architecture) تشمل: **دمج نظام Firebase Cloud Messaging للإشعارات المجانية** لتوفير تكاليف Supabase، **انتقال بيئة العمل بالكامل من pnpm إلى npm** لضمان التوافق التام، وإصلاح توافقية **Vercel و GitHub Actions** مع البنية الجديدة.</p>
                 </div>
                 <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
                   <h4 className="text-green-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">⚡ الحماية والأداء الفائق</h4>
                   <ul className="text-gray-300 text-xs space-y-1.5 list-disc list-inside">
-                    <li>تفعيل كاشف الـ VPN والتصفح المشبوه مع جدار حماية حركي (WAF).</li>
+                    <li>إلغاء قيود حزم npm القديمة وتحديث ملفات `package.json` للعمل ضمن مساحات العمل (Workspaces).</li>
                     <li>تسريع استجابة الواجهات عبر خفض زمن الـ INP وتجميع استعلامات الأونلاين بمؤقت موحد.</li>
                   </ul>
                 </div>
