@@ -3336,9 +3336,16 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
 
     const fetchUsersAndGuests = async () => {
       try {
-        const { data: profiles } = await supabase.from('profiles').select('*').order('last_seen', { ascending: false });
+        // تحسين: أعمدة محددة فقط + limit لتوفير Egress
+        const { data: profiles } = await supabase.from('profiles')
+          .select('id, full_name, phone, email, role, avatar_url, city, last_seen, created_at, is_banned, ads_count')
+          .order('last_seen', { ascending: false })
+          .limit(500);
         if (profiles) setDbUsers(profiles);
-        const { data: guests } = await supabase.from('guests').select('*').order('last_seen', { ascending: false });
+        const { data: guests } = await supabase.from('guests')
+          .select('id, phone, last_seen, created_at, city')
+          .order('last_seen', { ascending: false })
+          .limit(500);
         if (guests) setDbGuests(guests);
       } catch (err) {}
     };
@@ -4311,8 +4318,10 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
         const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
         const sellersMap = new Map();
 
-        // Fetch registered profiles from DB
-        const { data: dbProfiles } = await supabase.from('profiles').select('*');
+        // Fetch registered profiles from DB — تحسين: أعمدة محددة فقط
+        const { data: dbProfiles } = await supabase.from('profiles')
+          .select('id, full_name, name, avatar_url, avatar, phone, city, location, created_at, role')
+          .limit(500);
         if (dbProfiles && dbProfiles.length > 0) {
           dbProfiles.forEach((p: any) => {
             sellersMap.set(p.id, {
@@ -5494,7 +5503,10 @@ export default function App() {
         const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
         const sellersMap = new Map();
 
-        const { data: dbProfiles } = await supabase.from('profiles').select('*');
+        // تحسين: أعمدة محددة فقط بدل select('*') لتوفير Egress
+        const { data: dbProfiles } = await supabase.from('profiles')
+          .select('id, full_name, name, avatar_url, avatar, phone, city, location, created_at, role')
+          .limit(500);
         if (dbProfiles && dbProfiles.length > 0) {
           dbProfiles.forEach((p: any) => {
             sellersMap.set(p.id, {
