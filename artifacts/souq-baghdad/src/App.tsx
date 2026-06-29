@@ -4145,9 +4145,9 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
               <div className="absolute top-0 left-0 bg-amber-500 text-black text-[10px] font-extrabold px-3 py-1 rounded-br-xl uppercase tracking-wider">
                 الإصدار الحالي المباشر
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-amber-400 font-bold text-lg">🚀 الإصدار v1.4.0</span>
-                <span className="text-gray-400 text-xs font-mono">({new Date().toLocaleDateString('ar-IQ')})</span>
+              <div className="flex flex-col gap-1 mb-2">
+                <span className="text-amber-400 font-bold text-lg">🚀 الإصدار v1.4.1</span>
+                <span className="text-gray-400 text-xs font-mono" dir="ltr">(آخر تحديث: 2026/06/29 20:18:36)</span>
               </div>
               <div className="space-y-3 pt-2">
                 <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
