@@ -3388,8 +3388,6 @@ const fetchRecovery = async () => {
         targetType: 'owner'
       };
 
-      setNotifications(prev => [newBroadcastObj, ...prev]);
-
       try {
         const existingBroadcasts = JSON.parse(localStorage.getItem('souq_global_broadcasts') || '[]');
         localStorage.setItem('souq_global_broadcasts', JSON.stringify([newBroadcastObj, ...existingBroadcasts].slice(0, 50)));
