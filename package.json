@@ -6,7 +6,7 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "build": "cd artifacts/souq-baghdad && npm run build",
+    "build": "cd artifacts/souq-baghdad && pnpm run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
