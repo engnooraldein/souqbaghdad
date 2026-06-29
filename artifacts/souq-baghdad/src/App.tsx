@@ -6131,6 +6131,7 @@ export default function App() {
     if (rawPhone) orClause += `,seller_id.eq.${rawPhone}`;
     if (activePhone) orClause += `,seller_id.eq.${activePhone},seller_id.eq.0${activePhone}`;
     if (activeEmail) orClause += `,seller_id.eq.${activeEmail}`;
+    if (user?.name) orClause += `,seller_id.eq.${user.name}`;
 
     try {
       const { data, error } = await supabase
@@ -6184,11 +6185,20 @@ export default function App() {
   }, [user, getLocalNotifs, saveLocalNotifs]);
 
   useEffect(() => {
-    let iv: any;
     fetchNotifications();
-    iv = setInterval(fetchNotifications, 10000);
+    const channel = supabase
+      .channel('public:ads_notifs')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ads' }, (payload) => {
+        if (payload.new && payload.new.category === 'notification') {
+          fetchNotifications();
+        }
+      })
+      .subscribe();
+
+    const iv = setInterval(fetchNotifications, 4000);
     return () => {
-      if (iv) clearInterval(iv);
+      clearInterval(iv);
+      supabase.removeChannel(channel);
     };
   }, [user, fetchNotifications]);
 
