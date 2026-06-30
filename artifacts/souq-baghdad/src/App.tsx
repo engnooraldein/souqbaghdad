@@ -1575,7 +1575,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
           <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 mb-4">
             <div className="flex items-center gap-3">
               <button onClick={()=>onSellerClick?.(ad.postedBy||'')} className="relative hover:opacity-80 transition-opacity shrink-0">
-                <img src={liveSeller?.avatar || ad.seller?.avatar || DEFAULT_AVATAR} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
+                <img src={liveSeller?.avatar || ad.seller?.avatar || DEFAULT_AVATAR} onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
                 <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-gray-900 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'أوفلاين'} />
               </button>
               <div className="flex-1 min-w-0">
@@ -1743,7 +1743,7 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
           <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 mb-4">
             <div className="flex items-center gap-3">
               <button onClick={()=>onSellerClick?.(product.postedBy)} className="relative hover:opacity-80 transition-opacity shrink-0">
-                <img src={liveSeller?.avatar || product.seller?.avatar || DEFAULT_AVATAR} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
+                <img src={liveSeller?.avatar || product.seller?.avatar || DEFAULT_AVATAR} onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
                 <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-gray-900 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'أوفلاين'} />
               </button>
               <div className="flex-1 min-w-0">
@@ -2558,7 +2558,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
             {/* Avatar */}
             <div className="relative z-20">
               <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-gray-950 shadow-xl overflow-hidden bg-white flex items-center justify-center">
-                <img src={avatarPreview} alt={user.name} className="w-full h-full object-cover"/>
+                <img src={avatarPreview} onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }} alt={user.name} className="w-full h-full object-cover"/>
               </div>
               {editing&&(
                 <div className="absolute -bottom-1 -right-1 flex gap-1">
@@ -3070,7 +3070,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, storedUsers = [], onB
         <div className="flex justify-between items-end -mt-12 sm:-mt-16 mb-4 relative z-10">
           <div className="relative">
             <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl border-4 border-gray-950 shadow-xl overflow-hidden bg-white flex-shrink-0 flex items-center justify-center">
-              <img src={effectiveSeller?.avatar || DEFAULT_AVATAR} alt={effectiveSeller?.name} className="w-full h-full object-cover"/>
+              <img src={effectiveSeller?.avatar || DEFAULT_AVATAR} onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }} alt={effectiveSeller?.name} className="w-full h-full object-cover"/>
             </div>
             {Boolean((user && (String(effectiveSeller.id) === String(user.id) || String(effectiveSeller.phone) === String(user.phone))) || onlineStatuses[effectiveSeller.id] || onlineStatuses[effectiveSeller.phone]) ? (
               <span className="absolute bottom-2 right-2 w-5 h-5 bg-emerald-500 rounded-full border-2 border-gray-950 flex items-center justify-center shadow-lg" title="متصل الآن">
@@ -6361,7 +6361,7 @@ export default function App() {
                     className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-sm">
                     <Plus className="w-4 h-4"/> إعلان</button>
                   <button onClick={()=>setView('profile')} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white hover:bg-gray-700'}`}>
-                    <img src={user.avatar} alt="" className="w-6 h-6 rounded-full object-cover border border-gray-600"/>
+                    <img src={user.avatar} onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }} alt="" className="w-6 h-6 rounded-full object-cover border border-gray-600"/>
                     <span className="max-w-20 truncate">{user.name}</span>{isOwner&&<Crown className="w-3 h-3 text-amber-400"/>}</button>
                   <button onClick={handleLogout} className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20"><LogOut className="w-5 h-5"/></button>
                 </>
@@ -6375,7 +6375,7 @@ export default function App() {
             <div className="flex items-center gap-2 lg:hidden">
               {user ? (
                 <button onClick={()=>setView('profile')} className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white'}`}>
-                  <img src={user.avatar} alt="" className="w-6 h-6 rounded-full object-cover border border-gray-600"/>
+                  <img src={user.avatar} onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }} alt="" className="w-6 h-6 rounded-full object-cover border border-gray-600"/>
                   <span className="max-w-16 truncate hidden sm:block">{user.name}</span>
                 </button>
               ) : (
@@ -6406,7 +6406,7 @@ export default function App() {
             {user?(
               <div className="bg-gray-800 rounded-2xl p-4 mb-5 border border-gray-700">
                 <div className="flex items-center gap-3">
-                  <img src={user.avatar} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
+                  <img src={user.avatar} onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
                   <div><div className="flex items-center gap-1"><p className="text-white font-bold text-sm">{user.name}</p>{isOwner&&<Crown className="w-3.5 h-3.5 text-amber-400"/>}</div>
                     <p className="text-gray-400 text-xs">{user.email}</p></div>
                 </div>
