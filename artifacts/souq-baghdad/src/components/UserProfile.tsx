@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Settings, Heart, ShoppingBag, MessageCircle, Bell, LogOut, Edit3, Camera, Share2, Star, MapPin, Calendar, Facebook, Twitter, Instagram, Check, Crown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { User, Settings, Heart, ShoppingBag, MessageCircle, Bell, LogOut, Edit3, Camera, Share2, Star, MapPin, Calendar, Facebook, Twitter, Instagram, Check, Crown, ChevronLeft, ChevronRight, Globe, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 
 interface UserProfileProps {
   onBack: () => void;
@@ -9,6 +10,31 @@ interface UserProfileProps {
 
 export function UserProfile({ onBack }: UserProfileProps) {
   const { user, updateProfile, logout } = useAuth();
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncTime, setSyncTime] = useState(localStorage.getItem('souq_profiles_sync_time') || '');
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      const { data, error } = await supabase.from('profiles')
+        .select('id, full_name, name, avatar_url, avatar, phone, city, location, created_at, role')
+        .limit(1000);
+      if (error) throw error;
+      if (data) {
+        localStorage.setItem('souq_cached_profiles', JSON.stringify(data));
+        const now = new Date().toISOString();
+        localStorage.setItem('souq_profiles_sync_time', now);
+        setSyncTime(now);
+        window.dispatchEvent(new CustomEvent('profiles-synced'));
+        alert('تم تحديث دليل الحسابات بالكامل يدوياً بنجاح! 🔄');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('حدث خطأ أثناء مزامنة الحسابات.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -363,6 +389,33 @@ export function UserProfile({ onBack }: UserProfileProps) {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
+              {/* Data Usage & Sync Card */}
+              <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
+                <h3 className="text-white font-bold flex items-center gap-2 mb-3">
+                  <Globe className="w-4 h-4 text-emerald-400"/> استهلاك البيانات والمزامنة
+                </h3>
+                <p className="text-gray-400 text-xs mb-4 leading-relaxed">
+                  يتم تلقائياً تحميل الحسابات الموثقة فقط لتوفير استهلاك بيانات الإنترنت (الإنترنت الخلوي). يمكنك مزامنة الدليل بالكامل يدوياً وحفظه محلياً لتصفح كافة الحسابات.
+                </p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-gray-700">
+                  <div className="text-right">
+                    <span className="text-gray-400 text-xs block">تاريخ المزامنة اليدوية</span>
+                    <span className="text-white text-xs font-bold font-mono">
+                      {syncTime 
+                        ? new Date(syncTime).toLocaleString('ar-IQ') 
+                        : 'لم تتم المزامنة الكاملة بعد'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleManualSync}
+                    disabled={isSyncing}
+                    className="py-2 px-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-700 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors self-end sm:self-center shadow-lg"
+                  >
+                    {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span>🔄 مزامنة الحسابات الآن</span>}
+                  </button>
+                </div>
+              </div>
+
               <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
                 <h3 className="text-white font-bold mb-4">إعدادات الحساب</h3>
                 <div className="space-y-4">
