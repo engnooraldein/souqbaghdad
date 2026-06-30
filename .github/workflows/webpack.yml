@@ -13,8 +13,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup pnpm
-      uses: pnpm/action-setup@v4
+    - name: Install pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: 10
 
     - name: Use Node.js 20.x
       uses: actions/setup-node@v4
@@ -23,7 +25,7 @@ jobs:
         cache: 'pnpm'
 
     - name: Install dependencies
-      run: pnpm install --no-frozen-lockfile
+      run: pnpm install
 
     - name: Build project
       run: pnpm run build

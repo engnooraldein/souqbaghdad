@@ -2,7 +2,7 @@
   "framework": "vite",
   "buildCommand": "npx vite build --config artifacts/souq-baghdad/vite.config.ts",
   "outputDirectory": "dist/public",
-  "installCommand": "pnpm install --no-frozen-lockfile --ignore-scripts",
+  "installCommand": "npm install",
   "rewrites": [
     {
       "source": "/(.*)",
