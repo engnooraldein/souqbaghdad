@@ -58,6 +58,24 @@ const CATEGORIES = [
   { id:'games',        name:'الألعاب',     emoji:'🎮' },
 ];
 
+const normalizePhone = (phone: string): string => {
+  let cleaned = phone.replace(/\D/g, '');
+  const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+  for (let i = 0; i < 10; i++) {
+    cleaned = cleaned.replace(new RegExp(arabicDigits[i], 'g'), String(i));
+  }
+  cleaned = cleaned.replace(/\D/g, '');
+  if (cleaned.startsWith('00964')) {
+    cleaned = '0' + cleaned.slice(5);
+  } else if (cleaned.startsWith('964')) {
+    cleaned = '0' + cleaned.slice(3);
+  }
+  if (cleaned.length === 10 && cleaned.startsWith('7')) {
+    cleaned = '0' + cleaned;
+  }
+  return cleaned;
+};
+
 const GAMES_DATA = [
   { id:1, title:'ضارب الدجاج', emoji:'🐔💥', rating:4.9 },
   { id:2, title:'ورق طاولي',   emoji:'🃏',    rating:4.8 },
@@ -754,6 +772,7 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
   const [isRecovery, setIsRecovery] = useState(false);
   const [recoveryPhone, setRecoveryPhone] = useState('');
   const [recoverySent, setRecoverySent] = useState(false);
+  const [resolvedEmail, setResolvedEmail] = useState('');
   const playSound = useSound();
 
   const handlePhoneSubmit = async (e: React.FormEvent) => {
@@ -761,26 +780,36 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
     try {
       if (identifier.length < 3) { setError('يرجى إدخال رقم الهاتف أو البريد الإلكتروني'); setLoading(false); return; }
       
-      let phoneToCheck = identifier.trim();
-      const isPhone = /^\d+$/.test(phoneToCheck);
+      const normalizedInput = normalizePhone(identifier.trim());
+      const isPhone = /^\d+$/.test(normalizedInput);
       
-      if (isPhone || !phoneToCheck.includes('@')) {
-         const { data, error } = await supabase.from('profiles').select('id').eq('phone', phoneToCheck).maybeSingle();
-         if (data) {
-           setStep('login');
-         } else {
-           if(!isPhone) {
-             const { data: emailData } = await supabase.from('profiles').select('id').eq('email', phoneToCheck).maybeSingle();
-             if (emailData) setStep('login');
-             else setStep('signup');
-           } else {
-             setStep('signup');
-           }
-         }
+      let matchedProfile = null;
+      
+      // 1. Check by phone
+      if (isPhone) {
+        const { data } = await supabase.from('profiles').select('id, email').eq('phone', normalizedInput).maybeSingle();
+        if (data) matchedProfile = data;
+      }
+      
+      // 2. Check by email
+      if (!matchedProfile) {
+        const { data } = await supabase.from('profiles').select('id, email').eq('email', identifier.trim().toLowerCase()).maybeSingle();
+        if (data) matchedProfile = data;
+      }
+      
+      // 3. Check by username
+      if (!matchedProfile && !identifier.includes('@')) {
+        const { data } = await supabase.from('profiles').select('id, email').eq('username', identifier.trim()).maybeSingle();
+        if (data) matchedProfile = data;
+      }
+
+      if (matchedProfile) {
+        if (matchedProfile.email) {
+          setResolvedEmail(matchedProfile.email);
+        }
+        setStep('login');
       } else {
-         const { data } = await supabase.from('profiles').select('id').eq('email', phoneToCheck.toLowerCase()).maybeSingle();
-         if (data) setStep('login');
-         else setStep('signup');
+        setStep('signup');
       }
     } catch(err) {
       setError('حدث خطأ في الاتصال بالخادم.');
@@ -789,10 +818,10 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
     }
   };
 
-  const handleAuthSubmit = async (e:React.FormEvent) => {
+    const handleAuthSubmit = async (e:React.FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true); playSound('click');
     try {
-      let emailToUse = identifier.trim().toLowerCase();
+      let emailToUse = resolvedEmail || identifier.trim().toLowerCase();
       let phone = identifier.trim();
       
       if (!emailToUse.includes('@')) {
@@ -804,7 +833,10 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
           phone = ''; // Username
         }
       } else {
-        phone = ''; // Email
+        // If it was resolved, phone shouldn't be overridden if it was originally input
+        if (!resolvedEmail) {
+          phone = ''; // Email
+        }
       }
 
       if (password.length < 6) { setError('كلمة المرور 6 أحرف على الأقل'); playSound('error'); setLoading(false); return; }
@@ -820,7 +852,8 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
         playSound('success');
         onClose();
       } else if (step === 'signup') {
-        const role = phone === '07701109692' ? 'owner' : 'user';
+        const normalizedPhone = normalizePhone(phone);
+        const role = normalizedPhone === '07701109692' ? 'owner' : 'user';
         const { error } = await supabase.auth.signUp({
           email: emailToUse, password,
           options: { data: { full_name: name, phone, city, role } }
