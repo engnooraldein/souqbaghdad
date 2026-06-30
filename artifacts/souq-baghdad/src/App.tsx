@@ -322,7 +322,7 @@ function Logo({ small }:{small?:boolean}) {
       <div className={`${small?'w-10 h-10':'w-14 h-14'} shrink-0 bg-blue-900 rounded-xl flex items-center justify-center border-2 border-amber-500/40 shadow-lg overflow-hidden`}>
         <img src="/logo.jpg" alt="سوق بغداد" className="w-full h-full object-cover" />
       </div>
-      {!small && <div className="shrink-0"><h1 className="text-xl font-bold text-white leading-tight">سوك بغداد <span className="text-[10px] text-amber-400 font-normal bg-amber-400/10 px-1.5 py-0.5 rounded-md ml-1 inline-block translate-y-[-2px]">v1.5</span></h1><p className="text-amber-400 text-xs">السوق الرقمي العراقي</p></div>}
+      {!small && <div className="shrink-0"><h1 className="text-xl font-bold text-white leading-tight">سوك بغداد</h1><p className="text-amber-400 text-xs">السوق الرقمي العراقي</p></div>}
     </div>
   );
 }
@@ -3478,7 +3478,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg"><Crown className="w-6 h-6 text-black"/></div>
-            <div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">🚀 الإصدار v1.5.0</span></div><p className="text-amber-400 text-xs mt-0.5">تحليلات شاملة، حماية سيبرانية، تتبع الأيبيات وإدارة كاملة حية ومتصلة</p></div>
+            <div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">🚀 الإصدار v1.4.1</span></div><p className="text-amber-400 text-xs mt-0.5">تحليلات شاملة، حماية سيبرانية، تتبع الأيبيات وإدارة كاملة حية ومتصلة</p></div>
           </div>
           <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white"><X className="w-5 h-5"/></button>
         </div>
@@ -3500,7 +3500,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
         
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {([['overview','📊 نظرة عامة'],['security','🛡️ الأمان وحظر IP'],['visitors','👥 الزوار الحيين'],['users','🧑‍💼 الحسابات والترقيات'],['content','📢 المحتوى والرايات'],['verification','🪪 طلبات التوثيق'],['recovery','🔑 استعادة الحسابات'],['marketing','📣 التسويق والإشعارات'],['reports','🚨 البلاغات والدعم'],['logs','📋 سجل العمليات والجنائي'],['backup','💾 التصدير والنسخ الاحتياطي'],['changelog','🚀 التحديثات v1.5']] as [string,string][]).map(([t,l])=>(
+          {([['overview','📊 نظرة عامة'],['security','🛡️ الأمان وحظر IP'],['visitors','👥 الزوار الحيين'],['users','🧑‍💼 الحسابات والترقيات'],['content','📢 المحتوى والرايات'],['verification','🪪 طلبات التوثيق'],['recovery','🔑 استعادة الحسابات'],['marketing','📣 التسويق والإشعارات'],['reports','🚨 البلاغات والدعم'],['logs','📋 سجل العمليات والجنائي'],['backup','💾 التصدير والنسخ الاحتياطي'],['changelog','🚀 التحديثات v1.4']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`px-3.5 py-2 rounded-xl text-xs md:text-sm font-bold transition-all ${tab===t?'bg-amber-500 text-black shadow-lg scale-105':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
           ))}
         </div>
@@ -3921,7 +3921,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
               <div className="flex items-center gap-3 mb-3">
                 <ShieldAlert className="w-6 h-6 text-red-400"/>
                 <div>
-                  <h3 className="text-white font-bold text-lg">مركز الحماية والأمان السيبراني v1.5.0</h3>
+                  <h3 className="text-white font-bold text-lg">مركز الحماية والأمان السيبراني v1.4.1</h3>
                   <p className="text-gray-400 text-xs">إدارة حظر الـ IP الحركي، بصمات الأجهزة، وحماية المنصة من البوتات والاحتيال</p>
                 </div>
               </div>
@@ -3986,7 +3986,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
         {tab==='marketing'&&(
           <div className="space-y-5">
             <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5">
-              <h3 className="text-white font-bold text-lg mb-2 flex items-center gap-2"><Send className="w-5 h-5 text-amber-400"/>مركز التسويق والإشعارات الموجهة v1.5.0</h3>
+              <h3 className="text-white font-bold text-lg mb-2 flex items-center gap-2"><Send className="w-5 h-5 text-amber-400"/>مركز التسويق والإشعارات الموجهة v1.4.1</h3>
               <p className="text-gray-400 text-xs mb-4">إرسال إشعارات عامة أو استهداف مستخدمي محافظة عراقية معينة لزيادة التفاعل والحملات الإعلانية</p>
               
               <form onSubmit={handleBroadcast} className="space-y-4">
@@ -4083,7 +4083,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
 
         {tab==='reports'&&(
           <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5 space-y-4">
-            <h3 className="text-white font-bold text-lg flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-400"/>مركز البلاغات والدعم الفني v1.5.0</h3>
+            <h3 className="text-white font-bold text-lg flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-400"/>مركز البلاغات والدعم الفني v1.4.1</h3>
             <p className="text-gray-400 text-xs">متابعة بلاغات المستخدمين وشكاوى المحتوى وإدارة تذاكر الدعم</p>
             <div className="bg-gray-900 rounded-xl p-6 text-center border border-gray-700/80 space-y-2">
               <CheckCircle className="w-8 h-8 text-emerald-400 mx-auto"/>
@@ -4095,7 +4095,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
 
         {tab==='backup'&&(
           <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5 space-y-4">
-            <h3 className="text-white font-bold text-lg flex items-center gap-2"><Download className="w-5 h-5 text-blue-400"/>مركز التصدير والنسخ الاحتياطي v1.5.0</h3>
+            <h3 className="text-white font-bold text-lg flex items-center gap-2"><Download className="w-5 h-5 text-blue-400"/>مركز التصدير والنسخ الاحتياطي v1.4.1</h3>
             <p className="text-gray-400 text-xs">تنزيل نسخة احتياطية من قواعد بيانات المنصة وسجلات العمليات والمستخدمين بضغطة زر واحدة</p>
             
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
@@ -4142,7 +4142,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-white font-bold text-xl">سجل التحديثات والإصدارات</h2>
-                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.5.0</span>
+                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.4.0</span>
                   </div>
                   <p className="text-gray-400 text-xs mt-1">تتبع كافة التعديلات، التحسينات الأمنيّة والمميزات الفائقة في المنصة</p>
                 </div>
@@ -4154,12 +4154,12 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
                 الإصدار الحالي المباشر
               </div>
               <div className="flex flex-col gap-1 mb-2">
-                <span className="text-amber-400 font-bold text-lg">🚀 الإصدار v1.5.0</span>
+                <span className="text-amber-400 font-bold text-lg">🚀 الإصدار v1.4.1</span>
                 <span className="text-gray-400 text-xs font-mono" dir="ltr">(آخر تحديث: 2026/06/29 20:18:36)</span>
               </div>
               <div className="space-y-3 pt-2">
                 <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
-                  <h4 className="text-amber-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">📌 ما الجديد في v1.5؟</h4>
+                  <h4 className="text-amber-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">📌 ما الجديد في v1.4؟</h4>
                   <p className="text-gray-300 text-xs leading-relaxed">ترقية هيكلية كبرى (Lean Architecture) تشمل: **انتقال بيئة العمل بالكامل من pnpm إلى npm** لضمان التوافق التام، وإصلاح توافقية **Vercel و GitHub Actions** مع البنية الجديدة.</p>
                 </div>
                 <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
