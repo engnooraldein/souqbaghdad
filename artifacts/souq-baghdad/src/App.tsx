@@ -3333,6 +3333,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   onUpdateConfig: (config: any) => void;
 }) {
 <<<<<<< HEAD
+<<<<<<< HEAD
   const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'logs'|'changelog'|'performance'>('overview');
   const [lastSyncTime, setLastSyncTime] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
@@ -3365,6 +3366,9 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
       setIsSyncing(false);
     }
   };
+=======
+  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'logs'|'changelog'|'security'|'reports'|'marketing'|'backup'>('overview');
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
 =======
   const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'logs'|'changelog'|'security'|'reports'|'marketing'|'backup'>('overview');
 >>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
@@ -3452,8 +3456,11 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   const onlineStatuses = useOnlineStatuses();
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   useEffect(() => {
 =======
+=======
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
   const fetchCampaigns = useCallback(async () => {
     try {
       const { data } = await supabase
@@ -3492,11 +3499,15 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
 
   useEffect(() => {
     fetchCampaigns();
+<<<<<<< HEAD
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
 >>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
     try{setStoredUsers(JSON.parse(localStorage.getItem('souqUsers')||'[]'));}catch{}
     try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}
     const iv=setInterval(()=>{try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}},30_000);
     
+<<<<<<< HEAD
 <<<<<<< HEAD
     syncAllAdminData();
 
@@ -3547,11 +3558,23 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
       fetchInterval = setInterval(syncAllDashboardData, 60_000);
     }
 
+=======
+    syncAllDashboardData();
+
+    let fetchInterval: any;
+    if (isAutoSync) {
+      fetchInterval = setInterval(syncAllDashboardData, 60_000);
+    }
+
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
     return () => { 
       clearInterval(iv); 
       if (fetchInterval) clearInterval(fetchInterval); 
     };
   }, [fetchCampaigns, isAutoSync]);
+<<<<<<< HEAD
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
 >>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
 
   // Calculate stats
@@ -3678,7 +3701,11 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg"><Crown className="w-6 h-6 text-black"/></div>
 <<<<<<< HEAD
+<<<<<<< HEAD
             <div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">🚀 الإصدار IRAQ STORE 1.1 (النسخة الذهبية)</span></div><p className="text-amber-400 text-xs mt-0.5">تحليلات شاملة وإدارة كاملة للموقع المنصة حية ومتصلة</p></div>
+=======
+            <div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">🚀 الإصدار V16.0 EV EQU</span></div><p className="text-amber-400 text-xs mt-0.5">تحليلات شاملة، حماية سيبرانية، تتبع الأيبيات وإدارة كاملة حية ومتصلة</p></div>
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
 =======
             <div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">🚀 الإصدار V16.0 EV EQU</span></div><p className="text-amber-400 text-xs mt-0.5">تحليلات شاملة، حماية سيبرانية، تتبع الأيبيات وإدارة كاملة حية ومتصلة</p></div>
 >>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
@@ -3739,8 +3766,13 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
 <<<<<<< HEAD
+<<<<<<< HEAD
           {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['broadcast','🔔 إشعار عام'],['logs','📋 سجل العمليات'],['changelog','🚀 التحديثات IRAQ STORE 1.1'],['performance','⚡ توفير البيانات']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`px-4 py-2 rounded-xl text-sm font-bold ${tab===t?'bg-amber-500 text-black':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
+=======
+          {([['overview','📊 نظرة عامة'],['security','🛡️ الأمان وحظر IP'],['visitors','👥 الزوار الحيين'],['users','🧑‍💼 الحسابات والترقيات'],['content','📢 المحتوى والرايات'],['verification','🪪 طلبات التوثيق'],['recovery','🔑 استعادة الحسابات'],['marketing','📣 التسويق والإشعارات'],['reports','🚨 البلاغات والدعم'],['logs','📋 سجل العمليات والجنائي'],['backup','💾 التصدير والنسخ الاحتياطي'],['changelog','🚀 التحديثات V16.0 EV EQU']] as [string,string][]).map(([t,l])=>(
+            <button key={t} onClick={()=>setTab(t as any)} className={`px-3.5 py-2 rounded-xl text-xs md:text-sm font-bold transition-all ${tab===t?'bg-amber-500 text-black shadow-lg scale-105':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
 =======
           {([['overview','📊 نظرة عامة'],['security','🛡️ الأمان وحظر IP'],['visitors','👥 الزوار الحيين'],['users','🧑‍💼 الحسابات والترقيات'],['content','📢 المحتوى والرايات'],['verification','🪪 طلبات التوثيق'],['recovery','🔑 استعادة الحسابات'],['marketing','📣 التسويق والإشعارات'],['reports','🚨 البلاغات والدعم'],['logs','📋 سجل العمليات والجنائي'],['backup','💾 التصدير والنسخ الاحتياطي'],['changelog','🚀 التحديثات V16.0 EV EQU']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`px-3.5 py-2 rounded-xl text-xs md:text-sm font-bold transition-all ${tab===t?'bg-amber-500 text-black shadow-lg scale-105':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
@@ -4393,7 +4425,11 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
                   <div className="flex items-center gap-2">
                     <h2 className="text-white font-bold text-xl">سجل التحديثات والإصدارات</h2>
 <<<<<<< HEAD
+<<<<<<< HEAD
                     <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">IRAQ STORE 1.1</span>
+=======
+                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">V16.0 EV EQU</span>
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
 =======
                     <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">V16.0 EV EQU</span>
 >>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
@@ -4408,9 +4444,15 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
                 الإصدار الحالي المباشر
               </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
               <div className="flex items-center gap-2">
                 <span className="text-amber-400 font-bold text-lg">🚀 الإصدار IRAQ STORE 1.1 (النسخة الذهبية).0</span>
                 <span className="text-gray-400 text-xs font-mono">({new Date().toLocaleDateString('ar-IQ')})</span>
+=======
+              <div className="flex flex-col gap-1 mb-2">
+                <span className="text-amber-400 font-bold text-lg">🚀 الإصدار V16.0 EV EQU</span>
+                <span className="text-gray-400 text-xs font-mono" dir="ltr">(آخر تحديث: 2026/06/29 20:18:36)</span>
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
 =======
               <div className="flex flex-col gap-1 mb-2">
                 <span className="text-amber-400 font-bold text-lg">🚀 الإصدار V16.0 EV EQU</span>
@@ -4918,17 +4960,23 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
                   onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===ad.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"ad",item:ad});}}/>)}
               </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
               {dataSavingConfig.paginationLimit && filterAds.length >= adsLimit && (
                 <div className="mt-6 text-center">
                   <button
                     onClick={() => setAdsLimit(prev => prev + 24)}
                     className="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl text-sm border border-gray-700 transition-colors shadow-lg active:scale-95"
 =======
+=======
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
               {hasMoreAds && (
                 <div className="mt-6 text-center">
                   <button
                     onClick={onLoadMoreAds}
                     className="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl text-sm border border-gray-700 transition-colors shadow-lg"
+<<<<<<< HEAD
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
 >>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
                   >
                     مشاهدة المزيد من الإعلانات 📢
@@ -4949,17 +4997,23 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
                   onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===p.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"product",item:p});}}/>)}
               </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
               {dataSavingConfig.paginationLimit && filterProds.length >= prodsLimit && (
                 <div className="mt-6 text-center">
                   <button
                     onClick={() => setProdsLimit(prev => prev + 24)}
                     className="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl text-sm border border-gray-700 transition-colors shadow-lg active:scale-95"
 =======
+=======
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
               {hasMoreProducts && (
                 <div className="mt-6 text-center">
                   <button
                     onClick={onLoadMoreProducts}
                     className="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl text-sm border border-gray-700 transition-colors shadow-lg"
+<<<<<<< HEAD
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
 >>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
                   >
                     مشاهدة المزيد من المنتجات 🛍️
@@ -5091,7 +5145,11 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
           {contentTab === 'profiles' && (
             <div className="mb-8 space-y-6">
 <<<<<<< HEAD
+<<<<<<< HEAD
               {dataSavingConfig.restrictProfiles && !(user && (user.role === 'owner' || user.role === 'admin' || user.role === 'pro' || user.role === 'vendor' || user.isVerified)) ? (
+=======
+              {!(user && (user.role === 'owner' || user.role === 'admin' || user.role === 'pro' || user.role === 'vendor' || user.isVerified)) ? (
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
 =======
               {!(user && (user.role === 'owner' || user.role === 'admin' || user.role === 'pro' || user.role === 'vendor' || user.isVerified)) ? (
 >>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
@@ -5105,8 +5163,13 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
                     <p className="text-amber-400 text-xs font-semibold mb-3">تريد ترقية حسابك؟</p>
                     <button 
 <<<<<<< HEAD
+<<<<<<< HEAD
                       onClick={() => setActiveDocTab('تواصل معنا')}
                       className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl hover:from-amber-600 hover:to-yellow-600 transition-all text-xs shadow-lg animate-pulse"
+=======
+                      onClick={onOpenContactUs}
+                      className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl hover:from-amber-600 hover:to-yellow-600 transition-all text-xs shadow-lg"
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
 =======
                       onClick={onOpenContactUs}
                       className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl hover:from-amber-600 hover:to-yellow-600 transition-all text-xs shadow-lg"
@@ -5839,6 +5902,7 @@ export default function App() {
     }
   });
 <<<<<<< HEAD
+<<<<<<< HEAD
   const [adsLimit, setAdsLimit] = useState(24);
   const [prodsLimit, setProdsLimit] = useState(24);
   const [dataSavingConfig, setDataSavingConfig] = useState(() => {
@@ -5860,6 +5924,11 @@ export default function App() {
     setDataSavingConfig(newConfig);
     localStorage.setItem('souq_data_saving_config', JSON.stringify(newConfig));
   };
+=======
+  
+
+
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
 =======
   
 
@@ -6227,8 +6296,11 @@ export default function App() {
   // ── Fetch ads & products from Supabase ─────────────────────────
   const fetchAds = useCallback(async () => {
 <<<<<<< HEAD
+<<<<<<< HEAD
     const limit = dataSavingConfig.paginationLimit ? adsLimit : 300;
 =======
+=======
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
     const CACHE_KEY = 'souq_ads_cache';
     const CACHE_TIME_KEY = 'souq_ads_cache_time';
     const CACHE_TTL = 3 * 60 * 1000;
@@ -6244,6 +6316,9 @@ export default function App() {
         }
       }
     } catch(_) {}
+<<<<<<< HEAD
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
 >>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
     const { data, error } = await supabase
       .from('ads')
@@ -6251,7 +6326,11 @@ export default function App() {
       .eq('is_demo', false)
       .order('created_at', { ascending: false })
 <<<<<<< HEAD
+<<<<<<< HEAD
       .limit(limit);
+=======
+      .limit(adsLimit);
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
 =======
       .limit(adsLimit);
 >>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
@@ -6348,7 +6427,11 @@ export default function App() {
       } catch(_) {}
     }
 <<<<<<< HEAD
+<<<<<<< HEAD
   }, [adsLimit, dataSavingConfig.paginationLimit]);
+=======
+  }, [adsLimit]);
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
 =======
   }, [adsLimit]);
 >>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
@@ -6387,12 +6470,34 @@ export default function App() {
 
   const fetchProducts = useCallback(async () => {
 <<<<<<< HEAD
+<<<<<<< HEAD
     const limit = dataSavingConfig.paginationLimit ? prodsLimit : 200;
     const { data, error } = await supabase
       .from('products')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(limit);
+=======
+    const PROD_CACHE_KEY = 'souq_products_cache';
+    const PROD_TIME_KEY = 'souq_products_cache_time';
+    const CACHE_TTL = 3 * 60 * 1000;
+    try {
+      const cached = localStorage.getItem(PROD_CACHE_KEY);
+      const cacheTime = localStorage.getItem(PROD_TIME_KEY);
+      if (cached && cacheTime && Date.now() - Number(cacheTime) < CACHE_TTL) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.length >= prodsLimit) {
+          setAllProducts(parsed.slice(0, prodsLimit));
+          return;
+        }
+      }
+    } catch(_) {}
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, title, price, description, category, images, governorate, city, phone, condition, seller_name, seller_avatar, seller_id, created_at, views, stock, short_id, status')
+      .order('created_at', { ascending: false })
+      .limit(prodsLimit);
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
 =======
     const PROD_CACHE_KEY = 'souq_products_cache';
     const PROD_TIME_KEY = 'souq_products_cache_time';
@@ -6447,7 +6552,11 @@ export default function App() {
       } catch(_) {}
     }
 <<<<<<< HEAD
+<<<<<<< HEAD
   }, [prodsLimit, dataSavingConfig.paginationLimit]);
+=======
+  }, [prodsLimit]);
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
 =======
   }, [prodsLimit]);
 >>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
