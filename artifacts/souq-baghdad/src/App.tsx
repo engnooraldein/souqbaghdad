@@ -3325,6 +3325,49 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
   const [logFilter, setLogFilter] = useState('');
+  const [isAutoSync, setIsAutoSync] = useState(() => localStorage.getItem('owner_auto_sync') === 'true');
+  const [lastSyncTime, setLastSyncTime] = useState('');
+  const [isSyncingData, setIsSyncingData] = useState(false);
+
+  const syncAllDashboardData = async () => {
+    setIsSyncingData(true);
+    try {
+      const { data: ver } = await supabase
+        .from('verification_requests')
+        .select(`*, profiles(full_name, phone, email)`)
+        .order('created_at', { ascending: false });
+      if (ver) setVerificationRequests(ver);
+
+      const { data: rec } = await supabase
+        .from('password_recovery_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (rec) setRecoveryRequests(rec);
+
+      const { data: profiles } = await supabase.from('profiles')
+        .select('id, full_name, phone, email, role, avatar_url, city, last_seen, created_at, is_banned, ads_count')
+        .order('last_seen', { ascending: false })
+        .limit(500);
+      if (profiles) setDbUsers(profiles);
+
+      const { data: guests } = await supabase.from('guests')
+        .select('id, phone, last_seen, created_at, city')
+        .order('last_seen', { ascending: false })
+        .limit(500);
+      if (guests) setDbGuests(guests);
+
+      setLastSyncTime(new Date().toLocaleTimeString('ar-IQ'));
+    } catch(err) {
+      console.error(err);
+    } finally {
+      setIsSyncingData(false);
+    }
+  };
+
+  const handleToggleAutoSync = (val: boolean) => {
+    setIsAutoSync(val);
+    localStorage.setItem('owner_auto_sync', String(val));
+  };
   
   // v1.3 Security & IP Tracking state
   const [bannedIPs, setBannedIPs] = useState<Array<{ip: string, reason: string, date: string, type: 'ip'|'device'}>>([
@@ -3392,53 +3435,24 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
     }
   }, []);
 
-  useEffect(()=>{
+  useEffect(() => {
     fetchCampaigns();
     try{setStoredUsers(JSON.parse(localStorage.getItem('souqUsers')||'[]'));}catch{}
     try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}
     const iv=setInterval(()=>{try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}},30_000);
     
-    const fetchVerification = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('verification_requests')
-          .select(`*, profiles(full_name, phone, email)`)
-          .order('created_at', { ascending: false });
-        if (data && !error) setVerificationRequests(data);
-      } catch (err) {}
-    };
-    fetchVerification();
-    const fetchRecovery = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('password_recovery_requests')
-          .select('*')
-          .order('created_at', { ascending: false });
-        if (data && !error) setRecoveryRequests(data);
-      } catch (err) {}
-    };
-    fetchRecovery();
+    syncAllDashboardData();
 
-    const fetchUsersAndGuests = async () => {
-      try {
-        // تحسين: أعمدة محددة فقط + limit لتوفير Egress
-        const { data: profiles } = await supabase.from('profiles')
-          .select('id, full_name, phone, email, role, avatar_url, city, last_seen, created_at, is_banned, ads_count')
-          .order('last_seen', { ascending: false })
-          .limit(500);
-        if (profiles) setDbUsers(profiles);
-        const { data: guests } = await supabase.from('guests')
-          .select('id, phone, last_seen, created_at, city')
-          .order('last_seen', { ascending: false })
-          .limit(500);
-        if (guests) setDbGuests(guests);
-      } catch (err) {}
-    };
-    fetchUsersAndGuests();
-    const fetchInterval = setInterval(fetchUsersAndGuests, 60_000);
+    let fetchInterval: any;
+    if (isAutoSync) {
+      fetchInterval = setInterval(syncAllDashboardData, 60_000);
+    }
 
-    return () => { clearInterval(iv); clearInterval(fetchInterval); };
-  },[fetchCampaigns]);
+    return () => { 
+      clearInterval(iv); 
+      if (fetchInterval) clearInterval(fetchInterval); 
+    };
+  }, [fetchCampaigns, isAutoSync]);
 
   // Calculate stats
   const today = new Date().toDateString();
@@ -3568,6 +3582,41 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
           <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white"><X className="w-5 h-5"/></button>
         </div>
         
+        {/* Sync Controls Panel */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-gray-800/80 backdrop-blur rounded-2xl border border-gray-700/60 shadow-lg mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+              <Activity className={`w-5 h-5 text-amber-400 ${isSyncingData ? 'animate-spin' : ''}`} />
+            </div>
+            <div className="text-right">
+              <p className="text-white text-xs font-bold">مزامنة بيانات الإدارة والزوار</p>
+              <p className="text-[10px] text-gray-400">آخر تحديث: {lastSyncTime || 'الآن'}</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            {/* Auto Sync Toggle */}
+            <div className="flex items-center gap-2 bg-gray-900 px-3 py-1.5 rounded-xl border border-gray-700/50">
+              <span className="text-[11px] text-gray-300 font-bold">تحديث تلقائي (60ث)</span>
+              <button 
+                onClick={() => handleToggleAutoSync(!isAutoSync)}
+                className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 focus:outline-none ${isAutoSync ? 'bg-amber-500' : 'bg-gray-700'}`}
+              >
+                <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200 ${isAutoSync ? 'translate-x-4' : 'translate-x-0'}`} />
+              </button>
+            </div>
+
+            {/* Manual Sync Button */}
+            <button
+              onClick={syncAllDashboardData}
+              disabled={isSyncingData}
+              className="py-1.5 px-3.5 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-800 disabled:text-gray-500 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+            >
+              {isSyncingData ? 'جاري التحديث...' : 'تحديث يدوي 🔄'}
+            </button>
+          </div>
+        </div>
+
         {/* Stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           {[{l:'زيارات اليوم',v:todayV.length,icon:<Activity className="w-5 h-5"/>,c:'text-green-400',bg:'bg-green-500/10 border-green-500/20'},
@@ -4301,7 +4350,7 @@ function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id:number
 // ─────────────────────────────────────────────
 // Market View
 // ─────────────────────────────────────────────
-function MarketView({ user, allAds, allProducts, favorites, storedUsers: propStoredUsers, onSelectAd, onSelectProduct, onToggleFav, onRequireAuth, onSellerClick, onTransportClick, onSelectTransportAd, transportLines, onActionMenu, onLoadMoreAds, onLoadMoreProducts, hasMoreAds, hasMoreProducts }:{
+function MarketView({ user, allAds, allProducts, favorites, storedUsers: propStoredUsers, onSelectAd, onSelectProduct, onToggleFav, onRequireAuth, onSellerClick, onTransportClick, onSelectTransportAd, transportLines, onActionMenu, onLoadMoreAds, onLoadMoreProducts, hasMoreAds, hasMoreProducts, onOpenContactUs }:{
   user:User|null; allAds:Ad[]; allProducts:Product[]; favorites:number[]; storedUsers?: any[];
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void;
   onToggleFav:(id:number)=>void; onRequireAuth:()=>void; onSellerClick:(id:string, source?: 'home'|'accounts')=>void;
@@ -4313,6 +4362,7 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
   onLoadMoreProducts?: () => void;
   hasMoreAds?: boolean;
   hasMoreProducts?: boolean;
+  onOpenContactUs?: () => void;
 }) {
   const [search, setSearch] = useState('');
   const [cat, setCat] = useState(() => {
@@ -4821,6 +4871,25 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
           {/* Profiles Hub */}
           {contentTab === 'profiles' && (
             <div className="mb-8 space-y-6">
+              {!(user && (user.role === 'owner' || user.role === 'admin' || user.role === 'pro' || user.role === 'vendor' || user.isVerified)) ? (
+                <div className="max-w-md mx-auto text-center py-12 px-6 bg-gray-800 rounded-3xl border border-gray-700 shadow-xl space-y-4">
+                  <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto text-3xl">🔒</div>
+                  <h3 className="text-xl font-bold text-white">دليل الحسابات مغلق</h3>
+                  <p className="text-gray-400 text-sm leading-relaxed">
+                    تصفح دليل الحسابات والتواصل المباشر مع كبار التجار متاح حصراً للحسابات الممتازة (Pro) والمالك والشركاء الموثقين.
+                  </p>
+                  <div className="pt-4 border-t border-gray-700">
+                    <p className="text-amber-400 text-xs font-semibold mb-3">تريد ترقية حسابك؟</p>
+                    <button 
+                      onClick={onOpenContactUs}
+                      className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl hover:from-amber-600 hover:to-yellow-600 transition-all text-xs shadow-lg"
+                    >
+                      تواصل معنا لطلب الترقية 📞
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
               {/* Accounts Dedicated Search & Header Banner */}
               <div className="bg-gradient-to-r from-gray-800 via-gray-900 to-gray-800 p-5 rounded-3xl border border-gray-700 shadow-xl space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -4997,6 +5066,8 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
                     );
                   })}
                 </div>
+              )}
+                </>
               )}
             </div>
           )}
@@ -6587,7 +6658,7 @@ export default function App() {
       <main className="pt-16">
         <AnimatePresence mode="wait">
           {view==='home'&&<motion.div key="home" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <MarketView user={user} allAds={allAds} allProducts={allProducts} favorites={favorites} storedUsers={storedUsers} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} onToggleFav={handleToggleFav} onRequireAuth={requireAuth} onSellerClick={handleSellerClick} onTransportClick={()=>{setView('transport');setBottomNavActive('transport');}} onSelectTransportAd={setSelectedTransportAd} transportLines={allTransportAds} onLoadMoreAds={() => setAdsLimit(prev => prev + 24)} onLoadMoreProducts={() => setProdsLimit(prev => prev + 24)} hasMoreAds={allAds.length >= adsLimit} hasMoreProducts={allProducts.length >= prodsLimit}/></motion.div>}
+            <MarketView user={user} allAds={allAds} allProducts={allProducts} favorites={favorites} storedUsers={storedUsers} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} onToggleFav={handleToggleFav} onRequireAuth={requireAuth} onSellerClick={handleSellerClick} onTransportClick={()=>{setView('transport');setBottomNavActive('transport');}} onSelectTransportAd={setSelectedTransportAd} transportLines={allTransportAds} onLoadMoreAds={() => setAdsLimit(prev => prev + 24)} onLoadMoreProducts={() => setProdsLimit(prev => prev + 24)} hasMoreAds={allAds.length >= adsLimit} hasMoreProducts={allProducts.length >= prodsLimit} onOpenContactUs={() => setActiveDocTab('تواصل معنا')}/></motion.div>}
           {view==='profile'&&user&&<motion.div key="profile" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold} favorites={favorites} allAds={allAds} allProducts={allProducts} onAdSelect={setSelectedAd} onProductSelect={setSelectedProduct} onFav={handleToggleFav}/></motion.div>}
           {view==='seller'&&selectedSellerId&&<motion.div key="seller" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
