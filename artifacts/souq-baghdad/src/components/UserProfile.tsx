@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Settings, Heart, ShoppingBag, MessageCircle, Bell, LogOut, Edit3, Camera, Share2, Star, MapPin, Calendar, Facebook, Twitter, Instagram, Check, Crown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -22,19 +22,6 @@ export function UserProfile({ onBack }: UserProfileProps) {
     twitter: user?.socialLinks?.twitter || '',
     instagram: user?.socialLinks?.instagram || '',
   });
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        updateProfile({ avatar: reader.result as string });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   if (!user) return null;
 
@@ -107,17 +94,11 @@ export function UserProfile({ onBack }: UserProfileProps) {
             {/* Avatar */}
             <div className="relative">
               <img
-                src={user.avatar || `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#1e3a5f"/><circle cx="50" cy="38" r="18" fill="#4b7ab5"/><ellipse cx="50" cy="82" rx="28" ry="20" fill="#4b7ab5"/></svg>')}`}
+                src={user.avatar}
                 alt={user.name}
                 className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-gray-900 object-cover bg-gray-800"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#1e3a5f"/><circle cx="50" cy="38" r="18" fill="#4b7ab5"/><ellipse cx="50" cy="82" rx="28" ry="20" fill="#4b7ab5"/></svg>')}`;
-                }}
               />
-              <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleAvatarChange} />
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 w-8 h-8 sm:w-10 sm:h-10 bg-amber-500 rounded-full flex items-center justify-center border-2 border-gray-900 hover:bg-amber-600 transition-colors shadow-lg cursor-pointer z-20">
+              <button className="absolute bottom-0 right-0 w-8 h-8 sm:w-10 sm:h-10 bg-amber-500 rounded-full flex items-center justify-center border-2 border-gray-900 hover:bg-amber-600 transition-colors shadow-lg">
                 <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-black" />
               </button>
             </div>
