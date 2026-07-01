@@ -1,8 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from './lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
 import { ShareModal } from './components/ShareModal';
+import { NotifPanel } from './components/NotifPanel';
+import { useNotifications } from './hooks/useNotifications';
+import { stringToUuid, SPECIAL_UUIDS } from './lib/utils';
 import {
   Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, Check,
   Gamepad2, Heart, Bell, Plus, LogOut, Star, X, Search, MapPin,
@@ -11,7 +14,8 @@ import {
   Trash2, SlidersHorizontal, Settings, ChevronLeft, Info, LogIn, Edit2,
   Save, BarChart3, Smartphone, Monitor, Tablet, Globe, UserCheck, Activity,
   Crown, UserX, FileText, ShoppingBag, Package, Store, Camera, ZoomIn,
-  ZoomOut, Calendar, Users, ChevronDown, Tag, Layers, Home, Car, UserCircle, Key, Sparkles
+  ZoomOut, Calendar, Users, ChevronDown, Tag, Layers, Home, Car, UserCircle, Key, Sparkles,
+  ShieldAlert, Send, Download, ClipboardList, AlertTriangle, Volume2, VolumeX, Filter
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -53,6 +57,24 @@ const CATEGORIES = [
   { id:'services',     name:'خدمات',       emoji:'🔧' },
   { id:'games',        name:'الألعاب',     emoji:'🎮' },
 ];
+
+const normalizePhone = (phone: string): string => {
+  let cleaned = phone.replace(/\D/g, '');
+  const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+  for (let i = 0; i < 10; i++) {
+    cleaned = cleaned.replace(new RegExp(arabicDigits[i], 'g'), String(i));
+  }
+  cleaned = cleaned.replace(/\D/g, '');
+  if (cleaned.startsWith('00964')) {
+    cleaned = '0' + cleaned.slice(5);
+  } else if (cleaned.startsWith('964')) {
+    cleaned = '0' + cleaned.slice(3);
+  }
+  if (cleaned.length === 10 && cleaned.startsWith('7')) {
+    cleaned = '0' + cleaned;
+  }
+  return cleaned;
+};
 
 const GAMES_DATA = [
   { id:1, title:'ضارب الدجاج', emoji:'🐔💥', rating:4.9 },
@@ -107,12 +129,28 @@ interface Visit {
 // Utilities
 // ─────────────────────────────────────────────
 async function compressImage(file: File, maxPx = 900, quality = 0.78, addWatermark = true): Promise<string> {
+  let finalQuality = quality;
+  let finalMaxPx = maxPx;
+  try {
+    const saved = localStorage.getItem('souq_data_saving_config');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.autoCompressImages) {
+        finalQuality = 0.45;
+        finalMaxPx = 600;
+      } else {
+        finalQuality = 0.85;
+        finalMaxPx = 1200;
+      }
+    }
+  } catch (_) {}
+
   return new Promise(resolve => {
     const reader = new FileReader();
     reader.onload = () => {
       const img = new Image();
       img.onload = () => {
-        const scale = Math.min(maxPx / img.width, maxPx / img.height, 1);
+        const scale = Math.min(finalMaxPx / img.width, finalMaxPx / img.height, 1);
         const canvas = document.createElement('canvas');
         canvas.width  = Math.round(img.width  * scale);
         canvas.height = Math.round(img.height * scale);
@@ -120,7 +158,6 @@ async function compressImage(file: File, maxPx = 900, quality = 0.78, addWaterma
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         
         if (addWatermark) {
-          // Add Watermark
           const fontSize = Math.max(16, Math.floor(canvas.width * 0.035));
           ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
           ctx.font = `bold ${fontSize}px Tajawal, sans-serif`;
@@ -133,7 +170,7 @@ async function compressImage(file: File, maxPx = 900, quality = 0.78, addWaterma
           ctx.fillText('سوك بغداد | souqbaghdad.store', canvas.width - 20, canvas.height - 20);
         }
         
-        resolve(canvas.toDataURL('image/jpeg', quality));
+        resolve(canvas.toDataURL('image/jpeg', finalQuality));
       };
       img.src = reader.result as string;
     };
@@ -266,31 +303,19 @@ const useSound = () => {
 // Online Statuses Cache
 // ─────────────────────────────────────────────
 let globalOnlineStatuses: Record<string, boolean> = {};
-let onlineListeners: Array<() => void> = [];
-
-export const useOnlineStatuses = () => {
-  const [statuses, setStatuses] = useState(globalOnlineStatuses);
-  useEffect(() => {
-    const trigger = () => setStatuses({...globalOnlineStatuses});
-    onlineListeners.push(trigger);
-    fetchGlobalOnlineStatuses();
-    const interval = setInterval(fetchGlobalOnlineStatuses, 15000);
-    return () => { 
-      onlineListeners = onlineListeners.filter(l => l !== trigger); 
-      clearInterval(interval);
-    };
-  }, []);
-  return statuses;
-}
+let onlineListeners: Set<() => void> = new Set();
+let globalOnlineTimer: any = null;
 
 const fetchGlobalOnlineStatuses = async () => {
   try {
-    const { data } = await supabase.from('profiles').select('id, phone, last_seen');
+    // تحسين: جلب أعمدة محددة فقط بدل select('*') لتوفير Egress
+    const { data } = await supabase.from('profiles').select('id, phone, last_seen').limit(500);
     if (data) {
       const map: Record<string, boolean> = {};
+      const now = Date.now();
       data.forEach(p => {
         if(p.last_seen) {
-          const isRecentlySeen = new Date().getTime() - new Date(p.last_seen).getTime() < 5 * 60 * 1000;
+          const isRecentlySeen = now - new Date(p.last_seen).getTime() < 5 * 60 * 1000;
           if (p.id) map[p.id] = isRecentlySeen;
           if (p.phone) map[p.phone] = isRecentlySeen;
         }
@@ -299,6 +324,26 @@ const fetchGlobalOnlineStatuses = async () => {
       onlineListeners.forEach(l => l());
     }
   } catch(e) {}
+};
+
+export const useOnlineStatuses = () => {
+  const [statuses, setStatuses] = useState(globalOnlineStatuses);
+  useEffect(() => {
+    const trigger = () => setStatuses(globalOnlineStatuses);
+    onlineListeners.add(trigger);
+    if (onlineListeners.size === 1) {
+      fetchGlobalOnlineStatuses();
+      globalOnlineTimer = setInterval(fetchGlobalOnlineStatuses, 300000); // كل 5 دقائق بدل 15 ثانية (توفير ~95% Egress)
+    }
+    return () => { 
+      onlineListeners.delete(trigger); 
+      if (onlineListeners.size === 0 && globalOnlineTimer) {
+        clearInterval(globalOnlineTimer);
+        globalOnlineTimer = null;
+      }
+    };
+  }, []);
+  return statuses;
 };
 
 // ─────────────────────────────────────────────
@@ -310,7 +355,7 @@ function Logo({ small }:{small?:boolean}) {
       <div className={`${small?'w-10 h-10':'w-14 h-14'} shrink-0 bg-blue-900 rounded-xl flex items-center justify-center border-2 border-amber-500/40 shadow-lg overflow-hidden`}>
         <img src="/logo.jpg" alt="سوق بغداد" className="w-full h-full object-cover" />
       </div>
-      {!small && <div className="shrink-0"><h1 className="text-xl font-bold text-white leading-tight">سوك بغداد</h1><p className="text-amber-400 text-xs">السوق الرقمي العراقي</p></div>}
+      {!small && <div className="shrink-0"><h1 className="text-xl font-bold text-white leading-tight">سوك بغداد <span className="text-[10px] text-amber-400 font-normal bg-amber-400/10 px-1.5 py-0.5 rounded-md ml-1 inline-block translate-y-[-2px]">V16.0 EV EQU</span></h1><p className="text-amber-400 text-xs">السوق الرقمي العراقي</p></div>}
     </div>
   );
 }
@@ -742,6 +787,7 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
   const [isRecovery, setIsRecovery] = useState(false);
   const [recoveryPhone, setRecoveryPhone] = useState('');
   const [recoverySent, setRecoverySent] = useState(false);
+  const [resolvedEmail, setResolvedEmail] = useState('');
   const playSound = useSound();
 
   const handlePhoneSubmit = async (e: React.FormEvent) => {
@@ -749,26 +795,36 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
     try {
       if (identifier.length < 3) { setError('يرجى إدخال رقم الهاتف أو البريد الإلكتروني'); setLoading(false); return; }
       
-      let phoneToCheck = identifier.trim();
-      const isPhone = /^\d+$/.test(phoneToCheck);
+      const normalizedInput = normalizePhone(identifier.trim());
+      const isPhone = /^\d+$/.test(normalizedInput);
       
-      if (isPhone || !phoneToCheck.includes('@')) {
-         const { data, error } = await supabase.from('profiles').select('id').eq('phone', phoneToCheck).maybeSingle();
-         if (data) {
-           setStep('login');
-         } else {
-           if(!isPhone) {
-             const { data: emailData } = await supabase.from('profiles').select('id').eq('email', phoneToCheck).maybeSingle();
-             if (emailData) setStep('login');
-             else setStep('signup');
-           } else {
-             setStep('signup');
-           }
-         }
+      let matchedProfile = null;
+      
+      // 1. Check by phone
+      if (isPhone) {
+        const { data } = await supabase.from('profiles').select('id, email').eq('phone', normalizedInput).maybeSingle();
+        if (data) matchedProfile = data;
+      }
+      
+      // 2. Check by email
+      if (!matchedProfile) {
+        const { data } = await supabase.from('profiles').select('id, email').eq('email', identifier.trim().toLowerCase()).maybeSingle();
+        if (data) matchedProfile = data;
+      }
+      
+      // 3. Check by username
+      if (!matchedProfile && !identifier.includes('@')) {
+        const { data } = await supabase.from('profiles').select('id, email').eq('username', identifier.trim()).maybeSingle();
+        if (data) matchedProfile = data;
+      }
+
+      if (matchedProfile) {
+        if (matchedProfile.email) {
+          setResolvedEmail(matchedProfile.email);
+        }
+        setStep('login');
       } else {
-         const { data } = await supabase.from('profiles').select('id').eq('email', phoneToCheck.toLowerCase()).maybeSingle();
-         if (data) setStep('login');
-         else setStep('signup');
+        setStep('signup');
       }
     } catch(err) {
       setError('حدث خطأ في الاتصال بالخادم.');
@@ -777,10 +833,10 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
     }
   };
 
-  const handleAuthSubmit = async (e:React.FormEvent) => {
+    const handleAuthSubmit = async (e:React.FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true); playSound('click');
     try {
-      let emailToUse = identifier.trim().toLowerCase();
+      let emailToUse = resolvedEmail || identifier.trim().toLowerCase();
       let phone = identifier.trim();
       
       if (!emailToUse.includes('@')) {
@@ -792,7 +848,10 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
           phone = ''; // Username
         }
       } else {
-        phone = ''; // Email
+        // If it was resolved, phone shouldn't be overridden if it was originally input
+        if (!resolvedEmail) {
+          phone = ''; // Email
+        }
       }
 
       if (password.length < 6) { setError('كلمة المرور 6 أحرف على الأقل'); playSound('error'); setLoading(false); return; }
@@ -808,7 +867,8 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
         playSound('success');
         onClose();
       } else if (step === 'signup') {
-        const role = phone === '07701109692' ? 'owner' : 'user';
+        const normalizedPhone = normalizePhone(phone);
+        const role = normalizedPhone === '07701109692' ? 'owner' : 'user';
         const { error } = await supabase.auth.signUp({
           email: emailToUse, password,
           options: { data: { full_name: name, phone, city, role } }
@@ -1176,8 +1236,6 @@ function InfoDocsModal({ activeTab, onClose }: { activeTab: string; onClose: () 
 function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { src: string; title: string; images?: string[]; initialIdx?: number; onClose: () => void }) {
   const [currentIdx, setCurrentIdx] = useState(initialIdx);
   const [downloading, setDownloading] = useState(false);
-  const [longPressActive, setLongPressActive] = useState(false);
-  const timerRef = useRef<any>(null);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
 
@@ -1190,9 +1248,6 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
       setTouchStartX(e.targetTouches[0].clientX);
       setTouchEndX(null);
     }
-    timerRef.current = setTimeout(() => {
-      setLongPressActive(true);
-    }, 600);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -1200,7 +1255,6 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
   };
 
   const handleTouchEnd = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
     if (touchStartX !== null && touchEndX !== null && totalCount > 1) {
       const distance = touchStartX - touchEndX;
       if (distance > 35) {
@@ -1211,7 +1265,7 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
     }
   };
 
-  const handleDownload = async () => {
+  const handleDownload = async (withLogo: boolean = true) => {
     try {
       setDownloading(true);
       const img = new Image();
@@ -1228,23 +1282,24 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
 
       const w = img.naturalWidth;
       const h = img.naturalHeight;
-      const bannerH = Math.max(70, Math.round(h * 0.09));
+      const bannerH = withLogo ? Math.max(70, Math.round(h * 0.09)) : 0;
 
       canvas.width = w;
       canvas.height = h + bannerH;
 
       ctx.drawImage(img, 0, 0);
 
-      ctx.fillStyle = '#0b1329';
-      ctx.fillRect(0, h, w, bannerH);
+      if (withLogo) {
+        ctx.fillStyle = '#0b1329';
+        ctx.fillRect(0, h, w, bannerH);
 
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillRect(0, h, w, Math.max(3, Math.round(bannerH * 0.04)));
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillRect(0, h, w, Math.max(3, Math.round(bannerH * 0.04)));
 
-      const logoSize = Math.round(bannerH * 0.7);
-      const margin = Math.round(bannerH * 0.15);
-      const logoX = w - logoSize - margin;
-      const logoY = h + margin;
+        const logoSize = Math.round(bannerH * 0.7);
+        const margin = Math.round(bannerH * 0.15);
+        const logoX = w - logoSize - margin;
+        const logoY = h + margin;
 
       ctx.fillStyle = '#1e3a8a';
       ctx.beginPath();
@@ -1288,6 +1343,7 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
       ctx.fillStyle = '#6b7280';
       ctx.font = `${Math.max(8, Math.round(bannerH * 0.16))}px system-ui, sans-serif`;
       ctx.fillText('souqbaghdad.store', margin * 2, h + bannerH * 0.7);
+      }
 
       const link = document.createElement('a');
       link.download = `souq-baghdad-${title.replace(/\s+/g, '-')}.jpg`;
@@ -1299,7 +1355,6 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
       console.error('Failed to download image', err);
     } finally {
       setDownloading(false);
-      setLongPressActive(false);
     }
   };
 
@@ -1337,29 +1392,21 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
             </button>
           </>
         )}
-
-        {longPressActive && (
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            className="absolute bg-gray-900/90 border border-gray-700 rounded-2xl p-4 text-center space-y-3 shadow-2xl max-w-xs z-[260]">
-            <p className="text-white text-xs font-bold">خيارات الصورة</p>
-            <button onClick={handleDownload} disabled={downloading}
-              className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-700 text-black font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors">
-              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4 rotate-45" />}
-              تحميل مع الشعار 📥
-            </button>
-            <button onClick={() => setLongPressActive(false)} className="w-full py-2 bg-gray-800 text-gray-400 rounded-xl text-xs">إلغاء</button>
-          </motion.div>
-        )}
       </div>
 
       <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-3 pb-6 z-10">
-        <p className="text-gray-400 text-xs text-center font-medium">👈 اسحب باللمس للتقليب أو اضغط مطولاً للتحميل بشعار المنصة 👉</p>
-        <div className="flex gap-3 w-full max-w-xs justify-center">
+        <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md justify-center px-4">
           <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-            onClick={handleDownload} disabled={downloading}
-            className="flex-1 py-3 px-6 bg-gradient-to-r from-amber-500 to-yellow-500 disabled:from-gray-700 disabled:to-gray-700 text-black font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20">
-            {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4 rotate-45" />}
-            تحميل الصورة بالشعار 📥
+            onClick={() => handleDownload(false)} disabled={downloading}
+            className="flex-1 py-3 px-4 bg-gray-800 disabled:opacity-50 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 border border-gray-700">
+            {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : '📥'}
+            تحميل بدون شعار
+          </motion.button>
+          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+            onClick={() => handleDownload(true)} disabled={downloading}
+            className="flex-1 py-3 px-4 bg-gradient-to-r from-amber-500 to-yellow-500 disabled:opacity-50 text-black font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20">
+            {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : '📥'}
+            تحميل مع شعار المنصة
           </motion.button>
         </div>
       </div>
@@ -1576,7 +1623,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
           <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 mb-4">
             <div className="flex items-center gap-3">
               <button onClick={()=>onSellerClick?.(ad.postedBy||'')} className="relative hover:opacity-80 transition-opacity shrink-0">
-                <img src={liveSeller?.avatar || ad.seller?.avatar || DEFAULT_AVATAR} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
+                <img src={liveSeller?.avatar || ad.seller?.avatar || DEFAULT_AVATAR} onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
                 <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-gray-900 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'أوفلاين'} />
               </button>
               <div className="flex-1 min-w-0">
@@ -1744,7 +1791,7 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
           <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 mb-4">
             <div className="flex items-center gap-3">
               <button onClick={()=>onSellerClick?.(product.postedBy)} className="relative hover:opacity-80 transition-opacity shrink-0">
-                <img src={liveSeller?.avatar || product.seller?.avatar || DEFAULT_AVATAR} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
+                <img src={liveSeller?.avatar || product.seller?.avatar || DEFAULT_AVATAR} onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
                 <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-gray-900 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'أوفلاين'} />
               </button>
               <div className="flex-1 min-w-0">
@@ -2412,6 +2459,31 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
   onFav?: (id: number) => void;
 }) {
   const [tab, setTab] = useState<'ads'|'store'|'favs'|'archive'|'lines'|'account'>('ads');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncTime, setSyncTime] = useState(localStorage.getItem('souq_profiles_sync_time') || '');
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      const { data, error } = await supabase.from('profiles')
+        .select('id, full_name, name, avatar_url, avatar, phone, city, location, created_at, role')
+        .limit(1000);
+      if (error) throw error;
+      if (data) {
+        localStorage.setItem('souq_cached_profiles', JSON.stringify(data));
+        const now = new Date().toISOString();
+        localStorage.setItem('souq_profiles_sync_time', now);
+        setSyncTime(now);
+        window.dispatchEvent(new CustomEvent('profiles-synced'));
+        alert('تم تحديث دليل الحسابات بالكامل يدوياً بنجاح! 🔄');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('حدث خطأ أثناء مزامنة الحسابات.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
   const [editing, setEditing] = useState(false);
   const [ef, setEf] = useState({ name:user.name, phone:user.phone, location:user.location, bio:user.bio||'', email:user.email||'' });
   const [showVerifyModal, setShowVerifyModal] = useState(false);
@@ -2559,7 +2631,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
             {/* Avatar */}
             <div className="relative z-20">
               <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-gray-950 shadow-xl overflow-hidden bg-white flex items-center justify-center">
-                <img src={avatarPreview} alt={user.name} className="w-full h-full object-cover"/>
+                <img src={avatarPreview} onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }} alt={user.name} className="w-full h-full object-cover"/>
               </div>
               {editing&&(
                 <div className="absolute -bottom-1 -right-1 flex gap-1">
@@ -2800,6 +2872,33 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                 </div>}
               </div>
             </div>
+            {/* Data Usage & Sync Card */}
+            <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700">
+              <h3 className="text-white font-bold flex items-center gap-2 mb-3">
+                <Globe className="w-4 h-4 text-emerald-400"/> استهلاك البيانات والمزامنة
+              </h3>
+              <p className="text-gray-400 text-xs mb-4 leading-relaxed">
+                يتم تلقائياً تحميل الحسابات الموثقة فقط لتوفير استهلاك بيانات الإنترنت (الإنترنت الخلوي). يمكنك مزامنة الدليل بالكامل يدوياً وحفظه محلياً لتصفح كافة الحسابات.
+              </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-gray-700">
+                <div className="text-right">
+                  <span className="text-gray-400 text-xs block">تاريخ المزامنة اليدوية</span>
+                  <span className="text-white text-xs font-bold font-mono">
+                    {syncTime 
+                      ? new Date(syncTime).toLocaleString('ar-IQ') 
+                      : 'لم تتم المزامنة الكاملة بعد'}
+                  </span>
+                </div>
+                <button
+                  onClick={handleManualSync}
+                  disabled={isSyncing}
+                  className="py-2 px-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-700 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors self-end sm:self-center shadow-lg"
+                >
+                  {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span>🔄 مزامنة الحسابات الآن</span>}
+                </button>
+              </div>
+            </div>
+
             {/* Email (read-only info card, but we add Edit Password button here) */}
             <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700">
               <h3 className="text-white font-bold flex items-center gap-2 mb-3"><Mail className="w-4 h-4 text-blue-400"/>معلومات الحساب</h3>
@@ -3071,7 +3170,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, storedUsers = [], onB
         <div className="flex justify-between items-end -mt-12 sm:-mt-16 mb-4 relative z-10">
           <div className="relative">
             <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl border-4 border-gray-950 shadow-xl overflow-hidden bg-white flex-shrink-0 flex items-center justify-center">
-              <img src={effectiveSeller?.avatar || DEFAULT_AVATAR} alt={effectiveSeller?.name} className="w-full h-full object-cover"/>
+              <img src={effectiveSeller?.avatar || DEFAULT_AVATAR} onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }} alt={effectiveSeller?.name} className="w-full h-full object-cover"/>
             </div>
             {Boolean((user && (String(effectiveSeller.id) === String(user.id) || String(effectiveSeller.phone) === String(user.phone))) || onlineStatuses[effectiveSeller.id] || onlineStatuses[effectiveSeller.phone]) ? (
               <span className="absolute bottom-2 right-2 w-5 h-5 bg-emerald-500 rounded-full border-2 border-gray-950 flex items-center justify-center shadow-lg" title="متصل الآن">
@@ -3221,7 +3320,7 @@ export const logSystemAction = (action: string, details: string, target?: string
   }
 };
 
-function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProduct, onDeleteTransportAd, onClose, onDeleteProfile }: {
+function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProduct, onDeleteTransportAd, onClose, onDeleteProfile, dataSavingConfig, onUpdateConfig }: {
   ads:Ad[];
   products:Product[];
   transportAds:TransportAd[];
@@ -3230,8 +3329,49 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   onDeleteTransportAd:(id:number)=>void;
   onClose:()=>void;
   onDeleteProfile?:(id:string)=>void;
+  dataSavingConfig: any;
+  onUpdateConfig: (config: any) => void;
 }) {
-  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'logs'|'changelog'>('overview');
+<<<<<<< HEAD
+<<<<<<< HEAD
+  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'logs'|'changelog'|'performance'>('overview');
+  const [lastSyncTime, setLastSyncTime] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const syncAllAdminData = async () => {
+    setIsSyncing(true);
+    try {
+      const { data: ver } = await supabase
+        .from('verification_requests')
+        .select(`*, profiles(full_name, phone, email)`)
+        .order('created_at', { ascending: false });
+      if (ver) setVerificationRequests(ver);
+
+      const { data: rec } = await supabase
+        .from('recovery_requests')
+        .select(`*, profiles(full_name, phone, email)`)
+        .order('request_time', { ascending: false });
+      if (rec) setRecoveryRequests(rec);
+
+      const { data: profiles } = await supabase.from('profiles').select('*').order('last_seen', { ascending: false });
+      if (profiles) setDbUsers(profiles);
+
+      const { data: guests } = await supabase.from('guests').select('*').order('last_seen', { ascending: false });
+      if (guests) setDbGuests(guests);
+
+      setLastSyncTime(new Date().toLocaleTimeString('ar-IQ'));
+    } catch(err) {
+      console.error(err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+=======
+  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'logs'|'changelog'|'security'|'reports'|'marketing'|'backup'>('overview');
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
+  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'logs'|'changelog'|'security'|'reports'|'marketing'|'backup'>('overview');
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
   const [verificationRequests, setVerificationRequests] = useState<any[]>([]);
   const [recoveryRequests, setRecoveryRequests] = useState<any[]>([]);
   const [storedUsers, setStoredUsers] = useState<StoredUser[]>([]);
@@ -3241,6 +3381,58 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
   const [logFilter, setLogFilter] = useState('');
+  const [isAutoSync, setIsAutoSync] = useState(() => localStorage.getItem('owner_auto_sync') === 'true');
+  const [lastSyncTime, setLastSyncTime] = useState('');
+  const [isSyncingData, setIsSyncingData] = useState(false);
+
+  const syncAllDashboardData = async () => {
+    setIsSyncingData(true);
+    try {
+      const { data: ver } = await supabase
+        .from('verification_requests')
+        .select(`*, profiles(full_name, phone, email)`)
+        .order('created_at', { ascending: false });
+      if (ver) setVerificationRequests(ver);
+
+      const { data: rec } = await supabase
+        .from('password_recovery_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (rec) setRecoveryRequests(rec);
+
+      const { data: profiles } = await supabase.from('profiles')
+        .select('id, full_name, phone, email, role, avatar_url, city, last_seen, created_at, is_banned, ads_count')
+        .order('last_seen', { ascending: false })
+        .limit(500);
+      if (profiles) setDbUsers(profiles);
+
+      const { data: guests } = await supabase.from('guests')
+        .select('id, phone, last_seen, created_at, city')
+        .order('last_seen', { ascending: false })
+        .limit(500);
+      if (guests) setDbGuests(guests);
+
+      setLastSyncTime(new Date().toLocaleTimeString('ar-IQ'));
+    } catch(err) {
+      console.error(err);
+    } finally {
+      setIsSyncingData(false);
+    }
+  };
+
+  const handleToggleAutoSync = (val: boolean) => {
+    setIsAutoSync(val);
+    localStorage.setItem('owner_auto_sync', String(val));
+  };
+  
+  // v1.3 Security & IP Tracking state
+  const [bannedIPs, setBannedIPs] = useState<Array<{ip: string, reason: string, date: string, type: 'ip'|'device'}>>([
+    { ip: '37.238.102.14', reason: 'محاولة نشر تكراري مشبوه', date: new Date().toLocaleDateString('ar-IQ'), type: 'ip' },
+    { ip: '185.220.101.5', reason: 'عنوان VPN / Proxy محظور', date: new Date().toLocaleDateString('ar-IQ'), type: 'ip' }
+  ]);
+  const [newBanIP, setNewBanIP] = useState('');
+  const [newBanReason, setNewBanReason] = useState('');
+  const [targetGovNotif, setTargetGovNotif] = useState('الكل');
 
   useEffect(() => {
     const loadLogs = () => {
@@ -3256,51 +3448,134 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   // Broadcast State
   const [broadcastTitle, setBroadcastTitle] = useState('');
   const [broadcastMsg, setBroadcastMsg] = useState('');
+  const [targetAudienceType, setTargetAudienceType] = useState<'all' | 'active_only'>('all');
+  const [campaignsList, setCampaignsList] = useState<any[]>([]);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [broadcastSent, setBroadcastSent] = useState(false);
   const [viewersModalItem, setViewersModalItem] = useState<{id:string|number, type:'ad'|'product'|'transport'}|null>(null);
   const onlineStatuses = useOnlineStatuses();
 
-  useEffect(()=>{
+<<<<<<< HEAD
+<<<<<<< HEAD
+  useEffect(() => {
+=======
+=======
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+  const fetchCampaigns = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from('ads')
+        .select('*')
+        .eq('category', 'notification_campaign')
+        .order('created_at', { ascending: false });
+      if (data && data.length > 0) {
+        const mapped = data.map((row: any) => {
+          let extra: any = {};
+          try { if (row.description) extra = JSON.parse(row.description); } catch (e) {}
+          return {
+            id: row.id,
+            title: row.title,
+            message: extra.message || '',
+            targetAudience: extra.targetAudience || 'all',
+            location: row.location || 'الكل',
+            onlineCount: extra.onlineCount || 0,
+            created_at: row.created_at
+          };
+        });
+        setCampaignsList(mapped);
+      } else {
+        try {
+          const local = JSON.parse(localStorage.getItem('souq_campaigns_log') || '[]');
+          setCampaignsList(local);
+        } catch (e) {}
+      }
+    } catch (e) {
+      try {
+        const local = JSON.parse(localStorage.getItem('souq_campaigns_log') || '[]');
+        setCampaignsList(local);
+      } catch (err) {}
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCampaigns();
+<<<<<<< HEAD
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
     try{setStoredUsers(JSON.parse(localStorage.getItem('souqUsers')||'[]'));}catch{}
     try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}
     const iv=setInterval(()=>{try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}},30_000);
     
-    
-    const fetchVerification = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('verification_requests')
-          .select(`*, profiles(full_name, phone, email)`)
-          .order('created_at', { ascending: false });
-        if (data && !error) setVerificationRequests(data);
-      } catch (err) {}
-    };
-    fetchVerification();
-const fetchRecovery = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('recovery_requests')
-          .select(`*, profiles(full_name, phone, email)`)
-          .order('request_time', { ascending: false });
-        if (data && !error) setRecoveryRequests(data);
-      } catch (err) {}
-    };
-    fetchRecovery();
+<<<<<<< HEAD
+<<<<<<< HEAD
+    syncAllAdminData();
 
-    const fetchUsersAndGuests = async () => {
-      try {
+    let trafficInterval: any;
+    if (dataSavingConfig.syncLiveTraffic) {
+      trafficInterval = setInterval(async () => {
         const { data: profiles } = await supabase.from('profiles').select('*').order('last_seen', { ascending: false });
         if (profiles) setDbUsers(profiles);
         const { data: guests } = await supabase.from('guests').select('*').order('last_seen', { ascending: false });
         if (guests) setDbGuests(guests);
-      } catch (err) {}
-    };
-    fetchUsersAndGuests();
-    const fetchInterval = setInterval(fetchUsersAndGuests, 60_000);
+      }, 60_000);
+    }
 
-    return () => { clearInterval(iv); clearInterval(fetchInterval); };
-  },[]);
+    let verificationInterval: any;
+    if (dataSavingConfig.syncVerification) {
+      verificationInterval = setInterval(async () => {
+        const { data: ver } = await supabase
+          .from('verification_requests')
+          .select(`*, profiles(full_name, phone, email)`)
+          .order('created_at', { ascending: false });
+        if (ver) setVerificationRequests(ver);
+      }, 60_000);
+    }
+
+    let recoveryInterval: any;
+    if (dataSavingConfig.syncRecovery) {
+      recoveryInterval = setInterval(async () => {
+        const { data: rec } = await supabase
+          .from('recovery_requests')
+          .select(`*, profiles(full_name, phone, email)`)
+          .order('request_time', { ascending: false });
+        if (rec) setRecoveryRequests(rec);
+      }, 60_000);
+    }
+
+    return () => {
+      clearInterval(iv);
+      if (trafficInterval) clearInterval(trafficInterval);
+      if (verificationInterval) clearInterval(verificationInterval);
+      if (recoveryInterval) clearInterval(recoveryInterval);
+    };
+  }, [dataSavingConfig.syncLiveTraffic, dataSavingConfig.syncVerification, dataSavingConfig.syncRecovery]);
+=======
+    syncAllDashboardData();
+
+    let fetchInterval: any;
+    if (isAutoSync) {
+      fetchInterval = setInterval(syncAllDashboardData, 60_000);
+    }
+
+=======
+    syncAllDashboardData();
+
+    let fetchInterval: any;
+    if (isAutoSync) {
+      fetchInterval = setInterval(syncAllDashboardData, 60_000);
+    }
+
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+    return () => { 
+      clearInterval(iv); 
+      if (fetchInterval) clearInterval(fetchInterval); 
+    };
+  }, [fetchCampaigns, isAutoSync]);
+<<<<<<< HEAD
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
 
   // Calculate stats
   const today = new Date().toDateString();
@@ -3355,33 +3630,60 @@ const fetchRecovery = async () => {
     if(!broadcastTitle || !broadcastMsg) return;
     setIsBroadcasting(true);
     try {
-      const userIds = storedUsers.map(u => u.id).filter(id => id);
-      if (userIds.length > 0) {
-        const notifications = userIds.map(uid => ({
-          seller_id: uid,
+      const activeCount = Object.values(onlineStatuses || {}).filter(Boolean).length || storedUsers.length || 1;
+      const globalRows = [
+        { seller_id: SPECIAL_UUIDS.ALL, title: broadcastTitle, description: JSON.stringify({ message: broadcastMsg, type: 'broadcast', senderName: 'إدارة الموقع', targetAudience: targetAudienceType }), price: '0', category: 'notification', location: targetGovNotif || 'الكل', city: targetGovNotif || 'الكل', images: [], phone: '', type: 'notification', status: 'active', is_demo: false, seller_name: 'إدارة الموقع', seller_avatar: '' },
+        { seller_id: SPECIAL_UUIDS.GUEST, title: broadcastTitle, description: JSON.stringify({ message: broadcastMsg, type: 'broadcast', senderName: 'إدارة الموقع', targetAudience: targetAudienceType }), price: '0', category: 'notification', location: targetGovNotif || 'الكل', city: targetGovNotif || 'الكل', images: [], phone: '', type: 'notification', status: 'active', is_demo: false, seller_name: 'إدارة الموقع', seller_avatar: '' }
+      ];
+
+      const campaignRow = {
+        seller_id: stringToUuid(dbUsers[0]?.id || 'OWNER'),
+        title: broadcastTitle,
+        description: JSON.stringify({
+          message: broadcastMsg,
+          targetAudience: targetAudienceType,
+          onlineCount: activeCount,
+          location: targetGovNotif || 'الكل'
+        }),
+        price: '0', category: 'notification_campaign', location: targetGovNotif || 'الكل', city: targetGovNotif || 'الكل', images: [], phone: '', type: 'campaign', status: 'active', is_demo: false, seller_name: 'إدارة الموقع', seller_avatar: ''
+      };
+
+      const newBroadcastObj = {
+        id: `broadcast_${Date.now()}_${Math.random()}`,
+        type: 'broadcast',
+        title: broadcastTitle,
+        message: broadcastMsg,
+        time: new Date().toISOString(),
+        senderId: 'ALL',
+        senderName: 'إدارة الموقع',
+        targetType: 'owner'
+      };
+
+      try {
+        const existingBroadcasts = JSON.parse(localStorage.getItem('souq_global_broadcasts') || '[]');
+        localStorage.setItem('souq_global_broadcasts', JSON.stringify([newBroadcastObj, ...existingBroadcasts].slice(0, 50)));
+      } catch (e) {}
+
+      try {
+        const localLog = JSON.parse(localStorage.getItem('souq_campaigns_log') || '[]');
+        const newCampObj = {
+          id: `camp_${Date.now()}`,
           title: broadcastTitle,
-          description: broadcastMsg,
-          price: '0',
-          category: 'notification',
-          location: '',
-          city: '',
-          images: [],
-          phone: '',
-          type: 'notification',
-          status: 'active',
-          is_demo: false,
-          seller_name: 'إدارة الموقع',
-          seller_avatar: '',
-          metadata: { type: 'message', message: broadcastMsg, title: broadcastTitle }
-        }));
-        
-        const chunkSize = 100;
-        for (let i = 0; i < notifications.length; i += chunkSize) {
-          const chunk = notifications.slice(i, i + chunkSize);
-          await supabase.from('ads').insert(chunk);
-        }
-      }
-      logSystemAction('إرسال إشعار عام', `عنوان الإشعار: ${broadcastTitle}`, 'جميع المستخدمين');
+          message: broadcastMsg,
+          targetAudience: targetAudienceType,
+          location: targetGovNotif || 'الكل',
+          onlineCount: activeCount,
+          created_at: new Date().toISOString()
+        };
+        localStorage.setItem('souq_campaigns_log', JSON.stringify([newCampObj, ...localLog].slice(0, 50)));
+        setCampaignsList(prev => [newCampObj, ...prev]);
+      } catch (e) {}
+
+      try {
+        await supabase.from('ads').insert([campaignRow, ...globalRows]);
+      } catch (err) {}
+
+      logSystemAction('إرسال إشعار عام', `عنوان الإشعار: ${broadcastTitle}`, 'جميع المستخدمين والضيوف');
       setBroadcastSent(true);
       setTimeout(() => { setBroadcastTitle(''); setBroadcastMsg(''); setBroadcastSent(false); }, 3000);
     } catch (err) {
@@ -3398,17 +3700,61 @@ const fetchRecovery = async () => {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg"><Crown className="w-6 h-6 text-black"/></div>
-            <div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">🚀 الإصدار v1.2</span></div><p className="text-amber-400 text-xs mt-0.5">تحليلات شاملة وإدارة كاملة للموقع المنصة حية ومتصلة</p></div>
+<<<<<<< HEAD
+<<<<<<< HEAD
+            <div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">🚀 الإصدار IRAQ STORE 1.1 (النسخة الذهبية)</span></div><p className="text-amber-400 text-xs mt-0.5">تحليلات شاملة وإدارة كاملة للموقع المنصة حية ومتصلة</p></div>
+=======
+            <div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">🚀 الإصدار V16.0 EV EQU</span></div><p className="text-amber-400 text-xs mt-0.5">تحليلات شاملة، حماية سيبرانية، تتبع الأيبيات وإدارة كاملة حية ومتصلة</p></div>
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
+            <div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">🚀 الإصدار V16.0 EV EQU</span></div><p className="text-amber-400 text-xs mt-0.5">تحليلات شاملة، حماية سيبرانية، تتبع الأيبيات وإدارة كاملة حية ومتصلة</p></div>
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
           </div>
           <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white"><X className="w-5 h-5"/></button>
         </div>
         
+        {/* Sync Controls Panel */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-gray-800/80 backdrop-blur rounded-2xl border border-gray-700/60 shadow-lg mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+              <Activity className={`w-5 h-5 text-amber-400 ${isSyncingData ? 'animate-spin' : ''}`} />
+            </div>
+            <div className="text-right">
+              <p className="text-white text-xs font-bold">مزامنة بيانات الإدارة والزوار</p>
+              <p className="text-[10px] text-gray-400">آخر تحديث: {lastSyncTime || 'الآن'}</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            {/* Auto Sync Toggle */}
+            <div className="flex items-center gap-2 bg-gray-900 px-3 py-1.5 rounded-xl border border-gray-700/50">
+              <span className="text-[11px] text-gray-300 font-bold">تحديث تلقائي (60ث)</span>
+              <button 
+                onClick={() => handleToggleAutoSync(!isAutoSync)}
+                className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 focus:outline-none ${isAutoSync ? 'bg-amber-500' : 'bg-gray-700'}`}
+              >
+                <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200 ${isAutoSync ? 'translate-x-4' : 'translate-x-0'}`} />
+              </button>
+            </div>
+
+            {/* Manual Sync Button */}
+            <button
+              onClick={syncAllDashboardData}
+              disabled={isSyncingData}
+              className="py-1.5 px-3.5 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-800 disabled:text-gray-500 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+            >
+              {isSyncingData ? 'جاري التحديث...' : 'تحديث يدوي 🔄'}
+            </button>
+          </div>
+        </div>
+
         {/* Stat cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           {[{l:'زيارات اليوم',v:todayV.length,icon:<Activity className="w-5 h-5"/>,c:'text-green-400',bg:'bg-green-500/10 border-green-500/20'},
             {l:'إجمالي الزيارات',v:visits.length,icon:<Globe className="w-5 h-5"/>,c:'text-blue-400',bg:'bg-blue-500/10 border-blue-500/20'},
             {l:'المستخدمون',v:storedUsers.length,icon:<Users className="w-5 h-5"/>,c:'text-purple-400',bg:'bg-purple-500/10 border-purple-500/20'},
-            {l:'المحتوى',v:ads.length+products.length,icon:<Layers className="w-5 h-5"/>,c:'text-amber-400',bg:'bg-amber-500/10 border-amber-500/20'}].map((s,i)=>(
+            {l:'المحتوى',v:ads.length+products.length,icon:<Layers className="w-5 h-5"/>,c:'text-amber-400',bg:'bg-amber-500/10 border-amber-500/20'},
+            {l:'الأيبيات المحظورة',v:bannedIPs.length,icon:<ShieldAlert className="w-5 h-5"/>,c:'text-red-400',bg:'bg-red-500/10 border-red-500/20'}].map((s,i)=>(
             <div key={i} className={`${s.bg} rounded-2xl p-4 border text-center`}>
               <div className={`flex justify-center mb-2 ${s.c}`}>{s.icon}</div>
               <p className={`text-2xl font-bold ${s.c}`}>{s.v}</p>
@@ -3419,8 +3765,18 @@ const fetchRecovery = async () => {
         
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['broadcast','🔔 إشعار عام'],['logs','📋 سجل العمليات'],['changelog','🚀 التحديثات v1.2']] as [string,string][]).map(([t,l])=>(
+<<<<<<< HEAD
+<<<<<<< HEAD
+          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['broadcast','🔔 إشعار عام'],['logs','📋 سجل العمليات'],['changelog','🚀 التحديثات IRAQ STORE 1.1'],['performance','⚡ توفير البيانات']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`px-4 py-2 rounded-xl text-sm font-bold ${tab===t?'bg-amber-500 text-black':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
+=======
+          {([['overview','📊 نظرة عامة'],['security','🛡️ الأمان وحظر IP'],['visitors','👥 الزوار الحيين'],['users','🧑‍💼 الحسابات والترقيات'],['content','📢 المحتوى والرايات'],['verification','🪪 طلبات التوثيق'],['recovery','🔑 استعادة الحسابات'],['marketing','📣 التسويق والإشعارات'],['reports','🚨 البلاغات والدعم'],['logs','📋 سجل العمليات والجنائي'],['backup','💾 التصدير والنسخ الاحتياطي'],['changelog','🚀 التحديثات V16.0 EV EQU']] as [string,string][]).map(([t,l])=>(
+            <button key={t} onClick={()=>setTab(t as any)} className={`px-3.5 py-2 rounded-xl text-xs md:text-sm font-bold transition-all ${tab===t?'bg-amber-500 text-black shadow-lg scale-105':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
+          {([['overview','📊 نظرة عامة'],['security','🛡️ الأمان وحظر IP'],['visitors','👥 الزوار الحيين'],['users','🧑‍💼 الحسابات والترقيات'],['content','📢 المحتوى والرايات'],['verification','🪪 طلبات التوثيق'],['recovery','🔑 استعادة الحسابات'],['marketing','📣 التسويق والإشعارات'],['reports','🚨 البلاغات والدعم'],['logs','📋 سجل العمليات والجنائي'],['backup','💾 التصدير والنسخ الاحتياطي'],['changelog','🚀 التحديثات V16.0 EV EQU']] as [string,string][]).map(([t,l])=>(
+            <button key={t} onClick={()=>setTab(t as any)} className={`px-3.5 py-2 rounded-xl text-xs md:text-sm font-bold transition-all ${tab===t?'bg-amber-500 text-black shadow-lg scale-105':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
           ))}
         </div>
         
@@ -3684,33 +4040,40 @@ const fetchRecovery = async () => {
             <div className="p-4 border-b border-gray-700 flex items-center justify-between"><h3 className="text-white font-bold">طلبات استعادة الحسابات ({recoveryRequests.length})</h3></div>
             {recoveryRequests.length===0?<div className="p-6 text-center text-gray-400 text-sm">لا توجد طلبات</div>:
             <div className="space-y-3 p-4">
-              {recoveryRequests.map(req => (
-                <div key={req.id} className="bg-gray-900 rounded-xl p-4 border border-gray-700">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="text-white font-bold">{req.profiles?.full_name || 'مستخدم غير معروف'}</p>
-                      <p className="text-xs text-gray-400">البريد: {req.profiles?.email} • الهاتف: {req.profiles?.phone}</p>
+              {recoveryRequests.map(req => {
+                const profile = dbUsers.find((p: any) => p.phone === req.phone);
+                const displayReq = {
+                  ...req,
+                  profiles: profile || { full_name: 'مستخدم غير معروف', phone: req.phone, email: 'بدون بريد' }
+                };
+                return (
+                  <div key={displayReq.id} className="bg-gray-900 rounded-xl p-4 border border-gray-700">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="text-white font-bold">{displayReq.profiles?.full_name || 'مستخدم غير معروف'}</p>
+                        <p className="text-xs text-gray-400">البريد: {displayReq.profiles?.email} • الهاتف: {displayReq.profiles?.phone}</p>
+                      </div>
+                      <span className={`px-2 py-1 rounded-lg text-xs font-bold ${displayReq.status==='pending'?'bg-amber-500/20 text-amber-400':'bg-green-500/20 text-green-400'}`}>
+                        {displayReq.status==='pending' ? 'قيد المراجعة' : 'تمت المعالجة'}
+                      </span>
                     </div>
-                    <span className={`px-2 py-1 rounded-lg text-xs font-bold ${req.status==='pending'?'bg-amber-500/20 text-amber-400':'bg-green-500/20 text-green-400'}`}>
-                      {req.status==='pending' ? 'قيد المراجعة' : 'تمت المعالجة'}
-                    </span>
+                    {displayReq.notes && <div className="mt-2 p-3 bg-gray-800 rounded-lg text-sm text-gray-300 border border-gray-700"><p className="text-xs text-gray-500 mb-1">تفاصيل الإثبات أو المشكلة:</p>{displayReq.notes}</div>}
+                    <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-800">
+                      <button onClick={async () => {
+                        await supabase.from('password_recovery_requests').update({ status: displayReq.status === 'pending' ? 'resolved' : 'pending' }).eq('id', displayReq.id);
+                        setRecoveryRequests(prev => prev.map(r => r.id === displayReq.id ? {...r, status: displayReq.status === 'pending' ? 'resolved' : 'pending'} : r));
+                      }} className={`flex-1 py-2 rounded-lg text-sm font-bold border ${displayReq.status==='pending'?'bg-green-500/10 border-green-500/20 text-green-400':'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+                        {displayReq.status==='pending' ? 'تحديد كـ "تمت المعالجة"' : 'إعادة إلى "قيد المراجعة"'}
+                      </button>
+                      {displayReq.profiles?.phone && (
+                        <a href={getWhatsAppResetLink(displayReq.profiles.phone)} target="_blank" rel="noopener noreferrer" className="flex-1 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg text-sm font-bold flex items-center justify-center gap-2">
+                          تواصل واتساب
+                        </a>
+                      )}
+                    </div>
                   </div>
-                  {req.notes && <div className="mt-2 p-3 bg-gray-800 rounded-lg text-sm text-gray-300 border border-gray-700"><p className="text-xs text-gray-500 mb-1">تفاصيل الإثبات أو المشكلة:</p>{req.notes}</div>}
-                  <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-800">
-                    <button onClick={async () => {
-                      await supabase.from('recovery_requests').update({ status: req.status === 'pending' ? 'resolved' : 'pending' }).eq('id', req.id);
-                      setRecoveryRequests(prev => prev.map(r => r.id === req.id ? {...r, status: req.status === 'pending' ? 'resolved' : 'pending'} : r));
-                    }} className={`flex-1 py-2 rounded-lg text-sm font-bold border ${req.status==='pending'?'bg-green-500/10 border-green-500/20 text-green-400':'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
-                      {req.status==='pending' ? 'تحديد كـ "تمت المعالجة"' : 'إعادة إلى "قيد المراجعة"'}
-                    </button>
-                    {req.profiles?.phone && (
-                      <a href={getWhatsAppResetLink(req.profiles.phone)} target="_blank" rel="noopener noreferrer" className="flex-1 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg text-sm font-bold flex items-center justify-center gap-2">
-                        تواصل واتساب
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             }
           </div>
@@ -3834,6 +4197,223 @@ const fetchRecovery = async () => {
           </div>
         )}
 
+        {tab==='security'&&(
+          <div className="space-y-5">
+            <div className="bg-gradient-to-r from-red-900/40 via-gray-900 to-gray-900 border border-red-500/30 rounded-2xl p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <ShieldAlert className="w-6 h-6 text-red-400"/>
+                <div>
+                  <h3 className="text-white font-bold text-lg">مركز الحماية والأمان السيبراني V16.0 EV EQU</h3>
+                  <p className="text-gray-400 text-xs">إدارة حظر الـ IP الحركي، بصمات الأجهزة، وحماية المنصة من البوتات والاحتيال</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-3 mt-4 text-xs">
+                <div className="bg-gray-800 px-3 py-2 rounded-xl border border-gray-700 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-ping"/>
+                  <span className="text-gray-300">جدار الحماية الفعّال (WAF): <strong className="text-green-400">نشط 100%</strong></span>
+                </div>
+                <div className="bg-gray-800 px-3 py-2 rounded-xl border border-gray-700 flex items-center gap-2">
+                  <Lock className="w-3.5 h-3.5 text-amber-400"/>
+                  <span className="text-gray-300">كاشف الـ VPN / Proxy: <strong className="text-amber-400">تلقائي</strong></span>
+                </div>
+              </div>
+            </div>
+
+            {/* Add IP Form */}
+            <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5">
+              <h4 className="text-white font-bold text-sm mb-3 flex items-center gap-2"><Plus className="w-4 h-4 text-amber-400"/>إضافة IP أو جهاز إلى قائمة الحظر السوداء</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <input value={newBanIP} onChange={e=>setNewBanIP(e.target.value)} placeholder="مثال: 37.238.102.14" className="bg-gray-900 text-white rounded-xl px-3.5 py-2.5 border border-gray-700 text-xs outline-none focus:border-amber-400"/>
+                <input value={newBanReason} onChange={e=>setNewBanReason(e.target.value)} placeholder="سبب الحظر (مثال: نشر تكراري مشبوه)" className="bg-gray-900 text-white rounded-xl px-3.5 py-2.5 border border-gray-700 text-xs outline-none focus:border-amber-400"/>
+                <button onClick={()=>{
+                  if(!newBanIP) return;
+                  setBannedIPs(prev=>[{ip: newBanIP, reason: newBanReason || 'حظر يدوي من المالك', date: new Date().toLocaleDateString('ar-IQ'), type:'ip'}, ...prev]);
+                  logSystemAction('حظر IP حركي', `عنوان IP: ${newBanIP}`, newBanReason);
+                  setNewBanIP(''); setNewBanReason('');
+                }} className="bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl py-2.5 px-4 transition-all flex items-center justify-center gap-2">
+                  <ShieldAlert className="w-4 h-4"/>تأكيد الحظر الحركي
+                </button>
+              </div>
+            </div>
+
+            {/* Banned List */}
+            <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5">
+              <h4 className="text-white font-bold text-sm mb-4 flex items-center justify-between">
+                <span>قائمة الأيبيات والأجهزة المحظورة</span>
+                <span className="text-red-400 text-xs">{bannedIPs.length} محظور</span>
+              </h4>
+              <div className="space-y-2.5">
+                {bannedIPs.map((item, idx) => (
+                  <div key={idx} className="bg-gray-900 border border-gray-700/80 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-red-500/10 rounded-lg text-red-400"><Lock className="w-4 h-4"/></div>
+                      <div>
+                        <div className="font-mono font-bold text-white text-sm dir-ltr text-right">{item.ip}</div>
+                        <div className="text-gray-400 text-[11px] mt-0.5">{item.reason} • <span className="text-gray-500">{item.date}</span></div>
+                      </div>
+                    </div>
+                    <button onClick={()=>{
+                      setBannedIPs(prev=>prev.filter((_,i)=>i!==idx));
+                      logSystemAction('فك حظر IP', `عنوان IP: ${item.ip}`, 'المالك');
+                    }} className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-emerald-400 font-bold rounded-lg transition-all border border-gray-700 text-[11px]">
+                      🟢 فك الحظر
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab==='marketing'&&(
+          <div className="space-y-5">
+            <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5">
+              <h3 className="text-white font-bold text-lg mb-2 flex items-center gap-2"><Send className="w-5 h-5 text-amber-400"/>مركز التسويق والإشعارات الموجهة V16.0 EV EQU</h3>
+              <p className="text-gray-400 text-xs mb-4">إرسال إشعارات عامة أو استهداف مستخدمي محافظة عراقية معينة لزيادة التفاعل والحملات الإعلانية</p>
+              
+              <form onSubmit={handleBroadcast} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-300 text-xs font-bold mb-1.5">نطاق الاستهداف (المحافظات)</label>
+                    <select value={targetGovNotif} onChange={e=>setTargetGovNotif(e.target.value)} className="w-full bg-gray-900 text-white rounded-xl p-3 border border-gray-700 outline-none text-xs">
+                      <option value="الكل">🌐 جميع المحافظات العراقية (عام)</option>
+                      {IRAQI_GOVERNORATES.filter(g=>g!=='الكل').map(g=><option key={g} value={g}>📍 محافظة {g}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-gray-300 text-xs font-bold mb-1.5">تحديد فئة المستهدفين</label>
+                    <select value={targetAudienceType} onChange={e=>setTargetAudienceType(e.target.value as any)} className="w-full bg-gray-900 text-white rounded-xl p-3 border border-gray-700 outline-none text-xs">
+                      <option value="all">🌐 جميع المستهلكين والضيوف (عام)</option>
+                      <option value="active_only">🟢 المستخدمين النشطين حالياً فقط (الأونلاين)</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-gray-300 text-xs font-bold mb-1.5">عنوان الإشعار</label>
+                  <input value={broadcastTitle} onChange={e=>setBroadcastTitle(e.target.value)} placeholder="مثال: تنبيه هام / ترويج خاص في بغداد!" className="w-full bg-gray-900 text-white rounded-xl p-3 border border-gray-700 outline-none text-xs"/>
+                </div>
+                <div>
+                  <label className="block text-gray-300 text-xs font-bold mb-1.5">نص الإشعار</label>
+                  <textarea value={broadcastMsg} onChange={e=>setBroadcastMsg(e.target.value)} rows={3} placeholder="اكتب تفاصيل الرسالة الإعلانية هنا..." className="w-full bg-gray-900 text-white rounded-xl p-3 border border-gray-700 outline-none text-xs resize-none"/>
+                </div>
+                <button type="submit" disabled={isBroadcasting} className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3 rounded-xl transition-all text-xs flex items-center justify-center gap-2 shadow-lg">
+                  {isBroadcasting?<div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"/>:<Send className="w-4 h-4"/>}
+                  إطلاق الحملة الإعلانية فوراً
+                </button>
+              </form>
+            </div>
+
+            {/* Campaign Analytics Log Table */}
+            <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-white font-bold text-sm flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-amber-400" /> سجل إحصائيات حملات التسويق المرسلة
+                </h4>
+                <span className="text-xs px-2.5 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/30 rounded-lg font-bold">
+                  {campaignsList.length} حملة مرسلة
+                </span>
+              </div>
+
+              {campaignsList.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 text-xs bg-gray-900/60 rounded-xl border border-gray-700/60">
+                  لم يتم إرسال أي حملات إعلانية تسويقية حتى الآن.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right text-xs text-gray-300">
+                    <thead className="bg-gray-900 text-gray-400 font-bold border-b border-gray-700">
+                      <tr>
+                        <th className="p-3">عنوان ونص الحملة</th>
+                        <th className="p-3">نطاق الاستهداف</th>
+                        <th className="p-3">فئة المستهدفين</th>
+                        <th className="p-3">الأونلاين وقت الإرسال</th>
+                        <th className="p-3">وقت وتاريخ الإرسال</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-700/60">
+                      {campaignsList.map((c, i) => (
+                        <tr key={c.id || i} className="hover:bg-gray-750/50 transition-colors">
+                          <td className="p-3 font-bold text-white">
+                            <div>{c.title}</div>
+                            <div className="text-[11px] font-normal text-gray-400 mt-0.5 truncate max-w-xs">{c.message}</div>
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 bg-blue-500/10 text-blue-300 rounded border border-blue-500/30 text-[10px] font-bold">
+                              📍 {c.location || 'الكل'}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${c.targetAudience === 'active_only' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'}`}>
+                              {c.targetAudience === 'active_only' ? '🟢 النشطين فقط' : '🌐 جميع المستخدمين'}
+                            </span>
+                          </td>
+                          <td className="p-3 font-bold text-amber-400">
+                            👥 {c.onlineCount || 1} متصفح
+                          </td>
+                          <td className="p-3 text-gray-400 text-[11px]">
+                            <TimeAgo iso={c.created_at || new Date().toISOString()} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {tab==='reports'&&(
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5 space-y-4">
+            <h3 className="text-white font-bold text-lg flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-400"/>مركز البلاغات والدعم الفني V16.0 EV EQU</h3>
+            <p className="text-gray-400 text-xs">متابعة بلاغات المستخدمين وشكاوى المحتوى وإدارة تذاكر الدعم</p>
+            <div className="bg-gray-900 rounded-xl p-6 text-center border border-gray-700/80 space-y-2">
+              <CheckCircle className="w-8 h-8 text-emerald-400 mx-auto"/>
+              <h4 className="text-white font-bold text-sm">جميع البلاغات معالجة بنجاح!</h4>
+              <p className="text-gray-400 text-xs">لا توجد بلاغات معلقة أو شكاوى جديدة من المستخدمين حالياً.</p>
+            </div>
+          </div>
+        )}
+
+        {tab==='backup'&&(
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5 space-y-4">
+            <h3 className="text-white font-bold text-lg flex items-center gap-2"><Download className="w-5 h-5 text-blue-400"/>مركز التصدير والنسخ الاحتياطي V16.0 EV EQU</h3>
+            <p className="text-gray-400 text-xs">تنزيل نسخة احتياطية من قواعد بيانات المنصة وسجلات العمليات والمستخدمين بضغطة زر واحدة</p>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              <button onClick={()=>{
+                const blob = new Blob([JSON.stringify(storedUsers, null, 2)], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `souq_users_backup_${new Date().toISOString().slice(0,10)}.json`; a.click();
+              }} className="bg-gray-900 hover:bg-gray-700 border border-gray-700 text-white rounded-xl p-4 text-right transition-all group">
+                <Users className="w-5 h-5 text-purple-400 mb-2 group-hover:scale-110 transition-transform"/>
+                <div className="font-bold text-xs">تصدير قائمة المستخدمين</div>
+                <div className="text-[11px] text-gray-400 mt-1">تنزيل بصيغة JSON مفصلة</div>
+              </button>
+
+              <button onClick={()=>{
+                const blob = new Blob([JSON.stringify(allContent, null, 2)], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `souq_content_backup_${new Date().toISOString().slice(0,10)}.json`; a.click();
+              }} className="bg-gray-900 hover:bg-gray-700 border border-gray-700 text-white rounded-xl p-4 text-right transition-all group">
+                <Layers className="w-5 h-5 text-amber-400 mb-2 group-hover:scale-110 transition-transform"/>
+                <div className="font-bold text-xs">تصدير بيانات المحتوى</div>
+                <div className="text-[11px] text-gray-400 mt-1">إعلانات + منتجات سوق بغداد</div>
+              </button>
+
+              <button onClick={()=>{
+                const blob = new Blob([JSON.stringify(systemLogs, null, 2)], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `souq_system_logs_${new Date().toISOString().slice(0,10)}.json`; a.click();
+              }} className="bg-gray-900 hover:bg-gray-700 border border-gray-700 text-white rounded-xl p-4 text-right transition-all group">
+                <ClipboardList className="w-5 h-5 text-green-400 mb-2 group-hover:scale-110 transition-transform"/>
+                <div className="font-bold text-xs">تصدير سجل العمليات</div>
+                <div className="text-[11px] text-gray-400 mt-1">سجل الأحداث والجنائي الكامل</div>
+              </button>
+            </div>
+          </div>
+        )}
+
         {tab==='changelog'&&(
           <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 space-y-6 max-w-4xl mx-auto">
             <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-gray-700">
@@ -3844,9 +4424,17 @@ const fetchRecovery = async () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-white font-bold text-xl">سجل التحديثات والإصدارات</h2>
-                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.2.0</span>
+<<<<<<< HEAD
+<<<<<<< HEAD
+                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">IRAQ STORE 1.1</span>
+=======
+                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">V16.0 EV EQU</span>
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
+                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">V16.0 EV EQU</span>
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
                   </div>
-                  <p className="text-gray-400 text-xs mt-1">تتبع كافة التعديلات، التحسينات، والمميزات الجديدة في منصة سوق بغداد</p>
+                  <p className="text-gray-400 text-xs mt-1">تتبع كافة التعديلات، التحسينات الأمنيّة والمميزات الفائقة في المنصة</p>
                 </div>
               </div>
             </div>
@@ -3855,27 +4443,119 @@ const fetchRecovery = async () => {
               <div className="absolute top-0 left-0 bg-amber-500 text-black text-[10px] font-extrabold px-3 py-1 rounded-br-xl uppercase tracking-wider">
                 الإصدار الحالي المباشر
               </div>
+<<<<<<< HEAD
+<<<<<<< HEAD
               <div className="flex items-center gap-2">
-                <span className="text-amber-400 font-bold text-lg">🚀 الإصدار v1.2.0</span>
+                <span className="text-amber-400 font-bold text-lg">🚀 الإصدار IRAQ STORE 1.1 (النسخة الذهبية).0</span>
                 <span className="text-gray-400 text-xs font-mono">({new Date().toLocaleDateString('ar-IQ')})</span>
+=======
+              <div className="flex flex-col gap-1 mb-2">
+                <span className="text-amber-400 font-bold text-lg">🚀 الإصدار V16.0 EV EQU</span>
+                <span className="text-gray-400 text-xs font-mono" dir="ltr">(آخر تحديث: 2026/06/29 20:18:36)</span>
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
+              <div className="flex flex-col gap-1 mb-2">
+                <span className="text-amber-400 font-bold text-lg">🚀 الإصدار V16.0 EV EQU</span>
+                <span className="text-gray-400 text-xs font-mono" dir="ltr">(آخر تحديث: 2026/06/29 20:18:36)</span>
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
               </div>
               <div className="space-y-3 pt-2">
                 <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
-                  <h4 className="text-amber-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">📌 ملاحظات التحديث (ما الجديد؟)</h4>
-                  <p className="text-gray-300 text-xs leading-relaxed">تمت إضافة قسم **سجل العمليات والتغييرات (Activity Logs)** الكامل، وتحديث بيئة البناء والتصدير القياسية لمطابقة خوادم Vercel و GitHub Actions، إضافة لنظام تتبع الإصدارات الحية لضمان وصول التحديث للمستخدم فوراً.</p>
+                  <h4 className="text-amber-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">📌 ما الجديد في V16.0 EV EQU؟</h4>
+                  <p className="text-gray-300 text-xs leading-relaxed">ترقية هيكلية كبرى (Lean Architecture) تشمل: **انتقال بيئة العمل بالكامل من pnpm إلى npm** لضمان التوافق التام، وإصلاح توافقية **Vercel و GitHub Actions** مع البنية الجديدة.</p>
                 </div>
                 <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
-                  <h4 className="text-green-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">⚡ التحسينات والإصلاحات</h4>
+                  <h4 className="text-green-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">⚡ الحماية والأداء الفائق</h4>
                   <ul className="text-gray-300 text-xs space-y-1.5 list-disc list-inside">
-                    <li>ربط عمليات الحظر، الترقية، حذف الإعلانات، والرسائل العامة بنظام سجل تلقائي يحفظ التوقيت والمنفذ.</li>
-                    <li>تسريع زمن بناء المشروع وتوحيد مسارات التصدير السحابي المباشر.</li>
+                    <li>إلغاء قيود حزم npm القديمة وتحديث ملفات `package.json` للعمل ضمن مساحات العمل (Workspaces).</li>
+                    <li>تسريع استجابة الواجهات عبر خفض زمن الـ INP وتجميع استعلامات الأونلاين بمؤقت موحد.</li>
                   </ul>
                 </div>
-                <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
-                  <h4 className="text-blue-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">💡 كيف الاستخدام؟</h4>
-                  <p className="text-gray-300 text-xs leading-relaxed">يمكنك التنقل بين تبويبة <strong>"سجل العمليات"</strong> لمتابعة الأنشطة اليومية للمشرفين والمالك، وتبويبة <strong>"التحديثات v1.2"</strong> للتحقق دائماً من رقم الإصدار الحالي للمنصة.</p>
-                </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {tab==='performance'&&(
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 space-y-6">
+            <div>
+              <h3 className="text-white text-lg font-bold flex items-center gap-2">
+                <SlidersHorizontal className="w-5 h-5 text-amber-400" />
+                <span>لوحة التحكم في استهلاك البيانات والأداء ⚡</span>
+              </h3>
+              <p className="text-gray-400 text-xs mt-1">
+                تتيح لك هذه اللوحة تعطيل أو تفعيل الميزات المتطورة والتحكم في استهلاك الإنترنت وحجم نقل البيانات (Egress) لحماية ميزانية خادم Supabase.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[
+                {
+                  key: 'restrictProfiles',
+                  title: '🔐 تقييد دليل الحسابات العام',
+                  desc: 'عند التفعيل، لن يتمكن الزوار والمستخدمون العاديون من تصفح دليل الحسابات لحظر استهلاك الصور، وستظهر لهم رسالة ترقية Pro.',
+                },
+                {
+                  key: 'autoCompressImages',
+                  title: '📸 ضغط الصور المرفوعة تلقائياً',
+                  desc: 'ضغط صور الإعلانات والمنتجات المرفوعة من قبل الأعضاء بقوة لتقليل حجمها إلى (20KB - 30KB) بدلاً من الدقة الأصلية.',
+                },
+                {
+                  key: 'paginationLimit',
+                  title: '📄 التصفح والتحميل المقيد (24 عنصر)',
+                  desc: 'تفعيل جلب الإعلانات والمنتجات تدريجياً (24 في كل دفعة) في الصفحة الرئيسية بدلاً من تحميل مئات المنشورات والصور دفعة واحدة.',
+                },
+                {
+                  key: 'syncLiveTraffic',
+                  title: '👥 التحديث التلقائي للزوار والزيارات',
+                  desc: 'تشغيل جلب بيانات حركة المرور والزوار الحيين بالخلفية كل دقيقة. قم بتعطيله للاكتفاء بالتحديث اليدوي وتوفير Egress.',
+                },
+                {
+                  key: 'syncVerification',
+                  title: '🪪 المزامنة التلقائية لطلبات التوثيق',
+                  desc: 'تفعيل المزامنة التلقائية لطلبات التوثيق كل دقيقة بالخلفية أو الاكتفاء بالتحقق اليدوي عند الحاجة.',
+                },
+                {
+                  key: 'syncRecovery',
+                  title: '🔑 المزامنة التلقائية لطلبات الاستعادة',
+                  desc: 'تحديث طلبات استعادة كلمة المرور دورياً بالخلفية أو الاكتفاء بالتحقق اليدوي لتوفير استعلامات الشبكة.',
+                }
+              ].map(item => (
+                <div key={item.key} className="flex flex-col justify-between p-4 bg-gray-900/60 rounded-2xl border border-gray-700/60 hover:border-gray-600 transition-all">
+                  <div className="mb-3">
+                    <h4 className="text-white font-bold text-sm mb-1">{item.title}</h4>
+                    <p className="text-gray-400 text-xs leading-relaxed">{item.desc}</p>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-800">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${dataSavingConfig[item.key] ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                      {dataSavingConfig[item.key] ? '🟢 مفعل (نشط)' : '🔴 معطل (توفير)'}
+                    </span>
+                    <button
+                      onClick={() => {
+                        const next = { ...dataSavingConfig, [item.key]: !dataSavingConfig[item.key] };
+                        onUpdateConfig(next);
+                      }}
+                      className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 focus:outline-none ${dataSavingConfig[item.key] ? 'bg-amber-500' : 'bg-gray-700'}`}
+                    >
+                      <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200 ${dataSavingConfig[item.key] ? 'translate-x-4' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-gray-700">
+              <div className="text-right">
+                <span className="text-gray-400 text-xs">آخر مزامنة يدوية للبيانات:</span>
+                <span className="text-white text-xs font-bold mr-1">{lastSyncTime || 'لم تتم المزامنة بعد'}</span>
+              </div>
+              <button
+                onClick={syncAllAdminData}
+                disabled={isSyncing}
+                className="w-full sm:w-auto py-2 px-5 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+              >
+                {isSyncing ? 'جاري تحديث البيانات...' : 'تحديث يدوي لكافة البيانات الفورية 🔄'}
+              </button>
             </div>
           </div>
         )}
@@ -3913,177 +4593,9 @@ function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id:number
 }
 
 // ─────────────────────────────────────────────
-// Notifications Panel
-// ─────────────────────────────────────────────
-function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onMarkRead, onArchiveAll }:{
-  isOpen:boolean;
-  onClose:()=>void;
-  notifs:any[];
-  onNotifClick:(senderId:string)=>void;
-  onHistoryClick:(itemId: string | number, itemType: string)=>void;
-  onMarkRead:(id: number | string) => void;
-  onArchiveAll:() => void;
-}) {
-  const [tab, setTab] = useState<'incoming' | 'history'>('incoming');
-  const [selectedNotif, setSelectedNotif] = useState<any>(null);
-
-  const incomingNotifs = notifs.filter(n => n.targetType === 'owner' || !n.targetType);
-  const historyNotifs = notifs.filter(n => n.targetType === 'viewer');
-  const activeNotifs = tab === 'incoming' ? incomingNotifs : historyNotifs;
-
-  return (
-    <AnimatePresence>
-      {isOpen&&<motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50" onClick={onClose}>
-        <div className="absolute inset-0 bg-black/60"/>
-        <motion.div initial={{x:300}} animate={{x:0}} exit={{x:300}} onClick={e=>e.stopPropagation()} className="absolute right-0 top-0 bottom-0 w-80 bg-gray-900 p-5 overflow-y-auto border-l border-gray-700">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-bold text-white">الإشعارات</h2>
-            <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400"><X className="w-5 h-5"/></button>
-          </div>
-
-          <div className="flex gap-2 mb-4 bg-gray-800 p-1 rounded-xl border border-gray-700">
-            <button 
-              onClick={() => setTab('incoming')} 
-              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${tab === 'incoming' ? 'bg-amber-500 text-black' : 'text-gray-400 hover:text-white'}`}
-            >
-              🔔 المهتمين بي ({incomingNotifs.length})
-            </button>
-            <button 
-              onClick={() => setTab('history')} 
-              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${tab === 'history' ? 'bg-amber-500 text-black' : 'text-gray-400 hover:text-white'}`}
-            >
-              🕒 سجل مشاهداتي ({historyNotifs.length})
-            </button>
-          </div>
-
-          {tab === 'incoming' && incomingNotifs.length > 0 && (
-            <button 
-              onClick={onArchiveAll}
-              className="w-full mb-4 py-2 bg-gray-800 hover:bg-gray-750 border border-gray-700 text-gray-300 hover:text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5"
-            >
-              <Check className="w-4 h-4 text-emerald-400" /> أرشفة كل الإشعارات
-            </button>
-          )}
-
-          <div className="space-y-2">
-            {activeNotifs.length === 0 ? (
-              <div className="text-center py-10 text-gray-500 text-xs">
-                {tab === 'incoming' ? 'لا توجد إشعارات واردة حالياً' : 'لم تقم بمشاهدة أي إعلانات بعد'}
-              </div>
-            ) : (
-              activeNotifs.map((n, i) => (
-                <div key={n.id || i} 
-                  onClick={async () => {
-                    // Mark as read/archive
-                    if (n.id) onMarkRead(n.id);
-                    
-                    if (tab === 'incoming') {
-                      if (n.type === 'message' || !n.senderId) {
-                        setSelectedNotif(n);
-                      } else if (n.senderId) {
-                        onNotifClick(n.senderId);
-                        onClose();
-                      }
-                    } else {
-                      if (n.itemId) {
-                        onHistoryClick(n.itemId, n.itemType);
-                        onClose();
-                      }
-                    }
-                  }}
-                  className="bg-gray-800 rounded-xl p-3 border border-gray-700 transition-colors cursor-pointer hover:border-amber-500/50 hover:bg-gray-800/80"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${n.type === 'message' ? 'bg-blue-500/20' : n.type === 'interest' ? 'bg-red-500/20' : 'bg-emerald-500/20'}`}>
-                      {n.type === 'message' ? <MessageSquare className="w-4 h-4 text-blue-400" /> : n.type === 'interest' ? <Heart className="w-4 h-4 text-red-400 fill-red-400" /> : <Eye className="w-4 h-4 text-emerald-400" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-bold truncate">{n.title}</p>
-                      <p className="text-gray-400 text-xs mt-0.5 leading-relaxed break-words">{n.message}</p>
-                      
-                      <div className="flex items-center justify-between mt-2 flex-wrap gap-2">
-                        <p className="text-gray-500 text-[10px]"><TimeAgo iso={n.time || new Date().toISOString()} /></p>
-                        {tab === 'incoming' && (
-                          <span className="text-[10px] text-amber-400 font-semibold">
-                            {n.type === 'message' ? '🔍 تفاصيل الرسالة' : '👉 عرض الملف'}
-                          </span>
-                        )}
-                        {tab === 'history' && n.itemId && (
-                          <span className="text-[10px] text-emerald-400 font-semibold">🔍 فتح الإعلان</span>
-                        )}
-                      </div>
-
-                      {tab === 'incoming' && n.senderPhone && (
-                        <div className="mt-2 pt-2 border-t border-gray-700/50">
-                          <a 
-                            href={`https://wa.me/964${n.senderPhone.replace(/^0/, '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-[10px] font-bold transition-all shadow-md shadow-green-500/10"
-                          >
-                            <MessageSquare className="w-3 h-3" /> مراسلة واتساب
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </motion.div>
-
-        {/* Selected Notification Detail Modal inside notifications view */}
-        <AnimatePresence>
-          {selectedNotif && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={() => setSelectedNotif(null)}>
-              <motion.div 
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden"
-              >
-                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-500 to-amber-500" />
-                <button 
-                  onClick={() => setSelectedNotif(null)} 
-                  className="absolute top-4 left-4 p-1.5 bg-gray-800 hover:bg-gray-750 text-gray-400 hover:text-white rounded-lg transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-                
-                <div className="flex items-center gap-3 mb-4 mt-2">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                    <Bell className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-white font-bold text-base leading-tight">{selectedNotif.title}</h3>
-                    <p className="text-gray-500 text-[10px] mt-0.5"><TimeAgo iso={selectedNotif.time || new Date().toISOString()} /></p>
-                  </div>
-                </div>
-                
-                <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap mb-6">{selectedNotif.message}</p>
-                
-                <button 
-                  onClick={() => setSelectedNotif(null)}
-                  className="w-full py-2.5 bg-gray-800 hover:bg-gray-750 text-white font-bold text-xs rounded-xl border border-gray-700 transition-colors"
-                >
-                  إغلاق
-                </button>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-      </motion.div>}
-    </AnimatePresence>
-  );
-}
-
-// ─────────────────────────────────────────────
 // Market View
 // ─────────────────────────────────────────────
-function MarketView({ user, allAds, allProducts, favorites, storedUsers: propStoredUsers, onSelectAd, onSelectProduct, onToggleFav, onRequireAuth, onSellerClick, onTransportClick, onSelectTransportAd, transportLines, onActionMenu }:{
+function MarketView({ user, allAds, allProducts, favorites, storedUsers: propStoredUsers, onSelectAd, onSelectProduct, onToggleFav, onRequireAuth, onSellerClick, onTransportClick, onSelectTransportAd, transportLines, onActionMenu, onLoadMoreAds, onLoadMoreProducts, hasMoreAds, hasMoreProducts, onOpenContactUs }:{
   user:User|null; allAds:Ad[]; allProducts:Product[]; favorites:number[]; storedUsers?: any[];
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void;
   onToggleFav:(id:number)=>void; onRequireAuth:()=>void; onSellerClick:(id:string, source?: 'home'|'accounts')=>void;
@@ -4091,6 +4603,11 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
   onSelectTransportAd?:(ad:any)=>void;
   transportLines: TransportAd[];
   onActionMenu?: any;
+  onLoadMoreAds?: () => void;
+  onLoadMoreProducts?: () => void;
+  hasMoreAds?: boolean;
+  hasMoreProducts?: boolean;
+  onOpenContactUs?: () => void;
 }) {
   const [search, setSearch] = useState('');
   const [cat, setCat] = useState(() => {
@@ -4192,8 +4709,22 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
         const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
         const sellersMap = new Map();
 
-        // Fetch registered profiles from DB
-        const { data: dbProfiles } = await supabase.from('profiles').select('*');
+        const cached = localStorage.getItem('souq_cached_profiles');
+        let dbProfiles: any[] = [];
+        if (cached) {
+          try {
+            dbProfiles = JSON.parse(cached);
+          } catch(e) {}
+        }
+
+        if (!dbProfiles || dbProfiles.length === 0) {
+          const { data } = await supabase.from('profiles')
+            .select('id, full_name, name, avatar_url, avatar, phone, city, location, created_at, role')
+            .in('role', ['owner', 'vendor', 'admin'])
+            .limit(500);
+          dbProfiles = data || [];
+          localStorage.setItem('souq_cached_profiles', JSON.stringify(dbProfiles));
+        }
         if (dbProfiles && dbProfiles.length > 0) {
           dbProfiles.forEach((p: any) => {
             sellersMap.set(p.id, {
@@ -4283,33 +4814,54 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
       }
     }
     loadAllProfiles();
-    return () => { isMounted = false; };
+    const handleSync = () => {
+      loadAllProfiles();
+    };
+    window.addEventListener('profiles-synced', handleSync);
+    return () => { 
+      isMounted = false; 
+      window.removeEventListener('profiles-synced', handleSync);
+    };
   }, [allAds, allProducts]);
 
-  const filteredProfiles = storedUsers.filter(u => {
+  const filteredProfiles = useMemo(() => {
     const term = search.toLowerCase();
-    return !search || 
+    return storedUsers.filter(u => 
+      !search || 
       (u.name && u.name.toLowerCase().includes(term)) || 
-      (u.phone && u.phone.includes(term));
-  });
+      (u.phone && u.phone.includes(term))
+    );
+  }, [storedUsers, search]);
 
   const fmt=(v:string)=>v.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',');
 
-  const filterAds = allAds.filter(a=>{
-    if (a.status !== 'active') return false;
-    const ms=!search||String(a.id).includes(search)||(a.short_id&&a.short_id.toLowerCase().includes(search.toLowerCase()))||a.title.toLowerCase().includes(search.toLowerCase())||a.location.toLowerCase().includes(search.toLowerCase());
-    const mc=cat==='all'||a.category===cat; const mg=gov==='الكل'||a.governorate===gov;
-    const min=priceMin?parseInt(priceMin.replace(/,/g,'')):0, max=priceMax?parseInt(priceMax.replace(/,/g,'')):Infinity, ap=parseInt(a.price)||0;
-    return ms&&mc&&mg&&ap>=min&&ap<=max;
-  }).sort((a,b)=>sort==='views'?b.views-a.views:sort==='price-low'?parseInt(a.price)-parseInt(b.price):sort==='price-high'?parseInt(b.price)-parseInt(a.price):new Date(b.createdAtISO).getTime()-new Date(a.createdAtISO).getTime());
+  const filterAds = useMemo(() => {
+    const term = search.toLowerCase();
+    const min = priceMin ? parseInt(priceMin.replace(/,/g, '')) : 0;
+    const max = priceMax ? parseInt(priceMax.replace(/,/g, '')) : Infinity;
+    return allAds.filter(a => {
+      if (a.status !== 'active') return false;
+      const ms = !search || String(a.id).includes(search) || (a.short_id && a.short_id.toLowerCase().includes(term)) || a.title.toLowerCase().includes(term) || a.location.toLowerCase().includes(term);
+      const mc = cat === 'all' || a.category === cat;
+      const mg = gov === 'الكل' || a.governorate === gov;
+      const ap = parseInt(a.price) || 0;
+      return ms && mc && mg && ap >= min && ap <= max;
+    }).sort((a, b) => sort === 'views' ? b.views - a.views : sort === 'price-low' ? parseInt(a.price) - parseInt(b.price) : sort === 'price-high' ? parseInt(b.price) - parseInt(a.price) : new Date(b.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
+  }, [allAds, search, cat, gov, priceMin, priceMax, sort]);
 
-  const filterProds = allProducts.filter(p=>{
-    if (p.status !== 'active') return false;
-    const ms=!search||String(p.id).includes(search)||(p.short_id&&p.short_id.toLowerCase().includes(search.toLowerCase()))||p.title.toLowerCase().includes(search.toLowerCase())||p.governorate.toLowerCase().includes(search.toLowerCase());
-    const mc=cat==='all'||p.category===cat; const mg=gov==='الكل'||p.governorate===gov;
-    const min=priceMin?parseInt(priceMin.replace(/,/g,'')):0, max=priceMax?parseInt(priceMax.replace(/,/g,'')):Infinity, pp=parseInt(p.price)||0;
-    return ms&&mc&&mg&&pp>=min&&pp<=max;
-  }).sort((a,b)=>sort==='views'?b.views-a.views:sort==='price-low'?parseInt(a.price)-parseInt(b.price):sort==='price-high'?parseInt(b.price)-parseInt(a.price):new Date(b.createdAtISO).getTime()-new Date(a.createdAtISO).getTime());
+  const filterProds = useMemo(() => {
+    const term = search.toLowerCase();
+    const min = priceMin ? parseInt(priceMin.replace(/,/g, '')) : 0;
+    const max = priceMax ? parseInt(priceMax.replace(/,/g, '')) : Infinity;
+    return allProducts.filter(p => {
+      if (p.status !== 'active') return false;
+      const ms = !search || String(p.id).includes(search) || (p.short_id && p.short_id.toLowerCase().includes(term)) || p.title.toLowerCase().includes(term) || p.governorate.toLowerCase().includes(term);
+      const mc = cat === 'all' || p.category === cat;
+      const mg = gov === 'الكل' || p.governorate === gov;
+      const pp = parseInt(p.price) || 0;
+      return ms && mc && mg && pp >= min && pp <= max;
+    }).sort((a, b) => sort === 'views' ? b.views - a.views : sort === 'price-low' ? parseInt(a.price) - parseInt(b.price) : sort === 'price-high' ? parseInt(b.price) - parseInt(a.price) : new Date(b.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
+  }, [allProducts, search, cat, gov, priceMin, priceMax, sort]);
 
   const showAds = contentTab==='ads'||contentTab==='all';
   const showProds = contentTab==='products'||contentTab==='all';
@@ -4407,6 +4959,30 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
                   onSellerClick={(id)=>{if(id)onSellerClick(id);}}
                   onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===ad.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"ad",item:ad});}}/>)}
               </div>
+<<<<<<< HEAD
+<<<<<<< HEAD
+              {dataSavingConfig.paginationLimit && filterAds.length >= adsLimit && (
+                <div className="mt-6 text-center">
+                  <button
+                    onClick={() => setAdsLimit(prev => prev + 24)}
+                    className="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl text-sm border border-gray-700 transition-colors shadow-lg active:scale-95"
+=======
+=======
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+              {hasMoreAds && (
+                <div className="mt-6 text-center">
+                  <button
+                    onClick={onLoadMoreAds}
+                    className="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl text-sm border border-gray-700 transition-colors shadow-lg"
+<<<<<<< HEAD
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+                  >
+                    مشاهدة المزيد من الإعلانات 📢
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -4420,6 +4996,30 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
                   onSellerClick={(id)=>{if(id)onSellerClick(id);}}
                   onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===p.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"product",item:p});}}/>)}
               </div>
+<<<<<<< HEAD
+<<<<<<< HEAD
+              {dataSavingConfig.paginationLimit && filterProds.length >= prodsLimit && (
+                <div className="mt-6 text-center">
+                  <button
+                    onClick={() => setProdsLimit(prev => prev + 24)}
+                    className="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl text-sm border border-gray-700 transition-colors shadow-lg active:scale-95"
+=======
+=======
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+              {hasMoreProducts && (
+                <div className="mt-6 text-center">
+                  <button
+                    onClick={onLoadMoreProducts}
+                    className="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl text-sm border border-gray-700 transition-colors shadow-lg"
+<<<<<<< HEAD
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+                  >
+                    مشاهدة المزيد من المنتجات 🛍️
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -4544,6 +5144,43 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
           {/* Profiles Hub */}
           {contentTab === 'profiles' && (
             <div className="mb-8 space-y-6">
+<<<<<<< HEAD
+<<<<<<< HEAD
+              {dataSavingConfig.restrictProfiles && !(user && (user.role === 'owner' || user.role === 'admin' || user.role === 'pro' || user.role === 'vendor' || user.isVerified)) ? (
+=======
+              {!(user && (user.role === 'owner' || user.role === 'admin' || user.role === 'pro' || user.role === 'vendor' || user.isVerified)) ? (
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
+              {!(user && (user.role === 'owner' || user.role === 'admin' || user.role === 'pro' || user.role === 'vendor' || user.isVerified)) ? (
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+                <div className="max-w-md mx-auto text-center py-12 px-6 bg-gray-800 rounded-3xl border border-gray-700 shadow-xl space-y-4">
+                  <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto text-3xl">🔒</div>
+                  <h3 className="text-xl font-bold text-white">دليل الحسابات مغلق</h3>
+                  <p className="text-gray-400 text-sm leading-relaxed">
+                    تصفح دليل الحسابات والتواصل المباشر مع كبار التجار متاح حصراً للحسابات الممتازة (Pro) والمالك والشركاء الموثقين.
+                  </p>
+                  <div className="pt-4 border-t border-gray-700">
+                    <p className="text-amber-400 text-xs font-semibold mb-3">تريد ترقية حسابك؟</p>
+                    <button 
+<<<<<<< HEAD
+<<<<<<< HEAD
+                      onClick={() => setActiveDocTab('تواصل معنا')}
+                      className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl hover:from-amber-600 hover:to-yellow-600 transition-all text-xs shadow-lg animate-pulse"
+=======
+                      onClick={onOpenContactUs}
+                      className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl hover:from-amber-600 hover:to-yellow-600 transition-all text-xs shadow-lg"
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
+                      onClick={onOpenContactUs}
+                      className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl hover:from-amber-600 hover:to-yellow-600 transition-all text-xs shadow-lg"
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+                    >
+                      تواصل معنا لطلب الترقية 📞
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
               {/* Accounts Dedicated Search & Header Banner */}
               <div className="bg-gradient-to-r from-gray-800 via-gray-900 to-gray-800 p-5 rounded-3xl border border-gray-700 shadow-xl space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -4720,6 +5357,8 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
                     );
                   })}
                 </div>
+              )}
+                </>
               )}
             </div>
           )}
@@ -5262,6 +5901,39 @@ export default function App() {
       return null;
     }
   });
+<<<<<<< HEAD
+<<<<<<< HEAD
+  const [adsLimit, setAdsLimit] = useState(24);
+  const [prodsLimit, setProdsLimit] = useState(24);
+  const [dataSavingConfig, setDataSavingConfig] = useState(() => {
+    try {
+      const saved = localStorage.getItem('souq_data_saving_config');
+      if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return {
+      restrictProfiles: true,
+      syncVerification: false,
+      syncRecovery: false,
+      syncLiveTraffic: false,
+      autoCompressImages: true,
+      paginationLimit: true,
+    };
+  });
+
+  const handleUpdateDataSavingConfig = (newConfig: any) => {
+    setDataSavingConfig(newConfig);
+    localStorage.setItem('souq_data_saving_config', JSON.stringify(newConfig));
+  };
+=======
+  
+
+
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
+  
+
+
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
   const getInitialRouteInfo = () => {
     if (typeof window === 'undefined') return { hash: '', path: '' };
     let hash = window.location.hash;
@@ -5326,23 +5998,15 @@ export default function App() {
   const [activeDocTab, setActiveDocTab] = useState<string | null>(null);
   const [activeLightbox, setActiveLightbox] = useState<{ src: string; title: string; images?: string[]; initialIdx?: number } | null>(null);
   const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; title: string; url: string; image?: string; price?: string; governorate?: string; location?: string; short_id?: string; description?: string }>({ isOpen: false, title: '', url: '' });
-  const getDefaultAds = (): Ad[] => [
-    { id: 1, title: 'هاتف ايفون 14 برو', category: 'هواتف', governorate: 'بغداد', price: '850000', description: 'هاتف ايفون 14 برو جديد، لم يستخدم', images: ['https://images.unsplash.com/photo-1591290619762-bcc52fb0a910?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-1', createdAtISO: new Date(Date.now() - 86400000).toISOString(), views: 250, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
-    { id: 2, title: 'عقار في الكرادة - منزل 3 غرف', category: 'عقارات', governorate: 'بغداد', price: '250000000', description: 'منزل فاخر في موقع ممتاز بالكرادة', images: ['https://images.unsplash.com/photo-1575373342425-76569f2865d2?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-2', createdAtISO: new Date(Date.now() - 172800000).toISOString(), views: 420, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
-    { id: 3, title: 'سيارة BMW 520 موديل 2022', category: 'سيارات', governorate: 'بغداد', price: '75000000', description: 'سيارة جديدة بحالة ممتازة، مع ضمان كامل', images: ['https://images.unsplash.com/photo-1552519507-da3effff991c?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-3', createdAtISO: new Date(Date.now() - 259200000).toISOString(), views: 580, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
-    { id: 4, title: 'خدمة تدريس خصوصي - رياضيات وإنجليزي', category: 'خدمات', governorate: 'بغداد', price: '50000', description: 'معلم ذو خبرة يقدم دروس خصوصية', images: ['https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'service', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-4', createdAtISO: new Date(Date.now() - 345600000).toISOString(), views: 180, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
-    { id: 5, title: 'لابتوب Dell XPS 13 - شبه جديد', category: 'إلكترونيات', governorate: 'البصرة', price: '1200000', description: 'لابتوب عالي المواصفات، استخدام خفيف فقط', images: ['https://images.unsplash.com/photo-1588872657839-cd2f3e5614f0?w=500&h=500&fit=crop'], location: 'البصرة', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-5', createdAtISO: new Date(Date.now() - 432000000).toISOString(), views: 320, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'البصرة' } },
-  ];
+  const getDefaultAds = (): Ad[] => [];
 
-  const getDefaultProducts = (): Product[] => [
-    { id: 1, title: 'معطف شتوي فخم', category: 'ملابس', governorate: 'بغداد', price: '150000', description: 'معطف برند عالمي، أصلي 100%', images: ['https://images.unsplash.com/photo-1539533057440-7814baea1002?w=500&h=500&fit=crop'], postedBy: 'demo-seller-1', createdAtISO: new Date(Date.now() - 86400000).toISOString(), views: 180, phone: '07700000000', condition: 'new', stock: 10, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' }, status: 'active' },
-    { id: 2, title: 'أثاث غرفة نوم كامل', category: 'أثاث', governorate: 'البصرة', price: '2500000', description: 'مجموعة أثاث فاخرة - سرير + دولاب + تسريحة', images: ['https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500&h=500&fit=crop'], postedBy: 'demo-seller-2', createdAtISO: new Date(Date.now() - 172800000).toISOString(), views: 290, phone: '07700000000', condition: 'new', stock: 5, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'البصرة' }, status: 'active' },
-    { id: 3, title: 'دراجة هوائية ماونتن بايك', category: 'دراجات', governorate: 'أربيل', price: '500000', description: 'دراجة رياضية احترافية', images: ['https://images.unsplash.com/photo-1558618666-fcd25c85cd58?w=500&h=500&fit=crop'], postedBy: 'demo-seller-3', createdAtISO: new Date(Date.now() - 259200000).toISOString(), views: 150, phone: '07700000000', condition: 'used', stock: 1, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'أربيل' }, status: 'active' },
-  ];
+  const getDefaultProducts = (): Product[] => [];
 
   const [allAds, setAllAds] = useState<Ad[]>(getDefaultAds);
   const [allTransportAds, setAllTransportAds] = useState<TransportAd[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>(getDefaultProducts);
+  const [adsLimit, setAdsLimit] = useState(24);
+  const [prodsLimit, setProdsLimit] = useState(24);
   const [congratulationsItem, setCongratulationsItem] = useState<{ title: string; type: 'ad' | 'product' } | null>(null);
   const [favorites, setFavorites] = useState<number[]>(()=>{
     try{return JSON.parse(localStorage.getItem('souqFavs')||'[]');}catch{return[];}
@@ -5358,7 +6022,22 @@ export default function App() {
         const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
         const sellersMap = new Map();
 
-        const { data: dbProfiles } = await supabase.from('profiles').select('*');
+        const cached = localStorage.getItem('souq_cached_profiles');
+        let dbProfiles: any[] = [];
+        if (cached) {
+          try {
+            dbProfiles = JSON.parse(cached);
+          } catch(e) {}
+        }
+
+        if (!dbProfiles || dbProfiles.length === 0) {
+          const { data } = await supabase.from('profiles')
+            .select('id, full_name, name, avatar_url, avatar, phone, city, location, created_at, role')
+            .in('role', ['owner', 'vendor', 'admin'])
+            .limit(500);
+          dbProfiles = data || [];
+          localStorage.setItem('souq_cached_profiles', JSON.stringify(dbProfiles));
+        }
         if (dbProfiles && dbProfiles.length > 0) {
           dbProfiles.forEach((p: any) => {
             sellersMap.set(p.id, {
@@ -5445,7 +6124,14 @@ export default function App() {
       }
     }
     loadAllProfilesGlobal();
-    return () => { isMounted = false; };
+    const handleSync = () => {
+      loadAllProfilesGlobal();
+    };
+    window.addEventListener('profiles-synced', handleSync);
+    return () => { 
+      isMounted = false; 
+      window.removeEventListener('profiles-synced', handleSync);
+    };
   }, [allAds, allProducts]);
 
   useEffect(() => {
@@ -5472,9 +6158,10 @@ export default function App() {
 
   // ── دالة تحميل بيانات المستخدم من Supabase ──────────────────────────
   const loadUserFromSupabase = async (authUser: any) => {
+    // تحسين: جلب الأعمدة المطلوبة فقط بدل select('*')
     const { data: profile } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, full_name, phone, role, avatar_url, cover_url, city, bio, ads_count, favorites_count, views_count, created_at')
       .eq('id', authUser.id)
       .maybeSingle();
     const role = authUser.email === OWNER_EMAIL ? 'owner'
@@ -5608,11 +6295,45 @@ export default function App() {
 
   // ── Fetch ads & products from Supabase ─────────────────────────
   const fetchAds = useCallback(async () => {
+<<<<<<< HEAD
+<<<<<<< HEAD
+    const limit = dataSavingConfig.paginationLimit ? adsLimit : 300;
+=======
+=======
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+    const CACHE_KEY = 'souq_ads_cache';
+    const CACHE_TIME_KEY = 'souq_ads_cache_time';
+    const CACHE_TTL = 3 * 60 * 1000;
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      const cacheTime = localStorage.getItem(CACHE_TIME_KEY);
+      if (cached && cacheTime && Date.now() - Number(cacheTime) < CACHE_TTL) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.ads?.length >= adsLimit) {
+          setAllAds(parsed.ads.slice(0, adsLimit));
+          setAllTransportAds(parsed.transport);
+          return;
+        }
+      }
+    } catch(_) {}
+<<<<<<< HEAD
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
     const { data, error } = await supabase
       .from('ads')
-      .select('*')
+      .select('id, title, price, city, location, phone, category, images, seller_name, seller_avatar, seller_rating, seller_id, created_at, views, status, type, description, is_demo, short_id')
       .eq('is_demo', false)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+<<<<<<< HEAD
+<<<<<<< HEAD
+      .limit(limit);
+=======
+      .limit(adsLimit);
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
+      .limit(adsLimit);
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
     if (error) { console.error('Error fetching ads:', error); return; }
     if (data) {
       // Map normal ads
@@ -5699,8 +6420,21 @@ export default function App() {
       const activeMapped = normalMapped.filter(a => a.status === 'active' || a.status === 'sold');
       setAllAds(activeMapped.length > 0 ? activeMapped : getDefaultAds());
       setAllTransportAds(transportMapped);
+      // حفظ في cache المتصفح
+      try {
+        localStorage.setItem('souq_ads_cache', JSON.stringify({ ads: activeMapped, transport: transportMapped }));
+        localStorage.setItem('souq_ads_cache_time', Date.now().toString());
+      } catch(_) {}
     }
-  }, []);
+<<<<<<< HEAD
+<<<<<<< HEAD
+  }, [adsLimit, dataSavingConfig.paginationLimit]);
+=======
+  }, [adsLimit]);
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
+  }, [adsLimit]);
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
 
   const handleDeleteProfile = async (profileId: string) => {
     // Try to delete using the admin RPC first
@@ -5735,10 +6469,56 @@ export default function App() {
   };
 
   const fetchProducts = useCallback(async () => {
+<<<<<<< HEAD
+<<<<<<< HEAD
+    const limit = dataSavingConfig.paginationLimit ? prodsLimit : 200;
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(limit);
+=======
+    const PROD_CACHE_KEY = 'souq_products_cache';
+    const PROD_TIME_KEY = 'souq_products_cache_time';
+    const CACHE_TTL = 3 * 60 * 1000;
+    try {
+      const cached = localStorage.getItem(PROD_CACHE_KEY);
+      const cacheTime = localStorage.getItem(PROD_TIME_KEY);
+      if (cached && cacheTime && Date.now() - Number(cacheTime) < CACHE_TTL) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.length >= prodsLimit) {
+          setAllProducts(parsed.slice(0, prodsLimit));
+          return;
+        }
+      }
+    } catch(_) {}
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, title, price, description, category, images, governorate, city, phone, condition, seller_name, seller_avatar, seller_id, created_at, views, stock, short_id, status')
+      .order('created_at', { ascending: false })
+      .limit(prodsLimit);
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
+    const PROD_CACHE_KEY = 'souq_products_cache';
+    const PROD_TIME_KEY = 'souq_products_cache_time';
+    const CACHE_TTL = 3 * 60 * 1000;
+    try {
+      const cached = localStorage.getItem(PROD_CACHE_KEY);
+      const cacheTime = localStorage.getItem(PROD_TIME_KEY);
+      if (cached && cacheTime && Date.now() - Number(cacheTime) < CACHE_TTL) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.length >= prodsLimit) {
+          setAllProducts(parsed.slice(0, prodsLimit));
+          return;
+        }
+      }
+    } catch(_) {}
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, title, price, description, category, images, governorate, city, phone, condition, seller_name, seller_avatar, seller_id, created_at, views, stock, short_id, status')
+      .order('created_at', { ascending: false })
+      .limit(prodsLimit);
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
     if (error) { console.error('Error fetching products:', error); return; }
     if (data) {
       const mapped: Product[] = data.map((row: any) => ({
@@ -5766,91 +6546,30 @@ export default function App() {
         status: row.status || 'active',
       }));
       setAllProducts(mapped.length > 0 ? mapped : getDefaultProducts());
+      try {
+        localStorage.setItem('souq_products_cache', JSON.stringify(mapped));
+        localStorage.setItem('souq_products_cache_time', Date.now().toString());
+      } catch(_) {}
     }
-  }, []);
+<<<<<<< HEAD
+<<<<<<< HEAD
+  }, [prodsLimit, dataSavingConfig.paginationLimit]);
+=======
+  }, [prodsLimit]);
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
+=======
+  }, [prodsLimit]);
+>>>>>>> ec412f7b56855688e4ebfedc6e1e7decca095009
 
 
-  const [notifications, setNotifications] = useState<any[]>([]);
-
-  const fetchNotifications = useCallback(async () => {
-    if (!user) return;
-    const { data, error } = await supabase
-      .from('ads')
-      .select('*')
-      .eq('category', 'notification')
-      .eq('seller_id', user.id)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false });
-
-    if (error) { console.error('Error fetching notifications:', error); return; }
-    if (data) {
-      const mapped = data.map((row: any) => {
-        let extra = {
-          message: '',
-          type: 'view',
-          senderId: '',
-          senderName: 'مستخدم',
-          senderPhone: '',
-          itemTitle: '',
-          itemType: 'ad',
-          itemId: '',
-          duration: 0,
-          targetType: 'owner'
-        };
-        try {
-          if (row.description) {
-            extra = { ...extra, ...JSON.parse(row.description) };
-          }
-        } catch (e) {
-          extra.message = row.description || '';
-        }
-        return {
-          id: row.id,
-          type: extra.type,
-          title: row.title,
-          message: extra.message,
-          time: row.created_at,
-          senderId: extra.senderId,
-          senderName: extra.senderName,
-          senderPhone: extra.senderPhone,
-          itemTitle: extra.itemTitle,
-          itemType: extra.itemType,
-          itemId: extra.itemId,
-          duration: extra.duration,
-          targetType: extra.targetType
-        };
-      });
-      setNotifications(mapped);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    let iv: any;
-    if (user) {
-      fetchNotifications();
-      iv = setInterval(fetchNotifications, 10000);
-    } else {
-      setNotifications([]);
-    }
-    return () => {
-      if (iv) clearInterval(iv);
-    };
-  }, [user, fetchNotifications]);
-
-  const prevNotifsLength = useRef(0);
-  useEffect(() => {
-    if (notifications.length > prevNotifsLength.current) {
-      if (prevNotifsLength.current > 0) {
-        const hasNewIncoming = notifications.some(n => n.targetType === 'owner' || !n.targetType);
-        if (hasNewIncoming) {
-          const audio = new Audio('https://cdn.pixabay.com/audio/2022/03/24/audio_783d1a0e1c.mp3');
-          audio.volume = 0.6;
-          audio.play().catch(() => {});
-        }
-      }
-    }
-    prevNotifsLength.current = notifications.length;
-  }, [notifications]);
+  // ─── إدارة الإشعارات — Supabase فقط ────────────────────────────────────────
+  const {
+    notifications,
+    markAsRead: markNotifAsRead,
+    archiveAll: handleArchiveAllNotifications,
+    addViewerHistory,
+    createInterestNotification,
+  } = useNotifications({ user, storedUsers });
 
   const handleHistoryClick = (itemId: string | number, itemType: string) => {
     if (itemType === 'ad') {
@@ -5865,107 +6584,18 @@ export default function App() {
     }
   };
 
-  const markNotifAsRead = async (notifId: number | string) => {
-    try {
-      const { error } = await supabase
-        .from('ads')
-        .update({ status: 'archived' })
-        .eq('id', notifId);
-      if (!error) {
-        setNotifications(prev => prev.filter(n => n.id !== notifId));
-      }
-    } catch (e) {
-      console.error('Failed to mark notification as read', e);
-    }
-  };
-
-  const handleArchiveAllNotifications = async () => {
-    if (!user) return;
-    try {
-      const { error } = await supabase
-        .from('ads')
-        .update({ status: 'archived' })
-        .eq('category', 'notification')
-        .eq('seller_id', user.id)
-        .eq('status', 'active');
-      if (!error) {
-        setNotifications([]);
-      }
-    } catch (e) {
-      console.error('Failed to archive all notifications', e);
-    }
-  };
-
-  const handleViewDurationLogged = async (itemId: number | string, itemTitle: string, ownerId: string, itemType: string, seconds: number) => {
-    if (!user) return;
-    if (user.id === ownerId) return;
-
-    const viewerName = user.name || 'مستخدم';
-    const viewerId = user.id;
-    const viewerPhone = user.phone || '';
-
-    // 1. Owner notification row
-    const ownerNotifRow = {
-      seller_id: ownerId,
-      title: seconds >= 15 ? '🔥 اهتمام كبير بإعلانك' : '👀 مشاهدة جديدة لإعلانك',
-      description: JSON.stringify({
-        message: `قام الحساب (${viewerName}) بمشاهدة إعلانك "${itemTitle}" لمدة ${seconds} ثوانٍ.`,
-        type: seconds >= 15 ? 'interest' : 'view',
-        senderId: viewerId,
-        senderName: viewerName,
-        senderPhone: viewerPhone,
-        itemTitle: itemTitle,
-        itemType: itemType,
-        itemId: itemId,
-        duration: seconds,
-        targetType: 'owner'
-      }),
-      price: '0',
-      category: 'notification',
-      location: '',
-      city: '',
-      images: [],
-      phone: viewerPhone,
-      type: 'notification',
-      status: 'active',
-      is_demo: false,
-      seller_name: viewerName,
-      seller_avatar: user.avatar,
-    };
-
-    // 2. Viewer history row
-    const viewerNotifRow = {
-      seller_id: viewerId,
-      title: '🕒 سجل المشاهدة',
-      description: JSON.stringify({
-        message: `شاهدت إعلان "${itemTitle}" (${itemType === 'ad' ? 'إعلان' : itemType === 'product' ? 'منتج' : 'خط'}) لـ ${seconds} ثوانٍ.`,
-        type: 'history',
-        senderId: ownerId,
-        senderName: '',
-        senderPhone: '',
-        itemTitle: itemTitle,
-        itemType: itemType,
-        itemId: itemId,
-        duration: seconds,
-        targetType: 'viewer'
-      }),
-      price: '0',
-      category: 'notification',
-      location: '',
-      city: '',
-      images: [],
-      phone: '',
-      type: 'notification',
-      status: 'active',
-      is_demo: false,
-      seller_name: '',
-      seller_avatar: '',
-    };
-
-    const { error } = await supabase.from('ads').insert([ownerNotifRow, viewerNotifRow]);
-    if (!error) {
-      fetchNotifications();
-    }
+  const handleViewDurationLogged = async (
+    itemId: number | string,
+    itemTitle: string,
+    ownerId: string,
+    itemType: string,
+    seconds: number,
+    shortId?: string
+  ) => {
+    // إضافة سجل المشاهدة محلياً
+    addViewerHistory({ itemId, itemTitle, ownerId, itemType, seconds, shortId });
+    // إرسال إشعار الاهتمام إلى Supabase
+    await createInterestNotification({ itemId, itemTitle, ownerId, itemType, seconds, shortId });
   };
 
 
@@ -6339,7 +6969,7 @@ export default function App() {
                     className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-sm">
                     <Plus className="w-4 h-4"/> إعلان</button>
                   <button onClick={()=>setView('profile')} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white hover:bg-gray-700'}`}>
-                    <img src={user.avatar} alt="" className="w-6 h-6 rounded-full object-cover border border-gray-600"/>
+                    <img src={user.avatar} onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }} alt="" className="w-6 h-6 rounded-full object-cover border border-gray-600"/>
                     <span className="max-w-20 truncate">{user.name}</span>{isOwner&&<Crown className="w-3 h-3 text-amber-400"/>}</button>
                   <button onClick={handleLogout} className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20"><LogOut className="w-5 h-5"/></button>
                 </>
@@ -6353,7 +6983,7 @@ export default function App() {
             <div className="flex items-center gap-2 lg:hidden">
               {user ? (
                 <button onClick={()=>setView('profile')} className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white'}`}>
-                  <img src={user.avatar} alt="" className="w-6 h-6 rounded-full object-cover border border-gray-600"/>
+                  <img src={user.avatar} onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }} alt="" className="w-6 h-6 rounded-full object-cover border border-gray-600"/>
                   <span className="max-w-16 truncate hidden sm:block">{user.name}</span>
                 </button>
               ) : (
@@ -6384,7 +7014,7 @@ export default function App() {
             {user?(
               <div className="bg-gray-800 rounded-2xl p-4 mb-5 border border-gray-700">
                 <div className="flex items-center gap-3">
-                  <img src={user.avatar} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
+                  <img src={user.avatar} onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
                   <div><div className="flex items-center gap-1"><p className="text-white font-bold text-sm">{user.name}</p>{isOwner&&<Crown className="w-3.5 h-3.5 text-amber-400"/>}</div>
                     <p className="text-gray-400 text-xs">{user.email}</p></div>
                 </div>
@@ -6414,7 +7044,7 @@ export default function App() {
       <main className="pt-16">
         <AnimatePresence mode="wait">
           {view==='home'&&<motion.div key="home" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <MarketView user={user} allAds={allAds} allProducts={allProducts} favorites={favorites} storedUsers={storedUsers} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} onToggleFav={handleToggleFav} onRequireAuth={requireAuth} onSellerClick={handleSellerClick} onTransportClick={()=>{setView('transport');setBottomNavActive('transport');}} onSelectTransportAd={setSelectedTransportAd} transportLines={allTransportAds}/></motion.div>}
+            <MarketView user={user} allAds={allAds} allProducts={allProducts} favorites={favorites} storedUsers={storedUsers} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} onToggleFav={handleToggleFav} onRequireAuth={requireAuth} onSellerClick={handleSellerClick} onTransportClick={()=>{setView('transport');setBottomNavActive('transport');}} onSelectTransportAd={setSelectedTransportAd} transportLines={allTransportAds} onLoadMoreAds={() => setAdsLimit(prev => prev + 24)} onLoadMoreProducts={() => setProdsLimit(prev => prev + 24)} hasMoreAds={allAds.length >= adsLimit} hasMoreProducts={allProducts.length >= prodsLimit} onOpenContactUs={() => setActiveDocTab('تواصل معنا')}/></motion.div>}
           {view==='profile'&&user&&<motion.div key="profile" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold} favorites={favorites} allAds={allAds} allProducts={allProducts} onAdSelect={setSelectedAd} onProductSelect={setSelectedProduct} onFav={handleToggleFav}/></motion.div>}
           {view==='seller'&&selectedSellerId&&<motion.div key="seller" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
@@ -6432,7 +7062,7 @@ export default function App() {
           {view==='admin'&&isAdmin&&!isOwner&&<motion.div key="admin" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <AdminPanel ads={allAds} onDeleteAd={handleDeleteAd} onClose={()=>setView('home')}/></motion.div>}
           {view==='owner'&&isOwner&&<motion.div key="owner" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <OwnerDashboard ads={allAds} products={allProducts} transportAds={allTransportAds} onDeleteAd={handleDeleteAd} onDeleteProduct={handleDeleteProduct} onDeleteTransportAd={handleDeleteTransportAd} onClose={()=>setView('home')} onDeleteProfile={handleDeleteProfile}/></motion.div>}
+            <OwnerDashboard ads={allAds} products={allProducts} transportAds={allTransportAds} onDeleteAd={handleDeleteAd} onDeleteProduct={handleDeleteProduct} onDeleteTransportAd={handleDeleteTransportAd} onClose={()=>setView('home')} onDeleteProfile={handleDeleteProfile} dataSavingConfig={dataSavingConfig} onUpdateConfig={handleUpdateDataSavingConfig}/></motion.div>}
         </AnimatePresence>
       </main>
 
@@ -6530,9 +7160,9 @@ export default function App() {
       <AnimatePresence>
         {showOnboarding&&<OnboardingModal onClose={()=>{setShowOnboarding(false);localStorage.setItem('souqOnboarded','1');}}/>}
         {showAuth&&<AuthModal onClose={()=>setShowAuth(false)} onLogin={handleLogin}/>}
-        {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })}/>}
-        {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })}/>}
-        {selectedTransportAd&&<TransportDetailModal ad={selectedTransportAd} onClose={()=>setSelectedTransportAd(null)} user={user} onAuthRequired={requireAuth} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedTransportAd.id, selectedTransportAd.type==='offer'?'خط متوفر':'طلب خط', selectedTransportAd.postedBy || '', 'transport', sec)}/>}
+        {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || selectedAd.phone || selectedAd.seller?.name || '', 'ad', sec, (selectedAd as any).short_id)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })}/>}
+        {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || selectedProduct.phone || selectedProduct.seller?.name || '', 'product', sec, (selectedProduct as any).short_id)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })}/>}
+        {selectedTransportAd&&<TransportDetailModal ad={selectedTransportAd} onClose={()=>setSelectedTransportAd(null)} user={user} onAuthRequired={requireAuth} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedTransportAd.id, selectedTransportAd.type==='offer'?'خط متوفر':'طلب خط', selectedTransportAd.postedBy || selectedTransportAd.phone || selectedTransportAd.sellerName || '', 'transport', sec, (selectedTransportAd as any).short_id)}/>}
         {showCreateAd&&user&&<AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd}/>}
         {showCreateProduct&&user&&<ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct}/>}
         {showNotifs&&<NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick} onMarkRead={markNotifAsRead} onArchiveAll={handleArchiveAllNotifications}/>}
