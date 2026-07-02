@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
 import { ShareModal } from './components/ShareModal';
+import { ProductsView } from './components/ProductsView';
 import {
   Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, Check,
   Gamepad2, Heart, Bell, Plus, LogOut, Star, X, Search, MapPin,
@@ -144,6 +145,13 @@ async function compressImage(file: File, maxPx = 900, quality = 0.78, addWaterma
 const formatPrice = (p: string | number) => {
   const n = typeof p === 'string' ? parseInt(p.replace(/,/g,'')) : p;
   return isNaN(n) ? String(p) : n.toLocaleString('en-US');
+};
+
+const isNewItem = (createdAtISO?: string) => {
+  if (!createdAtISO) return false;
+  const createdDate = new Date(createdAtISO).getTime();
+  const diffTime = Date.now() - createdDate;
+  return diffTime > 0 && diffTime < 24 * 60 * 60 * 1000;
 };
 
 function getWhatsAppLink(phone: string, itemType: 'product' | 'transport', details: any) {
@@ -1380,7 +1388,12 @@ function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu }:{
       className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full">
       <div className="relative w-full aspect-[4/3] overflow-hidden flex-shrink-0">
         <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={ad.title} className="w-full h-full object-cover" loading="lazy" decoding="async"/>
-        {ad.type==='rent'&&<div className="absolute top-2 left-2 px-2 py-0.5 bg-blue-500 rounded-full text-xs font-bold text-white">للإيجار</div>}
+        {isNewItem(ad.createdAtISO) && (
+          <div className="absolute top-2 left-2 px-2 py-0.5 bg-red-600/90 backdrop-blur-sm text-white text-[9px] font-bold rounded-lg z-10 shadow-md animate-pulse">
+            حديث ✨
+          </div>
+        )}
+        {ad.type==='rent'&&<div className={`absolute px-2 py-0.5 bg-blue-500 rounded-full text-[10px] font-bold text-white transition-all ${isNewItem(ad.createdAtISO) ? 'top-8 left-2' : 'top-2 left-2'}`}>للإيجار</div>}
         <button onClick={onFav} className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'} transition-colors`}>
           <Heart className={`w-4 h-4 text-white ${isFav?'fill-current':''}`}/></button>
         {ad.seller?.isVerified&&<div className="absolute bottom-2 left-2 px-2 py-0.5 bg-blue-500 rounded-full text-[10px] font-bold text-white flex items-center gap-1"><Shield className="w-2.5 h-2.5"/>موثق</div>}
@@ -1421,6 +1434,16 @@ function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionM
         <img src={product.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={product.title} className="w-full h-full object-cover" loading="lazy" decoding="async"/>
         <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{background:product.condition==='new'?'#22c55e':'#f59e0b'}}>
           {product.condition==='new'?'جديد':'مستعمل'}</div>
+        {isNewItem(product.createdAtISO) && (
+          <div className="absolute top-8 left-2 px-2 py-0.5 bg-red-600/90 backdrop-blur-sm text-white text-[9px] font-bold rounded-lg z-10 shadow-md animate-pulse">
+            حديث ✨
+          </div>
+        )}
+        {isNewItem(product.createdAtISO) && (
+          <div className="absolute top-8 left-2 px-2 py-0.5 bg-red-600/90 backdrop-blur-sm text-white text-[9px] font-bold rounded-lg z-10 shadow-md animate-pulse">
+            حديث ✨
+          </div>
+        )}
         <button onClick={onFav} className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'}`}>
           <Heart className={`w-4 h-4 text-white ${isFav?'fill-current':''}`}/></button>
         <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-purple-600 rounded-full text-[10px] font-bold text-white flex items-center gap-1">
@@ -1537,6 +1560,27 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
           </div>
 
           <button onClick={onClose} className="absolute top-3 right-3 p-2 bg-black/60 rounded-xl text-white z-10 hover:bg-black/80"><X className="w-5 h-5"/></button>
+          <button 
+            onClick={async () => {
+              if(!user) { onAuthRequired(); return; }
+              const reason = window.prompt('يرجى كتابة سبب الإبلاغ عن هذا الإعلان:');
+              if (!reason) return;
+              const { error } = await supabase.from('support_messages').insert({
+                name: `REPORT: ${ad.title}`,
+                contact_info: `${user.name} (${user.phone || user.id})`,
+                message: JSON.stringify({ item_id: ad.id, item_type: 'ad', reason })
+              });
+              if (!error) {
+                alert('تم تقديم البلاغ بنجاح وسيتم مراجعته من قبل الإدارة. شكراً لك! 🚩');
+              } else {
+                alert('حدث خطأ أثناء إرسال البلاغ.');
+              }
+            }} 
+            className="absolute top-3 right-14 p-2 bg-black/60 rounded-xl text-red-400 z-10 hover:bg-red-950/60 flex items-center gap-1 font-bold text-xs"
+            title="إبلاغ عن محتوى مخالف"
+          >
+            <span>🚩</span> إبلاغ
+          </button>
           {totalImgs > 1 && <>
             <button onClick={()=>setImgIdx(i=>(i - 1 + totalImgs) % totalImgs)} className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 rounded-xl text-white z-10 transition-all"><ChevronRight className="w-6 h-6"/></button>
             <button onClick={()=>setImgIdx(i=>(i + 1) % totalImgs)} className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 rounded-xl text-white z-10 transition-all"><ChevronLeft className="w-6 h-6"/></button>
@@ -1703,6 +1747,27 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
           </div>
 
           <button onClick={onClose} className="absolute top-3 right-3 p-2 bg-black/60 rounded-xl text-white z-10 hover:bg-black/80"><X className="w-5 h-5"/></button>
+          <button 
+            onClick={async () => {
+              if(!user) { onAuthRequired(); return; }
+              const reason = window.prompt('يرجى كتابة سبب الإبلاغ عن هذا المنتج:');
+              if (!reason) return;
+              const { error } = await supabase.from('support_messages').insert({
+                name: `REPORT: ${product.title}`,
+                contact_info: `${user.name} (${user.phone || user.id})`,
+                message: JSON.stringify({ item_id: product.id, item_type: 'product', reason })
+              });
+              if (!error) {
+                alert('تم تقديم البلاغ بنجاح وسيتم مراجعته من قبل الإدارة. شكراً لك! 🚩');
+              } else {
+                alert('حدث خطأ أثناء إرسال البلاغ.');
+              }
+            }} 
+            className="absolute top-3 right-14 p-2 bg-black/60 rounded-xl text-red-400 z-10 hover:bg-red-950/60 flex items-center gap-1 font-bold text-xs"
+            title="إبلاغ عن محتوى مخالف"
+          >
+            <span>🚩</span> إبلاغ
+          </button>
           {totalImgs > 1 && <>
             <button onClick={()=>setImgIdx(i=>(i - 1 + totalImgs) % totalImgs)} className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 rounded-xl text-white z-10 transition-all"><ChevronRight className="w-6 h-6"/></button>
             <button onClick={()=>setImgIdx(i=>(i + 1) % totalImgs)} className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 rounded-xl text-white z-10 transition-all"><ChevronLeft className="w-6 h-6"/></button>
@@ -3231,7 +3296,8 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   onClose:()=>void;
   onDeleteProfile?:(id:string)=>void;
 }) {
-  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'logs'|'changelog'>('overview');
+  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'reports'|'logs'|'changelog'>('overview');
+  const [reports, setReports] = useState<any[]>([]);
   const [verificationRequests, setVerificationRequests] = useState<any[]>([]);
   const [recoveryRequests, setRecoveryRequests] = useState<any[]>([]);
   const [storedUsers, setStoredUsers] = useState<StoredUser[]>([]);
@@ -3240,6 +3306,15 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   const [visits, setVisits] = useState<Visit[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
+  
+  // Dashboard Pagination
+  const [visibleUsers, setVisibleUsers] = useState(15);
+  const [visibleGuests, setVisibleGuests] = useState(15);
+  const [visibleLogs, setVisibleLogs] = useState(15);
+  const [visibleVisits, setVisibleVisits] = useState(15);
+  const [visibleDashboardAds, setVisibleDashboardAds] = useState(10);
+  const [visibleDashboardProducts, setVisibleDashboardProducts] = useState(10);
+  const [visibleDashboardLines, setVisibleDashboardLines] = useState(10);
   const [logFilter, setLogFilter] = useState('');
 
   useEffect(() => {
@@ -3299,7 +3374,26 @@ const fetchRecovery = async () => {
     fetchUsersAndGuests();
     const fetchInterval = setInterval(fetchUsersAndGuests, 60_000);
 
-    return () => { clearInterval(iv); clearInterval(fetchInterval); };
+    const fetchReports = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('support_messages')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (data && !error) {
+          const reportMessages = data.filter((msg: any) => msg.name && msg.name.startsWith('REPORT:'));
+          setReports(reportMessages);
+        }
+      } catch (err) {}
+    };
+    fetchReports();
+    const reportInterval = setInterval(fetchReports, 30_000);
+
+    return () => { 
+      clearInterval(iv); 
+      clearInterval(fetchInterval); 
+      clearInterval(reportInterval); 
+    };
   },[]);
 
   // Calculate stats
@@ -3419,7 +3513,7 @@ const fetchRecovery = async () => {
         
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['broadcast','🔔 إشعار عام'],['logs','📋 سجل العمليات'],['changelog','🚀 التحديثات v1.2']] as [string,string][]).map(([t,l])=>(
+          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['reports','🚩 التقارير والبلاغات'],['broadcast','🔔 إشعار عام'],['logs','📋 سجل العمليات'],['changelog','🚀 التحديثات v1.2']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`px-4 py-2 rounded-xl text-sm font-bold ${tab===t?'bg-amber-500 text-black':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
           ))}
         </div>
@@ -3504,11 +3598,12 @@ const fetchRecovery = async () => {
               <button onClick={()=>{try{localStorage.removeItem('souqVisits');}catch{}setVisits([]);}} className="text-xs text-red-400 flex items-center gap-1"><Trash2 className="w-3 h-3"/>مسح</button>
             </div>
             {visits.length===0?<div className="p-10 text-center"><Globe className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا توجد زيارات</p></div>:(
-              <div className="overflow-x-auto">
+              <>
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-700/50"><tr>{['الوقت','الجهاز','الموقع','المستخدم'].map(h=><th key={h} className="text-right py-3 px-4 text-gray-400 font-medium text-xs">{h}</th>)}</tr></thead>
                   <tbody>
-                    {visits.slice(0,100).map((v,i)=>(
+                    {visits.slice(0, visibleVisits).map((v,i)=>(
                       <tr key={i} className="border-t border-gray-700/50 hover:bg-gray-700/30">
                         <td className="py-2.5 px-4 text-gray-300 text-xs">{new Date(v.timestamp).toLocaleString('ar-IQ',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'})}</td>
                         <td className="py-2.5 px-4"><span className={`flex items-center gap-1 text-xs ${v.device==='mobile'?'text-amber-400':v.device==='tablet'?'text-purple-400':'text-blue-400'}`}>{v.device==='mobile'?<Smartphone className="w-3 h-3"/>:v.device==='tablet'?<Tablet className="w-3 h-3"/>:<Monitor className="w-3 h-3"/>}{v.device==='mobile'?'موبايل':v.device==='tablet'?'تابلت':'كمبيوتر'}</span></td>
@@ -3519,7 +3614,15 @@ const fetchRecovery = async () => {
                   </tbody>
                 </table>
               </div>
-            )}
+              {visibleVisits < visits.length && (
+                <div className="text-center py-4 border-t border-gray-700/50">
+                  <p className="text-gray-400 text-xs mb-2">تم العثور على {visits.length} زيارة، يتم عرض {Math.min(visibleVisits, visits.length)} من أصل {visits.length}</p>
+                  <button onClick={() => setVisibleVisits(prev => prev + 25)} className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs transition-all">
+                    عرض المزيد 👥
+                  </button>
+                </div>
+              )}
+            </>)}
           </div>
         )}
         
@@ -3541,7 +3644,7 @@ const fetchRecovery = async () => {
                  </button>
                </div>
             )}
-            {dbUsers.length===0?<div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا مستخدمون بعد</p></div>:dbUsers.map(u=>{
+            {dbUsers.length===0?<div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا مستخدمون بعد</p></div>:dbUsers.slice(0, visibleUsers).map(u=>{
               const isOnline = new Date().getTime() - new Date(u.last_seen || 0).getTime() < 5 * 60 * 1000;
               
               return (
@@ -3635,6 +3738,14 @@ const fetchRecovery = async () => {
                 </div>
               </div>
             );})}
+            {visibleUsers < dbUsers.length && (
+              <div className="text-center py-4 border-t border-gray-700/50">
+                <p className="text-gray-400 text-xs mb-2">تم العثور على {dbUsers.length} مستخدم، يتم عرض {Math.min(visibleUsers, dbUsers.length)} من أصل {dbUsers.length}</p>
+                <button onClick={() => setVisibleUsers(prev => prev + 15)} className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs transition-all shadow-md">
+                  عرض المزيد 🧑‍💼
+                </button>
+              </div>
+            )}
           </div>
         )}
         
@@ -3642,38 +3753,71 @@ const fetchRecovery = async () => {
           <div className="space-y-4">
             <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
               <div className="p-4 border-b border-gray-700 flex items-center justify-between"><h3 className="text-white font-bold">الإعلانات ({ads.length})</h3><span className="text-gray-400 text-xs">{ads.reduce((s,a)=>s+a.views,0)} مشاهدة</span></div>
-              {ads.length===0?<div className="p-6 text-center text-gray-400 text-sm">لا إعلانات</div>:ads.map(ad=>(
-                <div key={ad.id} className="flex items-center gap-3 p-3 border-t border-gray-700/50 hover:bg-gray-700/30">
-                  <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
-                  <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{ad.title}</p>
-                    <p className="text-xs text-gray-400">{ad.location} • {formatPrice(ad.price)} د.ع • <button onClick={() => setViewersModalItem({id: ad.id, type: 'ad'})} className="hover:text-amber-400">{ad.views} 👁</button></p></div>
-                  <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
-                </div>
-              ))}
+              {ads.length===0?<div className="p-6 text-center text-gray-400 text-sm">لا إعلانات</div>: (
+                <>
+                  {ads.slice(0, visibleDashboardAds).map(ad=>(
+                    <div key={ad.id} className="flex items-center gap-3 p-3 border-t border-gray-700/50 hover:bg-gray-700/30">
+                      <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
+                      <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{ad.title}</p>
+                        <p className="text-xs text-gray-400">{ad.location} • {formatPrice(ad.price)} د.ع • <button onClick={() => setViewersModalItem({id: ad.id, type: 'ad'})} className="hover:text-amber-400">{ad.views} 👁</button></p></div>
+                      <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
+                    </div>
+                  ))}
+                  {visibleDashboardAds < ads.length && (
+                    <div className="text-center py-2.5 border-t border-gray-700 bg-gray-900/40">
+                      <button onClick={() => setVisibleDashboardAds(prev => prev + 10)} className="px-4 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-xs font-bold transition">
+                        عرض المزيد من الإعلانات ({Math.min(visibleDashboardAds, ads.length)} من {ads.length})
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
             <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
               <div className="p-4 border-b border-gray-700 flex items-center justify-between"><h3 className="text-white font-bold">المنتجات ({products.length})</h3><span className="text-gray-400 text-xs">{products.reduce((s,p)=>s+p.views,0)} مشاهدة</span></div>
-              {products.length===0?<div className="p-6 text-center text-gray-400 text-sm">لا منتجات</div>:products.map(p=>(
-                <div key={p.id} className="flex items-center gap-3 p-3 border-t border-gray-700/50 hover:bg-gray-700/30">
-                  <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
-                  <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{p.title}</p>
-                    <p className="text-xs text-gray-400">{p.governorate} • {formatPrice(p.price)} د.ع • <button onClick={() => setViewersModalItem({id: p.id, type: 'product'})} className="hover:text-amber-400">{p.views} 👁</button> • {p.condition==='new'?'جديد':'مستعمل'}</p></div>
-                  <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
-                </div>
-              ))}
+              {products.length===0?<div className="p-6 text-center text-gray-400 text-sm">لا منتجات</div>: (
+                <>
+                  {products.slice(0, visibleDashboardProducts).map(p=>(
+                    <div key={p.id} className="flex items-center gap-3 p-3 border-t border-gray-700/50 hover:bg-gray-700/30">
+                      <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
+                      <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{p.title}</p>
+                        <p className="text-xs text-gray-400">{p.governorate} • {formatPrice(p.price)} د.ع • <button onClick={() => setViewersModalItem({id: p.id, type: 'product'})} className="hover:text-amber-400">{p.views} 👁</button> • {p.condition==='new'?'جديد':'مستعمل'}</p></div>
+                      <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
+                    </div>
+                  ))}
+                  {visibleDashboardProducts < products.length && (
+                    <div className="text-center py-2.5 border-t border-gray-700 bg-gray-900/40">
+                      <button onClick={() => setVisibleDashboardProducts(prev => prev + 10)} className="px-4 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-xs font-bold transition">
+                        عرض المزيد من المنتجات ({Math.min(visibleDashboardProducts, products.length)} من {products.length})
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
             <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
               <div className="p-4 border-b border-gray-700 flex items-center justify-between"><h3 className="text-white font-bold">خطوط النقل ({transportAds.length})</h3><span className="text-gray-400 text-xs">{transportAds.reduce((s,t)=>s+(t.views||0),0)} مشاهدة</span></div>
-              {transportAds.length===0?<div className="p-6 text-center text-gray-400 text-sm">لا يوجد خطوط نقل</div>:transportAds.map(t=>(
-                <div key={t.id} className="flex items-center gap-3 p-3 border-t border-gray-700/50 hover:bg-gray-700/30">
-                  <div className="w-12 h-12 rounded-lg bg-gray-700 flex items-center justify-center flex-shrink-0">
-                    <Car className="w-6 h-6 text-gray-400"/>
-                  </div>
-                  <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{t.type === 'offer' ? 'متوفر خط' : 'أبحث عن خط'} ({t.university})</p>
-                    <p className="text-xs text-gray-400">{t.regions} • {formatPrice(t.price)} د.ع • <button onClick={() => setViewersModalItem({id: t.id, type: 'transport'})} className="hover:text-amber-400">{t.views||0} 👁</button></p></div>
-                  <button onClick={()=>onDeleteTransportAd(t.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
-                </div>
-              ))}
+              {transportAds.length===0?<div className="p-6 text-center text-gray-400 text-sm">لا يوجد خطوط نقل</div>: (
+                <>
+                  {transportAds.slice(0, visibleDashboardLines).map(t=>(
+                    <div key={t.id} className="flex items-center gap-3 p-3 border-t border-gray-700/50 hover:bg-gray-700/30">
+                      <div className="w-12 h-12 rounded-lg bg-gray-700 flex items-center justify-center flex-shrink-0">
+                        <Car className="w-6 h-6 text-gray-400"/>
+                      </div>
+                      <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{t.type === 'offer' ? 'متوفر خط' : 'أبحث عن خط'} ({t.university})</p>
+                        <p className="text-xs text-gray-400">{t.regions} • {formatPrice(t.price)} د.ع • <button onClick={() => setViewersModalItem({id: t.id, type: 'transport'})} className="hover:text-amber-400">{t.views||0} 👁</button></p></div>
+                      <button onClick={()=>onDeleteTransportAd(t.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
+                    </div>
+                  ))}
+                  {visibleDashboardLines < transportAds.length && (
+                    <div className="text-center py-2.5 border-t border-gray-700 bg-gray-900/40">
+                      <button onClick={() => setVisibleDashboardLines(prev => prev + 10)} className="px-4 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-xs font-bold transition">
+                        عرض المزيد من خطوط النقل ({Math.min(visibleDashboardLines, transportAds.length)} من {transportAds.length})
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         )}
@@ -3757,6 +3901,72 @@ const fetchRecovery = async () => {
           </div>
         )}
 
+        {tab==='reports'&&(
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+            <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+              <h3 className="text-white font-bold">البلاغات والتقارير ({reports.length})</h3>
+            </div>
+            {reports.length===0?<div className="p-6 text-center text-gray-400 text-sm">لا توجد بلاغات حالياً</div>:
+            <div className="space-y-3 p-4">
+              {reports.map((rep: any) => {
+                let reportData: any = {};
+                try {
+                  reportData = JSON.parse(rep.message);
+                } catch(e) {
+                  reportData = { reason: rep.message };
+                }
+                const isProduct = reportData.item_type === 'product';
+                return (
+                  <div key={rep.id} className="bg-gray-900 rounded-xl p-4 border border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-red-500">🚩</span>
+                        <p className="text-white font-bold">{rep.name || 'بلاغ محتوى'}</p>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">
+                          {isProduct ? 'منتج' : 'إعلان'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400">المُبلغ: {rep.contact_info}</p>
+                      <p className="text-sm text-amber-400 font-bold bg-amber-500/10 px-3 py-1.5 rounded-lg inline-block">
+                        سبب البلاغ: {reportData.reason || 'محتوى غير لائق'}
+                      </p>
+                      <p className="text-[10px] text-gray-500">التاريخ: {new Date(rep.created_at || Date.now()).toLocaleString('ar-IQ')}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={async () => {
+                          if (window.confirm('هل أنت متأكد من رغبتك في حذف هذا المحتوى نهائياً؟')) {
+                            if (isProduct) {
+                              onDeleteProduct(reportData.item_id);
+                            } else {
+                              onDeleteAd(reportData.item_id);
+                            }
+                            await supabase.from('support_messages').delete().eq('id', rep.id);
+                            setReports(prev => prev.filter(r => r.id !== rep.id));
+                          }
+                        }} 
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs"
+                      >
+                        حذف المحتوى المخالف
+                      </button>
+                      <button 
+                        onClick={async () => {
+                          await supabase.from('support_messages').delete().eq('id', rep.id);
+                          setReports(prev => prev.filter(r => r.id !== rep.id));
+                        }} 
+                        className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 font-bold rounded-lg text-xs"
+                      >
+                        تجاهل البلاغ
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            }
+          </div>
+        )}
+
         {tab==='broadcast'&&(
           <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 max-w-2xl mx-auto">
             <div className="flex items-center gap-3 mb-6">
@@ -3810,26 +4020,41 @@ const fetchRecovery = async () => {
                 <button onClick={()=>{if(confirm('هل انت متأكد من مسح جميع السجلات؟')){localStorage.removeItem('souq_system_logs');setSystemLogs([]);}}} className="px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 rounded-xl text-xs font-bold transition">مسح السجل</button>
               </div>
             </div>
-            <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
-              {systemLogs.filter(l=>!logFilter||l.action.includes(logFilter)||l.details.includes(logFilter)||(l.target&&l.target.includes(logFilter))).length===0?(
-                <div className="text-center py-8 text-gray-500 text-xs">لا توجد سجلات حالية</div>
-              ):(
-                systemLogs.filter(l=>!logFilter||l.action.includes(logFilter)||l.details.includes(logFilter)||(l.target&&l.target.includes(logFilter))).map(log=>(
-                  <div key={log.id} className="bg-gray-900/80 border border-gray-700/60 rounded-xl p-3 flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 font-bold rounded-md text-[11px]">{log.action}</span>
-                        <span className="text-gray-300 font-semibold">{log.details}</span>
+            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+              {(() => {
+                const filtered = systemLogs.filter(l=>!logFilter||l.action.includes(logFilter)||l.details.includes(logFilter)||(l.target&&l.target.includes(logFilter)));
+                if (filtered.length === 0) {
+                  return <div className="text-center py-8 text-gray-500 text-xs">لا توجد سجلات حالية</div>;
+                }
+                const displayed = filtered.slice(0, visibleLogs);
+                return (
+                  <div className="space-y-2">
+                    {displayed.map(log=>(
+                      <div key={log.id} className="bg-gray-900/80 border border-gray-700/60 rounded-xl p-3 flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 font-bold rounded-md text-[11px]">{log.action}</span>
+                            <span className="text-gray-300 font-semibold">{log.details}</span>
+                          </div>
+                          {log.target && <div className="text-gray-500 text-[11px]">الهدف: {log.target}</div>}
+                        </div>
+                        <div className="flex items-center gap-3 text-[11px] text-gray-500 border-t md:border-t-0 border-gray-800 pt-2 md:pt-0">
+                          <span>بواسطة: <strong className="text-gray-400">{log.admin}</strong></span>
+                          <span>{new Date(log.timestamp).toLocaleString('ar-IQ')}</span>
+                        </div>
                       </div>
-                      {log.target && <div className="text-gray-500 text-[11px]">الهدف: {log.target}</div>}
-                    </div>
-                    <div className="flex items-center gap-3 text-[11px] text-gray-500 border-t md:border-t-0 border-gray-800 pt-2 md:pt-0">
-                      <span>بواسطة: <strong className="text-gray-400">{log.admin}</strong></span>
-                      <span>{new Date(log.timestamp).toLocaleString('ar-IQ')}</span>
-                    </div>
+                    ))}
+                    {visibleLogs < filtered.length && (
+                      <div className="text-center py-4 border-t border-gray-800">
+                        <p className="text-gray-400 text-xs mb-2">يتم عرض {displayed.length} من أصل {filtered.length} سجل عملي</p>
+                        <button onClick={() => setVisibleLogs(prev => prev + 15)} className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs transition-all">
+                          عرض المزيد 📋
+                        </button>
+                      </div>
+                    )}
                   </div>
-                ))
-              )}
+                );
+              })()}
             </div>
           </div>
         )}
@@ -4083,7 +4308,14 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
 // ─────────────────────────────────────────────
 // Market View
 // ─────────────────────────────────────────────
-function MarketView({ user, allAds, allProducts, favorites, storedUsers: propStoredUsers, onSelectAd, onSelectProduct, onToggleFav, onRequireAuth, onSellerClick, onTransportClick, onSelectTransportAd, transportLines, onActionMenu }:{
+function MarketView({ 
+  user, allAds, allProducts, favorites, storedUsers: propStoredUsers, 
+  onSelectAd, onSelectProduct, onToggleFav, onRequireAuth, onSellerClick, 
+  onTransportClick, onSelectTransportAd, transportLines, onActionMenu,
+  search, setSearch, cat, setCat, gov, setGov, sort, setSort, 
+  priceMin, setPriceMin, priceMax, setPriceMax,
+  hasMoreAds, hasMoreProducts, onLoadMoreAds, onLoadMoreProducts
+}:{
   user:User|null; allAds:Ad[]; allProducts:Product[]; favorites:number[]; storedUsers?: any[];
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void;
   onToggleFav:(id:number)=>void; onRequireAuth:()=>void; onSellerClick:(id:string, source?: 'home'|'accounts')=>void;
@@ -4091,19 +4323,17 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
   onSelectTransportAd?:(ad:any)=>void;
   transportLines: TransportAd[];
   onActionMenu?: any;
+  search: string; setSearch: (s: string) => void;
+  cat: string; setCat: (c: string) => void;
+  gov: string; setGov: (g: string) => void;
+  sort: 'recent'|'views'|'price-low'|'price-high'; setSort: (s: any) => void;
+  priceMin: string; setPriceMin: (p: string) => void;
+  priceMax: string; setPriceMax: (p: string) => void;
+  hasMoreAds: boolean; hasMoreProducts: boolean;
+  onLoadMoreAds: () => void; onLoadMoreProducts: () => void;
 }) {
-  const [search, setSearch] = useState('');
-  const [cat, setCat] = useState(() => {
-    if (typeof window === 'undefined') return 'all';
-    const h = window.location.hash;
-    if (h.startsWith('#/category/')) return h.split('/')[2] || 'all';
-    if (h.startsWith('#/ads/')) return h.split('/')[2] || 'all';
-    if (h.startsWith('#/products/')) return h.split('/')[2] || 'all';
-    return 'all';
-  });
-  const [gov, setGov] = useState('الكل');
-  const [sort, setSort] = useState<'recent'|'views'|'price-low'|'price-high'>('recent');
   const [viewMode, setViewMode] = useState<'grid'|'list'>('grid');
+  const [visibleProfilesCount, setVisibleProfilesCount] = useState(12);
   const [contentTab, setContentTab] = useState<'ads'|'products'|'profiles'|'transport'|'all'>(() => {
     if (typeof window === 'undefined') return 'all';
     const h = window.location.hash;
@@ -4169,8 +4399,7 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
     }
   }, [cat, contentTab]);
   const [showFilters, setShowFilters] = useState(false);
-  const [priceMin, setPriceMin] = useState('');
-  const [priceMax, setPriceMax] = useState('');
+
   const [localStoredUsers, setLocalStoredUsers] = useState<any[]>([]);
   const storedUsers = propStoredUsers && propStoredUsers.length > 0 ? propStoredUsers : localStoredUsers;
   const onlineStatuses = useOnlineStatuses();
@@ -4287,29 +4516,26 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
   }, [allAds, allProducts]);
 
   const filteredProfiles = storedUsers.filter(u => {
+    // Only show verified accounts, owners, admins, or users with at least 1 ad/product
+    const isOwnerOrAdmin = u.role === 'owner' || u.role === 'admin' || u.role === 'vendor';
+    const isVerified = u.isVerified || u.verified;
+    const isMerchant = (u.adCount + (u.prodCount || 0)) >= 1;
+    if (!isOwnerOrAdmin && !isVerified && !isMerchant) {
+      return false;
+    }
+
     const term = search.toLowerCase();
     return !search || 
       (u.name && u.name.toLowerCase().includes(term)) || 
       (u.phone && u.phone.includes(term));
   });
 
+  const displayedProfiles = filteredProfiles.slice(0, visibleProfilesCount);
+
   const fmt=(v:string)=>v.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',');
 
-  const filterAds = allAds.filter(a=>{
-    if (a.status !== 'active') return false;
-    const ms=!search||String(a.id).includes(search)||(a.short_id&&a.short_id.toLowerCase().includes(search.toLowerCase()))||a.title.toLowerCase().includes(search.toLowerCase())||a.location.toLowerCase().includes(search.toLowerCase());
-    const mc=cat==='all'||a.category===cat; const mg=gov==='الكل'||a.governorate===gov;
-    const min=priceMin?parseInt(priceMin.replace(/,/g,'')):0, max=priceMax?parseInt(priceMax.replace(/,/g,'')):Infinity, ap=parseInt(a.price)||0;
-    return ms&&mc&&mg&&ap>=min&&ap<=max;
-  }).sort((a,b)=>sort==='views'?b.views-a.views:sort==='price-low'?parseInt(a.price)-parseInt(b.price):sort==='price-high'?parseInt(b.price)-parseInt(a.price):new Date(b.createdAtISO).getTime()-new Date(a.createdAtISO).getTime());
-
-  const filterProds = allProducts.filter(p=>{
-    if (p.status !== 'active') return false;
-    const ms=!search||String(p.id).includes(search)||(p.short_id&&p.short_id.toLowerCase().includes(search.toLowerCase()))||p.title.toLowerCase().includes(search.toLowerCase())||p.governorate.toLowerCase().includes(search.toLowerCase());
-    const mc=cat==='all'||p.category===cat; const mg=gov==='الكل'||p.governorate===gov;
-    const min=priceMin?parseInt(priceMin.replace(/,/g,'')):0, max=priceMax?parseInt(priceMax.replace(/,/g,'')):Infinity, pp=parseInt(p.price)||0;
-    return ms&&mc&&mg&&pp>=min&&pp<=max;
-  }).sort((a,b)=>sort==='views'?b.views-a.views:sort==='price-low'?parseInt(a.price)-parseInt(b.price):sort==='price-high'?parseInt(b.price)-parseInt(a.price):new Date(b.createdAtISO).getTime()-new Date(a.createdAtISO).getTime());
+  const filterAds = allAds;
+  const filterProds = allProducts;
 
   const showAds = contentTab==='ads'||contentTab==='all';
   const showProds = contentTab==='products'||contentTab==='all';
@@ -4401,11 +4627,23 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
           {showAds&&filterAds.length>0&&(
             <div className="mb-8">
               {contentTab==='all'&&<div className="flex items-center gap-3 mb-4"><div className="h-px flex-1 bg-gray-700"/><span className="text-gray-400 text-sm font-medium flex items-center gap-1.5"><FileText className="w-4 h-4"/>الإعلانات ({filterAds.length})</span><div className="h-px flex-1 bg-gray-700"/></div>}
-              <div className={viewMode==='grid'?'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4':'space-y-3'}>
-                {filterAds.map(ad=><AdCard key={ad.id} ad={ad} onSelect={()=>onSelectAd(ad)} isFav={favorites.includes(ad.id)}
-                  onFav={e=>{e.stopPropagation();if(!user){onRequireAuth();return;}onToggleFav(ad.id);}}
-                  onSellerClick={(id)=>{if(id)onSellerClick(id);}}
-                  onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===ad.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"ad",item:ad});}}/>)}
+              <div className="flex flex-col gap-6">
+                <div className={viewMode==='grid'?'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4':'space-y-3'}>
+                  {filterAds.map(ad=><AdCard key={ad.id} ad={ad} onSelect={()=>onSelectAd(ad)} isFav={favorites.includes(ad.id)}
+                    onFav={e=>{e.stopPropagation();if(!user){onRequireAuth();return;}onToggleFav(ad.id);}}
+                    onSellerClick={(id)=>{if(id)onSellerClick(id);}}
+                    onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===ad.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"ad",item:ad});}}/>)}
+                </div>
+                {hasMoreAds && (
+                  <div className="text-center py-4 border-t border-gray-800">
+                    <button 
+                      onClick={onLoadMoreAds} 
+                      className="px-6 py-2 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs transition-all shadow-md"
+                    >
+                      عرض المزيد من الإعلانات 📢
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -4414,11 +4652,23 @@ function MarketView({ user, allAds, allProducts, favorites, storedUsers: propSto
           {showProds&&filterProds.length>0&&(
             <div className="mb-8">
               {contentTab==='all'&&<div className="flex items-center gap-3 mb-4"><div className="h-px flex-1 bg-gray-700"/><span className="text-gray-400 text-sm font-medium flex items-center gap-1.5"><ShoppingBag className="w-4 h-4"/>المنتجات ({filterProds.length})</span><div className="h-px flex-1 bg-gray-700"/></div>}
-              <div className={viewMode==='grid'?'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4':'space-y-3'}>
-                {filterProds.map(p=><ProductCard key={p.id} product={p} onSelect={()=>onSelectProduct(p)} isFav={favorites.includes(p.id)}
-                  onFav={e=>{e.stopPropagation();if(!user){onRequireAuth();return;}onToggleFav(p.id);}}
-                  onSellerClick={(id)=>{if(id)onSellerClick(id);}}
-                  onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===p.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"product",item:p});}}/>)}
+              <div className="flex flex-col gap-6">
+                <div className={viewMode==='grid'?'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4':'space-y-3'}>
+                  {filterProds.map(p=><ProductCard key={p.id} product={p} onSelect={()=>onSelectProduct(p)} isFav={favorites.includes(p.id)}
+                    onFav={e=>{e.stopPropagation();if(!user){onRequireAuth();return;}onToggleFav(p.id);}}
+                    onSellerClick={(id)=>{if(id)onSellerClick(id);}}
+                    onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===p.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"product",item:p});}}/>)}
+                </div>
+                {hasMoreProducts && (
+                  <div className="text-center py-4 border-t border-gray-800">
+                    <button 
+                      onClick={onLoadMoreProducts} 
+                      className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all shadow-md"
+                    >
+                      عرض المزيد من المنتجات 🛍️
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -4980,6 +5230,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
   const [filterType, setFilterType] = useState('الكل');
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(12);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
   const handleTouchStart = (ad: TransportAd) => {
@@ -5110,7 +5361,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
       </div>
 
       {/* Listings */}
-      <div className="container mx-auto max-w-2xl px-4 py-6">
+      <div className="container mx-auto max-w-2xl px-4 py-4">
         {filtered.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-6xl mb-4">🚐</div>
@@ -5123,8 +5374,10 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-gray-400 text-sm">تم العثور على <span className="text-emerald-400 font-bold">{filtered.length}</span> إعلان</p>
-            {filtered.map(ad=>{
+            <div className="sticky top-[4rem] z-20 bg-gray-950/90 backdrop-blur-md py-2.5 border-b border-gray-900 mb-2">
+              <p className="text-gray-400 text-sm">تم العثور على <span className="text-emerald-400 font-bold">{filtered.length}</span> خط، يتم عرض {Math.min(visibleCount, filtered.length)} من أصل {filtered.length}</p>
+            </div>
+            {filtered.slice(0, visibleCount).map(ad=>{
               const isEmployee = ad.categoryType === 'employee';
               return (
               <motion.div key={ad.id} initial={{opacity:0,y:20}} animate={{opacity:1,y:0}}
@@ -5233,6 +5486,16 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
               </motion.div>
             );
           })}
+            {visibleCount < filtered.length && (
+              <div className="text-center py-6 mt-4 border-t border-gray-800">
+                <button 
+                  onClick={() => setVisibleCount(prev => prev + 12)}
+                  className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-emerald-500/20"
+                >
+                  عرض المزيد من الخطوط 🚌
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -5251,7 +5514,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
 // Root App
 
 // ─────────────────────────────────────────────
-type AppView = 'home'|'profile'|'admin'|'owner'|'seller'|'transport';
+type AppView = 'home'|'profile'|'admin'|'owner'|'seller'|'transport'|'products';
 
 export default function App() {
   const [user, setUser] = useState<User|null>(() => {
@@ -5349,6 +5612,21 @@ export default function App() {
   });
   const [initialHashParsed, setInitialHashParsed] = useState(false);
   const [storedUsers, setStoredUsers] = useState<any[]>([]);
+  
+  // Pagination & Filtering state
+  const [adsPage, setAdsPage] = useState(0);
+  const [hasMoreAds, setHasMoreAds] = useState(true);
+  const [productsPage, setProductsPage] = useState(0);
+  const [hasMoreProducts, setHasMoreProducts] = useState(true);
+  
+  const [search, setSearch] = useState('');
+  const [cat, setCat] = useState('all');
+  const [gov, setGov] = useState('الكل');
+  const [sort, setSort] = useState<'recent'|'views'|'price-low'|'price-high'>('recent');
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
+  const [conditionFilter, setConditionFilter] = useState<'all'|'new'|'used'>('all');
+
   const playSound = useSound();
 
   useEffect(() => {
@@ -5540,10 +5818,93 @@ export default function App() {
     
     if (type === 'ad' && targetId) {
       const ad = allAds.find(a => String(a.id) === targetId || a.short_id === targetId || (a.title && targetId.includes(encodeURIComponent(a.title))));
-      if (ad) setSelectedAd(ad);
+      if (ad) {
+        setSelectedAd(ad);
+      } else {
+        const isNumeric = /^\d+$/.test(targetId);
+        let query = supabase.from('ads').select('*').eq('is_demo', false);
+        if (isNumeric) {
+          query = query.eq('id', Number(targetId));
+        } else {
+          query = query.eq('short_id', targetId);
+        }
+        query.single().then(({ data, error }) => {
+          if (data && !error) {
+            const mappedAd: Ad = {
+              id: data.id,
+              title: data.title,
+              price: data.price,
+              governorate: data.city || '',
+              location: data.location || '',
+              phone: data.phone || '',
+              category: data.category,
+              images: data.images || [],
+              seller: {
+                name: data.seller_name || 'مستخدم',
+                avatar: data.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
+                isVerified: false,
+                rating: data.seller_rating || 4.8,
+                joinedDate: data.created_at,
+                location: data.city || '',
+              },
+              time: '',
+              createdAtISO: data.created_at,
+              views: data.views || 0,
+              status: data.status,
+              type: data.type || 'sell',
+              description: data.description || '',
+              adCount: 0,
+              soldCount: 0,
+              responseRate: 100,
+              avgResponseTime: 'دقائق',
+              postedBy: data.seller_id,
+            };
+            setSelectedAd(mappedAd);
+          }
+        });
+      }
     } else if (type === 'product' && targetId) {
       const prod = allProducts.find(p => String(p.id) === targetId || p.short_id === targetId);
-      if (prod) setSelectedProduct(prod);
+      if (prod) {
+        setSelectedProduct(prod);
+      } else {
+        const isNumeric = /^\d+$/.test(targetId);
+        let query = supabase.from('products').select('*');
+        if (isNumeric) {
+          query = query.eq('id', Number(targetId));
+        } else {
+          query = query.eq('short_id', targetId);
+        }
+        query.single().then(({ data, error }) => {
+          if (data && !error) {
+            const mappedProd: Product = {
+              id: data.id,
+              title: data.title,
+              price: data.price,
+              description: data.description || '',
+              category: data.category,
+              images: data.images || [],
+              governorate: data.governorate || data.city || '',
+              phone: data.phone || '',
+              condition: data.condition || 'used',
+              seller: {
+                name: data.seller_name || 'مستخدم',
+                avatar: data.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
+                isVerified: false,
+                rating: 4.8,
+                joinedDate: data.created_at,
+                location: data.governorate || '',
+              },
+              createdAtISO: data.created_at,
+              views: data.views || 0,
+              postedBy: data.seller_id,
+              stock: data.stock || 1,
+              status: data.status || 'active',
+            };
+            setSelectedProduct(mappedProd);
+          }
+        });
+      }
     } else if ((type === 'profile' || type === 'seller') && targetId) {
       setSelectedSellerId(targetId);
       setView('seller');
@@ -5606,13 +5967,66 @@ export default function App() {
   }, [view, selectedAd, selectedProduct, selectedSellerId, initialHashParsed]);
   // ------------------------------------
 
+  // ── Rate Limit Helper ─────────────────────────
+  const checkPostRateLimit = (): boolean => {
+    const now = Date.now();
+    let posts = [];
+    try {
+      posts = JSON.parse(localStorage.getItem('souq_post_timestamps') || '[]');
+    } catch {
+      posts = [];
+    }
+    posts = posts.filter((t: number) => now - t < 60000);
+    if (posts.length >= 2) {
+      showToast('⚠️ لقد تجاوزت الحد المسموح به. يمكنك نشر إعلانين كحد أقصى في الدقيقة الواحدة. يرجى الانتظار قليلاً.', 'error');
+      return false;
+    }
+    posts.push(now);
+    localStorage.setItem('souq_post_timestamps', JSON.stringify(posts));
+    return true;
+  };
+
   // ── Fetch ads & products from Supabase ─────────────────────────
-  const fetchAds = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('ads')
-      .select('*')
-      .eq('is_demo', false)
-      .order('created_at', { ascending: false });
+  const fetchAds = useCallback(async (reset = true) => {
+    const pageToFetch = reset ? 0 : adsPage + 1;
+    const pageSize = 12;
+    const from = pageToFetch * pageSize;
+    const to = from + pageSize - 1;
+
+    let query = supabase.from('ads').select('*').eq('is_demo', false);
+
+    if (cat && cat !== 'all') {
+      query = query.eq('category', cat);
+    }
+    if (gov && gov !== 'الكل') {
+      query = query.eq('city', gov);
+    }
+    if (search) {
+      const term = `%${search}%`;
+      query = query.or(`title.ilike.${term},location.ilike.${term},short_id.ilike.${term}`);
+    }
+    if (priceMin) {
+      const minVal = parseInt(priceMin.replace(/,/g, ''));
+      if (!isNaN(minVal)) query = query.gte('price', minVal);
+    }
+    if (priceMax) {
+      const maxVal = parseInt(priceMax.replace(/,/g, ''));
+      if (!isNaN(maxVal)) query = query.lte('price', maxVal);
+    }
+
+    if (sort === 'views') {
+      query = query.order('views', { ascending: false });
+    } else if (sort === 'price-low') {
+      query = query.order('price', { ascending: true });
+    } else if (sort === 'price-high') {
+      query = query.order('price', { ascending: false });
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
+
+    query = query.range(from, to);
+
+    const { data, error } = await query;
     if (error) { console.error('Error fetching ads:', error); return; }
     if (data) {
       // Map normal ads
@@ -5697,10 +6111,28 @@ export default function App() {
       });
 
       const activeMapped = normalMapped.filter(a => a.status === 'active' || a.status === 'sold');
-      setAllAds(activeMapped.length > 0 ? activeMapped : getDefaultAds());
-      setAllTransportAds(transportMapped);
+      
+      if (reset) {
+        setAllAds(activeMapped.length > 0 ? activeMapped : getDefaultAds());
+        setAllTransportAds(transportMapped);
+        setAdsPage(0);
+        setHasMoreAds(data.length === pageSize);
+      } else {
+        setAllAds(prev => {
+          const combined = [...prev, ...activeMapped];
+          const unique = combined.filter((v, i, self) => self.findIndex(t => t.id === v.id) === i);
+          return unique;
+        });
+        setAllTransportAds(prev => {
+          const combined = [...prev, ...transportMapped];
+          const unique = combined.filter((v, i, self) => self.findIndex(t => t.id === v.id) === i);
+          return unique;
+        });
+        setAdsPage(pageToFetch);
+        setHasMoreAds(data.length === pageSize);
+      }
     }
-  }, []);
+  }, [adsPage, search, cat, gov, sort, priceMin, priceMax]);
 
   const handleDeleteProfile = async (profileId: string) => {
     // Try to delete using the admin RPC first
@@ -5734,11 +6166,46 @@ export default function App() {
     }
   };
 
-  const fetchProducts = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .order('created_at', { ascending: false });
+  const fetchProducts = useCallback(async (reset = true) => {
+    const pageToFetch = reset ? 0 : productsPage + 1;
+    const pageSize = 12;
+    const from = pageToFetch * pageSize;
+    const to = from + pageSize - 1;
+
+    let query = supabase.from('products').select('*');
+
+    if (cat && cat !== 'all') {
+      query = query.eq('category', cat);
+    }
+    if (gov && gov !== 'الكل') {
+      query = query.eq('governorate', gov);
+    }
+    if (search) {
+      const term = `%${search}%`;
+      query = query.or(`title.ilike.${term},description.ilike.${term},short_id.ilike.${term}`);
+    }
+    if (priceMin) {
+      const minVal = parseInt(priceMin.replace(/,/g, ''));
+      if (!isNaN(minVal)) query = query.gte('price', minVal);
+    }
+    if (priceMax) {
+      const maxVal = parseInt(priceMax.replace(/,/g, ''));
+      if (!isNaN(maxVal)) query = query.lte('price', maxVal);
+    }
+
+    if (sort === 'views') {
+      query = query.order('views', { ascending: false });
+    } else if (sort === 'price-low') {
+      query = query.order('price', { ascending: true });
+    } else if (sort === 'price-high') {
+      query = query.order('price', { ascending: false });
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
+
+    query = query.range(from, to);
+
+    const { data, error } = await query;
     if (error) { console.error('Error fetching products:', error); return; }
     if (data) {
       const mapped: Product[] = data.map((row: any) => ({
@@ -5765,9 +6232,22 @@ export default function App() {
         stock: row.stock || 1,
         status: row.status || 'active',
       }));
-      setAllProducts(mapped.length > 0 ? mapped : getDefaultProducts());
+      
+      if (reset) {
+        setAllProducts(mapped.length > 0 ? mapped : getDefaultProducts());
+        setProductsPage(0);
+        setHasMoreProducts(data.length === pageSize);
+      } else {
+        setAllProducts(prev => {
+          const combined = [...prev, ...mapped];
+          const unique = combined.filter((v, i, self) => self.findIndex(t => t.id === v.id) === i);
+          return unique;
+        });
+        setProductsPage(pageToFetch);
+        setHasMoreProducts(data.length === pageSize);
+      }
     }
-  }, []);
+  }, [productsPage, search, cat, gov, sort, priceMin, priceMax]);
 
 
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -5978,9 +6458,13 @@ export default function App() {
   }, [view]);
 
   useEffect(() => {
-    fetchAds();
-    fetchProducts();
-  }, [fetchAds, fetchProducts]);
+    const delayDebounceFn = setTimeout(() => {
+      fetchAds(true);
+      fetchProducts(true);
+    }, 450);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [search, cat, gov, sort, priceMin, priceMax]);
 
   useEffect(()=>{
     if(user){const mc=allAds.filter(a=>a.postedBy===user.id).length+allProducts.filter(p=>p.postedBy===user.id).length;saveStoredUser(user,mc);}
@@ -6060,6 +6544,9 @@ export default function App() {
   const requireAuth = ()=>setShowAuth(true);
 
   const handleAddOrEditAd = async (ad: Ad) => {
+    if (!editingAd) {
+      if (!checkPostRateLimit()) return;
+    }
     const rowData = {
       seller_id: user?.id || '',
       title: ad.title,
@@ -6094,6 +6581,7 @@ export default function App() {
   };
 
   const handlePostTransportAd = async (ad: TransportAd) => {
+    if (!checkPostRateLimit()) return;
     const rowData = {
       seller_id: user?.id || ad.postedBy || '',
       title: ad.type === 'offer' ? `أوفر خط إلى ${ad.university}` : `أبحث عن خط إلى ${ad.university}`,
@@ -6184,6 +6672,9 @@ export default function App() {
   };
 
   const handleAddOrEditProduct = async (p: Product) => {
+    if (!editingProduct) {
+      if (!checkPostRateLimit()) return;
+    }
     const rowData = {
       seller_id: user?.id || '',
       title: p.title,
@@ -6314,7 +6805,7 @@ export default function App() {
       <nav className="fixed top-0 left-0 right-0 z-40 bg-gray-900/95 backdrop-blur-lg border-b border-gray-800">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            <button onClick={()=>setView('home')} className="flex items-center gap-2"><Logo small/><span className="hidden sm:block text-white font-bold text-lg">سوك بغداد</span></button>
+            <button onClick={()=>setView('home')} className="flex items-center gap-2"><Logo small/><span className="text-white font-bold text-sm sm:text-lg">سوك بغداد</span></button>
             <div className="hidden md:flex flex-1 max-w-sm mx-6">
               <div className="relative w-full"><Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
                 <input placeholder="ابحث في سوك بغداد..." onClick={()=>setView('home')} readOnly className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-2 pr-9 pl-4 border border-gray-700 outline-none text-sm cursor-pointer"/></div>
@@ -6350,26 +6841,38 @@ export default function App() {
                 </>
               )}
             </div>
-            <div className="flex items-center gap-2 lg:hidden">
+            <div className="flex items-center gap-1.5 lg:hidden">
+              {/* زر رفع إعلان على الموبايل */}
+              <button 
+                onClick={() => {
+                  if (!user) { requireAuth(); return; }
+                  setShowCreateAd(true);
+                  setEditingAd(null);
+                }} 
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-xs shadow-md shadow-amber-500/20"
+              >
+                <Plus className="w-3.5 h-3.5"/> <span>إعلان</span>
+              </button>
+
               {user ? (
                 <button onClick={()=>setView('profile')} className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white'}`}>
-                  <img src={user.avatar} alt="" className="w-6 h-6 rounded-full object-cover border border-gray-600"/>
+                  <img src={user.avatar} alt="" className="w-5.5 h-5.5 rounded-full object-cover border border-gray-600"/>
                   <span className="max-w-16 truncate hidden sm:block">{user.name}</span>
                 </button>
               ) : (
-                <button onClick={()=>setShowAuth(true)} className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white font-bold rounded-xl text-xs">
-                  <LogIn className="w-4 h-4"/> <span className="hidden sm:inline">دخول</span>
+                <button onClick={()=>setShowAuth(true)} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white font-bold rounded-xl text-xs hover:bg-blue-700">
+                  <LogIn className="w-3.5 h-3.5"/> <span>دخول</span>
                 </button>
               )}
-              <button onClick={()=>setShowNotifs(true)} className="p-2 rounded-xl bg-gray-800 text-white hover:bg-gray-700 relative">
-                <Bell className="w-5 h-5"/>
+              <button onClick={()=>setShowNotifs(true)} className="p-1.5 rounded-xl bg-gray-800 text-white hover:bg-gray-700 relative">
+                <Bell className="w-4 h-4"/>
                 {notifications.length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full text-[9px] text-white flex items-center justify-center">
                     {notifications.length}
                   </span>
                 )}
               </button>
-              <button onClick={()=>setShowMobileMenu(true)} className="p-2 rounded-xl bg-gray-800 text-white"><Menu className="w-5 h-5"/></button>
+              <button onClick={()=>setShowMobileMenu(true)} className="p-1.5 rounded-xl bg-gray-800 text-white"><Menu className="w-4.5 h-4.5"/></button>
             </div>
           </div>
         </div>
@@ -6411,10 +6914,67 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main */}
-      <main className="pt-16">
+      <main className="pt-[calc(4rem+env(safe-area-inset-top,0px))]">
         <AnimatePresence mode="wait">
           {view==='home'&&<motion.div key="home" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <MarketView user={user} allAds={allAds} allProducts={allProducts} favorites={favorites} storedUsers={storedUsers} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} onToggleFav={handleToggleFav} onRequireAuth={requireAuth} onSellerClick={handleSellerClick} onTransportClick={()=>{setView('transport');setBottomNavActive('transport');}} onSelectTransportAd={setSelectedTransportAd} transportLines={allTransportAds}/></motion.div>}
+            <MarketView 
+              user={user} 
+              allAds={allAds} 
+              allProducts={allProducts} 
+              favorites={favorites} 
+              storedUsers={storedUsers} 
+              onSelectAd={setSelectedAd} 
+              onSelectProduct={setSelectedProduct} 
+              onToggleFav={handleToggleFav} 
+              onRequireAuth={requireAuth} 
+              onSellerClick={handleSellerClick} 
+              onTransportClick={()=>{setView('transport');setBottomNavActive('transport');}} 
+              onSelectTransportAd={setSelectedTransportAd} 
+              transportLines={allTransportAds}
+              search={search}
+              setSearch={setSearch}
+              cat={cat}
+              setCat={setCat}
+              gov={gov}
+              setGov={setGov}
+              sort={sort}
+              setSort={setSort}
+              priceMin={priceMin}
+              setPriceMin={setPriceMin}
+              priceMax={priceMax}
+              setPriceMax={setPriceMax}
+              hasMoreAds={hasMoreAds}
+              hasMoreProducts={hasMoreProducts}
+              onLoadMoreAds={() => fetchAds(false)}
+              onLoadMoreProducts={() => fetchProducts(false)}
+            />
+          </motion.div>}
+          {view==='products'&&<motion.div key="products" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+            <ProductsView 
+              user={user} 
+              onBack={()=>setView('home')} 
+              onCreateProduct={()=>{if(!user){requireAuth();return;}setShowCreateProduct(true);}} 
+              onSelectProduct={setSelectedProduct} 
+              products={allProducts} 
+              onActionMenu={setActionMenuTarget} 
+              hasMoreProducts={hasMoreProducts} 
+              onLoadMoreProducts={() => fetchProducts(false)}
+              search={search}
+              setSearch={setSearch}
+              cat={cat}
+              setCat={setCat}
+              gov={gov}
+              setGov={setGov}
+              sort={sort}
+              setSort={setSort}
+              priceMin={priceMin}
+              setPriceMin={setPriceMin}
+              priceMax={priceMax}
+              setPriceMax={setPriceMax}
+              conditionFilter={conditionFilter}
+              setConditionFilter={setConditionFilter}
+            />
+          </motion.div>}
           {view==='profile'&&user&&<motion.div key="profile" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold} favorites={favorites} allAds={allAds} allProducts={allProducts} onAdSelect={setSelectedAd} onProductSelect={setSelectedProduct} onFav={handleToggleFav}/></motion.div>}
           {view==='seller'&&selectedSellerId&&<motion.div key="seller" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
@@ -6460,7 +7020,7 @@ export default function App() {
       </footer>
 
       {/* Bottom Navigation Bar - Fixed Mobile First */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-gray-900/95 backdrop-blur-xl border-t border-gray-800 lg:hidden safe-area-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-gray-900/95 backdrop-blur-xl border-t border-gray-800 lg:hidden pb-[env(safe-area-inset-bottom,0px)]">
         <div className="flex items-center justify-around h-16 px-2">
           {/* الرئيسية */}
           <button
@@ -6486,7 +7046,14 @@ export default function App() {
 
           {/* إضافة إعلان */}
           <button
-            onClick={() => { setBottomNavActive('create-ad'); setShowCreateAd(true); }}
+            onClick={() => {
+              if (!user) {
+                requireAuth();
+              } else {
+                setBottomNavActive('create-ad');
+                setShowCreateAd(true);
+              }
+            }}
             className="flex flex-col items-center justify-center flex-1 py-2"
           >
             <div className="p-3 bg-gradient-to-r from-amber-500 to-yellow-500 rounded-full -mt-6 shadow-lg shadow-amber-500/30">
@@ -6495,15 +7062,15 @@ export default function App() {
             <span className="text-[10px] mt-1 font-medium text-amber-400">إعلان</span>
           </button>
 
-          {/* إضافة منتج */}
+          {/* المنتجات */}
           <button
-            onClick={() => { setBottomNavActive('create-product'); setShowCreateProduct(true); }}
-            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'create-product' ? 'text-blue-400' : 'text-gray-400'}`}
+            onClick={() => { setBottomNavActive('products'); setView('products'); }}
+            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'products' ? 'text-blue-400' : 'text-gray-400'}`}
           >
-            <div className={`p-2 rounded-xl ${bottomNavActive === 'create-product' ? 'bg-blue-500/20' : ''}`}>
+            <div className={`p-2 rounded-xl ${bottomNavActive === 'products' ? 'bg-blue-500/20' : ''}`}>
               <ShoppingBag className="w-6 h-6" />
             </div>
-            <span className="text-[10px] mt-1 font-medium">منتج</span>
+            <span className="text-[10px] mt-1 font-medium">المنتجات</span>
           </button>
 
           {/* الملف الشخصي */}

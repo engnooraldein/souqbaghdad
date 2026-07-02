@@ -48,8 +48,16 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom', 'framer-motion', 'lucide-react', 'recharts'],
-          supabase: ['@supabase/supabase-js']
+          // Core React - always needed
+          'react-core': ['react', 'react-dom'],
+          // Animation library - loaded early
+          'framer': ['framer-motion'],
+          // Icons - loaded with main bundle
+          'icons': ['lucide-react'],
+          // Charts - only needed for admin dashboard (loaded lazily)
+          'charts': ['recharts'],
+          // Supabase - separate chunk for auth/data
+          'supabase': ['@supabase/supabase-js'],
         }
       }
     }

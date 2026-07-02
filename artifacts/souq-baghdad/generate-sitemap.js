@@ -30,15 +30,16 @@ async function generateSitemap() {
     const headers = { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` };
     
     // Fetch active ads
-    const adsRes = await fetch(`${supabaseUrl}/rest/v1/ads?status=eq.active&select=id,updated_at`, { headers });
+    const adsRes = await fetch(`${supabaseUrl}/rest/v1/ads?status=eq.active&select=id,updated_at,images`, { headers });
     const ads = await adsRes.json();
 
     // Fetch active products
-    const prodsRes = await fetch(`${supabaseUrl}/rest/v1/products?status=eq.active&select=id,updated_at`, { headers });
+    const prodsRes = await fetch(`${supabaseUrl}/rest/v1/products?status=eq.active&select=id,updated_at,images`, { headers });
     const products = await prodsRes.json();
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>${DOMAIN}/</loc>
     <changefreq>daily</changefreq>
@@ -49,11 +50,18 @@ async function generateSitemap() {
     // Add ads
     if (Array.isArray(ads)) {
       ads.forEach(ad => {
+        let imageXml = '';
+        if (Array.isArray(ad.images) && ad.images.length > 0) {
+          const firstImg = ad.images[0];
+          if (firstImg && firstImg.startsWith('http')) {
+            imageXml = `\n    <image:image>\n      <image:loc>${firstImg}</image:loc>\n    </image:image>`;
+          }
+        }
         xml += `  <url>
     <loc>${DOMAIN}/ad/${ad.id}</loc>
     <lastmod>${new Date(ad.updated_at || Date.now()).toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.8</priority>${imageXml}
   </url>\n`;
       });
     }
@@ -61,11 +69,18 @@ async function generateSitemap() {
     // Add products
     if (Array.isArray(products)) {
       products.forEach(prod => {
+        let imageXml = '';
+        if (Array.isArray(prod.images) && prod.images.length > 0) {
+          const firstImg = prod.images[0];
+          if (firstImg && firstImg.startsWith('http')) {
+            imageXml = `\n    <image:image>\n      <image:loc>${firstImg}</image:loc>\n    </image:image>`;
+          }
+        }
         xml += `  <url>
     <loc>${DOMAIN}/product/${prod.id}</loc>
     <lastmod>${new Date(prod.updated_at || Date.now()).toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.8</priority>${imageXml}
   </url>\n`;
       });
     }

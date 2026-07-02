@@ -3,7 +3,22 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  // Disable realtime to prevent WebSocket connection errors (not used in this app)
+  realtime: {
+    params: {
+      eventsPerSecond: -1,
+    },
+  },
+  global: {
+    headers: {
+      'x-client-info': 'souq-baghdad',
+    },
+  },
+  db: {
+    schema: 'public',
+  },
+});
 
 // ─── Types for database rows ───────────────────────────────────────
 export type DbAd = {
