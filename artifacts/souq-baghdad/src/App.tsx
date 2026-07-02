@@ -1525,10 +1525,10 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
   const catName = catObj ? `${catObj.emoji} ${catObj.name}` : ad.category || 'عام';
 
   return (
-    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/80" onClick={onClose}/>
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-start justify-center p-0 md:p-4 bg-gray-950 overflow-y-auto">
+      {/* <div className="absolute inset-0 bg-black/80" onClick={onClose}/> */}
       <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}}
-        className="relative bg-gray-900 rounded-3xl w-full max-w-2xl max-h-[92vh] overflow-y-auto border border-gray-700 z-10">
+        className="relative bg-gray-900 md:rounded-3xl w-full max-w-2xl min-h-screen md:min-h-0 md:max-h-[92vh] overflow-y-auto border-0 md:border border-gray-700 z-10 shadow-2xl">
         <InterestTimer itemId={ad.id} itemType="ad" />
         <div className="relative">
           <div 
@@ -3661,13 +3661,14 @@ const fetchRecovery = async () => {
               const isOnline = new Date().getTime() - new Date(u.last_seen || 0).getTime() < 5 * 60 * 1000;
               
               return (
-              <div key={u.id} className={`bg-gray-800 rounded-2xl p-4 border ${u.is_banned?'border-red-500/30':'border-gray-700'} flex items-center gap-3 flex-wrap relative`}>
+              <div key={u.id} className={`bg-gray-800 rounded-2xl p-4 border ${u.is_banned?'border-red-500/30':'border-gray-700'} flex flex-col sm:flex-row sm:items-center gap-3 relative`}>
                 {u.role !== 'owner' && (
                   <input type="checkbox" className="w-5 h-5 accent-red-500 rounded cursor-pointer hidden sm:block flex-shrink-0" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
                     if (e.target.checked) setSelectedUserIds(prev => [...prev, u.id]);
                     else setSelectedUserIds(prev => prev.filter(id => id !== u.id));
                   }} />
                 )}
+                <div className="flex items-center gap-3 w-full sm:w-auto">
                 <div className="relative flex-shrink-0">
                   <img src={u.avatar_url || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-12 h-12 rounded-full object-cover border-2 ${u.is_banned?'border-red-500/50':'border-gray-600'}`}/>
                   <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-gray-800 ${isOnline ? 'bg-green-500' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'غير متصل'}></div>
@@ -3691,7 +3692,8 @@ const fetchRecovery = async () => {
                   <p className="text-gray-500 text-[10px] mt-0.5">{u.city} • آخر ظهور: {u.last_seen ? new Date(u.last_seen).toLocaleString('ar-IQ') : 'غير معروف'}</p>
                 </div>
                 
-                <div className="flex items-center gap-2 flex-shrink-0 mt-2 sm:mt-0 flex-wrap">
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0 mt-2 sm:mt-0 flex-wrap justify-end">
                   <button onClick={() => alert('تفاصيل المستخدم: \n' + JSON.stringify(u, null, 2))} className="p-2 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-xl" title="معلومات المستخدم"><Eye className="w-4 h-4"/></button>
                   {u.role !== 'owner' && (
                     <button onClick={() => {
@@ -4417,6 +4419,8 @@ function MarketView({
 }) {
   const [viewMode, setViewMode] = useState<'grid'|'list'>('grid');
   const [visibleProfilesCount, setVisibleProfilesCount] = useState(4);
+  const [visibleTransportCount, setVisibleTransportCount] = useState(4);
+  const [visibleTopSellers, setVisibleTopSellers] = useState(5);
   const [contentTab, setContentTab] = useState<'ads'|'products'|'profiles'|'transport'|'all'>(() => {
     if (typeof window === 'undefined') return 'all';
     const h = window.location.hash;
@@ -4623,6 +4627,7 @@ function MarketView({
   const showAds = contentTab==='ads'||contentTab==='all';
   const showProds = contentTab==='products'||contentTab==='all';
 
+  const canViewFullDirectory = user?.role === 'admin' || user?.role === 'owner' || user?.isVerified;
   return (
     <div>
       {/* Hero */}
@@ -4810,7 +4815,7 @@ function MarketView({
                 </div>
               ) : (
                 <div className="space-y-4 max-w-2xl mx-auto">
-                  {filteredTransport.map(ad => (
+                  {filteredTransport.slice(0, visibleTransportCount).map(ad => (
                     <motion.div
                       key={ad.id}
                       initial={{ opacity: 0, y: 10 }}
@@ -4921,6 +4926,7 @@ function MarketView({
           {contentTab === 'profiles' && (
             <div className="mb-8 space-y-6">
               {/* Accounts Dedicated Search & Header Banner */}
+              {canViewFullDirectory ? (
               <div className="bg-gradient-to-r from-gray-800 via-gray-900 to-gray-800 p-5 rounded-3xl border border-gray-700 shadow-xl space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
@@ -4949,6 +4955,7 @@ function MarketView({
                   )}
                 </div>
               </div>
+            ) : null}
 
               {/* FEATURED TOP SELLERS SLIDER (If no search active and featured exist) */}
               {!search && (
@@ -4961,7 +4968,7 @@ function MarketView({
                   </div>
 
                   <div className="flex gap-4 overflow-x-auto pb-3 pt-1 px-1 no-scrollbar scroll-smooth">
-                    {storedUsers.filter(u => u.isVerified || (u.adCount + (u.prodCount || 0)) > 0).slice(0, 8).map(topUser => {
+                    {storedUsers.filter(u => u.isVerified || (u.adCount + (u.prodCount || 0)) > 0).sort((a,b) => ((b.adCount||0)+(b.prodCount||0)) - ((a.adCount||0)+(a.prodCount||0))).slice(0, visibleTopSellers).map(topUser => {
                       const isOnline = !!onlineStatuses[topUser.id];
                       return (
                         <motion.div
@@ -5687,7 +5694,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
 // Root App
 
 // ─────────────────────────────────────────────
-type AppView = 'home'|'profile'|'admin'|'owner'|'seller'|'transport'|'products';
+type AppView = 'home'|'profile'|'admin'|'owner'|'seller'|'transport'|'products'|'ad-detail'|'product-detail'|'transport-detail';
 
 export default function App() {
   const [user, setUser] = useState<User|null>(() => {
@@ -5976,7 +5983,7 @@ export default function App() {
 
   // --- DEEP LINKING & ROUTING HOOKS ---
 
-  const syncStateFromHash = () => {
+  const syncStateFromPath = () => {
     let hash = window.location.hash;
     const path = window.location.pathname;
     if ((!hash || hash === '#/') && path !== '/') {
@@ -6111,12 +6118,12 @@ export default function App() {
 
   useEffect(() => {
     if (initialHashParsed) return;
-    syncStateFromHash();
+    syncStateFromPath();
     setInitialHashParsed(true);
   }, [allAds, allProducts, initialHashParsed]);
 
   useEffect(() => {
-    const handleHashChange = () => syncStateFromHash();
+    const handleHashChange = () => syncStateFromPath();
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, [allAds, allProducts]);
@@ -6240,7 +6247,7 @@ export default function App() {
         setLoadingTransport(false);
       }
 
-      let query = supabase.from('ads').select('*', { count: 'exact' }).eq('is_demo', false).neq('category', 'transport').neq('category', 'notification');
+      let query = supabase.from('ads').select('*', { count: 'exact' }).eq('is_demo', false).neq('category', 'transport').neq('category', 'notification').neq('status', 'sold');
 
       if (cat && cat !== 'all') {
         query = query.eq('category', cat);
@@ -6384,7 +6391,7 @@ export default function App() {
       const from = pageToFetch * pageSize;
       const to = from + pageSize - 1;
 
-      let query = supabase.from('products').select('*', { count: 'exact' });
+      let query = supabase.from('products').select('*', { count: 'exact' }).neq('status', 'sold');
 
       if (cat && cat !== 'all') {
         query = query.eq('category', cat);
