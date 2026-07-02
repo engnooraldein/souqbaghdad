@@ -3313,13 +3313,13 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
   
   // Dashboard Pagination
-  const [visibleUsers, setVisibleUsers] = useState(15);
-  const [visibleGuests, setVisibleGuests] = useState(15);
-  const [visibleLogs, setVisibleLogs] = useState(15);
-  const [visibleVisits, setVisibleVisits] = useState(15);
-  const [visibleDashboardAds, setVisibleDashboardAds] = useState(10);
-  const [visibleDashboardProducts, setVisibleDashboardProducts] = useState(10);
-  const [visibleDashboardLines, setVisibleDashboardLines] = useState(10);
+  const [visibleUsers, setVisibleUsers] = useState(4);
+  const [visibleGuests, setVisibleGuests] = useState(4);
+  const [visibleLogs, setVisibleLogs] = useState(4);
+  const [visibleVisits, setVisibleVisits] = useState(4);
+  const [visibleDashboardAds, setVisibleDashboardAds] = useState(4);
+  const [visibleDashboardProducts, setVisibleDashboardProducts] = useState(4);
+  const [visibleDashboardLines, setVisibleDashboardLines] = useState(4);
   const [logFilter, setLogFilter] = useState('');
 
   useEffect(() => {
@@ -3625,7 +3625,7 @@ const fetchRecovery = async () => {
               {visibleVisits < visits.length && (
                 <div className="text-center py-4 border-t border-gray-700/50">
                   <p className="text-gray-400 text-xs mb-2">تم العثور على {visits.length} زيارة، يتم عرض {Math.min(visibleVisits, visits.length)} من أصل {visits.length}</p>
-                  <button onClick={() => setVisibleVisits(prev => prev + 25)} className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs transition-all">
+                  <button onClick={() => setVisibleVisits(prev => prev + 4)} className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs transition-all">
                     عرض المزيد 👥
                   </button>
                 </div>
@@ -3754,7 +3754,7 @@ const fetchRecovery = async () => {
             {visibleUsers < dbUsers.length && (
               <div className="text-center py-4 border-t border-gray-700/50">
                 <p className="text-gray-400 text-xs mb-2">تم العثور على {dbUsers.length} مستخدم، يتم عرض {Math.min(visibleUsers, dbUsers.length)} من أصل {dbUsers.length}</p>
-                <button onClick={() => setVisibleUsers(prev => prev + 15)} className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs transition-all shadow-md">
+                <button onClick={() => setVisibleUsers(prev => prev + 4)} className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs transition-all shadow-md">
                   عرض المزيد 🧑‍💼
                 </button>
               </div>
@@ -3778,7 +3778,7 @@ const fetchRecovery = async () => {
                   ))}
                   {visibleDashboardAds < ads.length && (
                     <div className="text-center py-2.5 border-t border-gray-700 bg-gray-900/40">
-                      <button onClick={() => setVisibleDashboardAds(prev => prev + 10)} className="px-4 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-xs font-bold transition">
+                      <button onClick={() => setVisibleDashboardAds(prev => prev + 4)} className="px-4 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-xs font-bold transition">
                         عرض المزيد من الإعلانات ({Math.min(visibleDashboardAds, ads.length)} من {ads.length})
                       </button>
                     </div>
@@ -3800,7 +3800,7 @@ const fetchRecovery = async () => {
                   ))}
                   {visibleDashboardProducts < products.length && (
                     <div className="text-center py-2.5 border-t border-gray-700 bg-gray-900/40">
-                      <button onClick={() => setVisibleDashboardProducts(prev => prev + 10)} className="px-4 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-xs font-bold transition">
+                      <button onClick={() => setVisibleDashboardProducts(prev => prev + 4)} className="px-4 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-xs font-bold transition">
                         عرض المزيد من المنتجات ({Math.min(visibleDashboardProducts, products.length)} من {products.length})
                       </button>
                     </div>
@@ -3824,7 +3824,7 @@ const fetchRecovery = async () => {
                   ))}
                   {visibleDashboardLines < transportAds.length && (
                     <div className="text-center py-2.5 border-t border-gray-700 bg-gray-900/40">
-                      <button onClick={() => setVisibleDashboardLines(prev => prev + 10)} className="px-4 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-xs font-bold transition">
+                      <button onClick={() => setVisibleDashboardLines(prev => prev + 4)} className="px-4 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-xs font-bold transition">
                         عرض المزيد من خطوط النقل ({Math.min(visibleDashboardLines, transportAds.length)} من {transportAds.length})
                       </button>
                     </div>
@@ -4060,7 +4060,7 @@ const fetchRecovery = async () => {
                     {visibleLogs < filtered.length && (
                       <div className="text-center py-4 border-t border-gray-800">
                         <p className="text-gray-400 text-xs mb-2">يتم عرض {displayed.length} من أصل {filtered.length} سجل عملي</p>
-                        <button onClick={() => setVisibleLogs(prev => prev + 15)} className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs transition-all">
+                        <button onClick={() => setVisibleLogs(prev => prev + 4)} className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs transition-all">
                           عرض المزيد 📋
                         </button>
                       </div>
@@ -4416,7 +4416,7 @@ function MarketView({
   isInitialLoading?: boolean;
 }) {
   const [viewMode, setViewMode] = useState<'grid'|'list'>('grid');
-  const [visibleProfilesCount, setVisibleProfilesCount] = useState(12);
+  const [visibleProfilesCount, setVisibleProfilesCount] = useState(4);
   const [contentTab, setContentTab] = useState<'ads'|'products'|'profiles'|'transport'|'all'>(() => {
     if (typeof window === 'undefined') return 'all';
     const h = window.location.hash;
@@ -5011,7 +5011,7 @@ function MarketView({
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredProfiles.map(profile => {
+                  {displayedProfiles.map(profile => {
                     const isOnline = Boolean((user && (String(profile.id) === String(user.id) || String(profile.phone) === String(user.phone))) || onlineStatuses[profile.id] || onlineStatuses[profile.phone]);
                     return (
                       <motion.div
@@ -5095,6 +5095,16 @@ function MarketView({
                       </motion.div>
                     );
                   })}
+                </div>
+              )}
+              {visibleProfilesCount < filteredProfiles.length && (
+                <div className="text-center py-4 border-t border-gray-800/50 mt-6">
+                  <button 
+                    onClick={() => setVisibleProfilesCount(prev => prev + 4)}
+                    className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs transition-all shadow-md"
+                  >
+                    عرض المزيد من الحسابات 👥
+                  </button>
                 </div>
               )}
             </div>
@@ -5359,7 +5369,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
   const [filterType, setFilterType] = useState('الكل');
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(12);
+  const [visibleCount, setVisibleCount] = useState(4);
   const [loadingMore, setLoadingMore] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -5641,7 +5651,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
                   onClick={() => {
                     setLoadingMore(true);
                     setTimeout(() => {
-                      setVisibleCount(prev => prev + 12);
+                      setVisibleCount(prev => prev + 4);
                       setLoadingMore(false);
                     }, 400);
                   }}
@@ -6165,7 +6175,7 @@ export default function App() {
     }
     try {
       const pageToFetch = reset ? 0 : adsPage + 1;
-      const pageSize = 12;
+      const pageSize = 4;
       const from = pageToFetch * pageSize;
       const to = from + pageSize - 1;
 
@@ -6370,7 +6380,7 @@ export default function App() {
     }
     try {
       const pageToFetch = reset ? 0 : productsPage + 1;
-      const pageSize = 12;
+      const pageSize = 4;
       const from = pageToFetch * pageSize;
       const to = from + pageSize - 1;
 
