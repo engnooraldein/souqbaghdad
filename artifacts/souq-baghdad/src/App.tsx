@@ -2099,7 +2099,7 @@ function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct }:{
   isOpen:boolean; onClose:()=>void; onSubmit:(p:Product)=>void; user:User; editProduct?:Product|null;
 }) {
   const isEdit = !!editProduct;
-  const [fd, setFd] = useState({ title:editProduct?.title||'', price:editProduct?.price?formatPrice(editProduct.price):'', description:editProduct?.description||'', category:editProduct?.category||'phones', governorate:editProduct?.governorate||user?.location||'بغداد', phone:editProduct?.phone||user?.phone||'', condition:(editProduct?.condition||'new') as 'new'|'used', stock:editProduct?.stock||1 });
+  const [fd, setFd] = useState({ title:editProduct?.title||'', price:editProduct?.price?formatPrice(editProduct.price):'', description:editProduct?.description||'', category:editProduct?.category||'electronics', governorate:editProduct?.governorate||user?.location||'بغداد', phone:editProduct?.phone||user?.phone||'', condition:(editProduct?.condition||'new') as 'new'|'used', stock:editProduct?.stock||1 });
   const [images, setImages] = useState<{preview:string;progress:number;_uid?:string}[]>((editProduct?.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)}))||[]));
   const [uploading, setUploading] = useState(false); const [pct, setPct] = useState(0);
   const playSound = useSound();
@@ -2133,10 +2133,20 @@ function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct }:{
       createdAtISO:isEdit?(editProduct?.createdAtISO||new Date().toISOString()):new Date().toISOString(), views:isEdit?(editProduct?.views||0):0, postedBy:user.id,
       status:isEdit?(editProduct?.status||'active'):'active' };
     setUploading(false); playSound('success'); onSubmit(p); onClose();
-    if(!isEdit){setFd({title:'',price:'',description:'',category:'phones',governorate:user?.location||'بغداد',phone:user?.phone||'',condition:'new',stock:1});setImages([]);}
+    if(!isEdit){setFd({title:'',price:'',description:'',category:'electronics',governorate:user?.location||'بغداد',phone:user?.phone||'',condition:'new',stock:1});setImages([]);}
   };
   const fmt=(v:string)=>v.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',');
-  const cats = CATEGORIES.filter(c=>c.id!=='all'&&c.id!=='games');
+  const cats = [
+    { id: 'electronics', name: 'أجهزة وإلكترونيات', emoji: '💻' },
+    { id: 'fashion', name: 'أزياء وملابس', emoji: '👕' },
+    { id: 'home', name: 'المنزل والمطبخ', emoji: '🏠' },
+    { id: 'furniture', name: 'أثاث وديكور', emoji: '🛋️' },
+    { id: 'beauty', name: 'العناية والجمال', emoji: '✨' },
+    { id: 'toys', name: 'ألعاب وأطفال', emoji: '🧸' },
+    { id: 'bikes', name: 'دراجات ورياضة', emoji: '🚲' },
+    { id: 'services', name: 'خدمات المتجر', emoji: '🔧' },
+    { id: 'other', name: 'أصناف أخرى', emoji: '📦' }
+  ];
   if(!isOpen) return null;
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -3508,7 +3518,7 @@ const fetchRecovery = async () => {
         
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['reports','🚩 التقارير والبلاغات'],['broadcast','🔔 إشعار عام'],['logs','📋 سجل العمليات'],['changelog','🚀 التحديثات v1.2']] as [string,string][]).map(([t,l])=>(
+          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['reports','🚩 التقارير والبلاغات'],['broadcast','🔔 إشعار عام'],['logs','📋 سجل العمليات'],['changelog','🚀 نسخة برو (التحديثات)']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`px-4 py-2 rounded-xl text-sm font-bold ${tab===t?'bg-amber-500 text-black':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
           ))}
         </div>
@@ -3588,8 +3598,11 @@ const fetchRecovery = async () => {
         
         {tab==='visitors'&&(
           <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
-            <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-              <h3 className="text-white font-bold">سجل الزيارات ({visits.length})</h3>
+            <div className="sticky top-[4rem] z-20 bg-gray-900/95 backdrop-blur-md p-4 border-b border-gray-750 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <h3 className="text-white font-bold">سجل الزيارات ({visits.length})</h3>
+                <span className="text-gray-400 text-xs">تم العثور على {visits.length} زيارة، يتم عرض {Math.min(visibleVisits, visits.length)} من أصل {visits.length}</span>
+              </div>
               <button onClick={()=>{try{localStorage.removeItem('souqVisits');}catch{}setVisits([]);}} className="text-xs text-red-400 flex items-center gap-1"><Trash2 className="w-3 h-3"/>مسح</button>
             </div>
             {visits.length===0?<div className="p-10 text-center"><Globe className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا توجد زيارات</p></div>:(
@@ -3623,6 +3636,11 @@ const fetchRecovery = async () => {
         
         {tab==='users'&&(
           <div className="space-y-3">
+            {/* Sticky Counts stats banner */}
+            <div className="sticky top-[4rem] z-20 bg-gray-900/95 backdrop-blur-md py-3 px-4 border border-gray-700 rounded-2xl mb-3 flex items-center justify-between shadow-lg">
+              <p className="text-gray-350 font-bold text-xs">إدارة الحسابات المسجلة</p>
+              <p className="text-gray-450 text-xs">تم العثور على {dbUsers.length} مستخدم، يتم عرض {Math.min(visibleUsers, dbUsers.length)} من أصل {dbUsers.length}</p>
+            </div>
             {selectedUserIds.length > 0 && (
                <div className="flex justify-between items-center bg-gray-800 p-3 rounded-xl border border-red-500/30 mb-3">
                  <span className="text-red-400 font-bold">تم تحديد {selectedUserIds.length} حسابات</span>
@@ -4004,18 +4022,18 @@ const fetchRecovery = async () => {
 
 
         {tab==='logs'&&(
-          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden space-y-4 p-5">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-3 pb-3 border-b border-gray-700">
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+            <div className="sticky top-[4rem] z-20 bg-gray-900/95 backdrop-blur-md p-5 border-b border-gray-750 flex flex-col md:flex-row items-center justify-between gap-3 shadow-lg">
               <div>
                 <h3 className="text-white font-bold text-lg flex items-center gap-2">📋 سجل تغييرات وعمليات النظام</h3>
-                <p className="text-gray-400 text-xs">يسجل كافة تحديثات وإجراءات الإدارة والمشرفين فور حدوثها</p>
+                <p className="text-gray-400 text-xs mt-1">تتبع كافة تحديثات وإجراءات الإدارة والمشرفين فور حدوثها</p>
               </div>
               <div className="flex items-center gap-2 w-full md:w-auto">
                 <input type="text" placeholder="بحث في السجل..." value={logFilter} onChange={e=>setLogFilter(e.target.value)} className="bg-gray-900 border border-gray-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 flex-1 md:w-48" />
                 <button onClick={()=>{if(confirm('هل انت متأكد من مسح جميع السجلات؟')){localStorage.removeItem('souq_system_logs');setSystemLogs([]);}}} className="px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 rounded-xl text-xs font-bold transition">مسح السجل</button>
               </div>
             </div>
-            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+            <div className="p-5 space-y-2 max-h-[600px] overflow-y-auto pr-1">
               {(() => {
                 const filtered = systemLogs.filter(l=>!logFilter||l.action.includes(logFilter)||l.details.includes(logFilter)||(l.target&&l.target.includes(logFilter)));
                 if (filtered.length === 0) {
@@ -4055,7 +4073,7 @@ const fetchRecovery = async () => {
         )}
 
         {tab==='changelog'&&(
-          <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 space-y-6 max-w-4xl mx-auto">
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 space-y-6 max-w-4xl mx-auto font-sans text-right" dir="rtl">
             <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-gray-700">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-amber-500/20 border border-amber-500/30 rounded-2xl flex items-center justify-center shadow-lg">
@@ -4063,37 +4081,102 @@ const fetchRecovery = async () => {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-white font-bold text-xl">سجل التحديثات والإصدارات</h2>
-                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.2.0</span>
+                    <h2 className="text-white font-bold text-xl">سجل التحديثات والإصدارات (نسخة برو ✨)</h2>
+                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.4.0</span>
                   </div>
-                  <p className="text-gray-400 text-xs mt-1">تتبع كافة التعديلات، التحسينات، والمميزات الجديدة في منصة سوق بغداد</p>
+                  <p className="text-gray-400 text-xs mt-1">تتبع التغييرات والتحديثات الزمنية مع كافة التفاصيل والميزات المضافة</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-gray-900 via-gray-900 to-amber-950/20 border-2 border-amber-500/40 rounded-2xl p-5 space-y-4 shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 left-0 bg-amber-500 text-black text-[10px] font-extrabold px-3 py-1 rounded-br-xl uppercase tracking-wider">
-                الإصدار الحالي المباشر
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-amber-400 font-bold text-lg">🚀 الإصدار v1.2.0</span>
-                <span className="text-gray-400 text-xs font-mono">({new Date().toLocaleDateString('ar-IQ')})</span>
-              </div>
-              <div className="space-y-3 pt-2">
-                <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
-                  <h4 className="text-amber-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">📌 ملاحظات التحديث (ما الجديد؟)</h4>
-                  <p className="text-gray-300 text-xs leading-relaxed">تمت إضافة قسم **سجل العمليات والتغييرات (Activity Logs)** الكامل، وتحديث بيئة البناء والتصدير القياسية لمطابقة خوادم Vercel و GitHub Actions، إضافة لنظام تتبع الإصدارات الحية لضمان وصول التحديث للمستخدم فوراً.</p>
+            <div className="space-y-6">
+              {/* v1.4.0 */}
+              <div className="bg-gradient-to-br from-gray-900 via-gray-900 to-amber-950/20 border-2 border-amber-500/40 rounded-2xl p-5 space-y-3 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-amber-500 text-black text-[9px] font-extrabold px-2.5 py-1 rounded-bl-xl uppercase tracking-wider">
+                  الإصدار الأخير
                 </div>
-                <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
-                  <h4 className="text-green-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">⚡ التحسينات والإصلاحات</h4>
-                  <ul className="text-gray-300 text-xs space-y-1.5 list-disc list-inside">
-                    <li>ربط عمليات الحظر، الترقية، حذف الإعلانات، والرسائل العامة بنظام سجل تلقائي يحفظ التوقيت والمنفذ.</li>
-                    <li>تسريع زمن بناء المشروع وتوحيد مسارات التصدير السحابي المباشر.</li>
-                  </ul>
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-400 font-bold text-base">🚀 الإصدار v1.4.0 (النسخة الاحترافية)</span>
+                  <span className="text-gray-400 text-xs font-mono">(02/07/2026 - 09:00 م)</span>
                 </div>
-                <div className="bg-gray-800/80 border border-gray-700/80 rounded-xl p-3.5">
-                  <h4 className="text-blue-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">💡 كيف الاستخدام؟</h4>
-                  <p className="text-gray-300 text-xs leading-relaxed">يمكنك التنقل بين تبويبة <strong>"سجل العمليات"</strong> لمتابعة الأنشطة اليومية للمشرفين والمالك، وتبويبة <strong>"التحديثات v1.2"</strong> للتحقق دائماً من رقم الإصدار الحالي للمنصة.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                  <div className="bg-gray-805/80 border border-gray-700/80 rounded-xl p-3.5">
+                    <h4 className="text-amber-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">📌 المميزات والتحديثات المضافة</h4>
+                    <ul className="text-gray-300 text-xs space-y-1.5 list-disc list-inside pr-1">
+                      <li><strong>تثبيت العدادات عند التمرير:</strong> تثبيت شريط إحصائيات التصفح ("تم العثور على X، يتم عرض Y من أصل X") في الأعلى عند النزول.</li>
+                      <li><strong>رسالة الترحيب والتحميل:</strong> ظهور تنبيه تفاعلي متحرك عند جلب المحتوى من قاعدة البيانات لتهيئة المستخدم للانتظار.</li>
+                      <li><strong>توحيد فئات المنتجات:</strong> مطابقة فئات فورم الرفع مع فئات الفرز والفلترة في المتجر المخصص.</li>
+                    </ul>
+                  </div>
+                  <div className="bg-gray-805/80 border border-gray-700/80 rounded-xl p-3.5">
+                    <h4 className="text-green-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">⚡ التفاصيل التقنية</h4>
+                    <p className="text-gray-300 text-xs leading-relaxed">تم تطبيق مؤشر تحميل متحرك في أزرار "عرض المزيد" لمنع التكرار وتقليل استهلاك الموارد، وتعديل هيكل الفئات ليتضمن: إلكترونيات، أزياء وملابس، المنزل، أثاث وديكور، العناية والجمال، دراجات، ألعاب، خدمات، وأصناف أخرى.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* v1.3.0 */}
+              <div className="bg-gray-900 border border-gray-750 rounded-2xl p-5 space-y-3 shadow-md relative overflow-hidden">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-300 font-bold text-base">📦 الإصدار v1.3.0</span>
+                  <span className="text-gray-500 text-xs font-mono">(02/07/2026 - 05:45 م)</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
+                    <h4 className="text-gray-300 font-bold text-xs mb-1">📌 المميزات والتحديثات</h4>
+                    <ul className="text-gray-400 text-xs space-y-1 list-disc list-inside pr-1">
+                      <li>فصل استعلام خطوط النقل وحل مشكلة القوائم الفارغة.</li>
+                      <li>إضافة وسم "حديث ✨" المتحرك للإعلانات الجديدة خلال 24 ساعة.</li>
+                      <li>عكس اتجاه أزرار الشريط السفلي للهواتف لتسهيل الوصول.</li>
+                    </ul>
+                  </div>
+                  <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
+                    <h4 className="text-gray-300 font-bold text-xs mb-1">⚡ تفاصيل التحسين</h4>
+                    <p className="text-gray-400 text-xs leading-relaxed">استبعاد فئتي النقل والإشعارات من الاستعلام الرئيسي للإعلانات لضمان حجز كافة خانات الـ 12 إعلاناً بالكامل للمنتجات المعروضة.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* v1.2.0 */}
+              <div className="bg-gray-900 border border-gray-750 rounded-2xl p-5 space-y-3 shadow-md relative overflow-hidden">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-300 font-bold text-base">📦 الإصدار v1.2.0</span>
+                  <span className="text-gray-500 text-xs font-mono">(02/07/2026 - 12:30 م)</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
+                    <h4 className="text-gray-300 font-bold text-xs mb-1">📌 المميزات والتحديثات</h4>
+                    <ul className="text-gray-400 text-xs space-y-1 list-disc list-inside pr-1">
+                      <li>لوحة تحهم التقارير والبلاغات الجديدة.</li>
+                      <li>نظام تصفح وترقيم وتحديد عدد العناصر في Dashboard المالك.</li>
+                      <li>نظام سجل العمليات والأنشطة الإدارية.</li>
+                    </ul>
+                  </div>
+                  <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
+                    <h4 className="text-gray-300 font-bold text-xs mb-1">⚡ تفاصيل التحسين</h4>
+                    <p className="text-gray-400 text-xs leading-relaxed">ربط عمليات الحظر، الترقية، وحذف الإعلانات بنظام سجل تلقائي يحفظ التوقيت والمنفذ.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* v1.1.0 */}
+              <div className="bg-gray-900 border border-gray-750 rounded-2xl p-5 space-y-3 shadow-md relative overflow-hidden">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-300 font-bold text-base">📦 الإصدار v1.1.0</span>
+                  <span className="text-gray-500 text-xs font-mono">(01/07/2026 - 06:00 م)</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
+                    <h4 className="text-gray-300 font-bold text-xs mb-1">📌 المميزات والتحديثات</h4>
+                    <ul className="text-gray-400 text-xs space-y-1 list-disc list-inside pr-1">
+                      <li>حل مشكلة Safe Area و Safe Area Insets مع هواتف iPhone.</li>
+                      <li>تمكين روابط الدخول المباشر للإعلانات والمنتجات ومشاركتها بشكل سليم.</li>
+                    </ul>
+                  </div>
+                  <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
+                    <h4 className="text-gray-300 font-bold text-xs mb-1">⚡ تفاصيل التحسين</h4>
+                    <p className="text-gray-400 text-xs leading-relaxed">تحسين ملفات التعريف والميتا وتحديث ملفات التنسيق index.css لتناسب أجهزة آبل بالكامل.</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -4310,7 +4393,8 @@ function MarketView({
   search, setSearch, cat, setCat, gov, setGov, sort, setSort, 
   priceMin, setPriceMin, priceMax, setPriceMax,
   hasMoreAds, hasMoreProducts, onLoadMoreAds, onLoadMoreProducts,
-  totalAdsCount, totalProductsCount
+  totalAdsCount, totalProductsCount,
+  loadingMoreAds, loadingMoreProducts, isInitialLoading
 }:{
   user:User|null; allAds:Ad[]; allProducts:Product[]; favorites:number[]; storedUsers?: any[];
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void;
@@ -4328,6 +4412,8 @@ function MarketView({
   hasMoreAds: boolean; hasMoreProducts: boolean;
   onLoadMoreAds: () => void; onLoadMoreProducts: () => void;
   totalAdsCount: number; totalProductsCount: number;
+  loadingMoreAds?: boolean; loadingMoreProducts?: boolean;
+  isInitialLoading?: boolean;
 }) {
   const [viewMode, setViewMode] = useState<'grid'|'list'>('grid');
   const [visibleProfilesCount, setVisibleProfilesCount] = useState(12);
@@ -4620,10 +4706,31 @@ function MarketView({
             </AnimatePresence>
           </div>
 
-          {/* Ads */}
-          {showAds&&filterAds.length>0&&(
-            <div className="mb-8">
+          {isInitialLoading ? (
+            <div className="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-3xl p-10 text-center space-y-4 max-w-lg mx-auto my-12 shadow-2xl" dir="rtl">
+              <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/25 rounded-2xl flex items-center justify-center mx-auto shadow-lg animate-pulse">
+                <Sparkles className="w-8 h-8 text-amber-400"/>
+              </div>
+              <h3 className="text-xl font-bold text-white">أهلاً بك في سوق بغداد! ✨</h3>
+              <p className="text-gray-300 text-sm">جاري تحميل أحدث العروض والخدمات، يرجى الانتظار ثوانٍ...</p>
+              <div className="flex justify-center gap-1.5 pt-2">
+                <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-bounce" style={{animationDelay:'0ms'}}></span>
+                <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-bounce" style={{animationDelay:'150ms'}}></span>
+                <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-bounce" style={{animationDelay:'300ms'}}></span>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Ads */}
+              {showAds&&filterAds.length>0&&(
+                <div className="mb-8">
               {contentTab==='all'&&<div className="flex items-center gap-3 mb-4"><div className="h-px flex-1 bg-gray-700"/><span className="text-gray-400 text-sm font-medium flex items-center gap-1.5"><FileText className="w-4 h-4"/>الإعلانات ({filterAds.length})</span><div className="h-px flex-1 bg-gray-700"/></div>}
+              
+              {/* Sticky Counts stats banner */}
+              <div className="sticky top-[4rem] z-20 bg-gray-950/90 backdrop-blur-md py-2.5 px-3 border-b border-gray-900 mb-4 rounded-xl flex items-center justify-between">
+                <p className="text-gray-400 text-xs">تم العثور على <span className="text-amber-400 font-bold">{totalAdsCount}</span> إعلان، يتم عرض {Math.min(filterAds.length, totalAdsCount)} من أصل {totalAdsCount}</p>
+              </div>
+
               <div className="flex flex-col gap-6">
                 <div className={viewMode==='grid'?'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4':'space-y-3'}>
                   {filterAds.map(ad=><AdCard key={ad.id} ad={ad} onSelect={()=>onSelectAd(ad)} isFav={favorites.includes(ad.id)}
@@ -4631,17 +4738,24 @@ function MarketView({
                     onSellerClick={(id)=>{if(id)onSellerClick(id);}}
                     onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===ad.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"ad",item:ad});}}/>)}
                 </div>
-                <div className="text-center py-4 border-t border-gray-800/50">
-                  <p className="text-gray-400 text-xs mb-2">تم العثور على {totalAdsCount} إعلان، يتم عرض {Math.min(filterAds.length, totalAdsCount)} من أصل {totalAdsCount}</p>
-                  {hasMoreAds && (
+                {hasMoreAds && (
+                  <div className="text-center py-4 border-t border-gray-800/50">
                     <button 
                       onClick={onLoadMoreAds} 
-                      className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs transition-all shadow-md"
+                      disabled={loadingMoreAds}
+                      className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-700 text-black font-bold rounded-xl text-xs transition-all shadow-md flex items-center gap-2 mx-auto"
                     >
-                      عرض المزيد من الإعلانات 📢
+                      {loadingMoreAds ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin"></span>
+                          <span>جاري التحميل...</span>
+                        </>
+                      ) : (
+                        <span>عرض المزيد من الإعلانات 📢</span>
+                      )}
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -4650,6 +4764,12 @@ function MarketView({
           {showProds&&filterProds.length>0&&(
             <div className="mb-8">
               {contentTab==='all'&&<div className="flex items-center gap-3 mb-4"><div className="h-px flex-1 bg-gray-700"/><span className="text-gray-400 text-sm font-medium flex items-center gap-1.5"><ShoppingBag className="w-4 h-4"/>المنتجات ({filterProds.length})</span><div className="h-px flex-1 bg-gray-700"/></div>}
+              
+              {/* Sticky Counts stats banner */}
+              <div className="sticky top-[4rem] z-20 bg-gray-950/90 backdrop-blur-md py-2.5 px-3 border-b border-gray-900 mb-4 rounded-xl flex items-center justify-between">
+                <p className="text-gray-400 text-xs">تم العثور على <span className="text-blue-450 font-bold">{totalProductsCount}</span> منتج، يتم عرض {Math.min(filterProds.length, totalProductsCount)} من أصل {totalProductsCount}</p>
+              </div>
+
               <div className="flex flex-col gap-6">
                 <div className={viewMode==='grid'?'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4':'space-y-3'}>
                   {filterProds.map(p=><ProductCard key={p.id} product={p} onSelect={()=>onSelectProduct(p)} isFav={favorites.includes(p.id)}
@@ -4657,17 +4777,24 @@ function MarketView({
                     onSellerClick={(id)=>{if(id)onSellerClick(id);}}
                     onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===p.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"product",item:p});}}/>)}
                 </div>
-                <div className="text-center py-4 border-t border-gray-800/50">
-                  <p className="text-gray-400 text-xs mb-2">تم العثور على {totalProductsCount} منتج، يتم عرض {Math.min(filterProds.length, totalProductsCount)} من أصل {totalProductsCount}</p>
-                  {hasMoreProducts && (
+                {hasMoreProducts && (
+                  <div className="text-center py-4 border-t border-gray-800/50">
                     <button 
                       onClick={onLoadMoreProducts} 
-                      className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all shadow-md"
+                      disabled={loadingMoreProducts}
+                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center gap-2 mx-auto"
                     >
-                      عرض المزيد من المنتجات 🛍️
+                      {loadingMoreProducts ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                          <span>جاري التحميل...</span>
+                        </>
+                      ) : (
+                        <span>عرض المزيد من المنتجات 🛍️</span>
+                      )}
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -4977,8 +5104,10 @@ function MarketView({
           {contentTab !== 'profiles' && ((showAds&&filterAds.length===0)||(showProds&&filterProds.length===0))&&filterAds.length===0&&filterProds.length===0&&(
             <div className="text-center py-20"><div className="text-5xl mb-4">🔍</div><h3 className="text-xl font-bold text-white mb-2">لا توجد نتائج</h3><p className="text-gray-400 text-sm">جرب تغيير الفلاتر أو كلمة البحث</p></div>
           )}
-        </div>
-      </section>
+        </>
+      )}
+    </div>
+  </section>
 
       {/* Games */}
       <section className="hidden py-12 bg-gradient-to-br from-purple-900 via-blue-900 to-purple-900">
@@ -5212,7 +5341,7 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
   );
 }
 
-function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, lines, onPost, onUpdateStatus, onDeleteAd, onActionMenu }: {
+function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, lines, onPost, onUpdateStatus, onDeleteAd, onActionMenu, isInitialLoading }: {
   user: { id: string; name: string; avatar: string; phone: string; role?: string } | null;
   onBack: () => void;
   onCreateAd: () => void;
@@ -5223,6 +5352,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
   onUpdateStatus: (id: number, status: TransportAd['status'], reason?: TransportAd['completion_reason']) => void;
   onDeleteAd?: (id: number) => void;
   onActionMenu?: (target: {type:"transport", item:TransportAd}) => void;
+  isInitialLoading?: boolean;
 }) {
   const [mainCategoryFilter, setMainCategoryFilter] = useState<'student'|'employee'|'all'>('student');
   const [filterUniversity, setFilterUniversity] = useState('الكل');
@@ -5230,6 +5360,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [visibleCount, setVisibleCount] = useState(12);
+  const [loadingMore, setLoadingMore] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
   const handleTouchStart = (ad: TransportAd) => {
@@ -5361,7 +5492,20 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
 
       {/* Listings */}
       <div className="container mx-auto max-w-2xl px-4 py-4">
-        {filtered.length === 0 ? (
+        {isInitialLoading ? (
+          <div className="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-3xl p-10 text-center space-y-4 max-w-lg mx-auto my-12 shadow-2xl" dir="rtl">
+            <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl flex items-center justify-center mx-auto shadow-lg animate-pulse">
+              <Sparkles className="w-8 h-8 text-emerald-400"/>
+            </div>
+            <h3 className="text-xl font-bold text-white">أهلاً بك في قسم الخطوط! ✨</h3>
+            <p className="text-gray-300 text-sm">جاري تحميل أحدث خطوط النقل المتوفرة، يرجى الانتظار ثوانٍ...</p>
+            <div className="flex justify-center gap-1.5 pt-2">
+              <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-bounce" style={{animationDelay:'0ms'}}></span>
+              <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-bounce" style={{animationDelay:'150ms'}}></span>
+              <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-bounce" style={{animationDelay:'300ms'}}></span>
+            </div>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-6xl mb-4">🚐</div>
             <h3 className="text-white font-bold text-lg mb-2">لا توجد إعلانات حالياً في هذا القسم</h3>
@@ -5494,10 +5638,24 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
             {visibleCount < filtered.length && (
               <div className="text-center py-6 mt-4 border-t border-gray-800">
                 <button 
-                  onClick={() => setVisibleCount(prev => prev + 12)}
-                  className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-emerald-500/20"
+                  onClick={() => {
+                    setLoadingMore(true);
+                    setTimeout(() => {
+                      setVisibleCount(prev => prev + 12);
+                      setLoadingMore(false);
+                    }, 400);
+                  }}
+                  disabled={loadingMore}
+                  className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2 mx-auto"
                 >
-                  عرض المزيد من الخطوط 🚌
+                  {loadingMore ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      <span>جاري التحميل...</span>
+                    </>
+                  ) : (
+                    <span>عرض المزيد من الخطوط 🚌</span>
+                  )}
                 </button>
               </div>
             )}
@@ -5633,6 +5791,11 @@ export default function App() {
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
   const [conditionFilter, setConditionFilter] = useState<'all'|'new'|'used'>('all');
+
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [loadingMoreAds, setLoadingMoreAds] = useState(false);
+  const [loadingMoreProducts, setLoadingMoreProducts] = useState(false);
+  const [loadingTransport, setLoadingTransport] = useState(false);
 
   const playSound = useSound();
 
@@ -5995,160 +6158,175 @@ export default function App() {
 
   // ── Fetch ads & products from Supabase ─────────────────────────
   const fetchAds = useCallback(async (reset = true) => {
-    const pageToFetch = reset ? 0 : adsPage + 1;
-    const pageSize = 12;
-    const from = pageToFetch * pageSize;
-    const to = from + pageSize - 1;
-
-    let transportMapped: TransportAd[] = [];
     if (reset) {
-      const { data: transportData, error: transportError } = await supabase
-        .from('ads')
-        .select('*')
-        .eq('category', 'transport')
-        .eq('is_demo', false)
-        .order('created_at', { ascending: false });
-        
-      if (!transportError && transportData) {
-        transportMapped = transportData.map((row: any) => {
-          let extra = {
-            shift: 'صباحي',
-            seats: 4,
-            vehicleType: 'خصوصي',
-            targetAudience: 'مختلط',
-            categoryType: 'student' as 'student' | 'employee',
-            note: '',
-            interest: 0,
-            whatsappClicks: 0,
-            completedAt: undefined,
-            completion_reason: null
-          };
-          try {
-            if (row.description) {
-              const parsed = JSON.parse(row.description);
-              extra = { ...extra, ...parsed };
-            }
-          } catch (e) {
-            extra.note = row.description || '';
-          }
-          return {
-            id: row.id,
-            type: row.type || 'offer',
-            categoryType: extra.categoryType || 'student',
-            university: row.city || '',
-            regions: row.location || '',
-            shift: extra.shift,
-            seats: Number(extra.seats) || 0,
-            vehicleType: extra.vehicleType,
-            targetAudience: extra.targetAudience,
-            price: row.price ? formatPrice(row.price) : '',
-            phone: row.phone || '',
-            note: extra.note,
-            sellerName: row.seller_name || 'مستخدم',
-            sellerAvatar: row.seller_avatar || '',
-            createdAt: row.created_at,
-            status: row.status === 'active' ? 'published' : row.status,
-            postedBy: row.seller_id,
-            views: row.views || 0,
-            interest: extra.interest,
-            whatsappClicks: extra.whatsappClicks,
-            completedAt: extra.completedAt,
-            completion_reason: extra.completion_reason
-          };
-        });
-      }
-    }
-
-    let query = supabase.from('ads').select('*', { count: 'exact' }).eq('is_demo', false).neq('category', 'transport').neq('category', 'notification');
-
-    if (cat && cat !== 'all') {
-      query = query.eq('category', cat);
-    }
-    if (gov && gov !== 'الكل') {
-      query = query.eq('city', gov);
-    }
-    if (search) {
-      const term = `%${search}%`;
-      query = query.or(`title.ilike.${term},location.ilike.${term},short_id.ilike.${term}`);
-    }
-    if (priceMin) {
-      const minVal = parseInt(priceMin.replace(/,/g, ''));
-      if (!isNaN(minVal)) query = query.gte('price', minVal);
-    }
-    if (priceMax) {
-      const maxVal = parseInt(priceMax.replace(/,/g, ''));
-      if (!isNaN(maxVal)) query = query.lte('price', maxVal);
-    }
-
-    if (sort === 'views') {
-      query = query.order('views', { ascending: false });
-    } else if (sort === 'price-low') {
-      query = query.order('price', { ascending: true });
-    } else if (sort === 'price-high') {
-      query = query.order('price', { ascending: false });
+      setIsInitialLoading(true);
     } else {
-      query = query.order('created_at', { ascending: false });
+      setLoadingMoreAds(true);
     }
+    try {
+      const pageToFetch = reset ? 0 : adsPage + 1;
+      const pageSize = 12;
+      const from = pageToFetch * pageSize;
+      const to = from + pageSize - 1;
 
-    query = query.range(from, to);
-
-    const { data, error, count } = await query;
-    if (error) { console.error('Error fetching ads:', error); return; }
-    if (count !== null) setTotalAdsCount(count);
-    if (data) {
-      // Map normal ads
-      const normalRows = data.filter((row: any) => row.category !== 'transport' && row.category !== 'notification');
-      const normalMapped: Ad[] = normalRows.map((row: any) => ({
-        id: row.id,
-        title: row.title,
-        price: row.price,
-        governorate: row.city || '',
-        location: row.location || '',
-        phone: row.phone || '',
-        category: row.category,
-        images: row.images || [],
-        seller: {
-          name: row.seller_name || 'مستخدم',
-          avatar: row.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
-          isVerified: false,
-          rating: row.seller_rating || 4.8,
-          joinedDate: row.created_at,
-          location: row.city || '',
-        },
-        time: '',
-        createdAtISO: row.created_at,
-        views: row.views || 0,
-        status: row.status,
-        type: row.type || 'sell',
-        description: row.description || '',
-        adCount: 0,
-        soldCount: 0,
-        responseRate: 100,
-        avgResponseTime: 'دقائق',
-        postedBy: row.seller_id,
-      }));
-
-      const activeMapped = normalMapped.filter(a => a.status === 'active' || a.status === 'sold');
-      
+      let transportMapped: TransportAd[] = [];
       if (reset) {
-        setAllAds(activeMapped.length > 0 ? activeMapped : getDefaultAds());
-        setAllTransportAds(transportMapped);
-        setAdsPage(0);
-        setHasMoreAds(data.length === pageSize);
-      } else {
-        setAllAds(prev => {
-          const combined = [...prev, ...activeMapped];
-          const unique = combined.filter((v, i, self) => self.findIndex(t => t.id === v.id) === i);
-          return unique;
-        });
-        setAllTransportAds(prev => {
-          const combined = [...prev, ...transportMapped];
-          const unique = combined.filter((v, i, self) => self.findIndex(t => t.id === v.id) === i);
-          return unique;
-        });
-        setAdsPage(pageToFetch);
-        setHasMoreAds(data.length === pageSize);
+        setLoadingTransport(true);
+        const { data: transportData, error: transportError } = await supabase
+          .from('ads')
+          .select('*')
+          .eq('category', 'transport')
+          .eq('is_demo', false)
+          .order('created_at', { ascending: false });
+          
+        if (!transportError && transportData) {
+          transportMapped = transportData.map((row: any) => {
+            let extra = {
+              shift: 'صباحي',
+              seats: 4,
+              vehicleType: 'خصوصي',
+              targetAudience: 'مختلط',
+              categoryType: 'student' as 'student' | 'employee',
+              note: '',
+              interest: 0,
+              whatsappClicks: 0,
+              completedAt: undefined,
+              completion_reason: null
+            };
+            try {
+              if (row.description) {
+                const parsed = JSON.parse(row.description);
+                extra = { ...extra, ...parsed };
+              }
+            } catch (e) {
+              extra.note = row.description || '';
+            }
+            return {
+              id: row.id,
+              type: row.type || 'offer',
+              categoryType: extra.categoryType || 'student',
+              university: row.city || '',
+              regions: row.location || '',
+              shift: extra.shift,
+              seats: Number(extra.seats) || 0,
+              vehicleType: extra.vehicleType,
+              targetAudience: extra.targetAudience,
+              price: row.price ? formatPrice(row.price) : '',
+              phone: row.phone || '',
+              note: extra.note,
+              sellerName: row.seller_name || 'مستخدم',
+              sellerAvatar: row.seller_avatar || '',
+              createdAt: row.created_at,
+              status: row.status === 'active' ? 'published' : row.status,
+              postedBy: row.seller_id,
+              views: row.views || 0,
+              interest: extra.interest,
+              whatsappClicks: extra.whatsappClicks,
+              completedAt: extra.completedAt,
+              completion_reason: extra.completion_reason
+            };
+          });
+        }
+        setLoadingTransport(false);
       }
+
+      let query = supabase.from('ads').select('*', { count: 'exact' }).eq('is_demo', false).neq('category', 'transport').neq('category', 'notification');
+
+      if (cat && cat !== 'all') {
+        query = query.eq('category', cat);
+      }
+      if (gov && gov !== 'الكل') {
+        query = query.eq('city', gov);
+      }
+      if (search) {
+        const term = `%${search}%`;
+        query = query.or(`title.ilike.${term},location.ilike.${term},short_id.ilike.${term}`);
+      }
+      if (priceMin) {
+        const minVal = parseInt(priceMin.replace(/,/g, ''));
+        if (!isNaN(minVal)) query = query.gte('price', minVal);
+      }
+      if (priceMax) {
+        const maxVal = parseInt(priceMax.replace(/,/g, ''));
+        if (!isNaN(maxVal)) query = query.lte('price', maxVal);
+      }
+
+      if (sort === 'views') {
+        query = query.order('views', { ascending: false });
+      } else if (sort === 'price-low') {
+        query = query.order('price', { ascending: true });
+      } else if (sort === 'price-high') {
+        query = query.order('price', { ascending: false });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
+      if (error) { console.error('Error fetching ads:', error); return; }
+      if (count !== null) setTotalAdsCount(count);
+      if (data) {
+        // Map normal ads
+        const normalRows = data.filter((row: any) => row.category !== 'transport' && row.category !== 'notification');
+        const normalMapped: Ad[] = normalRows.map((row: any) => ({
+          id: row.id,
+          title: row.title,
+          price: row.price,
+          governorate: row.city || '',
+          location: row.location || '',
+          phone: row.phone || '',
+          category: row.category,
+          images: row.images || [],
+          seller: {
+            name: row.seller_name || 'مستخدم',
+            avatar: row.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
+            isVerified: false,
+            rating: row.seller_rating || 4.8,
+            joinedDate: row.created_at,
+            location: row.city || '',
+          },
+          time: '',
+          createdAtISO: row.created_at,
+          views: row.views || 0,
+          status: row.status,
+          type: row.type || 'sell',
+          description: row.description || '',
+          adCount: 0,
+          soldCount: 0,
+          responseRate: 100,
+          avgResponseTime: 'دقائق',
+          postedBy: row.seller_id,
+        }));
+
+        const activeMapped = normalMapped.filter(a => a.status === 'active' || a.status === 'sold');
+        
+        if (reset) {
+          setAllAds(activeMapped.length > 0 ? activeMapped : getDefaultAds());
+          setAllTransportAds(transportMapped);
+          setAdsPage(0);
+          setHasMoreAds(data.length === pageSize);
+        } else {
+          setAllAds(prev => {
+            const combined = [...prev, ...activeMapped];
+            const unique = combined.filter((v, i, self) => self.findIndex(t => t.id === v.id) === i);
+            return unique;
+          });
+          setAllTransportAds(prev => {
+            const combined = [...prev, ...transportMapped];
+            const unique = combined.filter((v, i, self) => self.findIndex(t => t.id === v.id) === i);
+            return unique;
+          });
+          setAdsPage(pageToFetch);
+          setHasMoreAds(data.length === pageSize);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsInitialLoading(false);
+      setLoadingMoreAds(false);
+      setLoadingTransport(false);
     }
   }, [adsPage, search, cat, gov, sort, priceMin, priceMax]);
 
@@ -6185,86 +6363,98 @@ export default function App() {
   };
 
   const fetchProducts = useCallback(async (reset = true) => {
-    const pageToFetch = reset ? 0 : productsPage + 1;
-    const pageSize = 12;
-    const from = pageToFetch * pageSize;
-    const to = from + pageSize - 1;
-
-    let query = supabase.from('products').select('*', { count: 'exact' });
-
-    if (cat && cat !== 'all') {
-      query = query.eq('category', cat);
-    }
-    if (gov && gov !== 'الكل') {
-      query = query.eq('governorate', gov);
-    }
-    if (search) {
-      const term = `%${search}%`;
-      query = query.or(`title.ilike.${term},description.ilike.${term},short_id.ilike.${term}`);
-    }
-    if (priceMin) {
-      const minVal = parseInt(priceMin.replace(/,/g, ''));
-      if (!isNaN(minVal)) query = query.gte('price', minVal);
-    }
-    if (priceMax) {
-      const maxVal = parseInt(priceMax.replace(/,/g, ''));
-      if (!isNaN(maxVal)) query = query.lte('price', maxVal);
-    }
-
-    if (sort === 'views') {
-      query = query.order('views', { ascending: false });
-    } else if (sort === 'price-low') {
-      query = query.order('price', { ascending: true });
-    } else if (sort === 'price-high') {
-      query = query.order('price', { ascending: false });
+    if (reset) {
+      setIsInitialLoading(true);
     } else {
-      query = query.order('created_at', { ascending: false });
+      setLoadingMoreProducts(true);
     }
+    try {
+      const pageToFetch = reset ? 0 : productsPage + 1;
+      const pageSize = 12;
+      const from = pageToFetch * pageSize;
+      const to = from + pageSize - 1;
 
-    query = query.range(from, to);
+      let query = supabase.from('products').select('*', { count: 'exact' });
 
-    const { data, error, count } = await query;
-    if (error) { console.error('Error fetching products:', error); return; }
-    if (count !== null) setTotalProductsCount(count);
-    if (data) {
-      const mapped: Product[] = data.map((row: any) => ({
-        id: row.id,
-        title: row.title,
-        price: row.price,
-        description: row.description || '',
-        category: row.category,
-        images: row.images || [],
-        governorate: row.governorate || row.city || '',
-        phone: row.phone || '',
-        condition: row.condition || 'used',
-        seller: {
-          name: row.seller_name || 'مستخدم',
-          avatar: row.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
-          isVerified: false,
-          rating: 4.8,
-          joinedDate: row.created_at,
-          location: row.governorate || '',
-        },
-        createdAtISO: row.created_at,
-        views: row.views || 0,
-        postedBy: row.seller_id,
-        stock: row.stock || 1,
-        status: row.status || 'active',
-      }));
-      
-      if (reset) {
-        setAllProducts(mapped.length > 0 ? mapped : getDefaultProducts());
-        setProductsPage(0);
-        setHasMoreProducts(data.length === pageSize);
-      } else {
-        setAllProducts(prev => {
-          const combined = [...prev, ...mapped];
-          const unique = combined.filter((v, i, self) => self.findIndex(t => t.id === v.id) === i);
-          return unique;
-        });
-        setProductsPage(pageToFetch);
-        setHasMoreProducts(data.length === pageSize);
+      if (cat && cat !== 'all') {
+        query = query.eq('category', cat);
       }
+      if (gov && gov !== 'الكل') {
+        query = query.eq('governorate', gov);
+      }
+      if (search) {
+        const term = `%${search}%`;
+        query = query.or(`title.ilike.${term},description.ilike.${term},short_id.ilike.${term}`);
+      }
+      if (priceMin) {
+        const minVal = parseInt(priceMin.replace(/,/g, ''));
+        if (!isNaN(minVal)) query = query.gte('price', minVal);
+      }
+      if (priceMax) {
+        const maxVal = parseInt(priceMax.replace(/,/g, ''));
+        if (!isNaN(maxVal)) query = query.lte('price', maxVal);
+      }
+
+      if (sort === 'views') {
+        query = query.order('views', { ascending: false });
+      } else if (sort === 'price-low') {
+        query = query.order('price', { ascending: true });
+      } else if (sort === 'price-high') {
+        query = query.order('price', { ascending: false });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
+      if (error) { console.error('Error fetching products:', error); return; }
+      if (count !== null) setTotalProductsCount(count);
+      if (data) {
+        const mapped: Product[] = data.map((row: any) => ({
+          id: row.id,
+          title: row.title,
+          price: row.price,
+          description: row.description || '',
+          category: row.category,
+          images: row.images || [],
+          governorate: row.governorate || row.city || '',
+          phone: row.phone || '',
+          condition: row.condition || 'used',
+          seller: {
+            name: row.seller_name || 'مستخدم',
+            avatar: row.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
+            isVerified: false,
+            rating: 4.8,
+            joinedDate: row.created_at,
+            location: row.governorate || '',
+          },
+          createdAtISO: row.created_at,
+          views: row.views || 0,
+          postedBy: row.seller_id,
+          stock: row.stock || 1,
+          status: row.status || 'active',
+        }));
+        
+        if (reset) {
+          setAllProducts(mapped.length > 0 ? mapped : getDefaultProducts());
+          setProductsPage(0);
+          setHasMoreProducts(data.length === pageSize);
+        } else {
+          setAllProducts(prev => {
+            const combined = [...prev, ...mapped];
+            const unique = combined.filter((v, i, self) => self.findIndex(t => t.id === v.id) === i);
+            return unique;
+          });
+          setProductsPage(pageToFetch);
+          setHasMoreProducts(data.length === pageSize);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsInitialLoading(false);
+      setLoadingMoreProducts(false);
     }
   }, [productsPage, search, cat, gov, sort, priceMin, priceMax]);
 
@@ -6968,6 +7158,9 @@ export default function App() {
               onLoadMoreProducts={() => fetchProducts(false)}
               totalAdsCount={totalAdsCount}
               totalProductsCount={totalProductsCount}
+              loadingMoreAds={loadingMoreAds}
+              loadingMoreProducts={loadingMoreProducts}
+              isInitialLoading={isInitialLoading}
             />
           </motion.div>}
           {view==='products'&&<motion.div key="products" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
@@ -6981,6 +7174,8 @@ export default function App() {
               hasMoreProducts={hasMoreProducts} 
               onLoadMoreProducts={() => fetchProducts(false)}
               totalProductsCount={totalProductsCount}
+              loadingMoreProducts={loadingMoreProducts}
+              isInitialLoading={isInitialLoading}
               search={search}
               setSearch={setSearch}
               cat={cat}
@@ -7010,7 +7205,7 @@ export default function App() {
               }
             }} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile} onActionMenu={setActionMenuTarget}/></motion.div>}
           {view==='transport'&&<motion.div key="transport" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd} onActionMenu={setActionMenuTarget}/></motion.div>}
+            <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd} onActionMenu={setActionMenuTarget} isInitialLoading={isInitialLoading}/></motion.div>}
           {view==='admin'&&isAdmin&&!isOwner&&<motion.div key="admin" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <AdminPanel ads={allAds} onDeleteAd={handleDeleteAd} onClose={()=>setView('home')}/></motion.div>}
           {view==='owner'&&isOwner&&<motion.div key="owner" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>

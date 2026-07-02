@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { 
   ChevronLeft, Search, Plus, Tag, MapPin, 
-  ShoppingBag, Shield, Star, Info, MessageSquare, Share2
+  ShoppingBag, Shield, Star, Info, MessageSquare, Share2, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -45,6 +45,8 @@ interface ProductsViewProps {
   hasMoreProducts: boolean;
   onLoadMoreProducts: () => void;
   totalProductsCount: number;
+  loadingMoreProducts?: boolean;
+  isInitialLoading?: boolean;
   search: string;
   setSearch: (s: string) => void;
   cat: string;
@@ -71,6 +73,8 @@ export function ProductsView({
   hasMoreProducts,
   onLoadMoreProducts,
   totalProductsCount,
+  loadingMoreProducts,
+  isInitialLoading,
   search,
   setSearch,
   cat,
@@ -107,12 +111,15 @@ export function ProductsView({
 
   const CATEGORIES = [
     { id: 'all', name: 'الكل', emoji: '🛍️' },
-    { id: 'electronics', name: 'إلكترونيات', emoji: '📱' },
+    { id: 'electronics', name: 'إلكترونيات وأجهزة', emoji: '💻' },
     { id: 'fashion', name: 'أزياء وملابس', emoji: '👕' },
     { id: 'home', name: 'المنزل والمطبخ', emoji: '🏠' },
+    { id: 'furniture', name: 'أثاث وديكور', emoji: '🛋️' },
     { id: 'beauty', name: 'العناية والجمال', emoji: '✨' },
     { id: 'toys', name: 'ألعاب وأطفال', emoji: '🧸' },
-    { id: 'other', name: 'أخرى', emoji: '📦' }
+    { id: 'bikes', name: 'دراجات ورياضة', emoji: '🚲' },
+    { id: 'services', name: 'خدمات المتجر', emoji: '🔧' },
+    { id: 'other', name: 'أصناف أخرى', emoji: '📦' }
   ];
 
   const GOVERNORATES = [
@@ -302,8 +309,23 @@ export function ProductsView({
           ))}
         </div>
 
-        {/* Product Grid */}
-        {filteredProducts.length === 0 ? (
+        {isInitialLoading ? (
+          <div className="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-3xl p-10 text-center space-y-4 max-w-lg mx-auto my-12 shadow-2xl" dir="rtl">
+            <div className="w-16 h-16 bg-blue-500/10 border border-blue-500/25 rounded-2xl flex items-center justify-center mx-auto shadow-lg animate-pulse">
+              <Sparkles className="w-8 h-8 text-blue-400"/>
+            </div>
+            <h3 className="text-xl font-bold text-white">أهلاً بك في قسم المنتجات! ✨</h3>
+            <p className="text-gray-300 text-sm">جاري تحميل أحدث المنتجات المعروضة، يرجى الانتظار ثوانٍ...</p>
+            <div className="flex justify-center gap-1.5 pt-2">
+              <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{animationDelay:'0ms'}}></span>
+              <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{animationDelay:'150ms'}}></span>
+              <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{animationDelay:'300ms'}}></span>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Product Grid */}
+            {filteredProducts.length === 0 ? (
           <div className="text-center py-20 bg-gray-900/40 rounded-3xl border border-gray-900 mt-6">
             <div className="text-6xl mb-4">🛍️</div>
             <h3 className="text-xl font-bold text-white mb-2">لا توجد منتجات مطابقة للبحث</h3>
@@ -311,6 +333,11 @@ export function ProductsView({
           </div>
         ) : (
           <div className="mt-6 space-y-8">
+            {/* Sticky Counts stats banner */}
+            <div className="sticky top-[4rem] z-20 bg-gray-950/90 backdrop-blur-md py-2.5 px-3 border-b border-gray-900 mb-4 rounded-xl flex items-center justify-between">
+              <p className="text-gray-400 text-xs">تم العثور على <span className="text-blue-500 font-bold">{totalProductsCount}</span> منتج، يتم عرض {Math.min(filteredProducts.length, totalProductsCount)} من أصل {totalProductsCount}</p>
+            </div>
+
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {filteredProducts.map(p => (
                 <motion.div 
@@ -386,19 +413,28 @@ export function ProductsView({
             </div>
 
             {/* Pagination Controls */}
-            <div className="text-center py-6 mt-4 space-y-2 border-t border-gray-900">
-              <p className="text-gray-400 text-xs">تم العثور على {totalProductsCount} منتج، يتم عرض {Math.min(filteredProducts.length, totalProductsCount)} من أصل {totalProductsCount}</p>
-              {hasMoreProducts && (
+            {hasMoreProducts && (
+              <div className="text-center py-6 mt-4 border-t border-gray-900">
                 <button 
                   onClick={onLoadMoreProducts} 
-                  className="px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25 border border-blue-400/20"
+                  disabled={loadingMoreProducts}
+                  className="px-8 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25 border border-blue-400/20 flex items-center gap-2 mx-auto"
                 >
-                  عرض المزيد
+                  {loadingMoreProducts ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      <span>جاري التحميل...</span>
+                    </>
+                  ) : (
+                    <span>عرض المزيد</span>
+                  )}
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
+      </>
+    )}
       </div>
     </div>
   );
