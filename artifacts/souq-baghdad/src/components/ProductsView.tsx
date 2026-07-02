@@ -44,6 +44,7 @@ interface ProductsViewProps {
   onActionMenu?: (target: any) => void;
   hasMoreProducts: boolean;
   onLoadMoreProducts: () => void;
+  totalProductsCount: number;
   search: string;
   setSearch: (s: string) => void;
   cat: string;
@@ -69,6 +70,7 @@ export function ProductsView({
   onActionMenu,
   hasMoreProducts,
   onLoadMoreProducts,
+  totalProductsCount,
   search,
   setSearch,
   cat,
@@ -88,6 +90,13 @@ export function ProductsView({
 
   const formatPrice = (p: string) => {
     return p.replace(/[^0-9]/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  };
+
+  const isNewItem = (createdAtISO?: string) => {
+    if (!createdAtISO) return false;
+    const createdDate = new Date(createdAtISO).getTime();
+    const diffTime = Date.now() - createdDate;
+    return diffTime > 0 && diffTime < 24 * 60 * 60 * 1000;
   };
 
   // Filter local products to apply condition filter (since database filter might be different or local)
@@ -322,6 +331,11 @@ export function ProductsView({
                   }`}>
                     {p.condition === 'new' ? 'جديد' : 'مستعمل'}
                   </span>
+                  {isNewItem(p.createdAtISO) && (
+                    <span className="absolute top-8 left-2 z-10 px-2 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[9px] font-extrabold rounded-lg shadow-lg shadow-red-500/25 border border-red-400/30 animate-pulse">
+                      حديث ✨
+                    </span>
+                  )}
 
                   <div className="relative w-full aspect-[4/3] overflow-hidden flex-shrink-0 bg-gray-950">
                     <img 
@@ -372,17 +386,17 @@ export function ProductsView({
             </div>
 
             {/* Pagination Controls */}
-            {hasMoreProducts && (
-              <div className="text-center py-6 mt-4 space-y-2 border-t border-gray-900">
-                <p className="text-gray-400 text-xs">عرض المزيد من المنتجات</p>
+            <div className="text-center py-6 mt-4 space-y-2 border-t border-gray-900">
+              <p className="text-gray-400 text-xs">تم العثور على {totalProductsCount} منتج، يتم عرض {Math.min(filteredProducts.length, totalProductsCount)} من أصل {totalProductsCount}</p>
+              {hasMoreProducts && (
                 <button 
                   onClick={onLoadMoreProducts} 
                   className="px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25 border border-blue-400/20"
                 >
                   عرض المزيد
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </div>

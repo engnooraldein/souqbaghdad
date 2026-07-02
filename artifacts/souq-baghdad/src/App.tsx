@@ -1389,7 +1389,7 @@ function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu }:{
       <div className="relative w-full aspect-[4/3] overflow-hidden flex-shrink-0">
         <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={ad.title} className="w-full h-full object-cover" loading="lazy" decoding="async"/>
         {isNewItem(ad.createdAtISO) && (
-          <div className="absolute top-2 left-2 px-2 py-0.5 bg-red-600/90 backdrop-blur-sm text-white text-[9px] font-bold rounded-lg z-10 shadow-md animate-pulse">
+          <div className="absolute top-2 left-2 px-2 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[9px] font-extrabold rounded-lg z-10 shadow-lg shadow-red-500/25 border border-red-400/30 animate-pulse">
             حديث ✨
           </div>
         )}
@@ -1435,12 +1435,7 @@ function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionM
         <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{background:product.condition==='new'?'#22c55e':'#f59e0b'}}>
           {product.condition==='new'?'جديد':'مستعمل'}</div>
         {isNewItem(product.createdAtISO) && (
-          <div className="absolute top-8 left-2 px-2 py-0.5 bg-red-600/90 backdrop-blur-sm text-white text-[9px] font-bold rounded-lg z-10 shadow-md animate-pulse">
-            حديث ✨
-          </div>
-        )}
-        {isNewItem(product.createdAtISO) && (
-          <div className="absolute top-8 left-2 px-2 py-0.5 bg-red-600/90 backdrop-blur-sm text-white text-[9px] font-bold rounded-lg z-10 shadow-md animate-pulse">
+          <div className="absolute top-8 left-2 px-2 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[9px] font-extrabold rounded-lg z-10 shadow-lg shadow-red-500/25 border border-red-400/30 animate-pulse">
             حديث ✨
           </div>
         )}
@@ -4314,7 +4309,8 @@ function MarketView({
   onTransportClick, onSelectTransportAd, transportLines, onActionMenu,
   search, setSearch, cat, setCat, gov, setGov, sort, setSort, 
   priceMin, setPriceMin, priceMax, setPriceMax,
-  hasMoreAds, hasMoreProducts, onLoadMoreAds, onLoadMoreProducts
+  hasMoreAds, hasMoreProducts, onLoadMoreAds, onLoadMoreProducts,
+  totalAdsCount, totalProductsCount
 }:{
   user:User|null; allAds:Ad[]; allProducts:Product[]; favorites:number[]; storedUsers?: any[];
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void;
@@ -4331,6 +4327,7 @@ function MarketView({
   priceMax: string; setPriceMax: (p: string) => void;
   hasMoreAds: boolean; hasMoreProducts: boolean;
   onLoadMoreAds: () => void; onLoadMoreProducts: () => void;
+  totalAdsCount: number; totalProductsCount: number;
 }) {
   const [viewMode, setViewMode] = useState<'grid'|'list'>('grid');
   const [visibleProfilesCount, setVisibleProfilesCount] = useState(12);
@@ -4634,16 +4631,17 @@ function MarketView({
                     onSellerClick={(id)=>{if(id)onSellerClick(id);}}
                     onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===ad.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"ad",item:ad});}}/>)}
                 </div>
-                {hasMoreAds && (
-                  <div className="text-center py-4 border-t border-gray-800">
+                <div className="text-center py-4 border-t border-gray-800/50">
+                  <p className="text-gray-400 text-xs mb-2">تم العثور على {totalAdsCount} إعلان، يتم عرض {Math.min(filterAds.length, totalAdsCount)} من أصل {totalAdsCount}</p>
+                  {hasMoreAds && (
                     <button 
                       onClick={onLoadMoreAds} 
-                      className="px-6 py-2 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs transition-all shadow-md"
+                      className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs transition-all shadow-md"
                     >
                       عرض المزيد من الإعلانات 📢
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -4659,16 +4657,17 @@ function MarketView({
                     onSellerClick={(id)=>{if(id)onSellerClick(id);}}
                     onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===p.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"product",item:p});}}/>)}
                 </div>
-                {hasMoreProducts && (
-                  <div className="text-center py-4 border-t border-gray-800">
+                <div className="text-center py-4 border-t border-gray-800/50">
+                  <p className="text-gray-400 text-xs mb-2">تم العثور على {totalProductsCount} منتج، يتم عرض {Math.min(filterProds.length, totalProductsCount)} من أصل {totalProductsCount}</p>
+                  {hasMoreProducts && (
                     <button 
                       onClick={onLoadMoreProducts} 
-                      className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all shadow-md"
+                      className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all shadow-md"
                     >
                       عرض المزيد من المنتجات 🛍️
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -5408,6 +5407,12 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
                   </div>
                 </div>
 
+                {isNewItem(ad.createdAt) && (
+                  <div className="absolute top-2 left-2 px-2 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[9px] font-extrabold rounded-lg z-10 shadow-lg shadow-red-500/25 border border-red-400/30 animate-pulse">
+                    حديث ✨
+                  </div>
+                )}
+
                 <div className="p-4 pt-6">
                   <div className="flex justify-between items-start mb-3">
                     <div>
@@ -5616,8 +5621,10 @@ export default function App() {
   // Pagination & Filtering state
   const [adsPage, setAdsPage] = useState(0);
   const [hasMoreAds, setHasMoreAds] = useState(true);
+  const [totalAdsCount, setTotalAdsCount] = useState(0);
   const [productsPage, setProductsPage] = useState(0);
   const [hasMoreProducts, setHasMoreProducts] = useState(true);
+  const [totalProductsCount, setTotalProductsCount] = useState(0);
   
   const [search, setSearch] = useState('');
   const [cat, setCat] = useState('all');
@@ -5993,7 +6000,66 @@ export default function App() {
     const from = pageToFetch * pageSize;
     const to = from + pageSize - 1;
 
-    let query = supabase.from('ads').select('*').eq('is_demo', false);
+    let transportMapped: TransportAd[] = [];
+    if (reset) {
+      const { data: transportData, error: transportError } = await supabase
+        .from('ads')
+        .select('*')
+        .eq('category', 'transport')
+        .eq('is_demo', false)
+        .order('created_at', { ascending: false });
+        
+      if (!transportError && transportData) {
+        transportMapped = transportData.map((row: any) => {
+          let extra = {
+            shift: 'صباحي',
+            seats: 4,
+            vehicleType: 'خصوصي',
+            targetAudience: 'مختلط',
+            categoryType: 'student' as 'student' | 'employee',
+            note: '',
+            interest: 0,
+            whatsappClicks: 0,
+            completedAt: undefined,
+            completion_reason: null
+          };
+          try {
+            if (row.description) {
+              const parsed = JSON.parse(row.description);
+              extra = { ...extra, ...parsed };
+            }
+          } catch (e) {
+            extra.note = row.description || '';
+          }
+          return {
+            id: row.id,
+            type: row.type || 'offer',
+            categoryType: extra.categoryType || 'student',
+            university: row.city || '',
+            regions: row.location || '',
+            shift: extra.shift,
+            seats: Number(extra.seats) || 0,
+            vehicleType: extra.vehicleType,
+            targetAudience: extra.targetAudience,
+            price: row.price ? formatPrice(row.price) : '',
+            phone: row.phone || '',
+            note: extra.note,
+            sellerName: row.seller_name || 'مستخدم',
+            sellerAvatar: row.seller_avatar || '',
+            createdAt: row.created_at,
+            status: row.status === 'active' ? 'published' : row.status,
+            postedBy: row.seller_id,
+            views: row.views || 0,
+            interest: extra.interest,
+            whatsappClicks: extra.whatsappClicks,
+            completedAt: extra.completedAt,
+            completion_reason: extra.completion_reason
+          };
+        });
+      }
+    }
+
+    let query = supabase.from('ads').select('*', { count: 'exact' }).eq('is_demo', false).neq('category', 'transport').neq('category', 'notification');
 
     if (cat && cat !== 'all') {
       query = query.eq('category', cat);
@@ -6026,8 +6092,9 @@ export default function App() {
 
     query = query.range(from, to);
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
     if (error) { console.error('Error fetching ads:', error); return; }
+    if (count !== null) setTotalAdsCount(count);
     if (data) {
       // Map normal ads
       const normalRows = data.filter((row: any) => row.category !== 'transport' && row.category !== 'notification');
@@ -6060,55 +6127,6 @@ export default function App() {
         avgResponseTime: 'دقائق',
         postedBy: row.seller_id,
       }));
-
-      // Map transport ads
-      const transportRows = data.filter((row: any) => row.category === 'transport');
-      const transportMapped: TransportAd[] = transportRows.map((row: any) => {
-        let extra = {
-          shift: 'صباحي',
-          seats: 4,
-          vehicleType: 'خصوصي',
-          targetAudience: 'مختلط',
-          categoryType: 'student' as 'student' | 'employee',
-          note: '',
-          interest: 0,
-          whatsappClicks: 0,
-          completedAt: undefined,
-          completion_reason: null
-        };
-        try {
-          if (row.description) {
-            const parsed = JSON.parse(row.description);
-            extra = { ...extra, ...parsed };
-          }
-        } catch (e) {
-          extra.note = row.description || '';
-        }
-        return {
-          id: row.id,
-          type: row.type || 'offer',
-          categoryType: extra.categoryType || 'student',
-          university: row.city || '',
-          regions: row.location || '',
-          shift: extra.shift,
-          seats: Number(extra.seats) || 0,
-          vehicleType: extra.vehicleType,
-          targetAudience: extra.targetAudience,
-          price: row.price ? formatPrice(row.price) : '',
-          phone: row.phone || '',
-          note: extra.note,
-          sellerName: row.seller_name || 'مستخدم',
-          sellerAvatar: row.seller_avatar || '',
-          createdAt: row.created_at,
-          status: row.status === 'active' ? 'published' : row.status,
-          postedBy: row.seller_id,
-          views: row.views || 0,
-          interest: extra.interest,
-          whatsappClicks: extra.whatsappClicks,
-          completedAt: extra.completedAt,
-          completion_reason: extra.completion_reason
-        };
-      });
 
       const activeMapped = normalMapped.filter(a => a.status === 'active' || a.status === 'sold');
       
@@ -6172,7 +6190,7 @@ export default function App() {
     const from = pageToFetch * pageSize;
     const to = from + pageSize - 1;
 
-    let query = supabase.from('products').select('*');
+    let query = supabase.from('products').select('*', { count: 'exact' });
 
     if (cat && cat !== 'all') {
       query = query.eq('category', cat);
@@ -6205,8 +6223,9 @@ export default function App() {
 
     query = query.range(from, to);
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
     if (error) { console.error('Error fetching products:', error); return; }
+    if (count !== null) setTotalProductsCount(count);
     if (data) {
       const mapped: Product[] = data.map((row: any) => ({
         id: row.id,
@@ -6947,6 +6966,8 @@ export default function App() {
               hasMoreProducts={hasMoreProducts}
               onLoadMoreAds={() => fetchAds(false)}
               onLoadMoreProducts={() => fetchProducts(false)}
+              totalAdsCount={totalAdsCount}
+              totalProductsCount={totalProductsCount}
             />
           </motion.div>}
           {view==='products'&&<motion.div key="products" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
@@ -6959,6 +6980,7 @@ export default function App() {
               onActionMenu={setActionMenuTarget} 
               hasMoreProducts={hasMoreProducts} 
               onLoadMoreProducts={() => fetchProducts(false)}
+              totalProductsCount={totalProductsCount}
               search={search}
               setSearch={setSearch}
               cat={cat}
@@ -7022,26 +7044,33 @@ export default function App() {
       {/* Bottom Navigation Bar - Fixed Mobile First */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-gray-900/95 backdrop-blur-xl border-t border-gray-800 lg:hidden pb-[env(safe-area-inset-bottom,0px)]">
         <div className="flex items-center justify-around h-16 px-2">
-          {/* الرئيسية */}
+          {/* الملف الشخصي */}
           <button
-            onClick={() => { setBottomNavActive('home'); setView('home'); }}
-            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'home' ? 'text-amber-400' : 'text-gray-400'}`}
+            onClick={() => {
+              if (!user) {
+                requireAuth();
+              } else {
+                setBottomNavActive('profile');
+                setView('profile');
+              }
+            }}
+            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'profile' ? 'text-purple-400' : 'text-gray-400'}`}
           >
-            <div className={`p-2 rounded-xl ${bottomNavActive === 'home' ? 'bg-amber-500/20' : ''}`}>
-              <Home className="w-6 h-6" />
+            <div className={`p-2 rounded-xl ${bottomNavActive === 'profile' ? 'bg-purple-500/20' : ''}`}>
+              <UserCircle className="w-6 h-6" />
             </div>
-            <span className="text-[10px] mt-1 font-medium">الرئيسية</span>
+            <span className="text-[10px] mt-1 font-medium">حسابي</span>
           </button>
 
-          {/* الخطوط */}
+          {/* المنتجات */}
           <button
-            onClick={() => { setBottomNavActive('transport'); setView('transport'); }}
-            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'transport' ? 'text-emerald-400' : 'text-gray-400'}`}
+            onClick={() => { setBottomNavActive('products'); setView('products'); }}
+            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'products' ? 'text-blue-400' : 'text-gray-400'}`}
           >
-            <div className={`p-2 rounded-xl ${bottomNavActive === 'transport' ? 'bg-emerald-500/20' : ''}`}>
-              <Car className="w-6 h-6" />
+            <div className={`p-2 rounded-xl ${bottomNavActive === 'products' ? 'bg-blue-500/20' : ''}`}>
+              <ShoppingBag className="w-6 h-6" />
             </div>
-            <span className="text-[10px] mt-1 font-medium">الخطوط</span>
+            <span className="text-[10px] mt-1 font-medium">المنتجات</span>
           </button>
 
           {/* إضافة إعلان */}
@@ -7062,33 +7091,26 @@ export default function App() {
             <span className="text-[10px] mt-1 font-medium text-amber-400">إعلان</span>
           </button>
 
-          {/* المنتجات */}
+          {/* الخطوط */}
           <button
-            onClick={() => { setBottomNavActive('products'); setView('products'); }}
-            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'products' ? 'text-blue-400' : 'text-gray-400'}`}
+            onClick={() => { setBottomNavActive('transport'); setView('transport'); }}
+            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'transport' ? 'text-emerald-400' : 'text-gray-400'}`}
           >
-            <div className={`p-2 rounded-xl ${bottomNavActive === 'products' ? 'bg-blue-500/20' : ''}`}>
-              <ShoppingBag className="w-6 h-6" />
+            <div className={`p-2 rounded-xl ${bottomNavActive === 'transport' ? 'bg-emerald-500/20' : ''}`}>
+              <Car className="w-6 h-6" />
             </div>
-            <span className="text-[10px] mt-1 font-medium">المنتجات</span>
+            <span className="text-[10px] mt-1 font-medium">الخطوط</span>
           </button>
 
-          {/* الملف الشخصي */}
+          {/* الرئيسية */}
           <button
-            onClick={() => {
-              if (!user) {
-                requireAuth();
-              } else {
-                setBottomNavActive('profile');
-                setView('profile');
-              }
-            }}
-            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'profile' ? 'text-purple-400' : 'text-gray-400'}`}
+            onClick={() => { setBottomNavActive('home'); setView('home'); }}
+            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'home' ? 'text-amber-400' : 'text-gray-400'}`}
           >
-            <div className={`p-2 rounded-xl ${bottomNavActive === 'profile' ? 'bg-purple-500/20' : ''}`}>
-              <UserCircle className="w-6 h-6" />
+            <div className={`p-2 rounded-xl ${bottomNavActive === 'home' ? 'bg-amber-500/20' : ''}`}>
+              <Home className="w-6 h-6" />
             </div>
-            <span className="text-[10px] mt-1 font-medium">حسابي</span>
+            <span className="text-[10px] mt-1 font-medium">الرئيسية</span>
           </button>
         </div>
       </nav>
