@@ -6063,7 +6063,10 @@ export default function App() {
     
     if (type === 'ad' && targetId) {
       let actualId = targetId;
-      if (targetId.includes('-')) {
+      const uuidMatch = targetId.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+      if (uuidMatch) {
+        actualId = uuidMatch[1];
+      } else if (targetId.includes('-')) {
         const segments = targetId.split('-');
         actualId = segments[segments.length - 1];
       }
@@ -6134,7 +6137,10 @@ export default function App() {
       }
     } else if (type === 'product' && targetId) {
       let actualId = targetId;
-      if (targetId.includes('-')) {
+      const uuidMatch = targetId.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+      if (uuidMatch) {
+        actualId = uuidMatch[1];
+      } else if (targetId.includes('-')) {
         const segments = targetId.split('-');
         actualId = segments[segments.length - 1];
       }
@@ -6186,7 +6192,10 @@ export default function App() {
       }
     } else if ((type === 'profile' || type === 'seller') && targetId) {
       let actualId = targetId;
-      if (targetId.includes('-')) {
+      const uuidMatch = targetId.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+      if (uuidMatch) {
+        actualId = uuidMatch[1];
+      } else if (targetId.includes('-')) {
         const segments = targetId.split('-');
         actualId = segments[segments.length - 1];
       }
