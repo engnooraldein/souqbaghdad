@@ -5872,6 +5872,7 @@ export default function App() {
     try{return JSON.parse(localStorage.getItem('souqFavs')||'[]');}catch{return[];}
   });
   const [initialHashParsed, setInitialHashParsed] = useState(false);
+  const [loadingRoute, setLoadingRoute] = useState(false);
   const [storedUsers, setStoredUsers] = useState<any[]>([]);
   
   // Pagination & Filtering state
@@ -6123,14 +6124,19 @@ export default function App() {
       if (ad) {
         setSelectedAd(ad);
       } else {
+        setLoadingRoute(true);
         const isNumeric = /^\d+$/.test(actualId);
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actualId);
         let query = supabase.from('ads').select('*').eq('is_demo', false);
-        if (isNumeric) {
+        if (isUUID) {
+          query = query.eq('id', actualId);
+        } else if (isNumeric) {
           query = query.eq('id', Number(actualId));
         } else {
           query = query.eq('short_id', actualId);
         }
         query.single().then(({ data, error }) => {
+          setLoadingRoute(false);
           if (data && !error) {
             const mappedAd: Ad = {
               id: data.id,
@@ -6162,6 +6168,8 @@ export default function App() {
               postedBy: data.seller_id,
             };
             setSelectedAd(mappedAd);
+          } else {
+            setView('home');
           }
         });
       }
@@ -6183,14 +6191,19 @@ export default function App() {
       if (prod) {
         setSelectedProduct(prod);
       } else {
+        setLoadingRoute(true);
         const isNumeric = /^\d+$/.test(actualId);
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actualId);
         let query = supabase.from('products').select('*');
-        if (isNumeric) {
+        if (isUUID) {
+          query = query.eq('id', actualId);
+        } else if (isNumeric) {
           query = query.eq('id', Number(actualId));
         } else {
           query = query.eq('short_id', actualId);
         }
         query.single().then(({ data, error }) => {
+          setLoadingRoute(false);
           if (data && !error) {
             const mappedProd: Product = {
               id: data.id,
@@ -6217,6 +6230,8 @@ export default function App() {
               status: data.status || 'active',
             };
             setSelectedProduct(mappedProd);
+          } else {
+            setView('home');
           }
         });
       }
@@ -6263,7 +6278,7 @@ export default function App() {
   }, [allAds, allProducts]);
 
   useEffect(() => {
-    if (!initialHashParsed) return; // Don't push state before initial parse
+    if (!initialHashParsed || loadingRoute) return; // Don't push state before initial parse or while routing/fetching
     let newPath: string | null = null;
     
     const slugify = (text: string) => {
@@ -6307,7 +6322,7 @@ export default function App() {
     } else if (!newPath && currentPath !== '/IQ') {
       window.history.pushState(null, '', '/IQ');
     }
-  }, [view, selectedAd, selectedProduct, selectedSellerId, initialHashParsed]);
+  }, [view, selectedAd, selectedProduct, selectedSellerId, initialHashParsed, loadingRoute]);
   // ------------------------------------
 
   // ── Rate Limit Helper ─────────────────────────
