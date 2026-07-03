@@ -3210,7 +3210,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, storedUsers = [], onB
             <span className="text-gray-400 text-xs font-medium">تقييم البائع:</span>
             <div className="flex items-center gap-1">
               {[1, 2, 3, 4, 5].map((stars) => {
-                const isLit = stars <= Math.round(sellerUser?.rating || sellerInfo.rating);
+                const isLit = stars <= Math.round(effectiveSeller.rating);
                 return (
                   <button 
                     key={stars} 
@@ -3223,8 +3223,8 @@ function SellerPublicPage({ sellerId, allAds, allProducts, storedUsers = [], onB
                 );
               })}
             </div>
-            <span className="text-amber-400 font-bold text-sm mr-1">{sellerUser?.rating || sellerInfo.rating}</span>
-            <span className="text-gray-500 text-xs">({sellerUser?.ratingCount || 1} تقييم)</span>
+            <span className="text-amber-400 font-bold text-sm mr-1">{effectiveSeller.rating}</span>
+            <span className="text-gray-500 text-xs">({effectiveSeller.ratingCount || 1} تقييم)</span>
           </div>
 
           {user && (user.role === 'admin' || user.role === 'owner') && (
@@ -3243,8 +3243,8 @@ function SellerPublicPage({ sellerId, allAds, allProducts, storedUsers = [], onB
           )}
 
           <p className="text-gray-400 text-sm mt-3 flex items-center gap-3">
-            <span className="flex items-center gap-1"><MapPin className="w-4 h-4 text-gray-500" />{sellerUser?.location || sellerInfo.location}</span>
-            <span className="flex items-center gap-1"><Calendar className="w-4 h-4 text-gray-500" />انضم في {formatJoinedDate(sellerUser?.joinedDate || sellerInfo?.joinedDate || new Date().toISOString())}</span>
+            <span className="flex items-center gap-1"><MapPin className="w-4 h-4 text-gray-500" />{effectiveSeller.location}</span>
+            <span className="flex items-center gap-1"><Calendar className="w-4 h-4 text-gray-500" />انضم في {formatJoinedDate(effectiveSeller.joinedDate || effectiveSeller.created_at || new Date().toISOString())}</span>
           </p>
         </div>
 
