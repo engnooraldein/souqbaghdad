@@ -474,3 +474,56 @@ input:focus, textarea:focus, select:focus {
     font-size: 1.125rem;
   }
 }
+
+/* User Role Avatar Glow Effects */
+@keyframes avatar-glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 6px 1px var(--glow-color);
+  }
+  50% {
+    box-shadow: 0 0 14px 4px var(--glow-color);
+  }
+}
+
+.glow-owner {
+  --glow-color: rgba(239, 68, 68, 0.6); /* Red shadow */
+  border-color: #ef4444 !important;
+  animation: avatar-glow-pulse 3s infinite ease-in-out;
+}
+
+.glow-admin {
+  --glow-color: rgba(59, 130, 246, 0.5); /* Blue shadow */
+  border-color: #3b82f6 !important;
+  animation: avatar-glow-pulse 3.5s infinite ease-in-out;
+}
+
+.glow-vendor {
+  --glow-color: rgba(16, 185, 129, 0.5); /* Emerald shadow */
+  border-color: #10b981 !important;
+  animation: avatar-glow-pulse 4s infinite ease-in-out;
+}
+
+.glow-pro {
+  --glow-color: rgba(168, 85, 247, 0.5); /* Purple shadow */
+  border-color: #a855f7 !important;
+  animation: avatar-glow-pulse 4.5s infinite ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glow-owner, .glow-admin, .glow-vendor, .glow-pro {
+    animation: none !important;
+    transform: none !important;
+  }
+  .glow-owner {
+    box-shadow: 0 0 0 2px #ef4444 !important;
+  }
+  .glow-admin {
+    box-shadow: 0 0 0 2px #3b82f6 !important;
+  }
+  .glow-vendor {
+    box-shadow: 0 0 0 2px #10b981 !important;
+  }
+  .glow-pro {
+    box-shadow: 0 0 0 2px #a855f7 !important;
+  }
+}

@@ -33,6 +33,15 @@ export const getCoverImage = (user: {role?: string, cover?: string}) => {
   return DEFAULT_COVER;
 };
 
+export const getGlowClass = (role?: string) => {
+  if (!role) return '';
+  if (role === 'owner') return 'glow-owner';
+  if (role === 'admin') return 'glow-admin';
+  if (role === 'vendor') return 'glow-vendor';
+  if (role === 'pro') return 'glow-pro';
+  return '';
+};
+
 const IRAQI_GOVERNORATES = [
   'الكل','بغداد','البصرة','نينوى','أربيل','كربلاء','النجف',
   'دهوك','السليمانية','بابل','ديالى','المثنى','ميسان',
@@ -1386,8 +1395,9 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
 // ─────────────────────────────────────────────
 // Ad Card
 // ─────────────────────────────────────────────
-function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu }:{
+function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu, sellerRole }:{
   ad:Ad; onSelect:()=>void; isFav:boolean; onFav:(e:React.MouseEvent)=>void; onSellerClick?:(id:string)=>void; onActionMenu?:(e:React.MouseEvent)=>void;
+  sellerRole?: string;
 }) {
   const onlineStatuses = useOnlineStatuses();
   const time = useRelativeTime(ad.createdAtISO);
@@ -1413,7 +1423,7 @@ function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu }:{
         <div className="flex items-center gap-1 text-gray-400 text-xs mb-2 flex-1"><MapPin className="w-3 h-3 flex-shrink-0"/><span className="line-clamp-1">{ad.location}</span></div>
         <div className="flex items-center justify-between mt-auto">
           <button onClick={e=>{e.stopPropagation();onSellerClick?.(ad.postedBy||'');}} className="flex items-center gap-1.5 hover:opacity-80 transition-opacity relative">
-            <img src={ad.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className="w-5 h-5 rounded-full border border-gray-600 object-cover"/>
+            <img src={ad.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-5 h-5 rounded-full object-cover ${getGlowClass(sellerRole)}`}/>
             {onlineStatuses[ad.postedBy||''] && <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-gray-800" title="متصل الآن"></div>}
             <span className="text-gray-400 text-xs truncate max-w-[80px]">{ad.seller?.name || 'مستخدم'}</span>
           </button>
@@ -1430,8 +1440,9 @@ function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu }:{
 // ─────────────────────────────────────────────
 // Product Card
 // ─────────────────────────────────────────────
-function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionMenu }:{
+function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionMenu, sellerRole }:{
   product:Product; onSelect:()=>void; isFav:boolean; onFav:(e:React.MouseEvent)=>void; onSellerClick?:(id:string)=>void; onActionMenu?:(e:React.MouseEvent)=>void;
+  sellerRole?: string;
 }) {
   const onlineStatuses = useOnlineStatuses();
   const time = useRelativeTime(product.createdAtISO);
@@ -1459,7 +1470,7 @@ function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionM
         <div className="flex items-center gap-1 text-gray-400 text-xs mb-2 flex-1"><MapPin className="w-3 h-3 flex-shrink-0"/><span>{product.governorate}</span></div>
         <div className="flex items-center justify-between mt-auto">
           <button onClick={e=>{e.stopPropagation();onSellerClick?.(product.postedBy||'');}} className="flex items-center gap-1.5 hover:opacity-80 relative">
-            <img src={product.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className="w-5 h-5 rounded-full border border-gray-600 object-cover"/>
+            <img src={product.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-5 h-5 rounded-full object-cover ${getGlowClass(sellerRole)}`}/>
             {onlineStatuses[product.postedBy||''] && <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-gray-800" title="متصل الآن"></div>}
             <span className="text-gray-400 text-xs truncate max-w-[80px]">{product.seller?.name || 'مستخدم'}</span>
           </button>
@@ -1623,7 +1634,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
           <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 mb-4">
             <div className="flex items-center gap-3">
               <button onClick={()=>onSellerClick?.(ad.postedBy||'')} className="relative hover:opacity-80 transition-opacity shrink-0">
-                <img src={liveSeller?.avatar || ad.seller?.avatar || DEFAULT_AVATAR} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
+                <img src={liveSeller?.avatar || ad.seller?.avatar || DEFAULT_AVATAR} alt="" className={`w-12 h-12 rounded-full object-cover ${liveSeller?.role && liveSeller.role !== 'user' ? getGlowClass(liveSeller.role) : 'border border-gray-600'}`}/>
                 <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-gray-900 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'أوفلاين'} />
               </button>
               <div className="flex-1 min-w-0">
@@ -1837,7 +1848,7 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
           <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 mb-4">
             <div className="flex items-center gap-3">
               <button onClick={()=>onSellerClick?.(product.postedBy)} className="relative hover:opacity-80 transition-opacity shrink-0">
-                <img src={liveSeller?.avatar || product.seller?.avatar || DEFAULT_AVATAR} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
+                <img src={liveSeller?.avatar || product.seller?.avatar || DEFAULT_AVATAR} alt="" className={`w-12 h-12 rounded-full object-cover ${liveSeller?.role && liveSeller.role !== 'user' ? getGlowClass(liveSeller.role) : 'border border-gray-600'}`}/>
                 <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-gray-900 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'أوفلاين'} />
               </button>
               <div className="flex-1 min-w-0">
@@ -1900,9 +1911,10 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
   );
 }
 
-function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDurationLogged }:{
+function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDurationLogged, storedUsers }:{
   ad:TransportAd|null; onClose:()=>void; user:User|null; onAuthRequired:()=>void;
   onViewDurationLogged?:(seconds:number)=>void;
+  storedUsers?: any[];
 }) {
   const [showViewers, setShowViewers] = useState(false);
   useEffect(()=>{
@@ -1992,13 +2004,18 @@ function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDuratio
         </div>
 
         {/* Seller Info */}
-        <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 mb-5 flex items-center gap-3">
-          <img src={ad.sellerAvatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className="w-10 h-10 rounded-full border border-gray-600 object-cover"/>
-          <div>
-            <span className="text-white font-bold text-sm block">{ad.sellerName}</span>
-            <span className="text-gray-400 text-xs">صاحب الإعلان</span>
-          </div>
-        </div>
+        {(() => {
+          const liveSeller = storedUsers?.find(u=>u.id===ad.postedBy);
+          return (
+            <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 mb-5 flex items-center gap-3">
+              <img src={ad.sellerAvatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-10 h-10 rounded-full object-cover ${liveSeller?.role && liveSeller.role !== 'user' ? getGlowClass(liveSeller.role) : 'border border-gray-600'}`}/>
+              <div>
+                <span className="text-white font-bold text-sm block">{ad.sellerName}</span>
+                <span className="text-gray-400 text-xs">صاحب الإعلان</span>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Call Actions */}
         <div className="grid grid-cols-3 gap-2">
@@ -2685,7 +2702,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
           <div className="flex justify-between items-end -mt-12 sm:-mt-16 mb-4 relative z-10">
             {/* Avatar */}
             <div className="relative z-20">
-              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-gray-950 shadow-xl overflow-hidden bg-white flex items-center justify-center">
+              <div className={`w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 shadow-xl overflow-hidden bg-white flex items-center justify-center ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border-gray-950'}`}>
                 <img src={avatarPreview} alt={user.name} className="w-full h-full object-cover"/>
               </div>
               {editing&&(
@@ -3077,7 +3094,8 @@ function SellerPublicPage({ sellerId, allAds, allProducts, storedUsers = [], onB
             rating: 4.9,
             ratingCount: 5,
             cover: dbProfile.cover_url || DEFAULT_COVER,
-            created_at: dbProfile.created_at
+            created_at: dbProfile.created_at,
+            role: dbProfile.role || 'user'
           });
         }
       } catch (e) {
@@ -3197,7 +3215,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, storedUsers = [], onB
         {/* Avatar Area */}
         <div className="flex justify-between items-end -mt-12 sm:-mt-16 mb-4 relative z-10">
           <div className="relative">
-            <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl border-4 border-gray-950 shadow-xl overflow-hidden bg-white flex-shrink-0 flex items-center justify-center">
+            <div className={`w-24 h-24 sm:w-32 sm:h-32 rounded-3xl border-4 shadow-xl overflow-hidden bg-white flex-shrink-0 flex items-center justify-center ${effectiveSeller.role && effectiveSeller.role !== 'user' ? getGlowClass(effectiveSeller.role) : 'border-gray-950'}`}>
               <img src={effectiveSeller?.avatar || DEFAULT_AVATAR} alt={effectiveSeller?.name} className="w-full h-full object-cover"/>
             </div>
             {Boolean((user && (String(effectiveSeller.id) === String(user.id) || String(effectiveSeller.phone) === String(user.phone))) || onlineStatuses[effectiveSeller.id] || onlineStatuses[effectiveSeller.phone]) ? (
@@ -3292,14 +3310,14 @@ function SellerPublicPage({ sellerId, allAds, allProducts, storedUsers = [], onB
           <div className="bg-gray-800 rounded-2xl p-8 text-center border border-gray-700"><div className="text-3xl mb-2">📭</div><p className="text-gray-400">لا إعلانات بعد</p></div>
         ):(
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {sellerAds.map(ad=><AdCard key={ad.id} ad={ad} onSelect={()=>onSelectAd(ad)} isFav={favorites.includes(ad.id)} onFav={e=>{e.stopPropagation();if(!user){onAuthRequired();return;}onToggleFav(ad.id);}} onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===ad.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"ad",item:ad});}}/>)}
+            {sellerAds.map(ad=><AdCard key={ad.id} ad={ad} onSelect={()=>onSelectAd(ad)} isFav={favorites.includes(ad.id)} onFav={e=>{e.stopPropagation();if(!user){onAuthRequired();return;}onToggleFav(ad.id);}} onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===ad.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"ad",item:ad});}} sellerRole={effectiveSeller.role}/>)}
           </div>
         ))}
         {tab==='products'&&(sellerProds.length===0?(
           <div className="bg-gray-800 rounded-2xl p-8 text-center border border-gray-700"><div className="text-3xl mb-2">🛍️</div><p className="text-gray-400">لا منتجات بعد</p></div>
         ):(
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {sellerProds.map(p=><ProductCard key={p.id} product={p} onSelect={()=>onSelectProduct(p)} isFav={favorites.includes(p.id)} onFav={e=>{e.stopPropagation();if(!user){onAuthRequired();return;}onToggleFav(p.id);}} onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===p.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"product",item:p});}}/>)}
+            {sellerProds.map(p=><ProductCard key={p.id} product={p} onSelect={()=>onSelectProduct(p)} isFav={favorites.includes(p.id)} onFav={e=>{e.stopPropagation();if(!user){onAuthRequired();return;}onToggleFav(p.id);}} onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===p.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"product",item:p});}} sellerRole={effectiveSeller.role}/>)}
           </div>
         ))}
       </div>
@@ -3727,7 +3745,7 @@ const fetchRecovery = async () => {
                 )}
                 <div className="flex items-center gap-3 w-full sm:w-auto">
                 <div className="relative flex-shrink-0">
-                  <img src={u.avatar_url || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-12 h-12 rounded-full object-cover border-2 ${u.is_banned?'border-red-500/50':'border-gray-600'}`}/>
+                  <img src={u.avatar_url || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-12 h-12 rounded-full object-cover ${u.is_banned ? 'border-2 border-red-500/50' : (u.role && u.role !== 'user' ? getGlowClass(u.role) : 'border border-gray-600')}`}/>
                   <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-gray-800 ${isOnline ? 'bg-green-500' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'غير متصل'}></div>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -4582,7 +4600,8 @@ function MarketView({
               prodCount: 0,
               rating: 4.9,
               created_at: p.created_at || new Date().toISOString(),
-              isVerified: p.role === 'owner' || p.role === 'vendor' || p.role === 'admin'
+              isVerified: p.role === 'owner' || p.role === 'vendor' || p.role === 'admin',
+              role: p.role || 'user'
             });
           });
         }
@@ -4600,7 +4619,8 @@ function MarketView({
               prodCount: 0,
               rating: 4.8,
               created_at: new Date().toISOString(),
-              isVerified: u.role === 'owner' || u.role === 'vendor' || u.isVerified
+              isVerified: u.role === 'owner' || u.role === 'vendor' || u.isVerified,
+              role: u.role || 'user'
             });
           }
         });
@@ -4619,7 +4639,8 @@ function MarketView({
                 prodCount: 0,
                 rating: ad.seller?.rating || 4.8,
                 created_at: ad.createdAtISO || new Date().toISOString(),
-                isVerified: ad.seller?.isVerified || false
+                isVerified: ad.seller?.isVerified || false,
+                role: 'user'
               });
             } else {
               const existing = sellersMap.get(ad.postedBy);
@@ -4643,7 +4664,8 @@ function MarketView({
                 prodCount: 1,
                 rating: p.seller?.rating || 4.8,
                 created_at: p.createdAtISO || new Date().toISOString(),
-                isVerified: p.seller?.isVerified || false
+                isVerified: p.seller?.isVerified || false,
+                role: 'user'
               });
             } else {
               const existing = sellersMap.get(p.postedBy);
@@ -4820,10 +4842,15 @@ function MarketView({
 
               <div className="flex flex-col gap-6">
                 <div className={viewMode==='grid'?'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4':'space-y-3'}>
-                  {filterAds.map(ad=><AdCard key={ad.id} ad={ad} onSelect={()=>onSelectAd(ad)} isFav={favorites.includes(ad.id)}
-                    onFav={e=>{e.stopPropagation();if(!user){onRequireAuth();return;}onToggleFav(ad.id);}}
-                    onSellerClick={(id)=>{if(id)onSellerClick(id);}}
-                    onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===ad.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"ad",item:ad});}}/>)}
+                  {filterAds.map(ad=>{
+                    const seller = propStoredUsers?.find(u=>u.id===ad.postedBy);
+                    return <AdCard key={ad.id} ad={ad} onSelect={()=>onSelectAd(ad)} isFav={favorites.includes(ad.id)}
+                      onFav={e=>{e.stopPropagation();if(!user){onRequireAuth();return;}onToggleFav(ad.id);}}
+                      onSellerClick={(id)=>{if(id)onSellerClick(id);}}
+                      onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===ad.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"ad",item:ad});}}
+                      sellerRole={seller?.role}
+                    />;
+                  })}
                 </div>
                 {hasMoreAds && (
                   <div className="text-center py-4 border-t border-gray-800/50">
@@ -4859,10 +4886,15 @@ function MarketView({
 
               <div className="flex flex-col gap-6">
                 <div className={viewMode==='grid'?'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4':'space-y-3'}>
-                  {filterProds.map(p=><ProductCard key={p.id} product={p} onSelect={()=>onSelectProduct(p)} isFav={favorites.includes(p.id)}
-                    onFav={e=>{e.stopPropagation();if(!user){onRequireAuth();return;}onToggleFav(p.id);}}
-                    onSellerClick={(id)=>{if(id)onSellerClick(id);}}
-                    onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===p.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"product",item:p});}}/>)}
+                  {filterProds.map(p=>{
+                    const seller = propStoredUsers?.find(u=>u.id===p.postedBy);
+                    return <ProductCard key={p.id} product={p} onSelect={()=>onSelectProduct(p)} isFav={favorites.includes(p.id)}
+                      onFav={e=>{e.stopPropagation();if(!user){onRequireAuth();return;}onToggleFav(p.id);}}
+                      onSellerClick={(id)=>{if(id)onSellerClick(id);}}
+                      onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===p.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"product",item:p});}}
+                      sellerRole={seller?.role}
+                    />;
+                  })}
                 </div>
                 {hasMoreProducts && (
                   <div className="text-center py-4 border-t border-gray-800/50">
@@ -5078,7 +5110,7 @@ function MarketView({
                           <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 rounded-bl-full pointer-events-none" />
                           <div className="flex items-center gap-3 mb-3">
                             <div className="relative shrink-0">
-                              <img src={topUser.avatar} alt="" className="w-12 h-12 rounded-full object-cover border-2 border-amber-400" />
+                              <img src={topUser.avatar} alt="" className={`w-12 h-12 rounded-full object-cover ${topUser.role && topUser.role !== 'user' ? getGlowClass(topUser.role) : 'border-2 border-amber-400'}`} />
                               <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-gray-900 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'أوفلاين'} />
                             </div>
                             <div className="min-w-0 flex-1">
@@ -5132,7 +5164,7 @@ function MarketView({
                             <img
                               src={profile.avatar}
                               alt={profile.name}
-                              className="w-14 h-14 rounded-full object-cover border-2 border-gray-700 group-hover:border-amber-400 transition-colors"
+                              className={`w-14 h-14 rounded-full object-cover transition-all ${profile.role && profile.role !== 'user' ? getGlowClass(profile.role) : 'border-2 border-gray-700 group-hover:border-amber-400'}`}
                             />
                             <div 
                               className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-gray-800 flex items-center justify-center ${
@@ -5474,7 +5506,7 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
   );
 }
 
-function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, lines, onPost, onUpdateStatus, onDeleteAd, onActionMenu, isInitialLoading }: {
+function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, lines, onPost, onUpdateStatus, onDeleteAd, onActionMenu, isInitialLoading, storedUsers }: {
   user: { id: string; name: string; avatar: string; phone: string; role?: string } | null;
   onBack: () => void;
   onCreateAd: () => void;
@@ -5486,6 +5518,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
   onDeleteAd?: (id: number) => void;
   onActionMenu?: (target: {type:"transport", item:TransportAd}) => void;
   isInitialLoading?: boolean;
+  storedUsers?: any[];
 }) {
   const [mainCategoryFilter, setMainCategoryFilter] = useState<'student'|'employee'|'all'>('student');
   const [filterUniversity, setFilterUniversity] = useState('الكل');
@@ -5655,6 +5688,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
             </div>
             {filtered.slice(0, visibleCount).map(ad=>{
               const isEmployee = ad.categoryType === 'employee';
+              const seller = storedUsers?.find(u=>u.id===ad.postedBy);
               return (
               <motion.div key={ad.id} initial={{opacity:0,y:20}} animate={{opacity:1,y:0}}
                 onClick={() => onSelectAd?.(ad)}
@@ -5735,7 +5769,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
                   
                   <div className="flex items-center justify-between pt-3 border-t border-gray-700/50">
                     <div className="flex items-center gap-2">
-                      <img src={ad.sellerAvatar||'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className="w-8 h-8 rounded-full object-cover border border-gray-600"/>
+                      <img src={ad.sellerAvatar||'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-8 h-8 rounded-full object-cover ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-600'}`}/>
                       <div>
                         <span className="text-gray-300 text-xs block font-semibold">{ad.sellerName}</span>
                         <span className="text-gray-500 text-[10px] block"><TimeAgo iso={ad.createdAt}/></span>
@@ -5948,7 +5982,8 @@ export default function App() {
               prodCount: 0,
               rating: 4.9,
               created_at: p.created_at || new Date().toISOString(),
-              isVerified: p.role === 'owner' || p.role === 'vendor' || p.role === 'admin'
+              isVerified: p.role === 'owner' || p.role === 'vendor' || p.role === 'admin',
+              role: p.role || 'user'
             });
           });
         }
@@ -5965,7 +6000,8 @@ export default function App() {
               prodCount: 0,
               rating: 4.8,
               created_at: new Date().toISOString(),
-              isVerified: u.role === 'owner' || u.role === 'vendor' || u.isVerified
+              isVerified: u.role === 'owner' || u.role === 'vendor' || u.isVerified,
+              role: u.role || 'user'
             });
           }
         });
@@ -5983,7 +6019,8 @@ export default function App() {
                 prodCount: 0,
                 rating: ad.seller?.rating || 4.8,
                 created_at: ad.createdAtISO || new Date().toISOString(),
-                isVerified: ad.seller?.isVerified || false
+                isVerified: ad.seller?.isVerified || false,
+                role: 'user'
               });
             } else {
               const existing = sellersMap.get(ad.postedBy);
@@ -6006,7 +6043,8 @@ export default function App() {
                 prodCount: 1,
                 rating: p.seller?.rating || 4.8,
                 created_at: p.createdAtISO || new Date().toISOString(),
-                isVerified: p.seller?.isVerified || false
+                isVerified: p.seller?.isVerified || false,
+                role: 'user'
               });
             } else {
               const existing = sellersMap.get(p.postedBy);
@@ -7399,7 +7437,7 @@ export default function App() {
                     className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-sm">
                     <Plus className="w-4 h-4"/> إعلان</button>
                   <button onClick={()=>setView('profile')} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white hover:bg-gray-700'}`}>
-                    <img src={user.avatar} alt="" className="w-6 h-6 rounded-full object-cover border border-gray-600"/>
+                    <img src={user.avatar} alt="" className={`w-6 h-6 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border border-gray-600'}`}/>
                     <span className="max-w-20 truncate">{user.name}</span>{isOwner&&<Crown className="w-3 h-3 text-amber-400"/>}</button>
                   <button onClick={handleLogout} className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20" title="تسجيل الخروج" aria-label="تسجيل الخروج"><LogOut className="w-5 h-5"/></button>
                 </>
@@ -7425,7 +7463,7 @@ export default function App() {
 
               {user ? (
                 <button onClick={()=>setView('profile')} className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white'}`}>
-                  <img src={user.avatar} alt="" className="w-5.5 h-5.5 rounded-full object-cover border border-gray-600"/>
+                  <img src={user.avatar} alt="" className={`w-5.5 h-5.5 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border border-gray-600'}`}/>
                   <span className="max-w-16 truncate hidden sm:block">{user.name}</span>
                 </button>
               ) : (
@@ -7456,7 +7494,7 @@ export default function App() {
             {user?(
               <div className="bg-gray-800 rounded-2xl p-4 mb-5 border border-gray-700">
                 <div className="flex items-center gap-3">
-                  <img src={user.avatar} alt="" className="w-12 h-12 rounded-full border-2 border-amber-500 object-cover"/>
+                  <img src={user.avatar} alt="" className={`w-12 h-12 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border-2 border-amber-500'}`}/>
                   <div><div className="flex items-center gap-1"><p className="text-white font-bold text-sm">{user.name}</p>{isOwner&&<Crown className="w-3.5 h-3.5 text-amber-400"/>}</div>
                     <p className="text-gray-400 text-xs">{user.email}</p></div>
                 </div>
@@ -7567,7 +7605,7 @@ export default function App() {
               }
             }} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile} onActionMenu={setActionMenuTarget}/></motion.div>}
           {view==='transport'&&<motion.div key="transport" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd} onActionMenu={setActionMenuTarget} isInitialLoading={isInitialLoading}/></motion.div>}
+            <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd} onActionMenu={setActionMenuTarget} isInitialLoading={isInitialLoading} storedUsers={storedUsers}/></motion.div>}
           {view==='admin'&&isAdmin&&!isOwner&&<motion.div key="admin" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <AdminPanel ads={allAds} onDeleteAd={handleDeleteAd} onClose={()=>setView('home')}/></motion.div>}
           {view==='owner'&&isOwner&&<motion.div key="owner" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
@@ -7678,7 +7716,7 @@ export default function App() {
         {showAuth&&<AuthModal onClose={()=>setShowAuth(false)} onLogin={handleLogin}/>}
         {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })}/>}
         {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })}/>}
-        {selectedTransportAd&&<TransportDetailModal ad={selectedTransportAd} onClose={()=>setSelectedTransportAd(null)} user={user} onAuthRequired={requireAuth} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedTransportAd.id, selectedTransportAd.type==='offer'?'خط متوفر':'طلب خط', selectedTransportAd.postedBy || '', 'transport', sec)}/>}
+        {selectedTransportAd&&<TransportDetailModal ad={selectedTransportAd} onClose={()=>setSelectedTransportAd(null)} user={user} onAuthRequired={requireAuth} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedTransportAd.id, selectedTransportAd.type==='offer'?'خط متوفر':'طلب خط', selectedTransportAd.postedBy || '', 'transport', sec)} storedUsers={storedUsers}/>}
         {showCreateAd&&user&&<AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd}/>}
         {showCreateProduct&&user&&<ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct}/>}
         {showNotifs&&<NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick} onMarkRead={markNotifAsRead} onArchiveAll={handleArchiveAllNotifications}/>}
