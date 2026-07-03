@@ -30,11 +30,11 @@ async function generateSitemap() {
     const headers = { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` };
     
     // Fetch active ads
-    const adsRes = await fetch(`${supabaseUrl}/rest/v1/ads?status=eq.active&select=id,updated_at,images,title,short_id`, { headers });
+    const adsRes = await fetch(`${supabaseUrl}/rest/v1/ads?status=eq.active&select=id,updated_at,images,title,short_id,type,category,city`, { headers });
     const ads = await adsRes.json();
 
     // Fetch active products
-    const prodsRes = await fetch(`${supabaseUrl}/rest/v1/products?status=eq.active&select=id,updated_at,images,title,short_id`, { headers });
+    const prodsRes = await fetch(`${supabaseUrl}/rest/v1/products?status=eq.active&select=id,updated_at,images,title,short_id,category,city`, { headers });
     const products = await prodsRes.json();
 
     function slugify(text) {
@@ -52,7 +52,7 @@ async function generateSitemap() {
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
-    <loc>${DOMAIN}/</loc>
+    <loc>${DOMAIN}/IQ</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
@@ -68,7 +68,11 @@ async function generateSitemap() {
             imageXml = `\n    <image:image>\n      <image:loc>${firstImg}</image:loc>\n    </image:image>`;
           }
         }
-        const slug = slugify(ad.title);
+        const typeText = ad.type === 'buy' ? 'شراء' : ad.type === 'rent' ? 'ايجار' : ad.type === 'service' ? 'خدمات' : 'بيع';
+        const categoryText = ad.category || 'عام';
+        const titleText = ad.title || 'اعلان';
+        const govText = ad.city || 'العراق';
+        const slug = `${slugify(typeText)}-${slugify(categoryText)}-${slugify(titleText)}-${slugify(govText)}-سوق-بغداد-الرقمي`;
         const adUrl = `${DOMAIN}/ad/${slug}-${ad.short_id || ad.id}`;
         xml += `  <url>
     <loc>${adUrl}</loc>
@@ -89,7 +93,10 @@ async function generateSitemap() {
             imageXml = `\n    <image:image>\n      <image:loc>${firstImg}</image:loc>\n    </image:image>`;
           }
         }
-        const slug = slugify(prod.title);
+        const categoryText = prod.category || 'منتجات';
+        const titleText = prod.title || 'منتج';
+        const govText = prod.city || 'العراق';
+        const slug = `تسوق-${slugify(categoryText)}-${slugify(titleText)}-${slugify(govText)}-سوق-بغداد-الرقمي`;
         const prodUrl = `${DOMAIN}/product/${slug}-${prod.short_id || prod.id}`;
         xml += `  <url>
     <loc>${prodUrl}</loc>

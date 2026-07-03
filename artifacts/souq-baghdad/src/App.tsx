@@ -1653,7 +1653,20 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
               className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-medium ${isFav?'bg-red-500 text-white':'bg-gray-800 text-white'}`}>
               <Heart className={`w-4 h-4 ${isFav?'fill-current':''}`}/>{isFav?'في المفضلة':'أضف للمفضلة'}</button>
             <button onClick={()=>{
-              const slug = ad.title ? ad.title.toLowerCase().trim().replace(/[\s_]+/g, '-').replace(/[^\w\u0621-\u064A0-9-]+/g, '').replace(/--+/g, '-') : 'ad';
+              const slugify = (text: string) => {
+                return text
+                  .toString()
+                  .toLowerCase()
+                  .trim()
+                  .replace(/[\s_]+/g, '-')
+                  .replace(/[^\w\u0621-\u064A0-9-]+/g, '')
+                  .replace(/--+/g, '-');
+              };
+              const typeText = ad.type === 'buy' ? 'شراء' : ad.type === 'rent' ? 'ايجار' : ad.type === 'service' ? 'خدمات' : 'بيع';
+              const categoryText = ad.category || 'عام';
+              const titleText = ad.title || 'اعلان';
+              const govText = ad.governorate || ad.location || 'العراق';
+              const slug = `${slugify(typeText)}-${slugify(categoryText)}-${slugify(titleText)}-${slugify(govText)}-سوق-بغداد-الرقمي`;
               handleUniversalShare({ 
                 id: ad.id, 
                 short_id: ad.short_id, 
@@ -1854,7 +1867,19 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
               className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-medium ${isFav?'bg-red-500 text-white':'bg-gray-800 text-white'}`}>
               <Heart className={`w-4 h-4 ${isFav?'fill-current':''}`}/>{isFav?'في المفضلة':'أضف للمفضلة'}</button>
             <button onClick={()=>{
-              const slug = product.title ? product.title.toLowerCase().trim().replace(/[\s_]+/g, '-').replace(/[^\w\u0621-\u064A0-9-]+/g, '').replace(/--+/g, '-') : 'product';
+              const slugify = (text: string) => {
+                return text
+                  .toString()
+                  .toLowerCase()
+                  .trim()
+                  .replace(/[\s_]+/g, '-')
+                  .replace(/[^\w\u0621-\u064A0-9-]+/g, '')
+                  .replace(/--+/g, '-');
+              };
+              const categoryText = product.category || 'منتجات';
+              const titleText = product.title || 'منتج';
+              const govText = product.governorate || 'العراق';
+              const slug = `تسوق-${slugify(categoryText)}-${slugify(titleText)}-${slugify(govText)}-سوق-بغداد-الرقمي`;
               handleUniversalShare({ 
                 id: product.id, 
                 short_id: product.short_id, 
@@ -6040,13 +6065,18 @@ export default function App() {
   // --- DEEP LINKING & ROUTING HOOKS ---
 
   const syncStateFromPath = () => {
-    let hash = window.location.hash;
-    const path = window.location.pathname;
-    if ((!hash || hash === '#/') && path !== '/') {
-      hash = '#' + path;
+    let path = window.location.pathname;
+    let hasHash = false;
+    if (window.location.hash && window.location.hash.startsWith('#/')) {
+      path = window.location.hash.substring(1);
+      hasHash = true;
     }
 
-    if (!hash || hash === '#/') {
+    if (hasHash && typeof window !== 'undefined') {
+      window.history.replaceState(null, '', path + window.location.search);
+    }
+
+    if (!path || path === '/' || path === '/IQ') {
       setView('home');
       setSelectedAd(null);
       setSelectedProduct(null);
@@ -6054,9 +6084,9 @@ export default function App() {
       return;
     }
     
-    // Normalize hash: remove leading '#' and any leading/trailing '/'
-    const cleanHash = hash.replace(/^#\/?/, '');
-    const parts = cleanHash.split('/').filter(Boolean);
+    // Normalize path: remove leading '/'
+    const cleanPath = path.replace(/^\//, '');
+    const parts = cleanPath.split('/').filter(Boolean);
     // parts[0] is route type ('ad', 'product', 'accounts', 'seller', 'profile', 'transport', 'admin', 'owner')
     const type = parts[0];
     const targetId = parts[parts.length - 1]; // Get last segment as ID or slug
@@ -6213,12 +6243,10 @@ export default function App() {
     }
   };
 
-  // Rewrite clean pathname to hash route on browser level without page reloads
+  // Rewrite root clean pathname to /IQ on browser level without page reloads
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.pathname !== '/' && window.location.pathname !== '') {
-      const path = window.location.pathname;
-      const search = window.location.search;
-      window.history.replaceState(null, '', `/#${path}${search}`);
+    if (typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '')) {
+      window.history.replaceState(null, '', '/IQ');
     }
   }, []);
 
@@ -6229,34 +6257,55 @@ export default function App() {
   }, [allAds, allProducts, initialHashParsed]);
 
   useEffect(() => {
-    const handleHashChange = () => syncStateFromPath();
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    const handlePopState = () => syncStateFromPath();
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, [allAds, allProducts]);
 
   useEffect(() => {
     if (!initialHashParsed) return; // Don't push state before initial parse
-    let newHash: string | null = null;
+    let newPath: string | null = null;
+    
+    const slugify = (text: string) => {
+      return text
+        .toString()
+        .toLowerCase()
+        .trim()
+        .replace(/[\s_]+/g, '-')
+        .replace(/[^\w\u0621-\u064A0-9-]+/g, '')
+        .replace(/--+/g, '-');
+    };
+
     if (selectedAd) {
-      const slug = selectedAd.title ? selectedAd.title.toLowerCase().trim().replace(/[\s_]+/g, '-').replace(/[^\w\u0621-\u064A0-9-]+/g, '').replace(/--+/g, '-') : 'ad';
-      newHash = `#/ad/${slug}-${selectedAd.short_id || selectedAd.id}`;
+      const typeText = selectedAd.type === 'buy' ? 'شراء' : selectedAd.type === 'rent' ? 'ايجار' : selectedAd.type === 'service' ? 'خدمات' : 'بيع';
+      const categoryText = selectedAd.category || 'عام';
+      const titleText = selectedAd.title || 'اعلان';
+      const govText = selectedAd.governorate || selectedAd.location || 'العراق';
+      const slug = `${slugify(typeText)}-${slugify(categoryText)}-${slugify(titleText)}-${slugify(govText)}-سوق-بغداد-الرقمي`;
+      newPath = `/ad/${slug}-${selectedAd.short_id || selectedAd.id}`;
     } else if (selectedProduct) {
-      const slug = selectedProduct.title ? selectedProduct.title.toLowerCase().trim().replace(/[\s_]+/g, '-').replace(/[^\w\u0621-\u064A0-9-]+/g, '').replace(/--+/g, '-') : 'product';
-      newHash = `#/product/${slug}-${selectedProduct.short_id || selectedProduct.id}`;
+      const categoryText = selectedProduct.category || 'منتجات';
+      const titleText = selectedProduct.title || 'منتج';
+      const govText = selectedProduct.governorate || 'العراق';
+      const slug = `تسوق-${slugify(categoryText)}-${slugify(titleText)}-${slugify(govText)}-سوق-بغداد-الرقمي`;
+      newPath = `/product/${slug}-${selectedProduct.short_id || selectedProduct.id}`;
     } else if (view === 'seller' && selectedSellerId) {
-      newHash = `#/seller/${selectedSellerPhone || selectedSellerId}`;
+      newPath = `/seller/${selectedSellerPhone || selectedSellerId}`;
     } else if (view === 'transport') {
-      newHash = `#/transport`;
+      newPath = `/transport`;
     } else if (view === 'admin') {
-      newHash = `#/admin`;
+      newPath = `/admin`;
     } else if (view === 'owner') {
-      newHash = `#/owner`;
+      newPath = `/owner`;
+    } else {
+      newPath = `/IQ`;
     }
     
-    if (newHash && window.location.hash !== newHash) {
-      window.history.pushState(null, '', newHash);
-    } else if (!newHash && (window.location.hash.includes('/ad/') || window.location.hash.includes('/product/') || window.location.hash.includes('/seller/'))) {
-      window.history.pushState(null, '', '#/');
+    const currentPath = window.location.pathname + window.location.search;
+    if (newPath && currentPath !== newPath) {
+      window.history.pushState(null, '', newPath);
+    } else if (!newPath && currentPath !== '/IQ') {
+      window.history.pushState(null, '', '/IQ');
     }
   }, [view, selectedAd, selectedProduct, selectedSellerId, initialHashParsed]);
   // ------------------------------------
@@ -7092,28 +7141,57 @@ export default function App() {
   const isOwner = user?.role==='owner';
 
   // Dynamic SEO metadata based on current router state
-  let pageTitle = "سوك بغداد - السوق الرقمي العراقي | أكبر منصة إعلانات في العراق";
-  let pageDescription = "سوك بغداد - أكبر منصة عراقية للبيع والشراء والإعلانات. سيارات، عقارات، هواتف، إلكترونيات، خدمات والمزيد. اكتشف آلاف الإعلانات في أقسام متعددة.";
+  let pageTitle = "سوق بغداد - السوق الرقمي العراقي | أكبر منصة إعلانات في العراق";
+  let pageDescription = "سوق بغداد - أكبر منصة عراقية للبيع والشراء والإعلانات. سيارات، عقارات، هواتف، إلكترونيات، خدمات والمزيد. اكتشف آلاف الإعلانات في أقسام متعددة.";
   let pageImage = "https://souqbaghdad.store/opengraph.jpg";
-  let canonicalUrl = "https://souqbaghdad.store/";
+  let canonicalUrl = "https://souqbaghdad.store/IQ";
 
   if (selectedAd) {
-    pageTitle = `${selectedAd.title} | إعلان في سوك بغداد`;
-    pageDescription = selectedAd.description ? `${selectedAd.description.slice(0, 150)}...` : `شاهد تفاصيل إعلان ${selectedAd.title} في سوق بغداد.`;
+    const slugify = (text: string) => {
+      return text
+        .toString()
+        .toLowerCase()
+        .trim()
+        .replace(/[\s_]+/g, '-')
+        .replace(/[^\w\u0621-\u064A0-9-]+/g, '')
+        .replace(/--+/g, '-');
+    };
+    const typeText = selectedAd.type === 'buy' ? 'شراء' : selectedAd.type === 'rent' ? 'ايجار' : selectedAd.type === 'service' ? 'خدمات' : 'بيع';
+    const categoryText = selectedAd.category || 'عام';
+    const titleText = selectedAd.title || 'اعلان';
+    const govText = selectedAd.governorate || selectedAd.location || 'العراق';
+    const slug = `${slugify(typeText)}-${slugify(categoryText)}-${slugify(titleText)}-${slugify(govText)}-سوق-بغداد-الرقمي`;
+
+    pageTitle = `${selectedAd.title} - ${govText} | ${formatPrice(selectedAd.price)} د.ع - سوق بغداد`;
+    pageDescription = `${selectedAd.description ? selectedAd.description.slice(0, 150) + '...' : 'تفاصيل الإعلان'} | سوق بغداد - أكبر منصة عراقية للبيع والشراء والإعلانات. سيارات، عقارات، هواتف، إلكترونيات، خدمات والمزيد.`;
     pageImage = selectedAd.images?.[0] || pageImage;
-    canonicalUrl = `https://souqbaghdad.store/ad/${selectedAd.id}`;
+    canonicalUrl = `https://souqbaghdad.store/ad/${slug}-${selectedAd.short_id || selectedAd.id}`;
   } else if (selectedProduct) {
-    pageTitle = `${selectedProduct.title} | منتج في سوك بغداد`;
-    pageDescription = selectedProduct.description ? `${selectedProduct.description.slice(0, 150)}...` : `شاهد تفاصيل منتج ${selectedProduct.title} في سوق بغداد.`;
+    const slugify = (text: string) => {
+      return text
+        .toString()
+        .toLowerCase()
+        .trim()
+        .replace(/[\s_]+/g, '-')
+        .replace(/[^\w\u0621-\u064A0-9-]+/g, '')
+        .replace(/--+/g, '-');
+    };
+    const categoryText = selectedProduct.category || 'منتجات';
+    const titleText = selectedProduct.title || 'منتج';
+    const govText = selectedProduct.governorate || 'العراق';
+    const slug = `تسوق-${slugify(categoryText)}-${slugify(titleText)}-${slugify(govText)}-سوق-بغداد-الرقمي`;
+
+    pageTitle = `${selectedProduct.title} - ${govText} | ${formatPrice(selectedProduct.price)} د.ع - سوق بغداد`;
+    pageDescription = `${selectedProduct.description ? selectedProduct.description.slice(0, 150) + '...' : 'تفاصيل المنتج'} | سوق بغداد - أكبر منصة عراقية للبيع والشراء والإعلانات. سيارات، عقارات، هواتف، إلكترونيات، خدمات والمزيد.`;
     pageImage = selectedProduct.images?.[0] || pageImage;
-    canonicalUrl = `https://souqbaghdad.store/product/${selectedProduct.id}`;
-  } else if (view === 'profile' && selectedSellerId) {
-    pageTitle = `صفحة البائع | سوك بغداد`;
-    pageDescription = `تصفح كافة الإعلانات والمنتجات المتوفرة لدى هذا المعلن في منصة سوك بغداد.`;
-    canonicalUrl = `https://souqbaghdad.store/profile/${selectedSellerPhone || selectedSellerId}`;
+    canonicalUrl = `https://souqbaghdad.store/product/${slug}-${selectedProduct.short_id || selectedProduct.id}`;
+  } else if (view === 'seller' && selectedSellerId) {
+    pageTitle = `صفحة البائع | سوق بغداد`;
+    pageDescription = `تصفح كافة الإعلانات والمنتجات المتوفرة لدى هذا المعلن في منصة سوق بغداد.`;
+    canonicalUrl = `https://souqbaghdad.store/seller/${selectedSellerPhone || selectedSellerId}`;
   } else if (view === 'transport') {
-    pageTitle = `خطوط النقل والتوصيل | سوك بغداد`;
-    pageDescription = `تصفح خطوط النقل والتوصيل المتاحة في العراق - سوك بغداد`;
+    pageTitle = `خطوط النقل والتوصيل | سوق بغداد`;
+    pageDescription = `تصفح خطوط النقل والتوصيل المتاحة في العراق - سوق بغداد`;
     canonicalUrl = `https://souqbaghdad.store/transport`;
   }
 
