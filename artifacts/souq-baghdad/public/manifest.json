@@ -1,0 +1,32 @@
+{
+  "name": "سوك بغداد - السوق الرقمي العراقي",
+  "short_name": "سوك بغداد",
+  "description": "أكبر منصة عراقية للبيع والشراء والإعلانات. سيارات، عقارات، هواتف، إلكترونيات والمزيد.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#030712",
+  "theme_color": "#030712",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/logo-128.webp",
+      "sizes": "128x128",
+      "type": "image/webp"
+    },
+    {
+      "src": "/logo-256.webp",
+      "sizes": "256x256",
+      "type": "image/webp"
+    },
+    {
+      "src": "/logo-512.webp",
+      "sizes": "512x512",
+      "type": "image/webp"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

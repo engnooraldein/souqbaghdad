@@ -916,7 +916,7 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
               
               <div className="relative"><Lock className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
                 <input type={showPwd?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="كلمة المرور" required autoFocus className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-10 border border-gray-700 focus:border-amber-400 outline-none"/>
-                <button type="button" onClick={()=>setShowPwd(!showPwd)} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">{showPwd?<EyeOff className="w-4 h-4"/>:<Eye className="w-4 h-4"/>}</button></div>
+                <button type="button" onClick={()=>setShowPwd(!showPwd)} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" title="إظهار أو إخفاء كلمة المرور" aria-label="إظهار أو إخفاء كلمة المرور">{showPwd?<EyeOff className="w-4 h-4"/>:<Eye className="w-4 h-4"/>}</button></div>
               
               <motion.button type="submit" whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl shadow-lg shadow-amber-500/20">
                 {step === 'login' ? 'تسجيل الدخول' : 'تأكيد وإنشاء الحساب'}
@@ -4449,6 +4449,7 @@ function MarketView({
   user, allAds, allProducts, favorites, storedUsers: propStoredUsers, 
   onSelectAd, onSelectProduct, onToggleFav, onRequireAuth, onSellerClick, 
   onTransportClick, onSelectTransportAd, transportLines, onActionMenu,
+  isStandalone, onInstallClick,
   search, setSearch, cat, setCat, gov, setGov, sort, setSort, 
   priceMin, setPriceMin, priceMax, setPriceMax,
   hasMoreAds, hasMoreProducts, onLoadMoreAds, onLoadMoreProducts,
@@ -4462,6 +4463,8 @@ function MarketView({
   onSelectTransportAd?:(ad:any)=>void;
   transportLines: TransportAd[];
   onActionMenu?: any;
+  isStandalone?: boolean;
+  onInstallClick?: () => void;
   search: string; setSearch: (s: string) => void;
   cat: string; setCat: (c: string) => void;
   gov: string; setGov: (g: string) => void;
@@ -4725,6 +4728,28 @@ function MarketView({
               <ChevronLeft className="w-5 h-5 text-emerald-400 group-hover:-translate-x-1 transition-transform"/>
             </button>
           </motion.div>
+
+          {!isStandalone && onInstallClick && (
+            <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:0.25}}
+              className="mt-3 max-w-2xl mx-auto">
+              <button onClick={onInstallClick}
+                className="w-full flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-amber-500/10 to-yellow-500/10 hover:from-amber-500/20 hover:to-yellow-500/20 border border-amber-500/30 rounded-2xl transition-all group"
+                title="تثبيت التطبيق"
+                aria-label="تثبيت التطبيق"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-amber-500/20 rounded-xl flex items-center justify-center">
+                    <Smartphone className="w-5 h-5 text-amber-400"/>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-white font-bold text-sm">📲 تثبيت التطبيق</p>
+                    <p className="text-amber-300/80 text-xs">ثبّت تطبيق "سوك بغداد" على جهازك لسهولة الوصول السريع</p>
+                  </div>
+                </div>
+                <ChevronLeft className="w-5 h-5 text-amber-400 group-hover:-translate-x-1 transition-transform"/>
+              </button>
+            </motion.div>
+          )}
         </div>
       </section>
 
@@ -5875,6 +5900,11 @@ export default function App() {
   const [loadingRoute, setLoadingRoute] = useState(false);
   const [storedUsers, setStoredUsers] = useState<any[]>([]);
   
+  // PWA states
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [showInstallGuide, setShowInstallGuide] = useState<'safari' | 'ios-other' | 'android-fallback' | null>(null);
+  
   // Pagination & Filtering state
   const [adsPage, setAdsPage] = useState(0);
   const [hasMoreAds, setHasMoreAds] = useState(true);
@@ -6273,12 +6303,48 @@ export default function App() {
     }
   };
 
-  // Rewrite root clean pathname to /IQ on browser level without page reloads
-  // BUT only if not on a deep link path (ad/product/seller etc.)
+  // PWA & Redirection normalization
   useEffect(() => {
-    if (typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '')) {
-      window.history.replaceState(null, '', '/IQ');
+    if (typeof window === 'undefined') return () => {};
+    
+    // Normalize old /IQ paths to clean root path
+    if (window.location.pathname === '/IQ') {
+      window.history.replaceState(null, '', '/');
     }
+
+    // Check standalone mode
+    const checkStandalone = () => {
+      const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+      setIsStandalone(standalone);
+    };
+    checkStandalone();
+
+    const mediaQuery = window.matchMedia('(display-mode: standalone)');
+    const handleMediaChange = (e: MediaQueryListEvent) => setIsStandalone(e.matches);
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleMediaChange);
+    }
+
+    // PWA installation events
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null);
+      setIsStandalone(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', handleMediaChange);
+      }
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
   }, []);
 
   // Initial route parsing — runs once on mount, then retries pending deep links when data arrives
@@ -7197,6 +7263,37 @@ export default function App() {
   };
 
   const myAds = allAds.filter(a=>a.postedBy===user?.id);
+  const handleInstallClick = () => {
+    if (typeof window === 'undefined') return;
+    const ua = navigator.userAgent;
+    const isIOS = /iPad|iPhone|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/i.test(ua);
+    const isSafari = isIOS && /Safari/i.test(ua) && !/CriOS|FxiOS|OPiOS|EdgiOS|mercury/i.test(ua);
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+
+    if (standalone) {
+      alert("التطبيق مثبت بالفعل ويعمل حالياً.");
+      return;
+    }
+
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult: any) => {
+        if (choiceResult.outcome === 'accepted') {
+          setDeferredPrompt(null);
+        }
+      });
+    } else if (isIOS) {
+      if (isSafari) {
+        setShowInstallGuide('safari');
+      } else {
+        setShowInstallGuide('ios-other');
+      }
+    } else {
+      setShowInstallGuide('android-fallback');
+    }
+  };
+
   const myProducts = allProducts.filter(p=>p.postedBy===user?.id);
   const isAdmin = user?.role==='admin';
   const isOwner = user?.role==='owner';
@@ -7205,7 +7302,7 @@ export default function App() {
   let pageTitle = "سوق بغداد - السوق الرقمي العراقي | أكبر منصة إعلانات في العراق";
   let pageDescription = "سوق بغداد - أكبر منصة عراقية للبيع والشراء والإعلانات. سيارات، عقارات، هواتف، إلكترونيات، خدمات والمزيد. اكتشف آلاف الإعلانات في أقسام متعددة.";
   let pageImage = "https://souqbaghdad.store/opengraph.jpg";
-  let canonicalUrl = "https://souqbaghdad.store/IQ";
+  let canonicalUrl = "https://souqbaghdad.store/";
 
   if (selectedAd) {
     const slugify = (text: string) => {
@@ -7285,7 +7382,7 @@ export default function App() {
             <div className="hidden lg:flex items-center gap-2">
               {user?(
                 <>
-                  <button onClick={()=>setShowNotifs(true)} className="p-2 rounded-xl bg-gray-800 text-white hover:bg-gray-700 relative">
+                  <button onClick={()=>setShowNotifs(true)} className="p-2 rounded-xl bg-gray-800 text-white hover:bg-gray-700 relative" title="الإشعارات" aria-label="الإشعارات">
                     <Bell className="w-5 h-5"/>
                     {notifications.length > 0 && (
                       <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center">
@@ -7336,7 +7433,7 @@ export default function App() {
                   <LogIn className="w-3.5 h-3.5"/> <span>دخول</span>
                 </button>
               )}
-              <button onClick={()=>setShowNotifs(true)} className="p-1.5 rounded-xl bg-gray-800 text-white hover:bg-gray-700 relative">
+              <button onClick={()=>setShowNotifs(true)} className="p-1.5 rounded-xl bg-gray-800 text-white hover:bg-gray-700 relative" title="الإشعارات" aria-label="الإشعارات">
                 <Bell className="w-4 h-4"/>
                 {notifications.length > 0 && (
                   <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full text-[9px] text-white flex items-center justify-center">
@@ -7401,6 +7498,8 @@ export default function App() {
               onRequireAuth={requireAuth} 
               onSellerClick={handleSellerClick} 
               onTransportClick={()=>{setView('transport');setBottomNavActive('transport');}} 
+              isStandalone={isStandalone}
+              onInstallClick={handleInstallClick}
               onSelectTransportAd={setSelectedTransportAd} 
               transportLines={allTransportAds}
               search={search}
@@ -7599,6 +7698,60 @@ export default function App() {
             short_id={shareModalData.short_id}
             description={(shareModalData as any).description}
           />
+        )}
+
+        {showInstallGuide && (
+          <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={()=>setShowInstallGuide(null)}/>
+            <motion.div initial={{scale:0.95}} animate={{scale:1}} className="relative bg-gray-900 rounded-3xl p-6 w-full max-w-md border border-gray-700 shadow-2xl text-right" dir="rtl">
+              <button onClick={()=>setShowInstallGuide(null)} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
+              
+              {showInstallGuide === 'safari' && (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Smartphone className="w-5 h-5 text-amber-400"/> تثبيت التطبيق على iPhone (Safari)</h2>
+                  <p className="text-gray-400 text-sm mb-4">لتثبيت تطبيق "سوك بغداد" على الشاشة الرئيسية لجهاز الـ iPhone الخاص بك، يرجى اتباع الخطوات البسيطة التالية:</p>
+                  <ol className="space-y-3 text-gray-300 text-sm list-decimal list-inside">
+                    <li>اضغط على زر <span className="font-bold text-amber-400">مشاركة (Share)</span> <Share2 className="w-4 h-4 inline-block mx-1 text-amber-400"/> الموجود في شريط الأدوات بالأسفل.</li>
+                    <li>قم بالتمرير لأسفل واضغط على خيار <span className="font-bold text-amber-400">إضافة إلى الشاشة الرئيسية (Add to Home Screen)</span> <Plus className="w-4 h-4 inline-block mx-1 text-amber-400"/>.</li>
+                    <li>اضغط على <span className="font-bold text-amber-400">إضافة (Add)</span> في الزاوية العلوية اليمنى لإتمام التثبيت.</li>
+                  </ol>
+                </>
+              )}
+
+              {showInstallGuide === 'ios-other' && (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><AlertCircle className="w-5 h-5 text-red-400"/> متصفح غير مدعوم للتثبيت</h2>
+                  <p className="text-gray-300 text-sm mb-4 leading-relaxed">
+                    يبدو أنك تستخدم متصفحًا آخر غير <span className="text-amber-400 font-bold">Safari</span> على هاتف iPhone الخاص بك (مثل Chrome أو Edge).
+                  </p>
+                  <p className="text-gray-400 text-sm mb-4 leading-relaxed">
+                    نظام iOS لا يسمح بتثبيت التطبيقات على الشاشة الرئيسية إلا من خلال متصفح <span className="text-white font-bold">Safari</span>.
+                  </p>
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs mb-4">
+                    <strong>الحل:</strong> يرجى نسخ رابط الموقع الحالي، وفتحه باستخدام متصفح <strong>Safari</strong> الرسمي على جهازك، ثم الضغط على زر التثبيت مرة أخرى.
+                  </div>
+                  <button onClick={() => {
+                    navigator.clipboard.writeText("https://souqbaghdad.store");
+                    alert("تم نسخ رابط الموقع!");
+                  }} className="w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl transition-colors text-sm" title="نسخ رابط الموقع" aria-label="نسخ رابط الموقع">
+                    نسخ رابط الموقع 📋
+                  </button>
+                </>
+              )}
+
+              {showInstallGuide === 'android-fallback' && (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Smartphone className="w-5 h-5 text-amber-400"/> كيفية تثبيت التطبيق</h2>
+                  <p className="text-gray-400 text-sm mb-4">لتثبيت التطبيق على جهازك يدويًا:</p>
+                  <ul className="space-y-3 text-gray-300 text-sm list-disc list-inside">
+                    <li>اضغط على زر <span className="font-bold text-amber-400">خيارات المتصفح (الثلاث نقاط في الأعلى)</span>.</li>
+                    <li>اختر <span className="font-bold text-amber-400">تثبيت التطبيق (Install App)</span> أو <span className="font-bold text-amber-400">إضافة إلى الشاشة الرئيسية (Add to Home Screen)</span>.</li>
+                    <li>أكّد عملية التثبيت في المربع الذي يظهر لك.</li>
+                  </ul>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

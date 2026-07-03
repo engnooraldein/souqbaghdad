@@ -52,7 +52,7 @@ async function generateSitemap() {
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
-    <loc>${DOMAIN}/IQ</loc>
+    <loc>${DOMAIN}/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
