@@ -389,7 +389,7 @@ function ImageCropModal({ src, aspectRatio=1, title='قص الصورة', onSave,
       <motion.div initial={{scale:0.9}} animate={{scale:1}} className="relative bg-gray-900 rounded-2xl p-5 w-full max-w-sm border border-gray-700 shadow-2xl z-10">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-white font-bold">{title}</h3>
-          <button onClick={onClose} className="p-1.5 bg-gray-800 rounded-lg text-gray-400"><X className="w-4 h-4"/></button>
+          <button onClick={onClose} className="p-1.5 bg-gray-800 rounded-lg text-gray-400" title="إغلاق" aria-label="إغلاق"><X className="w-4 h-4"/></button>
         </div>
         {/* Crop area */}
         <div className="relative overflow-hidden rounded-xl bg-gray-800 border border-gray-600 cursor-grab active:cursor-grabbing select-none mx-auto"
@@ -407,7 +407,7 @@ function ImageCropModal({ src, aspectRatio=1, title='قص الصورة', onSave,
         {/* Zoom */}
         <div className="flex items-center gap-3 mt-4">
           <ZoomOut className="w-4 h-4 text-gray-400 flex-shrink-0"/>
-          <input type="range" min="0.5" max="3" step="0.05" value={zoom} onChange={e=>setZoom(+e.target.value)} className="flex-1 accent-amber-400"/>
+          <input type="range" min="0.5" max="3" step="0.05" value={zoom} onChange={e=>setZoom(+e.target.value)} className="flex-1 accent-amber-400" title="نسبة التقريب" aria-label="نسبة التقريب"/>
           <ZoomIn className="w-4 h-4 text-gray-400 flex-shrink-0"/>
           <span className="text-gray-400 text-xs w-8">{(zoom*100).toFixed(0)}%</span>
         </div>
@@ -505,7 +505,7 @@ function ViewersModal({ itemId, itemType, onClose }: { itemId: string|number, it
       <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-gray-900 rounded-2xl w-full max-w-sm border border-gray-800 p-5 shadow-2xl relative z-[210]">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-white font-bold text-sm flex items-center gap-2">👀 الحسابات التي شاهدت الإعلان ({viewers.length})</h3>
-          <button onClick={onClose} className="p-1.5 bg-gray-800 rounded-lg text-gray-400"><X className="w-4 h-4"/></button>
+          <button onClick={onClose} className="p-1.5 bg-gray-800 rounded-lg text-gray-400" title="إغلاق" aria-label="إغلاق"><X className="w-4 h-4"/></button>
         </div>
         <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
           {loading ? (
@@ -603,7 +603,7 @@ function OnboardingModal({ onClose }:{onClose:()=>void}) {
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[150] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose}/>
       <motion.div initial={{scale:0.9}} animate={{scale:1}} className="relative bg-gray-900 rounded-3xl p-8 w-full max-w-sm text-center border border-gray-700 shadow-2xl z-10">
-        <button onClick={onClose} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400"><X className="w-5 h-5"/></button>
+        <button onClick={onClose} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
         <motion.div key={step} initial={{scale:0.8,opacity:0}} animate={{scale:1,opacity:1}} className="text-6xl mb-4">{s.icon}</motion.div>
         <h2 className="text-xl font-bold text-white mb-3">{s.title}</h2>
         <p className="text-gray-300 text-sm leading-relaxed mb-6">{s.desc}</p>
@@ -862,7 +862,7 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose}/>
       <motion.div initial={{scale:0.95,opacity:0}} animate={{scale:1,opacity:1}}
         className="relative bg-gray-900 rounded-3xl p-7 w-full max-w-md border border-gray-700 shadow-2xl z-10">
-        <button onClick={onClose} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white transition-colors"><X className="w-5 h-5"/></button>
+        <button onClick={onClose} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white transition-colors" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
         <div className="text-center mb-6">
           <div className="text-5xl mb-3">{step === 'login' ? '🔐' : step === 'signup' ? '✨' : '📱'}</div>
           <h2 className="text-2xl font-bold text-white">
@@ -910,7 +910,7 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
                 <input value={name} onChange={e=>setName(e.target.value)} placeholder="الاسم الكامل" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none"/></div>}
               
               {step === 'signup' && <div className="grid grid-cols-1 gap-3">
-                <select value={city} onChange={e=>setCity(e.target.value)} className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400 outline-none">
+                <select value={city} onChange={e=>setCity(e.target.value)} className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400 outline-none" title="اختر المدينة" aria-label="اختر المدينة">
                   {IRAQI_GOVERNORATES.filter(g=>g!=='الكل').map(g=><option key={g}>{g}</option>)}</select>
               </div>}
               
@@ -988,7 +988,7 @@ function InfoDocsModal({ activeTab, onClose }: { activeTab: string; onClose: () 
             </div>
             <h3 className="text-white font-bold text-lg">مركز المعلومات والسياسات</h3>
           </div>
-          <button onClick={onClose} className="p-2 bg-gray-800 hover:bg-gray-700 rounded-xl text-gray-400 transition-colors">
+          <button onClick={onClose} className="p-2 bg-gray-800 hover:bg-gray-700 rounded-xl text-gray-400 transition-colors" title="إغلاق" aria-label="إغلاق">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -1328,7 +1328,7 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
           <h4 className="text-white font-bold text-sm truncate max-w-[200px] sm:max-w-xs">{title}</h4>
           {totalCount > 1 && <span className="text-amber-400 text-xs font-semibold">{currentIdx + 1} من {totalCount}</span>}
         </div>
-        <button onClick={onClose} className="p-2 bg-gray-900/80 hover:bg-gray-800 rounded-full text-gray-400 hover:text-white transition-colors">
+        <button onClick={onClose} className="p-2 bg-gray-900/80 hover:bg-gray-800 rounded-full text-gray-400 hover:text-white transition-colors" title="إغلاق" aria-label="إغلاق">
           <X className="w-5 h-5" />
         </button>
       </div>
@@ -1345,10 +1345,10 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
         
         {totalCount > 1 && (
           <>
-            <button onClick={(e) => { e.stopPropagation(); setCurrentIdx(i => (i - 1 + totalCount) % totalCount); }} className="absolute right-2 top-1/2 -translate-y-1/2 p-3 bg-black/70 hover:bg-black/90 text-white rounded-full transition-all">
+            <button onClick={(e) => { e.stopPropagation(); setCurrentIdx(i => (i - 1 + totalCount) % totalCount); }} className="absolute right-2 top-1/2 -translate-y-1/2 p-3 bg-black/70 hover:bg-black/90 text-white rounded-full transition-all" title="الصورة السابقة" aria-label="الصورة السابقة">
               <ChevronRight className="w-6 h-6" />
             </button>
-            <button onClick={(e) => { e.stopPropagation(); setCurrentIdx(i => (i + 1) % totalCount); }} className="absolute left-2 top-1/2 -translate-y-1/2 p-3 bg-black/70 hover:bg-black/90 text-white rounded-full transition-all">
+            <button onClick={(e) => { e.stopPropagation(); setCurrentIdx(i => (i + 1) % totalCount); }} className="absolute left-2 top-1/2 -translate-y-1/2 p-3 bg-black/70 hover:bg-black/90 text-white rounded-full transition-all" title="الصورة التالية" aria-label="الصورة التالية">
               <ChevronLeft className="w-6 h-6" />
             </button>
           </>
@@ -1402,7 +1402,7 @@ function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu }:{
           </div>
         )}
         {ad.type==='rent'&&<div className={`absolute px-2 py-0.5 bg-blue-500 rounded-full text-[10px] font-bold text-white transition-all ${isNewItem(ad.createdAtISO) ? 'top-8 left-2' : 'top-2 left-2'}`}>للإيجار</div>}
-        <button onClick={onFav} className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'} transition-colors`}>
+        <button onClick={onFav} className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'} transition-colors`} title={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"} aria-label={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}>
           <Heart className={`w-4 h-4 text-white ${isFav?'fill-current':''}`}/></button>
         {ad.seller?.isVerified&&<div className="absolute bottom-2 left-2 px-2 py-0.5 bg-blue-500 rounded-full text-[10px] font-bold text-white flex items-center gap-1"><Shield className="w-2.5 h-2.5"/>موثق</div>}
         {ad.status==='sold'&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-[1px]"><span className="bg-red-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
@@ -1447,7 +1447,7 @@ function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionM
             حديث ✨
           </div>
         )}
-        <button onClick={onFav} className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'}`}>
+        <button onClick={onFav} className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'}`} title={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"} aria-label={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}>
           <Heart className={`w-4 h-4 text-white ${isFav?'fill-current':''}`}/></button>
         <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-purple-600 rounded-full text-[10px] font-bold text-white flex items-center gap-1">
           <ShoppingBag className="w-2.5 h-2.5"/>متجر</div>
@@ -1562,7 +1562,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
             )}
           </div>
 
-          <button onClick={onClose} className="absolute top-3 right-3 p-2 bg-black/60 rounded-xl text-white z-10 hover:bg-black/80"><X className="w-5 h-5"/></button>
+          <button onClick={onClose} className="absolute top-3 right-3 p-2 bg-black/60 rounded-xl text-white z-10 hover:bg-black/80" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
           <button 
             onClick={async () => {
               if(!user) { onAuthRequired(); return; }
@@ -1585,9 +1585,9 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
             <span>🚩</span> إبلاغ
           </button>
           {totalImgs > 1 && <>
-            <button onClick={()=>setImgIdx(i=>(i - 1 + totalImgs) % totalImgs)} className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 rounded-xl text-white z-10 transition-all"><ChevronRight className="w-6 h-6"/></button>
-            <button onClick={()=>setImgIdx(i=>(i + 1) % totalImgs)} className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 rounded-xl text-white z-10 transition-all"><ChevronLeft className="w-6 h-6"/></button>
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">{ad.images?.map((_,i)=><button key={i} onClick={()=>setImgIdx(i)} className={`h-2 rounded-full transition-all ${i===imgIdx?'w-6 bg-amber-400':'w-2 bg-white/60'}`}/>)}</div>
+            <button onClick={()=>setImgIdx(i=>(i - 1 + totalImgs) % totalImgs)} className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 rounded-xl text-white z-10 transition-all" title="الصورة السابقة" aria-label="الصورة السابقة"><ChevronRight className="w-6 h-6"/></button>
+            <button onClick={()=>setImgIdx(i=>(i + 1) % totalImgs)} className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 rounded-xl text-white z-10 transition-all" title="الصورة التالية" aria-label="الصورة التالية"><ChevronLeft className="w-6 h-6"/></button>
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">{ad.images?.map((_,i)=><button key={i} onClick={()=>setImgIdx(i)} className={`h-2 rounded-full transition-all ${i===imgIdx?'w-6 bg-amber-400':'w-2 bg-white/60'}`} title={`عرض الصورة ${i + 1}`} aria-label={`عرض الصورة ${i + 1}`}/>)}</div>
           </>}
         </div>
         <div className="p-5">
@@ -1599,7 +1599,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
                 </span>
                 <div className="flex items-center gap-1.5 bg-gray-800 px-2.5 py-1 rounded-xl border border-gray-700 text-xs text-gray-400">
                   <span>{ad.short_id ? `#${ad.short_id}` : `#${String(ad.id).substring(0, 5)}`}</span>
-                  <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(String(ad.short_id || String(ad.id).substring(0, 5))); alert('تم نسخ رقم الإعلان!'); }} className="text-amber-400 hover:text-amber-300">
+                  <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(String(ad.short_id || String(ad.id).substring(0, 5))); alert('تم نسخ رقم الإعلان!'); }} className="text-amber-400 hover:text-amber-300" title="نسخ رقم الإعلان" aria-label="نسخ رقم الإعلان">
                     <Copy className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -1774,7 +1774,7 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
             )}
           </div>
 
-          <button onClick={onClose} className="absolute top-3 right-3 p-2 bg-black/60 rounded-xl text-white z-10 hover:bg-black/80"><X className="w-5 h-5"/></button>
+          <button onClick={onClose} className="absolute top-3 right-3 p-2 bg-black/60 rounded-xl text-white z-10 hover:bg-black/80" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
           <button 
             onClick={async () => {
               if(!user) { onAuthRequired(); return; }
@@ -1797,9 +1797,9 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
             <span>🚩</span> إبلاغ
           </button>
           {totalImgs > 1 && <>
-            <button onClick={()=>setImgIdx(i=>(i - 1 + totalImgs) % totalImgs)} className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 rounded-xl text-white z-10 transition-all"><ChevronRight className="w-6 h-6"/></button>
-            <button onClick={()=>setImgIdx(i=>(i + 1) % totalImgs)} className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 rounded-xl text-white z-10 transition-all"><ChevronLeft className="w-6 h-6"/></button>
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">{product.images?.map((_,i)=><button key={i} onClick={()=>setImgIdx(i)} className={`h-2 rounded-full transition-all ${i===imgIdx?'w-6 bg-amber-400':'w-2 bg-white/60'}`}/>)}</div>
+            <button onClick={()=>setImgIdx(i=>(i - 1 + totalImgs) % totalImgs)} className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 rounded-xl text-white z-10 transition-all" title="الصورة السابقة" aria-label="الصورة السابقة"><ChevronRight className="w-6 h-6"/></button>
+            <button onClick={()=>setImgIdx(i=>(i + 1) % totalImgs)} className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 rounded-xl text-white z-10 transition-all" title="الصورة التالية" aria-label="الصورة التالية"><ChevronLeft className="w-6 h-6"/></button>
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">{product.images?.map((_,i)=><button key={i} onClick={()=>setImgIdx(i)} className={`h-2 rounded-full transition-all ${i===imgIdx?'w-6 bg-amber-400':'w-2 bg-white/60'}`} title={`عرض الصورة ${i + 1}`} aria-label={`عرض الصورة ${i + 1}`}/>)}</div>
           </>}
           <div className="absolute top-3 left-12 px-3 py-1 rounded-full text-xs font-bold text-white z-10" style={{background:product.condition==='new'?'#22c55e':'#f59e0b'}}>
             {product.condition==='new'?'جديد':'مستعمل'}</div>
@@ -1813,7 +1813,7 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
                 </span>
                 <div className="flex items-center gap-1.5 bg-gray-800 px-2.5 py-1 rounded-xl border border-gray-700 text-xs text-gray-400">
                   <span>{product.short_id ? `#${product.short_id}` : `#${String(product.id).substring(0, 5)}`}</span>
-                  <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(String(product.short_id || String(product.id).substring(0, 5))); alert('تم نسخ رقم المنتج!'); }} className="text-amber-400 hover:text-amber-300">
+                  <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(String(product.short_id || String(product.id).substring(0, 5))); alert('تم نسخ رقم المنتج!'); }} className="text-amber-400 hover:text-amber-300" title="نسخ رقم المنتج" aria-label="نسخ رقم المنتج">
                     <Copy className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -1941,7 +1941,7 @@ function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDuratio
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-white"><X className="w-5 h-5"/></button>
+          <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-white" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
@@ -2083,7 +2083,7 @@ function AdFormModal({ isOpen, onClose, onSubmit, user, editAd }:{
         <div className="flex items-center justify-between p-5 border-b border-gray-700">
           <div className="flex items-center gap-3">{isEdit&&<div className="w-8 h-8 bg-amber-500/20 rounded-xl flex items-center justify-center"><Edit2 className="w-4 h-4 text-amber-400"/></div>}
             <h2 className="text-xl font-bold text-white">{isEdit?'تعديل الإعلان':'رفع إعلان جديد'}</h2></div>
-          <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400"><X className="w-5 h-5"/></button>
+          <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
         </div>
         <div className="flex border-b border-gray-700">
           {(['form','preview'] as const).map(t=>(
@@ -2106,7 +2106,7 @@ function AdFormModal({ isOpen, onClose, onSubmit, user, editAd }:{
               <input value={fmt(fd.price)} onChange={e=>setFd({...fd,price:fmt(e.target.value)})} placeholder="مثال: 850,000,000" required className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400 outline-none text-lg font-bold"/></div>
             <div className="grid grid-cols-2 gap-3">
               <div><label className="text-gray-300 text-xs font-medium mb-2 block">المحافظة</label>
-                <select value={fd.governorate} onChange={e=>setFd({...fd,governorate:e.target.value})} className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400 outline-none">
+                <select value={fd.governorate} onChange={e=>setFd({...fd,governorate:e.target.value})} className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400 outline-none" title="اختر المحافظة" aria-label="اختر المحافظة">
                   {IRAQI_GOVERNORATES.filter(g=>g!=='الكل').map(g=><option key={g}>{g}</option>)}</select></div>
               <div><label className="text-gray-300 text-xs font-medium mb-2 block">رقم الهاتف</label>
                 <input value={fd.phone} onChange={e=>setFd({...fd,phone:e.target.value})} placeholder="07XXXXXXXXX" required className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400 outline-none"/></div>
@@ -2119,7 +2119,7 @@ function AdFormModal({ isOpen, onClose, onSubmit, user, editAd }:{
                   <div key={i} className="relative aspect-square rounded-xl overflow-hidden bg-gray-800">
                     {img.preview?<img src={img.preview} alt="" className="w-full h-full object-cover"/>:<div className="w-full h-full bg-gray-700 animate-pulse"/>}
                     {img.progress<100&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center"><div className="w-3/4 h-1 bg-gray-600 rounded-full"><div className="h-full bg-amber-500 rounded-full" style={{width:`${img.progress}%`}}/></div></div>}
-                    <button type="button" onClick={()=>setImages(images.filter((_,j)=>j!==i))} className="absolute top-1 right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center"><X className="w-3 h-3 text-white"/></button>
+                    <button type="button" onClick={()=>setImages(images.filter((_,j)=>j!==i))} className="absolute top-1 right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center" title="حذف الصورة" aria-label="حذف الصورة"><X className="w-3 h-3 text-white"/></button>
                   </div>
                 ))}
                 {images.length<10&&<label className="aspect-square rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center cursor-pointer hover:border-amber-500">
@@ -2212,7 +2212,7 @@ function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct }:{
         <div className="flex items-center justify-between p-5 border-b border-gray-700">
           <div className="flex items-center gap-3"><div className="w-8 h-8 bg-purple-500/20 rounded-xl flex items-center justify-center"><ShoppingBag className="w-4 h-4 text-purple-400"/></div>
             <h2 className="text-xl font-bold text-white">{isEdit?'تعديل المنتج':'إضافة منتج جديد'}</h2></div>
-          <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400"><X className="w-5 h-5"/></button>
+          <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* Condition */}
@@ -2232,11 +2232,11 @@ function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct }:{
             <div><label className="text-gray-300 text-xs font-medium mb-2 block">السعر (دينار)</label>
               <input value={fmt(fd.price)} onChange={e=>setFd({...fd,price:fmt(e.target.value)})} placeholder="35,000" required className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400 outline-none font-bold"/></div>
             <div><label className="text-gray-300 text-xs font-medium mb-2 block">الكمية المتاحة</label>
-              <input type="number" min="1" value={fd.stock} onChange={e=>setFd({...fd,stock:+e.target.value})} className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400 outline-none"/></div>
+              <input type="number" min="1" value={fd.stock} onChange={e=>setFd({...fd,stock:+e.target.value})} className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400 outline-none" title="الكمية المتاحة" aria-label="الكمية المتاحة" placeholder="الكمية المتاحة"/></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className="text-gray-300 text-xs font-medium mb-2 block">المحافظة</label>
-              <select value={fd.governorate} onChange={e=>setFd({...fd,governorate:e.target.value})} className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400 outline-none">
+              <select value={fd.governorate} onChange={e=>setFd({...fd,governorate:e.target.value})} className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400 outline-none" title="اختر المحافظة" aria-label="اختر المحافظة">
                 {IRAQI_GOVERNORATES.filter(g=>g!=='الكل').map(g=><option key={g}>{g}</option>)}</select></div>
             <div><label className="text-gray-300 text-xs font-medium mb-2 block">رقم الهاتف</label>
               <input value={fd.phone} onChange={e=>setFd({...fd,phone:e.target.value})} placeholder="07XXXXXXXXX" required className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400 outline-none"/></div>
@@ -2249,7 +2249,7 @@ function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct }:{
                 <div key={i} className="relative aspect-square rounded-xl overflow-hidden bg-gray-800">
                   {img.preview?<img src={img.preview} alt="" className="w-full h-full object-cover"/>:<div className="w-full h-full bg-gray-700 animate-pulse"/>}
                   {img.progress<100&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center"><div className="w-3/4 h-1 bg-gray-600 rounded-full"><div className="h-full bg-amber-500 rounded-full" style={{width:`${img.progress}%`}}/></div></div>}
-                  <button type="button" onClick={()=>setImages(images.filter((_,j)=>j!==i))} className="absolute top-1 right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center"><X className="w-3 h-3 text-white"/></button>
+                  <button type="button" onClick={()=>setImages(images.filter((_,j)=>j!==i))} className="absolute top-1 right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center" title="حذف الصورة" aria-label="حذف الصورة"><X className="w-3 h-3 text-white"/></button>
                 </div>
               ))}
               {images.length<10&&<label className="aspect-square rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center cursor-pointer hover:border-purple-500">
@@ -2492,7 +2492,7 @@ function PasswordChangeModal({ isOpen, onClose, userEmail, userPhone }:{
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative bg-gray-900 border border-gray-800 rounded-3xl p-6 w-full max-w-md shadow-2xl overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-yellow-500" />
-        <button onClick={onClose} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white transition-colors">
+        <button onClick={onClose} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white transition-colors" title="إغلاق" aria-label="إغلاق">
           <X className="w-5 h-5" />
         </button>
         <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
@@ -2692,8 +2692,8 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                 <div className="absolute -bottom-1 -right-1 flex gap-1">
                   <label className="w-8 h-8 sm:w-10 sm:h-10 bg-amber-500 rounded-full flex items-center justify-center cursor-pointer shadow-lg hover:bg-amber-400">
                     <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-black"/>
-                    <input type="file" accept="image/*" onChange={e=>openCrop(e,'avatar')} className="hidden"/></label>
-                  <button onClick={()=>setAvatarPreview(DEFAULT_AVATAR)} className="w-8 h-8 sm:w-10 sm:h-10 bg-red-500 rounded-full flex items-center justify-center shadow-lg hover:bg-red-400">
+                    <input type="file" accept="image/*" onChange={e=>openCrop(e,'avatar')} className="hidden" title="اختر الصورة الشخصية" aria-label="اختر الصورة الشخصية"/></label>
+                  <button onClick={()=>setAvatarPreview(DEFAULT_AVATAR)} className="w-8 h-8 sm:w-10 sm:h-10 bg-red-500 rounded-full flex items-center justify-center shadow-lg hover:bg-red-400" title="حذف الصورة الشخصية" aria-label="حذف الصورة الشخصية">
                     <Trash2 className="w-4 h-4 sm:w-5 sm:h-5 text-white"/></button>
                 </div>
               )}
@@ -2788,8 +2788,8 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                     </div>
                     <div className="flex flex-col gap-1.5 self-center">
                       <button onClick={()=>onMarkAdSold(ad)} title="تم البيع" className="p-2 bg-green-500/20 rounded-xl text-green-400 hover:bg-green-500/30"><CheckCircle className="w-3.5 h-3.5"/></button>
-                      <button onClick={()=>onEditAd(ad)} className="p-2 bg-amber-500/20 rounded-xl text-amber-400 hover:bg-amber-500/30"><Edit2 className="w-3.5 h-3.5"/></button>
-                      <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30"><Trash2 className="w-3.5 h-3.5"/></button>
+                      <button onClick={()=>onEditAd(ad)} className="p-2 bg-amber-500/20 rounded-xl text-amber-400 hover:bg-amber-500/30" title="تعديل الإعلان" aria-label="تعديل الإعلان"><Edit2 className="w-3.5 h-3.5"/></button>
+                      <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30" title="حذف الإعلان" aria-label="حذف الإعلان"><Trash2 className="w-3.5 h-3.5"/></button>
                     </div>
                   </div>
                 ))}
@@ -2823,8 +2823,8 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                     </div>
                     <div className="flex flex-col gap-1.5 self-center">
                       <button onClick={()=>onMarkProductSold(p)} title="تم البيع" className="p-2 bg-green-500/20 rounded-xl text-green-400 hover:bg-green-500/30"><CheckCircle className="w-3.5 h-3.5"/></button>
-                      <button onClick={()=>onEditProduct(p)} className="p-2 bg-purple-500/20 rounded-xl text-purple-400 hover:bg-purple-500/30"><Edit2 className="w-3.5 h-3.5"/></button>
-                      <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30"><Trash2 className="w-3.5 h-3.5"/></button>
+                      <button onClick={()=>onEditProduct(p)} className="p-2 bg-purple-500/20 rounded-xl text-purple-400 hover:bg-purple-500/30" title="تعديل المنتج" aria-label="تعديل المنتج"><Edit2 className="w-3.5 h-3.5"/></button>
+                      <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30" title="حذف المنتج" aria-label="حذف المنتج"><Trash2 className="w-3.5 h-3.5"/></button>
                     </div>
                   </div>
                 ))}
@@ -2859,7 +2859,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                       </div>
                     </div>
                     <div className="flex flex-col gap-1.5 self-center">
-                      <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30"><Trash2 className="w-3.5 h-3.5"/></button>
+                      <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30" title="حذف الإعلان" aria-label="حذف الإعلان"><Trash2 className="w-3.5 h-3.5"/></button>
                     </div>
                   </div>
                 ))}
@@ -2878,7 +2878,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                       </div>
                     </div>
                     <div className="flex flex-col gap-1.5 self-center">
-                      <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30"><Trash2 className="w-3.5 h-3.5"/></button>
+                      <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30" title="حذف المنتج" aria-label="حذف المنتج"><Trash2 className="w-3.5 h-3.5"/></button>
                     </div>
                   </div>
                 ))}
@@ -2916,7 +2916,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                   </div>
                 ))}
                 <div><label className="text-gray-400 text-xs font-medium mb-1 block">المحافظة</label>
-                  <select disabled={!editing} value={ef.location} onChange={e=>setEf({...ef,location:e.target.value})} className={`w-full bg-gray-700 text-white rounded-xl py-2.5 px-4 border outline-none text-sm ${editing?'border-amber-400':'border-gray-600 opacity-70'}`}>
+                  <select disabled={!editing} value={ef.location} onChange={e=>setEf({...ef,location:e.target.value})} className={`w-full bg-gray-700 text-white rounded-xl py-2.5 px-4 border outline-none text-sm ${editing?'border-amber-400':'border-gray-600 opacity-70'}`} title="المحافظة" aria-label="المحافظة">
                     {IRAQI_GOVERNORATES.filter(g=>g!=='الكل').map(g=><option key={g}>{g}</option>)}</select></div>
                 {editing&&<div className="flex gap-3 pt-2">
                   <button onClick={handleSave} disabled={isSaving} className="flex-1 py-3 bg-green-500 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -2959,7 +2959,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
           <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[110] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={()=>setShowVerifyModal(false)}/>
             <motion.div initial={{scale:0.95}} animate={{scale:1}} className="relative bg-gray-900 rounded-3xl p-6 w-full max-w-md border border-gray-700 shadow-2xl">
-              <button onClick={()=>setShowVerifyModal(false)} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400"><X className="w-5 h-5"/></button>
+              <button onClick={()=>setShowVerifyModal(false)} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
               <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Shield className="w-5 h-5 text-blue-400"/> طلب توثيق الحساب</h2>
               <p className="text-gray-400 text-sm mb-4">يرجى رفع صورة واضحة لهويتك الشخصية (البطاقة الوطنية أو جواز السفر) لتوثيق حسابك والحصول على شارة الموثوقية.</p>
               
@@ -2967,13 +2967,13 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                 {verifyImage ? (
                   <div className="relative rounded-2xl overflow-hidden border border-gray-700 bg-gray-800">
                     <img src={verifyImage} alt="ID" className="w-full h-48 object-cover"/>
-                    <button onClick={()=>setVerifyImage(null)} className="absolute top-2 left-2 p-2 bg-red-500 rounded-xl text-white shadow-lg"><Trash2 className="w-4 h-4"/></button>
+                    <button onClick={()=>setVerifyImage(null)} className="absolute top-2 left-2 p-2 bg-red-500 rounded-xl text-white shadow-lg" title="حذف الصورة" aria-label="حذف الصورة"><Trash2 className="w-4 h-4"/></button>
                   </div>
                 ) : (
                   <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-gray-700 rounded-2xl cursor-pointer hover:bg-gray-800 transition-colors">
                     <Camera className="w-8 h-8 text-gray-500 mb-2"/>
                     <span className="text-gray-400 text-sm">اضغط هنا لالتقاط أو رفع صورة</span>
-                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={async (e) => {
+                    <input type="file" accept="image/*" capture="environment" className="hidden" title="تحميل صورة الهوية" aria-label="تحميل صورة الهوية" onChange={async (e) => {
                       if(e.target.files?.[0]) {
                         const b64 = await compressImage(e.target.files[0], 1200, 0.8, false);
                         setVerifyImage(b64);
@@ -3556,7 +3556,7 @@ const fetchRecovery = async () => {
             <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg"><Crown className="w-6 h-6 text-black"/></div>
             <div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">🚀 الإصدار v1.2</span></div><p className="text-amber-400 text-xs mt-0.5">تحليلات شاملة وإدارة كاملة للموقع المنصة حية ومتصلة</p></div>
           </div>
-          <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white"><X className="w-5 h-5"/></button>
+          <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
         </div>
         
         {/* Stat cards */}
@@ -3720,7 +3720,7 @@ const fetchRecovery = async () => {
               return (
               <div key={u.id} className={`bg-gray-800 rounded-2xl p-4 border ${u.is_banned?'border-red-500/30':'border-gray-700'} flex flex-col sm:flex-row sm:items-center gap-3 relative`}>
                 {u.role !== 'owner' && (
-                  <input type="checkbox" className="w-5 h-5 accent-red-500 rounded cursor-pointer hidden sm:block flex-shrink-0" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
+                  <input type="checkbox" className="w-5 h-5 accent-red-500 rounded cursor-pointer hidden sm:block flex-shrink-0" title="تحديد المستخدم" aria-label="تحديد المستخدم" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
                     if (e.target.checked) setSelectedUserIds(prev => [...prev, u.id]);
                     else setSelectedUserIds(prev => prev.filter(id => id !== u.id));
                   }} />
@@ -3733,7 +3733,7 @@ const fetchRecovery = async () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     {u.role !== 'owner' && (
-                      <input type="checkbox" className="w-4 h-4 accent-red-500 rounded cursor-pointer sm:hidden flex-shrink-0" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
+                      <input type="checkbox" className="w-4 h-4 accent-red-500 rounded cursor-pointer sm:hidden flex-shrink-0" title="تحديد المستخدم" aria-label="تحديد المستخدم" checked={selectedUserIds.includes(u.id)} onChange={(e) => {
                         if (e.target.checked) setSelectedUserIds(prev => [...prev, u.id]);
                         else setSelectedUserIds(prev => prev.filter(id => id !== u.id));
                       }} />
@@ -3763,7 +3763,7 @@ const fetchRecovery = async () => {
                     </button>
                   )}
                   {u.role !== 'owner' && (
-                    <select 
+                    <select title="تغيير الدور" aria-label="تغيير الدور" 
                       value={u.role || 'user'} 
                       onChange={(e) => changeRole(u.id, e.target.value)}
                       className="bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5 outline-none focus:border-amber-500"
@@ -3832,7 +3832,7 @@ const fetchRecovery = async () => {
                       <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
                       <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{ad.title}</p>
                         <p className="text-xs text-gray-400">{ad.location} • {formatPrice(ad.price)} د.ع • <button onClick={() => setViewersModalItem({id: ad.id, type: 'ad'})} className="hover:text-amber-400">{ad.views} 👁</button></p></div>
-                      <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
+                      <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0" title="حذف الإعلان" aria-label="حذف الإعلان"><Trash2 className="w-4 h-4"/></button>
                     </div>
                   ))}
                   {visibleDashboardAds < ads.length && (
@@ -3854,7 +3854,7 @@ const fetchRecovery = async () => {
                       <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
                       <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{p.title}</p>
                         <p className="text-xs text-gray-400">{p.governorate} • {formatPrice(p.price)} د.ع • <button onClick={() => setViewersModalItem({id: p.id, type: 'product'})} className="hover:text-amber-400">{p.views} 👁</button> • {p.condition==='new'?'جديد':'مستعمل'}</p></div>
-                      <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
+                      <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0" title="حذف المنتج" aria-label="حذف المنتج"><Trash2 className="w-4 h-4"/></button>
                     </div>
                   ))}
                   {visibleDashboardProducts < products.length && (
@@ -3878,7 +3878,7 @@ const fetchRecovery = async () => {
                       </div>
                       <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{t.type === 'offer' ? 'متوفر خط' : 'أبحث عن خط'} ({t.university})</p>
                         <p className="text-xs text-gray-400">{t.regions} • {formatPrice(t.price)} د.ع • <button onClick={() => setViewersModalItem({id: t.id, type: 'transport'})} className="hover:text-amber-400">{t.views||0} 👁</button></p></div>
-                      <button onClick={()=>onDeleteTransportAd(t.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
+                      <button onClick={()=>onDeleteTransportAd(t.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0" title="حذف خط النقل" aria-label="حذف خط النقل"><Trash2 className="w-4 h-4"/></button>
                     </div>
                   ))}
                   {visibleDashboardLines < transportAds.length && (
@@ -4256,7 +4256,7 @@ function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id:number
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3"><div className="w-10 h-10 bg-red-500/20 rounded-xl flex items-center justify-center"><Settings className="w-5 h-5 text-red-400"/></div>
             <div><h1 className="text-xl font-bold text-white">لوحة الإدارة</h1><p className="text-gray-400 text-xs">إدارة الإعلانات والمحتوى</p></div></div>
-          <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400"><X className="w-5 h-5"/></button>
+          <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
         </div>
         <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
           <div className="p-4 border-b border-gray-700"><h3 className="text-white font-bold">الإعلانات ({ads.length})</h3></div>
@@ -4265,7 +4265,7 @@ function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id:number
               <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover"/>
               <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{ad.title}</p>
                 <p className="text-xs text-gray-400">{ad.location} • {formatPrice(ad.price)} د.ع</p></div>
-              <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400"><Trash2 className="w-4 h-4"/></button>
+              <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400" title="حذف الإعلان" aria-label="حذف الإعلان"><Trash2 className="w-4 h-4"/></button>
             </div>
           ))}
         </div>
@@ -4300,7 +4300,7 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
         <motion.div initial={{x:300}} animate={{x:0}} exit={{x:300}} onClick={e=>e.stopPropagation()} className="absolute right-0 top-0 bottom-0 w-80 bg-gray-900 p-5 overflow-y-auto border-l border-gray-700">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-bold text-white">الإشعارات</h2>
-            <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400"><X className="w-5 h-5"/></button>
+            <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
           </div>
 
           <div className="flex gap-2 mb-4 bg-gray-800 p-1 rounded-xl border border-gray-700">
@@ -4408,7 +4408,7 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
                 className="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden"
               >
                 <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-500 to-amber-500" />
-                <button 
+                <button title="إغلاق" aria-label="إغلاق" 
                   onClick={() => setSelectedNotif(null)} 
                   className="absolute top-4 left-4 p-1.5 bg-gray-800 hover:bg-gray-750 text-gray-400 hover:text-white rounded-lg transition-colors"
                 >
@@ -4741,17 +4741,17 @@ function MarketView({
                 ))}
               </div>
               <div className="flex-1 flex flex-wrap gap-2 items-center justify-end">
-                <select value={gov} onChange={e=>setGov(e.target.value)} className="bg-gray-700 text-white rounded-xl px-3 py-2 border border-gray-600 text-xs outline-none">
+                <select value={gov} onChange={e=>setGov(e.target.value)} className="bg-gray-700 text-white rounded-xl px-3 py-2 border border-gray-600 text-xs outline-none" title="المحافظة" aria-label="المحافظة">
                   {IRAQI_GOVERNORATES.map(g=><option key={g}>{g}</option>)}</select>
-                <select value={sort} onChange={e=>setSort(e.target.value as any)} className="bg-gray-700 text-white rounded-xl px-3 py-2 border border-gray-600 text-xs outline-none">
+                <select value={sort} onChange={e=>setSort(e.target.value as any)} className="bg-gray-700 text-white rounded-xl px-3 py-2 border border-gray-600 text-xs outline-none" title="الترتيب" aria-label="الترتيب">
                   <option value="recent">الأحدث</option><option value="views">الأكثر مشاهدة</option>
                   <option value="price-low">السعر: من الأقل</option><option value="price-high">السعر: من الأعلى</option>
                 </select>
                 <button onClick={()=>setShowFilters(!showFilters)} className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs border ${showFilters?'bg-amber-500 text-black border-amber-500':'bg-gray-700 text-gray-300 border-gray-600'}`}>
                   <SlidersHorizontal className="w-3.5 h-3.5"/><span>فلاتر</span></button>
                 <div className="flex bg-gray-700 rounded-xl p-0.5">
-                  <button onClick={()=>setViewMode('grid')} className={`p-1.5 rounded-lg ${viewMode==='grid'?'bg-amber-500 text-black':'text-gray-400'}`}><Grid className="w-4 h-4"/></button>
-                  <button onClick={()=>setViewMode('list')} className={`p-1.5 rounded-lg ${viewMode==='list'?'bg-amber-500 text-black':'text-gray-400'}`}><List className="w-4 h-4"/></button>
+                  <button onClick={()=>setViewMode('grid')} className={`p-1.5 rounded-lg ${viewMode==='grid'?'bg-amber-500 text-black':'text-gray-400'}`} title="عرض شبكي" aria-label="عرض شبكي"><Grid className="w-4 h-4"/></button>
+                  <button onClick={()=>setViewMode('list')} className={`p-1.5 rounded-lg ${viewMode==='list'?'bg-amber-500 text-black':'text-gray-400'}`} title="عرض قائمة" aria-label="عرض قائمة"><List className="w-4 h-4"/></button>
                 </div>
               </div>
             </div>
@@ -5349,7 +5349,7 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
               <p className="text-emerald-100 text-xs">{categoryType==='employee'?'موظف أم صاحب خط؟':'طالب أم صاحب خط؟'}</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-2 bg-white/20 rounded-xl text-white"><X className="w-5 h-5"/></button>
+          <button type="button" onClick={onClose} className="p-2 bg-white/20 rounded-xl text-white" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           
@@ -5374,7 +5374,7 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
 
           <div>
             <label className="text-gray-400 text-xs mb-1 block">{categoryType==='employee'?'مكان العمل (دوائر / شركات)':'الجامعة / الكلية'}</label>
-            <select value={university} onChange={e=>setUniversity(e.target.value)}
+            <select value={university} onChange={e=>setUniversity(e.target.value)} title="الجامعة" aria-label="الجامعة"
               className="w-full bg-gray-800 text-white rounded-xl py-3 px-3 border border-gray-700 focus:border-emerald-400 outline-none text-sm mb-2">
               {finalFormUniversities.map(c=><option key={c} value={c}>{c}</option>)}
             </select>
@@ -5392,14 +5392,14 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-gray-400 text-xs mb-1 block">نوع الدوام</label>
-              <select value={shift} onChange={e=>setShift(e.target.value)}
+              <select value={shift} onChange={e=>setShift(e.target.value)} title="نوع الدوام" aria-label="نوع الدوام"
                 className="w-full bg-gray-800 text-white rounded-xl py-3 px-3 border border-gray-700 focus:border-emerald-400 outline-none text-sm">
                 <option>صباحي</option><option>مسائي</option><option>صباحي ومسائي</option>
               </select>
             </div>
             <div>
               <label className="text-gray-400 text-xs mb-1 block">المقاعد (لأصحاب الخطوط)</label>
-              <input type="number" min="1" max="50" value={seats} onChange={e=>setSeats(e.target.value)} disabled={type==='request'}
+              <input type="number" min="1" max="50" value={seats} onChange={e=>setSeats(e.target.value)} disabled={type==='request'} title="عدد المقاعد" aria-label="عدد المقاعد" placeholder="عدد المقاعد"
                 className="w-full bg-gray-800 text-white disabled:opacity-50 rounded-xl py-3 px-3 border border-gray-700 focus:border-emerald-400 outline-none text-sm"/>
             </div>
           </div>
@@ -5407,14 +5407,14 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-gray-400 text-xs mb-1 block">نوع المركبة</label>
-              <select value={vehicleType} onChange={e=>setVehicleType(e.target.value)}
+              <select value={vehicleType} onChange={e=>setVehicleType(e.target.value)} title="نوع المركبة" aria-label="نوع المركبة"
                 className="w-full bg-gray-800 text-white rounded-xl py-3 px-3 border border-gray-700 focus:border-emerald-400 outline-none text-sm">
                 <option>خصوصي</option><option>أجرة</option><option>فان 11 راكب</option><option>كوستر</option>
               </select>
             </div>
             <div>
               <label className="text-gray-400 text-xs mb-1 block">الفئة</label>
-              <select value={targetAudience} onChange={e=>setTargetAudience(e.target.value)}
+              <select value={targetAudience} onChange={e=>setTargetAudience(e.target.value)} title="الفئة المستهدفة" aria-label="الفئة المستهدفة"
                 className="w-full bg-gray-800 text-white rounded-xl py-3 px-3 border border-gray-700 focus:border-emerald-400 outline-none text-sm">
                 <option>مختلط</option><option>بنات فقط</option><option>شباب فقط</option>
               </select>
@@ -5528,7 +5528,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
         </div>
         <div className="container mx-auto max-w-2xl relative">
           <div className="flex items-center gap-3 mb-5">
-            <button onClick={onBack} className="p-2 bg-white/10 rounded-xl text-white hover:bg-white/20">
+            <button onClick={onBack} className="p-2 bg-white/10 rounded-xl text-white hover:bg-white/20" title="رجوع" aria-label="رجوع">
               <ChevronLeft className="w-5 h-5"/>
             </button>
             <div>
@@ -5565,14 +5565,14 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-emerald-300 text-xs mb-1 block">{mainCategoryFilter === 'employee' ? 'مكان العمل (دوائر / شركات)' : 'الوجهة / الجامعة'}</label>
-                <select value={filterUniversity} onChange={e=>setFilterUniversity(e.target.value)}
+                <select value={filterUniversity} onChange={e=>setFilterUniversity(e.target.value)} title="تصفية بالجامعة" aria-label="تصفية بالجامعة"
                   className="w-full bg-gray-900/50 text-white border border-emerald-500/30 rounded-xl py-2.5 px-3 outline-none text-sm backdrop-blur [color-scheme:dark]">
                   {dynamicUniversities.map(c=><option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-emerald-300 text-xs mb-1 block">نوع الإعلان</label>
-                <select value={filterType} onChange={e=>setFilterType(e.target.value)}
+                <select value={filterType} onChange={e=>setFilterType(e.target.value)} title="تصفية بنوع الإعلان" aria-label="تصفية بنوع الإعلان"
                   className="w-full bg-gray-900/50 text-white border border-emerald-500/30 rounded-xl py-2.5 px-3 outline-none text-sm backdrop-blur [color-scheme:dark]">
                   <option>الكل</option>
                   <option>خطوط متوفرة</option>
@@ -7293,8 +7293,8 @@ export default function App() {
                       </span>
                     )}
                   </button>
-                  {isOwner&&<button onClick={()=>setView('owner')} className={`p-2 rounded-xl text-amber-400 hover:bg-amber-500/20 ${view==='owner'?'bg-amber-500/20':''}`}><Crown className="w-5 h-5"/></button>}
-                  {isAdmin&&!isOwner&&<button onClick={()=>setView('admin')} className={`p-2 rounded-xl text-red-400 hover:bg-red-500/20 ${view==='admin'?'bg-red-500/20':''}`}><Settings className="w-5 h-5"/></button>}
+                  {isOwner&&<button onClick={()=>setView('owner')} className={`p-2 rounded-xl text-amber-400 hover:bg-amber-500/20 ${view==='owner'?'bg-amber-500/20':''}`} title="لوحة المالك" aria-label="لوحة المالك"><Crown className="w-5 h-5"/></button>}
+                  {isAdmin&&!isOwner&&<button onClick={()=>setView('admin')} className={`p-2 rounded-xl text-red-400 hover:bg-red-500/20 ${view==='admin'?'bg-red-500/20':''}`} title="لوحة الإدارة" aria-label="لوحة الإدارة"><Settings className="w-5 h-5"/></button>}
                   <button onClick={()=>{setShowCreateProduct(true);setEditingProduct(null);}}
                     className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-bold rounded-xl text-sm hover:bg-purple-700">
                     <ShoppingBag className="w-4 h-4"/> منتج</button>
@@ -7304,7 +7304,7 @@ export default function App() {
                   <button onClick={()=>setView('profile')} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white hover:bg-gray-700'}`}>
                     <img src={user.avatar} alt="" className="w-6 h-6 rounded-full object-cover border border-gray-600"/>
                     <span className="max-w-20 truncate">{user.name}</span>{isOwner&&<Crown className="w-3 h-3 text-amber-400"/>}</button>
-                  <button onClick={handleLogout} className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20"><LogOut className="w-5 h-5"/></button>
+                  <button onClick={handleLogout} className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20" title="تسجيل الخروج" aria-label="تسجيل الخروج"><LogOut className="w-5 h-5"/></button>
                 </>
               ):(
                 <>
@@ -7344,7 +7344,7 @@ export default function App() {
                   </span>
                 )}
               </button>
-              <button onClick={()=>setShowMobileMenu(true)} className="p-1.5 rounded-xl bg-gray-800 text-white"><Menu className="w-4.5 h-4.5"/></button>
+              <button onClick={()=>setShowMobileMenu(true)} className="p-1.5 rounded-xl bg-gray-800 text-white" title="القائمة" aria-label="القائمة"><Menu className="w-4.5 h-4.5"/></button>
             </div>
           </div>
         </div>
@@ -7355,7 +7355,7 @@ export default function App() {
         {showMobileMenu&&<motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/60" onClick={()=>setShowMobileMenu(false)}/>
           <motion.div initial={{x:300}} animate={{x:0}} exit={{x:300}} className="absolute right-0 top-0 bottom-0 w-72 bg-gray-900 p-5 pb-24 overflow-y-auto border-l border-gray-700">
-            <div className="flex items-center justify-between mb-6"><Logo small/><button onClick={()=>setShowMobileMenu(false)} className="p-2 bg-gray-800 rounded-xl text-white"><X className="w-5 h-5"/></button></div>
+            <div className="flex items-center justify-between mb-6"><Logo small/><button onClick={()=>setShowMobileMenu(false)} className="p-2 bg-gray-800 rounded-xl text-white" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button></div>
             {user?(
               <div className="bg-gray-800 rounded-2xl p-4 mb-5 border border-gray-700">
                 <div className="flex items-center gap-3">
