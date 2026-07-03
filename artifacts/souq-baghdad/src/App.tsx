@@ -1652,7 +1652,19 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
             <button onClick={()=>{if(!user){onAuthRequired();return;}onFav();}}
               className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-medium ${isFav?'bg-red-500 text-white':'bg-gray-800 text-white'}`}>
               <Heart className={`w-4 h-4 ${isFav?'fill-current':''}`}/>{isFav?'في المفضلة':'أضف للمفضلة'}</button>
-            <button onClick={()=>handleUniversalShare({ id: ad.id, short_id: ad.short_id, title: ad.title, location: ad.location, price: ad.price, image: ad.images?.[0], description: ad.description })}
+            <button onClick={()=>{
+              const slug = ad.title ? ad.title.toLowerCase().trim().replace(/[\s_]+/g, '-').replace(/[^\w\u0621-\u064A0-9-]+/g, '').replace(/--+/g, '-') : 'ad';
+              handleUniversalShare({ 
+                id: ad.id, 
+                short_id: ad.short_id, 
+                title: ad.title, 
+                location: ad.location, 
+                price: ad.price, 
+                image: ad.images?.[0], 
+                description: ad.description,
+                url: `/ad/${slug}-${ad.short_id || ad.id}`
+              });
+            }}
               className="flex-1 py-3 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl flex items-center justify-center gap-2 text-sm font-bold hover:bg-amber-500/30">
               <Share2 className="w-4 h-4"/> مشاركة</button>
           </div>
@@ -1841,7 +1853,19 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
             <button onClick={()=>{if(!user){onAuthRequired();return;}onFav();}}
               className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-medium ${isFav?'bg-red-500 text-white':'bg-gray-800 text-white'}`}>
               <Heart className={`w-4 h-4 ${isFav?'fill-current':''}`}/>{isFav?'في المفضلة':'أضف للمفضلة'}</button>
-            <button onClick={()=>handleUniversalShare({ id: product.id, short_id: product.short_id, title: product.title, governorate: product.governorate, price: formatPrice(product.price), image: product.images?.[0], description: product.description })}
+            <button onClick={()=>{
+              const slug = product.title ? product.title.toLowerCase().trim().replace(/[\s_]+/g, '-').replace(/[^\w\u0621-\u064A0-9-]+/g, '').replace(/--+/g, '-') : 'product';
+              handleUniversalShare({ 
+                id: product.id, 
+                short_id: product.short_id, 
+                title: product.title, 
+                governorate: product.governorate, 
+                price: formatPrice(product.price), 
+                image: product.images?.[0], 
+                description: product.description,
+                url: `/product/${slug}-${product.short_id || product.id}`
+              });
+            }}
               className="flex-1 py-3 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl flex items-center justify-center gap-2 text-sm font-bold hover:bg-amber-500/30">
               <Share2 className="w-4 h-4"/> مشاركة</button>
           </div>
@@ -6030,22 +6054,48 @@ export default function App() {
       return;
     }
     
-    const parts = hash.split('/').filter(Boolean);
+    // Normalize hash: remove leading '#' and any leading/trailing '/'
+    const cleanHash = hash.replace(/^#\/?/, '');
+    const parts = cleanHash.split('/').filter(Boolean);
     // parts[0] is route type ('ad', 'product', 'accounts', 'seller', 'profile', 'transport', 'admin', 'owner')
     const type = parts[0];
     const targetId = parts[parts.length - 1]; // Get last segment as ID or slug
     
     if (type === 'ad' && targetId) {
-      const ad = allAds.find(a => String(a.id) === targetId || a.short_id === targetId || (a.title && targetId.includes(encodeURIComponent(a.title))));
+      let actualId = targetId;
+      if (targetId.includes('-')) {
+        const segments = targetId.split('-');
+        actualId = segments[segments.length - 1];
+      }
+      
+      const slugify = (text: string) => {
+        return text
+          .toString()
+          .toLowerCase()
+          .trim()
+          .replace(/[\s_]+/g, '-')
+          .replace(/[^\w\u0621-\u064A0-9-]+/g, '')
+          .replace(/--+/g, '-');
+      };
+      
+      const targetSlug = slugify(decodeURIComponent(targetId));
+      const ad = allAds.find(a => 
+        String(a.id) === actualId || 
+        a.short_id === actualId ||
+        (a.title && slugify(a.title) === targetSlug) ||
+        (a.title && slugify(a.title).includes(targetSlug)) ||
+        (a.title && targetSlug.includes(slugify(a.title)))
+      );
+      
       if (ad) {
         setSelectedAd(ad);
       } else {
-        const isNumeric = /^\d+$/.test(targetId);
+        const isNumeric = /^\d+$/.test(actualId);
         let query = supabase.from('ads').select('*').eq('is_demo', false);
         if (isNumeric) {
-          query = query.eq('id', Number(targetId));
+          query = query.eq('id', Number(actualId));
         } else {
-          query = query.eq('short_id', targetId);
+          query = query.eq('short_id', actualId);
         }
         query.single().then(({ data, error }) => {
           if (data && !error) {
@@ -6083,16 +6133,26 @@ export default function App() {
         });
       }
     } else if (type === 'product' && targetId) {
-      const prod = allProducts.find(p => String(p.id) === targetId || p.short_id === targetId);
+      let actualId = targetId;
+      if (targetId.includes('-')) {
+        const segments = targetId.split('-');
+        actualId = segments[segments.length - 1];
+      }
+      const prod = allProducts.find(p => 
+        String(p.id) === actualId || 
+        p.short_id === actualId ||
+        String(p.id) === targetId || 
+        p.short_id === targetId
+      );
       if (prod) {
         setSelectedProduct(prod);
       } else {
-        const isNumeric = /^\d+$/.test(targetId);
+        const isNumeric = /^\d+$/.test(actualId);
         let query = supabase.from('products').select('*');
         if (isNumeric) {
-          query = query.eq('id', Number(targetId));
+          query = query.eq('id', Number(actualId));
         } else {
-          query = query.eq('short_id', targetId);
+          query = query.eq('short_id', actualId);
         }
         query.single().then(({ data, error }) => {
           if (data && !error) {
@@ -6125,7 +6185,12 @@ export default function App() {
         });
       }
     } else if ((type === 'profile' || type === 'seller') && targetId) {
-      setSelectedSellerId(targetId);
+      let actualId = targetId;
+      if (targetId.includes('-')) {
+        const segments = targetId.split('-');
+        actualId = segments[segments.length - 1];
+      }
+      setSelectedSellerId(actualId);
       setView('seller');
     } else if (type === 'accounts' || type === 'sellers') {
       setView('home');
@@ -6164,10 +6229,11 @@ export default function App() {
     if (!initialHashParsed) return; // Don't push state before initial parse
     let newHash: string | null = null;
     if (selectedAd) {
-      const catSlug = selectedAd.category ? selectedAd.category.toLowerCase().replace(/\s+/g, '-') : 'general';
-      newHash = `#/ad/${catSlug}/${selectedAd.short_id || selectedAd.id}`;
+      const slug = selectedAd.title ? selectedAd.title.toLowerCase().trim().replace(/[\s_]+/g, '-').replace(/[^\w\u0621-\u064A0-9-]+/g, '').replace(/--+/g, '-') : 'ad';
+      newHash = `#/ad/${slug}-${selectedAd.short_id || selectedAd.id}`;
     } else if (selectedProduct) {
-      newHash = `#/product/${selectedProduct.short_id || selectedProduct.id}`;
+      const slug = selectedProduct.title ? selectedProduct.title.toLowerCase().trim().replace(/[\s_]+/g, '-').replace(/[^\w\u0621-\u064A0-9-]+/g, '').replace(/--+/g, '-') : 'product';
+      newHash = `#/product/${slug}-${selectedProduct.short_id || selectedProduct.id}`;
     } else if (view === 'seller' && selectedSellerId) {
       newHash = `#/seller/${selectedSellerPhone || selectedSellerId}`;
     } else if (view === 'transport') {

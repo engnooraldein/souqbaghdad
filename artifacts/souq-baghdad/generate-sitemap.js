@@ -30,12 +30,23 @@ async function generateSitemap() {
     const headers = { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` };
     
     // Fetch active ads
-    const adsRes = await fetch(`${supabaseUrl}/rest/v1/ads?status=eq.active&select=id,updated_at,images`, { headers });
+    const adsRes = await fetch(`${supabaseUrl}/rest/v1/ads?status=eq.active&select=id,updated_at,images,title,short_id`, { headers });
     const ads = await adsRes.json();
 
     // Fetch active products
-    const prodsRes = await fetch(`${supabaseUrl}/rest/v1/products?status=eq.active&select=id,updated_at,images`, { headers });
+    const prodsRes = await fetch(`${supabaseUrl}/rest/v1/products?status=eq.active&select=id,updated_at,images,title,short_id`, { headers });
     const products = await prodsRes.json();
+
+    function slugify(text) {
+      if (!text) return 'item';
+      return text
+        .toString()
+        .toLowerCase()
+        .trim()
+        .replace(/[\s_]+/g, '-')
+        .replace(/[^\w\u0621-\u064A0-9-]+/g, '')
+        .replace(/--+/g, '-');
+    }
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
@@ -57,8 +68,10 @@ async function generateSitemap() {
             imageXml = `\n    <image:image>\n      <image:loc>${firstImg}</image:loc>\n    </image:image>`;
           }
         }
+        const slug = slugify(ad.title);
+        const adUrl = `${DOMAIN}/ad/${slug}-${ad.short_id || ad.id}`;
         xml += `  <url>
-    <loc>${DOMAIN}/ad/${ad.id}</loc>
+    <loc>${adUrl}</loc>
     <lastmod>${new Date(ad.updated_at || Date.now()).toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>${imageXml}
@@ -76,8 +89,10 @@ async function generateSitemap() {
             imageXml = `\n    <image:image>\n      <image:loc>${firstImg}</image:loc>\n    </image:image>`;
           }
         }
+        const slug = slugify(prod.title);
+        const prodUrl = `${DOMAIN}/product/${slug}-${prod.short_id || prod.id}`;
         xml += `  <url>
-    <loc>${DOMAIN}/product/${prod.id}</loc>
+    <loc>${prodUrl}</loc>
     <lastmod>${new Date(prod.updated_at || Date.now()).toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>${imageXml}
