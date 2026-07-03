@@ -4815,6 +4815,12 @@ function MarketView({
                 </div>
               ) : (
                 <div className="space-y-4 max-w-2xl mx-auto">
+                  <div className="flex items-center justify-between px-1 mb-2">
+                    <h3 className="text-white font-bold text-sm flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-amber-400" />
+                      يتم عرض {Math.min(visibleTransportCount, filteredTransport.length)} من أصل {filteredTransport.length}
+                    </h3>
+                  </div>
                   {filteredTransport.slice(0, visibleTransportCount).map(ad => (
                     <motion.div
                       key={ad.id}
@@ -4919,6 +4925,16 @@ function MarketView({
                   ))}
                 </div>
               )}
+              {visibleTransportCount < filteredTransport.length && (
+                <div className="text-center py-4 border-t border-gray-800/50 mt-6">
+                  <button 
+                    onClick={() => setVisibleTransportCount(prev => prev + 4)}
+                    className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs transition-all shadow-md"
+                  >
+                    عرض المزيد من الخطوط 🚌
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -5010,6 +5026,8 @@ function MarketView({
               )}
 
               {/* ALL PROFILES GRID */}
+              {canViewFullDirectory ? (
+                <>
               {filteredProfiles.length === 0 ? (
                 <div className="text-center py-20 bg-gray-900/60 rounded-3xl border border-gray-800">
                   <div className="text-5xl mb-4">👤</div>
@@ -5112,6 +5130,22 @@ function MarketView({
                   >
                     عرض المزيد من الحسابات 👥
                   </button>
+                </div>
+              )}
+                </>
+              ) : (
+                <div className="bg-gray-900/50 border border-gray-800 rounded-3xl p-8 text-center mt-8">
+                  <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-500/20">
+                    <span className="text-3xl">👋</span>
+                  </div>
+                  <h3 className="text-white font-bold text-xl mb-3">أهلاً بك في دليل الحسابات</h3>
+                  <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                    نحن نسعد بتواجدك معنا! لرؤية الدليل الشامل والتواصل مع كافة التجار والحسابات، يرجى توثيق حسابك أولاً للحفاظ على مجتمع آمن وموثوق.
+                  </p>
+                  <a href="https://wa.me/9647742256316" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl transition-all shadow-lg shadow-amber-500/20">
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                    تواصل معنا للتوثيق
+                  </a>
                 </div>
               )}
             </div>
@@ -5769,19 +5803,9 @@ export default function App() {
   const [activeDocTab, setActiveDocTab] = useState<string | null>(null);
   const [activeLightbox, setActiveLightbox] = useState<{ src: string; title: string; images?: string[]; initialIdx?: number } | null>(null);
   const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; title: string; url: string; image?: string; price?: string; governorate?: string; location?: string; short_id?: string; description?: string }>({ isOpen: false, title: '', url: '' });
-  const getDefaultAds = (): Ad[] => [
-    { id: 1, title: 'هاتف ايفون 14 برو', category: 'هواتف', governorate: 'بغداد', price: '850000', description: 'هاتف ايفون 14 برو جديد، لم يستخدم', images: ['https://images.unsplash.com/photo-1591290619762-bcc52fb0a910?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-1', createdAtISO: new Date(Date.now() - 86400000).toISOString(), views: 250, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
-    { id: 2, title: 'عقار في الكرادة - منزل 3 غرف', category: 'عقارات', governorate: 'بغداد', price: '250000000', description: 'منزل فاخر في موقع ممتاز بالكرادة', images: ['https://images.unsplash.com/photo-1575373342425-76569f2865d2?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-2', createdAtISO: new Date(Date.now() - 172800000).toISOString(), views: 420, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
-    { id: 3, title: 'سيارة BMW 520 موديل 2022', category: 'سيارات', governorate: 'بغداد', price: '75000000', description: 'سيارة جديدة بحالة ممتازة، مع ضمان كامل', images: ['https://images.unsplash.com/photo-1552519507-da3effff991c?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-3', createdAtISO: new Date(Date.now() - 259200000).toISOString(), views: 580, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
-    { id: 4, title: 'خدمة تدريس خصوصي - رياضيات وإنجليزي', category: 'خدمات', governorate: 'بغداد', price: '50000', description: 'معلم ذو خبرة يقدم دروس خصوصية', images: ['https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=500&h=500&fit=crop'], location: 'بغداد', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'service', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-4', createdAtISO: new Date(Date.now() - 345600000).toISOString(), views: 180, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' } },
-    { id: 5, title: 'لابتوب Dell XPS 13 - شبه جديد', category: 'إلكترونيات', governorate: 'البصرة', price: '1200000', description: 'لابتوب عالي المواصفات، استخدام خفيف فقط', images: ['https://images.unsplash.com/photo-1588872657839-cd2f3e5614f0?w=500&h=500&fit=crop'], location: 'البصرة', phone: '07700000000', time: 'الآن', status: 'نشط', type: 'sale', adCount: 1, soldCount: 0, responseRate: 100, avgResponseTime: 'ساعة', postedBy: 'demo-user-5', createdAtISO: new Date(Date.now() - 432000000).toISOString(), views: 320, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'البصرة' } },
-  ];
+  const getDefaultAds = (): Ad[] => [];
 
-  const getDefaultProducts = (): Product[] => [
-    { id: 1, title: 'معطف شتوي فخم', category: 'ملابس', governorate: 'بغداد', price: '150000', description: 'معطف برند عالمي، أصلي 100%', images: ['https://images.unsplash.com/photo-1539533057440-7814baea1002?w=500&h=500&fit=crop'], postedBy: 'demo-seller-1', createdAtISO: new Date(Date.now() - 86400000).toISOString(), views: 180, phone: '07700000000', condition: 'new', stock: 10, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'بغداد' }, status: 'active' },
-    { id: 2, title: 'أثاث غرفة نوم كامل', category: 'أثاث', governorate: 'البصرة', price: '2500000', description: 'مجموعة أثاث فاخرة - سرير + دولاب + تسريحة', images: ['https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500&h=500&fit=crop'], postedBy: 'demo-seller-2', createdAtISO: new Date(Date.now() - 172800000).toISOString(), views: 290, phone: '07700000000', condition: 'new', stock: 5, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'البصرة' }, status: 'active' },
-    { id: 3, title: 'دراجة هوائية ماونتن بايك', category: 'دراجات', governorate: 'أربيل', price: '500000', description: 'دراجة رياضية احترافية', images: ['https://images.unsplash.com/photo-1558618666-fcd25c85cd58?w=500&h=500&fit=crop'], postedBy: 'demo-seller-3', createdAtISO: new Date(Date.now() - 259200000).toISOString(), views: 150, phone: '07700000000', condition: 'used', stock: 1, seller: { name: 'Demo Seller', avatar: '', isVerified: true, rating: 5, joinedDate: '2023', location: 'أربيل' }, status: 'active' },
-  ];
+  const getDefaultProducts = (): Product[] => [];
 
   const [allAds, setAllAds] = useState<Ad[]>(getDefaultAds);
   const [allTransportAds, setAllTransportAds] = useState<TransportAd[]>([]);
@@ -6319,7 +6343,7 @@ export default function App() {
         const activeMapped = normalMapped.filter(a => a.status === 'active' || a.status === 'sold');
         
         if (reset) {
-          setAllAds(activeMapped.length > 0 ? activeMapped : getDefaultAds());
+          setAllAds(activeMapped);
           setAllTransportAds(transportMapped);
           setAdsPage(0);
           setHasMoreAds(data.length === pageSize);
@@ -6454,7 +6478,7 @@ export default function App() {
         }));
         
         if (reset) {
-          setAllProducts(mapped.length > 0 ? mapped : getDefaultProducts());
+          setAllProducts(mapped);
           setProductsPage(0);
           setHasMoreProducts(data.length === pageSize);
         } else {
