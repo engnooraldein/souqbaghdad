@@ -6065,6 +6065,9 @@ export default function App() {
 
   // --- DEEP LINKING & ROUTING HOOKS ---
 
+  // Ref to track whether a deep link fetch is in-flight (prevents race with URL sync)
+  const pendingDeepLinkRef = useRef<string | null>(null);
+
   const syncStateFromPath = () => {
     let path = window.location.pathname;
     let hasHash = false;
@@ -6125,6 +6128,7 @@ export default function App() {
         setSelectedAd(ad);
       } else {
         setLoadingRoute(true);
+        pendingDeepLinkRef.current = 'ad:' + actualId;
         const isNumeric = /^\d+$/.test(actualId);
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actualId);
         let query = supabase.from('ads').select('*').eq('is_demo', false);
@@ -6136,8 +6140,9 @@ export default function App() {
           query = query.eq('short_id', actualId);
         }
         query.single().then(({ data, error }) => {
-          setLoadingRoute(false);
           if (data && !error) {
+            pendingDeepLinkRef.current = null;
+            setLoadingRoute(false);
             const mappedAd: Ad = {
               id: data.id,
               title: data.title,
@@ -6166,10 +6171,13 @@ export default function App() {
               responseRate: 100,
               avgResponseTime: 'دقائق',
               postedBy: data.seller_id,
+              short_id: data.short_id,
             };
             setSelectedAd(mappedAd);
           } else {
-            setView('home');
+            // Query failed — keep pendingDeepLinkRef so retry from allAds update can pick it up
+            console.warn('[DeepLink] Ad fetch failed for', actualId, error);
+            setLoadingRoute(false);
           }
         });
       }
@@ -6192,8 +6200,10 @@ export default function App() {
         setSelectedProduct(prod);
       } else {
         setLoadingRoute(true);
+        pendingDeepLinkRef.current = 'product:' + actualId;
         const isNumeric = /^\d+$/.test(actualId);
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actualId);
+        console.log('[DeepLink] Product lookup:', { actualId, isUUID, isNumeric, targetId: targetId.substring(0, 50) });
         let query = supabase.from('products').select('*');
         if (isUUID) {
           query = query.eq('id', actualId);
@@ -6203,8 +6213,10 @@ export default function App() {
           query = query.eq('short_id', actualId);
         }
         query.single().then(({ data, error }) => {
-          setLoadingRoute(false);
+          console.log('[DeepLink] Product query result:', { found: !!data, error: error?.message, actualId });
           if (data && !error) {
+            pendingDeepLinkRef.current = null;
+            setLoadingRoute(false);
             const mappedProd: Product = {
               id: data.id,
               title: data.title,
@@ -6228,10 +6240,13 @@ export default function App() {
               postedBy: data.seller_id,
               stock: data.stock || 1,
               status: data.status || 'active',
+              short_id: data.short_id,
             };
             setSelectedProduct(mappedProd);
           } else {
-            setView('home');
+            // Query failed — keep pendingDeepLinkRef so retry from allProducts update can pick it up
+            console.warn('[DeepLink] Product fetch failed for', actualId, error);
+            setLoadingRoute(false);
           }
         });
       }
@@ -6259,16 +6274,45 @@ export default function App() {
   };
 
   // Rewrite root clean pathname to /IQ on browser level without page reloads
+  // BUT only if not on a deep link path (ad/product/seller etc.)
   useEffect(() => {
     if (typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '')) {
       window.history.replaceState(null, '', '/IQ');
     }
   }, []);
 
+  // Initial route parsing — runs once on mount, then retries pending deep links when data arrives
   useEffect(() => {
-    if (initialHashParsed) return;
-    syncStateFromPath();
-    setInitialHashParsed(true);
+    if (!initialHashParsed) {
+      // First run: parse URL and start any async fetch
+      console.log('[DeepLink] Initial parse, path:', window.location.pathname);
+      syncStateFromPath();
+      setInitialHashParsed(true);
+      return;
+    }
+
+    // Retry pending deep links when allAds/allProducts update
+    if (pendingDeepLinkRef.current) {
+      const [linkType, linkId] = pendingDeepLinkRef.current.split(':');
+      console.log('[DeepLink] Retry check:', { linkType, linkId, adsLen: allAds.length, prodsLen: allProducts.length });
+      if (linkType === 'ad' && allAds.length > 0) {
+        const found = allAds.find(a => String(a.id) === linkId || a.short_id === linkId);
+        if (found) {
+          console.log('[DeepLink] Retry found ad:', found.id);
+          pendingDeepLinkRef.current = null;
+          setSelectedAd(found);
+        }
+      } else if (linkType === 'product' && allProducts.length > 0) {
+        const found = allProducts.find(p => String(p.id) === linkId || p.short_id === linkId);
+        if (found) {
+          console.log('[DeepLink] Retry found product:', found.id);
+          pendingDeepLinkRef.current = null;
+          setSelectedProduct(found);
+        } else {
+          console.log('[DeepLink] Retry: product NOT found in allProducts. IDs:', allProducts.map(p => String(p.id).substring(0, 8)));
+        }
+      }
+    }
   }, [allAds, allProducts, initialHashParsed]);
 
   useEffect(() => {
@@ -6278,7 +6322,7 @@ export default function App() {
   }, [allAds, allProducts]);
 
   useEffect(() => {
-    if (!initialHashParsed || loadingRoute) return; // Don't push state before initial parse or while routing/fetching
+    if (!initialHashParsed || loadingRoute || pendingDeepLinkRef.current) return; // Don't push state before initial parse, while routing/fetching, or while deep link is pending
     let newPath: string | null = null;
     
     const slugify = (text: string) => {
@@ -6485,6 +6529,7 @@ export default function App() {
           responseRate: 100,
           avgResponseTime: 'دقائق',
           postedBy: row.seller_id,
+          short_id: row.short_id,
         }));
 
         const activeMapped = normalMapped.filter(a => a.status === 'active' || a.status === 'sold');
@@ -6622,6 +6667,7 @@ export default function App() {
           postedBy: row.seller_id,
           stock: row.stock || 1,
           status: row.status || 'active',
+          short_id: row.short_id,
         }));
         
         if (reset) {
