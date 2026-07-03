@@ -7392,7 +7392,7 @@ export default function App() {
   }
 
   return (
-    <div className="dark min-h-screen bg-gray-950 pb-20 lg:pb-0">
+    <div className="dark min-h-screen bg-gray-950 pwa-outer-container">
       <Helmet>
         <title>{pageTitle}</title>
         <meta name="description" content={pageDescription} />
@@ -7409,7 +7409,7 @@ export default function App() {
       <Toast msg={toast.msg} type={toast.type} visible={toast.visible} onClose={()=>setToast(t=>({...t,visible:false}))}/>
 
       {/* Nav */}
-      <nav className="fixed top-0 left-0 right-0 z-40 bg-gray-900/95 backdrop-blur-lg border-b border-gray-800">
+      <nav className="fixed top-0 left-0 right-0 z-40 bg-gray-950/70 backdrop-blur-xl border-b border-gray-800/60 pwa-header">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <button onClick={()=>setView('home')} className="flex items-center gap-2"><Logo small/><span className="text-white font-bold text-sm sm:text-lg">سوك بغداد</span></button>
@@ -7521,7 +7521,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main */}
-      <main className="pt-[calc(4rem+env(safe-area-inset-top,0px))]">
+      <main className="pwa-main">
         <AnimatePresence mode="wait">
           {view==='home'&&<motion.div key="home" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <MarketView 
@@ -7637,7 +7637,7 @@ export default function App() {
       </footer>
 
       {/* Bottom Navigation Bar - Fixed Mobile First */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-gray-900/95 backdrop-blur-xl border-t border-gray-800 lg:hidden pb-[env(safe-area-inset-bottom,0px)]">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-gray-950/70 backdrop-blur-xl border-t border-gray-800/60 lg:hidden pwa-bottom-nav">
         <div className="flex items-center justify-around h-16 px-2">
           {/* الملف الشخصي */}
           <button

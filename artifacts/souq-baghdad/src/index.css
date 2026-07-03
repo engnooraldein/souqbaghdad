@@ -527,3 +527,25 @@ input:focus, textarea:focus, select:focus {
     box-shadow: 0 0 0 2px #a855f7 !important;
   }
 }
+
+/* PWA Safe Areas & Glassmorphism */
+.pwa-header {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.pwa-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.pwa-main {
+  padding-top: calc(4.5rem + env(safe-area-inset-top, 0px));
+}
+
+.pwa-outer-container {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 1024px) {
+  .pwa-outer-container {
+    padding-bottom: 0px;
+  }
+}
