@@ -945,7 +945,7 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
 
 
 // ─────────────────────────────────────────────
-function InfoDocsModal({ activeTab, onClose }: { activeTab: string; onClose: () => void }) {
+function InfoDocsModal({ activeTab, onClose, user }: { activeTab: string; onClose: () => void; user?: any }) {
   const [tab, setTab] = useState(activeTab);
   const [contactForm, setContactForm] = useState({ name: '', email: '', msg: '' });
   const [sent, setSent] = useState(false);
@@ -961,11 +961,15 @@ function InfoDocsModal({ activeTab, onClose }: { activeTab: string; onClose: () 
     if (!contactForm.name.trim() || !contactForm.email.trim() || !contactForm.msg.trim()) return;
     setSending(true);
     try {
-      const { error } = await supabase.from('support_messages').insert([{
+      const payload: any = {
         name: contactForm.name.trim(),
         contact_info: contactForm.email.trim(),
         message: contactForm.msg.trim()
-      }]);
+      };
+      if (user) {
+        payload.user_id = user.id;
+      }
+      const { error } = await supabase.from('support_messages').insert([payload]);
       if (error) throw error;
       setSent(true);
       setContactForm({ name: '', email: '', msg: '' });
@@ -1582,7 +1586,8 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
               const { error } = await supabase.from('support_messages').insert({
                 name: `REPORT: ${ad.title}`,
                 contact_info: `${user.name} (${user.phone || user.id})`,
-                message: JSON.stringify({ item_id: ad.id, item_type: 'ad', reason })
+                message: JSON.stringify({ item_id: ad.id, item_type: 'ad', reason }),
+                user_id: user.id
               });
               if (!error) {
                 alert('تم تقديم البلاغ بنجاح وسيتم مراجعته من قبل الإدارة. شكراً لك! 🚩');
@@ -7767,7 +7772,7 @@ export default function App() {
         {showCreateAd&&user&&<AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd}/>}
         {showCreateProduct&&user&&<ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct}/>}
         {showNotifs&&<NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick} onMarkRead={markNotifAsRead} onArchiveAll={handleArchiveAllNotifications}/>}
-        {activeDocTab&&<InfoDocsModal activeTab={activeDocTab} onClose={()=>setActiveDocTab(null)}/>}
+        {activeDocTab&&<InfoDocsModal activeTab={activeDocTab} onClose={()=>setActiveDocTab(null)} user={user}/>}
         {activeLightbox&&<ImageLightboxModal src={activeLightbox.src} title={activeLightbox.title} images={(activeLightbox as any).images} initialIdx={(activeLightbox as any).initialIdx} onClose={()=>setActiveLightbox(null)}/>}
         {congratulationsItem && <CongratulationsModal item={congratulationsItem} onClose={() => setCongratulationsItem(null)} />}
         {shareModalData.isOpen && (

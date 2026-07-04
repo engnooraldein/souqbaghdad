@@ -92,6 +92,23 @@ serve(async (req) => {
         } else {
           await sendTelegramMessage(GENERAL_CHANNEL, text);
         }
+      } else if (payload.table === "support_messages") {
+        const ADMIN_CHAT_ID = Deno.env.get("ADMIN_CHAT_ID") ?? "777557036";
+        const msg = payload.record;
+        let decodedMessage = msg.message;
+        try {
+          const parsed = JSON.parse(msg.message);
+          decodedMessage = `بلاغ بخصوص: ${parsed.item_type} - ${parsed.item_id}\nالسبب: ${parsed.reason}`;
+        } catch(e) {}
+        
+        const text = `💬 رسالة دعم / بلاغ:\n\n` +
+                     `👤 من: ${msg.name}\n` +
+                     `📞 تواصل: ${msg.contact_info}\n\n` +
+                     `📝 النص:\n${decodedMessage}\n\n` +
+                     `---\n` +
+                     `💡 للرد على المستخدم عبر الموقع، قم بالرد (Reply) على هذه الرسالة واكتب ردك.\n` +
+                     `#id_${msg.id.replace(/-/g, '_')}`; // Telegram hashtags don't support hyphens
+        await sendTelegramMessage(ADMIN_CHAT_ID, text);
       }
     }
 

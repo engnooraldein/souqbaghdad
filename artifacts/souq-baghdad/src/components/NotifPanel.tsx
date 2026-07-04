@@ -133,7 +133,7 @@ export function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryCli
     <AnimatePresence>
       {isOpen&&<motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50" onClick={onClose}>
         <div className="absolute inset-0 bg-black/60"/>
-        <motion.div initial={{x:300}} animate={{x:0}} exit={{x:300}} onClick={e=>e.stopPropagation()} className="absolute right-0 top-0 bottom-0 w-84 bg-gray-900 p-5 overflow-y-auto border-l border-gray-700">
+        <motion.div initial={{x:300}} animate={{x:0}} exit={{x:300}} onClick={e=>e.stopPropagation()} className="absolute right-0 top-0 bottom-0 w-84 bg-gray-900 p-5 pt-14 md:pt-5 overflow-y-auto border-l border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-white flex items-center gap-2"><Bell className="w-5 h-5 text-amber-400"/>الإشعارات والتنبيهات</h2>
             <div className="flex items-center gap-1.5">
