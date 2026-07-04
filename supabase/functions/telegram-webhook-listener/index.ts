@@ -30,56 +30,55 @@ serve(async (req) => {
       const msg = update.message;
       const chatId = msg.chat.id.toString();
       
-      // -- ADMIN LOGIC --
-      if (chatId === ADMIN_CHAT_ID) {
-        // Check if it's a reply to another message
-        if (msg.reply_to_message && msg.text) {
-          const originalText = msg.reply_to_message.text || "";
-          
-          // Extract the ID hashtag: #id_uuid_with_underscores
-          const idMatch = originalText.match(/#id_([a-f0-9_]+)/i);
-          
-          if (idMatch && idMatch[1]) {
-            // Convert underscores back to hyphens
-            const supportId = idMatch[1].replace(/_/g, '-');
-            const adminReplyText = msg.text;
+      const isAdmin = chatId === ADMIN_CHAT_ID;
+      
+      // -- ADMIN LOGIC (Replying to user complaints) --
+      if (isAdmin && msg.reply_to_message && msg.text && !msg.text.startsWith('/')) {
+        const originalText = msg.reply_to_message.text || "";
+        
+        // Extract the ID hashtag: #id_uuid_with_underscores
+        const idMatch = originalText.match(/#id_([a-f0-9_]+)/i);
+        
+        if (idMatch && idMatch[1]) {
+          // Convert underscores back to hyphens
+          const supportId = idMatch[1].replace(/_/g, '-');
+          const adminReplyText = msg.text;
 
-            // 1. Mark the support message as resolved
-            const { data: supportMsg, error: fetchError } = await supabase
-              .from('support_messages')
-              .update({ status: 'resolved' })
-              .eq('id', supportId)
-              .select()
-              .single();
+          // 1. Mark the support message as resolved
+          const { data: supportMsg, error: fetchError } = await supabase
+            .from('support_messages')
+            .update({ status: 'resolved' })
+            .eq('id', supportId)
+            .select()
+            .single();
 
-            if (fetchError) {
-              await sendTelegramMessage(ADMIN_CHAT_ID, `❌ فشل في تحديث الرسالة في قاعدة البيانات.\nالخطأ: ${fetchError.message}`);
-            } else if (supportMsg) {
-              // 2. If the user_id exists, send them an in-app notification
-              if (supportMsg.user_id) {
-                const { error: notifError } = await supabase
-                  .from('user_notifications')
-                  .insert({
-                    user_id: supportMsg.user_id,
-                    title: 'رد من الدعم الفني / الإدارة',
-                    body: adminReplyText,
-                    type: 'support_reply',
-                    read: false
-                  });
-                  
-                if (notifError) {
-                  await sendTelegramMessage(ADMIN_CHAT_ID, `⚠️ تم التحديث، لكن فشل إرسال إشعار للمستخدم (ربما غير مسجل).\nالخطأ: ${notifError.message}`);
-                } else {
-                  await sendTelegramMessage(ADMIN_CHAT_ID, `✅ تم إرسال الرد للمستخدم بنجاح كإشعار في الموقع!`);
-                }
+          if (fetchError) {
+            await sendTelegramMessage(ADMIN_CHAT_ID, `❌ فشل في تحديث الرسالة في قاعدة البيانات.\nالخطأ: ${fetchError.message}`);
+          } else if (supportMsg) {
+            // 2. If the user_id exists, send them an in-app notification
+            if (supportMsg.user_id) {
+              const { error: notifError } = await supabase
+                .from('user_notifications')
+                .insert({
+                  user_id: supportMsg.user_id,
+                  title: 'رد من الدعم الفني / الإدارة',
+                  body: adminReplyText,
+                  type: 'support_reply',
+                  read: false
+                });
+                
+              if (notifError) {
+                await sendTelegramMessage(ADMIN_CHAT_ID, `⚠️ تم التحديث، لكن فشل إرسال إشعار للمستخدم (ربما غير مسجل).\nالخطأ: ${notifError.message}`);
               } else {
-                await sendTelegramMessage(ADMIN_CHAT_ID, `⚠️ تم التحديث كـ "محلول"، لكن المستخدم غير مسجل الدخول، لا يمكن إرسال إشعار داخلي له. يرجى التواصل معه عبر (${supportMsg.contact_info}).`);
+                await sendTelegramMessage(ADMIN_CHAT_ID, `✅ تم إرسال الرد للمستخدم بنجاح كإشعار في الموقع!`);
               }
+            } else {
+              await sendTelegramMessage(ADMIN_CHAT_ID, `⚠️ تم التحديث كـ "محلول"، لكن المستخدم غير مسجل الدخول، لا يمكن إرسال إشعار داخلي له. يرجى التواصل معه عبر (${supportMsg.contact_info}).`);
             }
           }
         }
       } 
-      // -- USER LOGIC --
+      // -- USER LOGIC (Works for everyone including admin) --
       else {
         if (msg.text === '/start') {
           await sendTelegramMessage(chatId, "أهلاً بك في المساعد الذكي لسوك بغداد! 🛍️\nاختر من القائمة أدناه:", {
