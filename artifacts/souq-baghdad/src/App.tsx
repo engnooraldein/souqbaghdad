@@ -889,22 +889,30 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
         </AnimatePresence>
 
         {isRecovery ? (
-          recoverySent ? (
-            <div className="text-center py-6 space-y-4">
-              <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4"><Check className="w-8 h-8 text-green-400" /></div>
-              <p className="text-white text-lg font-bold">تم إرسال طلبك بنجاح</p>
-              <p className="text-gray-400 text-sm leading-relaxed">راح نرسلك تفاصيل الدخول على واتساب بعد التدقيق.</p>
-              <button onClick={() => { setIsRecovery(false); setRecoverySent(false); }} className="w-full mt-4 py-3 bg-gray-800 text-white rounded-xl hover:bg-gray-700">العودة لتسجيل الدخول</button>
+          <div className="text-center py-6 space-y-6">
+            <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
+              <svg className="w-8 h-8 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+              </svg>
             </div>
-          ) : (
-            <form onSubmit={submitRecovery} className="space-y-4">
-              <p className="text-gray-300 text-sm mb-4 text-center">أدخل رقم هاتفك لاستعادة حسابك</p>
-              <div className="relative"><Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                <input type="tel" value={recoveryPhone} onChange={e=>setRecoveryPhone(e.target.value)} placeholder="رقم الهاتف" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none" dir="rtl"/></div>
-              <motion.button type="submit" disabled={loading} whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl">{loading ? 'جاري الإرسال...' : 'استعادة كلمة المرور'}</motion.button>
-              <button type="button" onClick={() => setIsRecovery(false)} className="w-full text-center text-gray-400 hover:text-white text-sm mt-2">العودة</button>
-            </form>
-          )
+            <h3 className="text-white text-xl font-bold">استعادة كلمة المرور</h3>
+            <p className="text-gray-400 text-sm leading-relaxed px-4">
+              لاستعادة حسابك بسرعة وأمان، يرجى الانتقال إلى المساعد الذكي الخاص بنا على تيليكرام.
+            </p>
+            <div className="pt-2">
+              <a 
+                href="https://t.me/SOUQBAGHDA" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="inline-flex w-full items-center justify-center gap-2 py-4 bg-[#2AABEE] text-white font-bold rounded-xl hover:bg-[#229ED9] transition-colors"
+              >
+                <span>الذهاب إلى البوت</span>
+              </a>
+            </div>
+            <button type="button" onClick={() => setIsRecovery(false)} className="w-full text-center text-gray-400 hover:text-white text-sm mt-4">
+              العودة لتسجيل الدخول
+            </button>
+          </div>
         ) : loading?<div className="flex flex-col items-center py-8"><Loader2 className="w-10 h-10 text-amber-400 animate-spin mb-3"/><p className="text-white">جاري التحميل...</p></div>:(
           step === 'phone' ? (
              <form onSubmit={handlePhoneSubmit} className="space-y-4">
