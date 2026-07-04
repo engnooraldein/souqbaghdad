@@ -18,7 +18,7 @@ const formatTransportAd = (ad) => {
          `💰 السعر: ${ad.price} دينار\n\n` +
          `📞 التواصل: عبر الموقع فقط\n` +
          `نشجعك تطلب مباشرة عبر الموقع 👇\n` +
-         `🔗 ${SITE_URL}/?tab=lines`;
+         `🔗 https://www.souqbaghdad.store/transport`;
 };
 
 const formatGeneralAd = (ad) => {
@@ -27,7 +27,7 @@ const formatGeneralAd = (ad) => {
          `📍 ${ad.city} — ${ad.location}\n` +
          `💰 ${ad.price} دينار\n\n` +
          `🔗 شاهد الإعلان كاملاً:\n` +
-         `${SITE_URL}`;
+         `https://www.souqbaghdad.store`;
 };
 
 const sendTelegramMessage = async (chatId, text, retries = 3) => {
@@ -37,7 +37,11 @@ const sendTelegramMessage = async (chatId, text, retries = 3) => {
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text: text }),
+        body: JSON.stringify({ 
+          chat_id: chatId, 
+          text: text,
+          disable_web_page_preview: true 
+        }),
       });
       const data = await response.json();
       if (!data.ok) console.error("Telegram API Error:", data);
@@ -73,10 +77,25 @@ const sendTelegramPhoto = async (chatId, photoUrl, caption, retries = 3) => {
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function main() {
-  console.log("Fetching old general ads...");
+  console.log("Fetching old ads...");
   
-  // 1. Fetch transport ads - SKIPPED
-  
+  // 1. Fetch transport ads
+  const { data: transportAds, error: err1 } = await supabase
+    .from('ads')
+    .select('*')
+    .eq('category', 'transport')
+    .order('created_at', { ascending: true });
+    
+  if (err1) console.error("Error fetching transport ads:", err1);
+  else if (transportAds) {
+    console.log(`Found ${transportAds.length} transport ads.`);
+    for (const ad of transportAds) {
+      await sendTelegramMessage(TRANSPORT_CHANNEL, formatTransportAd(ad));
+      console.log(`Sent transport ad: ${ad.id}`);
+      await sleep(3500); // Wait 3.5s to avoid hitting Telegram rate limits
+    }
+  }
+
   // 2. Fetch general ads
   const { data: generalAds, error: err2 } = await supabase
     .from('ads')
@@ -96,13 +115,32 @@ async function main() {
         await sendTelegramMessage(GENERAL_CHANNEL, text);
       }
       console.log(`Sent general ad: ${ad.id}`);
-      await sleep(1500);
+      await sleep(3500);
     }
   }
 
-  // 3. Fetch products - SKIPPED
+  // 3. Fetch products
+  const { data: products, error: err3 } = await supabase
+    .from('products')
+    .select('*')
+    .order('created_at', { ascending: true });
+    
+  if (err3) console.error("Error fetching products:", err3);
+  else if (products) {
+    console.log(`Found ${products.length} products.`);
+    for (const prod of products) {
+      const text = formatGeneralAd(prod);
+      if (prod.images && prod.images.length > 0) {
+        await sendTelegramPhoto(GENERAL_CHANNEL, prod.images[0], text);
+      } else {
+        await sendTelegramMessage(GENERAL_CHANNEL, text);
+      }
+      console.log(`Sent product: ${prod.id}`);
+      await sleep(3500);
+    }
+  }
   
-  console.log("Done publishing old general ads!");
+  console.log("Done publishing old ads!");
 }
 
 main();

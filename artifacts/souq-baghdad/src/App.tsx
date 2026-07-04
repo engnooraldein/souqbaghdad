@@ -5440,10 +5440,14 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-gray-400 text-xs mb-1 block">نوع الدوام</label>
-              <select value={shift} onChange={e=>setShift(e.target.value)} title="نوع الدوام" aria-label="نوع الدوام"
-                className="w-full bg-gray-800 text-white rounded-xl py-3 px-3 border border-gray-700 focus:border-emerald-400 outline-none text-sm">
-                <option>صباحي</option><option>مسائي</option><option>صباحي ومسائي</option>
-              </select>
+              <input type="text" list="shiftOptions" value={shift} onChange={e=>setShift(e.target.value)} title="نوع الدوام أو الوقت" aria-label="نوع الدوام" placeholder="مثال: من 8 إلى 2 ظهراً"
+                className="w-full bg-gray-800 text-white rounded-xl py-3 px-3 border border-gray-700 focus:border-emerald-400 outline-none text-sm" />
+              <datalist id="shiftOptions">
+                <option value="صباحي" />
+                <option value="مسائي" />
+                <option value="صباحي ومسائي" />
+                <option value="من 8 صباحاً إلى 2 ظهراً" />
+              </datalist>
             </div>
             <div>
               <label className="text-gray-400 text-xs mb-1 block">المقاعد (لأصحاب الخطوط)</label>

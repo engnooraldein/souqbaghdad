@@ -15,7 +15,7 @@ const formatTransportAd = (ad: any) => {
          `💰 السعر: ${ad.price} دينار\n\n` +
          `📞 التواصل: عبر الموقع فقط\n` +
          `نشجعك تطلب مباشرة عبر الموقع 👇\n` +
-         `🔗 ${SITE_URL}/?tab=lines`;
+         `🔗 https://www.souqbaghdad.store/transport`;
 };
 
 const formatGeneralAd = (ad: any) => {
@@ -24,7 +24,7 @@ const formatGeneralAd = (ad: any) => {
          `📍 ${ad.city} — ${ad.location}\n` +
          `💰 ${ad.price} دينار\n\n` +
          `🔗 شاهد الإعلان كاملاً:\n` +
-         `${SITE_URL}`;
+         `https://www.souqbaghdad.store`;
 };
 
 const sendTelegramMessage = async (chatId: string, text: string) => {
@@ -32,7 +32,11 @@ const sendTelegramMessage = async (chatId: string, text: string) => {
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text: text }),
+    body: JSON.stringify({ 
+      chat_id: chatId, 
+      text: text,
+      disable_web_page_preview: true
+    }),
   });
   const data = await response.json();
   if (!data.ok) {
