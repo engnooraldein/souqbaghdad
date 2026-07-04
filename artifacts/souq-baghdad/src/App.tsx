@@ -4185,7 +4185,7 @@ const fetchRecovery = async () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-white font-bold text-xl">سجل التحديثات والإصدارات (نسخة برو ✨)</h2>
-                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.4.0</span>
+                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.5.0</span>
                   </div>
                   <p className="text-gray-400 text-xs mt-1">تتبع التغييرات والتحديثات الزمنية مع كافة التفاصيل والميزات المضافة</p>
                 </div>
@@ -4193,13 +4193,35 @@ const fetchRecovery = async () => {
             </div>
 
             <div className="space-y-6">
-              {/* v1.4.0 */}
+              {/* v1.5.0 */}
               <div className="bg-gradient-to-br from-gray-900 via-gray-900 to-amber-950/20 border-2 border-amber-500/40 rounded-2xl p-5 space-y-3 shadow-xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 bg-amber-500 text-black text-[9px] font-extrabold px-2.5 py-1 rounded-bl-xl uppercase tracking-wider">
                   الإصدار الأخير
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-amber-400 font-bold text-base">🚀 الإصدار v1.4.0 (النسخة الاحترافية)</span>
+                  <span className="text-amber-400 font-bold text-base">🤖 الإصدار v1.5.0 (المساعد الذكي التفاعلي)</span>
+                  <span className="text-gray-400 text-xs font-mono">(04/07/2026 - 03:00 م)</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                  <div className="bg-gray-805/80 border border-gray-700/80 rounded-xl p-3.5">
+                    <h4 className="text-amber-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">📌 المميزات والتحديثات المضافة</h4>
+                    <ul className="text-gray-300 text-xs space-y-1.5 list-disc list-inside pr-1">
+                      <li><strong>بوت استعادة الحسابات:</strong> تحويل بوت التيليكرام إلى مساعد تفاعلي يتيح للزبائن استعادة حساباتهم برقم الهاتف فورياً وبأمان.</li>
+                      <li><strong>التوجيه التلقائي للمساعد:</strong> تغيير واجهة نسيت كلمة المرور لتوجيه الزبون للتعامل مع البوت بدلاً من انتظار رسائل واتساب.</li>
+                      <li><strong>توليد رموز عشوائية:</strong> نظام توليد آمن وموثوق لكلمات المرور بضغطة زر واحدة عبر التيليكرام.</li>
+                    </ul>
+                  </div>
+                  <div className="bg-gray-805/80 border border-gray-700/80 rounded-xl p-3.5">
+                    <h4 className="text-green-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">⚡ التفاصيل التقنية</h4>
+                    <p className="text-gray-300 text-xs leading-relaxed">تم ربط الدوال السحابية (Edge Functions) بتيليكرام لدعم أوامر القوائم ولوحة المفاتيح التفاعلية، وتحديث واجهة React لتوفير روابط مباشرة للبوت، وتحديث نظام الأمان لتوليد رموز من 6 أرقام وتغييرها برمجياً عبر الـ Supabase Admin Auth.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* v1.4.0 */}
+              <div className="bg-gray-900 border border-gray-700 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-300 font-bold text-base">🚀 الإصدار v1.4.0 (النسخة الاحترافية)</span>
                   <span className="text-gray-400 text-xs font-mono">(02/07/2026 - 09:00 م)</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
