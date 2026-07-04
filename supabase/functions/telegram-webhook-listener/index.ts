@@ -80,17 +80,47 @@ serve(async (req) => {
       } 
       // -- USER LOGIC (Works for everyone including admin) --
       else {
-        if (msg.text === '/start') {
+        const MAIN_KEYBOARD = [
+          [{ text: "🔑 استعادة كلمة المرور" }, { text: "📖 كيفية التسجيل" }],
+          [{ text: "❓ الأسئلة الشائعة" }, { text: "💬 الدعم الفني" }]
+        ];
+
+        if (msg.text === '/start' || msg.text === '🔙 الرجوع للقائمة الرئيسية') {
           await sendTelegramMessage(chatId, "أهلاً بك في المساعد الذكي لسوك بغداد! 🛍️\nاختر من القائمة أدناه:", {
-            keyboard: [[{ text: "🔑 نسيت كلمة المرور" }]],
+            keyboard: MAIN_KEYBOARD,
             resize_keyboard: true,
             is_persistent: true
           });
-        } else if (msg.text === '🔑 نسيت كلمة المرور') {
+        } else if (msg.text === '🔑 استعادة كلمة المرور' || msg.text === '🔑 نسيت كلمة المرور') {
           await sendTelegramMessage(chatId, "يرجى الضغط على الزر أدناه لمشاركة رقم هاتفك للتحقق من هويتك بأمان 🔒", {
-            keyboard: [[{ text: "📱 مشاركة رقم الهاتف", request_contact: true }]],
+            keyboard: [[{ text: "📱 مشاركة رقم الهاتف", request_contact: true }], [{ text: "🔙 الرجوع للقائمة الرئيسية" }]],
             resize_keyboard: true,
             one_time_keyboard: true
+          });
+        } else if (msg.text === '📖 كيفية التسجيل') {
+          await sendTelegramMessage(chatId, "لإنشاء حساب في سوق بغداد:\n1. قم بزيارة موقعنا.\n2. اضغط على أيقونة 'حسابي' (تسجيل الدخول).\n3. أدخل رقم هاتفك ومعلوماتك.\n4. ستصلك رسالة تفعيل.\n\nبكل بساطة! ✨", {
+            keyboard: MAIN_KEYBOARD,
+            resize_keyboard: true
+          });
+        } else if (msg.text === '❓ الأسئلة الشائعة') {
+          await sendTelegramMessage(chatId, "إليك أبرز الأسئلة الشائعة، تفضل باختيار أحدها:", {
+            keyboard: [
+              [{ text: "📦 كم مدة التوصيل؟" }, { text: "💰 كم تكلفة التوصيل؟" }],
+              [{ text: "🔄 هل يوجد استرجاع؟" }],
+              [{ text: "🔙 الرجوع للقائمة الرئيسية" }]
+            ],
+            resize_keyboard: true
+          });
+        } else if (msg.text === '📦 كم مدة التوصيل؟') {
+          await sendTelegramMessage(chatId, "تستغرق مدة التوصيل عادةً من 24 إلى 48 ساعة داخل بغداد، ومن 2 إلى 4 أيام لباقي المحافظات.");
+        } else if (msg.text === '💰 كم تكلفة التوصيل؟') {
+          await sendTelegramMessage(chatId, "تكلفة التوصيل داخل بغداد 4000 دينار، وللمحافظات 6000 دينار.");
+        } else if (msg.text === '🔄 هل يوجد استرجاع؟') {
+          await sendTelegramMessage(chatId, "نعم، يمكنك استرجاع أو استبدال المنتج خلال 3 أيام من تاريخ الاستلام بشرط بقائه بحالته الأصلية.");
+        } else if (msg.text === '💬 الدعم الفني') {
+          await sendTelegramMessage(chatId, "يرجى كتابة مشكلتك أو استفسارك في رسالة واحدة، وسيقوم فريقنا بالرد عليك في أقرب وقت. 📝", {
+            keyboard: [[{ text: "🔙 الرجوع للقائمة الرئيسية" }]],
+            resize_keyboard: true
           });
         } else if (msg.contact) {
           let phone = msg.contact.phone_number;
@@ -102,7 +132,7 @@ serve(async (req) => {
           
           if (!profile) {
             await sendTelegramMessage(chatId, "عذراً، هذا الرقم غير مسجل في منصتنا. يرجى التأكد من التسجيل بنفس رقم التيلكرام الخاص بك.", {
-              keyboard: [[{ text: "🔑 نسيت كلمة المرور" }]],
+              keyboard: MAIN_KEYBOARD,
               resize_keyboard: true
             });
           } else {
@@ -118,17 +148,42 @@ serve(async (req) => {
               await sendTelegramMessage(chatId, `حدث خطأ أثناء تصفير الرمز: ${resetError.message}`);
             } else {
               await sendTelegramMessage(chatId, `✅ تم التحقق من هويتك بنجاح يا ${profile.full_name}!\n\nكلمة المرور الجديدة لحسابك هي: \`${newPassword}\`\n\n(اضغط على الرمز لنسخه. يمكنك تسجيل الدخول الآن وتغيير الرمز من إعدادات حسابك)`, {
-                keyboard: [[{ text: "🔑 نسيت كلمة المرور" }]],
+                keyboard: MAIN_KEYBOARD,
                 resize_keyboard: true
               });
             }
           }
         } else {
-          // Fallback
-          await sendTelegramMessage(chatId, "يرجى اختيار أحد الخيارات من القائمة.", {
-            keyboard: [[{ text: "🔑 نسيت كلمة المرور" }]],
-            resize_keyboard: true
-          });
+          // Fallback - Treat arbitrary text as a support message
+          if (msg.text) {
+            const { data: newMsg, error: insertError } = await supabase.from('support_messages').insert({
+              name: msg.from?.first_name || 'مستخدم تيليكرام',
+              contact_info: msg.from?.username ? `@${msg.from.username}` : `ChatID: ${chatId}`,
+              message: msg.text,
+              status: 'pending'
+            }).select().single();
+
+            if (!insertError && newMsg) {
+              // Forward to admin
+              const adminMessage = `📩 استفسار جديد عبر البوت:\nمن: ${newMsg.name} (${newMsg.contact_info})\n\nالرسالة: ${newMsg.message}\n\n💡 للرد على المستخدم عبر الموقع، قم بالرد على هذه الرسالة واكتب ردك.\n#id_${newMsg.id.replace(/-/g, '_')}`;
+              await sendTelegramMessage(ADMIN_CHAT_ID, adminMessage);
+              
+              await sendTelegramMessage(chatId, "✅ تم إرسال رسالتك إلى فريق الدعم بنجاح! سيتم الرد عليك قريباً.", {
+                keyboard: MAIN_KEYBOARD,
+                resize_keyboard: true
+              });
+            } else {
+              await sendTelegramMessage(chatId, "يرجى اختيار أحد الخيارات من القائمة.", {
+                keyboard: MAIN_KEYBOARD,
+                resize_keyboard: true
+              });
+            }
+          } else {
+            await sendTelegramMessage(chatId, "يرجى اختيار أحد الخيارات من القائمة.", {
+              keyboard: MAIN_KEYBOARD,
+              resize_keyboard: true
+            });
+          }
         }
       }
     }
