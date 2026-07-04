@@ -12,22 +12,36 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 }) => {
   const [show, setShow] = useState(true);
   const [isFadingOut, setIsFadingOut] = useState(false);
+  const startTimeRef = React.useRef(Date.now());
+  const hasTriggeredRef = React.useRef(false);
 
   useEffect(() => {
     let hideTimer: NodeJS.Timeout;
-    const startTime = Date.now();
+    let maxTimer: NodeJS.Timeout;
 
+    const triggerHide = () => {
+      if (hasTriggeredRef.current) return;
+      hasTriggeredRef.current = true;
+      setIsFadingOut(true); 
+      setTimeout(() => setShow(false), 800); // Wait 800ms for cinematic transition
+    };
+
+    // 1. If data finishes loading, we wait the remaining time to reach minDuration
     if (!isLoading) {
-      const elapsed = Date.now() - startTime;
+      const elapsed = Date.now() - startTimeRef.current;
       const remainingTime = Math.max(0, minDuration - elapsed);
-
-      hideTimer = setTimeout(() => {
-        setIsFadingOut(true); 
-        setTimeout(() => setShow(false), 800); // Wait 800ms for cinematic transition
-      }, remainingTime);
+      hideTimer = setTimeout(triggerHide, remainingTime);
     }
 
-    return () => clearTimeout(hideTimer);
+    // 2. Regardless of data loading, force hide after 8000ms (Adaptive Maximum)
+    const elapsedSinceStart = Date.now() - startTimeRef.current;
+    const timeUntilMax = Math.max(0, 8000 - elapsedSinceStart);
+    maxTimer = setTimeout(triggerHide, timeUntilMax);
+
+    return () => {
+      clearTimeout(hideTimer);
+      clearTimeout(maxTimer);
+    };
   }, [isLoading, minDuration]);
 
   if (!show) return null;
@@ -114,21 +128,13 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
             <path className="neon-stroke" fill="none" stroke="#BF9B30" strokeWidth="2" d="M450 350 Q 300 200 250 350 Q 350 400 450 450 Z"></path>
           </g>
 
-          {/* Texts fading up */}
-          <g id="arabic-text" className="fade-up-text">
-            <text x="512" y="920" fontFamily="'Cairo', sans-serif" fontSize="60" fill="url(#goldGradient)" textAnchor="middle" fontWeight="bold">سوق بغداد</text>
-          </g>
-          
-          <g id="english-text" className="fade-up-text" style={{ animationDelay: '2.7s' }}>
-            <text x="512" y="980" fontFamily="sans-serif" fontSize="30" fill="url(#goldGradient)" textAnchor="middle" letterSpacing="4">SOUQ BAGHDAD</text>
-          </g>
         </svg>
       </div>
 
       {/* Professional Golden Loading Bar (Left to Right) */}
       <div 
         dir="ltr"
-        className={`absolute bottom-12 md:bottom-20 left-1/2 -translate-x-1/2 w-3/4 max-w-md h-4 rounded-full border-[2px] border-[#d4af37] bg-[#0c2b5e]/40 p-[2px] shadow-[0_0_15px_rgba(212,175,55,0.3)] transition-all duration-500 ease-in-out ${
+        className={`absolute bottom-16 md:bottom-12 left-1/2 -translate-x-1/2 w-3/4 max-w-md h-4 rounded-full border-[2px] border-[#d4af37] bg-[#0c2b5e]/40 p-[2px] shadow-[0_0_15px_rgba(212,175,55,0.3)] transition-all duration-500 ease-in-out ${
           isFadingOut ? 'translate-y-10 scale-95 opacity-0' : 'translate-y-0 scale-100 opacity-100'
         }`}
       >
@@ -142,7 +148,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
       {/* Welcome Message */}
       <div 
-        className={`absolute bottom-4 md:bottom-8 left-1/2 -translate-x-1/2 text-[#fdf5a6]/80 text-sm font-bold tracking-wide transition-all duration-500 ease-in-out fade-up-text ${
+        className={`absolute bottom-6 md:bottom-4 left-1/2 -translate-x-1/2 text-[#fdf5a6]/80 text-sm font-bold tracking-wide transition-all duration-500 ease-in-out fade-up-text ${
           isFadingOut ? 'translate-y-10 opacity-0' : ''
         }`}
         style={{ animationDelay: '1.5s' }}
