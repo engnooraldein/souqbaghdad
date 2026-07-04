@@ -7498,6 +7498,7 @@ export default function App() {
 
   return (
     <div className="dark min-h-screen bg-gray-950 pwa-outer-container">
+      <LoadingScreen isLoading={isInitialLoading} minDuration={3500} />
       <Helmet>
         <title>{pageTitle}</title>
         <meta name="description" content={pageDescription} />
