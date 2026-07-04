@@ -6,13 +6,20 @@ const GENERAL_CHANNEL = Deno.env.get("GENERAL_CHANNEL") ?? "-1004381673206";
 const SITE_URL = "https://souqbaghdad.com";
 
 const formatTransportAd = (ad: any) => {
-  const typeText = ad.type === 'offer' ? 'متوفر جديد' : 'مطلوب';
+  let desc: any = {};
+  try {
+    desc = JSON.parse(ad.description || '{}');
+  } catch (e) {}
+
+  const typeText = ad.type === 'offer' ? 'متوفر جديد (صاحب خط)' : 'مطلوب (أبحث عن خط)';
+  const categoryType = desc.categoryType === 'employee' ? '👔 خط موظفين' : '🎓 خط طلاب';
   
-  return `🚌 خط نقل ${typeText} في سوق بغداد\n\n` +
-         `📍 المناطق: ${ad.regions}\n` +
-         `🏛 الجامعة: ${ad.university}\n` +
-         `🕐 الدوام: ${ad.shift}\n` +
-         `💰 السعر: ${ad.price} دينار\n\n` +
+  return `🚌 ${categoryType} - ${typeText}\n\n` +
+         `📍 المناطق: ${ad.location || ''}\n` +
+         (desc.categoryType === 'employee' ? `🏢 الوجهة: ${ad.city || ''}\n` : `🏛 الجامعة: ${ad.city || ''}\n`) +
+         `🕒 الدوام: ${desc.shift || 'غير محدد'}\n` +
+         (desc.vehicleType ? `🚗 المركبة: ${desc.vehicleType}\n` : '') +
+         `💰 السعر: ${ad.price && ad.price !== '0' ? ad.price + ' دينار' : 'غير محدد'}\n\n` +
          `📞 التواصل: عبر الموقع فقط\n` +
          `نشجعك تطلب مباشرة عبر الموقع 👇\n` +
          `🔗 https://www.souqbaghdad.store/transport`;
