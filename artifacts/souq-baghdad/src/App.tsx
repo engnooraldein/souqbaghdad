@@ -3529,30 +3529,21 @@ const fetchRecovery = async () => {
     if(!broadcastTitle || !broadcastMsg) return;
     setIsBroadcasting(true);
     try {
-      const userIds = storedUsers.map(u => u.id).filter(id => id);
+      const userIds = dbUsers.map(u => u.id).filter(id => id);
       if (userIds.length > 0) {
         const notifications = userIds.map(uid => ({
-          seller_id: uid,
+          user_id: uid,
           title: broadcastTitle,
-          description: broadcastMsg,
-          price: '0',
-          category: 'notification',
-          location: '',
-          city: '',
-          images: [],
-          phone: '',
-          type: 'notification',
-          status: 'active',
-          is_demo: false,
-          seller_name: 'إدارة الموقع',
-          seller_avatar: '',
-          metadata: { type: 'message', message: broadcastMsg, title: broadcastTitle }
+          body: broadcastMsg,
+          type: 'system',
+          audience: 'all',
+          read: false
         }));
         
         const chunkSize = 100;
         for (let i = 0; i < notifications.length; i += chunkSize) {
           const chunk = notifications.slice(i, i + chunkSize);
-          await supabase.from('ads').insert(chunk);
+          await supabase.from('user_notifications').insert(chunk);
         }
       }
       logSystemAction('إرسال إشعار عام', `عنوان الإشعار: ${broadcastTitle}`, 'جميع المستخدمين');
@@ -4301,7 +4292,7 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
   notifs:any[];
   onNotifClick:(senderId:string)=>void;
   onHistoryClick:(itemId: string | number, itemType: string)=>void;
-  onMarkRead:(id: number | string) => void;
+  onMarkRead:(id: number | string, sourceTable?: 'ads' | 'user_notifications') => void;
   onArchiveAll:() => void;
 }) {
   const [tab, setTab] = useState<'incoming' | 'history'>('incoming');
@@ -4355,7 +4346,7 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
                 <div key={n.id || i} 
                   onClick={async () => {
                     // Mark as read/archive
-                    if (n.id) onMarkRead(n.id);
+                    if (n.id) onMarkRead(n.id, n.sourceTable);
                     
                     if (tab === 'incoming') {
                       if (n.type === 'message' || !n.senderId) {
@@ -6801,53 +6792,90 @@ export default function App() {
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
-    const { data, error } = await supabase
-      .from('ads')
-      .select('*')
-      .eq('category', 'notification')
-      .eq('seller_id', user.id)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false });
+    try {
+      // 1. Fetch from ads table (broadcasts)
+      const { data: adsData, error: adsError } = await supabase
+        .from('ads')
+        .select('*')
+        .eq('category', 'notification')
+        .eq('seller_id', user.id)
+        .eq('status', 'active');
 
-    if (error) { console.error('Error fetching notifications:', error); return; }
-    if (data) {
-      const mapped = data.map((row: any) => {
-        let extra = {
-          message: '',
-          type: 'view',
-          senderId: '',
-          senderName: 'مستخدم',
-          senderPhone: '',
-          itemTitle: '',
-          itemType: 'ad',
-          itemId: '',
-          duration: 0,
-          targetType: 'owner'
-        };
-        try {
-          if (row.description) {
-            extra = { ...extra, ...JSON.parse(row.description) };
+      // 2. Fetch from user_notifications table (views, reviews, system)
+      const { data: userNotifs, error: userNotifsError } = await supabase
+        .from('user_notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('read', false);
+
+      let combined: any[] = [];
+
+      if (!adsError && adsData) {
+        adsData.forEach((row: any) => {
+          let extra = {
+            message: '',
+            type: 'view',
+            senderId: '',
+            senderName: 'مستخدم',
+            senderPhone: '',
+            itemTitle: '',
+            itemType: 'ad',
+            itemId: '',
+            duration: 0,
+            targetType: 'owner'
+          };
+          try {
+            if (row.description) {
+              extra = { ...extra, ...JSON.parse(row.description) };
+            }
+          } catch (e) {
+            extra.message = row.description || '';
           }
-        } catch (e) {
-          extra.message = row.description || '';
-        }
-        return {
-          id: row.id,
-          type: extra.type,
-          title: row.title,
-          message: extra.message,
-          time: row.created_at,
-          senderId: extra.senderId,
-          senderName: extra.senderName,
-          senderPhone: extra.senderPhone,
-          itemTitle: extra.itemTitle,
-          itemType: extra.itemType,
-          itemId: extra.itemId,
-          duration: extra.duration,
-          targetType: extra.targetType
-        };
-      });
-      setNotifications(mapped);
+          combined.push({
+            id: row.id,
+            type: extra.type,
+            title: row.title,
+            message: extra.message,
+            time: row.created_at,
+            senderId: extra.senderId,
+            senderName: extra.senderName,
+            senderPhone: extra.senderPhone,
+            itemTitle: extra.itemTitle,
+            itemType: extra.itemType,
+            itemId: extra.itemId,
+            duration: extra.duration,
+            targetType: extra.targetType,
+            sourceTable: 'ads'
+          });
+        });
+      }
+
+      if (!userNotifsError && userNotifs) {
+        userNotifs.forEach((row: any) => {
+          combined.push({
+            id: row.id,
+            type: row.type || 'system',
+            title: row.title,
+            message: row.body,
+            time: row.created_at,
+            senderId: '',
+            senderName: 'إدارة الموقع',
+            senderPhone: '',
+            itemTitle: '',
+            itemType: 'ad',
+            itemId: '',
+            duration: 0,
+            targetType: row.audience === 'owner' ? 'owner' : 'viewer',
+            sourceTable: 'user_notifications'
+          });
+        });
+      }
+
+      // Sort combined notifications by time (newest first)
+      combined.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+      setNotifications(combined);
+    } catch (e) {
+      console.error('Error fetching notifications:', e);
     }
   }, [user]);
 
@@ -6892,14 +6920,24 @@ export default function App() {
     }
   };
 
-  const markNotifAsRead = async (notifId: number | string) => {
+  const markNotifAsRead = async (notifId: number | string, sourceTable: 'ads' | 'user_notifications' = 'ads') => {
     try {
-      const { error } = await supabase
-        .from('ads')
-        .update({ status: 'archived' })
-        .eq('id', notifId);
-      if (!error) {
-        setNotifications(prev => prev.filter(n => n.id !== notifId));
+      if (sourceTable === 'user_notifications') {
+        const { error } = await supabase
+          .from('user_notifications')
+          .update({ read: true })
+          .eq('id', notifId);
+        if (!error) {
+          setNotifications(prev => prev.filter(n => n.id !== notifId));
+        }
+      } else {
+        const { error } = await supabase
+          .from('ads')
+          .update({ status: 'archived' })
+          .eq('id', notifId);
+        if (!error) {
+          setNotifications(prev => prev.filter(n => n.id !== notifId));
+        }
       }
     } catch (e) {
       console.error('Failed to mark notification as read', e);
@@ -6909,15 +6947,20 @@ export default function App() {
   const handleArchiveAllNotifications = async () => {
     if (!user) return;
     try {
-      const { error } = await supabase
+      await supabase
         .from('ads')
         .update({ status: 'archived' })
         .eq('category', 'notification')
         .eq('seller_id', user.id)
         .eq('status', 'active');
-      if (!error) {
-        setNotifications([]);
-      }
+
+      await supabase
+        .from('user_notifications')
+        .update({ read: true })
+        .eq('user_id', user.id)
+        .eq('read', false);
+
+      setNotifications([]);
     } catch (e) {
       console.error('Failed to archive all notifications', e);
     }
