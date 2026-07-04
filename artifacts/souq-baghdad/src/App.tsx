@@ -901,7 +901,7 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
             </p>
             <div className="pt-2">
               <a 
-                href="https://t.me/SOUQBAGHDA" 
+                href="https://t.me/souqbaghdadbot" 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="inline-flex w-full items-center justify-center gap-2 py-4 bg-[#2AABEE] text-white font-bold rounded-xl hover:bg-[#229ED9] transition-colors"
