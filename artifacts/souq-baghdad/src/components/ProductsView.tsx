@@ -129,7 +129,7 @@ export function ProductsView({
   ];
 
   return (
-    <div className="min-h-screen bg-gray-950 pb-20">
+    <div className="min-h-screen bg-[#0c2b5e] pb-20">
       {/* Header Banner */}
       <div className="bg-gradient-to-br from-blue-900 via-indigo-950 to-blue-900 pt-8 pb-10 px-4 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
@@ -326,7 +326,7 @@ export function ProductsView({
           <>
             {/* Product Grid */}
             {filteredProducts.length === 0 ? (
-          <div className="text-center py-20 bg-gray-900/40 rounded-3xl border border-gray-900 mt-6">
+          <div className="text-center py-20 bg-gray-900/40 rounded-3xl border border-transparent shadow-sm shadow-[#0c2b5e]/10 mt-6">
             <div className="text-6xl mb-4">🛍️</div>
             <h3 className="text-xl font-bold text-white mb-2">لا توجد منتجات مطابقة للبحث</h3>
             <p className="text-gray-400 text-sm max-w-md mx-auto">جرب البحث بكلمات أخرى أو تغيير الفلاتر لتجد ما تبحث عنه</p>
@@ -334,7 +334,7 @@ export function ProductsView({
         ) : (
           <div className="mt-6 space-y-8">
             {/* Sticky Counts stats banner */}
-            <div className="sticky top-[4rem] z-20 bg-gray-950/90 backdrop-blur-md py-2.5 px-3 border-b border-gray-900 mb-4 rounded-xl flex items-center justify-between">
+            <div className="sticky top-[4rem] z-20 bg-[#0c2b5e]/90 backdrop-blur-md py-2.5 px-3 border-b border-transparent shadow-sm shadow-[#0c2b5e]/10 mb-4 rounded-xl flex items-center justify-between">
               <p className="text-gray-400 text-xs">تم العثور على <span className="text-blue-500 font-bold">{totalProductsCount}</span> منتج، يتم عرض {Math.min(filteredProducts.length, totalProductsCount)} من أصل {totalProductsCount}</p>
             </div>
 
@@ -364,7 +364,7 @@ export function ProductsView({
                     </span>
                   )}
 
-                  <div className="relative w-full aspect-[4/3] overflow-hidden flex-shrink-0 bg-gray-950">
+                  <div className="relative w-full aspect-[4/3] overflow-hidden flex-shrink-0 bg-[#0c2b5e]">
                     <img 
                       src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} 
                       alt={p.title} 
@@ -414,7 +414,7 @@ export function ProductsView({
 
             {/* Pagination Controls */}
             {hasMoreProducts && (
-              <div className="text-center py-6 mt-4 border-t border-gray-900">
+              <div className="text-center py-6 mt-4 border-t border-transparent shadow-sm shadow-[#0c2b5e]/10">
                 <button 
                   onClick={onLoadMoreProducts} 
                   disabled={loadingMoreProducts}

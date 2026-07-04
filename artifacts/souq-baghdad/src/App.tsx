@@ -1016,7 +1016,7 @@ function InfoDocsModal({ activeTab, onClose, user }: { activeTab: string; onClos
         </div>
 
         {/* Tab Selector */}
-        <div className="flex border-b border-gray-800 bg-gray-950 p-2 gap-1 overflow-x-auto">
+        <div className="flex border-b border-gray-800 bg-[#0c2b5e] p-2 gap-1 overflow-x-auto">
           {tabs.map((t) => (
             <button key={t.id} onClick={() => { setTab(t.id); setSent(false); }}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
@@ -1557,7 +1557,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
   const catName = catObj ? `${catObj.emoji} ${catObj.name}` : ad.category || 'عام';
 
   return (
-    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-start justify-center p-0 md:p-4 bg-gray-950 overflow-y-auto">
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-start justify-center p-0 md:p-4 bg-[#0c2b5e] overflow-y-auto">
       {/* <div className="absolute inset-0 bg-black/80" onClick={onClose}/> */}
       <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}}
         className="relative bg-gray-900 md:rounded-3xl w-full max-w-2xl min-h-screen md:min-h-0 md:max-h-[92vh] overflow-y-auto border-0 md:border border-gray-700 z-10 shadow-2xl">
@@ -1649,7 +1649,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
             <div className="flex items-center gap-3">
               <button onClick={()=>onSellerClick?.(ad.postedBy||'')} className="relative hover:opacity-80 transition-opacity shrink-0">
                 <img src={liveSeller?.avatar || ad.seller?.avatar || DEFAULT_AVATAR} alt="" className={`w-12 h-12 rounded-full object-cover ${liveSeller?.role && liveSeller.role !== 'user' ? getGlowClass(liveSeller.role) : 'border border-gray-600'}`}/>
-                <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-gray-900 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'أوفلاين'} />
+                <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-transparent shadow-sm shadow-[#0c2b5e]/10 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'أوفلاين'} />
               </button>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
@@ -1863,7 +1863,7 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
             <div className="flex items-center gap-3">
               <button onClick={()=>onSellerClick?.(product.postedBy)} className="relative hover:opacity-80 transition-opacity shrink-0">
                 <img src={liveSeller?.avatar || product.seller?.avatar || DEFAULT_AVATAR} alt="" className={`w-12 h-12 rounded-full object-cover ${liveSeller?.role && liveSeller.role !== 'user' ? getGlowClass(liveSeller.role) : 'border border-gray-600'}`}/>
-                <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-gray-900 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'أوفلاين'} />
+                <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-transparent shadow-sm shadow-[#0c2b5e]/10 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'أوفلاين'} />
               </button>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
@@ -2691,7 +2691,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
   const totalViews = myAds.reduce((s,a)=>s+a.views,0) + myProducts.reduce((s,p)=>s+p.views,0);
 
   return (
-    <div className="min-h-screen bg-gray-950 pt-16 pb-10">
+    <div className="min-h-screen bg-[#0c2b5e] pt-16 pb-10">
       {/* Banner & Header */}
       <div className="relative w-full">
         {/* Banner with 3:1 aspect ratio */}
@@ -3185,7 +3185,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, storedUsers = [], onB
   };
 
   if (loadingProfile) return (
-    <div className="min-h-screen bg-gray-950 pt-16 flex flex-col items-center justify-center">
+    <div className="min-h-screen bg-[#0c2b5e] pt-16 flex flex-col items-center justify-center">
       <Loader2 className="w-10 h-10 text-amber-400 animate-spin mb-3" />
       <p className="text-gray-400 text-sm font-medium">جاري تحميل ملف البائع...</p>
     </div>
@@ -3204,7 +3204,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, storedUsers = [], onB
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 pt-16 pb-10">
+    <div className="min-h-screen bg-[#0c2b5e] pt-16 pb-10">
       {/* Cover */}
       <div className="w-full aspect-[3/1] md:aspect-[4/1] bg-gray-900 relative overflow-hidden flex items-center justify-center">
         <img src={effectiveSeller?.cover || DEFAULT_COVER} alt="" className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110"/>
@@ -3582,7 +3582,7 @@ const fetchRecovery = async () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 pt-16 pb-8">
+    <div className="min-h-screen bg-[#0c2b5e] pt-16 pb-8">
       <div className="container mx-auto px-4 max-w-5xl">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -4318,7 +4318,7 @@ const fetchRecovery = async () => {
 // ─────────────────────────────────────────────
 function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id:number)=>void;onClose:()=>void}) {
   return (
-    <div className="min-h-screen bg-gray-950 pt-16 pb-8">
+    <div className="min-h-screen bg-[#0c2b5e] pt-16 pb-8">
       <div className="container mx-auto px-4 max-w-3xl">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3"><div className="w-10 h-10 bg-red-500/20 rounded-xl flex items-center justify-center"><Settings className="w-5 h-5 text-red-400"/></div>
@@ -4885,7 +4885,7 @@ function MarketView({
               {contentTab==='all'&&<div className="flex items-center gap-3 mb-4"><div className="h-px flex-1 bg-gray-700"/><span className="text-gray-400 text-sm font-medium flex items-center gap-1.5"><FileText className="w-4 h-4"/>الإعلانات ({filterAds.length})</span><div className="h-px flex-1 bg-gray-700"/></div>}
               
               {/* Sticky Counts stats banner */}
-              <div className="sticky top-[4rem] z-20 bg-gray-950/90 backdrop-blur-md py-2.5 px-3 border-b border-gray-900 mb-4 rounded-xl flex items-center justify-between">
+              <div className="sticky top-[4rem] z-20 bg-[#0c2b5e]/90 backdrop-blur-md py-2.5 px-3 border-b border-transparent shadow-sm shadow-[#0c2b5e]/10 mb-4 rounded-xl flex items-center justify-between">
                 <p className="text-gray-400 text-xs">تم العثور على <span className="text-amber-400 font-bold">{totalAdsCount}</span> إعلان، يتم عرض {Math.min(filterAds.length, totalAdsCount)} من أصل {totalAdsCount}</p>
               </div>
 
@@ -4929,7 +4929,7 @@ function MarketView({
               {contentTab==='all'&&<div className="flex items-center gap-3 mb-4"><div className="h-px flex-1 bg-gray-700"/><span className="text-gray-400 text-sm font-medium flex items-center gap-1.5"><ShoppingBag className="w-4 h-4"/>المنتجات ({filterProds.length})</span><div className="h-px flex-1 bg-gray-700"/></div>}
               
               {/* Sticky Counts stats banner */}
-              <div className="sticky top-[4rem] z-20 bg-gray-950/90 backdrop-blur-md py-2.5 px-3 border-b border-gray-900 mb-4 rounded-xl flex items-center justify-between">
+              <div className="sticky top-[4rem] z-20 bg-[#0c2b5e]/90 backdrop-blur-md py-2.5 px-3 border-b border-transparent shadow-sm shadow-[#0c2b5e]/10 mb-4 rounded-xl flex items-center justify-between">
                 <p className="text-gray-400 text-xs">تم العثور على <span className="text-blue-450 font-bold">{totalProductsCount}</span> منتج، يتم عرض {Math.min(filterProds.length, totalProductsCount)} من أصل {totalProductsCount}</p>
               </div>
 
@@ -5125,7 +5125,7 @@ function MarketView({
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     placeholder="ابحث عن حساب باسم المستخدم أو رقم الهاتف (077...)"
-                    className="w-full bg-gray-950/80 text-white placeholder-gray-400 rounded-2xl py-3.5 pr-12 pl-4 border border-gray-700 focus:border-amber-400 outline-none text-sm shadow-inner"
+                    className="w-full bg-[#0c2b5e]/80 text-white placeholder-gray-400 rounded-2xl py-3.5 pr-12 pl-4 border border-gray-700 focus:border-amber-400 outline-none text-sm shadow-inner"
                   />
                   {search && (
                     <button onClick={() => setSearch('')} className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-white bg-gray-800 px-2 py-1 rounded-lg">
@@ -5160,7 +5160,7 @@ function MarketView({
                           <div className="flex items-center gap-3 mb-3">
                             <div className="relative shrink-0">
                               <img src={topUser.avatar} alt="" className={`w-12 h-12 rounded-full object-cover ${topUser.role && topUser.role !== 'user' ? getGlowClass(topUser.role) : 'border-2 border-amber-400'}`} />
-                              <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-gray-900 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'أوفلاين'} />
+                              <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-transparent shadow-sm shadow-[#0c2b5e]/10 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'أوفلاين'} />
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1">
@@ -5171,7 +5171,7 @@ function MarketView({
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2 text-center bg-gray-950/60 rounded-xl p-2 border border-gray-800">
+                          <div className="grid grid-cols-2 gap-2 text-center bg-[#0c2b5e]/60 rounded-xl p-2 border border-gray-800">
                             <div>
                               <span className="text-[10px] text-gray-400 block">الإعلانات</span>
                               <span className="text-xs font-bold text-white">{topUser.adCount || 0}</span>
@@ -5631,7 +5631,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
       ])).filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-[#0c2b5e]">
       {/* Header */}
       <div className="bg-gradient-to-br from-emerald-900 via-teal-900 to-emerald-900 pt-6 pb-8 px-4 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
@@ -5736,7 +5736,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="sticky top-[4rem] z-20 bg-gray-950/90 backdrop-blur-md py-2.5 border-b border-gray-900 mb-2">
+            <div className="sticky top-[4rem] z-20 bg-[#0c2b5e]/90 backdrop-blur-md py-2.5 border-b border-transparent shadow-sm shadow-[#0c2b5e]/10 mb-2">
               <p className="text-gray-400 text-sm">تم العثور على <span className="text-emerald-400 font-bold">{filtered.length}</span> خط، يتم عرض {Math.min(visibleCount, filtered.length)} من أصل {filtered.length}</p>
             </div>
             {filtered.slice(0, visibleCount).map(ad=>{
@@ -7497,7 +7497,7 @@ export default function App() {
   }
 
   return (
-    <div className="dark min-h-screen bg-gray-950 pwa-outer-container">
+    <div className="dark min-h-screen bg-[#0c2b5e] pwa-outer-container">
       <LoadingScreen isLoading={isInitialLoading} minDuration={3500} />
       <Helmet>
         <title>{pageTitle}</title>
@@ -7515,7 +7515,7 @@ export default function App() {
       <Toast msg={toast.msg} type={toast.type} visible={toast.visible} onClose={()=>setToast(t=>({...t,visible:false}))}/>
 
       {/* Nav */}
-      <nav className="fixed top-0 left-0 right-0 z-40 bg-gray-950/70 backdrop-blur-xl border-b border-gray-800/60 pwa-header">
+      <nav className="fixed top-0 left-0 right-0 z-40 bg-[#0c2b5e]/70 backdrop-blur-xl border-b border-transparent pwa-header shadow-md shadow-[#0c2b5e]/10">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <button onClick={()=>setView('home')} className="flex items-center gap-2"><Logo small/><span className="text-white font-bold text-sm sm:text-lg">سوك بغداد</span></button>
@@ -7720,7 +7720,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-900 border-t border-gray-800 py-6">
+      <footer className="bg-[#0c2b5e] border-t border-[#d4af37]/20 py-6">
         <div className="container mx-auto px-4 text-center">
           <div className="flex items-center justify-center gap-2 mb-3"><span className="text-2xl">🇮🇶</span><span className="text-lg font-bold text-white">سوك بغداد</span></div>
                     <p className="text-gray-500 text-xs">© 2025 سوك بغداد — السوق الرقمي العراقي</p>
@@ -7743,7 +7743,7 @@ export default function App() {
       </footer>
 
       {/* Bottom Navigation Bar - Fixed Mobile First */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-gray-950/70 backdrop-blur-xl border-t border-gray-800/60 lg:hidden pwa-bottom-nav">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#0c2b5e]/95 backdrop-blur-xl border-t border-[#d4af37]/20 lg:hidden pwa-bottom-nav">
         <div className="flex items-center justify-around h-16 px-2">
           {/* الملف الشخصي */}
           <button

@@ -46,7 +46,7 @@ export function Navbar({ onCategoryClick }: NavbarProps) {
         animate={{ y: 0 }}
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           isScrolled
-            ? 'bg-gray-900/95 backdrop-blur-lg shadow-2xl'
+            ? 'bg-[#0c2b5e]/95 backdrop-blur-lg shadow-2xl border-b border-[#d4af37]/20'
             : 'bg-transparent'
         }`}
       >
@@ -201,7 +201,7 @@ export function Navbar({ onCategoryClick }: NavbarProps) {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25 }}
-              className="fixed top-0 left-0 bottom-0 w-80 bg-gray-900 z-50 overflow-y-auto"
+              className="fixed top-0 left-0 bottom-0 w-80 bg-[#0c2b5e] z-50 overflow-y-auto shadow-[4px_0_24px_rgba(0,0,0,0.5)] border-r border-[#d4af37]/20"
             >
               <div className="p-6">
                 {/* Header */}
