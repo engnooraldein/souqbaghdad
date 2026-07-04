@@ -3394,6 +3394,7 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   
   // Dashboard Pagination
   const [visibleUsers, setVisibleUsers] = useState(4);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
   const [visibleGuests, setVisibleGuests] = useState(4);
   const [visibleLogs, setVisibleLogs] = useState(4);
   const [visibleVisits, setVisibleVisits] = useState(4);
@@ -3401,6 +3402,15 @@ function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProdu
   const [visibleDashboardProducts, setVisibleDashboardProducts] = useState(4);
   const [visibleDashboardLines, setVisibleDashboardLines] = useState(4);
   const [logFilter, setLogFilter] = useState('');
+
+  const filteredDbUsers = useMemo(() => {
+    return dbUsers.filter(u => 
+      !userSearchQuery || 
+      (u.phone && u.phone.includes(userSearchQuery)) ||
+      (u.full_name && u.full_name.includes(userSearchQuery)) ||
+      (u.email && u.email.includes(userSearchQuery))
+    );
+  }, [dbUsers, userSearchQuery]);
 
   useEffect(() => {
     const loadLogs = () => {
@@ -3708,9 +3718,21 @@ const fetchRecovery = async () => {
         {tab==='users'&&(
           <div className="space-y-3">
             {/* Sticky Counts stats banner */}
-            <div className="sticky top-[4rem] z-20 bg-gray-900/95 backdrop-blur-md py-3 px-4 border border-gray-700 rounded-2xl mb-3 flex items-center justify-between shadow-lg">
-              <p className="text-gray-350 font-bold text-xs">إدارة الحسابات المسجلة</p>
-              <p className="text-gray-450 text-xs">تم العثور على {dbUsers.length} مستخدم، يتم عرض {Math.min(visibleUsers, dbUsers.length)} من أصل {dbUsers.length}</p>
+            <div className="sticky top-[4rem] z-20 bg-gray-900/95 backdrop-blur-md py-3 px-4 border border-gray-700 rounded-2xl mb-3 flex flex-col gap-3 shadow-lg">
+              <div className="flex items-center justify-between">
+                <p className="text-gray-350 font-bold text-xs">إدارة الحسابات المسجلة</p>
+                <p className="text-gray-450 text-xs">تم العثور على {filteredDbUsers.length} مستخدم، يتم عرض {Math.min(visibleUsers, filteredDbUsers.length)}</p>
+              </div>
+              <div className="relative">
+                <Search className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2"/>
+                <input 
+                  type="text" 
+                  value={userSearchQuery}
+                  onChange={e => setUserSearchQuery(e.target.value)}
+                  placeholder="ابحث برقم الهاتف أو الاسم أو الإيميل..."
+                  className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-xl px-4 py-2.5 pr-9 outline-none focus:border-amber-500"
+                />
+              </div>
             </div>
             {selectedUserIds.length > 0 && (
                <div className="flex justify-between items-center bg-gray-800 p-3 rounded-xl border border-red-500/30 mb-3">
@@ -3728,7 +3750,7 @@ const fetchRecovery = async () => {
                  </button>
                </div>
             )}
-            {dbUsers.length===0?<div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا مستخدمون بعد</p></div>:dbUsers.slice(0, visibleUsers).map(u=>{
+            {filteredDbUsers.length===0?<div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا مستخدمون بعد</p></div>:filteredDbUsers.slice(0, visibleUsers).map(u=>{
               const isOnline = new Date().getTime() - new Date(u.last_seen || 0).getTime() < 5 * 60 * 1000;
               
               return (
