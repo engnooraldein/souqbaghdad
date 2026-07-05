@@ -6016,6 +6016,67 @@ export default function App() {
   const playSound = useSound();
 
   useEffect(() => {
+    const handleUrlRefresh = async () => {
+      try {
+        const path = decodeURIComponent(window.location.pathname);
+        if (!path || path === '/' || path === '/IQ') return;
+
+        if (path.includes('/ad/')) {
+          const cleanPath = path.replace(/[\/#]+$/, '');
+          const parts = cleanPath.split('-');
+          const extractedId = parts[parts.length - 1];
+
+          if (extractedId) {
+            const isNumeric = /^\d+$/.test(extractedId);
+            const searchQuery = isNumeric
+              ? `id.eq.${extractedId},short_id.eq.${extractedId}`
+              : `short_id.eq.${extractedId}`;
+
+            const { data, error } = await supabase
+              .from('ads')
+              .select('*')
+              .or(searchQuery)
+              .maybeSingle();
+
+            if (error) {
+              console.error('🚨 خطأ من قاعدة البيانات:', error.message);
+            } else if (data) {
+              setSelectedAd(data);
+            }
+          }
+        } else if (path.includes('/product/')) {
+          const cleanPath = path.replace(/[\/#]+$/, '');
+          const parts = cleanPath.split('-');
+          const extractedId = parts[parts.length - 1];
+
+          if (extractedId) {
+            const isNumeric = /^\d+$/.test(extractedId);
+            const searchQuery = isNumeric
+              ? `id.eq.${extractedId},short_id.eq.${extractedId}`
+              : `short_id.eq.${extractedId}`;
+
+            const { data, error } = await supabase
+              .from('products')
+              .select('*')
+              .or(searchQuery)
+              .maybeSingle();
+
+            if (error) {
+              console.error('🚨 خطأ من قاعدة البيانات:', error.message);
+            } else if (data) {
+              setSelectedProduct(data);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('🚨 خطأ عام في قراءة الرابط:', error);
+      }
+    };
+
+    void handleUrlRefresh();
+  }, []);
+
+  useEffect(() => {
     let isMounted = true;
     async function loadAllProfilesGlobal() {
       try {
