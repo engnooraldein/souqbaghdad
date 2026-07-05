@@ -1964,6 +1964,9 @@ function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDuratio
               <h2 className="text-white font-bold text-lg">{ad.type === 'offer' ? 'خط متوفر' : 'طلب خط'} إلى {ad.university}</h2>
               <p className="text-gray-400 text-xs flex items-center gap-1 mt-0.5">
                 <MapPin className="w-3.5 h-3.5 text-emerald-400"/> <span>{ad.regions}</span>
+                {ad.short_id && (
+                  <span className="mr-1 text-emerald-400 font-mono font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded-md">#{ad.short_id}</span>
+                )}
               </p>
             </div>
           </div>
@@ -2039,7 +2042,7 @@ function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDuratio
             <MessageSquare className="w-4 h-4"/> واتساب
           </motion.a>
           <motion.button
-            onClick={() => handleUniversalShare({ id: ad.id, university: ad.university, type: ad.type, regions: ad.regions, price: ad.price })}
+            onClick={() => handleUniversalShare({ id: ad.id, short_id: ad.short_id, university: ad.university, type: ad.type, regions: ad.regions, price: ad.price, url: `/transport/card/${ad.short_id || ad.id}` })}
             whileHover={{scale:1.02}} whileTap={{scale:0.98}}
             className="flex items-center justify-center gap-1.5 py-3 bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold rounded-xl text-xs hover:bg-amber-500/30">
             <Share2 className="w-4 h-4"/> مشاركة
@@ -5377,6 +5380,7 @@ interface TransportAd {
   views: number;
   interest: number;
   whatsappClicks?: number;
+  short_id?: string;
 }
 
 function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
@@ -5425,6 +5429,9 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
     e.preventDefault();
     const finalUniversity = university === 'أخرى' ? customUniversity.trim() : university;
     if (!finalUniversity || !regions || !phone) return;
+    const generatedShortId = isEdit
+      ? editAd.short_id
+      : Math.random().toString(36).substring(2, 7).toUpperCase();
     onSubmit({
       id: isEdit ? editAd.id : Date.now(),
       type, categoryType, university: finalUniversity, regions, price, seats: type==='offer'?parseInt(seats)||4:0,
@@ -5434,7 +5441,8 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
       status: isEdit ? editAd.status : 'published',
       views: isEdit ? editAd.views : 0,
       interest: isEdit ? editAd.interest : 0,
-      whatsappClicks: isEdit ? editAd.whatsappClicks : 0
+      whatsappClicks: isEdit ? editAd.whatsappClicks : 0,
+      short_id: generatedShortId
     });
     onClose();
   };
@@ -6028,52 +6036,100 @@ export default function App() {
 
           if (extractedId) {
             const isNumeric = /^\d+$/.test(extractedId);
-            const searchQuery = isNumeric
-              ? `id.eq.${extractedId},short_id.eq.${extractedId}`
+            const searchQuery = isNumeric 
+              ? `id.eq.${extractedId},short_id.eq.${extractedId}` 
               : `short_id.eq.${extractedId}`;
 
-            const { data, error } = await supabase
-              .from('ads')
-              .select('*')
-              .or(searchQuery)
-              .maybeSingle();
-
-            if (error) {
-              console.error('🚨 خطأ من قاعدة البيانات:', error.message);
-            } else if (data) {
-              setSelectedAd(data);
-            }
+            const { data } = await supabase.from('ads').select('*').or(searchQuery).maybeSingle();
+            if (data) setSelectedAd(data);
           }
-        } else if (path.includes('/product/')) {
+        } 
+        else if (path.includes('/product/')) {
           const cleanPath = path.replace(/[\/#]+$/, '');
           const parts = cleanPath.split('-');
           const extractedId = parts[parts.length - 1];
 
           if (extractedId) {
             const isNumeric = /^\d+$/.test(extractedId);
-            const searchQuery = isNumeric
-              ? `id.eq.${extractedId},short_id.eq.${extractedId}`
+            const searchQuery = isNumeric 
+              ? `id.eq.${extractedId},short_id.eq.${extractedId}` 
               : `short_id.eq.${extractedId}`;
 
-            const { data, error } = await supabase
-              .from('products')
-              .select('*')
-              .or(searchQuery)
-              .maybeSingle();
+            const { data } = await supabase.from('products').select('*').or(searchQuery).maybeSingle();
+            if (data) setSelectedProduct(data);
+          }
+        }
+        else if (path.includes('/transport/card/')) {
+          const cleanPath = path.replace(/[\/#]+$/, '');
+          const parts = cleanPath.split('/');
+          const extractedId = parts[parts.length - 1];
 
-            if (error) {
-              console.error('🚨 خطأ من قاعدة البيانات:', error.message);
-            } else if (data) {
-              setSelectedProduct(data);
+          if (extractedId) {
+            const isNumeric = /^\d+$/.test(extractedId);
+
+            let query = supabase
+              .from('ads')
+              .select('*')
+              .eq('category', 'transport');
+
+            if (isNumeric) {
+              query = query.or(`id.eq.${extractedId},short_id.eq.${extractedId}`);
+            } else {
+              query = query.eq('short_id', extractedId);
+            }
+
+            const { data: row, error } = await query.maybeSingle();
+
+            console.log('🚌 Transport Deep Link — fetched row:', row, 'error:', error);
+
+            if (!error && row) {
+              // Parse JSON description field exactly like fetchAds does
+              let extra: any = {
+                shift: 'صباحي', seats: 4, vehicleType: 'خصوصي',
+                targetAudience: 'مختلط', categoryType: 'student',
+                note: '', interest: 0, whatsappClicks: 0,
+                completedAt: undefined, completion_reason: null
+              };
+              try {
+                if (row.description) extra = { ...extra, ...JSON.parse(row.description) };
+              } catch { extra.note = row.description || ''; }
+
+              const mapped: TransportAd = {
+                id: row.id,
+                type: row.type || 'offer',
+                categoryType: extra.categoryType || 'student',
+                university: row.city || '',
+                regions: row.location || '',
+                shift: extra.shift,
+                seats: Number(extra.seats) || 0,
+                vehicleType: extra.vehicleType,
+                targetAudience: extra.targetAudience,
+                price: row.price ? String(row.price) : '',
+                phone: row.phone || '',
+                note: extra.note,
+                sellerName: row.seller_name || 'مستخدم',
+                sellerAvatar: row.seller_avatar || '',
+                createdAt: row.created_at,
+                status: row.status === 'active' ? 'published' : row.status,
+                postedBy: row.seller_id,
+                views: row.views || 0,
+                interest: extra.interest,
+                whatsappClicks: extra.whatsappClicks,
+                completedAt: extra.completedAt,
+                completion_reason: extra.completion_reason,
+                short_id: row.short_id || undefined,
+              };
+              setSelectedTransportAd(mapped);
+              setView('transport');
             }
           }
         }
       } catch (error) {
-        console.error('🚨 خطأ عام في قراءة الرابط:', error);
+        console.error("URL parsing error:", error);
       }
     };
 
-    void handleUrlRefresh();
+    handleUrlRefresh();
   }, []);
 
   useEffect(() => {
@@ -6566,6 +6622,8 @@ export default function App() {
       const govText = selectedProduct.governorate || 'العراق';
       const slug = `تسوق-${slugify(categoryText)}-${slugify(titleText)}-${slugify(govText)}-سوق-بغداد-الرقمي`;
       newPath = `/product/${slug}-${selectedProduct.short_id || selectedProduct.id}`;
+    } else if (selectedTransportAd) {
+      newPath = `/transport/card/${selectedTransportAd.short_id || selectedTransportAd.id}`;
     } else if (view === 'seller' && selectedSellerId) {
       newPath = `/seller/${selectedSellerPhone || selectedSellerId}`;
     } else if (view === 'transport') {
@@ -6584,7 +6642,7 @@ export default function App() {
     } else if (!newPath && currentPath !== '/IQ') {
       window.history.pushState(null, '', '/IQ');
     }
-  }, [view, selectedAd, selectedProduct, selectedSellerId, initialHashParsed, loadingRoute]);
+  }, [view, selectedAd, selectedProduct, selectedSellerId, selectedTransportAd, initialHashParsed, loadingRoute]);
   // ------------------------------------
 
   // ── Rate Limit Helper ─────────────────────────
@@ -6673,7 +6731,8 @@ export default function App() {
               interest: extra.interest,
               whatsappClicks: extra.whatsappClicks,
               completedAt: extra.completedAt,
-              completion_reason: extra.completion_reason
+              completion_reason: extra.completion_reason,
+              short_id: row.short_id || undefined,
             };
           });
         }
@@ -7321,6 +7380,7 @@ export default function App() {
       is_demo: false,
       seller_name: ad.sellerName || user?.name || 'مستخدم',
       seller_avatar: ad.sellerAvatar || user?.avatar || '',
+      short_id: ad.short_id || Math.random().toString(36).substring(2, 7).toUpperCase(),
     };
 
     const { error } = await supabase.from('ads').insert(rowData);
