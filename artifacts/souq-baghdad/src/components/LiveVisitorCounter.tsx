@@ -52,7 +52,7 @@ export default function LiveVisitorCounter() {
     };
 
     // التأكد من ذاكرة الجلسة حتى الرقم ما يتغير فجأة عند التنقل بالموقع
-    const sessionCount = sessionStorage.getItem('live_visitor_count');
+    const sessionCount = sessionStorage.getItem('live_visitor_count_v2');
     if (sessionCount) {
       setCount(parseInt(sessionCount, 10));
     } else {
@@ -69,7 +69,7 @@ export default function LiveVisitorCounter() {
         
         setBadge({ value: increaseBy, id: Date.now() });
 
-        sessionStorage.setItem('live_visitor_count', newCount.toString());
+        sessionStorage.setItem('live_visitor_count_v2', newCount.toString());
         return newCount;
       });
     }, 45000); // يتحدث كل 45 ثانية بشكل هادئ وطبيعي
