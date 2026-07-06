@@ -9,10 +9,10 @@ import {
   X, ShieldAlert, Sparkles, Shield, UserX, AlertCircle, Ban, 
   Users, Activity, Crown, FileText, ShoppingBag, Package, Store, 
   Trash2, ArrowRight, Eye, CheckCircle2, ChevronRight, ChevronLeft, Search, 
-  Clock, Bell, Lock, User, Phone, Check, RefreshCw
+  Clock, Bell, Lock, User as UserIcon, Phone, Check, RefreshCw
 } from 'lucide-react';
 import { useOnlineStatuses } from '../hooks/useOnlineStatuses';
-import { Ad, Product, User, StoredUser, Visit, SystemLog, TransportAd } from '../types';
+import type { Ad, Product, User, StoredUser, Visit, SystemLog, TransportAd } from '../types';
 import { formatPrice } from '../utils/format';
 import { logSystemAction } from '../utils/logs';
 import { ViewersModal } from './ViewersModal';

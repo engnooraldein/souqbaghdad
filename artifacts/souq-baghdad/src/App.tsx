@@ -12,7 +12,7 @@ import { logSystemAction } from './utils/logs';
 import { getRelative, useRelativeTime } from './utils/time';
 import { ViewersModal } from './components/ViewersModal';
 import {
-  Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, Check,
+  Eye, EyeOff, Mail, Lock, User as UserIcon, Phone, AlertCircle, Check,
   Gamepad2, Heart, Bell, Plus, LogOut, Star, X, Search, MapPin,
   Eye as ViewIcon, Phone as PhoneIcon, Grid, List, Menu, MessageSquare,
   Share2, Copy, CheckCircle, XCircle, Loader2, ChevronRight, Shield, ImagePlus,
@@ -814,7 +814,7 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
              </form>
           ) : (
             <form onSubmit={handleAuthSubmit} className="space-y-4">
-              {step === 'signup' && <div className="relative"><User className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
+              {step === 'signup' && <div className="relative"><UserIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
                 <input value={name} onChange={e=>setName(e.target.value)} placeholder="الاسم الكامل" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none"/></div>}
               
               {step === 'signup' && <div className="grid grid-cols-1 gap-3">
@@ -2837,7 +2837,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
           <div className="space-y-4">
             <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-white font-bold flex items-center gap-2"><User className="w-4 h-4 text-amber-400"/>المعلومات الشخصية</h3>
+                <h3 className="text-white font-bold flex items-center gap-2"><UserIcon className="w-4 h-4 text-amber-400"/>المعلومات الشخصية</h3>
                 {!editing&&<button onClick={()=>setEditing(true)} className="text-xs text-amber-400 hover:underline flex items-center gap-1"><Edit2 className="w-3 h-3"/> تعديل</button>}
               </div>
               <div className="space-y-3">
@@ -6676,7 +6676,7 @@ export default function App() {
             {user&&<div className="mt-5 pt-5 border-t border-gray-700 space-y-1">
               <button onClick={()=>{setShowCreateAd(true);setEditingAd(null);setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl bg-amber-500 text-black font-bold text-sm"><Plus className="w-5 h-5"/> رفع إعلان</button>
               <button onClick={()=>{setShowCreateProduct(true);setEditingProduct(null);setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl bg-purple-600 text-white font-bold text-sm"><ShoppingBag className="w-5 h-5"/> إضافة منتج</button>
-              <button onClick={()=>{setView('profile');setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800 text-white text-sm"><User className="w-5 h-5 text-gray-400"/> ملفي الشخصي</button>
+              <button onClick={()=>{setView('profile');setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800 text-white text-sm"><UserIcon className="w-5 h-5 text-gray-400"/> ملفي الشخصي</button>
               {isOwner&&<button onClick={()=>{setView('owner');setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800 text-amber-400 text-sm"><Crown className="w-5 h-5"/> داشبورت المالك</button>}
               {isAdmin&&!isOwner&&<button onClick={()=>{setView('admin');setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800 text-red-400 text-sm"><Settings className="w-5 h-5"/> لوحة الإدارة</button>}
               <button onClick={()=>{handleLogout();setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800 text-red-400 text-sm"><LogOut className="w-5 h-5"/> تسجيل الخروج</button>
