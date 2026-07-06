@@ -5007,7 +5007,39 @@ export default function App() {
               : `short_id.eq.${extractedId}`;
 
             const { data } = await supabase.from('ads').select('*').or(searchQuery).maybeSingle();
-            if (data) setSelectedAd(data);
+            if (data) {
+              const mappedAd: Ad = {
+                id: data.id,
+                title: data.title,
+                price: data.price,
+                governorate: data.city || '',
+                location: data.location || '',
+                phone: data.phone || '',
+                category: data.category,
+                images: data.images || [],
+                seller: {
+                  name: data.seller_name || 'مستخدم',
+                  avatar: data.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
+                  isVerified: false,
+                  rating: data.seller_rating || 4.8,
+                  joinedDate: data.created_at,
+                  location: data.city || '',
+                },
+                time: '',
+                createdAtISO: data.created_at,
+                views: data.views || 0,
+                status: data.status,
+                type: data.type || 'sell',
+                description: data.description || '',
+                adCount: 0,
+                soldCount: 0,
+                responseRate: 100,
+                avgResponseTime: 'دقائق',
+                postedBy: data.seller_id,
+                short_id: data.short_id,
+              };
+              setSelectedAd(mappedAd);
+            }
           }
         } 
         else if (path.includes('/product/')) {
@@ -5022,7 +5054,34 @@ export default function App() {
               : `short_id.eq.${extractedId}`;
 
             const { data } = await supabase.from('products').select('*').or(searchQuery).maybeSingle();
-            if (data) setSelectedProduct(data);
+            if (data) {
+              const mappedProduct: Product = {
+                id: data.id,
+                title: data.title,
+                price: data.price,
+                description: data.description || '',
+                category: data.category,
+                images: data.images || [],
+                governorate: data.governorate || data.city || '',
+                phone: data.phone || '',
+                condition: data.condition || 'used',
+                seller: {
+                  name: data.seller_name || 'مستخدم',
+                  avatar: data.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
+                  isVerified: false,
+                  rating: 4.8,
+                  joinedDate: data.created_at,
+                  location: data.governorate || '',
+                },
+                createdAtISO: data.created_at,
+                views: data.views || 0,
+                postedBy: data.seller_id,
+                stock: data.stock || 1,
+                status: data.status || 'active',
+                short_id: data.short_id,
+              };
+              setSelectedProduct(mappedProduct);
+            }
           }
         }
         else if (path.includes('/transport/card/')) {
