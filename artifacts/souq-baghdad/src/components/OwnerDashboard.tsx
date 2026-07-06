@@ -9,7 +9,9 @@ import {
   X, ShieldAlert, Sparkles, Shield, UserX, AlertCircle, Ban, 
   Users, Activity, Crown, FileText, ShoppingBag, Package, Store, 
   Trash2, ArrowRight, Eye, CheckCircle2, ChevronRight, ChevronLeft, Search, 
-  Clock, Bell, Lock, User as UserIcon, Phone, Check, RefreshCw
+  Clock, Bell, Lock, User as UserIcon, Phone, Check, RefreshCw,
+  Globe, Smartphone, Monitor, Tablet, MapPin, BarChart3, Star,
+  UserCheck, Key, CheckCircle, Loader2, Mail, Car, Layers
 } from 'lucide-react';
 import { useOnlineStatuses } from '../hooks/useOnlineStatuses';
 import type { Ad, Product, User, StoredUser, Visit, SystemLog, TransportAd } from '../types';
