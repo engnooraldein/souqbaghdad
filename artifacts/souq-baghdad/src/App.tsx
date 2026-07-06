@@ -5,6 +5,12 @@ import { Helmet } from 'react-helmet-async';
 import { ShareModal } from './components/ShareModal';
 import { ProductsView } from './components/ProductsView';
 import { LoadingScreen } from './components/LoadingScreen';
+import { useOnlineStatuses } from './hooks/useOnlineStatuses';
+import { SellerInfo, Ad, Product, User, StoredUser, Visit, SystemLog, TransportAd } from './types';
+import { formatPrice } from './utils/format';
+import { logSystemAction } from './utils/logs';
+import { getRelative, useRelativeTime } from './utils/time';
+import { ViewersModal } from './components/ViewersModal';
 import {
   Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, Check,
   Gamepad2, Heart, Bell, Plus, LogOut, Star, X, Search, MapPin,
@@ -75,42 +81,7 @@ const GAMES_DATA = [
 // ─────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────
-export interface SellerInfo {
-  name: string; avatar: string; isVerified: boolean;
-  rating: number; joinedDate: string; location: string;
-}
-export interface Ad {
-  id: number; title: string; price: string;
-  governorate: string; location: string; phone: string;
-  category: string; images: string[]; seller: SellerInfo;
-  time: string; createdAtISO: string; views: number; status: string;
-  type: string; description: string; adCount: number; soldCount: number;
-  responseRate: number; avgResponseTime: string; postedBy?: string; short_id?: string;
-}
-export interface Product {
-  id: number; title: string; price: string; description: string;
-  category: string; images: string[]; governorate: string; phone: string;
-  condition: 'new' | 'used'; seller: SellerInfo;
-  createdAtISO: string; views: number; postedBy: string; stock: number; status: string; short_id?: string;
-}
-export interface User {
-  id: string; name: string; email: string; phone: string; role: string;
-  avatar: string; cover: string; bio: string; location: string;
-  rating: number; isVerified: boolean; joinedDate: string;
-  stats: { ads:number; favorites:number; views:number };
-  sellerStats: { totalAds:number; sold:number; responseRate:number; avgResponseTime:string };
-  badges?: { isStudent?: boolean; hasVehicle?: boolean; hasID?: boolean; isPhoneVerified?: boolean };
-}
-export interface StoredUser {
-  id: string; name: string; email: string; phone: string; location: string;
-  role: string; avatar: string; registeredAt: string; lastSeen: string;
-  adCount: number; isBanned: boolean;
-  cover?: string; bio?: string; rating?: number; ratingCount?: number;
-}
-export interface Visit {
-  id: string; timestamp: string; device: 'mobile'|'desktop'|'tablet';
-  location: string; userId?: string; userName?: string; page: string;
-}
+// Interfaces moved to src/types/index.ts
 
 // ─────────────────────────────────────────────
 // Utilities
@@ -186,10 +157,7 @@ async function uploadImageToStorage(fileOrBase64: File | string, bucket = 'ad-im
   }
 }
 
-export const formatPrice = (p: string | number) => {
-  const n = typeof p === 'string' ? parseInt(p.replace(/,/g,'')) : p;
-  return isNaN(n) ? String(p) : n.toLocaleString('en-US');
-};
+// formatPrice utility moved to src/utils/format.ts
 
 const isNewItem = (createdAtISO?: string) => {
   if (!createdAtISO) return false;
@@ -233,29 +201,7 @@ export function handleUniversalShare(details: { title?: string; university?: str
   }
 }
 
-function getRelative(iso: string): string {
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 5)  return 'الآن';
-  if (s < 60) return `منذ ${s} ثانية`;
-  const m = Math.floor(s/60);
-  if (m < 60) return `منذ ${m} دقيقة`;
-  const h = Math.floor(m/60);
-  if (h < 24) return `منذ ${h} ساعة`;
-  const d = Math.floor(h/24);
-  if (d < 7)  return `منذ ${d} يوم`;
-  const w = Math.floor(d/7);
-  if (w < 5)  return `منذ ${w} أسبوع`;
-  return `منذ ${Math.floor(d/30)} شهر`;
-}
-function useRelativeTime(iso: string) {
-  const [rel, setRel] = useState(() => getRelative(iso));
-  useEffect(() => {
-    setRel(getRelative(iso));
-    const iv = setInterval(() => setRel(getRelative(iso)), 10_000);
-    return () => clearInterval(iv);
-  }, [iso]);
-  return rel;
-}
+// Time helpers moved to src/utils/time.ts
 function TimeAgo({ iso, className }: { iso:string; className?:string }) {
   return <span className={className}>{useRelativeTime(iso)}</span>;
 }
@@ -317,41 +263,7 @@ const useSound = () => {
 // ─────────────────────────────────────────────
 // Online Statuses Cache
 // ─────────────────────────────────────────────
-let globalOnlineStatuses: Record<string, boolean> = {};
-let onlineListeners: Array<() => void> = [];
-
-export const useOnlineStatuses = () => {
-  const [statuses, setStatuses] = useState(globalOnlineStatuses);
-  useEffect(() => {
-    const trigger = () => setStatuses({...globalOnlineStatuses});
-    onlineListeners.push(trigger);
-    fetchGlobalOnlineStatuses();
-    const interval = setInterval(fetchGlobalOnlineStatuses, 15000);
-    return () => { 
-      onlineListeners = onlineListeners.filter(l => l !== trigger); 
-      clearInterval(interval);
-    };
-  }, []);
-  return statuses;
-}
-
-const fetchGlobalOnlineStatuses = async () => {
-  try {
-    const { data } = await supabase.from('profiles').select('id, phone, last_seen');
-    if (data) {
-      const map: Record<string, boolean> = {};
-      data.forEach(p => {
-        if(p.last_seen) {
-          const isRecentlySeen = new Date().getTime() - new Date(p.last_seen).getTime() < 5 * 60 * 1000;
-          if (p.id) map[p.id] = isRecentlySeen;
-          if (p.phone) map[p.phone] = isRecentlySeen;
-        }
-      });
-      globalOnlineStatuses = map;
-      onlineListeners.forEach(l => l());
-    }
-  } catch(e) {}
-};
+// useOnlineStatuses moved to src/hooks/useOnlineStatuses.ts
 
 // ─────────────────────────────────────────────
 // Logo
@@ -516,63 +428,7 @@ async function recordItemView(itemId: string|number, itemType: 'ad'|'product'|'t
   }
 }
 
-export function ViewersModal({ itemId, itemType, onClose }: { itemId: string|number, itemType: 'ad'|'product'|'transport', onClose: () => void }) {
-  const [viewers, setViewers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchViewers = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('ad_viewers')
-          .select('*')
-          .eq('item_id', itemId)
-          .eq('item_type', itemType)
-          .order('viewed_at', { ascending: false })
-          .limit(50);
-          
-        if (!error && data) {
-          setViewers(data);
-        }
-      } catch (e) {
-        console.error('Error fetching viewers', e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchViewers();
-  }, [itemId, itemType]);
-
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="absolute inset-0" onClick={onClose}/>
-      <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-gray-900 rounded-2xl w-full max-w-sm border border-gray-800 p-5 shadow-2xl relative z-[210]">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-white font-bold text-sm flex items-center gap-2">👀 الحسابات التي شاهدت الإعلان ({viewers.length})</h3>
-          <button onClick={onClose} className="p-1.5 bg-gray-800 rounded-lg text-gray-400" title="إغلاق" aria-label="إغلاق"><X className="w-4 h-4"/></button>
-        </div>
-        <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-          {loading ? (
-            <p className="text-gray-500 text-xs text-center py-6">جاري التحميل...</p>
-          ) : viewers.length === 0 ? (
-            <p className="text-gray-500 text-xs text-center py-6">لا يوجد مشاهدات مسجلة بعد</p>
-          ) : (
-            viewers.map((v, i) => (
-              <div key={i} className="flex items-center gap-3 p-2 bg-gray-800/50 rounded-xl border border-gray-700/50">
-                <img src={v.viewer_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className="w-8 h-8 rounded-full object-cover border border-gray-600"/>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white font-bold text-xs truncate">{v.viewer_name || 'زائر'}</p>
-                  <p className="text-[10px] text-gray-400">{v.viewer_location || 'العراق'}</p>
-                </div>
-                <span className="text-[9px] text-gray-500">{getRelative(v.viewed_at)}</span>
-              </div>
-            ))
-          )}
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
+// ViewersModal moved to src/components/ViewersModal.tsx
 
 function InterestTimer({ itemId, itemType, onInterestRegistered }: { itemId: string|number, itemType: 'ad'|'product'|'transport', onInterestRegistered?: () => void }) {
   const [seconds, setSeconds] = useState(0);
@@ -3409,24 +3265,7 @@ export interface SystemLog {
   target?: string;
 }
 
-export const logSystemAction = (action: string, details: string, target?: string, admin: string = 'المالك') => {
-  try {
-    const logs: SystemLog[] = JSON.parse(localStorage.getItem('souq_system_logs') || '[]');
-    const newLog: SystemLog = {
-      id: Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
-      timestamp: new Date().toISOString(),
-      action,
-      admin,
-      details,
-      target
-    };
-    logs.unshift(newLog);
-    if (logs.length > 500) logs.pop();
-    localStorage.setItem('souq_system_logs', JSON.stringify(logs));
-  } catch (err) {
-    console.error('Failed to log action:', err);
-  }
-};
+// logSystemAction moved to src/utils/logs.ts
 
 // OwnerDashboard component has been extracted and is now lazy loaded.
 
@@ -4521,31 +4360,7 @@ const EMPLOYEE_WORKPLACES = [
   'شارع فلسطين / زيونة (تجارية)', 'المنصور / الحارثية (دوائر وشركات)', 'الكرادة (مؤسسات وشركات)', 'أخرى'
 ];
 
-export interface TransportAd {
-  id: number;
-  type: 'offer' | 'request'; // متوفر خط أو أبحث عن خط
-  categoryType?: 'student' | 'employee'; // طلاب أم موظفين
-  university: string;
-  regions: string;
-  price: string;
-  seats: number;
-  shift: string;
-  vehicleType: string;
-  targetAudience: string;
-  phone: string;
-  note: string;
-  postedBy: string;
-  sellerName: string;
-  sellerAvatar: string;
-  createdAt: string;
-  status: 'pending' | 'published' | 'matched' | 'archived' | 'deleted_soft';
-  completion_reason?: 'found_line' | 'line_full' | 'closed_by_owner' | null;
-  completedAt?: string;
-  views: number;
-  interest: number;
-  whatsappClicks?: number;
-  short_id?: string;
-}
+// TransportAd moved to src/types/index.ts
 
 function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
   onClose: () => void;
