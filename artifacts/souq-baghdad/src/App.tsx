@@ -13,7 +13,7 @@ import {
   Trash2, SlidersHorizontal, Settings, ChevronLeft, Info, LogIn, Edit2,
   Save, BarChart3, Smartphone, Monitor, Tablet, Globe, UserCheck, Activity,
   Crown, UserX, FileText, ShoppingBag, Package, Store, Camera, ZoomIn,
-  ZoomOut, Calendar, Users, ChevronDown, Tag, Layers, Home, Car, UserCircle, Key, Sparkles
+  ZoomOut, Calendar, Users, ChevronDown, Tag, Layers, Home, Car, UserCircle, Key, Sparkles, Clock
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -150,6 +150,42 @@ async function compressImage(file: File, maxPx = 900, quality = 0.78, addWaterma
     };
     reader.readAsDataURL(file);
   });
+}
+
+async function uploadImageToStorage(fileOrBase64: File | string, bucket = 'ad-images', maxPx = 900, quality = 0.78, addWatermark = true): Promise<string> {
+  try {
+    let base64Data: string;
+    if (typeof fileOrBase64 === 'string') {
+      base64Data = fileOrBase64;
+    } else {
+      base64Data = await compressImage(fileOrBase64, maxPx, quality, addWatermark);
+    }
+
+    const response = await fetch(base64Data);
+    const blob = await response.blob();
+    
+    const fileExt = 'jpeg';
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+    
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, blob, {
+        contentType: 'image/jpeg',
+        cacheControl: '3600',
+        upsert: false
+      });
+      
+    if (error) throw error;
+    
+    const { data: publicUrlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(fileName);
+      
+    return publicUrlData.publicUrl;
+  } catch (err) {
+    console.error('Failed to upload image to storage:', err);
+    throw err;
+  }
 }
 
 const formatPrice = (p: string | number) => {
@@ -1557,10 +1593,10 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
   const catName = catObj ? `${catObj.emoji} ${catObj.name}` : ad.category || 'عام';
 
   return (
-    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-start justify-center p-0 md:p-4 bg-[#0c2b5e] overflow-y-auto">
-      {/* <div className="absolute inset-0 bg-black/80" onClick={onClose}/> */}
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/80" onClick={onClose}/>
       <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}}
-        className="relative bg-gray-900 md:rounded-3xl w-full max-w-2xl min-h-screen md:min-h-0 md:max-h-[92vh] overflow-y-auto border-0 md:border border-gray-700 z-10 shadow-2xl">
+        className="relative bg-gray-900 rounded-3xl w-full max-w-2xl max-h-[92vh] overflow-y-auto border border-gray-700 z-10">
         <InterestTimer itemId={ad.id} itemType="ad" />
         <div className="relative">
           <div 
@@ -2086,9 +2122,9 @@ function AdFormModal({ isOpen, onClose, onSubmit, user, editAd }:{
         setImages(prev=>prev.map(img=>img._uid===uid&&img.progress<100?{...img,progress:p}:img));
       },120);
       try {
-        const b64 = await compressImage(file);
+        const url = await uploadImageToStorage(file);
         clearInterval(iv);
-        setImages(prev=>prev.map(img=>img._uid===uid?{...img,preview:b64,progress:100}:img));
+        setImages(prev=>prev.map(img=>img._uid===uid?{...img,preview:url,progress:100}:img));
       } catch (err) {
         clearInterval(iv);
         setImages(prev=>prev.filter(img=>img._uid!==uid));
@@ -2206,9 +2242,9 @@ function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct }:{
         setImages(prev=>prev.map(img=>img._uid===uid&&img.progress<100?{...img,progress:p}:img));
       },120);
       try {
-        const b64 = await compressImage(file);
+        const url = await uploadImageToStorage(file);
         clearInterval(iv);
-        setImages(prev=>prev.map(img=>img._uid===uid?{...img,preview:b64,progress:100}:img));
+        setImages(prev=>prev.map(img=>img._uid===uid?{...img,preview:url,progress:100}:img));
       } catch (err) {
         clearInterval(iv);
         setImages(prev=>prev.filter(img=>img._uid!==uid));
@@ -2670,7 +2706,17 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
         await supabase.auth.updateUser({ phone: ef.phone.trim() }).catch(() => {});
       }
 
-      const updated: User = { ...user, ...ef, email: ef.email.trim().toLowerCase(), phone: ef.phone.trim(), avatar: avatarPreview, cover: coverPreview };
+      let finalAvatar = avatarPreview;
+      if (finalAvatar && finalAvatar.startsWith('data:image/')) {
+        finalAvatar = await uploadImageToStorage(finalAvatar, 'ad-images', 1200, 0.8, false);
+      }
+      
+      let finalCover = coverPreview;
+      if (finalCover && finalCover.startsWith('data:image/')) {
+        finalCover = await uploadImageToStorage(finalCover, 'ad-images', 1200, 0.9, false);
+      }
+
+      const updated: User = { ...user, ...ef, email: ef.email.trim().toLowerCase(), phone: ef.phone.trim(), avatar: finalAvatar, cover: finalCover };
       await onUpdateUser(updated);
       setEditing(false);
     } catch (e) {
@@ -2682,7 +2728,8 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
 
   const openCrop = async (e:React.ChangeEvent<HTMLInputElement>, type:'avatar'|'cover') => {
     if(!e.target.files?.[0]) return;
-    const b64 = await compressImage(e.target.files[0], 1200, 0.9, false);
+    const quality = type === 'avatar' ? 0.8 : 0.9;
+    const b64 = await compressImage(e.target.files[0], 1200, quality, false);
     setCropType(type); setCropSrc(b64);
   };
 
@@ -4358,6 +4405,34 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
 }) {
   const [tab, setTab] = useState<'incoming' | 'history'>('incoming');
   const [selectedNotif, setSelectedNotif] = useState<any>(null);
+  const playSound = useSound();
+
+  const [dismissedAdmin, setDismissedAdmin] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('dismissedAdminNotifs') || '[]'); } catch { return []; }
+  });
+
+  const ADMIN_NOTIFICATIONS = [
+    { 
+      id: 'admin_welcome_v1', 
+      title: 'إشعار من الإدارة 👑', 
+      message: 'مرحباً بك في تحديثات سوك بغداد! نعمل حالياً على تحسين سرعة التطبيق وإضافة ميزات جديدة لتسهيل عملك.',
+      time: new Date().toISOString()
+    }
+  ];
+
+  const fetchedAdminNotifs = notifs.filter(n => n.type === 'system' || n.sourceTable === 'user_notifications');
+  const allAdminNotifs = [...ADMIN_NOTIFICATIONS, ...fetchedAdminNotifs];
+  const visibleAdminNotifs = allAdminNotifs.filter(n => !dismissedAdmin.includes(String(n.id)));
+
+  const handleDismissAdmin = (n: any) => {
+    playSound('click');
+    const updated = [...dismissedAdmin, String(n.id)];
+    setDismissedAdmin(updated);
+    localStorage.setItem('dismissedAdminNotifs', JSON.stringify(updated));
+    if (n.sourceTable) {
+       onMarkRead(n.id, n.sourceTable);
+    }
+  };
 
   const incomingNotifs = notifs.filter(n => n.targetType === 'owner' || !n.targetType);
   const historyNotifs = notifs.filter(n => n.targetType === 'viewer');
@@ -4372,6 +4447,28 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
             <h2 className="text-lg font-bold text-white">الإشعارات</h2>
             <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
           </div>
+
+          {visibleAdminNotifs.length > 0 && (
+            <div className="mb-4 space-y-2">
+              {visibleAdminNotifs.map(n => (
+                <div key={n.id} onClick={() => handleDismissAdmin(n)} className="bg-gradient-to-r from-amber-500/20 to-yellow-600/10 border border-amber-500/30 rounded-xl p-3 cursor-pointer hover:bg-amber-500/30 transition-all relative group shadow-lg">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                      <span className="text-lg">👑</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-amber-400 text-sm font-bold">{n.title}</p>
+                      <p className="text-gray-300 text-xs mt-1 leading-relaxed">{n.message}</p>
+                      <p className="text-amber-500/60 text-[10px] mt-2 font-bold animate-pulse">👉 اضغط لإخفاء هذا الإشعار</p>
+                    </div>
+                  </div>
+                  <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                     <X className="w-4 h-4 text-gray-400" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="flex gap-2 mb-4 bg-gray-800 p-1 rounded-xl border border-gray-700">
             <button 
@@ -4398,12 +4495,16 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
           )}
 
           <div className="space-y-2">
-            {activeNotifs.length === 0 ? (
-              <div className="text-center py-10 text-gray-500 text-xs">
-                {tab === 'incoming' ? 'لا توجد إشعارات واردة حالياً' : 'لم تقم بمشاهدة أي إعلانات بعد'}
+            <div className="text-center py-10 bg-gray-800/30 rounded-2xl border border-gray-700/50 mt-4">
+              <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3">
+                {tab === 'history' ? <Clock className="w-6 h-6 text-gray-500" /> : <Bell className="w-6 h-6 text-gray-500" />}
               </div>
-            ) : (
-              activeNotifs.map((n, i) => (
+              <h3 className="text-white font-bold mb-2">{tab === 'history' ? 'سجل المشاهدات غير متوفر' : 'قسم المهتمين بي غير متوفر'}</h3>
+              <p className="text-gray-400 text-xs px-6 leading-relaxed">
+                سوف يعمل قريباً.. قم بترقية حسابك وتوثيقه للحصول على هذه الميزة! 🚀
+              </p>
+            </div>
+            {false && activeNotifs.map((n, i) => (
                 <div key={n.id || i} 
                   onClick={async () => {
                     // Mark as read/archive
@@ -4461,8 +4562,7 @@ function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryClick, onM
                     </div>
                   </div>
                 </div>
-              ))
-            )}
+              ))}
           </div>
         </motion.div>
 
@@ -6975,63 +7075,15 @@ export default function App() {
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
     try {
-      // 1. Fetch from ads table (broadcasts)
-      const { data: adsData, error: adsError } = await supabase
-        .from('ads')
-        .select('*')
-        .eq('category', 'notification')
-        .eq('seller_id', user.id)
-        .eq('status', 'active');
-
-      // 2. Fetch from user_notifications table (views, reviews, system)
+      // Only fetch admin/system notifications to reduce load
       const { data: userNotifs, error: userNotifsError } = await supabase
         .from('user_notifications')
         .select('*')
         .eq('user_id', user.id)
-        .eq('read', false);
+        .eq('read', false)
+        .limit(10);
 
       let combined: any[] = [];
-
-      if (!adsError && adsData) {
-        adsData.forEach((row: any) => {
-          let extra = {
-            message: '',
-            type: 'view',
-            senderId: '',
-            senderName: 'مستخدم',
-            senderPhone: '',
-            itemTitle: '',
-            itemType: 'ad',
-            itemId: '',
-            duration: 0,
-            targetType: 'owner'
-          };
-          try {
-            if (row.description) {
-              extra = { ...extra, ...JSON.parse(row.description) };
-            }
-          } catch (e) {
-            extra.message = row.description || '';
-          }
-          combined.push({
-            id: row.id,
-            type: extra.type,
-            title: row.title,
-            message: extra.message,
-            time: row.created_at,
-            senderId: extra.senderId,
-            senderName: extra.senderName,
-            senderPhone: extra.senderPhone,
-            itemTitle: extra.itemTitle,
-            itemType: extra.itemType,
-            itemId: extra.itemId,
-            duration: extra.duration,
-            targetType: extra.targetType,
-            sourceTable: 'ads'
-          });
-        });
-      }
-
       if (!userNotifsError && userNotifs) {
         userNotifs.forEach((row: any) => {
           combined.push({
@@ -7047,13 +7099,12 @@ export default function App() {
             itemType: 'ad',
             itemId: '',
             duration: 0,
-            targetType: row.audience === 'owner' ? 'owner' : 'viewer',
+            targetType: 'owner',
             sourceTable: 'user_notifications'
           });
         });
       }
-
-      // Sort combined notifications by time (newest first)
+      
       combined.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
       setNotifications(combined);
     } catch (e) {
