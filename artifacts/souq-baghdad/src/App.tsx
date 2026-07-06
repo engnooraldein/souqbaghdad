@@ -2,15 +2,16 @@ import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } fro
 import { supabase } from './lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
-import { ShareModal } from './components/ShareModal';
-import { ProductsView } from './components/ProductsView';
 import { LoadingScreen } from './components/LoadingScreen';
 import { useOnlineStatuses } from './hooks/useOnlineStatuses';
 import { SellerInfo, Ad, Product, User, StoredUser, Visit, SystemLog, TransportAd } from './types';
 import { formatPrice } from './utils/format';
 import { logSystemAction } from './utils/logs';
 import { getRelative, useRelativeTime } from './utils/time';
-import { ViewersModal } from './components/ViewersModal';
+
+const ProductsView = lazy(() => import('./components/ProductsView').then(m => ({ default: m.ProductsView })));
+const ViewersModal = lazy(() => import('./components/ViewersModal').then(m => ({ default: m.ViewersModal })));
+const ShareModal = lazy(() => import('./components/ShareModal').then(m => ({ default: m.ShareModal })));
 import {
   Eye, EyeOff, Mail, Lock, User as UserIcon, Phone, AlertCircle, Check,
   Gamepad2, Heart, Bell, Plus, LogOut, Star, X, Search, MapPin,
@@ -1526,7 +1527,11 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
             <div className="text-left shrink-0"><p className="text-2xl font-bold text-amber-400">{formatPrice(ad.price)}</p><p className="text-gray-400 text-xs">دينار عراقي</p></div>
           </div>
           <AnimatePresence>
-            {showViewers && <ViewersModal itemId={ad.id} itemType="ad" onClose={() => setShowViewers(false)} />}
+            {showViewers && (
+              <Suspense fallback={null}>
+                <ViewersModal itemId={ad.id} itemType="ad" onClose={() => setShowViewers(false)} />
+              </Suspense>
+            )}
           </AnimatePresence>
           {ad.description&&<div className="bg-gray-800 rounded-xl p-4 mb-4"><h3 className="text-white font-bold text-sm mb-2">الوصف</h3><p className="text-gray-300 text-sm leading-relaxed">{ad.description}</p></div>}
           {/* Seller */}
@@ -1740,7 +1745,11 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
             <div className="text-left shrink-0"><p className="text-2xl font-bold text-amber-400">{formatPrice(product.price)}</p><p className="text-gray-400 text-xs">دينار عراقي</p></div>
           </div>
           <AnimatePresence>
-            {showViewers && <ViewersModal itemId={product.id} itemType="product" onClose={() => setShowViewers(false)} />}
+            {showViewers && (
+              <Suspense fallback={null}>
+                <ViewersModal itemId={product.id} itemType="product" onClose={() => setShowViewers(false)} />
+              </Suspense>
+            )}
           </AnimatePresence>
           {product.stock>0&&<div className="inline-flex items-center gap-1 bg-green-500/20 text-green-400 text-xs px-3 py-1 rounded-full mb-3"><Package className="w-3 h-3"/>متوفر: {product.stock} قطعة</div>}
           {product.description&&<div className="bg-gray-800 rounded-xl p-4 mb-4"><h3 className="text-white font-bold text-sm mb-2">الوصف</h3><p className="text-gray-300 text-sm leading-relaxed">{product.description}</p></div>}
@@ -1939,7 +1948,11 @@ function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDuratio
         </div>
 
         <AnimatePresence>
-          {showViewers && <ViewersModal itemId={ad.id} itemType="transport" onClose={() => setShowViewers(false)} />}
+          {showViewers && (
+            <Suspense fallback={null}>
+              <ViewersModal itemId={ad.id} itemType="transport" onClose={() => setShowViewers(false)} />
+            </Suspense>
+          )}
         </AnimatePresence>
       </motion.div>
     </motion.div>
@@ -6777,33 +6790,35 @@ export default function App() {
             />
           </motion.div>}
           {view==='products'&&<motion.div key="products" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <ProductsView 
-              user={user} 
-              onBack={()=>setView('home')} 
-              onCreateProduct={()=>{if(!user){requireAuth();return;}setShowCreateProduct(true);}} 
-              onSelectProduct={setSelectedProduct} 
-              products={allProducts} 
-              onActionMenu={setActionMenuTarget} 
-              hasMoreProducts={hasMoreProducts} 
-              onLoadMoreProducts={() => fetchProducts(false)}
-              totalProductsCount={totalProductsCount}
-              loadingMoreProducts={loadingMoreProducts}
-              isInitialLoading={isInitialLoading}
-              search={search}
-              setSearch={setSearch}
-              cat={cat}
-              setCat={setCat}
-              gov={gov}
-              setGov={setGov}
-              sort={sort}
-              setSort={setSort}
-              priceMin={priceMin}
-              setPriceMin={setPriceMin}
-              priceMax={priceMax}
-              setPriceMax={setPriceMax}
-              conditionFilter={conditionFilter}
-              setConditionFilter={setConditionFilter}
-            />
+            <Suspense fallback={<LoadingScreen />}>
+              <ProductsView 
+                user={user} 
+                onBack={()=>setView('home')} 
+                onCreateProduct={()=>{if(!user){requireAuth();return;}setShowCreateProduct(true);}} 
+                onSelectProduct={setSelectedProduct} 
+                products={allProducts} 
+                onActionMenu={setActionMenuTarget} 
+                hasMoreProducts={hasMoreProducts} 
+                onLoadMoreProducts={() => fetchProducts(false)}
+                totalProductsCount={totalProductsCount}
+                loadingMoreProducts={loadingMoreProducts}
+                isInitialLoading={isInitialLoading}
+                search={search}
+                setSearch={setSearch}
+                cat={cat}
+                setCat={setCat}
+                gov={gov}
+                setGov={setGov}
+                sort={sort}
+                setSort={setSort}
+                priceMin={priceMin}
+                setPriceMin={setPriceMin}
+                priceMax={priceMax}
+                setPriceMax={setPriceMax}
+                conditionFilter={conditionFilter}
+                setConditionFilter={setConditionFilter}
+              />
+            </Suspense>
           </motion.div>}
           {view==='profile'&&user&&<motion.div key="profile" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold} favorites={favorites} allAds={allAds} allProducts={allProducts} onAdSelect={setSelectedAd} onProductSelect={setSelectedProduct} onFav={handleToggleFav}/></motion.div>}
@@ -6939,18 +6954,20 @@ export default function App() {
         {activeLightbox&&<ImageLightboxModal src={activeLightbox.src} title={activeLightbox.title} images={(activeLightbox as any).images} initialIdx={(activeLightbox as any).initialIdx} onClose={()=>setActiveLightbox(null)}/>}
         {congratulationsItem && <CongratulationsModal item={congratulationsItem} onClose={() => setCongratulationsItem(null)} />}
         {shareModalData.isOpen && (
-          <ShareModal
-            isOpen={shareModalData.isOpen}
-            onClose={() => setShareModalData(prev => ({ ...prev, isOpen: false }))}
-            title={shareModalData.title}
-            url={shareModalData.url}
-            image={shareModalData.image}
-            price={shareModalData.price}
-            governorate={shareModalData.governorate}
-            location={shareModalData.location}
-            short_id={shareModalData.short_id}
-            description={(shareModalData as any).description}
-          />
+          <Suspense fallback={null}>
+            <ShareModal
+              isOpen={shareModalData.isOpen}
+              onClose={() => setShareModalData(prev => ({ ...prev, isOpen: false }))}
+              title={shareModalData.title}
+              url={shareModalData.url}
+              image={shareModalData.image}
+              price={shareModalData.price}
+              governorate={shareModalData.governorate}
+              location={shareModalData.location}
+              short_id={shareModalData.short_id}
+              description={(shareModalData as any).description}
+            />
+          </Suspense>
         )}
 
         {showInstallGuide && (

@@ -7,7 +7,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Google Fonts with font-display=swap for better LCP -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=IBM+Plex+Arabic:wght@400;700&family=Tajawal:wght@400;700;900&display=swap" />
+  <!-- Google Fonts loaded asynchronously to prevent render blocking -->
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=IBM+Plex+Arabic:wght@400;700&family=Tajawal:wght@400;700;900&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=IBM+Plex+Arabic:wght@400;700&family=Tajawal:wght@400;700;900&display=swap" />
+  </noscript>
   <title>سوك بغداد v1.5 - السوق الرقمي العراقي | أكبر منصة إعلانات في العراق</title>
   <meta name="description" content="سوك بغداد - أكبر منصة عراقية للبيع والشراء والإعلانات. سيارات، عقارات، هواتف، إلكترونيات، خدمات والمزيد. اكتشف آلاف الإعلانات في أقسام متعددة." />
   <meta name="keywords" content="سوق بغداد, إعلانات العراق, سيارات للبيع, عقارات, هواتف, إلكترونيات, شراء, بيع, العراق" />
