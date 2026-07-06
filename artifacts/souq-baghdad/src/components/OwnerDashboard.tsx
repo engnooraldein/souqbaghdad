@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, Legend 
@@ -17,6 +17,7 @@ import { useOnlineStatuses } from '../hooks/useOnlineStatuses';
 import type { Ad, Product, User, StoredUser, Visit, SystemLog, TransportAd } from '../types';
 import { formatPrice } from '../utils/format';
 import { logSystemAction } from '../utils/logs';
+import { getGlowClass, getWhatsAppResetLink } from '../utils/helpers';
 import { ViewersModal } from './ViewersModal';
 
 export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProduct, onDeleteTransportAd, onClose, onDeleteProfile }: {

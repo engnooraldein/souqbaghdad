@@ -38,14 +38,8 @@ export const getCoverImage = (user: {role?: string, cover?: string}) => {
   return DEFAULT_COVER;
 };
 
-export const getGlowClass = (role?: string) => {
-  if (!role) return '';
-  if (role === 'owner') return 'glow-owner';
-  if (role === 'admin') return 'glow-admin';
-  if (role === 'vendor') return 'glow-vendor';
-  if (role === 'pro') return 'glow-pro';
-  return '';
-};
+export { getGlowClass, getWhatsAppResetLink } from './utils/helpers';
+import { getGlowClass, getWhatsAppResetLink } from './utils/helpers';
 
 const IRAQI_GOVERNORATES = [
   'الكل','بغداد','البصرة','نينوى','أربيل','كربلاء','النجف',
@@ -3247,14 +3241,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, storedUsers = [], onB
 // Owner Dashboard
 // ─────────────────────────────────────────────
 
-const getWhatsAppResetLink = (phone: string) => {
-  if (!phone) return '#';
-  let clean = phone.replace(/[^0-9]/g, '');
-  if (clean.startsWith('07')) clean = '964' + clean.slice(1);
-  else if (clean.startsWith('7')) clean = '964' + clean;
-  const msg = `🌟 *أهلاً بك في سوق بغداد - السوق الرقمي العراقي*\n\nتم تصفير كلمة سر حسابك بنجاح.\n🔑 الرمز السري الجديد هو: *123456*\n\n💡 *ملاحظة:* يمكنك تغيير كلمة السر في أي وقت من خلال:\n(حسابي الشخصي > الملف الشخصي > قسم الحساب).\n\nشكراً لاستخدامك منصتنا، ونتمنى لك تجربة تسوق رائعة! 🛒\n🌐 رابط الموقع: www.souqbaghdad.store`;
-  return `https://wa.me/${clean}?text=${encodeURIComponent(msg)}`;
-};
+// getWhatsAppResetLink is imported from utils/helpers
 
 export interface SystemLog {
   id: string;
