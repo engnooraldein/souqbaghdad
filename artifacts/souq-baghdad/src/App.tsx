@@ -879,7 +879,8 @@ function InfoDocsModal({ activeTab, onClose, user }: { activeTab: string; onClos
     { id: 'من نحن', icon: <Info className="w-4 h-4" /> },
     { id: 'الشروط والأحكام', icon: <Shield className="w-4 h-4" /> },
     { id: 'سياسة الخصوصية', icon: <Lock className="w-4 h-4" /> },
-    { id: 'تواصل معنا', icon: <Mail className="w-4 h-4" /> }
+    { id: 'تواصل معنا', icon: <Mail className="w-4 h-4" /> },
+    { id: 'سجل التحديثات', icon: <Sparkles className="w-4 h-4" /> }
   ];
 
   return (
@@ -1083,6 +1084,65 @@ function InfoDocsModal({ activeTab, onClose, user }: { activeTab: string; onClos
                       <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M11.944 0C5.344 0 0 5.344 0 12c0 6.656 5.344 12 12 12 6.656 0 12-5.344 12-12C24 5.344 18.656 0 11.944 0zm5.892 8.046c-.144.9-.99 5.874-1.44 8.286-.192 1.014-.564 1.356-.924 1.392-.786.072-1.386-.516-2.148-1.014-.762-.5-1.188-.81-1.926-1.296-.852-.564-.3-.876.186-1.38.126-.132 2.334-2.136 2.376-2.316.006-.024.012-.114-.042-.162-.054-.048-.132-.03-.186-.018-.084.018-1.392.882-3.924 2.592-.372.258-.708.384-1.008.378-.33-.006-.966-.186-1.44-.342-.582-.192-1.044-.294-1.002-.624.024-.168.252-.342.69-.516 2.688-1.17 4.482-1.938 5.388-2.31 2.562-1.056 3.096-1.242 3.444-1.248.078 0 .252.018.366.114.096.084.12.198.132.282.012.072.024.228.012.384z"/></svg>
                       <span>تليكرام المنصة</span>
                     </a>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {tab === 'سجل التحديثات' && (
+              <motion.div key="changelog" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6 text-right">
+                <div className="flex items-center gap-3 pb-4 border-b border-gray-800">
+                  <div className="w-12 h-12 bg-amber-500/20 border border-amber-500/30 rounded-2xl flex items-center justify-center shadow-lg">
+                    <Sparkles className="w-6 h-6 text-amber-400"/>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-white font-bold text-xl">سجل التحديثات والإصدارات</h2>
+                      <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.6.0</span>
+                    </div>
+                    <p className="text-gray-400 text-xs mt-1">تتبع التغييرات والميزات المضافة في كل إصدار</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {/* v1.6.0 */}
+                  <div className="bg-gradient-to-br from-gray-800 via-gray-800 to-amber-950/20 border border-amber-500/40 rounded-2xl p-5 space-y-3 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 bg-amber-500 text-black text-[9px] font-extrabold px-2.5 py-1 rounded-bl-xl uppercase tracking-wider">
+                      الإصدار الأخير
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-amber-400 font-bold text-sm">⚡ الإصدار v1.6.0 (تحسين الأداء وفصل المكونات)</span>
+                      <span className="text-gray-400 text-xs font-mono">(06/07/2026)</span>
+                    </div>
+                    <ul className="text-gray-300 text-xs space-y-1.5 list-disc list-inside pr-1">
+                      <li><strong>تحسين سرعة التحميل:</strong> تطبيق تقنية Lazy Loading والمكونات المنفصلة.</li>
+                      <li><strong>سجل التحديثات:</strong> إتاحة سجل التحديثات لجميع المستخدمين من خلال الفوتر.</li>
+                      <li><strong>مشاركة الروابط:</strong> إصلاح وتحسين نظام مشاركة روابط الملفات الشخصية.</li>
+                    </ul>
+                  </div>
+
+                  {/* v1.5.0 */}
+                  <div className="bg-gray-800 border border-gray-700 rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-300 font-bold text-sm">🤖 الإصدار v1.5.0 (المساعد الذكي)</span>
+                      <span className="text-gray-500 text-xs font-mono">(04/07/2026)</span>
+                    </div>
+                    <ul className="text-gray-400 text-xs space-y-1.5 list-disc list-inside pr-1">
+                      <li>تحويل بوت التيليكرام إلى مساعد تفاعلي ذكي للاستعادة.</li>
+                      <li>نظام توليد آمن لكلمات المرور بضغطة زر.</li>
+                    </ul>
+                  </div>
+                  
+                  {/* v1.4.0 */}
+                  <div className="bg-gray-800 border border-gray-700 rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-300 font-bold text-sm">🚀 الإصدار v1.4.0 (النسخة الاحترافية)</span>
+                      <span className="text-gray-500 text-xs font-mono">(02/07/2026)</span>
+                    </div>
+                    <ul className="text-gray-400 text-xs space-y-1.5 list-disc list-inside pr-1">
+                      <li>تثبيت العدادات عند التمرير وإضافة رسالة التحميل التفاعلية.</li>
+                      <li>توحيد فئات المنتجات في المتجر والفورم.</li>
+                    </ul>
                   </div>
                 </div>
               </motion.div>
@@ -2651,8 +2711,24 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                   <button onClick={()=>{setEditing(false);setAvatarPreview(user.avatar||DEFAULT_AVATAR);setCoverPreview(user.cover||DEFAULT_COVER);}} className="px-3 py-2 sm:px-4 sm:py-2 bg-gray-800 text-gray-300 border border-gray-700 rounded-xl text-sm hover:bg-gray-700">إلغاء</button>
                 </>
               ):(
-                <button onClick={()=>{setEditing(true);setEf({name:user.name,phone:user.phone,location:user.location,bio:user.bio||'',email:user.email||''});}} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-amber-500 text-black rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20 hover:bg-amber-600">
-                  <Edit2 className="w-4 h-4"/>تعديل</button>
+                <>
+                  <button onClick={()=>{
+                    handleUniversalShare({
+                      title: user.name,
+                      type: 'profile',
+                      location: user.location || 'بغداد',
+                      id: user.id,
+                      url: '/seller/' + user.id,
+                      image: user.avatar || DEFAULT_AVATAR
+                    });
+                  }} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-gray-800 text-white rounded-xl text-sm font-bold shadow-lg border border-gray-700 hover:bg-gray-700">
+                    <Share2 className="w-4 h-4"/>
+                    <span className="hidden sm:inline">مشاركة</span>
+                  </button>
+                  <button onClick={()=>{setEditing(true);setEf({name:user.name,phone:user.phone,location:user.location,bio:user.bio||'',email:user.email||''});}} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-amber-500 text-black rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20 hover:bg-amber-600">
+                    <Edit2 className="w-4 h-4"/>تعديل
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -3133,8 +3209,24 @@ function SellerPublicPage({ sellerId, allAds, allProducts, storedUsers = [], onB
           <span className="text-white font-bold text-xs sm:text-sm drop-shadow-md">سوك بغداد</span>
         </div>
         <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/30 to-transparent z-10"/>
-        <button onClick={onBack} className="absolute top-4 right-4 z-20 flex items-center gap-1 px-3 py-1.5 bg-black/60 backdrop-blur-md text-white rounded-xl text-xs hover:bg-black/80 font-bold border border-white/10">
-          <ChevronRight className="w-4 h-4"/> رجوع</button>
+        <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+          <button onClick={()=>{
+            handleUniversalShare({
+              title: effectiveSeller.name,
+              type: 'profile',
+              location: effectiveSeller.location || 'بغداد',
+              id: effectiveSeller.id,
+              url: '/seller/' + effectiveSeller.id,
+              image: effectiveSeller.avatar || DEFAULT_AVATAR
+            });
+          }} className="p-1.5 sm:px-3 sm:py-1.5 bg-black/60 backdrop-blur-md text-white rounded-xl hover:bg-black/80 font-bold border border-white/10 flex items-center gap-1" title="مشاركة الملف">
+            <Share2 className="w-4 h-4"/>
+            <span className="hidden sm:inline text-xs">مشاركة</span>
+          </button>
+          <button onClick={onBack} className="flex items-center gap-1 px-3 py-1.5 bg-black/60 backdrop-blur-md text-white rounded-xl text-xs hover:bg-black/80 font-bold border border-white/10">
+            <ChevronRight className="w-4 h-4"/> رجوع
+          </button>
+        </div>
       </div>
 
       <div className="container mx-auto px-4 max-w-3xl relative">
@@ -6833,7 +6925,7 @@ export default function App() {
               }
             }} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile} onActionMenu={setActionMenuTarget}/></motion.div>}
           {view==='transport'&&<motion.div key="transport" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd} onActionMenu={setActionMenuTarget} isInitialLoading={isInitialLoading} storedUsers={storedUsers}/></motion.div>}
+            <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd} onActionMenu={setActionMenuTarget} isInitialLoading={isInitialLoading || loadingTransport} storedUsers={storedUsers}/></motion.div>}
           {view==='admin'&&isAdmin&&!isOwner&&<motion.div key="admin" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <AdminPanel ads={allAds} onDeleteAd={handleDeleteAd} onClose={()=>setView('home')}/></motion.div>}
           {view==='owner'&&isOwner&&<motion.div key="owner" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
@@ -6861,8 +6953,8 @@ export default function App() {
             </a>
           </div>
 
-          <div className="flex items-center justify-center gap-3 mt-3 text-gray-500 text-xs">
-            {['الشروط والأحكام','سياسة الخصوصية','تواصل معنا','من نحن'].map(l=><button key={l} onClick={()=>setActiveDocTab(l)} className="hover:text-amber-400">{l}</button>)}</div>
+          <div className="flex items-center justify-center gap-3 mt-3 text-gray-500 text-xs flex-wrap">
+            {['الشروط والأحكام','سياسة الخصوصية','تواصل معنا','من نحن','سجل التحديثات'].map(l=><button key={l} onClick={()=>setActiveDocTab(l)} className="hover:text-amber-400">{l}</button>)}</div>
         </div>
       </footer>
 
