@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 
 const OwnerDashboard = lazy(() => import('./components/OwnerDashboard'));
+import LiveVisitorCounter from './components/LiveVisitorCounter';
 
 // ─────────────────────────────────────────────
 // Constants
@@ -3775,6 +3776,7 @@ function MarketView({
               </motion.button>
             ))}
           </div>
+          <LiveVisitorCounter />
           {/* Transport Quick Access */}
           <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:0.2}}
             className="mt-5 max-w-2xl mx-auto">
