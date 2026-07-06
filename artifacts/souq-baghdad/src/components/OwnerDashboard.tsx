@@ -11,12 +11,11 @@ import {
   Trash2, ArrowRight, Eye, CheckCircle2, ChevronRight, ChevronLeft, Search, 
   Clock, Bell, Lock, User, Phone, Check, RefreshCw
 } from 'lucide-react';
-import { useOnlineStatuses } from '../App';
-import { Ad, Product, User, StoredUser, Visit, SystemLog } from '../App';
-import { formatPrice, ViewersModal, logSystemAction } from '../App';
-
-// We need to define or import TransportAd if it's used
-import { TransportAd } from '../App';
+import { useOnlineStatuses } from '../hooks/useOnlineStatuses';
+import { Ad, Product, User, StoredUser, Visit, SystemLog, TransportAd } from '../types';
+import { formatPrice } from '../utils/format';
+import { logSystemAction } from '../utils/logs';
+import { ViewersModal } from './ViewersModal';
 
 export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd, onDeleteProduct, onDeleteTransportAd, onClose, onDeleteProfile }: {
   ads:Ad[];
