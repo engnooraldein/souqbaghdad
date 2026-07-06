@@ -4,42 +4,48 @@ import { Users } from 'lucide-react';
 import { supabase } from '../lib/supabase'; // تأكد إن مسار استدعاء supabase صحيح حسب مشروعك
 
 export default function LiveVisitorCounter() {
-  // رقم مبدئي يظهر قبل جلب البيانات
-  const [count, setCount] = useState(14582);
+  // رقم مبدئي تقديري يظهر قبل جلب البيانات
+  const [count, setCount] = useState(350);
   const [badge, setBadge] = useState<{ value: number; id: number } | null>(null);
 
-  // 1. جلب البيانات من قاعدة البيانات وحفظها بالـ Cache
+  // 1. جلب البيانات من قاعدة البيانات وحفظها بالـ Cache لـ 72 ساعة (توفير البيانات والـ Quota)
   useEffect(() => {
     const fetchInitialCount = async () => {
       try {
         const cachedData = localStorage.getItem('visitor_cache');
         const now = new Date().getTime();
 
-        // فحص الذاكرة المؤقتة (إذا مر عليها أقل من 12 ساعة نستخدمها)
+        // فحص الذاكرة المؤقتة (إذا مر عليها أقل من 72 ساعة نستخدمها)
         if (cachedData) {
           const { value, timestamp } = JSON.parse(cachedData);
-          if (now - timestamp < 43200000) { // 12 ساعة
+          if (now - timestamp < 259200000) { // 72 ساعة = 259,200,000 مللي ثانية
             setCount(value);
             return;
           }
         }
 
-        // جلب عدد المسجلين من جدول profiles
-        const { count: dbCount, error } = await supabase
+        // جلب عدد المستخدمين المسجلين من جدول profiles
+        const { count: dbUsersCount, error: usersError } = await supabase
           .from('profiles')
           .select('*', { count: 'exact', head: true });
 
-        if (!error && dbCount !== null) {
-          // المعادلة التسويقية: (المسجلين * 5) + 10,000 زائر تقديري
-          const calculatedTotal = (dbCount * 5) + 10500;
-          setCount(calculatedTotal);
+        // جلب عدد الزوار من جدول guests
+        const { count: dbGuestsCount, error: guestsError } = await supabase
+          .from('guests')
+          .select('*', { count: 'exact', head: true });
 
-          // حفظ الرقم بالذاكرة حتى ما نستهلك الـ Quota
-          localStorage.setItem('visitor_cache', JSON.stringify({
-            value: calculatedTotal,
-            timestamp: now
-          }));
-        }
+        const usersTotal = (!usersError && dbUsersCount !== null) ? dbUsersCount : 20;
+        const guestsTotal = (!guestsError && dbGuestsCount !== null) ? dbGuestsCount : 50;
+
+        // المعادلة المطلوبة: (المستخدمين + الزائرين) * 5
+        const calculatedTotal = (usersTotal + guestsTotal) * 5;
+        setCount(calculatedTotal);
+
+        // حفظ الرقم بالذاكرة
+        localStorage.setItem('visitor_cache', JSON.stringify({
+          value: calculatedTotal,
+          timestamp: now
+        }));
       } catch (err) {
         console.error("Error fetching visitor count:", err);
       }
@@ -54,26 +60,19 @@ export default function LiveVisitorCounter() {
     }
   }, []);
 
-  // 2. حركة الأرقام العشوائية (الصعود والنزول الوهمي كل 30 ثانية)
+  // 2. حركة الأرقام العشوائية (زيادة طبيعية بـ 1 أو 2 أو 3 أو 4 كل فتره لتبدو حقيقية)
   useEffect(() => {
     const interval = setInterval(() => {
       setCount((prev) => {
-        let newCount = prev;
-        const isIncrease = Math.random() > 0.3; // 70% نسبة الزيادة
-
-        if (isIncrease) {
-          const increaseBy = Math.floor(Math.random() * 3) + 1; // زيادة 1 إلى 3
-          newCount += increaseBy;
-          setBadge({ value: increaseBy, id: Date.now() });
-        } else {
-          const decreaseBy = Math.floor(Math.random() * 2) + 1; // نقصان 1 أو 2 بصمت
-          newCount -= decreaseBy;
-        }
+        const increaseBy = Math.floor(Math.random() * 4) + 1; // زيادة 1 أو 2 أو 3 أو 4
+        const newCount = prev + increaseBy;
+        
+        setBadge({ value: increaseBy, id: Date.now() });
 
         sessionStorage.setItem('live_visitor_count', newCount.toString());
         return newCount;
       });
-    }, 30000); // يتحدث كل 30 ثانية
+    }, 45000); // يتحدث كل 45 ثانية بشكل هادئ وطبيعي
 
     return () => clearInterval(interval);
   }, []);
