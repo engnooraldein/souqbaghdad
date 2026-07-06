@@ -12,7 +12,7 @@ export default function LiveVisitorCounter() {
   useEffect(() => {
     const fetchInitialCount = async () => {
       try {
-        const cachedData = localStorage.getItem('visitor_cache');
+        const cachedData = localStorage.getItem('visitor_cache_v2');
         const now = new Date().getTime();
 
         // فحص الذاكرة المؤقتة (إذا مر عليها أقل من 72 ساعة نستخدمها)
@@ -42,7 +42,7 @@ export default function LiveVisitorCounter() {
         setCount(calculatedTotal);
 
         // حفظ الرقم بالذاكرة
-        localStorage.setItem('visitor_cache', JSON.stringify({
+        localStorage.setItem('visitor_cache_v2', JSON.stringify({
           value: calculatedTotal,
           timestamp: now
         }));
