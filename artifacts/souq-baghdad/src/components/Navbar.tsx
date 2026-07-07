@@ -1,300 +1,166 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Moon, Sun, Search, User, Heart, Bell, Plus, ChevronDown, Car, Home, Smartphone, Watch, ShoppingBag, Video, Store, MessageCircle } from 'lucide-react';
-import { IraqiEagle } from './Icons';
+import React from 'react';
+import { 
+  Plus, Bell, LogIn, User, Search, Store, 
+  Map, Bookmark, Home as HomeIcon
+} from 'lucide-react';
+import { User as UserType } from '../types';
+import { LiveVisitorCounter } from './LiveVisitorCounter';
 
 interface NavbarProps {
-  onCategoryClick?: (category: string) => void;
+  user: UserType | null;
+  unreadCount: number;
+  view: string;
+  onSetView: (view: 'home' | 'products' | 'transport' | 'profile' | 'saved') => void;
+  onShowAuth: () => void;
+  onShowPostAd: () => void;
+  onShowNotifications: () => void;
+  onShowSettings: () => void;
 }
 
-export function Navbar({ onCategoryClick }: NavbarProps) {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(true);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+export function Navbar({
+  user,
+  unreadCount,
+  view,
+  onSetView,
+  onShowAuth,
+  onShowPostAd,
+  onShowNotifications,
+  onShowSettings
+}: NavbarProps) {
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  // Top Header (Desktop & Mobile)
+  const renderTopHeader = () => (
+    <header className="bg-gray-900 border-b border-gray-800 sticky top-0 z-40" dir="rtl">
+      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div 
+            onClick={() => onSetView('home')} 
+            className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center cursor-pointer shadow-lg shadow-amber-500/20"
+          >
+            <Store className="w-6 h-6 text-black" />
+          </div>
+          <div>
+            <h1 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-l from-amber-400 to-amber-200 cursor-pointer" onClick={() => onSetView('home')}>
+              سوق بغداد
+            </h1>
+            <p className="text-[10px] text-gray-400 -mt-1 hidden sm:block">السوق الرقمي العراقي</p>
+          </div>
+        </div>
 
-  const categories = [
-    { id: 'cars', name: 'السيارات', icon: Car, color: 'bg-blue-500' },
-    { id: 'real-estate', name: 'العقارات', icon: Home, color: 'bg-green-500' },
-    { id: 'phones', name: 'الهواتف', icon: Smartphone, color: 'bg-purple-500' },
-    { id: 'electronics', name: 'الإلكترونيات', icon: Watch, color: 'bg-orange-500' },
-    { id: 'products', name: 'المنتجات', icon: ShoppingBag, color: 'bg-pink-500' },
-    { id: 'videos', name: 'الفيديوهات', icon: Video, color: 'bg-red-500' },
-    { id: 'stores', name: 'المتاجر', icon: Store, color: 'bg-yellow-500' },
-  ];
+        <div className="flex items-center gap-2 sm:gap-4">
+          <LiveVisitorCounter />
+          
+          <button 
+            onClick={onShowPostAd} 
+            className="hidden sm:flex items-center gap-2 px-4 py-2 bg-gradient-to-l from-amber-500 to-amber-400 text-black rounded-xl font-bold hover:shadow-lg hover:shadow-amber-500/20 transition-all"
+          >
+            <Plus className="w-5 h-5" />
+            <span>أضف إعلانك</span>
+          </button>
+          
+          {user ? (
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={onShowNotifications} 
+                className="relative p-2 text-gray-400 hover:text-white bg-gray-800 rounded-xl transition-colors"
+                title="الإشعارات"
+                aria-label="الإشعارات"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border border-gray-900 animate-pulse">
+                    {unreadCount > 9 ? '+9' : unreadCount}
+                  </span>
+                )}
+              </button>
+              
+              <div 
+                onClick={onShowSettings} 
+                className="w-10 h-10 rounded-xl bg-gray-800 border border-gray-700 overflow-hidden cursor-pointer flex items-center justify-center"
+              >
+                {user.avatar ? (
+                  <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-amber-500 font-bold text-lg">{user.name.charAt(0)}</span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <button 
+              onClick={onShowAuth} 
+              className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-700 transition-colors"
+            >
+              <LogIn className="w-5 h-5" />
+              <span>دخول</span>
+            </button>
+          )}
+        </div>
+      </div>
+    </header>
+  );
 
-  const handleCategoryClick = (categoryId: string) => {
-    if (onCategoryClick) {
-      onCategoryClick(categoryId);
-    }
-    setIsMobileMenuOpen(false);
-  };
+  // Bottom Navigation (Mobile Only)
+  const renderBottomNav = () => (
+    <div className="fixed bottom-0 inset-x-0 bg-gray-900 border-t border-gray-800 z-50 px-2 pb-safe md:hidden" dir="rtl">
+      <div className="flex justify-around items-center h-16">
+        <button 
+          onClick={() => onSetView('home')} 
+          className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${view === 'home' ? 'text-amber-500' : 'text-gray-500 hover:text-gray-400'}`}
+          title="الرئيسية"
+          aria-label="الرئيسية"
+        >
+          <HomeIcon className="w-6 h-6" />
+          <span className="text-[10px] font-medium">الرئيسية</span>
+        </button>
+        
+        <button 
+          onClick={() => onSetView('products')} 
+          className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${view === 'products' ? 'text-amber-500' : 'text-gray-500 hover:text-gray-400'}`}
+          title="المنتجات"
+          aria-label="المنتجات"
+        >
+          <Search className="w-6 h-6" />
+          <span className="text-[10px] font-medium">المنتجات</span>
+        </button>
+
+        <div className="relative w-full h-full flex justify-center -mt-6">
+          <button 
+            onClick={onShowPostAd} 
+            className="absolute flex items-center justify-center w-12 h-12 bg-amber-500 text-black rounded-full shadow-lg shadow-amber-500/20 active:scale-95 transition-transform"
+            title="أضف إعلانك"
+            aria-label="أضف إعلانك"
+          >
+            <Plus className="w-6 h-6" />
+          </button>
+        </div>
+
+        <button 
+          onClick={() => onSetView('transport')} 
+          className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${view === 'transport' ? 'text-amber-500' : 'text-gray-500 hover:text-gray-400'}`}
+          title="الخطوط"
+          aria-label="الخطوط"
+        >
+          <Map className="w-6 h-6" />
+          <span className="text-[10px] font-medium">الخطوط</span>
+        </button>
+
+        <button 
+          onClick={() => onSetView(user ? 'profile' : 'saved')} 
+          className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${['profile', 'saved'].includes(view) ? 'text-amber-500' : 'text-gray-500 hover:text-gray-400'}`}
+          title={user ? 'حسابي' : 'المحفوظات'}
+          aria-label={user ? 'حسابي' : 'المحفوظات'}
+        >
+          {user ? <User className="w-6 h-6" /> : <Bookmark className="w-6 h-6" />}
+          <span className="text-[10px] font-medium">{user ? 'حسابي' : 'محفوظات'}</span>
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <>
-      {/* Main Navigation */}
-      <motion.nav
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          isScrolled
-            ? 'bg-[#0c2b5e]/95 backdrop-blur-lg shadow-2xl border-b border-[#d4af37]/20'
-            : 'bg-transparent'
-        }`}
-      >
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-20">
-            {/* Logo */}
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              className="flex items-center gap-3 cursor-pointer"
-            >
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-900 to-blue-950 rounded-xl flex items-center justify-center shadow-lg golden-glow">
-                <IraqiEagle className="w-8 h-8" />
-              </div>
-              <div className="hidden sm:block">
-                <h1 className="text-xl font-bold text-white">سوك بغداد</h1>
-                <p className="text-xs text-amber-400">السوق الرقمي العراقي</p>
-              </div>
-            </motion.div>
-
-            {/* Desktop Search */}
-            <div className="hidden lg:flex flex-1 max-w-xl mx-8">
-              <div className="relative w-full">
-                <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="ابحث عن أي شيء..."
-                  className="w-full bg-gray-800/50 text-white placeholder-gray-400 rounded-xl py-3 pr-12 pl-4 border border-gray-700 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Desktop Menu */}
-            <div className="hidden lg:flex items-center gap-4">
-              {/* Dark Mode Toggle */}
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setIsDarkMode(!isDarkMode)}
-                className="p-3 rounded-xl bg-gray-800 text-amber-400 hover:bg-gray-700 transition-colors"
-              >
-                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </motion.button>
-
-              {/* Favorites */}
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="relative p-3 rounded-xl bg-gray-800 text-white hover:bg-gray-700 transition-colors"
-              >
-                <Heart className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">3</span>
-              </motion.button>
-
-              {/* Notifications */}
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="relative p-3 rounded-xl bg-gray-800 text-white hover:bg-gray-700 transition-colors"
-              >
-                <Bell className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 rounded-full text-xs text-black flex items-center justify-center">5</span>
-              </motion.button>
-
-              {/* Messages */}
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="relative p-3 rounded-xl bg-gray-800 text-white hover:bg-gray-700 transition-colors"
-              >
-                <MessageCircle className="w-5 h-5" />
-              </motion.button>
-
-              {/* Post Ad Button */}
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl hover:shadow-lg hover:shadow-amber-500/30 transition-all"
-              >
-                <Plus className="w-5 h-5" />
-                <span>رفع إعلان</span>
-              </motion.button>
-
-              {/* User Menu */}
-              <div className="relative">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center gap-2 p-2 rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors"
-                >
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center">
-                    <User className="w-4 h-4 text-white" />
-                  </div>
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
-                </motion.button>
-
-                <AnimatePresence>
-                  {isUserMenuOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      className="absolute left-0 mt-2 w-48 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden"
-                    >
-                      <div className="p-3 border-b border-gray-700">
-                        <p className="text-white font-semibold">أحمد محمد</p>
-                        <p className="text-gray-400 text-sm">ahmed@email.com</p>
-                      </div>
-                      <div className="p-2">
-                        <button className="w-full text-right px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                          حسابي
-                        </button>
-                        <button className="w-full text-right px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                          إعلاناتي
-                        </button>
-                        <button className="w-full text-right px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors">
-                          المفضلة
-                        </button>
-                        <button className="w-full text-right px-4 py-2 text-red-400 hover:bg-gray-700 rounded-lg transition-colors">
-                          تسجيل الخروج
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="lg:hidden p-3 rounded-xl bg-gray-800 text-white"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
-          </div>
-        </div>
-      </motion.nav>
-
-      {/* Mobile Menu */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
-              onClick={() => setIsMobileMenuOpen(false)}
-            />
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25 }}
-              className="fixed top-0 left-0 bottom-0 w-80 bg-[#0c2b5e] z-50 overflow-y-auto shadow-[4px_0_24px_rgba(0,0,0,0.5)] border-r border-[#d4af37]/20"
-            >
-              <div className="p-6">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-8">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-900 to-blue-950 rounded-xl flex items-center justify-center">
-                      <IraqiEagle className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-bold text-white">سوك بغداد</h2>
-                      <p className="text-xs text-amber-400">السوق الرقمي العراقي</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="p-2 rounded-xl bg-gray-800 text-white"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-
-                {/* User Card */}
-                <div className="bg-gray-800 rounded-2xl p-4 mb-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center">
-                      <User className="w-7 h-7 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-white font-bold">أحمد محمد</h3>
-                      <p className="text-gray-400 text-sm">ahmed@email.com</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3 mt-4">
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-white">12</p>
-                      <p className="text-xs text-gray-400">إعلان</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-white">45</p>
-                      <p className="text-xs text-gray-400">مفضلة</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-white">8</p>
-                      <p className="text-xs text-gray-400">رسالة</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Post Ad Button */}
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  className="w-full flex items-center justify-center gap-3 py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl mb-6"
-                >
-                  <Plus className="w-6 h-6" />
-                  <span>رفع إعلان جديد</span>
-                </motion.button>
-
-                {/* Categories */}
-                <div className="mb-6">
-                  <h3 className="text-gray-400 text-sm mb-4 font-semibold">الأقسام</h3>
-                  <div className="space-y-2">
-                    {categories.map((category) => (
-                      <button
-                        key={category.id}
-                        onClick={() => handleCategoryClick(category.id)}
-                        className="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-gray-800 transition-colors"
-                      >
-                        <div className={`w-10 h-10 ${category.color} rounded-xl flex items-center justify-center`}>
-                          <category.icon className="w-5 h-5 text-white" />
-                        </div>
-                        <span className="text-white font-medium">{category.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Settings */}
-                <div className="border-t border-gray-800 pt-6">
-                  <button
-                    onClick={() => setIsDarkMode(!isDarkMode)}
-                    className="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-gray-800 transition-colors"
-                  >
-                    <div className="w-10 h-10 bg-gray-700 rounded-xl flex items-center justify-center">
-                      {isDarkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-blue-400" />}
-                    </div>
-                    <span className="text-white font-medium">{isDarkMode ? 'الوضع الفاتح' : 'الوضع الداكن'}</span>
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      {renderTopHeader()}
+      {renderBottomNav()}
     </>
   );
 }
