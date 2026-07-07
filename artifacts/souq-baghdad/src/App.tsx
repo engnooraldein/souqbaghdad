@@ -1291,13 +1291,13 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-[250] bg-black/95 backdrop-blur-md flex flex-col justify-between p-4 select-none">
       
-      <div className="flex items-center justify-between w-full max-w-4xl mx-auto z-10 pt-2">
+      <div className="flex items-center justify-between w-full max-w-4xl mx-auto z-10 pt-12 md:pt-4">
         <div>
           <h4 className="text-white font-bold text-sm truncate max-w-[200px] sm:max-w-xs">{title}</h4>
           {totalCount > 1 && <span className="text-amber-400 text-xs font-semibold">{currentIdx + 1} من {totalCount}</span>}
         </div>
-        <button onClick={onClose} className="p-2 bg-gray-900/80 hover:bg-gray-800 rounded-full text-gray-400 hover:text-white transition-colors" title="إغلاق" aria-label="إغلاق">
-          <X className="w-5 h-5" />
+        <button onClick={onClose} className="p-3 bg-gray-800/80 hover:bg-gray-700 rounded-full text-white transition-colors shadow-lg border border-gray-600" title="إغلاق" aria-label="إغلاق">
+          <X className="w-6 h-6" />
         </button>
       </div>
 
@@ -3349,14 +3349,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, storedUsers = [], onB
 
 // getWhatsAppResetLink is imported from utils/helpers
 
-export interface SystemLog {
-  id: string;
-  timestamp: string;
-  action: string;
-  admin: string;
-  details: string;
-  target?: string;
-}
+// SystemLog interface is imported from ./types (removed duplicate)
 
 // logSystemAction moved to src/utils/logs.ts
 
@@ -5090,6 +5083,7 @@ export default function App() {
   const [conditionFilter, setConditionFilter] = useState<'all'|'new'|'used'>('all');
 
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const isFirstLoadDone = useRef(false);
   const [loadingMoreAds, setLoadingMoreAds] = useState(false);
   const [loadingMoreProducts, setLoadingMoreProducts] = useState(false);
   const [loadingTransport, setLoadingTransport] = useState(false);
@@ -5866,7 +5860,10 @@ export default function App() {
 
   const fetchAds = useCallback(async (reset = true) => {
     if (reset) {
-      setIsInitialLoading(true);
+      if (!isFirstLoadDone.current) {
+        setIsInitialLoading(true);
+      }
+      setLoadingMoreAds(true);
     } else {
       setLoadingMoreAds(true);
     }
@@ -5968,6 +5965,7 @@ export default function App() {
     } catch (e) {
       console.error(e);
     } finally {
+      isFirstLoadDone.current = true;
       setIsInitialLoading(false);
       setLoadingMoreAds(false);
       setLoadingTransport(false);
@@ -6008,7 +6006,10 @@ export default function App() {
 
   const fetchProducts = useCallback(async (reset = true) => {
     if (reset) {
-      setIsInitialLoading(true);
+      if (!isFirstLoadDone.current) {
+        setIsInitialLoading(true);
+      }
+      setLoadingMoreProducts(true);
     } else {
       setLoadingMoreProducts(true);
     }
@@ -6098,6 +6099,7 @@ export default function App() {
     } catch (e) {
       console.error(e);
     } finally {
+      isFirstLoadDone.current = true;
       setIsInitialLoading(false);
       setLoadingMoreProducts(false);
     }
@@ -6710,7 +6712,7 @@ export default function App() {
 
   return (
     <div className="dark min-h-screen bg-[#0c2b5e] pwa-outer-container">
-      <LoadingScreen isLoading={isInitialLoading} minDuration={3500} />
+      <LoadingScreen isLoading={isInitialLoading} minDuration={2000} />
       <Helmet>
         <title>{pageTitle}</title>
         <meta name="description" content={pageDescription} />
@@ -6882,7 +6884,7 @@ export default function App() {
             />
           </motion.div>}
           {view==='products'&&<motion.div key="products" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <Suspense fallback={<LoadingScreen />}>
+            <Suspense fallback={<LoadingScreen isLoading={true} />}>
               <ProductsView 
                 user={user} 
                 onBack={()=>setView('home')} 
@@ -6929,7 +6931,7 @@ export default function App() {
           {view==='admin'&&isAdmin&&!isOwner&&<motion.div key="admin" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <AdminPanel ads={allAds} onDeleteAd={handleDeleteAd} onClose={()=>setView('home')}/></motion.div>}
           {view==='owner'&&isOwner&&<motion.div key="owner" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <Suspense fallback={<LoadingScreen />}>
+            <Suspense fallback={<LoadingScreen isLoading={true} />}>
               <OwnerDashboard ads={allAds} products={allProducts} transportAds={allTransportAds} onDeleteAd={handleDeleteAd} onDeleteProduct={handleDeleteProduct} onDeleteTransportAd={handleDeleteTransportAd} onClose={()=>setView('home')} onDeleteProfile={handleDeleteProfile}/>
             </Suspense></motion.div>}
         </AnimatePresence>

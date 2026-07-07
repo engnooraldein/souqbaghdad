@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Settings, Heart, ShoppingBag, MessageCircle, Bell, LogOut, Edit3, Camera, Share2, Star, MapPin, Calendar, Facebook, Twitter, Instagram, Check, Crown, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -340,7 +340,7 @@ export function UserProfile({ onBack }: UserProfileProps) {
                   <div className="grid gap-3 md:grid-cols-2">
                     {(Object.keys(flags) as Array<keyof typeof flags>).map((key) => (
                       <button
-                        key={key}
+                        key={String(key)}
                         onClick={() => void updateFlag(key, !isEnabled(key))}
                         className="flex items-center justify-between gap-3 rounded-xl border border-gray-700 bg-gray-700/50 p-4 text-right hover:border-amber-400/40 hover:bg-gray-700"
                       >
@@ -399,7 +399,7 @@ export function UserProfile({ onBack }: UserProfileProps) {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
               className="bg-gray-800 rounded-2xl p-6 max-w-md w-full border border-gray-700"
             >
               <h2 className="text-xl font-bold text-white mb-6">تعديل الملف الشخصي</h2>
@@ -498,7 +498,7 @@ export function UserProfile({ onBack }: UserProfileProps) {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
               className="bg-gray-800 rounded-2xl p-6 max-w-sm w-full border border-gray-700"
             >
               <h2 className="text-xl font-bold text-white mb-6 text-center">مشاركة الملف الشخصي</h2>

@@ -49,7 +49,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
   return (
     <div 
-      className={`fixed inset-0 z-[100] flex items-center justify-center transition-all duration-[800ms] ease-[cubic-bezier(0.87,0,0.13,1)] ${
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 transition-all duration-[800ms] ease-[cubic-bezier(0.87,0,0.13,1)] ${
         isFadingOut ? 'opacity-0 pointer-events-none scale-110 bg-transparent blur-sm' : 'opacity-100 scale-100'
       }`}
       style={{
@@ -57,7 +57,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       }}
     >
       {/* 3D Cinematic Zoom Wrapper */}
-      <div className={`relative w-80 h-80 md:w-[600px] md:h-[600px] transition-all duration-[800ms] ease-[cubic-bezier(0.87,0,0.13,1)] ${
+      <div className={`relative w-72 h-72 md:w-[420px] md:h-[420px] transition-all duration-[800ms] ease-[cubic-bezier(0.87,0,0.13,1)] ${
         isFadingOut ? 'scale-125 opacity-0 translate-y-[-20px]' : 'scale-100 opacity-100'
       }`}>
         <svg viewBox="0 0 1024 1024" width="100%" height="100%">
@@ -143,7 +143,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       {/* Professional Golden Loading Bar (Left to Right) */}
       <div 
         dir="ltr"
-        className={`absolute bottom-12 md:bottom-20 left-1/2 -translate-x-1/2 w-3/4 max-w-md h-4 rounded-full border-[2px] border-[#d4af37] bg-[#0c2b5e]/40 p-[2px] shadow-[0_0_15px_rgba(212,175,55,0.3)] transition-all duration-500 ease-in-out ${
+        className={`w-3/4 max-w-md h-4 rounded-full border-[2px] border-[#d4af37] bg-[#0c2b5e]/40 p-[2px] shadow-[0_0_15px_rgba(212,175,55,0.3)] transition-all duration-500 ease-in-out ${
           isFadingOut ? 'translate-y-10 scale-95 opacity-0' : 'translate-y-0 scale-100 opacity-100'
         }`}
       >
@@ -157,7 +157,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
       {/* Welcome Message */}
       <div 
-        className={`absolute bottom-4 md:bottom-8 left-1/2 -translate-x-1/2 text-[#fdf5a6]/80 text-sm font-bold tracking-wide transition-all duration-500 ease-in-out fade-up-text ${
+        className={`text-[#fdf5a6]/80 text-sm font-bold tracking-wide transition-all duration-500 ease-in-out fade-up-text ${
           isFadingOut ? 'translate-y-10 opacity-0' : ''
         }`}
         style={{ animationDelay: '1.5s' }}

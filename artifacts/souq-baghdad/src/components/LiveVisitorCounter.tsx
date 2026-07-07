@@ -83,6 +83,7 @@ export default function LiveVisitorCounter() {
       const timer = setTimeout(() => setBadge(null), 1500);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [badge]);
 
   return (
