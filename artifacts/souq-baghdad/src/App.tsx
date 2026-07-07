@@ -2576,6 +2576,75 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
     }
   };
 
+  const [localArchiveAds, setLocalArchiveAds] = useState<Ad[]>([]);
+  const [localArchiveProds, setLocalArchiveProds] = useState<Product[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadArchive() {
+      if (!user) return;
+      const [adsRes, prodsRes] = await Promise.all([
+        supabase.from('ads').select('*').or(`postedBy.eq.${user.id},phone.eq.${user.phone}`).eq('status', 'sold'),
+        supabase.from('products').select('*').or(`postedBy.eq.${user.id},phone.eq.${user.phone}`).eq('status', 'sold')
+      ]);
+      
+      if (adsRes.data && isMounted) {
+        const formattedAds = adsRes.data.map((row: any) => ({
+          id: row.id,
+          title: row.title,
+          description: row.description,
+          price: row.price,
+          images: row.images || [],
+          category: row.category,
+          location: row.location || row.governorate,
+          governorate: row.governorate,
+          postedBy: row.postedBy,
+          phone: row.phone,
+          createdAt: row.created_at,
+          createdAtISO: row.created_at,
+          views: row.views || 0,
+          status: row.status,
+          isDemo: row.is_demo,
+          time: row.created_at,
+          type: row.type || 'ad',
+          adCount: row.adCount || 0,
+          soldCount: row.soldCount || 0,
+          favorites: row.favorites || 0,
+          seller: row.seller || { name: 'مستخدم', avatar: '', isVerified: false, rating: 5 }
+        }));
+        setLocalArchiveAds(formattedAds);
+      }
+      if (prodsRes.data && isMounted) {
+        const formattedProds = prodsRes.data.map((row: any) => ({
+          id: row.id,
+          title: row.title,
+          description: row.description,
+          price: row.price,
+          images: row.images || [],
+          category: row.category,
+          condition: row.condition,
+          stock: row.stock,
+          location: row.location || row.governorate,
+          governorate: row.governorate,
+          postedBy: row.postedBy,
+          phone: row.phone,
+          createdAt: row.created_at,
+          createdAtISO: row.created_at,
+          views: row.views || 0,
+          status: row.status,
+          isDemo: row.is_demo,
+          seller: row.seller || { name: 'مستخدم', avatar: '', isVerified: false, rating: 5 }
+        }));
+        setLocalArchiveProds(formattedProds);
+      }
+    }
+    loadArchive();
+    return () => { isMounted = false; };
+  }, [user]);
+
+  const allMyAds = [...myAds, ...localArchiveAds].filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
+  const allMyProducts = [...myProducts, ...localArchiveProds].filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
+
   useEffect(() => {
     const handleSwitch = () => setTab('lines');
     window.addEventListener('switch-to-lines-tab', handleSwitch);
@@ -2713,6 +2782,24 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
               ):(
                 <>
                   <button onClick={()=>{
+                    const storeUrl = `https://www.souqbaghdad.store/seller/${user.id}`;
+                    navigator.clipboard.writeText(storeUrl).then(() => {
+                      alert('تم نسخ رابط متجرك! يمكنك الآن وضعه في بايو الإنستغرام أو تيك توك.');
+                    }).catch(err => {
+                      alert('فشل نسخ الرابط، يرجى المحاولة مرة أخرى.');
+                    });
+                  }} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl text-sm font-bold shadow-lg hover:from-purple-600 hover:to-indigo-600" title="نسخ رابط المتجر للبايو">
+                    <Copy className="w-4 h-4"/>
+                    <span className="hidden sm:inline">رابط المتجر</span>
+                  </button>
+                  <button onClick={()=>{
+                    window.location.hash = '#/accounts';
+                    window.dispatchEvent(new CustomEvent('switch-to-profiles-tab'));
+                  }} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-blue-500 text-white rounded-xl text-sm font-bold shadow-lg hover:bg-blue-600" title="دليل الحسابات والمتاجر">
+                    <Users className="w-4 h-4"/>
+                    <span className="hidden sm:inline">دليل الحسابات</span>
+                  </button>
+                  <button onClick={()=>{
                     handleUniversalShare({
                       title: user.name,
                       type: 'profile',
@@ -2763,7 +2850,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
 
           {/* Stats */}
           <div className="grid grid-cols-4 gap-2 sm:gap-3 mb-6">
-            {[{v:myAds.length,l:'إعلان',c:'text-amber-400'},{v:myProducts.length,l:'منتج',c:'text-purple-400'},{v:totalViews,l:'مشاهدة',c:'text-blue-400'},{v:user.stats.favorites,l:'مفضلة',c:'text-red-400'}].map((s,i)=>(
+            {[{v:allMyAds.length,l:'إعلان',c:'text-amber-400'},{v:allMyProducts.length,l:'منتج',c:'text-purple-400'},{v:totalViews,l:'مشاهدة',c:'text-blue-400'},{v:user.stats.favorites,l:'مفضلة',c:'text-red-400'}].map((s,i)=>(
               <div key={i} className="bg-gray-800 rounded-xl sm:rounded-2xl p-2 sm:p-3 text-center border border-gray-700 flex flex-col justify-center">
                 <p className={`text-lg sm:text-xl font-bold ${s.c}`}>{s.v}</p>
                 <p className="text-gray-400 text-[10px] sm:text-xs mt-0.5 sm:mt-1">{s.l}</p>
@@ -2777,7 +2864,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
 
         {/* Tabs */}
         <div className="flex gap-2 mb-5 bg-gray-800 p-1.5 rounded-2xl border border-gray-700 overflow-x-auto scrollbar-hide">
-          {([['ads',`📢 إعلاناتي (${myAds.filter(a=>a.status==='active').length})`],['store',`🛍️ متجري (${myProducts.filter(p=>p.status==='active').length})`],['archive',`📦 الأرشيف (${myAds.filter(a=>a.status==='sold').length + myProducts.filter(p=>p.status==='sold').length})`],['lines',`🚌 خطوطي`],['account','⚙️ الحساب']] as [string,string][]).map(([t,l])=>(
+          {([['ads',`📢 إعلاناتي (${allMyAds.filter(a=>a.status==='active').length})`],['store',`🛍️ متجري (${allMyProducts.filter(p=>p.status==='active').length})`],['archive',`📦 الأرشيف (${allMyAds.filter(a=>a.status==='sold').length + allMyProducts.filter(p=>p.status==='sold').length})`],['lines',`🚌 خطوطي`],['account','⚙️ الحساب']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${tab===t?'bg-amber-500 text-black shadow':'text-gray-400 hover:text-white'}`}>{l}</button>
           ))}
         </div>
@@ -2787,13 +2874,13 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
           <>
             <button onClick={onAddAd} className="w-full mb-4 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-2xl flex items-center justify-center gap-2">
               <Plus className="w-5 h-5"/> إضافة إعلان جديد</button>
-            {myAds.filter(a=>a.status==='active').length===0?(
+            {allMyAds.filter(a=>a.status==='active').length===0?(
               <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700 border-dashed">
                 <div className="text-4xl mb-3">📭</div><p className="text-white font-bold mb-1">لا إعلانات بعد</p><p className="text-gray-400 text-sm">انشر أول إعلان الآن!</p>
               </div>
             ):(
               <div className="space-y-3">
-                {myAds.filter(a=>a.status==='active').map(ad=>(
+                {allMyAds.filter(a=>a.status==='active').map(ad=>(
                   <div key={ad.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-amber-500/30 transition-colors">
                     <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700"/>
                     <div className="flex-1 min-w-0">
@@ -2822,13 +2909,13 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
           <>
             <button onClick={onAddProduct} className="w-full mb-4 py-3 bg-gradient-to-r from-purple-500 to-violet-500 text-white font-bold rounded-2xl flex items-center justify-center gap-2">
               <Plus className="w-5 h-5"/> إضافة منتج جديد</button>
-            {myProducts.filter(p=>p.status==='active').length===0?(
+            {allMyProducts.filter(p=>p.status==='active').length===0?(
               <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700 border-dashed">
                 <div className="text-4xl mb-3">🛍️</div><p className="text-white font-bold mb-1">متجرك فارغ</p><p className="text-gray-400 text-sm">أضف أول منتج الآن!</p>
               </div>
             ):(
               <div className="space-y-3">
-                {myProducts.filter(p=>p.status==='active').map(p=>(
+                {allMyProducts.filter(p=>p.status==='active').map(p=>(
                   <div key={p.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-purple-500/30 transition-colors">
                     <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700"/>
                     <div className="flex-1 min-w-0">
@@ -2855,7 +2942,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
         {/* Archive Tab */}
         {tab==='archive'&&(
           <>
-            {(myAds.filter(a=>a.status==='sold').length === 0 && myProducts.filter(p=>p.status==='sold').length === 0) ? (
+            {(allMyAds.filter(a=>a.status==='sold').length === 0 && allMyProducts.filter(p=>p.status==='sold').length === 0) ? (
               <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700 border-dashed">
                 <div className="text-4xl mb-3">📦</div>
                 <p className="text-white font-bold mb-1">الأرشيف فارغ</p>
@@ -2864,7 +2951,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
             ) : (
               <div className="space-y-3">
                 {/* Sold Ads */}
-                {myAds.filter(a=>a.status==='sold').map(ad=>(
+                {allMyAds.filter(a=>a.status==='sold').map(ad=>(
                   <div key={ad.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-red-500/30 transition-colors relative">
                     <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700 opacity-60"/>
                     <div className="flex-1 min-w-0">
@@ -2883,7 +2970,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                   </div>
                 ))}
                 {/* Sold Products */}
-                {myProducts.filter(p=>p.status==='sold').map(p=>(
+                {allMyProducts.filter(p=>p.status==='sold').map(p=>(
                   <div key={p.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-red-500/30 transition-colors relative">
                     <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700 opacity-60"/>
                     <div className="flex-1 min-w-0">
@@ -3035,9 +3122,14 @@ function SellerPublicPage({ sellerId, allAds, allProducts, storedUsers = [], onB
   const [sellerUser, setSellerUser] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
-  // Fallback to searching by ID or phone
-  const sellerAds = allAds.filter(a=>String(a.postedBy)===String(sellerId) || String(a.phone)===String(sellerId));
-  const sellerProds = allProducts.filter(p=>String(p.postedBy)===String(sellerId) || String(p.phone)===String(sellerId));
+  const [localAds, setLocalAds] = useState<Ad[]>([]);
+  const [localProds, setLocalProds] = useState<Product[]>([]);
+  
+  const mergedAds = [...allAds.filter(a=>String(a.postedBy)===String(sellerId) || String(a.phone)===String(sellerId)), ...localAds].filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
+  const mergedProds = [...allProducts.filter(p=>String(p.postedBy)===String(sellerId) || String(p.phone)===String(sellerId)), ...localProds].filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
+
+  const sellerAds = mergedAds;
+  const sellerProds = mergedProds;
   const sellerInfo: SellerInfo|null = sellerAds[0]?.seller || sellerProds[0]?.seller || null;
 
   useEffect(() => {
@@ -3078,12 +3170,80 @@ function SellerPublicPage({ sellerId, allAds, allProducts, storedUsers = [], onB
           return;
         }
 
-        // 4. Query Supabase profiles table directly
-        const { data: dbProfile } = await supabase
-          .from('profiles')
-          .select('*')
-          .or(`id.eq.${sellerId},phone.eq.${sellerId}`)
-          .maybeSingle();
+        // 4. Query Supabase profiles table directly and fetch seller's sold ads and products
+        const [adsRes, prodsRes, dbProfileRes] = await Promise.all([
+          supabase.from('ads').select('*').or(`postedBy.eq.${sellerId},phone.eq.${sellerId}`).eq('status', 'sold'),
+          supabase.from('products').select('*').or(`postedBy.eq.${sellerId},phone.eq.${sellerId}`).eq('status', 'sold'),
+          supabase.from('profiles').select('*').or(`id.eq.${sellerId},phone.eq.${sellerId}`).maybeSingle()
+        ]);
+        
+        if (adsRes.data && isMounted) {
+          const formattedAds = adsRes.data.map((row: any) => ({
+            id: row.id,
+            title: row.title,
+            description: row.description,
+            price: row.price,
+            images: row.images || [],
+            category: row.category,
+            location: row.location || row.governorate,
+            governorate: row.governorate,
+            postedBy: row.postedBy,
+            phone: row.phone,
+            createdAt: row.created_at,
+            createdAtISO: row.created_at,
+            views: row.views || 0,
+            status: row.status,
+            isDemo: row.is_demo,
+            time: row.created_at,
+            type: row.type || 'ad',
+            adCount: row.adCount || 0,
+            soldCount: row.soldCount || 0,
+            favorites: row.favorites || 0,
+            seller: row.seller || {
+              name: 'مستخدم',
+              avatar: '',
+              isVerified: false,
+              rating: 5
+            }
+          }));
+          setLocalAds(formattedAds);
+        }
+
+        if (prodsRes.data && isMounted) {
+          const formattedProds = prodsRes.data.map((row: any) => ({
+            id: row.id,
+            title: row.title,
+            description: row.description,
+            price: row.price,
+            images: row.images || [],
+            category: row.category,
+            condition: row.condition,
+            stock: row.stock,
+            location: row.location || row.governorate,
+            governorate: row.governorate,
+            postedBy: row.postedBy,
+            phone: row.phone,
+            createdAt: row.created_at,
+            createdAtISO: row.created_at,
+            views: row.views || 0,
+            status: row.status,
+            isDemo: row.is_demo,
+            time: row.created_at,
+            type: row.type || 'product',
+            adCount: row.adCount || 0,
+            soldCount: row.soldCount || 0,
+            favorites: row.favorites || 0,
+            seller: row.seller || {
+              name: 'مستخدم',
+              avatar: '',
+              isVerified: false,
+              rating: 5
+            }
+          }));
+          setLocalProds(formattedProds);
+        }
+
+        const dbProfile = dbProfileRes.data;
 
         if (dbProfile && isMounted) {
           setSellerUser({
@@ -3844,8 +4004,8 @@ function MarketView({
 
   const fmt=(v:string)=>v.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',');
 
-  const filterAds = allAds;
-  const filterProds = allProducts;
+  const filterAds = allAds.filter(a => a.status !== 'sold');
+  const filterProds = allProducts.filter(p => p.status !== 'sold');
 
   const showAds = contentTab==='ads'||contentTab==='all';
   const showProds = contentTab==='products'||contentTab==='all';
@@ -6324,12 +6484,14 @@ export default function App() {
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
-      fetchAds(true);
-      fetchProducts(true);
+      if (view === 'home' || view === 'products' || view === 'transport' || view === 'profile') {
+        fetchAds(true);
+        fetchProducts(true);
+      }
     }, 450);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [search, cat, gov, sort, priceMin, priceMax]);
+  }, [search, cat, gov, sort, priceMin, priceMax, view]);
 
   useEffect(()=>{
     if(user){const mc=allAds.filter(a=>a.postedBy===user.id).length+allProducts.filter(p=>p.postedBy===user.id).length;saveStoredUser(user,mc);}
