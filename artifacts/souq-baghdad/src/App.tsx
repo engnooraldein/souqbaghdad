@@ -2584,8 +2584,8 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
     async function loadArchive() {
       if (!user) return;
       const [adsRes, prodsRes] = await Promise.all([
-        supabase.from('ads').select('*').or(`postedBy.eq.${user.id},phone.eq.${user.phone}`).eq('status', 'sold'),
-        supabase.from('products').select('*').or(`postedBy.eq.${user.id},phone.eq.${user.phone}`).eq('status', 'sold')
+        supabase.from('ads').select('*').or(`postedBy.eq.${user.id},phone.eq.${user.phone}`),
+        supabase.from('products').select('*').or(`postedBy.eq.${user.id},phone.eq.${user.phone}`)
       ]);
       
       if (adsRes.data && isMounted) {
@@ -3172,8 +3172,8 @@ function SellerPublicPage({ sellerId, allAds, allProducts, storedUsers = [], onB
 
         // 4. Query Supabase profiles table directly and fetch seller's sold ads and products
         const [adsRes, prodsRes, dbProfileRes] = await Promise.all([
-          supabase.from('ads').select('*').or(`postedBy.eq.${sellerId},phone.eq.${sellerId}`).eq('status', 'sold'),
-          supabase.from('products').select('*').or(`postedBy.eq.${sellerId},phone.eq.${sellerId}`).eq('status', 'sold'),
+          supabase.from('ads').select('*').or(`postedBy.eq.${sellerId},phone.eq.${sellerId}`),
+          supabase.from('products').select('*').or(`postedBy.eq.${sellerId},phone.eq.${sellerId}`),
           supabase.from('profiles').select('*').or(`id.eq.${sellerId},phone.eq.${sellerId}`).maybeSingle()
         ]);
         
@@ -5579,7 +5579,7 @@ export default function App() {
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) loadUserFromSupabase(session.user);
-      else { setUser(null); localStorage.removeItem('souqUser'); }
+      else if (_event === 'SIGNED_OUT') { setUser(null); localStorage.removeItem('souqUser'); }
     });
     return () => subscription.unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
