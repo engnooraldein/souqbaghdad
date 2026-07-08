@@ -4139,7 +4139,7 @@ function MarketView({
               
               {/* Sticky Counts stats banner */}
               <div className="sticky top-[4rem] z-20 bg-[#0c2b5e]/90 backdrop-blur-md py-2.5 px-3 border-b border-transparent shadow-sm shadow-[#0c2b5e]/10 mb-4 rounded-xl flex items-center justify-between">
-                <p className="text-gray-400 text-xs">تم العثور على <span className="text-amber-400 font-bold">{totalAdsCount}</span> إعلان، يتم عرض {Math.min(filterAds.length, totalAdsCount)} من أصل {totalAdsCount}</p>
+                <p className="text-gray-400 text-xs">تم العثور على <span className="text-amber-400 font-bold">{totalAdsCount}</span> إعلان، يتم عرض {Math.min(filterAds.length, totalAdsCount)} من أصل {totalAdsCount}{totalAdsCount > 0 && ` (يتوفر ${totalAdsCount} إعلان متاح حالياً)`}</p>
               </div>
 
               <div className="flex flex-col gap-6">
@@ -4183,7 +4183,7 @@ function MarketView({
               
               {/* Sticky Counts stats banner */}
               <div className="sticky top-[4rem] z-20 bg-[#0c2b5e]/90 backdrop-blur-md py-2.5 px-3 border-b border-transparent shadow-sm shadow-[#0c2b5e]/10 mb-4 rounded-xl flex items-center justify-between">
-                <p className="text-gray-400 text-xs">تم العثور على <span className="text-blue-450 font-bold">{totalProductsCount}</span> منتج، يتم عرض {Math.min(filterProds.length, totalProductsCount)} من أصل {totalProductsCount}</p>
+                <p className="text-gray-400 text-xs">تم العثور على <span className="text-blue-450 font-bold">{totalProductsCount}</span> منتج، يتم عرض {Math.min(filterProds.length, totalProductsCount)} من أصل {totalProductsCount}{totalProductsCount > 0 && ` (يتوفر ${totalProductsCount} منتج متاح حالياً)`}</p>
               </div>
 
               <div className="flex flex-col gap-6">
@@ -4793,7 +4793,7 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
   );
 }
 
-function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, lines, onPost, onUpdateStatus, onDeleteAd, onActionMenu, isInitialLoading, storedUsers }: {
+function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, lines, onPost, onUpdateStatus, onDeleteAd, onActionMenu, isInitialLoading, storedUsers, onLoadMore, hasMore, totalCount }: {
   user: { id: string; name: string; avatar: string; phone: string; role?: string } | null;
   onBack: () => void;
   onCreateAd: () => void;
@@ -4806,6 +4806,9 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
   onActionMenu?: (target: {type:"transport", item:TransportAd}) => void;
   isInitialLoading?: boolean;
   storedUsers?: any[];
+  onLoadMore?: () => Promise<void>;
+  hasMore?: boolean;
+  totalCount?: number;
 }) {
   const [mainCategoryFilter, setMainCategoryFilter] = useState<'student'|'employee'|'all'>('student');
   const [filterUniversity, setFilterUniversity] = useState('الكل');
@@ -4971,9 +4974,12 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
         ) : (
           <div className="space-y-4">
             <div className="sticky top-[4rem] z-20 bg-[#0c2b5e]/90 backdrop-blur-md py-2.5 border-b border-transparent shadow-sm shadow-[#0c2b5e]/10 mb-2">
-              <p className="text-gray-400 text-sm">تم العثور على <span className="text-emerald-400 font-bold">{filtered.length}</span> خط، يتم عرض {Math.min(visibleCount, filtered.length)} من أصل {filtered.length}</p>
+              <p className="text-gray-400 text-sm">
+                تم العثور على <span className="text-emerald-400 font-bold">{filtered.length}</span> خط، يتم عرض {onLoadMore ? filtered.length : Math.min(visibleCount, filtered.length)} من أصل {filtered.length}
+                {totalCount !== undefined && totalCount > 0 && ` (يتوفر ${totalCount} خط متاح حالياً)`}
+              </p>
             </div>
-            {filtered.slice(0, visibleCount).map(ad=>{
+            {filtered.slice(0, onLoadMore ? filtered.length : visibleCount).map(ad=>{
               const isEmployee = ad.categoryType === 'employee';
               const seller = storedUsers?.find(u=>u.id===ad.postedBy);
               return (
@@ -5089,15 +5095,18 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
               </motion.div>
             );
           })}
-            {visibleCount < filtered.length && (
+            {(hasMore !== undefined ? hasMore : visibleCount < filtered.length) && (
               <div className="text-center py-6 mt-4 border-t border-gray-800">
                 <button 
-                  onClick={() => {
+                  onClick={async () => {
                     setLoadingMore(true);
-                    setTimeout(() => {
+                    if (onLoadMore) {
+                      await onLoadMore();
+                    } else {
+                      await new Promise(r => setTimeout(r, 400));
                       setVisibleCount(prev => prev + 4);
-                      setLoadingMore(false);
-                    }, 400);
+                    }
+                    setLoadingMore(false);
                   }}
                   disabled={loadingMore}
                   className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2 mx-auto"
@@ -5157,7 +5166,7 @@ export default function App() {
   const [view, setView] = useState<AppView>(() => {
     const { hash } = getInitialRouteInfo();
     if (hash.startsWith('#/transport')) return 'transport';
-    if (hash.startsWith('#/seller') || hash.startsWith('#/profile')) return 'profile';
+    if (hash.startsWith('#/seller') || hash.startsWith('#/profile')) return 'seller';
     if (hash.startsWith('#/admin')) return 'admin';
     if (hash.startsWith('#/owner')) return 'owner';
     return 'home';
@@ -5168,7 +5177,17 @@ export default function App() {
     if (hash.startsWith('#/seller') || hash.startsWith('#/profile')) return 'profile';
     return 'home';
   });
-  const [selectedSellerId, setSelectedSellerId] = useState<string|null>(null);
+  const [selectedSellerId, setSelectedSellerId] = useState<string|null>(() => {
+    const { hash } = getInitialRouteInfo();
+    // Extract UUID from /seller/UUID or /profile/UUID
+    const sellerMatch = hash.match(/^#\/(seller|profile)\/([0-9a-f-]{36})/i);
+    if (sellerMatch) return sellerMatch[2];
+    // Fallback: last segment if it looks like a UUID
+    const parts = hash.split('/').filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(last)) return last;
+    return null;
+  });
   const [selectedSellerPhone, setSelectedSellerPhone] = useState<string|null>(() => {
     const { hash } = getInitialRouteInfo();
     if (hash.startsWith('#/seller/')) return hash.split('/')[2] || null;
@@ -5233,6 +5252,9 @@ export default function App() {
   const [productsPage, setProductsPage] = useState(0);
   const [hasMoreProducts, setHasMoreProducts] = useState(true);
   const [totalProductsCount, setTotalProductsCount] = useState(0);
+  const transportPageRef = useRef(0);
+  const [hasMoreTransport, setHasMoreTransport] = useState(true);
+  const [totalTransportCount, setTotalTransportCount] = useState(0);
   
   const [search, setSearch] = useState('');
   const [cat, setCat] = useState('all');
@@ -5950,16 +5972,21 @@ export default function App() {
     return true;
   };
 
-  // ── Fetch ads & products from Supabase ─────────────────────────
-  const fetchTransportAds = useCallback(async () => {
+  const fetchTransportAds = useCallback(async (reset = true) => {
     setLoadingTransport(true);
     try {
-      const { data: transportData, error: transportError } = await supabase
+      const pageToFetch = reset ? 0 : transportPageRef.current + 1;
+      const pageSize = 10;
+      const from = pageToFetch * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data: transportData, error: transportError, count } = await supabase
         .from('ads')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('category', 'transport')
         .eq('is_demo', false)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
         
       if (!transportError && transportData) {
         const transportMapped = transportData.map((row: any) => {
@@ -6009,7 +6036,20 @@ export default function App() {
             short_id: row.short_id || undefined,
           };
         });
-        setAllTransportAds(transportMapped);
+
+        if (reset) {
+          setAllTransportAds(transportMapped);
+        } else {
+          setAllTransportAds(prev => {
+            const combined = [...prev, ...transportMapped];
+            return combined.filter((v, i, self) => self.findIndex(t => t.id === v.id) === i);
+          });
+        }
+        transportPageRef.current = pageToFetch;
+        if (count !== null) {
+          setTotalTransportCount(count);
+        }
+        setHasMoreTransport(transportData.length === pageSize);
       }
     } catch (e) {
       console.error('Error fetching transport ads:', e);
@@ -6309,15 +6349,31 @@ export default function App() {
   }, [user]);
 
   useEffect(() => {
-    let iv: any;
-    if (user) {
-      fetchNotifications();
-      iv = setInterval(fetchNotifications, 10000);
-    } else {
+    if (!user) {
       setNotifications([]);
+      return;
     }
+
+    fetchNotifications();
+
+    const channel = supabase
+      .channel('user-notifications-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
     return () => {
-      if (iv) clearInterval(iv);
+      supabase.removeChannel(channel);
     };
   }, [user, fetchNotifications]);
 
@@ -7089,7 +7145,7 @@ export default function App() {
               }
             }} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile} onActionMenu={setActionMenuTarget}/></motion.div>}
           {view==='transport'&&<motion.div key="transport" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd} onActionMenu={setActionMenuTarget} isInitialLoading={isInitialLoading || loadingTransport} storedUsers={storedUsers}/></motion.div>}
+            <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd} onActionMenu={setActionMenuTarget} isInitialLoading={isInitialLoading || loadingTransport} storedUsers={storedUsers} onLoadMore={() => fetchTransportAds(false)} hasMore={hasMoreTransport} totalCount={totalTransportCount}/></motion.div>}
           {view==='admin'&&isAdmin&&!isOwner&&<motion.div key="admin" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <AdminPanel ads={allAds} onDeleteAd={handleDeleteAd} onClose={()=>setView('home')}/></motion.div>}
           {view==='owner'&&isOwner&&<motion.div key="owner" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
