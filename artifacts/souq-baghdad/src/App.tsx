@@ -3955,7 +3955,7 @@ function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id:number
 
   useEffect(() => {
     if(tab === 'users') {
-      supabase.from('profiles').select('id, name, phone, points, created_at').order('created_at', { ascending: false }).then(({data}) => {
+      supabase.from('profiles').select('id, name, phone, points, created_at').order('created_at', { ascending: false }).limit(1000).then(({data}) => {
         if(data) setUsers(data);
       });
     } else if (tab === 'settings') {
@@ -5270,9 +5270,11 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd, cost 
               className="w-full bg-gray-800 text-white placeholder-gray-500 rounded-xl py-3 px-3 border border-gray-700 focus:border-emerald-400 outline-none text-sm resize-none"/>
           </div>
 
-          <motion.button type="submit" whileHover={{scale:1.02}} whileTap={{scale:0.98}}
-            className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20">
+          <motion.button type="submit" whileHover={{scale:1.02}} whileTap={{scale:0.98}} disabled={user?.role !== 'admin' && user?.role !== 'owner' && cost > 0 && (user?.points || 0) < cost}
+            className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:from-gray-600 disabled:to-gray-700">
             <Car className="w-5 h-5"/> نشر الإعلان
+            {user?.role !== 'admin' && user?.role !== 'owner' && cost > 0 && <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full flex items-center gap-1 ml-2">يخصم {cost} نقطة (متبقي {user?.points || 0})</span>}
+            {user?.role !== 'admin' && user?.role !== 'owner' && cost === 0 && <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full flex items-center gap-1 ml-2">✨ مجاني</span>}
           </motion.button>
         </form>
       </motion.div>
