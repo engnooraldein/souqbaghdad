@@ -57,7 +57,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       }}
     >
       {/* 3D Cinematic Zoom Wrapper */}
-      <div className={`relative w-72 h-72 md:w-[420px] md:h-[420px] transition-all duration-[800ms] ease-[cubic-bezier(0.87,0,0.13,1)] ${
+      <div className={`relative w-80 h-80 md:w-[600px] md:h-[600px] transition-all duration-[800ms] ease-[cubic-bezier(0.87,0,0.13,1)] ${
         isFadingOut ? 'scale-125 opacity-0 translate-y-[-20px]' : 'scale-100 opacity-100'
       }`}>
         <svg viewBox="0 0 1024 1024" width="100%" height="100%">
@@ -80,39 +80,32 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
           </g>
 
           {/* 3. Floating Icons (Coin, Bag, Map Pin, Cart, Wing, Pattern) */}
-          {/* 3. Floating Icons (Coin, Bag, Map Pin, Cart, Wing, Pattern) */}
-          {/* Coin (Top Left) */}
           <g className="floating-element" style={{ animationDelay: '0s' }}>
             <circle cx="150" cy="250" r="25" fill="url(#goldGradient)" opacity="0.8" filter="drop-shadow(0px 4px 6px rgba(0,0,0,0.4))" />
             <circle cx="150" cy="250" r="18" fill="none" stroke="#fff" strokeWidth="1" opacity="0.4" />
           </g>
           
-          {/* Shopping Bag (Top Right) */}
           <g className="floating-element" style={{ animationDelay: '1.2s' }}>
             <path d="M 800 250 L 800 310 L 860 310 L 860 250 Z" fill="none" stroke="url(#goldGradient)" strokeWidth="4" filter="drop-shadow(0px 4px 6px rgba(0,0,0,0.4))" />
             <path d="M 815 250 C 815 220 845 220 845 250" fill="none" stroke="url(#goldGradient)" strokeWidth="4" />
           </g>
           
-          {/* Map Pin (Mid Right) */}
           <g className="floating-element" style={{ animationDelay: '2.4s' }}>
             <path d="M 880 480 C 880 440 930 440 930 480 C 930 520 905 550 905 550 C 905 550 880 520 880 480 Z" fill="url(#goldGradient)" filter="drop-shadow(0px 4px 6px rgba(0,0,0,0.4))" />
             <circle cx="905" cy="475" r="12" fill="#0c2b5e" />
           </g>
 
-          {/* Small Wing (Mid Left) */}
           <g className="floating-element" style={{ animationDelay: '0.5s' }}>
             <path d="M 120 450 Q 80 480 80 500 Q 110 490 140 470 Z M 120 450 Q 90 440 70 430 Q 100 450 140 470 Z" fill="none" stroke="url(#goldGradient)" strokeWidth="4" filter="drop-shadow(0px 4px 6px rgba(0,0,0,0.4))" />
             <path d="M 100 500 Q 120 500 130 490" fill="none" stroke="url(#goldGradient)" strokeWidth="4" />
           </g>
 
-          {/* Shopping Cart (Bottom Left) */}
           <g className="floating-element" style={{ animationDelay: '1.5s' }}>
             <path d="M 120 700 L 140 700 L 160 760 L 220 760 M 150 720 L 230 720 L 220 750 L 160 750" fill="none" stroke="url(#goldGradient)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" filter="drop-shadow(0px 4px 6px rgba(0,0,0,0.4))" />
             <circle cx="170" cy="780" r="8" fill="url(#goldGradient)" />
             <circle cx="210" cy="780" r="8" fill="url(#goldGradient)" />
           </g>
 
-          {/* Arabesque Pattern (Bottom Right) */}
           <g className="floating-element" style={{ animationDelay: '2.0s' }}>
             <path d="M 800 700 Q 820 720 840 700 Q 820 680 800 700 Z M 840 700 Q 860 720 880 700 Q 860 680 840 700 Z M 820 720 Q 840 740 820 760 Q 800 740 820 720 Z" fill="none" stroke="url(#goldGradient)" strokeWidth="3" filter="drop-shadow(0px 4px 6px rgba(0,0,0,0.4))" />
             <circle cx="840" cy="740" r="3" fill="url(#goldGradient)" />
@@ -120,7 +113,6 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
           {/* 1. Lion Body Outline / Logo Base */}
           <g id="lion-body" style={{ filter: 'drop-shadow(0px 8px 12px rgba(0,0,0,0.5))' }}>
-            {/* The actual traced high-quality path */}
             <path className="neon-stroke" fill="none" stroke="url(#goldGradient)" strokeWidth="3" d={LionPath}></path>
           </g>
 
@@ -162,7 +154,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
         }`}
         style={{ animationDelay: '1.5s' }}
       >
-        جاري تجهيز أفضل العروض لك...
+        أهلاً بك، جاري تحميل أحدث الإعلانات والمنتجات يرجى الانتظار ثوانٍ...
       </div>
 
       <style>{`

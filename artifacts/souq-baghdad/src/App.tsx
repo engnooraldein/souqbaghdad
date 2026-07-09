@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 
 const OwnerDashboard = lazy(() => import('./components/OwnerDashboard'));
+const StoreShareGuideModal = lazy(() => import('./components/StoreShareGuideModal').then(m => ({ default: m.StoreShareGuideModal })));
 import LiveVisitorCounter from './components/LiveVisitorCounter';
 
 // ─────────────────────────────────────────────
@@ -2514,7 +2515,7 @@ function PasswordChangeModal({ isOpen, onClose, userEmail, userPhone }:{
   );
 }
 
-function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeleteProduct, onEditProduct, onUpdateUser, onAddAd, onAddProduct, transportLines, onUpdateTransportStatus, onDeleteTransportAd, onMarkAdSold, onMarkProductSold, favorites = [], allAds = [], allProducts = [], onAdSelect, onProductSelect, onFav }:{
+function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeleteProduct, onEditProduct, onUpdateUser, onAddAd, onAddProduct, transportLines, onUpdateTransportStatus, onDeleteTransportAd, onMarkAdSold, onMarkProductSold, favorites = [], allAds = [], allProducts = [], onAdSelect, onProductSelect, onFav, onStoreGuideClick }:{
   user:User; myAds:Ad[]; myProducts:Product[]; onDeleteAd:(id:number)=>void; onEditAd:(ad:Ad)=>void;
   onDeleteProduct:(id:number)=>void; onEditProduct:(p:Product)=>void; onUpdateUser:(u:User)=>void;
   onAddAd:()=>void; onAddProduct:()=>void;
@@ -2529,6 +2530,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
   onAdSelect?: (ad: Ad) => void;
   onProductSelect?: (p: Product) => void;
   onFav?: (id: number) => void;
+  onStoreGuideClick?: () => void;
 }) {
   const [tab, setTab] = useState<'ads'|'store'|'favs'|'archive'|'lines'|'account'>('ads');
   const [editing, setEditing] = useState(false);
@@ -2782,12 +2784,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
               ):(
                 <>
                   <button onClick={()=>{
-                    const storeUrl = `https://www.souqbaghdad.store/seller/${user.id}`;
-                    navigator.clipboard.writeText(storeUrl).then(() => {
-                      alert('تم نسخ رابط متجرك! يمكنك الآن وضعه في بايو الإنستغرام أو تيك توك.');
-                    }).catch(err => {
-                      alert('فشل نسخ الرابط، يرجى المحاولة مرة أخرى.');
-                    });
+                    onStoreGuideClick?.();
                   }} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl text-sm font-bold shadow-lg hover:from-purple-600 hover:to-indigo-600" title="نسخ رابط المتجر للبايو">
                     <Copy className="w-4 h-4"/>
                     <span className="hidden sm:inline">رابط المتجر</span>
@@ -4123,7 +4120,7 @@ function MarketView({
                 <Sparkles className="w-8 h-8 text-amber-400"/>
               </div>
               <h3 className="text-xl font-bold text-white">أهلاً بك في سوق بغداد! ✨</h3>
-              <p className="text-gray-300 text-sm">جاري تحميل أحدث العروض والخدمات، يرجى الانتظار ثوانٍ...</p>
+              <p className="text-gray-300 text-sm">جاري تحميل أحدث الإعلانات والمنتجات، يرجى الانتظار ثوانٍ...</p>
               <div className="flex justify-center gap-1.5 pt-2">
                 <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-bounce" style={{animationDelay:'0ms'}}></span>
                 <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-bounce" style={{animationDelay:'150ms'}}></span>
@@ -4954,7 +4951,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
               <Sparkles className="w-8 h-8 text-emerald-400"/>
             </div>
             <h3 className="text-xl font-bold text-white">أهلاً بك في قسم الخطوط! ✨</h3>
-            <p className="text-gray-300 text-sm">جاري تحميل أحدث خطوط النقل المتوفرة، يرجى الانتظار ثوانٍ...</p>
+            <p className="text-gray-300 text-sm">جاري تحميل أحدث إعلانات خطوط النقل، يرجى الانتظار ثوانٍ...</p>
             <div className="flex justify-center gap-1.5 pt-2">
               <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-bounce" style={{animationDelay:'0ms'}}></span>
               <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-bounce" style={{animationDelay:'150ms'}}></span>
@@ -5151,6 +5148,7 @@ export default function App() {
       return null;
     }
   });
+  const [showStoreGuide, setShowStoreGuide] = useState(false);
   const getInitialRouteInfo = () => {
     if (typeof window === 'undefined') return { hash: '', path: '' };
     let hash = window.location.hash;
@@ -7133,7 +7131,7 @@ export default function App() {
             </Suspense>
           </motion.div>}
           {view==='profile'&&user&&<motion.div key="profile" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold} favorites={favorites} allAds={allAds} allProducts={allProducts} onAdSelect={setSelectedAd} onProductSelect={setSelectedProduct} onFav={handleToggleFav}/></motion.div>}
+            <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold} favorites={favorites} allAds={allAds} allProducts={allProducts} onAdSelect={setSelectedAd} onProductSelect={setSelectedProduct} onFav={handleToggleFav} onStoreGuideClick={() => setShowStoreGuide(true)} /></motion.div>}
           {view==='seller'&&selectedSellerId&&<motion.div key="seller" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <SellerPublicPage sellerId={selectedSellerId} allAds={allAds} allProducts={allProducts} storedUsers={storedUsers} onBack={() => {
               setView('home');
@@ -7336,6 +7334,27 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Suspense fallback={null}>
+        {user && showStoreGuide && (
+          <StoreShareGuideModal
+            isOpen={showStoreGuide}
+            onClose={() => setShowStoreGuide(false)}
+            storeUrl={`https://www.souqbaghdad.store/seller/${user.id}`}
+            onShare={() => {
+              setShowStoreGuide(false);
+              handleUniversalShare({
+                title: user.name,
+                type: 'profile',
+                location: user.location || 'بغداد',
+                id: user.id,
+                url: '/seller/' + user.id,
+                image: user.avatar || DEFAULT_AVATAR
+              });
+            }}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }

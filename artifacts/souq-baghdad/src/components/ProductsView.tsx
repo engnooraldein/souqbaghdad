@@ -314,8 +314,8 @@ export function ProductsView({
             <div className="w-16 h-16 bg-blue-500/10 border border-blue-500/25 rounded-2xl flex items-center justify-center mx-auto shadow-lg animate-pulse">
               <Sparkles className="w-8 h-8 text-blue-400"/>
             </div>
-            <h3 className="text-xl font-bold text-white">أهلاً بك في قسم المنتجات! ✨</h3>
-            <p className="text-gray-300 text-sm">جاري تحميل أحدث المنتجات المعروضة، يرجى الانتظار ثوانٍ...</p>
+            <h3 className="text-xl font-bold text-white">أهلاً بك في سوق بغداد! ✨</h3>
+            <p className="text-gray-300 text-sm">جاري تحميل أحدث المنتجات، يرجى الانتظار ثوانٍ...</p>
             <div className="flex justify-center gap-1.5 pt-2">
               <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{animationDelay:'0ms'}}></span>
               <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{animationDelay:'150ms'}}></span>
