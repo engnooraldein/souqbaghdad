@@ -26,7 +26,7 @@ import {
 const OwnerDashboard = lazy(() => import('./components/OwnerDashboard'));
 const StoreShareGuideModal = lazy(() => import('./components/StoreShareGuideModal').then(m => ({ default: m.StoreShareGuideModal })));
 import LiveVisitorCounter from './components/LiveVisitorCounter';
-
+import InfiniteScrollTrigger from './components/InfiniteScrollTrigger';
 // ─────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────
@@ -408,13 +408,12 @@ async function recordItemView(itemId: string|number, itemType: 'ad'|'product'|'t
           title: 'مشاهدة جديدة 👀',
           body: `قام ${viewerName} بمشاهدة إعلانك للتو.`,
           type: 'view',
-          category: 'notification',
           audience: 'user'
         });
       }
 
       // 4. Update the views counter on the item itself
-      const table = itemType === 'product' ? 'products' : itemType === 'transport' ? 'transport_ads' : 'ads';
+      const table = itemType === 'product' ? 'products' : 'ads';
       const { data: item } = await supabase.from(table).select('views').eq('id', itemId).single();
       if (item) {
         await supabase.from(table).update({ views: (item.views || 0) + 1 }).eq('id', itemId);
@@ -2580,6 +2579,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
 
   const [localArchiveAds, setLocalArchiveAds] = useState<Ad[]>([]);
   const [localArchiveProds, setLocalArchiveProds] = useState<Product[]>([]);
+  const [localArchiveLines, setLocalArchiveLines] = useState<TransportAd[]>([]);
   const [isLoadingArchive, setIsLoadingArchive] = useState(true);
 
   useEffect(() => {
@@ -2594,7 +2594,10 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
       ]);
       
       if (adsRes.data && isMounted) {
-        const formattedAds = adsRes.data.map((row: any) => ({
+        const rawAds = adsRes.data.filter((r: any) => r.category !== 'transport' && r.category !== 'notification');
+        const rawLines = adsRes.data.filter((r: any) => r.category === 'transport');
+
+        const formattedAds = rawAds.map((row: any) => ({
           id: row.id,
           title: row.title,
           description: row.description,
@@ -2618,6 +2621,35 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
           seller: row.seller || { name: 'مستخدم', avatar: '', isVerified: false, rating: 5 }
         }));
         setLocalArchiveAds(formattedAds);
+
+        const formattedLines = rawLines.map((row: any) => {
+          let extra = { shift: 'صباحي', seats: 4, vehicleType: 'خصوصي', targetAudience: 'مختلط', categoryType: 'student', note: '' };
+          try { if (row.description) extra = { ...extra, ...JSON.parse(row.description) }; } catch(e) { extra.note = row.description || ''; }
+          return {
+            id: row.id,
+            type: row.type || 'offer',
+            categoryType: (extra.categoryType === 'employee' ? 'employee' : 'student') as 'employee' | 'student',
+            university: row.city || '',
+            regions: row.location || '',
+            shift: extra.shift,
+            seats: extra.seats,
+            vehicleType: extra.vehicleType,
+            targetAudience: extra.targetAudience,
+            price: row.price || '0',
+            note: extra.note,
+            postedBy: row.seller_id,
+            phone: row.phone,
+            user_id: row.seller_id,
+            status: row.status,
+            createdAt: row.created_at,
+            createdAtISO: row.created_at,
+            views: row.views || 0,
+            seller: row.seller,
+            sellerName: row.seller?.name || 'مستخدم',
+            sellerAvatar: row.seller?.avatar || ''
+          };
+        });
+        setLocalArchiveLines(formattedLines);
       }
       if (prodsRes.data && isMounted) {
         const formattedProds = prodsRes.data.map((row: any) => ({
@@ -2652,6 +2684,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
 
   const allMyAds = [...myAds, ...localArchiveAds].filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
   const allMyProducts = [...myProducts, ...localArchiveProds].filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
+  const allMyLines = [...transportLines.filter(line => line.postedBy === user?.id), ...localArchiveLines].filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
 
   useEffect(() => {
     const handleSwitch = () => setTab('lines');
@@ -3006,12 +3039,16 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
         {/* Account Tab */}
         {/* Lines Tab */}
         {tab==='lines'&& (
-          <MyLinesTab 
-            userId={user.id} 
-            lines={transportLines.filter(line => line.postedBy === user.id)}
-            onUpdateStatus={onUpdateTransportStatus}
-            onDelete={onDeleteTransportAd}
-          />
+          isLoadingArchive ? (
+            <div className="flex justify-center p-10"><div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>
+          ) : (
+            <MyLinesTab 
+              userId={user.id} 
+              lines={allMyLines}
+              onUpdateStatus={onUpdateTransportStatus}
+              onDelete={onDeleteTransportAd}
+            />
+          )
         )}
 
         {tab==='account'&&(
@@ -3139,7 +3176,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
   
   const mergedAds = [...allAds.filter(a=>String(a.postedBy)===String(sellerId) || String(a.phone)===String(sellerId)), ...localAds].filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
   const mergedProds = [...allProducts.filter(p=>String(p.postedBy)===String(sellerId) || String(p.phone)===String(sellerId)), ...localProds].filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
-  const mergedLines = [...allTransportAds.filter(a=>String(a.user_id)===String(sellerId) || String(a.phone)===String(sellerId)), ...localLines].filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
+  const mergedLines = [...allTransportAds.filter(a=>String(a.postedBy)===String(sellerId) || String(a.phone)===String(sellerId)), ...localLines].filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
 
   const sellerAds = mergedAds;
   const sellerProds = mergedProds;
@@ -3189,12 +3226,15 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
         const [adsRes, prodsRes, linesRes, dbProfileRes] = await Promise.all([
           isPhone ? supabase.from('ads').select('*').eq('phone', sellerId) : supabase.from('ads').select('*').eq('seller_id', sellerId),
           isPhone ? supabase.from('products').select('*').eq('phone', sellerId) : supabase.from('products').select('*').eq('seller_id', sellerId),
-          isPhone ? supabase.from('transport_ads').select('*').eq('phone', sellerId) : supabase.from('transport_ads').select('*').eq('user_id', sellerId),
+          isPhone ? supabase.from('ads').select('*').eq('phone', sellerId).eq('category', 'transport') : supabase.from('ads').select('*').eq('postedBy', sellerId).eq('category', 'transport'),
           isPhone ? supabase.from('profiles').select('*').eq('phone', sellerId).maybeSingle() : supabase.from('profiles').select('*').eq('id', sellerId).maybeSingle()
         ]);
         
         if (adsRes.data && isMounted) {
-          const formattedAds = adsRes.data.map((row: any) => ({
+          const rawAds = adsRes.data.filter((r: any) => r.category !== 'transport' && r.category !== 'notification');
+          const rawLines = adsRes.data.filter((r: any) => r.category === 'transport');
+
+          const formattedAds = rawAds.map((row: any) => ({
             id: row.id,
             title: row.title,
             description: row.description,
@@ -3214,7 +3254,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
             type: row.type || 'ad',
             adCount: row.adCount || 0,
             soldCount: row.soldCount || 0,
-            favorites: row.favorites || 0,
+            favorites: row.likes || 0,
             seller: row.seller || {
               name: 'مستخدم',
               avatar: '',
@@ -3223,6 +3263,35 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
             }
           }));
           setLocalAds(formattedAds);
+
+          const formattedLines = rawLines.map((row: any) => {
+            let extra = { shift: 'صباحي', seats: 4, vehicleType: 'خصوصي', targetAudience: 'مختلط', categoryType: 'student', note: '' };
+            try { if (row.description) extra = { ...extra, ...JSON.parse(row.description) }; } catch(e) { extra.note = row.description || ''; }
+            return {
+              id: row.id,
+              type: row.type || 'offer',
+              categoryType: (extra.categoryType === 'employee' ? 'employee' : 'student') as 'employee' | 'student',
+              university: row.city || '',
+              regions: row.location || '',
+              shift: extra.shift,
+              seats: extra.seats,
+              vehicleType: extra.vehicleType,
+              targetAudience: extra.targetAudience,
+              price: row.price || '0',
+              note: extra.note,
+              postedBy: row.seller_id,
+              phone: row.phone,
+              user_id: row.seller_id,
+              status: row.status,
+              createdAt: row.created_at,
+              createdAtISO: row.created_at,
+              views: row.views || 0,
+              seller: row.seller,
+              sellerName: row.seller?.name || 'مستخدم',
+              sellerAvatar: row.seller?.avatar || ''
+            };
+          });
+          setLocalLines(formattedLines);
         }
 
         if (prodsRes.data && isMounted) {
@@ -3259,9 +3328,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
           setLocalProds(formattedProds);
         }
 
-        if (linesRes.data && isMounted) {
-          setLocalLines(linesRes.data);
-        }
+        // linesRes is ignored since we mapped lines from adsRes
 
         const dbProfile = dbProfileRes.data;
 
@@ -3538,12 +3605,11 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
                     <p className="text-gray-400 text-sm mb-3">
                       تم العثور على {sellerAds.length} إعلان، يتم عرض {visibleAdsCount} من أصل {sellerAds.length} (يتوفر {sellerAds.length - visibleAdsCount} إعلان متاح حالياً)
                     </p>
-                    <button 
-                      onClick={() => setVisibleAdsCount(prev => prev + 4)}
-                      className="px-6 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl shadow-lg hover:from-amber-600 hover:to-yellow-600 transition-colors"
-                    >
-                      رؤية المزيد
-                    </button>
+                    <InfiniteScrollTrigger
+                      hasMore={visibleAdsCount < sellerAds.length}
+                      onLoadMore={async () => { await new Promise(r => setTimeout(r, 400)); setVisibleAdsCount(prev => prev + 4); }}
+                      loadingText="جاري تحميل المزيد من الإعلانات..."
+                    />
                   </div>
                 )}
               </div>
@@ -3561,12 +3627,11 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
                     <p className="text-gray-400 text-sm mb-3">
                       تم العثور على {sellerProds.length} منتج، يتم عرض {visibleProdsCount} من أصل {sellerProds.length} (يتوفر {sellerProds.length - visibleProdsCount} منتج متاح حالياً)
                     </p>
-                    <button 
-                      onClick={() => setVisibleProdsCount(prev => prev + 4)}
-                      className="px-6 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-bold rounded-xl shadow-lg hover:from-purple-600 hover:to-indigo-600 transition-colors"
-                    >
-                      رؤية المزيد
-                    </button>
+                    <InfiniteScrollTrigger
+                      hasMore={visibleProdsCount < sellerProds.length}
+                      onLoadMore={async () => { await new Promise(r => setTimeout(r, 400)); setVisibleProdsCount(prev => prev + 4); }}
+                      loadingText="جاري تحميل المزيد من المنتجات..."
+                    />
                   </div>
                 )}
               </div>
@@ -3577,19 +3642,18 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
             ):(
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {sellerLines.slice(0, visibleLinesCount).map(line=><TransportAdCard key={line.id} ad={line} onSelect={()=>onSelectTransport?.(line)} onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===line.user_id||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"transport",item:line});}} onShare={() => handleUniversalShare({ id: line.id, university: line.university, type: line.type, regions: line.regions, price: line.price })} seller={storedUsers.find(u=>u.id===line.postedBy)} />)}
+                  {sellerLines.slice(0, visibleLinesCount).map(line=><TransportAdCard key={line.id} ad={line} onSelect={()=>onSelectTransport?.(line)} onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===line.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"transport",item:line});}} onShare={() => handleUniversalShare({ id: line.id, university: line.university, type: line.type, regions: line.regions, price: line.price })} seller={storedUsers.find(u=>u.id===line.postedBy)} />)}
                 </div>
                 {visibleLinesCount < sellerLines.length && (
                   <div className="bg-gray-800/50 rounded-2xl p-4 border border-gray-700 text-center">
                     <p className="text-gray-400 text-sm mb-3">
                       تم العثور على {sellerLines.length} خط نقل، يتم عرض {visibleLinesCount} من أصل {sellerLines.length}
                     </p>
-                    <button 
-                      onClick={() => setVisibleLinesCount(prev => prev + 4)}
-                      className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl shadow-lg hover:from-emerald-600 hover:to-teal-600 transition-colors"
-                    >
-                      رؤية المزيد
-                    </button>
+                    <InfiniteScrollTrigger
+                      hasMore={visibleLinesCount < sellerLines.length}
+                      onLoadMore={async () => { await new Promise(r => setTimeout(r, 400)); setVisibleLinesCount(prev => prev + 4); }}
+                      loadingText="جاري تحميل المزيد من الخطوط..."
+                    />
                   </div>
                 )}
               </div>
@@ -4364,24 +4428,12 @@ function MarketView({
                     />;
                   })}
                 </div>
-                {hasMoreAds && (
-                  <div className="text-center py-4 border-t border-gray-800/50">
-                    <button 
-                      onClick={onLoadMoreAds} 
-                      disabled={loadingMoreAds}
-                      className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-700 text-black font-bold rounded-xl text-xs transition-all shadow-md flex items-center gap-2 mx-auto"
-                    >
-                      {loadingMoreAds ? (
-                        <>
-                          <span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin"></span>
-                          <span>جاري التحميل...</span>
-                        </>
-                      ) : (
-                        <span>عرض المزيد من الإعلانات 📢</span>
-                      )}
-                    </button>
-                  </div>
-                )}
+                <InfiniteScrollTrigger 
+                  hasMore={hasMoreAds} 
+                  isLoading={loadingMoreAds} 
+                  onLoadMore={onLoadMoreAds} 
+                  loadingText="جاري تحميل المزيد من الإعلانات..." 
+                />
               </div>
             </div>
           )}
@@ -4408,24 +4460,12 @@ function MarketView({
                     />;
                   })}
                 </div>
-                {hasMoreProducts && (
-                  <div className="text-center py-4 border-t border-gray-800/50">
-                    <button 
-                      onClick={onLoadMoreProducts} 
-                      disabled={loadingMoreProducts}
-                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center gap-2 mx-auto"
-                    >
-                      {loadingMoreProducts ? (
-                        <>
-                          <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                          <span>جاري التحميل...</span>
-                        </>
-                      ) : (
-                        <span>عرض المزيد من المنتجات 🛍️</span>
-                      )}
-                    </button>
-                  </div>
-                )}
+                <InfiniteScrollTrigger 
+                  hasMore={hasMoreProducts} 
+                  isLoading={loadingMoreProducts} 
+                  onLoadMore={onLoadMoreProducts} 
+                  loadingText="جاري تحميل المزيد من المنتجات..." 
+                />
               </div>
             </div>
           )}
@@ -4551,18 +4591,13 @@ function MarketView({
                   ))}
                 </div>
               )}
-              {visibleTransportCount < filteredTransport.length && (
-                <div className="text-center py-4 border-t border-gray-800/50 mt-6">
-                  <button 
-                    onClick={() => setVisibleTransportCount(prev => prev + 4)}
-                    className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs transition-all shadow-md"
-                  >
-                    عرض المزيد من الخطوط 🚌
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                <InfiniteScrollTrigger
+                  hasMore={visibleTransportCount < filteredTransport.length}
+                  onLoadMore={async () => { await new Promise(r => setTimeout(r, 400)); setVisibleTransportCount(prev => prev + 4); }}
+                  loadingText="جاري تحميل المزيد من الخطوط..."
+                />
+              </div>
+            )}
 
           {/* Profiles Hub */}
           {contentTab === 'profiles' && (
@@ -4748,16 +4783,11 @@ function MarketView({
                   })}
                 </div>
               )}
-              {visibleProfilesCount < filteredProfiles.length && (
-                <div className="text-center py-4 border-t border-gray-800/50 mt-6">
-                  <button 
-                    onClick={() => setVisibleProfilesCount(prev => prev + 4)}
-                    className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs transition-all shadow-md"
-                  >
-                    عرض المزيد من الحسابات 👥
-                  </button>
-                </div>
-              )}
+              <InfiniteScrollTrigger
+                hasMore={visibleProfilesCount < filteredProfiles.length}
+                onLoadMore={async () => { await new Promise(r => setTimeout(r, 400)); setVisibleProfilesCount(prev => prev + 4); }}
+                loadingText="جاري تحميل المزيد من الحسابات..."
+              />
                 </>
               ) : (
                 <div className="bg-gray-900/50 border border-gray-800 rounded-3xl p-8 text-center mt-8">
@@ -5305,33 +5335,21 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
               </motion.div>
             );
           })}
-            {(hasMore !== undefined ? hasMore : visibleCount < filtered.length) && (
-              <div className="text-center py-6 mt-4 border-t border-gray-800">
-                <button 
-                  onClick={async () => {
-                    setLoadingMore(true);
-                    if (onLoadMore) {
-                      await onLoadMore();
-                    } else {
-                      await new Promise(r => setTimeout(r, 400));
-                      setVisibleCount(prev => prev + 4);
-                    }
-                    setLoadingMore(false);
-                  }}
-                  disabled={loadingMore}
-                  className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2 mx-auto"
-                >
-                  {loadingMore ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                      <span>جاري التحميل...</span>
-                    </>
-                  ) : (
-                    <span>عرض المزيد من الخطوط 🚌</span>
-                  )}
-                </button>
-              </div>
-            )}
+            <InfiniteScrollTrigger 
+              hasMore={hasMore !== undefined ? hasMore : visibleCount < filtered.length} 
+              isLoading={loadingMore} 
+              onLoadMore={async () => {
+                setLoadingMore(true);
+                if (onLoadMore) {
+                  await onLoadMore();
+                } else {
+                  await new Promise(r => setTimeout(r, 400));
+                  setVisibleCount(prev => prev + 4);
+                }
+                setLoadingMore(false);
+              }} 
+              loadingText="جاري تحميل المزيد من الخطوط..." 
+            />
           </div>
         )}
       </div>
@@ -6391,7 +6409,7 @@ export default function App() {
       // Fallback to client-side deletion if RPC fails or doesn't exist yet
       await supabase.from('ads').delete().eq('seller_id', profileId);
       await supabase.from('products').delete().eq('seller_id', profileId);
-      await supabase.from('transport_ads').delete().eq('seller_id', profileId);
+      await supabase.from('ads').delete().eq('postedBy', profileId).eq('category', 'transport');
       await supabase.from('profiles').delete().eq('id', profileId);
     }
 

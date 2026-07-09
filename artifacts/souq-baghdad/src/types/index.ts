@@ -25,10 +25,12 @@ export interface Ad {
   description: string;
   adCount: number;
   soldCount: number;
-  responseRate: number;
-  avgResponseTime: string;
+  responseRate?: number;
+  avgResponseTime?: string;
   postedBy?: string;
   short_id?: string;
+  favorites?: number;
+  likes?: number;
 }
 
 export interface Product {
@@ -126,7 +128,7 @@ export interface TransportAd {
   completion_reason?: 'found_line' | 'line_full' | 'closed_by_owner' | null;
   completedAt?: string;
   views: number;
-  interest: number;
+  interest?: number;
   whatsappClicks?: number;
   short_id?: string;
 }
