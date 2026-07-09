@@ -54,4 +54,5 @@ export type DbProfile = {
   ads_count: number;
   favorites_count: number;
   views_count: number;
+  points?: number;
 };

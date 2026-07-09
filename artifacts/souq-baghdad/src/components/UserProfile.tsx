@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Settings, Heart, ShoppingBag, MessageCircle, Bell, LogOut, Edit3, Camera, Share2, Star, MapPin, Calendar, Facebook, Twitter, Instagram, Check, Crown, ChevronLeft, ChevronRight, Globe, Loader2 } from 'lucide-react';
+import { User, Settings, Heart, ShoppingBag, MessageCircle, Bell, LogOut, Edit3, Camera, Share2, Star, MapPin, Calendar, Facebook, Twitter, Instagram, Check, Crown, ChevronLeft, ChevronRight, Globe, Loader2, Wallet } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -12,6 +12,15 @@ export function UserProfile({ onBack }: UserProfileProps) {
   const { user, updateProfile, logout } = useAuth();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncTime, setSyncTime] = useState(localStorage.getItem('souq_profiles_sync_time') || '');
+  const [ledger, setLedger] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    if (user) {
+      supabase.from('points_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).then(({ data }) => {
+        if (data) setLedger(data);
+      });
+    }
+  }, [user?.id, user?.points]);
 
   const handleManualSync = async () => {
     setIsSyncing(true);
@@ -38,6 +47,10 @@ export function UserProfile({ onBack }: UserProfileProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+
+  // Promo code state
+  const [promoCode, setPromoCode] = useState('');
+  const [isRedeeming, setIsRedeeming] = useState(false);
 
   // Edit form state
   const [editForm, setEditForm] = useState({
@@ -96,8 +109,50 @@ export function UserProfile({ onBack }: UserProfileProps) {
     window.open(urls[platform], '_blank', 'width=600,height=400');
   };
 
+  const handleRedeemPromoCode = async () => {
+    if (!promoCode.trim()) return;
+    setIsRedeeming(true);
+    try {
+      const { data, error } = await supabase.rpc('redeem_promo_code', {
+        p_code: promoCode.trim().toUpperCase(),
+        p_user_id: user.id
+      });
+      if (error) throw error;
+      
+      if (data.success) {
+        alert(data.message);
+        setPromoCode('');
+        // Update user state locally
+        updateProfile({ points: (user.points || 0) + data.points_added });
+        // Handle GIFT animation
+        if (promoCode.trim().toUpperCase().startsWith('GIFT')) {
+          // You could trigger a confetti or gift animation here
+        }
+      } else {
+        alert(data.message);
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert('حدث خطأ أثناء محاولة تفعيل البرومو كود.');
+    } finally {
+      setIsRedeeming(false);
+    }
+  };
+
+  const handleRechargeWhatsApp = () => {
+    const message = `مرحباً، خلصت نقاطي وأريد أجدد رصيدي في منصة سوق بغداد.
+أريد الاستفادة من العرض المدعوم للمشتركين (خصم 50%) للحصول على 100 نقطة بسعر 2,500 دينار.
+📋 تفاصيل حسابي:
+👤 اسم المستخدم: ${user.name}
+📱 رقم الهاتف: ${user.phone}
+📍 المحافظة: ${user.location || 'غير محدد'}
+يرجى تزويدي بطريقة الدفع لحجز البرومو كود.`;
+    window.open(`https://api.whatsapp.com/send?phone=9647700028170&text=${encodeURIComponent(message)}`, '_blank');
+  };
+
   const tabs = [
     { id: 'overview', label: 'نظرة عامة', icon: User },
+    { id: 'wallet', label: 'محفظتي', icon: Wallet },
     { id: 'ads', label: 'إعلاناتي', icon: ShoppingBag },
     { id: 'favorites', label: 'المفضلة', icon: Heart },
     { id: 'messages', label: 'الرسائل', icon: MessageCircle },
@@ -274,6 +329,68 @@ export function UserProfile({ onBack }: UserProfileProps) {
 
         {/* Tab Content */}
         <div className="mt-6">
+          {activeTab === 'wallet' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              {/* Wallet Balance Card */}
+              <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-6 sm:p-8 border border-gray-700 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl" />
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl" />
+                
+                <div className="relative z-10 flex flex-col items-center justify-center text-center">
+                  <div className="w-16 h-16 bg-gray-800 border-2 border-emerald-500/30 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/20">
+                    <Wallet className="w-8 h-8 text-emerald-400" />
+                  </div>
+                  <h3 className="text-gray-400 font-medium mb-1">الرصيد الحالي</h3>
+                  <div className="flex items-baseline gap-2 mb-6">
+                    <span className="text-5xl font-black text-white font-mono tracking-tight">{user.points || 0}</span>
+                    <span className="text-emerald-400 font-bold">نقطة</span>
+                  </div>
+                  
+                  <button 
+                    onClick={handleRechargeWhatsApp}
+                    className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    <span>تواصل للشحن السريع</span>
+                  </button>
+                  <p className="text-gray-500 text-xs mt-3">خصم 50% على الباقة الأساسية (100 نقطة بـ 2,500 د.ع)</p>
+                </div>
+              </div>
+
+              {/* Promo Code Input */}
+              <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="p-2 bg-amber-500/10 rounded-xl">
+                    <Sparkles className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <h3 className="text-white font-bold text-lg">تفعيل برومو كود</h3>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input 
+                    type="text" 
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                    placeholder="أدخل الكود هنا (مثال: GIFT-100)" 
+                    className="flex-1 bg-gray-900 text-white placeholder-gray-500 border border-gray-700 rounded-xl px-4 py-3 outline-none focus:border-amber-500/50 transition-colors uppercase font-mono text-center sm:text-right"
+                    disabled={isRedeeming}
+                  />
+                  <button 
+                    onClick={handleRedeemPromoCode}
+                    disabled={isRedeeming || !promoCode.trim()}
+                    className="px-6 py-3 bg-amber-500 text-black font-bold rounded-xl hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors min-w-[120px]"
+                  >
+                    {isRedeeming ? <Loader2 className="w-5 h-5 animate-spin" /> : 'تفعيل'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {activeTab === 'overview' && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -416,7 +533,7 @@ export function UserProfile({ onBack }: UserProfileProps) {
                 </div>
               </div>
 
-              <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
+              <div className="bg-gray-800/50 rounded-3xl p-6 border border-gray-700/50">
                 <h3 className="text-white font-bold mb-4">إعدادات الحساب</h3>
                 <div className="space-y-4">
                   <button className="w-full flex items-center justify-between p-4 bg-gray-700/50 rounded-xl hover:bg-gray-700 transition-colors">
