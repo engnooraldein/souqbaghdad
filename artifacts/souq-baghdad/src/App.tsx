@@ -2580,11 +2580,13 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
 
   const [localArchiveAds, setLocalArchiveAds] = useState<Ad[]>([]);
   const [localArchiveProds, setLocalArchiveProds] = useState<Product[]>([]);
+  const [isLoadingArchive, setIsLoadingArchive] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
     async function loadArchive() {
-      if (!user) return;
+      if (!user) { setIsLoadingArchive(false); return; }
+      setIsLoadingArchive(true);
       const adsQuery = user.phone && !user.phone.includes('-') ? `seller_id.eq.${user.id},phone.eq.${user.phone}` : `seller_id.eq.${user.id}`;
       const [adsRes, prodsRes] = await Promise.all([
         supabase.from('ads').select('*').or(adsQuery),
@@ -2612,7 +2614,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
           type: row.type || 'ad',
           adCount: row.adCount || 0,
           soldCount: row.soldCount || 0,
-          favorites: row.favorites || 0,
+          favorites: row.likes || 0,
           seller: row.seller || { name: 'مستخدم', avatar: '', isVerified: false, rating: 5 }
         }));
         setLocalArchiveAds(formattedAds);
@@ -2639,6 +2641,9 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
           seller: row.seller || { name: 'مستخدم', avatar: '', isVerified: false, rating: 5 }
         }));
         setLocalArchiveProds(formattedProds);
+      }
+      if (isMounted) {
+        setIsLoadingArchive(false);
       }
     }
     loadArchive();
@@ -2733,9 +2738,10 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
   };
 
   const totalViews = allMyAds.reduce((s,a)=>s+(a.views||0),0) + allMyProducts.reduce((s,p)=>s+(p.views||0),0);
+  const totalFavorites = allMyAds.reduce((s,a)=>s+(a.favorites||0),0);
 
   return (
-    <div className="min-h-screen bg-[#0c2b5e] pt-16 pb-10">
+    <div className="min-h-screen bg-[#0c2b5e] pt-16 pb-24">
       {/* Banner & Header */}
       <div className="relative w-full">
         {/* Banner with 3:1 aspect ratio */}
@@ -2848,7 +2854,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
 
           {/* Stats */}
           <div className="grid grid-cols-4 gap-2 sm:gap-3 mb-6">
-            {[{v:allMyAds.length,l:'إعلان',c:'text-amber-400'},{v:allMyProducts.length,l:'منتج',c:'text-purple-400'},{v:totalViews,l:'مشاهدة',c:'text-blue-400'},{v:user.stats.favorites,l:'مفضلة',c:'text-red-400'}].map((s,i)=>(
+            {[{v:allMyAds.length,l:'إعلان',c:'text-amber-400'},{v:allMyProducts.length,l:'منتج',c:'text-purple-400'},{v:totalViews,l:'مشاهدة',c:'text-blue-400'},{v:totalFavorites,l:'مفضلة',c:'text-red-400'}].map((s,i)=>(
               <div key={i} className="bg-gray-800 rounded-xl sm:rounded-2xl p-2 sm:p-3 text-center border border-gray-700 flex flex-col justify-center">
                 <p className={`text-lg sm:text-xl font-bold ${s.c}`}>{s.v}</p>
                 <p className="text-gray-400 text-[10px] sm:text-xs mt-0.5 sm:mt-1">{s.l}</p>
@@ -2872,7 +2878,9 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
           <>
             <button onClick={onAddAd} className="w-full mb-4 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-2xl flex items-center justify-center gap-2">
               <Plus className="w-5 h-5"/> إضافة إعلان جديد</button>
-            {allMyAds.filter(a=>a.status==='active').length===0?(
+            {isLoadingArchive ? (
+              <div className="flex justify-center p-10"><div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>
+            ) : allMyAds.filter(a=>a.status==='active').length===0?(
               <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700 border-dashed">
                 <div className="text-4xl mb-3">📭</div><p className="text-white font-bold mb-1">لا إعلانات بعد</p><p className="text-gray-400 text-sm">انشر أول إعلان الآن!</p>
               </div>
@@ -2907,7 +2915,9 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
           <>
             <button onClick={onAddProduct} className="w-full mb-4 py-3 bg-gradient-to-r from-purple-500 to-violet-500 text-white font-bold rounded-2xl flex items-center justify-center gap-2">
               <Plus className="w-5 h-5"/> إضافة منتج جديد</button>
-            {allMyProducts.filter(p=>p.status==='active').length===0?(
+            {isLoadingArchive ? (
+              <div className="flex justify-center p-10"><div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>
+            ) : allMyProducts.filter(p=>p.status==='active').length===0?(
               <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700 border-dashed">
                 <div className="text-4xl mb-3">🛍️</div><p className="text-white font-bold mb-1">متجرك فارغ</p><p className="text-gray-400 text-sm">أضف أول منتج الآن!</p>
               </div>
@@ -2940,7 +2950,9 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
         {/* Archive Tab */}
         {tab==='archive'&&(
           <>
-            {(allMyAds.filter(a=>a.status==='sold').length === 0 && allMyProducts.filter(p=>p.status==='sold').length === 0) ? (
+            {isLoadingArchive ? (
+              <div className="flex justify-center p-10"><div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>
+            ) : (allMyAds.filter(a=>a.status==='sold').length === 0 && allMyProducts.filter(p=>p.status==='sold').length === 0) ? (
               <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700 border-dashed">
                 <div className="text-4xl mb-3">📦</div>
                 <p className="text-white font-bold mb-1">الأرشيف فارغ</p>
