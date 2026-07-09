@@ -807,7 +807,7 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
                <div className="relative"><Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
                  <input type="text" value={identifier} onChange={e=>setIdentifier(e.target.value)} placeholder="رقم الهاتف أو البريد الإلكتروني" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-4 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none text-lg" dir="rtl"/>
                </div>
-               <motion.button type="submit" whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-lg mt-2 shadow-lg shadow-amber-500/20">متابعة</motion.button>
+               <button type="submit" className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-lg mt-2 shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-transform">متابعة</button>
              </form>
           ) : (
             <form onSubmit={handleAuthSubmit} className="space-y-4">
@@ -823,9 +823,9 @@ function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>voi
                 <input type={showPwd?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="كلمة المرور" required autoFocus className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-10 border border-gray-700 focus:border-amber-400 outline-none"/>
                 <button type="button" onClick={()=>setShowPwd(!showPwd)} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" title="إظهار أو إخفاء كلمة المرور" aria-label="إظهار أو إخفاء كلمة المرور">{showPwd?<EyeOff className="w-4 h-4"/>:<Eye className="w-4 h-4"/>}</button></div>
               
-              <motion.button type="submit" whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl shadow-lg shadow-amber-500/20">
+              <button type="submit" className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-transform">
                 {step === 'login' ? 'تسجيل الدخول' : 'تأكيد وإنشاء الحساب'}
-              </motion.button>
+              </button>
               
               <div className="mt-4 flex flex-col items-center gap-3">
                  {step === 'login' && <button type="button" onClick={() => {setIsRecovery(true); setError('');}} className="text-amber-400 hover:text-amber-300 text-sm">نسيت كلمة المرور؟</button>}
@@ -3172,11 +3172,12 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
         }
 
         // 4. Query Supabase profiles table directly and fetch seller's sold ads and products
+        const isPhone = !sellerId.includes('-');
         const [adsRes, prodsRes, linesRes, dbProfileRes] = await Promise.all([
-          supabase.from('ads').select('*').or(`postedBy.eq.${sellerId},phone.eq.${sellerId}`),
-          supabase.from('products').select('*').or(`postedBy.eq.${sellerId},phone.eq.${sellerId}`),
-          supabase.from('transport_ads').select('*').or(`user_id.eq.${sellerId},phone.eq.${sellerId}`),
-          supabase.from('profiles').select('*').or(`id.eq.${sellerId},phone.eq.${sellerId}`).maybeSingle()
+          isPhone ? supabase.from('ads').select('*').eq('phone', sellerId) : supabase.from('ads').select('*').eq('postedBy', sellerId),
+          isPhone ? supabase.from('products').select('*').eq('phone', sellerId) : supabase.from('products').select('*').eq('postedBy', sellerId),
+          isPhone ? supabase.from('transport_ads').select('*').eq('phone', sellerId) : supabase.from('transport_ads').select('*').eq('user_id', sellerId),
+          isPhone ? supabase.from('profiles').select('*').eq('phone', sellerId).maybeSingle() : supabase.from('profiles').select('*').eq('id', sellerId).maybeSingle()
         ]);
         
         if (adsRes.data && isMounted) {
@@ -3345,12 +3346,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
     }
   };
 
-  if (loadingProfile) return (
-    <div className="min-h-screen bg-[#0c2b5e] pt-16 flex flex-col items-center justify-center">
-      <Loader2 className="w-10 h-10 text-amber-400 animate-spin mb-3" />
-      <p className="text-gray-400 text-sm font-medium">جاري تحميل ملف البائع...</p>
-    </div>
-  );
+
 
   const effectiveSeller = sellerUser || {
     id: sellerId,
@@ -3365,7 +3361,9 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
   };
 
   return (
-    <div className="min-h-screen bg-[#0c2b5e] pt-16 pb-10">
+    <>
+      <LoadingScreen isLoading={loadingProfile || loadingContent} minDuration={2000} />
+      <div className="min-h-screen bg-[#0c2b5e] pt-16 pb-10">
       {/* Cover */}
       <div className="w-full aspect-[3/1] md:aspect-[4/1] bg-gray-900 relative overflow-hidden flex items-center justify-center">
         <img src={effectiveSeller?.cover || DEFAULT_COVER} alt="" className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110"/>
@@ -3382,40 +3380,44 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
           <span className="text-white font-bold text-xs sm:text-sm drop-shadow-md">سوك بغداد</span>
         </div>
         <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/30 to-transparent z-10"/>
-        <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
-          <button onClick={()=>{
-            handleUniversalShare({
-              title: effectiveSeller.name,
-              type: 'profile',
-              location: effectiveSeller.location || 'بغداد',
-              id: effectiveSeller.id,
-              url: '/seller/' + effectiveSeller.id,
-              image: effectiveSeller.avatar || DEFAULT_AVATAR
-            });
-          }} className="p-1.5 sm:px-3 sm:py-1.5 bg-black/60 backdrop-blur-md text-white rounded-xl hover:bg-black/80 font-bold border border-white/10 flex items-center gap-1" title="مشاركة الملف">
-            <Share2 className="w-4 h-4"/>
-            <span className="hidden sm:inline text-xs">مشاركة</span>
-          </button>
-          <button onClick={onBack} className="flex items-center gap-1 px-3 py-1.5 bg-black/60 backdrop-blur-md text-white rounded-xl text-xs hover:bg-black/80 font-bold border border-white/10">
-            <ChevronRight className="w-4 h-4"/> رجوع
-          </button>
-        </div>
       </div>
 
       <div className="container mx-auto px-4 max-w-3xl relative">
-        {/* Avatar Area */}
+        {/* Avatar & Actions Container */}
         <div className="flex justify-between items-end -mt-12 sm:-mt-16 mb-4 relative z-10">
-          <div className="relative">
-            <div className={`w-24 h-24 sm:w-32 sm:h-32 rounded-3xl border-4 shadow-xl overflow-hidden bg-white flex-shrink-0 flex items-center justify-center ${effectiveSeller.role && effectiveSeller.role !== 'user' ? getGlowClass(effectiveSeller.role) : 'border-gray-950'}`}>
+          {/* Avatar */}
+          <div className="relative z-20">
+            <div className={`w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 shadow-xl overflow-hidden bg-white flex-shrink-0 flex items-center justify-center ${effectiveSeller.role && effectiveSeller.role !== 'user' ? getGlowClass(effectiveSeller.role) : 'border-gray-950'}`}>
               <img src={effectiveSeller?.avatar || DEFAULT_AVATAR} alt={effectiveSeller?.name} className="w-full h-full object-cover"/>
             </div>
             {Boolean((user && (String(effectiveSeller.id) === String(user.id) || String(effectiveSeller.phone) === String(user.phone))) || onlineStatuses[effectiveSeller.id] || onlineStatuses[effectiveSeller.phone]) ? (
-              <span className="absolute bottom-2 right-2 w-5 h-5 bg-emerald-500 rounded-full border-2 border-gray-950 flex items-center justify-center shadow-lg" title="متصل الآن">
+              <span className="absolute bottom-2 right-2 w-5 h-5 bg-emerald-500 rounded-full border-2 border-gray-950 flex items-center justify-center shadow-lg z-30" title="متصل الآن">
                 <span className="w-2 h-2 bg-white rounded-full animate-ping" />
               </span>
             ) : (
-              <span className="absolute bottom-2 right-2 w-5 h-5 bg-gray-500 rounded-full border-2 border-gray-950 shadow-lg" title="غير متصل" />
+              <span className="absolute bottom-2 right-2 w-5 h-5 bg-gray-500 rounded-full border-2 border-gray-950 shadow-lg z-30" title="غير متصل" />
             )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 pb-2">
+            <button onClick={()=>{
+              handleUniversalShare({
+                title: effectiveSeller.name,
+                type: 'profile',
+                location: effectiveSeller.location || 'بغداد',
+                id: effectiveSeller.id,
+                url: '/seller/' + effectiveSeller.id,
+                image: effectiveSeller.avatar || DEFAULT_AVATAR
+              });
+            }} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-gray-800 text-white rounded-xl text-sm font-bold shadow-lg border border-gray-700 hover:bg-gray-700" title="مشاركة الملف">
+              <Share2 className="w-4 h-4"/>
+              <span className="hidden sm:inline">مشاركة</span>
+            </button>
+            <button onClick={onBack} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-blue-500 text-white rounded-xl text-sm font-bold shadow-lg hover:bg-blue-600">
+              <ChevronRight className="w-4 h-4"/>
+              <span className="hidden sm:inline">رجوع</span>
+            </button>
           </div>
         </div>
 
@@ -3583,6 +3585,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
         )}
       </div>
     </div>
+    </>
   );
 }
 
