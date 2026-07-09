@@ -68,6 +68,7 @@ export interface User {
   stats: { ads: number; favorites: number; views: number };
   sellerStats: { totalAds: number; sold: number; responseRate: number; avgResponseTime: string };
   badges?: { isStudent?: boolean; hasVehicle?: boolean; hasID?: boolean; isPhoneVerified?: boolean };
+  points?: number;
 }
 
 export interface StoredUser {
@@ -86,6 +87,7 @@ export interface StoredUser {
   bio?: string;
   rating?: number;
   ratingCount?: number;
+  points?: number;
 }
 
 export interface Visit {

@@ -11,7 +11,7 @@ import {
   Trash2, ArrowRight, Eye, CheckCircle2, ChevronRight, ChevronLeft, Search, 
   Clock, Bell, Lock, User as UserIcon, Phone, Check, RefreshCw,
   Globe, Smartphone, Monitor, Tablet, MapPin, BarChart3, Star,
-  UserCheck, Key, CheckCircle, Loader2, Mail, Car, Layers
+  UserCheck, Key, CheckCircle, Loader2, Mail, Car, Layers, Ticket, Copy, Settings
 } from 'lucide-react';
 import { useOnlineStatuses } from '../hooks/useOnlineStatuses';
 import type { Ad, Product, User, StoredUser, Visit, SystemLog, TransportAd } from '../types';
@@ -30,10 +30,13 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
   onClose:()=>void;
   onDeleteProfile?:(id:string)=>void;
 }) {
-  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'reports'|'logs'|'changelog'>('overview');
+  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'reports'|'logs'|'changelog'|'settings'|'promo_codes'>('overview');
+  const [costs, setCosts] = useState<{ad:number; product:number; transport:number}>({ad:1, product:1, transport:1});
+  const [savingSettings, setSavingSettings] = useState(false);
   const [reports, setReports] = useState<any[]>([]);
   const [verificationRequests, setVerificationRequests] = useState<any[]>([]);
   const [recoveryRequests, setRecoveryRequests] = useState<any[]>([]);
+  const [promoCodes, setPromoCodes] = useState<any[]>([]);
   const [storedUsers, setStoredUsers] = useState<StoredUser[]>([]);
   const [dbUsers, setDbUsers] = useState<any[]>([]);
   const [dbGuests, setDbGuests] = useState<any[]>([]);
@@ -133,12 +136,52 @@ const fetchRecovery = async () => {
     fetchReports();
     const reportInterval = setInterval(fetchReports, 30_000);
 
+    const fetchPromoCodes = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('promo_codes')
+          .select('*, profiles:used_by(name, phone)')
+          .order('created_at', { ascending: false });
+        if (data && !error) {
+          setPromoCodes(data);
+        }
+      } catch (err) {}
+    };
+    fetchPromoCodes();
+    const promoInterval = setInterval(fetchPromoCodes, 60_000);
+
     return () => { 
       clearInterval(iv); 
       clearInterval(fetchInterval); 
       clearInterval(reportInterval); 
+      clearInterval(promoInterval);
     };
   },[]);
+
+  useEffect(() => {
+    if (tab === 'settings') {
+      supabase.from('system_settings').select('*').then(({data, error}) => {
+        if(!error && data) {
+          const c: any = { ad:1, product:1, transport:1 };
+          data.forEach(r => { c[r.category] = r.cost; });
+          setCosts(c);
+        }
+      });
+    }
+  }, [tab]);
+
+  const saveSettings = async () => {
+    setSavingSettings(true);
+    try {
+      for (const [cat, cost] of Object.entries(costs)) {
+        await supabase.from('system_settings').upsert({ category: cat, cost: Number(cost) });
+      }
+      alert('تم حفظ أسعار الإعلانات بنجاح ✅');
+    } catch (e) {
+      alert('حدث خطأ أثناء الحفظ');
+    }
+    setSavingSettings(false);
+  };
 
   // Calculate stats
   const today = new Date().toDateString();
@@ -221,6 +264,26 @@ const fetchRecovery = async () => {
     }
   };
 
+  const generatePromoCode = async (points: number, prefix: string = '') => {
+    const randomString = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const code = prefix ? `${prefix}-${randomString}` : randomString;
+    
+    try {
+      const { data, error } = await supabase.from('promo_codes').insert({
+        code,
+        points,
+        is_used: false
+      }).select().single();
+      
+      if (error) throw error;
+      setPromoCodes(prev => [data, ...prev]);
+      alert(`تم توليد الكود بنجاح: ${code}`);
+    } catch (e) {
+      console.error(e);
+      alert('حدث خطأ أثناء توليد الكود');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0c2b5e] pt-16 pb-8">
       <div className="container mx-auto px-4 max-w-5xl">
@@ -248,7 +311,7 @@ const fetchRecovery = async () => {
         
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {([['overview','📊 نظرة عامة'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['reports','🚩 التقارير والبلاغات'],['broadcast','🔔 إشعار عام'],['logs','📋 سجل العمليات'],['changelog','🚀 نسخة برو (التحديثات)']] as [string,string][]).map(([t,l])=>(
+          {([['overview','📊 نظرة عامة'],['promo_codes','🎟️ الأكواد الترويجية'],['settings','⚙️ التسعير والنقاط'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['reports','🚩 التقارير والبلاغات'],['broadcast','🔔 إشعار عام'],['logs','📋 سجل العمليات'],['changelog','🚀 نسخة برو (التحديثات)']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`px-4 py-2 rounded-xl text-sm font-bold ${tab===t?'bg-amber-500 text-black':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
           ))}
         </div>
@@ -434,6 +497,13 @@ const fetchRecovery = async () => {
                   <p className="text-gray-500 text-[10px] mt-0.5">{u.city} • آخر ظهور: {u.last_seen ? new Date(u.last_seen).toLocaleString('ar-IQ') : 'غير معروف'}</p>
                 </div>
                 
+                <div className="flex-shrink-0 flex items-center justify-center">
+                  <div className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-1 text-center">
+                    <p className="text-[10px] text-gray-400">الرصيد</p>
+                    <p className="font-bold text-amber-400 font-mono text-sm">{u.points || 0}</p>
+                  </div>
+                </div>
+
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0 mt-2 sm:mt-0 flex-wrap justify-end">
                   <button onClick={() => alert('تفاصيل المستخدم: \n' + JSON.stringify(u, null, 2))} className="p-2 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-xl" title="معلومات المستخدم"><Eye className="w-4 h-4"/></button>
@@ -724,6 +794,75 @@ const fetchRecovery = async () => {
           </div>
         )}
 
+        {tab==='promo_codes'&&(
+          <div className="space-y-6">
+            <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center"><Ticket className="w-6 h-6 text-amber-500"/></div>
+                <div>
+                  <h2 className="text-white font-bold text-lg">الأكواد الترويجية (البرومو كود)</h2>
+                  <p className="text-gray-400 text-xs">توليد وإدارة الأكواد لشحن رصيد المشتركين</p>
+                </div>
+              </div>
+              
+              <div className="flex flex-col md:flex-row gap-4 mb-8">
+                <button onClick={() => generatePromoCode(50, 'GIFT')} className="flex-1 py-4 bg-gradient-to-r from-amber-500 to-yellow-600 text-black font-bold rounded-xl flex flex-col items-center justify-center hover:opacity-90">
+                  <span className="text-xl mb-1">🎁 50 نقطة</span>
+                  <span className="text-xs opacity-80">كود هدية (GIFT)</span>
+                </button>
+                <button onClick={() => generatePromoCode(100)} className="flex-1 py-4 bg-gray-700 text-white font-bold rounded-xl flex flex-col items-center justify-center border border-gray-600 hover:bg-gray-600">
+                  <span className="text-xl mb-1">💳 100 نقطة</span>
+                  <span className="text-xs text-gray-400">كود اعتيادي</span>
+                </button>
+                <button onClick={() => generatePromoCode(500, 'PRO')} className="flex-1 py-4 bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold rounded-xl flex flex-col items-center justify-center hover:opacity-90">
+                  <span className="text-xl mb-1">🌟 500 نقطة</span>
+                  <span className="text-xs opacity-80">كود كبار الشخصيات (PRO)</span>
+                </button>
+              </div>
+
+              <h3 className="text-white font-bold mb-4">الأكواد السابقة ({promoCodes.length})</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-right">
+                  <thead className="bg-gray-900/50 text-gray-400 uppercase">
+                    <tr>
+                      <th className="px-4 py-3 rounded-tr-xl">الكود</th>
+                      <th className="px-4 py-3">النقاط</th>
+                      <th className="px-4 py-3">الحالة</th>
+                      <th className="px-4 py-3">المستخدم</th>
+                      <th className="px-4 py-3 rounded-tl-xl">التاريخ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {promoCodes.slice(0, 50).map((promo) => (
+                      <tr key={promo.id} className="border-b border-gray-700/50 hover:bg-gray-800/50 transition">
+                        <td className="px-4 py-3 font-mono text-amber-400 font-bold flex items-center gap-2">
+                          {promo.code}
+                          <button onClick={() => { navigator.clipboard.writeText(promo.code); alert('تم نسخ الكود!'); }} className="text-gray-400 hover:text-white" title="نسخ"><Copy className="w-4 h-4"/></button>
+                        </td>
+                        <td className="px-4 py-3 font-bold text-emerald-400">+{promo.points}</td>
+                        <td className="px-4 py-3">
+                          {promo.is_used ? (
+                            <span className="px-2 py-1 bg-red-500/20 text-red-400 rounded-md text-xs">تم الاستخدام</span>
+                          ) : (
+                            <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded-md text-xs">متاح</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-gray-300">
+                          {promo.profiles?.name || promo.profiles?.phone || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-gray-400">{new Date(promo.created_at).toLocaleDateString('ar-IQ')}</td>
+                      </tr>
+                    ))}
+                    {promoCodes.length === 0 && (
+                      <tr><td colSpan={5} className="text-center py-8 text-gray-500">لا توجد أكواد مولدة بعد</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         {tab==='broadcast'&&(
           <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 max-w-2xl mx-auto">
             <div className="flex items-center gap-3 mb-6">
@@ -983,6 +1122,40 @@ const fetchRecovery = async () => {
             </div>
           </div>
         )}
+
+        {tab === 'settings' && (
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 space-y-6">
+            <div className="space-y-4 max-w-2xl mx-auto">
+              <h3 className="text-white font-bold mb-4 text-xl flex items-center gap-2">
+                <Settings className="w-6 h-6 text-emerald-400" />
+                تكلفة النشر والتسعير بنظام النقاط
+              </h3>
+              
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">قسم الإعلانات المبوبة</label>
+                <input type="number" min="0" value={costs.ad} onChange={e => setCosts({...costs, ad: Number(e.target.value)})} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-emerald-500" />
+              </div>
+              
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">قسم المنتجات والتسوق</label>
+                <input type="number" min="0" value={costs.product} onChange={e => setCosts({...costs, product: Number(e.target.value)})} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-emerald-500" />
+              </div>
+
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">قسم خطوط النقل</label>
+                <input type="number" min="0" value={costs.transport} onChange={e => setCosts({...costs, transport: Number(e.target.value)})} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-emerald-500" />
+              </div>
+
+              <div className="pt-4">
+                <button onClick={saveSettings} disabled={savingSettings} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20">
+                  {savingSettings ? <Loader2 className="w-5 h-5 animate-spin"/> : <><Check className="w-5 h-5"/> حفظ التعديلات</>}
+                </button>
+                <p className="text-xs text-gray-500 text-center mt-3">يتم تطبيق الأسعار الجديدة فوراً على جميع المستخدمين.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

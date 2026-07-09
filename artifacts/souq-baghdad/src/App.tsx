@@ -20,7 +20,7 @@ import {
   Trash2, SlidersHorizontal, Settings, ChevronLeft, Info, LogIn, Edit2,
   Save, BarChart3, Smartphone, Monitor, Tablet, Globe, UserCheck, Activity,
   Crown, UserX, FileText, ShoppingBag, Package, Store, Camera, ZoomIn,
-  ZoomOut, Calendar, Users, ChevronDown, Tag, Layers, Home, Car, UserCircle, Key, Sparkles, Clock
+  ZoomOut, Calendar, Users, ChevronDown, Tag, Layers, Home, Car, UserCircle, Key, Sparkles, Clock, Wallet, MessageCircle
 } from 'lucide-react';
 
 const OwnerDashboard = lazy(() => import('./components/OwnerDashboard'));
@@ -376,52 +376,28 @@ function ImageCropModal({ src, aspectRatio=1, title='قص الصورة', onSave,
 
 async function recordItemView(itemId: string|number, itemType: 'ad'|'product'|'transport', currentUser: User|null, sellerId?: string) {
   try {
-    const viewerId = currentUser?.id || localStorage.getItem('souqGuestId') || 'guest-' + Math.random().toString(36).substring(2, 7);
-    const viewerName = currentUser?.name || 'زائر';
-    const viewerAvatar = currentUser?.avatar || `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#374151"/><circle cx="50" cy="50" r="30" fill="#4b5563"/></svg>')}`;
-    const viewerLocation = currentUser?.location || 'العراق';
+    // Owner should not count towards their own ad's views
+    if (currentUser && sellerId && currentUser.id === sellerId) {
+      return;
+    }
 
-    // 1. Check if already viewed in last hour to avoid spam
     const lastViewKey = `last_view_${itemType}_${itemId}`;
     const lastView = localStorage.getItem(lastViewKey);
     if (lastView && Date.now() - Number(lastView) < 60 * 60 * 1000) {
       return; // Already viewed recently
     }
 
-    // 2. Insert into ad_viewers
-    const { error } = await supabase.from('ad_viewers').insert({
-      item_id: itemId,
-      item_type: itemType,
-      viewer_id: viewerId,
-      viewer_name: viewerName,
-      viewer_avatar: viewerAvatar,
-      viewer_location: viewerLocation
-    });
+    localStorage.setItem(lastViewKey, Date.now().toString());
 
-    if (!error) {
-      localStorage.setItem(lastViewKey, Date.now().toString());
-      
-      // 3. Send notification to seller
-      if (sellerId && sellerId !== viewerId) {
-        await supabase.from('user_notifications').insert({
-          user_id: sellerId,
-          title: 'مشاهدة جديدة 👀',
-          body: `قام ${viewerName} بمشاهدة إعلانك للتو.`,
-          type: 'view',
-          audience: 'user'
-        });
-      }
-
-      // 4. Update the views counter on the item itself
-      const table = itemType === 'product' ? 'products' : 'ads';
-      const { error: rpcErr } = await supabase.rpc('increment_view', { table_name: table, item_id: itemId });
-      
-      if (rpcErr) {
-        // Fallback if RPC doesn't exist yet
-        const { data: item } = await supabase.from(table).select('views').eq('id', itemId).single();
-        if (item) {
-          await supabase.from(table).update({ views: (item.views || 0) + 1 }).eq('id', itemId);
-        }
+    // Update the views counter on the item itself directly
+    const table = itemType === 'product' ? 'products' : 'ads';
+    const { error: rpcErr } = await supabase.rpc('increment_view', { table_name: table, item_id: itemId });
+    
+    if (rpcErr) {
+      // Fallback if RPC doesn't exist yet
+      const { data: item } = await supabase.from(table).select('views').eq('id', itemId).single();
+      if (item) {
+        await supabase.from(table).update({ views: (item.views || 0) + 1 }).eq('id', itemId);
       }
     }
   } catch (e) {
@@ -1471,12 +1447,14 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
     setImgIdx(0);
     if (ad) {
       setRealViews(ad.views || 0);
-      recordItemView(ad.id, 'ad', user, ad.postedBy);
-      supabase.from('ad_viewers').select('id', { count: 'exact', head: true }).eq('item_id', ad.id).eq('item_type', 'ad').then(({ count }) => {
-        if (count !== null) {
-          const newViews = Math.max(ad.views || 0, count);
-          setRealViews(newViews);
-          onViewsUpdated?.(ad.id, newViews);
+      recordItemView(ad.id, 'ad', user, ad.postedBy).then(() => {
+        // Optimistically update local view count by 1 since we just recorded a view
+        const lastViewKey = `last_view_ad_${ad.id}`;
+        // Only increment local count if we aren't the owner
+        if (user?.id !== ad.postedBy) {
+           const newViews = (ad.views || 0) + 1;
+           setRealViews(newViews);
+           onViewsUpdated?.(ad.id, newViews);
         }
       });
     }
@@ -1705,10 +1683,9 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
     setImgIdx(0);
     if (product) {
       setRealViews(product.views || 0);
-      recordItemView(product.id, 'product', user, product.postedBy);
-      supabase.from('ad_viewers').select('id', { count: 'exact', head: true }).eq('item_id', product.id).eq('item_type', 'product').then(({ count }) => {
-        if (count !== null) {
-          const newViews = Math.max(product.views || 0, count);
+      recordItemView(product.id, 'product', user, product.postedBy).then(() => {
+        if (user?.id !== product.postedBy) {
+          const newViews = (product.views || 0) + 1;
           setRealViews(newViews);
           onViewsUpdated?.(product.id, newViews);
         }
@@ -2071,8 +2048,8 @@ function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDuratio
 // ─────────────────────────────────────────────
 // Ad Form Modal (Create / Edit)
 // ─────────────────────────────────────────────
-function AdFormModal({ isOpen, onClose, onSubmit, user, editAd }:{
-  isOpen:boolean; onClose:()=>void; onSubmit:(ad:Ad)=>void; user:User; editAd?:Ad|null;
+function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1 }:{
+  isOpen:boolean; onClose:()=>void; onSubmit:(ad:Ad)=>void; user:User; editAd?:Ad|null; cost?:number;
 }) {
   const isEdit = !!editAd;
   const [tab, setTab] = useState<'form'|'preview'>('form');
@@ -2169,9 +2146,12 @@ function AdFormModal({ isOpen, onClose, onSubmit, user, editAd }:{
               </div></div>
             <div className="flex gap-3">
               <button type="button" onClick={()=>setTab('preview')} className="flex-1 py-3 bg-gray-800 text-amber-400 font-bold rounded-xl text-sm border border-amber-500/30">👁️ معاينة</button>
-              <motion.button type="submit" whileHover={{scale:1.02}} whileTap={{scale:0.98}} disabled={uploading}
-                className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50">
-                {uploading?<><Loader2 className="w-4 h-4 animate-spin"/>{pct}%</>:<><Save className="w-4 h-4"/>{isEdit?'حفظ التعديلات':'نشر الإعلان'}</>}</motion.button>
+              <motion.button type="submit" whileHover={{scale:1.02}} whileTap={{scale:0.98}} disabled={uploading || (!isEdit && cost > 0 && (user.points || 0) < cost && user.role !== 'admin' && user.role !== 'owner')}
+                className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-sm flex flex-col items-center justify-center gap-1 disabled:opacity-50 disabled:from-gray-600 disabled:to-gray-700 disabled:text-gray-400">
+                <div className="flex items-center gap-2">{uploading?<><Loader2 className="w-4 h-4 animate-spin"/>{pct}%</>:<><Save className="w-4 h-4"/>{isEdit?'حفظ التعديلات':'نشر الإعلان'}</>}</div>
+                {!isEdit && user.role !== 'admin' && user.role !== 'owner' && cost > 0 && <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full flex items-center gap-1"><Wallet className="w-3 h-3"/> يخصم {cost} نقطة (متبقي {user.points || 0})</span>}
+                {!isEdit && user.role !== 'admin' && user.role !== 'owner' && cost === 0 && <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full flex items-center gap-1">✨ مجاني</span>}
+              </motion.button>
             </div>
           </form>
         ):(
@@ -2193,8 +2173,8 @@ function AdFormModal({ isOpen, onClose, onSubmit, user, editAd }:{
 // ─────────────────────────────────────────────
 // Product Form Modal (Create / Edit)
 // ─────────────────────────────────────────────
-function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct }:{
-  isOpen:boolean; onClose:()=>void; onSubmit:(p:Product)=>void; user:User; editProduct?:Product|null;
+function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct, cost = 1 }:{
+  isOpen:boolean; onClose:()=>void; onSubmit:(p:Product)=>void; user:User; editProduct?:Product|null; cost?:number;
 }) {
   const isEdit = !!editProduct;
   const [fd, setFd] = useState({ title:editProduct?.title||'', price:editProduct?.price?formatPrice(editProduct.price):'', description:editProduct?.description||'', category:editProduct?.category||'electronics', governorate:editProduct?.governorate||user?.location||'بغداد', phone:editProduct?.phone||user?.phone||'', condition:(editProduct?.condition||'new') as 'new'|'used', stock:editProduct?.stock||1 });
@@ -2565,7 +2545,7 @@ function PasswordChangeModal({ isOpen, onClose, userEmail, userPhone }:{
 
 function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeleteProduct, onEditProduct, onUpdateUser, onAddAd, onAddProduct, transportLines, onUpdateTransportStatus, onDeleteTransportAd, onMarkAdSold, onMarkProductSold, favorites = [], allAds = [], allProducts = [], onAdSelect, onProductSelect, onFav, onStoreGuideClick }:{
   user:User; myAds:Ad[]; myProducts:Product[]; onDeleteAd:(id:number)=>void; onEditAd:(ad:Ad)=>void;
-  onDeleteProduct:(id:number)=>void; onEditProduct:(p:Product)=>void; onUpdateUser:(u:User)=>void;
+  onDeleteProduct:(id:number)=>void; onEditProduct:(p:Product)=>void; onUpdateUser:(u:User, quiet?:boolean)=>void;
   onAddAd:()=>void; onAddProduct:()=>void;
   transportLines: TransportAd[];
   onUpdateTransportStatus: (id: number, status: TransportAd['status'], reason?: TransportAd['completion_reason']) => void;
@@ -2580,7 +2560,50 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
   onFav?: (id: number) => void;
   onStoreGuideClick?: () => void;
 }) {
-  const [tab, setTab] = useState<'ads'|'store'|'favs'|'archive'|'lines'|'account'>('ads');
+  const [tab, setTab] = useState<'ads'|'store'|'favs'|'archive'|'lines'|'account'|'wallet'>('ads');
+  const [promoCode, setPromoCode] = useState('');
+  const [isRedeeming, setIsRedeeming] = useState(false);
+
+  const handleRedeemPromoCode = async () => {
+    if (!promoCode.trim() || !user) return;
+    setIsRedeeming(true);
+    try {
+      const { data, error } = await supabase.rpc('redeem_promo_code', {
+        p_code: promoCode.trim().toUpperCase(),
+        p_user_id: user.id
+      });
+      if (error) throw error;
+      if (data.success) {
+        // Fetch fresh points from database directly to ensure accuracy
+        const { data: freshProfile } = await supabase.from('profiles').select('points').eq('id', user.id).single();
+        const newPoints = freshProfile?.points ?? (user.points || 0);
+
+        const updatedUser = { ...user, points: newPoints };
+        onUpdateUser?.(updatedUser, true);
+        localStorage.setItem('souqUser', JSON.stringify(updatedUser));
+        setPromoCode('');
+        alert(`تم الشحن بنجاح! رصيدك الحالي هو ${newPoints} نقطة. 🎉`);
+      } else {
+        alert(data.message || 'الكود غير صالح أو مستخدم مسبقاً.');
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert('حدث خطأ أثناء محاولة تفعيل البرومو كود.');
+    } finally {
+      setIsRedeeming(false);
+    }
+  };
+
+  const handleRechargeWhatsApp = () => {
+    const message = `مرحباً، خلصت نقاطي وأريد أجدد رصيدي في منصة سوق بغداد.
+أريد الاستفادة من العرض المدعوم للمشتركين (خصم 50%) للحصول على 100 نقطة بسعر 2,500 دينار.
+📋 تفاصيل حسابي:
+👤 اسم المستخدم: ${user.name}
+📱 رقم الهاتف: ${user.phone}
+📍 المحافظة: ${user.location || 'غير محدد'}
+يرجى تزويدي بطريقة الدفع لحجز البرومو كود.`;
+    window.open(`https://api.whatsapp.com/send?phone=9647700028170&text=${encodeURIComponent(message)}`, '_blank');
+  };
   const [editing, setEditing] = useState(false);
   const [ef, setEf] = useState({ name:user.name, phone:user.phone, location:user.location, bio:user.bio||'', email:user.email||'' });
   const [showVerifyModal, setShowVerifyModal] = useState(false);
@@ -2736,9 +2759,28 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
   const allMyLines = [...transportLines.filter(line => line.postedBy === user?.id), ...localArchiveLines].filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
 
   useEffect(() => {
-    const handleSwitch = () => setTab('lines');
-    window.addEventListener('switch-to-lines-tab', handleSwitch);
-    return () => window.removeEventListener('switch-to-lines-tab', handleSwitch);
+    const handleSwitchLines = () => setTab('lines');
+    const handleSwitchWallet = () => setTab('wallet');
+    window.addEventListener('switch-to-lines-tab', handleSwitchLines);
+    window.addEventListener('switch-to-wallet-tab', handleSwitchWallet);
+    
+    const handleUpdateViews = (e: any) => {
+      const { id, views, type } = e.detail;
+      if (type === 'ad') {
+        setLocalArchiveAds(prev => prev.map(a => a.id === id ? { ...a, views: Math.max(a.views || 0, views) } : a));
+      } else if (type === 'product') {
+        setLocalArchiveProds(prev => prev.map(p => p.id === id ? { ...p, views: Math.max(p.views || 0, views) } : p));
+      } else if (type === 'transport') {
+        setLocalArchiveLines(prev => prev.map(l => l.id === id ? { ...l, views: Math.max(l.views || 0, views) } : l));
+      }
+    };
+    window.addEventListener('update-views', handleUpdateViews);
+    
+    return () => {
+      window.removeEventListener('switch-to-lines-tab', handleSwitchLines);
+      window.removeEventListener('switch-to-wallet-tab', handleSwitchWallet);
+      window.removeEventListener('update-views', handleUpdateViews);
+    };
   }, []);
 
   const handleSave = async () => {
@@ -2950,10 +2992,66 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
 
         {/* Tabs */}
         <div className="flex gap-2 mb-5 bg-gray-800 p-1.5 rounded-2xl border border-gray-700 overflow-x-auto scrollbar-hide">
-          {([['ads',`📢 إعلاناتي (${allMyAds.filter(a=>a.status==='active').length})`],['store',`🛍️ متجري (${allMyProducts.filter(p=>p.status==='active').length})`],['archive',`📦 الأرشيف (${allMyAds.filter(a=>a.status==='sold').length + allMyProducts.filter(p=>p.status==='sold').length})`],['lines',`🚌 خطوطي`],['account','⚙️ الحساب']] as [string,string][]).map(([t,l])=>(
+          {([['ads',`📢 إعلاناتي (${allMyAds.filter(a=>a.status==='active').length})`],['store',`🛍️ متجري (${allMyProducts.filter(p=>p.status==='active').length})`],['wallet', '💳 محفظتي'],['archive',`📦 الأرشيف (${allMyAds.filter(a=>a.status==='sold').length + allMyProducts.filter(p=>p.status==='sold').length})`],['lines',`🚌 خطوطي`],['account','⚙️ الحساب']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${tab===t?'bg-amber-500 text-black shadow':'text-gray-400 hover:text-white'}`}>{l}</button>
           ))}
         </div>
+
+        {tab==='wallet'&&(
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-6 sm:p-8 border border-gray-700 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl" />
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl" />
+              
+              <div className="relative z-10 flex flex-col items-center justify-center text-center">
+                <div className="w-16 h-16 bg-gray-800 border-2 border-emerald-500/30 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/20">
+                  <Wallet className="w-8 h-8 text-emerald-400" />
+                </div>
+                <h3 className="text-gray-400 font-medium mb-1">الرصيد الحالي</h3>
+                <div className="flex items-baseline gap-2 mb-6">
+                  <span className="text-5xl font-black text-white font-mono tracking-tight">{user.points || 0}</span>
+                  <span className="text-emerald-400 font-bold">نقطة</span>
+                </div>
+                
+                <button 
+                  onClick={handleRechargeWhatsApp}
+                  className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                  <span>تواصل للشحن السريع</span>
+                </button>
+                <p className="text-gray-500 text-xs mt-3">خصم 50% على الباقة الأساسية (100 نقطة بـ 2,500 د.ع)</p>
+              </div>
+            </div>
+
+            <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-2 bg-amber-500/10 rounded-xl">
+                  <Sparkles className="w-5 h-5 text-amber-400" />
+                </div>
+                <h3 className="text-white font-bold text-lg">تفعيل برومو كود</h3>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input 
+                  type="text" 
+                  value={promoCode}
+                  onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                  placeholder="أدخل الكود هنا (مثال: GIFT-100)" 
+                  className="flex-1 bg-gray-900 text-white placeholder-gray-500 border border-gray-700 rounded-xl px-4 py-3 outline-none focus:border-amber-500/50 transition-colors uppercase font-mono text-center sm:text-right"
+                  disabled={isRedeeming}
+                />
+                <button 
+                  onClick={handleRedeemPromoCode}
+                  disabled={isRedeeming || !promoCode.trim()}
+                  className="px-6 py-3 bg-amber-500 text-black font-bold rounded-xl hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors min-w-[120px]"
+                >
+                  {isRedeeming ? <Loader2 className="w-5 h-5 animate-spin" /> : 'تفعيل'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Ads Tab */}
         {tab==='ads'&&(
@@ -3850,25 +3948,113 @@ function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }: { ad: 
 }
 
 function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id:number)=>void;onClose:()=>void}) {
+  const [tab, setTab] = useState<'ads'|'users'|'settings'>('ads');
+  const [users, setUsers] = useState<any[]>([]);
+  const [costs, setCosts] = useState<{ad:number; product:number; transport:number}>({ad:1, product:1, transport:1});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if(tab === 'users') {
+      supabase.from('profiles').select('id, name, phone, points, created_at').order('created_at', { ascending: false }).then(({data}) => {
+        if(data) setUsers(data);
+      });
+    } else if (tab === 'settings') {
+      supabase.from('system_settings').select('*').then(({data, error}) => {
+        if(!error && data) {
+          const c: any = { ad:1, product:1, transport:1 };
+          data.forEach(r => { c[r.category] = r.cost; });
+          setCosts(c);
+        }
+      });
+    }
+  }, [tab]);
+
+  const saveSettings = async () => {
+    setSaving(true);
+    try {
+      for (const [cat, cost] of Object.entries(costs)) {
+        await supabase.from('system_settings').upsert({ category: cat, cost: Number(cost) });
+      }
+      showToast('تم حفظ أسعار الإعلانات بنجاح ✅', 'success');
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (e) {
+      showToast('حدث خطأ أثناء الحفظ', 'error');
+    }
+    setSaving(false);
+  };
+
   return (
     <div className="min-h-screen bg-[#0c2b5e] pt-16 pb-8">
       <div className="container mx-auto px-4 max-w-3xl">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3"><div className="w-10 h-10 bg-red-500/20 rounded-xl flex items-center justify-center"><Settings className="w-5 h-5 text-red-400"/></div>
-            <div><h1 className="text-xl font-bold text-white">لوحة الإدارة</h1><p className="text-gray-400 text-xs">إدارة الإعلانات والمحتوى</p></div></div>
+            <div><h1 className="text-xl font-bold text-white">لوحة الإدارة</h1><p className="text-gray-400 text-xs">إدارة الإعلانات والمستخدمين والتسعير</p></div></div>
           <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
         </div>
-        <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
-          <div className="p-4 border-b border-gray-700"><h3 className="text-white font-bold">الإعلانات ({ads.length})</h3></div>
-          {ads.length===0?<div className="p-8 text-center text-gray-400">لا إعلانات</div>:ads.map(ad=>(
-            <div key={ad.id} className="flex items-center gap-3 p-3 border-t border-gray-700/50">
-              <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover"/>
-              <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{ad.title}</p>
-                <p className="text-xs text-gray-400">{ad.location} • {formatPrice(ad.price)} د.ع</p></div>
-              <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400" title="حذف الإعلان" aria-label="حذف الإعلان"><Trash2 className="w-4 h-4"/></button>
-            </div>
-          ))}
+
+        <div className="flex gap-2 overflow-x-auto pb-4 hide-scrollbar mb-4">
+          <button onClick={() => setTab('ads')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap ${tab === 'ads' ? 'bg-red-500 text-white' : 'bg-gray-800 text-gray-400'}`}>الإعلانات ({ads.length})</button>
+          <button onClick={() => setTab('users')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap ${tab === 'users' ? 'bg-amber-500 text-black' : 'bg-gray-800 text-gray-400'}`}>المستخدمين ({users.length || '...'})</button>
+          <button onClick={() => setTab('settings')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap ${tab === 'settings' ? 'bg-emerald-500 text-white' : 'bg-gray-800 text-gray-400'}`}>الأسعار والنقاط</button>
         </div>
+
+        {tab === 'ads' && (
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+            {ads.length===0?<div className="p-8 text-center text-gray-400">لا إعلانات</div>:ads.map(ad=>(
+              <div key={ad.id} className="flex items-center gap-3 p-3 border-b border-gray-700/50">
+                <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover"/>
+                <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{ad.title}</p>
+                  <p className="text-xs text-gray-400">{ad.location} • {formatPrice(ad.price)} د.ع</p></div>
+                <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400" title="حذف الإعلان" aria-label="حذف الإعلان"><Trash2 className="w-4 h-4"/></button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === 'users' && (
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+            <div className="p-4 grid grid-cols-3 gap-2 border-b border-gray-700 text-sm font-bold text-gray-400">
+              <div>المستخدم</div>
+              <div>الهاتف</div>
+              <div className="text-left">النقاط</div>
+            </div>
+            {users.map(u => (
+              <div key={u.id} className="p-4 grid grid-cols-3 gap-2 border-b border-gray-700/50 items-center">
+                <div className="text-white text-sm truncate" title={u.name}>{u.name || 'مستخدم'}</div>
+                <div className="text-gray-400 text-xs font-mono">{u.phone || '---'}</div>
+                <div className="text-left font-bold text-amber-400 font-mono">{u.points || 0}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === 'settings' && (
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 space-y-6">
+            <div className="space-y-4">
+              <h3 className="text-white font-bold mb-4">تكلفة النشر (بالنقاط) لكل قسم</h3>
+              
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">قسم الإعلانات المبوبة</label>
+                <input type="number" min="0" value={costs.ad} onChange={e => setCosts({...costs, ad: Number(e.target.value)})} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-emerald-500" />
+              </div>
+              
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">قسم المنتجات والتسوق</label>
+                <input type="number" min="0" value={costs.product} onChange={e => setCosts({...costs, product: Number(e.target.value)})} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-emerald-500" />
+              </div>
+
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">قسم خطوط النقل</label>
+                <input type="number" min="0" value={costs.transport} onChange={e => setCosts({...costs, transport: Number(e.target.value)})} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-emerald-500" />
+              </div>
+            </div>
+            
+            <button onClick={saveSettings} disabled={saving} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center justify-center gap-2">
+              {saving ? <Loader2 className="w-5 h-5 animate-spin"/> : <><Check className="w-5 h-5"/> حفظ التعديلات</>}
+            </button>
+            <p className="text-xs text-gray-500 text-center mt-2">تحديث الصفحة سيتم تلقائياً بعد الحفظ لتطبيق الأسعار الجديدة.</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -4909,12 +5095,13 @@ const EMPLOYEE_WORKPLACES = [
 
 // TransportAd moved to src/types/index.ts
 
-function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd }: {
+function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd, cost = 1 }: {
   onClose: () => void;
   onSubmit: (ad: TransportAd) => void;
-  user: { id: string; name: string; avatar: string; phone: string };
+  user: { id: string; name: string; avatar: string; phone: string; points?: number; role?: string };
   lines?: TransportAd[];
   editAd?: TransportAd | null;
+  cost?: number;
 }) {
   const isEdit = !!editAd;
   const [type, setType] = useState<'offer'|'request'>(editAd?.type || 'offer');
@@ -5417,7 +5604,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
       {/* Form Modal */}
       <AnimatePresence>
         {showForm && user && (
-          <TransportFormModal user={user} onClose={()=>setShowForm(false)} onSubmit={handlePost} lines={lines}/>
+          <TransportFormModal user={user} onClose={()=>setShowForm(false)} onSubmit={handlePost} lines={lines} cost={adCosts.transport !== undefined ? adCosts.transport : 1} />
         )}
       </AnimatePresence>
     </div>
@@ -5440,6 +5627,17 @@ export default function App() {
     }
   });
   const [showStoreGuide, setShowStoreGuide] = useState(false);
+  const [adCosts, setAdCosts] = useState<{ad:number; product:number; transport:number}>({ ad: 1, product: 1, transport: 1 });
+
+  useEffect(() => {
+    supabase.from('system_settings').select('*').then(({ data, error }) => {
+      if (!error && data) {
+        const costs: any = { ad: 1, product: 1, transport: 1 };
+        data.forEach(r => { costs[r.category] = r.cost; });
+        setAdCosts(costs);
+      }
+    });
+  }, []);
   const getInitialRouteInfo = () => {
     if (typeof window === 'undefined') return { hash: '', path: '' };
     let hash = window.location.hash;
@@ -5871,6 +6069,7 @@ export default function App() {
       cover: profile?.cover_url || DEFAULT_COVER,
       bio: '',
       location: profile?.city || authUser.user_metadata?.city || 'بغداد',
+      points: profile?.points || 0,
       rating: 4.8,
       isVerified: role !== 'user',
       joinedDate: profile?.created_at || 'الآن',
@@ -6362,8 +6561,6 @@ export default function App() {
       const from = pageToFetch * pageSize;
       const to = from + pageSize - 1;
 
-
-
       let query = supabase.from('ads').select('*', { count: 'exact' }).eq('is_demo', false).neq('category', 'transport').neq('category', 'notification').neq('status', 'sold');
 
       if (cat && cat !== 'all') {
@@ -6611,6 +6808,11 @@ export default function App() {
       let combined: any[] = [];
       if (!userNotifsError && userNotifs) {
         userNotifs.forEach((row: any) => {
+          // Filter out the old view/interest notifications so they don't show up anymore
+          if (row.type === 'view' || row.type === 'interest' || (row.title && row.title.includes('مشاهدة'))) {
+            return;
+          }
+          
           combined.push({
             id: row.id,
             type: row.type || 'system',
@@ -6741,75 +6943,8 @@ export default function App() {
   };
 
   const handleViewDurationLogged = async (itemId: number | string, itemTitle: string, ownerId: string, itemType: string, seconds: number) => {
-    if (!user) return;
-    if (user.id === ownerId) return;
-
-    const viewerName = user.name || 'مستخدم';
-    const viewerId = user.id;
-    const viewerPhone = user.phone || '';
-
-    // 1. Owner notification row
-    const ownerNotifRow = {
-      seller_id: ownerId,
-      title: seconds >= 15 ? '🔥 اهتمام كبير بإعلانك' : '👀 مشاهدة جديدة لإعلانك',
-      description: JSON.stringify({
-        message: `قام الحساب (${viewerName}) بمشاهدة إعلانك "${itemTitle}" لمدة ${seconds} ثوانٍ.`,
-        type: seconds >= 15 ? 'interest' : 'view',
-        senderId: viewerId,
-        senderName: viewerName,
-        senderPhone: viewerPhone,
-        itemTitle: itemTitle,
-        itemType: itemType,
-        itemId: itemId,
-        duration: seconds,
-        targetType: 'owner'
-      }),
-      price: '0',
-      category: 'notification',
-      location: '',
-      city: '',
-      images: [],
-      phone: viewerPhone,
-      type: 'notification',
-      status: 'active',
-      is_demo: false,
-      seller_name: viewerName,
-      seller_avatar: user.avatar,
-    };
-
-    // 2. Viewer history row
-    const viewerNotifRow = {
-      seller_id: viewerId,
-      title: '🕒 سجل المشاهدة',
-      description: JSON.stringify({
-        message: `شاهدت إعلان "${itemTitle}" (${itemType === 'ad' ? 'إعلان' : itemType === 'product' ? 'منتج' : 'خط'}) لـ ${seconds} ثوانٍ.`,
-        type: 'history',
-        senderId: ownerId,
-        senderName: '',
-        senderPhone: '',
-        itemTitle: itemTitle,
-        itemType: itemType,
-        itemId: itemId,
-        duration: seconds,
-        targetType: 'viewer'
-      }),
-      price: '0',
-      category: 'notification',
-      location: '',
-      city: '',
-      images: [],
-      phone: '',
-      type: 'notification',
-      status: 'active',
-      is_demo: false,
-      seller_name: '',
-      seller_avatar: '',
-    };
-
-    const { error } = await supabase.from('ads').insert([ownerNotifRow, viewerNotifRow]);
-    if (!error) {
-      fetchNotifications();
-    }
+    // Disabled to stop heavy DB bandwidth usage and save egress costs
+    return;
   };
 
 
@@ -6875,7 +7010,8 @@ export default function App() {
     };
 
     trackActivity();
-    interval = setInterval(trackActivity, 2 * 60 * 1000); // Every 2 minutes
+    // Disabled interval to reduce heavy background data usage
+    // interval = setInterval(trackActivity, 2 * 60 * 1000); 
     return () => clearInterval(interval);
   }, [user]);
 
@@ -6896,21 +7032,23 @@ export default function App() {
     setView('home');
     showToast('تم تسجيل الخروج', 'info');
   };
-  const handleUpdateUser = async (u:User)=>{
+  const handleUpdateUser = async (u:User, quiet: boolean = false)=>{
     setUser(u);
     localStorage.setItem('souqUser', JSON.stringify(u));
     saveStoredUser(u, allAds.filter(a=>a.postedBy===u.id).length);
-    await supabase.from('profiles').upsert({
-      id: u.id,
-      full_name: u.name,
-      email: u.email,
-      phone: u.phone,
-      avatar_url: u.avatar,
-      cover_url: u.cover,
-      city: u.location,
-      role: u.role
-    }, { onConflict: 'id' });
-    showToast('تم حفظ الملف الشخصي ✅', 'success');
+    if (!quiet) {
+      await supabase.from('profiles').upsert({
+        id: u.id,
+        full_name: u.name,
+        email: u.email,
+        phone: u.phone,
+        avatar_url: u.avatar,
+        cover_url: u.cover,
+        city: u.location,
+        role: u.role
+      }, { onConflict: 'id' });
+      showToast('تم حفظ الملف الشخصي ✅', 'success');
+    }
   };
   const handleToggleFav = (id:number)=>{setFavorites(prev=>{const f=prev.includes(id);showToast(f?'تمت الإزالة من المفضلة':'تمت الإضافة للمفضلة','success');return f?prev.filter(x=>x!==id):[...prev,id];});};
   const requireAuth = ()=>setShowAuth(true);
@@ -6941,11 +7079,40 @@ export default function App() {
       setEditingAd(null);
       showToast('تم تعديل الإعلان ✅', 'success');
     } else {
+      // Deduct points before publishing
+      const cost = adCosts.ad !== undefined ? adCosts.ad : 1;
+      if (user?.role !== 'admin' && user?.role !== 'owner' && cost > 0) {
+        const { data: deductData, error: deductError } = await supabase.rpc('deduct_points', {
+          p_user_id: user?.id,
+          p_amount: cost,
+          p_reason: 'خصم لنشر إعلان مبوب'
+        });
+        
+        if (deductError || !deductData?.success) {
+          showToast(deductData?.message || 'رصيد النقاط غير كافٍ لنشر إعلان. يرجى شحن المحفظة.', 'error');
+          return;
+        }
+        
+        // Update local points
+        if (user && deductData.remaining !== undefined) {
+          setUser(prev => {
+            if (!prev) return prev;
+            const u = { ...prev, points: deductData.remaining };
+            localStorage.setItem('souqUser', JSON.stringify(u));
+            return u;
+          });
+        }
+      }
+
       const { data, error } = await supabase.from('ads').insert(rowData).select().single();
       if (error) { showToast('حدث خطأ أثناء النشر', 'error'); console.error(error); return; }
       if (user && data) {
-        const u = { ...user, stats: { ...user.stats, ads: user.stats.ads + 1 } };
-        setUser(u); localStorage.setItem('souqUser', JSON.stringify(u));
+        setUser(prev => {
+          if (!prev) return prev;
+          const u = { ...prev, stats: { ...prev.stats, ads: prev.stats.ads + 1 } };
+          localStorage.setItem('souqUser', JSON.stringify(u));
+          return u;
+        });
       }
       showToast('تم نشر إعلانك! 🎉', 'success');
     }
@@ -6982,6 +7149,31 @@ export default function App() {
       seller_avatar: ad.sellerAvatar || user?.avatar || '',
       short_id: ad.short_id || Math.random().toString(36).substring(2, 7).toUpperCase(),
     };
+
+    // Deduct points before publishing
+    const cost = adCosts.transport !== undefined ? adCosts.transport : 1;
+    if (user?.role !== 'admin' && user?.role !== 'owner' && cost > 0) {
+      const { data: deductData, error: deductError } = await supabase.rpc('deduct_points', {
+        p_user_id: user?.id,
+        p_amount: cost,
+        p_reason: 'خصم لنشر خط نقل'
+      });
+      
+      if (deductError || !deductData?.success) {
+        showToast(deductData?.message || 'رصيد النقاط غير كافٍ. يرجى شحن المحفظة.', 'error');
+        return;
+      }
+      
+      // Update local points
+      if (user && deductData.remaining !== undefined) {
+        setUser(prev => {
+          if (!prev) return prev;
+          const u = { ...prev, points: deductData.remaining };
+          localStorage.setItem('souqUser', JSON.stringify(u));
+          return u;
+        });
+      }
+    }
 
     const { error } = await supabase.from('ads').insert(rowData);
     if (error) {
@@ -7068,6 +7260,31 @@ export default function App() {
       setEditingProduct(null);
       showToast('تم تعديل المنتج ✅', 'success');
     } else {
+      // Deduct points before publishing
+      const cost = adCosts.product !== undefined ? adCosts.product : 1;
+      if (user?.role !== 'admin' && user?.role !== 'owner' && cost > 0) {
+        const { data: deductData, error: deductError } = await supabase.rpc('deduct_points', {
+          p_user_id: user?.id,
+          p_amount: cost,
+          p_reason: 'خصم لنشر منتج'
+        });
+        
+        if (deductError || !deductData?.success) {
+          showToast(deductData?.message || 'رصيد النقاط غير كافٍ لنشر منتج. يرجى شحن المحفظة.', 'error');
+          return;
+        }
+        
+        // Update local points
+        if (user && deductData.remaining !== undefined) {
+          setUser(prev => {
+            if (!prev) return prev;
+            const u = { ...prev, points: deductData.remaining };
+            localStorage.setItem('souqUser', JSON.stringify(u));
+            return u;
+          });
+        }
+      }
+
       const { error } = await supabase.from('products').insert(rowData);
       if (error) { showToast('حدث خطأ أثناء النشر', 'error'); console.error(error); return; }
       showToast('تم نشر المنتج في متجرك! 🛍️', 'success');
@@ -7255,6 +7472,10 @@ export default function App() {
                       </span>
                     )}
                   </button>
+                  <button onClick={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-wallet-tab')), 100);}} className="flex items-center gap-1.5 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl text-sm border border-gray-700 hover:border-amber-500/50 transition-colors" title="محفظتي">
+                    <Wallet className="w-4 h-4 text-emerald-400"/>
+                    <span className="font-bold font-mono">{user.points || 0}</span>
+                  </button>
                   {isOwner&&<button onClick={()=>setView('owner')} className={`p-2 rounded-xl text-amber-400 hover:bg-amber-500/20 ${view==='owner'?'bg-amber-500/20':''}`} title="لوحة المالك" aria-label="لوحة المالك"><Crown className="w-5 h-5"/></button>}
                   {isAdmin&&!isOwner&&<button onClick={()=>setView('admin')} className={`p-2 rounded-xl text-red-400 hover:bg-red-500/20 ${view==='admin'?'bg-red-500/20':''}`} title="لوحة الإدارة" aria-label="لوحة الإدارة"><Settings className="w-5 h-5"/></button>}
                   <button onClick={()=>{setShowCreateProduct(true);setEditingProduct(null);}}
@@ -7289,10 +7510,16 @@ export default function App() {
               </button>
 
               {user ? (
-                <button onClick={()=>setView('profile')} className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white'}`}>
-                  <img src={user.avatar} alt="" className={`w-5.5 h-5.5 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border border-gray-600'}`}/>
-                  <span className="max-w-16 truncate hidden sm:block">{user.name}</span>
-                </button>
+                <>
+                  <button onClick={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-wallet-tab')), 100);}} className="flex items-center gap-1 px-2 py-1.5 bg-gray-800 text-white rounded-xl text-xs border border-gray-700" title="محفظتي">
+                    <Wallet className="w-3 h-3 text-emerald-400"/>
+                    <span className="font-bold font-mono">{user.points || 0}</span>
+                  </button>
+                  <button onClick={()=>setView('profile')} className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white'}`}>
+                    <img src={user.avatar} alt="" className={`w-5.5 h-5.5 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border border-gray-600'}`}/>
+                    <span className="max-w-16 truncate hidden sm:block">{user.name}</span>
+                  </button>
+                </>
               ) : (
                 <button onClick={()=>setShowAuth(true)} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white font-bold rounded-xl text-xs hover:bg-blue-700">
                   <LogIn className="w-3.5 h-3.5"/> <span>دخول</span>
@@ -7545,11 +7772,11 @@ export default function App() {
       <AnimatePresence>
         {showOnboarding&&<OnboardingModal onClose={()=>{setShowOnboarding(false);localStorage.setItem('souqOnboarded','1');}}/>}
         {showAuth&&<AuthModal onClose={()=>setShowAuth(false)} onLogin={handleLogin}/>}
-        {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => setAllAds(prev => prev.map(a => a.id === id ? { ...a, views: Math.max(a.views || 0, views) } : a))} />}
-        {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => setAllProducts(prev => prev.map(p => p.id === id ? { ...p, views: Math.max(p.views || 0, views) } : p))} />}
+        {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllAds(prev => prev.map(a => a.id === id ? { ...a, views: Math.max(a.views || 0, views) } : a)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'ad' } })); }} />}
+        {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllProducts(prev => prev.map(p => p.id === id ? { ...p, views: Math.max(p.views || 0, views) } : p)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'product' } })); }} />}
         {selectedTransportAd&&<TransportDetailModal ad={selectedTransportAd} onClose={()=>setSelectedTransportAd(null)} user={user} onAuthRequired={requireAuth} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedTransportAd.id, selectedTransportAd.type==='offer'?'خط متوفر':'طلب خط', selectedTransportAd.postedBy || '', 'transport', sec)} storedUsers={storedUsers}/>}
-        {showCreateAd&&user&&<AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd}/>}
-        {showCreateProduct&&user&&<ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct}/>}
+        {showCreateAd&&user&&<AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd} cost={adCosts.ad !== undefined ? adCosts.ad : 1} />}
+        {showCreateProduct&&user&&<ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct} cost={adCosts.product !== undefined ? adCosts.product : 1} />}
         {showNotifs&&<NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick} onMarkRead={markNotifAsRead} onArchiveAll={handleArchiveAllNotifications}/>}
         {activeDocTab&&<InfoDocsModal activeTab={activeDocTab} onClose={()=>setActiveDocTab(null)} user={user}/>}
         {activeLightbox&&<ImageLightboxModal src={activeLightbox.src} title={activeLightbox.title} images={(activeLightbox as any).images} initialIdx={(activeLightbox as any).initialIdx} onClose={()=>setActiveLightbox(null)}/>}
