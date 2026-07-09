@@ -2585,9 +2585,10 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
     let isMounted = true;
     async function loadArchive() {
       if (!user) return;
+      const adsQuery = user.phone && !user.phone.includes('-') ? `postedBy.eq.${user.id},phone.eq.${user.phone}` : `postedBy.eq.${user.id}`;
       const [adsRes, prodsRes] = await Promise.all([
-        supabase.from('ads').select('*').or(`postedBy.eq.${user.id},phone.eq.${user.phone}`),
-        supabase.from('products').select('*').or(`postedBy.eq.${user.id},phone.eq.${user.phone}`)
+        supabase.from('ads').select('*').or(adsQuery),
+        supabase.from('products').select('*').or(adsQuery)
       ]);
       
       if (adsRes.data && isMounted) {
