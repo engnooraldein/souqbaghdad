@@ -6285,16 +6285,23 @@ export default function App() {
         });
       }
     } else if ((type === 'profile' || type === 'seller') && targetId) {
-      let actualId = targetId;
-      const uuidMatch = targetId.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
-      if (uuidMatch) {
-        actualId = uuidMatch[1];
-      } else if (targetId.includes('-')) {
-        const segments = targetId.split('-');
-        actualId = segments[segments.length - 1];
+      if (targetId === 'pay' || targetId === 'wallet') {
+        setView('profile');
+        if (typeof window !== 'undefined') {
+          setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-wallet-tab')), 100);
+        }
+      } else {
+        let actualId = targetId;
+        const uuidMatch = targetId.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+        if (uuidMatch) {
+          actualId = uuidMatch[1];
+        } else if (targetId.includes('-')) {
+          const segments = targetId.split('-');
+          actualId = segments[segments.length - 1];
+        }
+        setSelectedSellerId(actualId);
+        setView('seller');
       }
-      setSelectedSellerId(actualId);
-      setView('seller');
     } else if (type === 'accounts' || type === 'sellers') {
       setView('home');
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('switch-to-profiles-tab'));

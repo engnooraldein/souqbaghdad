@@ -44,7 +44,13 @@ export function UserProfile({ onBack }: UserProfileProps) {
       setIsSyncing(false);
     }
   };
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(window.location.hash.startsWith('#/seller/pay') || window.location.hash.startsWith('#/wallet') ? 'wallet' : 'overview');
+
+  React.useEffect(() => {
+    const handleWalletTab = () => setActiveTab('wallet');
+    window.addEventListener('switch-to-wallet-tab', handleWalletTab);
+    return () => window.removeEventListener('switch-to-wallet-tab', handleWalletTab);
+  }, []);
   const [isEditing, setIsEditing] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
 
