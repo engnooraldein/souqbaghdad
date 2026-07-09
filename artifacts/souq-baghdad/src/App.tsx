@@ -1083,7 +1083,7 @@ function InfoDocsModal({ activeTab, onClose, user }: { activeTab: string; onClos
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-white font-bold text-xl">سجل التحديثات والإصدارات</h2>
-                      <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.6.0</span>
+                      <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.7.0</span>
                     </div>
                     <p className="text-gray-400 text-xs mt-1">تتبع التغييرات والميزات المضافة في كل إصدار</p>
                   </div>
@@ -1096,7 +1096,7 @@ function InfoDocsModal({ activeTab, onClose, user }: { activeTab: string; onClos
                       الإصدار الأخير
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-amber-400 font-bold text-sm">⚡ الإصدار v1.6.0 (تحسين الأداء وفصل المكونات)</span>
+                      <span className="text-amber-400 font-bold text-sm">⚡ الإصدار v1.7.0 (نظام الدفع والمحفظة)</span>
                       <span className="text-gray-400 text-xs font-mono">(06/07/2026)</span>
                     </div>
                     <ul className="text-gray-300 text-xs space-y-1.5 list-disc list-inside pr-1">
