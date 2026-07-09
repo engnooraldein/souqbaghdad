@@ -10,7 +10,7 @@ export const useOnlineStatuses = () => {
     const trigger = () => setStatuses({...globalOnlineStatuses});
     onlineListeners.push(trigger);
     fetchGlobalOnlineStatuses();
-    const interval = setInterval(fetchGlobalOnlineStatuses, 15000);
+    const interval = setInterval(fetchGlobalOnlineStatuses, 300000); // 5 minutes
     return () => { 
       onlineListeners = onlineListeners.filter(l => l !== trigger); 
       clearInterval(interval);

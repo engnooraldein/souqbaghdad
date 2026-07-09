@@ -69,7 +69,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
       try { setSystemLogs(JSON.parse(localStorage.getItem('souq_system_logs') || '[]')); } catch {}
     };
     loadLogs();
-    const interval = setInterval(loadLogs, 3000);
+    const interval = setInterval(loadLogs, 60000); // Changed from 3000 to 60000 (1 minute)
     return () => clearInterval(interval);
   }, []);
 
@@ -86,7 +86,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
   useEffect(()=>{
     try{setStoredUsers(JSON.parse(localStorage.getItem('souqUsers')||'[]'));}catch{}
     try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}
-    const iv=setInterval(()=>{try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}},30_000);
+    const iv=setInterval(()=>{try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}},300_000); // Changed to 5 minutes
     
     
     const fetchVerification = async () => {
@@ -119,7 +119,7 @@ const fetchRecovery = async () => {
       } catch (err) {}
     };
     fetchUsersAndGuests();
-    const fetchInterval = setInterval(fetchUsersAndGuests, 60_000);
+    const fetchInterval = setInterval(fetchUsersAndGuests, 300_000); // 5 minutes
 
     const fetchReports = async () => {
       try {
