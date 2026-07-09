@@ -4,7 +4,7 @@ import {
   Map, Bookmark, Home as HomeIcon
 } from 'lucide-react';
 import { User as UserType } from '../types';
-import { LiveVisitorCounter } from './LiveVisitorCounter';
+import LiveVisitorCounter from './LiveVisitorCounter';
 
 interface NavbarProps {
   user: UserType | null;

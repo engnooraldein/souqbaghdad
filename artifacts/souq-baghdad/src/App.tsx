@@ -470,13 +470,17 @@ function InterestTimer({ itemId, itemType, onInterestRegistered }: { itemId: str
 
   return (
     <motion.div
-      initial={{ scale: 0, y: 50, opacity: 0 }}
-      animate={{ scale: 1, y: 0, opacity: 1 }}
-      exit={{ scale: 0, opacity: 0 }}
-      className="absolute top-4 left-4 z-50 px-4 py-2 bg-amber-500 text-black font-black rounded-full shadow-lg border border-yellow-300 flex items-center gap-1.5 animate-bounce"
+      initial={{ scale: 0.9, opacity: 0, y: -10 }}
+      animate={{ scale: 1, opacity: 1, y: 0 }}
+      exit={{ scale: 0.9, opacity: 0, y: -10 }}
+      className="absolute top-14 left-4 z-50 px-3 py-1.5 bg-[#0c2b5e]/80 backdrop-blur-md text-white border border-[#4b7ab5]/50 rounded-2xl shadow-xl flex items-center gap-2 transition-all"
     >
-      <span>{sticker}</span>
-      <span className="text-[10px] bg-black/15 px-1.5 py-0.5 rounded-full text-[9px] font-bold">{seconds}ث</span>
+      <div className="flex items-center gap-1.5 text-amber-400 font-bold text-xs sm:text-sm">
+        <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+        {sticker}
+      </div>
+      <div className="w-px h-3.5 sm:h-4 bg-gray-500/50 mx-0.5" />
+      <span className="text-[9px] sm:text-[10px] text-emerald-400 font-mono font-medium bg-emerald-500/10 px-1.5 py-0.5 rounded-md">{seconds}ث</span>
     </motion.div>
   );
 }
@@ -1455,11 +1459,16 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
   const onlineStatuses = useOnlineStatuses();
+  const [realViews, setRealViews] = useState(0);
 
   useEffect(()=>{
     setImgIdx(0);
     if (ad) {
+      setRealViews(ad.views || 0);
       recordItemView(ad.id, 'ad', user, ad.postedBy);
+      supabase.from('ad_viewers').select('id', { count: 'exact', head: true }).eq('item_id', ad.id).eq('item_type', 'ad').then(({ count }) => {
+        if (count !== null) setRealViews(Math.max(ad.views || 0, count));
+      });
     }
   },[ad]);
 
@@ -1579,8 +1588,12 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
               <div className="flex items-center gap-3 text-sm text-gray-400">
                 <span className="flex items-center gap-1"><MapPin className="w-3 h-3"/>{ad.location}</span>
                 <TimeAgo iso={ad.createdAtISO} className="text-green-400 font-medium"/>
-                <button onClick={() => setShowViewers(true)} className="flex items-center gap-1 text-xs hover:text-amber-400 text-amber-500 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full">
-                  <Eye className="w-3.5 h-3.5"/><span>{ad.views} مشاهدة</span>
+                <button onClick={() => {
+                  const canViewViewers = user?.isVerified || String(user?.id) === String(ad.postedBy) || user?.role === 'admin' || user?.role === 'owner';
+                  if (canViewViewers) setShowViewers(true);
+                  else alert('عذراً، رؤية قائمة المشاهدات متاحة للمعلن والحسابات الموثقة فقط 🌟');
+                }} className="flex items-center gap-1 text-xs hover:text-amber-400 text-amber-500 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full transition-colors">
+                  <Eye className="w-3.5 h-3.5"/><span>{realViews} مشاهدة</span>
                 </button>
               </div>
             </div>
@@ -1674,11 +1687,16 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
   const onlineStatuses = useOnlineStatuses();
+  const [realViews, setRealViews] = useState(0);
 
   useEffect(()=>{
     setImgIdx(0);
     if (product) {
+      setRealViews(product.views || 0);
       recordItemView(product.id, 'product', user, product.postedBy);
+      supabase.from('ad_viewers').select('id', { count: 'exact', head: true }).eq('item_id', product.id).eq('item_type', 'product').then(({ count }) => {
+        if (count !== null) setRealViews(Math.max(product.views || 0, count));
+      });
     }
   },[product]);
 
@@ -1797,8 +1815,12 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
               <div className="flex items-center gap-3 text-sm text-gray-400">
                 <span className="flex items-center gap-1"><MapPin className="w-3 h-3"/>{product.governorate}</span>
                 <TimeAgo iso={product.createdAtISO} className="text-green-400 font-medium"/>
-                <button onClick={() => setShowViewers(true)} className="flex items-center gap-1 text-xs hover:text-amber-400 text-amber-500 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full font-bold">
-                  <Eye className="w-3.5 h-3.5"/><span>{product.views} مشاهدة</span>
+                <button onClick={() => {
+                  const canViewViewers = user?.isVerified || String(user?.id) === String(product.postedBy) || user?.role === 'admin' || user?.role === 'owner';
+                  if (canViewViewers) setShowViewers(true);
+                  else alert('عذراً، رؤية قائمة المشاهدات متاحة للمعلن والحسابات الموثقة فقط 🌟');
+                }} className="flex items-center gap-1 text-xs hover:text-amber-400 text-amber-500 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full transition-colors">
+                  <Eye className="w-3.5 h-3.5"/><span>{realViews} مشاهدة</span>
                 </button>
               </div>
             </div>
@@ -1885,9 +1907,15 @@ function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDuratio
   storedUsers?: any[];
 }) {
   const [showViewers, setShowViewers] = useState(false);
+  const [realViews, setRealViews] = useState(0);
+
   useEffect(()=>{
     if (ad) {
+      setRealViews(ad.views || 0);
       recordItemView(ad.id, 'transport', user, ad.postedBy);
+      supabase.from('ad_viewers').select('id', { count: 'exact', head: true }).eq('item_id', ad.id).eq('item_type', 'transport').then(({ count }) => {
+        if (count !== null) setRealViews(Math.max(ad.views || 0, count));
+      });
     }
   },[ad]);
 
@@ -1965,8 +1993,12 @@ function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDuratio
         {/* Views & Date */}
         <div className="flex items-center justify-between mb-5 text-xs text-gray-400">
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowViewers(true)} className="flex items-center gap-1 text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full hover:bg-emerald-500/20">
-              <Eye className="w-3.5 h-3.5"/> <span>{ad.views} مشاهدة</span>
+            <button onClick={() => {
+              const canViewViewers = user?.isVerified || String(user?.id) === String(ad.postedBy) || user?.role === 'admin' || user?.role === 'owner';
+              if (canViewViewers) setShowViewers(true);
+              else alert('عذراً، رؤية قائمة المشاهدات متاحة للمعلن والحسابات الموثقة فقط 🌟');
+            }} className="flex items-center gap-1 text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full hover:bg-emerald-500/20 transition-colors">
+              <Eye className="w-3.5 h-3.5"/> <span>{realViews} مشاهدة</span>
             </button>
             <span>•</span>
             <span className="text-amber-400 font-bold">الاهتمام: {ad.interest}</span>

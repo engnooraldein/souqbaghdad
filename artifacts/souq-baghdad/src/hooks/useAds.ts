@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Ad } from '../types';
-import { formatPrice } from '../utils/formatters';
+import { formatPrice } from '../utils/format';
 
 interface UseAdsOptions {
   pageSize?: number;
