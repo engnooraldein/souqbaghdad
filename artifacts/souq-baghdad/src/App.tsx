@@ -1455,9 +1455,10 @@ function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionM
 // ─────────────────────────────────────────────
 // Ad Detail Modal
 // ─────────────────────────────────────────────
-function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom }:{
+function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom, onViewsUpdated }:{
   ad:Ad|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; storedUsers?:any[]; onAuthRequired:()=>void; onSellerClick?:(sellerId:string)=>void;
   onViewDurationLogged?:(seconds:number)=>void; onImageZoom?:(src:string, title:string, images?:string[], initialIdx?:number)=>void;
+  onViewsUpdated?:(id:string, views:number)=>void;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
@@ -1472,7 +1473,11 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
       setRealViews(ad.views || 0);
       recordItemView(ad.id, 'ad', user, ad.postedBy);
       supabase.from('ad_viewers').select('id', { count: 'exact', head: true }).eq('item_id', ad.id).eq('item_type', 'ad').then(({ count }) => {
-        if (count !== null) setRealViews(Math.max(ad.views || 0, count));
+        if (count !== null) {
+          const newViews = Math.max(ad.views || 0, count);
+          setRealViews(newViews);
+          onViewsUpdated?.(ad.id, newViews);
+        }
       });
     }
   },[ad]);
@@ -1683,9 +1688,10 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
 // ─────────────────────────────────────────────
 // Product Detail Modal
 // ─────────────────────────────────────────────
-function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers = [], onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom }:{
+function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers = [], onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom, onViewsUpdated }:{
   product:Product|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; storedUsers?:any[]; onAuthRequired:()=>void; onSellerClick?:(id:any)=>void;
   onViewDurationLogged?:(seconds:number)=>void; onImageZoom?:(src:string, title:string, images?:string[], initialIdx?:number)=>void;
+  onViewsUpdated?:(id:string, views:number)=>void;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
@@ -1700,7 +1706,11 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
       setRealViews(product.views || 0);
       recordItemView(product.id, 'product', user, product.postedBy);
       supabase.from('ad_viewers').select('id', { count: 'exact', head: true }).eq('item_id', product.id).eq('item_type', 'product').then(({ count }) => {
-        if (count !== null) setRealViews(Math.max(product.views || 0, count));
+        if (count !== null) {
+          const newViews = Math.max(product.views || 0, count);
+          setRealViews(newViews);
+          onViewsUpdated?.(product.id, newViews);
+        }
       });
     }
   },[product]);
@@ -7533,8 +7543,8 @@ export default function App() {
       <AnimatePresence>
         {showOnboarding&&<OnboardingModal onClose={()=>{setShowOnboarding(false);localStorage.setItem('souqOnboarded','1');}}/>}
         {showAuth&&<AuthModal onClose={()=>setShowAuth(false)} onLogin={handleLogin}/>}
-        {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })}/>}
-        {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })}/>}
+        {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => setAllAds(prev => prev.map(a => a.id === id ? { ...a, views: Math.max(a.views || 0, views) } : a))} />}
+        {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => setAllProducts(prev => prev.map(p => p.id === id ? { ...p, views: Math.max(p.views || 0, views) } : p))} />}
         {selectedTransportAd&&<TransportDetailModal ad={selectedTransportAd} onClose={()=>setSelectedTransportAd(null)} user={user} onAuthRequired={requireAuth} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedTransportAd.id, selectedTransportAd.type==='offer'?'خط متوفر':'طلب خط', selectedTransportAd.postedBy || '', 'transport', sec)} storedUsers={storedUsers}/>}
         {showCreateAd&&user&&<AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd}/>}
         {showCreateProduct&&user&&<ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct}/>}
