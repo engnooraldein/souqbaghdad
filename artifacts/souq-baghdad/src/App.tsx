@@ -414,9 +414,14 @@ async function recordItemView(itemId: string|number, itemType: 'ad'|'product'|'t
 
       // 4. Update the views counter on the item itself
       const table = itemType === 'product' ? 'products' : 'ads';
-      const { data: item } = await supabase.from(table).select('views').eq('id', itemId).single();
-      if (item) {
-        await supabase.from(table).update({ views: (item.views || 0) + 1 }).eq('id', itemId);
+      const { error: rpcErr } = await supabase.rpc('increment_view', { table_name: table, item_id: itemId });
+      
+      if (rpcErr) {
+        // Fallback if RPC doesn't exist yet
+        const { data: item } = await supabase.from(table).select('views').eq('id', itemId).single();
+        if (item) {
+          await supabase.from(table).update({ views: (item.views || 0) + 1 }).eq('id', itemId);
+        }
       }
     }
   } catch (e) {
@@ -1368,7 +1373,7 @@ function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu, selle
     <motion.div whileHover={{y:-4}} onClick={onSelect} onContextMenu={onActionMenu}
       className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full">
       <div className="relative w-full aspect-[4/3] overflow-hidden flex-shrink-0">
-        <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={ad.title} className="w-full h-full object-cover" loading="lazy" decoding="async"/>
+        <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={ad.title} className="w-full h-full object-cover" />
         {isNewItem(ad.createdAtISO) && (
           <div className="absolute top-2 left-2 px-2 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[9px] font-extrabold rounded-lg z-10 shadow-lg shadow-red-500/25 border border-red-400/30 animate-pulse">
             حديث ✨
@@ -3210,9 +3215,9 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
   const mergedProds = [...allProducts.filter(p=>String(p.postedBy)===String(sellerId) || String(p.phone)===String(sellerId)), ...localProds].filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
   const mergedLines = [...allTransportAds.filter(a=>String(a.postedBy)===String(sellerId) || String(a.phone)===String(sellerId)), ...localLines].filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
 
-  const sellerAds = mergedAds;
-  const sellerProds = mergedProds;
-  const sellerLines = mergedLines;
+  const sellerAds = mergedAds.filter(ad => ad.status === 'active');
+  const sellerProds = mergedProds.filter(prod => prod.status === 'active');
+  const sellerLines = mergedLines.filter(line => line.status === 'published' || line.status === 'active');
   const sellerInfo: SellerInfo|null = sellerAds[0]?.seller || sellerProds[0]?.seller || null;
 
   useEffect(() => {
@@ -3470,7 +3475,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
 
   return (
     <>
-      <LoadingScreen isLoading={loadingProfile || loadingContent} minDuration={2000} />
+      <LoadingScreen isLoading={loadingProfile || loadingContent} minDuration={800} />
       <div className="min-h-screen bg-[#0c2b5e] pt-16 pb-10">
       {/* Cover */}
       <div className="w-full aspect-[3/1] md:aspect-[4/1] bg-gray-900 relative overflow-hidden flex items-center justify-center">
@@ -3724,7 +3729,7 @@ function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }: { ad: 
       }`}>
       
       {/* Type & Category Badges */}
-      <div className="absolute top-0 right-0 flex items-center gap-1">
+      <div className="absolute top-0 right-0 flex items-center gap-1 z-10">
         {isEmployee && (
           <div className="px-2.5 py-1 rounded-bl-xl text-[10px] font-bold bg-indigo-600 text-white shadow-sm flex items-center gap-1">
             <span>👔</span>
@@ -3735,6 +3740,21 @@ function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }: { ad: 
           {ad.type === 'offer' ? 'متوفر خط' : 'أبحث عن خط'}
         </div>
       </div>
+
+      {(ad.status === 'matched' || ad.status === 'sold') && (
+        <div className="absolute inset-0 bg-black/60 z-20 flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-emerald-500 text-white font-bold px-6 py-2 rounded-xl transform -rotate-12 border-2 border-emerald-300 shadow-xl text-lg">
+            {ad.type === 'offer' ? 'اكتمل العدد' : 'تم العثور على خط'}
+          </div>
+        </div>
+      )}
+      {ad.status === 'archived' && (
+        <div className="absolute inset-0 bg-black/50 z-20 flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-gray-800 text-white font-bold px-6 py-2 rounded-xl transform border border-gray-600 shadow-xl text-sm opacity-90">
+            مؤرشف
+          </div>
+        </div>
+      )}
 
       {isNew && (
         <div className="absolute top-2 left-2 px-2 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[9px] font-extrabold rounded-lg z-10 shadow-lg shadow-red-500/25 border border-red-400/30 animate-pulse">
@@ -7187,7 +7207,7 @@ export default function App() {
 
   return (
     <div className="dark min-h-screen bg-[#0c2b5e] pwa-outer-container">
-      <LoadingScreen isLoading={isInitialLoading} minDuration={2000} />
+      <LoadingScreen isLoading={isInitialLoading} minDuration={800} />
       <Helmet>
         <title>{pageTitle}</title>
         <meta name="description" content={pageDescription} />
