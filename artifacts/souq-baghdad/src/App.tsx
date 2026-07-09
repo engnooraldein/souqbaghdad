@@ -3224,19 +3224,17 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
         const foundStored = storedUsers.find((u: any) => String(u.id) === String(sellerId) || String(u.phone) === String(sellerId));
         if (foundStored) {
           if (isMounted) { setSellerUser(foundStored); setLoadingProfile(false); }
-          return;
         }
 
         // 2. Check local users
         const users = JSON.parse(localStorage.getItem('souqUsers') || '[]');
         const foundLocal = users.find((u: any) => String(u.id) === String(sellerId) || String(u.phone) === String(sellerId));
-        if (foundLocal) {
+        if (foundLocal && !foundStored) {
           if (isMounted) { setSellerUser(foundLocal); setLoadingProfile(false); }
-          return;
         }
 
         // 3. Check sellerInfo from ads
-        if (sellerInfo) {
+        if (sellerInfo && !foundStored && !foundLocal) {
           if (isMounted) {
             setSellerUser({
               id: sellerId,
@@ -3250,15 +3248,13 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
             });
             setLoadingProfile(false);
           }
-          return;
         }
 
         // 4. Query Supabase profiles table directly and fetch seller's sold ads and products
         const isPhone = !sellerId.includes('-');
-        const [adsRes, prodsRes, linesRes, dbProfileRes] = await Promise.all([
+        const [adsRes, prodsRes, dbProfileRes] = await Promise.all([
           isPhone ? supabase.from('ads').select('*').eq('phone', sellerId) : supabase.from('ads').select('*').eq('seller_id', sellerId),
           isPhone ? supabase.from('products').select('*').eq('phone', sellerId) : supabase.from('products').select('*').eq('seller_id', sellerId),
-          isPhone ? supabase.from('ads').select('*').eq('phone', sellerId).eq('category', 'transport') : supabase.from('ads').select('*').eq('postedBy', sellerId).eq('category', 'transport'),
           isPhone ? supabase.from('profiles').select('*').eq('phone', sellerId).maybeSingle() : supabase.from('profiles').select('*').eq('id', sellerId).maybeSingle()
         ]);
         
