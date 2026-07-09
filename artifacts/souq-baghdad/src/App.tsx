@@ -1434,7 +1434,7 @@ function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionM
 function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom, onViewsUpdated }:{
   ad:Ad|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; storedUsers?:any[]; onAuthRequired:()=>void; onSellerClick?:(sellerId:string)=>void;
   onViewDurationLogged?:(seconds:number)=>void; onImageZoom?:(src:string, title:string, images?:string[], initialIdx?:number)=>void;
-  onViewsUpdated?:(id:string, views:number)=>void;
+  onViewsUpdated?:(id:string|number, views:number)=>void;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
@@ -1670,7 +1670,7 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
 function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers = [], onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom, onViewsUpdated }:{
   product:Product|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; storedUsers?:any[]; onAuthRequired:()=>void; onSellerClick?:(id:any)=>void;
   onViewDurationLogged?:(seconds:number)=>void; onImageZoom?:(src:string, title:string, images?:string[], initialIdx?:number)=>void;
-  onViewsUpdated?:(id:string, views:number)=>void;
+  onViewsUpdated?:(id:string|number, views:number)=>void;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
@@ -3327,7 +3327,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
 
   const sellerAds = mergedAds.filter(ad => ad.status === 'active');
   const sellerProds = mergedProds.filter(prod => prod.status === 'active');
-  const sellerLines = mergedLines.filter(line => line.status === 'published' || line.status === 'active');
+  const sellerLines = mergedLines.filter(line => line.status === 'published');
   const sellerInfo: SellerInfo|null = sellerAds[0]?.seller || sellerProds[0]?.seller || null;
 
   useEffect(() => {
@@ -3851,7 +3851,7 @@ function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }: { ad: 
         </div>
       </div>
 
-      {(ad.status === 'matched' || ad.status === 'sold') && (
+      {(ad.status === 'matched') && (
         <div className="absolute inset-0 bg-black/60 z-20 flex items-center justify-center backdrop-blur-sm">
           <div className="bg-emerald-500 text-white font-bold px-6 py-2 rounded-xl transform -rotate-12 border-2 border-emerald-300 shadow-xl text-lg">
             {ad.type === 'offer' ? 'اكتمل العدد' : 'تم العثور على خط'}
@@ -3975,10 +3975,10 @@ function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id:number
       for (const [cat, cost] of Object.entries(costs)) {
         await supabase.from('system_settings').upsert({ category: cat, cost: Number(cost) });
       }
-      showToast('تم حفظ أسعار الإعلانات بنجاح ✅', 'success');
+      alert('تم حفظ أسعار الإعلانات بنجاح ✅');
       setTimeout(() => window.location.reload(), 1000);
     } catch (e) {
-      showToast('حدث خطأ أثناء الحفظ', 'error');
+      alert('حدث خطأ أثناء الحفظ');
     }
     setSaving(false);
   };
@@ -4408,7 +4408,7 @@ function MarketView({
         const sellersMap = new Map();
 
         // Fetch registered profiles from DB
-        const { data: dbProfiles } = await supabase.from('profiles').select('*');
+        const { data: dbProfiles } = await supabase.from('profiles').select('*').limit(1000);
         if (dbProfiles && dbProfiles.length > 0) {
           dbProfiles.forEach((p: any) => {
             sellersMap.set(p.id, {
@@ -4503,7 +4503,7 @@ function MarketView({
     }
     loadAllProfiles();
     return () => { isMounted = false; };
-  }, [allAds, allProducts]);
+  }, []);
 
   const filteredProfiles = storedUsers.filter(u => {
     // Only show verified accounts, owners, admins, or users with at least 1 ad/product
@@ -5280,7 +5280,7 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd, cost 
   );
 }
 
-function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, lines, onPost, onUpdateStatus, onDeleteAd, onActionMenu, isInitialLoading, storedUsers, onLoadMore, hasMore, totalCount }: {
+function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, lines, onPost, onUpdateStatus, onDeleteAd, onActionMenu, isInitialLoading, storedUsers, onLoadMore, hasMore, totalCount, adCosts }: {
   user: { id: string; name: string; avatar: string; phone: string; role?: string } | null;
   onBack: () => void;
   onCreateAd: () => void;
@@ -5296,6 +5296,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
   onLoadMore?: () => Promise<void>;
   hasMore?: boolean;
   totalCount?: number;
+  adCosts?: Record<string, number>;
 }) {
   const [mainCategoryFilter, setMainCategoryFilter] = useState<'student'|'employee'|'all'>('student');
   const [filterUniversity, setFilterUniversity] = useState('الكل');
@@ -5934,7 +5935,7 @@ export default function App() {
         const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
         const sellersMap = new Map();
 
-        const { data: dbProfiles } = await supabase.from('profiles').select('*');
+        const { data: dbProfiles } = await supabase.from('profiles').select('*').limit(1000);
         if (dbProfiles && dbProfiles.length > 0) {
           dbProfiles.forEach((p: any) => {
             sellersMap.set(p.id, {
@@ -6026,7 +6027,7 @@ export default function App() {
     }
     loadAllProfilesGlobal();
     return () => { isMounted = false; };
-  }, [allAds, allProducts]);
+  }, []);
 
   useEffect(() => {
     const handleOpenShare = (e: any) => {
@@ -7026,7 +7027,7 @@ export default function App() {
     trackActivity();
     // Disabled interval to reduce heavy background data usage
     // interval = setInterval(trackActivity, 2 * 60 * 1000); 
-    return () => clearInterval(interval);
+    // return () => clearInterval(interval);
   }, [user]);
 
   const showToast = useCallback((msg:string,type:string)=>{
@@ -7675,7 +7676,7 @@ export default function App() {
               }
             }} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} onSelectTransport={setSelectedTransportAd} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile} onActionMenu={setActionMenuTarget}/></motion.div>}
           {view==='transport'&&<motion.div key="transport" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd} onActionMenu={setActionMenuTarget} isInitialLoading={isInitialLoading || loadingTransport} storedUsers={storedUsers} onLoadMore={() => fetchTransportAds(false)} hasMore={hasMoreTransport} totalCount={totalTransportCount}/></motion.div>}
+            <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd} onActionMenu={setActionMenuTarget} isInitialLoading={isInitialLoading || loadingTransport} storedUsers={storedUsers} onLoadMore={() => fetchTransportAds(false)} hasMore={hasMoreTransport} totalCount={totalTransportCount} adCosts={adCosts}/></motion.div>}
           {view==='admin'&&isAdmin&&!isOwner&&<motion.div key="admin" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <AdminPanel ads={allAds} onDeleteAd={handleDeleteAd} onClose={()=>setView('home')}/></motion.div>}
           {view==='owner'&&isOwner&&<motion.div key="owner" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
@@ -7786,8 +7787,8 @@ export default function App() {
       <AnimatePresence>
         {showOnboarding&&<OnboardingModal onClose={()=>{setShowOnboarding(false);localStorage.setItem('souqOnboarded','1');}}/>}
         {showAuth&&<AuthModal onClose={()=>setShowAuth(false)} onLogin={handleLogin}/>}
-        {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllAds(prev => prev.map(a => a.id === id ? { ...a, views: Math.max(a.views || 0, views) } : a)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'ad' } })); }} />}
-        {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllProducts(prev => prev.map(p => p.id === id ? { ...p, views: Math.max(p.views || 0, views) } : p)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'product' } })); }} />}
+        {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllAds(prev => prev.map(a => String(a.id) === String(id) ? { ...a, views: Math.max(a.views || 0, views) } : a)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'ad' } })); }} />}
+        {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllProducts(prev => prev.map(p => String(p.id) === String(id) ? { ...p, views: Math.max(p.views || 0, views) } : p)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'product' } })); }} />}
         {selectedTransportAd&&<TransportDetailModal ad={selectedTransportAd} onClose={()=>setSelectedTransportAd(null)} user={user} onAuthRequired={requireAuth} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedTransportAd.id, selectedTransportAd.type==='offer'?'خط متوفر':'طلب خط', selectedTransportAd.postedBy || '', 'transport', sec)} storedUsers={storedUsers}/>}
         {showCreateAd&&user&&<AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd} cost={adCosts.ad !== undefined ? adCosts.ad : 1} />}
         {showCreateProduct&&user&&<ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct} cost={adCosts.product !== undefined ? adCosts.product : 1} />}

@@ -112,9 +112,9 @@ const fetchRecovery = async () => {
 
     const fetchUsersAndGuests = async () => {
       try {
-        const { data: profiles } = await supabase.from('profiles').select('*').order('last_seen', { ascending: false });
+        const { data: profiles } = await supabase.from('profiles').select('*').order('last_seen', { ascending: false }).limit(1000);
         if (profiles) setDbUsers(profiles);
-        const { data: guests } = await supabase.from('guests').select('*').order('last_seen', { ascending: false });
+        const { data: guests } = await supabase.from('guests').select('*').order('last_seen', { ascending: false }).limit(1000);
         if (guests) setDbGuests(guests);
       } catch (err) {}
     };
@@ -126,7 +126,8 @@ const fetchRecovery = async () => {
         const { data, error } = await supabase
           .from('support_messages')
           .select('*')
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(500);
         if (data && !error) {
           const reportMessages = data.filter((msg: any) => msg.name && msg.name.startsWith('REPORT:'));
           setReports(reportMessages);
@@ -141,7 +142,8 @@ const fetchRecovery = async () => {
         const { data, error } = await supabase
           .from('promo_codes')
           .select('*, profiles:used_by(full_name, phone)')
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(500);
         if (error) {
           console.error('fetchPromoCodes error:', error);
         }
