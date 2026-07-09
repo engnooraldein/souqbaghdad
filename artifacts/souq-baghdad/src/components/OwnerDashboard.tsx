@@ -11,7 +11,7 @@ import {
   Trash2, ArrowRight, Eye, CheckCircle2, ChevronRight, ChevronLeft, Search, 
   Clock, Bell, Lock, User as UserIcon, Phone, Check, RefreshCw,
   Globe, Smartphone, Monitor, Tablet, MapPin, BarChart3, Star,
-  UserCheck, Key, CheckCircle, Loader2, Mail, Car, Layers, Ticket, Copy, Settings
+  UserCheck, Key, CheckCircle, Loader2, Mail, Car, Layers, Ticket, Copy, Settings, MessageCircle
 } from 'lucide-react';
 import { useOnlineStatuses } from '../hooks/useOnlineStatuses';
 import type { Ad, Product, User, StoredUser, Visit, SystemLog, TransportAd } from '../types';
@@ -140,12 +140,17 @@ const fetchRecovery = async () => {
       try {
         const { data, error } = await supabase
           .from('promo_codes')
-          .select('*, profiles:used_by(name, phone)')
+          .select('*, profiles:used_by(full_name, phone)')
           .order('created_at', { ascending: false });
+        if (error) {
+          console.error('fetchPromoCodes error:', error);
+        }
         if (data && !error) {
           setPromoCodes(data);
         }
-      } catch (err) {}
+      } catch (err) {
+        console.error('fetchPromoCodes exception:', err);
+      }
     };
     fetchPromoCodes();
     const promoInterval = setInterval(fetchPromoCodes, 60_000);
@@ -264,16 +269,22 @@ const fetchRecovery = async () => {
     }
   };
 
-  const generatePromoCode = async (points: number, prefix: string = '') => {
-    const randomString = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const code = prefix ? `${prefix}-${randomString}` : randomString;
+  const generatePromoCode = async (points: number, prefix: string = '', maxUses: number = 1) => {
+    let code = '';
+    if (prefix && prefix !== 'GIFT' && prefix !== 'PRO') {
+      code = prefix; // Custom code provided entirely
+    } else {
+      const randomString = Math.random().toString(36).substring(2, 8).toUpperCase();
+      code = prefix ? `${prefix}-${randomString}` : randomString;
+    }
     
     try {
       const { data, error } = await supabase.from('promo_codes').insert({
         code,
         points,
-        is_used: false
-      }).select().single();
+        is_used: false,
+        max_uses: maxUses
+      }).select('*, profiles:used_by(full_name, phone)').single();
       
       if (error) throw error;
       setPromoCodes(prev => [data, ...prev]);
@@ -282,6 +293,41 @@ const fetchRecovery = async () => {
       console.error(e);
       alert('حدث خطأ أثناء توليد الكود');
     }
+  };
+
+  const rewardAllUsers = async () => {
+    const amountStr = prompt('كم نقطة تريد إهداءها لجميع المستخدمين؟');
+    if (!amountStr) return;
+    const amount = parseInt(amountStr);
+    if (isNaN(amount) || amount <= 0) {
+      alert('الرجاء إدخال رقم صحيح أكبر من صفر');
+      return;
+    }
+
+    if (!confirm(`هل أنت متأكد من إهداء ${amount} نقطة لجميع المستخدمين؟`)) return;
+
+    try {
+      const { error } = await supabase.rpc('reward_all_users', { amount });
+      if (error) throw error;
+      alert(`تم بنجاح! إضافة ${amount} نقطة لجميع المستخدمين.`);
+    } catch (e: any) {
+      console.error(e);
+      alert('فشلت العملية: ' + e.message);
+    }
+  };
+
+  const shareViaWhatsApp = (code: string, points: number) => {
+    const isGift = code.startsWith('GIFT-');
+    let message = '';
+    
+    if (isGift) {
+      message = `مرحباً بك في سوق بغداد! 🌺\nتقديراً لوجودك ويانا، الإدارة أهدتك ${points} نقطة مجانية حتى تجرب المنصة وتنشر إعلاناتك براحتك.\nهذا كود الهدية الخاص بيك:\n🎁 ${code}\nروح لملفك الشخصي > محفظتي > ودخل الكود حتى تستلم الهدية فوراً.\nنتمنى لك كل التوفيق ومبيعات سريعة! 🎉`;
+    } else {
+      message = `هلا بيك عيني! 🌺\nتم استلام المبلغ بنجاح، شكراً لثقتك بمنصة سوق بغداد.\nهذا هو (البرومو كود) الخاص بيك لشحن ${points} نقطة:\n👇👇\n${code}\n⚙️ طريقة الشحن كلش سهلة:\n * ادخل لحسابك بالمنصة وروح على (الملف الشخصي).\n * ادخل على قسم (محفظتي).\n * انسخ الكود الفوك وخليه بخانة الشحن واضغط (تأكيد).\nنقاطك راح تنزل فوراً وتقدر تبدأ بنشر إعلاناتك.\nبالتوفيق، وأي استفسار إحنا بالخدمة! 🚀`;
+    }
+
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   return (
@@ -820,6 +866,29 @@ const fetchRecovery = async () => {
                 </button>
               </div>
 
+              <div className="flex flex-col md:flex-row gap-4 mb-8">
+                <button onClick={rewardAllUsers} className="flex-1 py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold rounded-xl flex flex-col items-center justify-center shadow-lg shadow-green-500/20 hover:scale-[1.02] transition-transform">
+                  <span className="text-xl mb-1">🎁 إهداء للجميع</span>
+                  <span className="text-xs opacity-80">إضافة نقاط لكل المستخدمين بضغطة واحدة</span>
+                </button>
+                <button onClick={() => {
+                  const ptsStr = prompt('كم نقطة تريد لهذا الكود؟', '50');
+                  if(!ptsStr) return;
+                  const pts = parseInt(ptsStr);
+                  if(isNaN(pts) || pts <= 0) return alert('الرجاء إدخال رقم صحيح أكبر من صفر');
+                  const customCode = prompt('أدخل الكود المطلوب (مثال: SOUQ2026)', 'SOUQ2026');
+                  if(!customCode) return;
+                  const maxStr = prompt('ما هو الحد الأقصى لعدد الأشخاص الذين يمكنهم استخدام الكود؟', '100');
+                  if(!maxStr) return;
+                  const maxUses = parseInt(maxStr);
+                  if(isNaN(maxUses) || maxUses <= 0) return alert('الرجاء إدخال رقم صحيح');
+                  generatePromoCode(pts, customCode.trim().toUpperCase(), maxUses);
+                }} className="flex-1 py-4 bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-bold rounded-xl flex flex-col items-center justify-center shadow-lg shadow-blue-500/20 hover:scale-[1.02] transition-transform">
+                  <span className="text-xl mb-1">🔄 كود متعدد الاستخدام</span>
+                  <span className="text-xs opacity-80">إنشاء كود يمكن استخدامه من قبل عدة أشخاص</span>
+                </button>
+              </div>
+
               <h3 className="text-white font-bold mb-4">الأكواد السابقة ({promoCodes.length})</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-right">
@@ -827,6 +896,7 @@ const fetchRecovery = async () => {
                     <tr>
                       <th className="px-4 py-3 rounded-tr-xl">الكود</th>
                       <th className="px-4 py-3">النقاط</th>
+                      <th className="px-4 py-3">الاستخدام</th>
                       <th className="px-4 py-3">الحالة</th>
                       <th className="px-4 py-3">المستخدم</th>
                       <th className="px-4 py-3 rounded-tl-xl">التاريخ</th>
@@ -837,9 +907,19 @@ const fetchRecovery = async () => {
                       <tr key={promo.id} className="border-b border-gray-700/50 hover:bg-gray-800/50 transition">
                         <td className="px-4 py-3 font-mono text-amber-400 font-bold flex items-center gap-2">
                           {promo.code}
-                          <button onClick={() => { navigator.clipboard.writeText(promo.code); alert('تم نسخ الكود!'); }} className="text-gray-400 hover:text-white" title="نسخ"><Copy className="w-4 h-4"/></button>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => { navigator.clipboard.writeText(promo.code); alert('تم نسخ الكود!'); }} className="p-1 text-gray-400 hover:text-white bg-gray-800 rounded" title="نسخ"><Copy className="w-4 h-4"/></button>
+                            <button onClick={() => shareViaWhatsApp(promo.code, promo.points)} className="p-1 text-green-400 hover:text-white bg-green-500/10 hover:bg-green-500/20 rounded" title="إرسال عبر واتساب"><MessageCircle className="w-4 h-4"/></button>
+                          </div>
                         </td>
                         <td className="px-4 py-3 font-bold text-emerald-400">+{promo.points}</td>
+                        <td className="px-4 py-3">
+                          {promo.max_uses > 1 ? (
+                            <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">متعدد ({promo.max_uses})</span>
+                          ) : (
+                            <span className="text-xs text-gray-500">مفرد</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           {promo.is_used ? (
                             <span className="px-2 py-1 bg-red-500/20 text-red-400 rounded-md text-xs">تم الاستخدام</span>
@@ -848,7 +928,7 @@ const fetchRecovery = async () => {
                           )}
                         </td>
                         <td className="px-4 py-3 text-gray-300">
-                          {promo.profiles?.name || promo.profiles?.phone || '-'}
+                          {promo.max_uses > 1 ? 'متعدد' : (promo.profiles?.full_name || promo.profiles?.phone || '-')}
                         </td>
                         <td className="px-4 py-3 text-gray-400">{new Date(promo.created_at).toLocaleDateString('ar-IQ')}</td>
                       </tr>
