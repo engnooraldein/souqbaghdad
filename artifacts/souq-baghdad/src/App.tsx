@@ -5607,7 +5607,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
       {/* Form Modal */}
       <AnimatePresence>
         {showForm && user && (
-          <TransportFormModal user={user} onClose={()=>setShowForm(false)} onSubmit={handlePost} lines={lines} cost={adCosts.transport !== undefined ? adCosts.transport : 1} />
+          <TransportFormModal user={user} onClose={()=>setShowForm(false)} onSubmit={handlePost} lines={lines} cost={adCosts?.transport !== undefined ? adCosts.transport : 1} />
         )}
       </AnimatePresence>
     </div>
