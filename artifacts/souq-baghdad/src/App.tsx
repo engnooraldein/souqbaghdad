@@ -478,7 +478,7 @@ function InterestTimer({ itemId, itemType, onInterestRegistered }: { itemId: str
       initial={{ scale: 0.9, opacity: 0, y: -10 }}
       animate={{ scale: 1, opacity: 1, y: 0 }}
       exit={{ scale: 0.9, opacity: 0, y: -10 }}
-      className="absolute top-14 left-4 z-50 px-3 py-1.5 bg-[#0c2b5e]/80 backdrop-blur-md text-white border border-[#4b7ab5]/50 rounded-2xl shadow-xl flex items-center gap-2 transition-all"
+      className="absolute top-24 left-4 z-50 px-3 py-1.5 bg-[#0c2b5e]/80 backdrop-blur-md text-white border border-[#4b7ab5]/50 rounded-2xl shadow-xl flex items-center gap-2 transition-all"
     >
       <div className="flex items-center gap-1.5 text-amber-400 font-bold text-xs sm:text-sm">
         <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -1197,9 +1197,9 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
     if (touchStartX !== null && touchEndX !== null && totalCount > 1) {
       const distance = touchStartX - touchEndX;
       if (distance > 35) {
-        setCurrentIdx(i => (i + 1) % totalCount);
+        setCurrentIdx(i => i < totalCount - 1 ? i + 1 : i);
       } else if (distance < -35) {
-        setCurrentIdx(i => (i - 1 + totalCount) % totalCount);
+        setCurrentIdx(i => i > 0 ? i - 1 : i);
       }
     }
   };
@@ -1508,9 +1508,9 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
     if (total <= 1) return;
 
     if (distance > 35) {
-      setImgIdx(i => (i + 1) % total);
+      setImgIdx(i => i < total - 1 ? i + 1 : i);
     } else if (distance < -35) {
-      setImgIdx(i => (i - 1 + total) % total);
+      setImgIdx(i => i > 0 ? i - 1 : i);
     }
   };
 
@@ -1538,7 +1538,8 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
               decoding="async"
               fetchPriority="high"
               onClick={() => onImageZoom?.(ad.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700', ad.title, ad.images, imgIdx)}
-              className="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition-all duration-300"/>
+              draggable={false}
+              className="w-full h-full object-cover cursor-zoom-in transition-all duration-300"/>
             
             <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-lg pointer-events-none flex items-center gap-1 opacity-85 group-hover:opacity-100 transition-opacity">
               <span>🔍 اضغط لتكبير وتحميل الصورة</span>
@@ -1741,9 +1742,9 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
     if (total <= 1) return;
 
     if (distance > 35) {
-      setImgIdx(i => (i + 1) % total);
+      setImgIdx(i => i < total - 1 ? i + 1 : i);
     } else if (distance < -35) {
-      setImgIdx(i => (i - 1 + total) % total);
+      setImgIdx(i => i > 0 ? i - 1 : i);
     }
   };
 
@@ -1769,7 +1770,8 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
               decoding="async"
               fetchPriority="high"
               onClick={() => onImageZoom?.(product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700', product.title, product.images, imgIdx)}
-              className="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition-all duration-300"/>
+              draggable={false}
+              className="w-full h-full object-cover cursor-zoom-in transition-all duration-300"/>
             
             <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-lg pointer-events-none flex items-center gap-1 opacity-85 group-hover:opacity-100 transition-opacity">
               <span>🔍 اضغط لتكبير وتحميل الصورة</span>
