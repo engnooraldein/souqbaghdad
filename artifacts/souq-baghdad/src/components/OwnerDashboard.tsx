@@ -826,7 +826,7 @@ const fetchRecovery = async () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-white font-bold text-xl">سجل التحديثات والإصدارات (نسخة برو ✨)</h2>
-                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.6.0</span>
+                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.6.8</span>
                   </div>
                   <p className="text-gray-400 text-xs mt-1">تتبع التغييرات والتحديثات الزمنية مع كافة التفاصيل والميزات المضافة</p>
                 </div>
@@ -834,10 +834,31 @@ const fetchRecovery = async () => {
             </div>
 
             <div className="space-y-6">
-              {/* v1.6.0 */}
+              {/* v1.6.8 */}
               <div className="bg-gradient-to-br from-gray-900 via-gray-900 to-amber-950/20 border-2 border-amber-500/40 rounded-2xl p-5 space-y-3 shadow-xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 bg-amber-500 text-black text-[9px] font-extrabold px-2.5 py-1 rounded-bl-xl uppercase tracking-wider">
                   الإصدار الأخير
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-400 font-bold text-base">⚡ الإصدار v1.6.8 (تحسين أداء الواجهات وإصلاح أخطاء الجلب)</span>
+                  <span className="text-gray-400 text-xs font-mono">(09/07/2026)</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                  <div className="bg-gray-805/80 border border-gray-700/80 rounded-xl p-3.5">
+                    <h4 className="text-amber-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">📌 التحديثات والإصلاحات</h4>
+                    <ul className="text-gray-300 text-xs space-y-1.5 list-disc list-inside pr-1">
+                      <li><strong>إصلاح جلب البيانات:</strong> حل مشكلة الخطأ 400 عند فتح أو مشاركة رابط حساب البائع (SellerPublicPage).</li>
+                      <li><strong>تحسين INP:</strong> إزالة `framer-motion` من أزرار التسجيل لتقليل تأخير الاستجابة أثناء النقر، واستبدالها بحركات CSS خفيفة.</li>
+                      <li><strong>تحسينات الاستعلام:</strong> منع محاولات البحث برقم الهاتف إذا كان المستخدم لا يمتلك رقماً لتفادي طلبات غير صحيحة من الخادم.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* v1.6.0 */}
+              <div className="bg-gray-800 border-2 border-gray-700 rounded-2xl p-5 space-y-3 relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-gray-600 text-white text-[9px] font-bold px-2.5 py-1 rounded-bl-xl uppercase tracking-wider">
+                  إصدار سابق
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-amber-400 font-bold text-base">⚡ الإصدار v1.6.0 (تحسين الأداء وفصل المكونات)</span>
