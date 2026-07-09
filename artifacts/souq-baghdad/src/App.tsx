@@ -6284,7 +6284,14 @@ export default function App() {
           }
         });
       }
-    } else if ((type === 'profile' || type === 'seller') && targetId) {
+    } else if (type === 'profile') {
+      setView('profile');
+      if (targetId === 'pay' || targetId === 'wallet') {
+        if (typeof window !== 'undefined') {
+          setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-wallet-tab')), 100);
+        }
+      }
+    } else if (type === 'seller' && targetId) {
       if (targetId === 'pay' || targetId === 'wallet') {
         setView('profile');
         if (typeof window !== 'undefined') {
@@ -7479,7 +7486,7 @@ export default function App() {
                       </span>
                     )}
                   </button>
-                  <button onClick={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-wallet-tab')), 100);}} className="flex items-center gap-1.5 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl text-sm border border-gray-700 hover:border-amber-500/50 transition-colors" title="محفظتي">
+                  <button onClick={() => window.location.hash = '#/profile/wallet'} className="flex items-center gap-1.5 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl text-sm border border-gray-700 hover:border-amber-500/50 transition-colors" title="محفظتي">
                     <Wallet className="w-4 h-4 text-emerald-400"/>
                     <span className="font-bold font-mono">{user.points || 0}</span>
                   </button>
@@ -7491,7 +7498,7 @@ export default function App() {
                   <button onClick={()=>{setShowCreateAd(true);setEditingAd(null);}}
                     className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-sm">
                     <Plus className="w-4 h-4"/> إعلان</button>
-                  <button onClick={()=>setView('profile')} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white hover:bg-gray-700'}`}>
+                  <button onClick={() => window.location.hash = '#/profile'} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white hover:bg-gray-700'}`}>
                     <img src={user.avatar} alt="" className={`w-6 h-6 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border border-gray-600'}`}/>
                     <span className="max-w-20 truncate">{user.name}</span>{isOwner&&<Crown className="w-3 h-3 text-amber-400"/>}</button>
                   <button onClick={handleLogout} className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20" title="تسجيل الخروج" aria-label="تسجيل الخروج"><LogOut className="w-5 h-5"/></button>
@@ -7518,11 +7525,11 @@ export default function App() {
 
               {user ? (
                 <>
-                  <button onClick={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-wallet-tab')), 100);}} className="flex items-center gap-1 px-2 py-1.5 bg-gray-800 text-white rounded-xl text-xs border border-gray-700" title="محفظتي">
+                  <button onClick={() => window.location.hash = '#/profile/wallet'} className="flex items-center gap-1 px-2 py-1.5 bg-gray-800 text-white rounded-xl text-xs border border-gray-700" title="محفظتي">
                     <Wallet className="w-3 h-3 text-emerald-400"/>
                     <span className="font-bold font-mono">{user.points || 0}</span>
                   </button>
-                  <button onClick={()=>setView('profile')} className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white'}`}>
+                  <button onClick={() => window.location.hash = '#/profile'} className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white'}`}>
                     <img src={user.avatar} alt="" className={`w-5.5 h-5.5 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border border-gray-600'}`}/>
                     <span className="max-w-16 truncate hidden sm:block">{user.name}</span>
                   </button>

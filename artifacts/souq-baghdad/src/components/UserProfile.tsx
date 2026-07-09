@@ -44,7 +44,7 @@ export function UserProfile({ onBack }: UserProfileProps) {
       setIsSyncing(false);
     }
   };
-  const [activeTab, setActiveTab] = useState(window.location.hash.startsWith('#/seller/pay') || window.location.hash.startsWith('#/wallet') ? 'wallet' : 'overview');
+  const [activeTab, setActiveTab] = useState(window.location.hash.includes('/pay') || window.location.hash.includes('/wallet') ? 'wallet' : 'overview');
 
   React.useEffect(() => {
     const handleWalletTab = () => setActiveTab('wallet');
@@ -120,8 +120,7 @@ export function UserProfile({ onBack }: UserProfileProps) {
     setIsRedeeming(true);
     try {
       const { data, error } = await supabase.rpc('redeem_promo_code', {
-        p_code: promoCode.trim().toUpperCase(),
-        p_user_id: user.id
+        p_code: promoCode.trim().toUpperCase()
       });
       if (error) throw error;
       

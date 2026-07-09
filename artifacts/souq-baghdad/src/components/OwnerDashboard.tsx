@@ -179,11 +179,15 @@ const fetchRecovery = async () => {
     setSavingSettings(true);
     try {
       for (const [cat, cost] of Object.entries(costs)) {
-        await supabase.from('system_settings').upsert({ category: cat, cost: Number(cost) });
+        const { error } = await supabase.from('system_settings').upsert({ category: cat, cost: Number(cost) });
+        if (error) {
+          console.error('Error saving', cat, error);
+          throw new Error(error.message);
+        }
       }
       alert('تم حفظ أسعار الإعلانات بنجاح ✅');
-    } catch (e) {
-      alert('حدث خطأ أثناء الحفظ');
+    } catch (e: any) {
+      alert('حدث خطأ أثناء الحفظ: ' + e.message);
     }
     setSavingSettings(false);
   };
