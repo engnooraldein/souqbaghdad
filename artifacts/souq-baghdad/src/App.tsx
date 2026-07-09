@@ -5271,10 +5271,10 @@ function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd, cost 
           </div>
 
           <motion.button type="submit" whileHover={{scale:1.02}} whileTap={{scale:0.98}} disabled={user?.role !== 'admin' && user?.role !== 'owner' && cost > 0 && (user?.points || 0) < cost}
-            className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:from-gray-600 disabled:to-gray-700">
-            <Car className="w-5 h-5"/> نشر الإعلان
-            {user?.role !== 'admin' && user?.role !== 'owner' && cost > 0 && <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full flex items-center gap-1 ml-2">يخصم {cost} نقطة (متبقي {user?.points || 0})</span>}
-            {user?.role !== 'admin' && user?.role !== 'owner' && cost === 0 && <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full flex items-center gap-1 ml-2">✨ مجاني</span>}
+            className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl text-sm flex flex-col items-center justify-center gap-1 shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:from-gray-600 disabled:to-gray-700">
+            <div className="flex items-center gap-2"><Car className="w-4 h-4"/> نشر الإعلان</div>
+            {user?.role !== 'admin' && user?.role !== 'owner' && cost > 0 && <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full flex items-center gap-1"><Wallet className="w-3 h-3"/> يخصم {cost} نقطة (متبقي {user?.points || 0})</span>}
+            {user?.role !== 'admin' && user?.role !== 'owner' && cost === 0 && <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full flex items-center gap-1">✨ مجاني</span>}
           </motion.button>
         </form>
       </motion.div>
