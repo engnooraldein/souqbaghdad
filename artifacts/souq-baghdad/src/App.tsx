@@ -2585,7 +2585,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
     let isMounted = true;
     async function loadArchive() {
       if (!user) return;
-      const adsQuery = user.phone && !user.phone.includes('-') ? `postedBy.eq.${user.id},phone.eq.${user.phone}` : `postedBy.eq.${user.id}`;
+      const adsQuery = user.phone && !user.phone.includes('-') ? `seller_id.eq.${user.id},phone.eq.${user.phone}` : `seller_id.eq.${user.id}`;
       const [adsRes, prodsRes] = await Promise.all([
         supabase.from('ads').select('*').or(adsQuery),
         supabase.from('products').select('*').or(adsQuery)
@@ -2601,7 +2601,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
           category: row.category,
           location: row.location || row.governorate,
           governorate: row.governorate,
-          postedBy: row.postedBy,
+          postedBy: row.seller_id,
           phone: row.phone,
           createdAt: row.created_at,
           createdAtISO: row.created_at,
@@ -2629,7 +2629,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
           stock: row.stock,
           location: row.location || row.governorate,
           governorate: row.governorate,
-          postedBy: row.postedBy,
+          postedBy: row.seller_id,
           phone: row.phone,
           createdAt: row.created_at,
           createdAtISO: row.created_at,
@@ -2732,7 +2732,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
     setCropSrc(null);
   };
 
-  const totalViews = myAds.reduce((s,a)=>s+a.views,0) + myProducts.reduce((s,p)=>s+p.views,0);
+  const totalViews = allMyAds.reduce((s,a)=>s+(a.views||0),0) + allMyProducts.reduce((s,p)=>s+(p.views||0),0);
 
   return (
     <div className="min-h-screen bg-[#0c2b5e] pt-16 pb-10">
@@ -3175,8 +3175,8 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
         // 4. Query Supabase profiles table directly and fetch seller's sold ads and products
         const isPhone = !sellerId.includes('-');
         const [adsRes, prodsRes, linesRes, dbProfileRes] = await Promise.all([
-          isPhone ? supabase.from('ads').select('*').eq('phone', sellerId) : supabase.from('ads').select('*').eq('postedBy', sellerId),
-          isPhone ? supabase.from('products').select('*').eq('phone', sellerId) : supabase.from('products').select('*').eq('postedBy', sellerId),
+          isPhone ? supabase.from('ads').select('*').eq('phone', sellerId) : supabase.from('ads').select('*').eq('seller_id', sellerId),
+          isPhone ? supabase.from('products').select('*').eq('phone', sellerId) : supabase.from('products').select('*').eq('seller_id', sellerId),
           isPhone ? supabase.from('transport_ads').select('*').eq('phone', sellerId) : supabase.from('transport_ads').select('*').eq('user_id', sellerId),
           isPhone ? supabase.from('profiles').select('*').eq('phone', sellerId).maybeSingle() : supabase.from('profiles').select('*').eq('id', sellerId).maybeSingle()
         ]);
@@ -3191,7 +3191,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
             category: row.category,
             location: row.location || row.governorate,
             governorate: row.governorate,
-            postedBy: row.postedBy,
+            postedBy: row.seller_id,
             phone: row.phone,
             createdAt: row.created_at,
             createdAtISO: row.created_at,
@@ -3225,7 +3225,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
             stock: row.stock,
             location: row.location || row.governorate,
             governorate: row.governorate,
-            postedBy: row.postedBy,
+            postedBy: row.seller_id,
             phone: row.phone,
             createdAt: row.created_at,
             createdAtISO: row.created_at,
