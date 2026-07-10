@@ -34,8 +34,11 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   e.respondWith(
-    fetch(e.request).catch(() => {
-      return caches.match(e.request);
+    fetch(e.request).catch(async () => {
+      const cached = await caches.match(e.request);
+      if (cached) return cached;
+      // Return a basic 503 response if offline and not in cache
+      return new Response('Network error', { status: 503, statusText: 'Service Unavailable' });
     })
   );
 });
