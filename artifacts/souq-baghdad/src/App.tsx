@@ -4408,7 +4408,7 @@ function MarketView({
         const sellersMap = new Map();
 
         // Fetch registered profiles from DB
-        const { data: dbProfiles } = await supabase.from('profiles').select('id, full_name, name, avatar_url, avatar, phone, city, location, created_at, role').limit(200);
+        const { data: dbProfiles } = await supabase.from('profiles').select('id, full_name, avatar_url, phone, city, created_at, role').limit(200);
         if (dbProfiles && dbProfiles.length > 0) {
           dbProfiles.forEach((p: any) => {
             sellersMap.set(p.id, {
@@ -5937,7 +5937,7 @@ export default function App() {
         const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
         const sellersMap = new Map();
 
-        const { data: dbProfiles } = await supabase.from('profiles').select('id, full_name, name, avatar_url, avatar, phone, city, location, created_at, role').limit(200);
+        const { data: dbProfiles } = await supabase.from('profiles').select('id, full_name, avatar_url, phone, city, created_at, role').limit(200);
         if (dbProfiles && dbProfiles.length > 0) {
           dbProfiles.forEach((p: any) => {
             sellersMap.set(p.id, {

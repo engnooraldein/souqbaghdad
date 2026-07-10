@@ -110,7 +110,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
         supabase.from('verification_requests').select('*, profiles(full_name, phone, email)').order('created_at', { ascending: false }),
         supabase.from('recovery_requests').select('*, profiles(full_name, phone, email)').order('request_time', { ascending: false }),
         supabase.from('profiles').select('id, full_name, email, phone, city, last_seen, points, role, is_banned').order('last_seen', { ascending: false }).limit(200),
-        supabase.from('guests').select('id, ip_address, platform, browser, city, first_visit, last_seen, visit_count').order('last_seen', { ascending: false }).limit(200),
+        supabase.from('guests').select('id, platform, browser, city, first_visit, last_seen, visit_count').order('last_seen', { ascending: false }).limit(200),
         supabase.from('support_messages').select('*').order('created_at', { ascending: false }).limit(500),
         supabase.from('promo_codes').select('*, profiles:used_by(full_name, phone)').order('created_at', { ascending: false }).limit(500)
       ]);

@@ -26,7 +26,7 @@ export function UserProfile({ onBack }: UserProfileProps) {
     setIsSyncing(true);
     try {
       const { data, error } = await supabase.from('profiles')
-        .select('id, full_name, name, avatar_url, avatar, phone, city, location, created_at, role')
+        .select('id, full_name, avatar_url, phone, city, created_at, role')
         .limit(200);
       if (error) throw error;
       if (data) {
