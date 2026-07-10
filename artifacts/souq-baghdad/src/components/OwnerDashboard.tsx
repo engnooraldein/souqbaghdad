@@ -317,7 +317,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg"><Crown className="w-6 h-6 text-black"/></div>
-            <div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">🚀 الإصدار v1.2</span></div><p className="text-amber-400 text-xs mt-0.5">تحليلات شاملة وإدارة كاملة للموقع المنصة حية ومتصلة</p></div>
+            <div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">🚀 الإصدار v1.7.1</span></div><p className="text-amber-400 text-xs mt-0.5">تحليلات شاملة وإدارة كاملة للموقع المنصة حية ومتصلة</p></div>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-end">
@@ -1035,7 +1035,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-white font-bold text-xl">سجل التحديثات والإصدارات (نسخة برو ✨)</h2>
-                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.6.8</span>
+                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.7.1</span>
                   </div>
                   <p className="text-gray-400 text-xs mt-1">تتبع التغييرات والتحديثات الزمنية مع كافة التفاصيل والميزات المضافة</p>
                 </div>
@@ -1043,13 +1043,34 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
             </div>
 
             <div className="space-y-6">
-              {/* v1.6.8 */}
-              <div className="bg-gradient-to-br from-gray-900 via-gray-900 to-amber-950/20 border-2 border-amber-500/40 rounded-2xl p-5 space-y-3 shadow-xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 bg-amber-500 text-black text-[9px] font-extrabold px-2.5 py-1 rounded-bl-xl uppercase tracking-wider">
+              {/* v1.7.1 */}
+              <div className="bg-gradient-to-br from-gray-900 via-gray-900 to-emerald-950/20 border-2 border-emerald-500/40 rounded-2xl p-5 space-y-3 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-emerald-500 text-black text-[9px] font-extrabold px-2.5 py-1 rounded-bl-xl uppercase tracking-wider">
                   الإصدار الأخير
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-amber-400 font-bold text-base">⚡ الإصدار v1.6.8 (تحسين أداء الواجهات وإصلاح أخطاء الجلب)</span>
+                  <span className="text-emerald-400 font-bold text-base">⚡ الإصدار v1.7.1 إيكو (حماية الباقة المجانية وإغلاق التسريبات)</span>
+                  <span className="text-gray-400 text-xs font-mono">(10/07/2026)</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                  <div className="bg-gray-805/80 border border-gray-700/80 rounded-xl p-3.5">
+                    <h4 className="text-emerald-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">📌 التحديثات والإصلاحات الجذرية</h4>
+                    <ul className="text-gray-300 text-xs space-y-1.5 list-disc list-inside pr-1">
+                      <li><strong>حماية الاستنزاف:</strong> القضاء على مشكلة تحديثات المتواجدين المستمرة، وجعلها تحدث فقط عند نشر إعلان جديد.</li>
+                      <li><strong>لوحة التحكم يدوية:</strong> إيقاف الجلب التلقائي المكثف، وإضافة زر مزامنة يدوي لعرض المستخدمين والإحصائيات لتوفير 100% من الاستهلاك.</li>
+                      <li><strong>تحسين الصفحة الرئيسية:</strong> حل مشكلة تحميل 1000 مستخدم كامل `select('*')` وتقليصها إلى أعمدة ضرورية بحد 200 مستخدم لتسريع الأداء وتخفيف الضغط.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* v1.6.8 */}
+              <div className="bg-gray-800 border-2 border-gray-700 rounded-2xl p-5 space-y-3 relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-gray-600 text-white text-[9px] font-bold px-2.5 py-1 rounded-bl-xl uppercase tracking-wider">
+                  إصدار سابق
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-300 font-bold text-base">⚡ الإصدار v1.6.8 (تحسين أداء الواجهات وإصلاح أخطاء الجلب)</span>
                   <span className="text-gray-400 text-xs font-mono">(09/07/2026)</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
