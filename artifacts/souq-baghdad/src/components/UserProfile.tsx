@@ -402,6 +402,32 @@ export function UserProfile({ onBack }: UserProfileProps) {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
+              {/* Data Usage & Sync Card */}
+              <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
+                <h3 className="text-white font-bold flex items-center gap-2 mb-3">
+                  <Globe className="w-4 h-4 text-emerald-400"/> استهلاك البيانات والمزامنة
+                </h3>
+                <p className="text-gray-400 text-xs mb-4 leading-relaxed">
+                  يتم تلقائياً تحميل الحسابات الموثقة فقط لتوفير استهلاك بيانات الإنترنت (الإنترنت الخلوي). يمكنك مزامنة الدليل بالكامل يدوياً وحفظه محلياً لتصفح كافة الحسابات.
+                </p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-gray-700">
+                  <div className="text-right">
+                    <span className="text-gray-400 text-xs block">تاريخ المزامنة اليدوية</span>
+                    <span className="text-white text-xs font-bold font-mono">
+                      {syncTime 
+                        ? new Date(syncTime).toLocaleString('ar-IQ') 
+                        : 'لم تتم المزامنة الكاملة بعد'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleManualSync}
+                    disabled={isSyncing}
+                    className="py-2 px-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-700 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors self-end sm:self-center shadow-lg"
+                  >
+                    {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span>🔄 مزامنة الحسابات الآن</span>}
+                  </button>
+                </div>
+              </div>
               {/* Bio */}
               <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
                 <h3 className="text-white font-bold mb-4">نبذة عني</h3>
@@ -511,33 +537,6 @@ export function UserProfile({ onBack }: UserProfileProps) {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
-              {/* Data Usage & Sync Card */}
-              <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
-                <h3 className="text-white font-bold flex items-center gap-2 mb-3">
-                  <Globe className="w-4 h-4 text-emerald-400"/> استهلاك البيانات والمزامنة
-                </h3>
-                <p className="text-gray-400 text-xs mb-4 leading-relaxed">
-                  يتم تلقائياً تحميل الحسابات الموثقة فقط لتوفير استهلاك بيانات الإنترنت (الإنترنت الخلوي). يمكنك مزامنة الدليل بالكامل يدوياً وحفظه محلياً لتصفح كافة الحسابات.
-                </p>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-gray-700">
-                  <div className="text-right">
-                    <span className="text-gray-400 text-xs block">تاريخ المزامنة اليدوية</span>
-                    <span className="text-white text-xs font-bold font-mono">
-                      {syncTime 
-                        ? new Date(syncTime).toLocaleString('ar-IQ') 
-                        : 'لم تتم المزامنة الكاملة بعد'}
-                    </span>
-                  </div>
-                  <button
-                    onClick={handleManualSync}
-                    disabled={isSyncing}
-                    className="py-2 px-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-700 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors self-end sm:self-center shadow-lg"
-                  >
-                    {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span>🔄 مزامنة الحسابات الآن</span>}
-                  </button>
-                </div>
-              </div>
-
               <div className="bg-gray-800/50 rounded-3xl p-6 border border-gray-700/50">
                 <h3 className="text-white font-bold mb-4">إعدادات الحساب</h3>
                 <div className="space-y-4">

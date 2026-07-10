@@ -344,6 +344,16 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                   <div className={`w-2 h-2 rounded-full ${isAutoSync ? 'bg-emerald-400 animate-pulse' : 'bg-gray-600'}`}></div>
                   تلقائي
                 </button>
+                <button onClick={() => {
+                  if(window.confirm('هل أنت متأكد من إرسال خطأ تجريبي للبوت؟')) {
+                    import('../lib/errorLogger').then(({ logCriticalError }) => {
+                      logCriticalError('Test Error', 'هذا خطأ تجريبي تم إرساله يدوياً لاختبار البوت.', 'No StackTrace', user?.id);
+                      alert('تم الإرسال بنجاح! راقب البوت الآن.');
+                    });
+                  }
+                }} className="px-3 py-1.5 bg-red-900/50 border border-red-700 hover:border-red-500 text-xs font-bold text-red-300 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
+                  اختبار البوت 🚨
+                </button>
                 <button onClick={syncAll} disabled={isSyncing} className="px-3 py-1.5 bg-gray-800 border border-gray-700 hover:border-amber-500/50 text-xs font-bold text-gray-300 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
                   <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-amber-500' : ''}`}/>
                   {isSyncing ? 'جاري...' : 'مزامنة'}

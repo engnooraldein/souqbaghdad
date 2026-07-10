@@ -20,6 +20,21 @@ export class ErrorBoundary extends React.Component<
     return { hasError: true, error };
   }
 
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    import('../lib/errorLogger').then(({ logCriticalError }) => {
+      // Get logged in user if available
+      const stored = localStorage.getItem('souqUser');
+      const userId = stored ? JSON.parse(stored).id : undefined;
+      
+      logCriticalError(
+        'React Crash',
+        error.message || 'Unknown React Error',
+        errorInfo.componentStack || error.stack,
+        userId
+      );
+    });
+  }
+
   render() {
     if (this.state.hasError) {
       return (
