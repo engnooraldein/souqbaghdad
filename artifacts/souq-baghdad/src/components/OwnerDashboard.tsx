@@ -56,6 +56,9 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
   const [logFilter, setLogFilter] = useState('');
 
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+  const [isAutoSync, setIsAutoSync] = useState(() => {
+    return localStorage.getItem('souqAutoSync') === 'true';
+  });
 
   useEffect(() => {
     const searchUsers = async () => {
@@ -129,6 +132,12 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
     }
   };
 
+  const toggleAutoSync = () => {
+    const newVal = !isAutoSync;
+    setIsAutoSync(newVal);
+    localStorage.setItem('souqAutoSync', String(newVal));
+  };
+
   useEffect(()=>{
     try{setStoredUsers(JSON.parse(localStorage.getItem('souqUsers')||'[]'));}catch{}
     try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}
@@ -139,6 +148,14 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
 
     return () => clearInterval(iv);
   },[]);
+
+  useEffect(() => {
+    if (!isAutoSync) return;
+    const autoIv = setInterval(() => {
+      syncAll();
+    }, 60000); // 1 minute auto sync if enabled
+    return () => clearInterval(autoIv);
+  }, [isAutoSync]);
 
   useEffect(() => {
     if (tab === 'settings') {
@@ -322,10 +339,16 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-end">
               <span className="text-[10px] text-gray-400 mb-1">آخر مزامنة: {lastSyncDate}</span>
-              <button onClick={syncAll} disabled={isSyncing} className="px-3 py-1.5 bg-gray-800 border border-gray-700 hover:border-amber-500/50 text-xs font-bold text-gray-300 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
-                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-amber-500' : ''}`}/>
-                {isSyncing ? 'جاري المزامنة...' : 'مزامنة السيرفر'}
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={toggleAutoSync} className={`px-2 py-1.5 border text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1 shadow-sm ${isAutoSync ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-gray-800 border-gray-700 text-gray-500 hover:border-gray-600'}`} title="تحديث تلقائي كل دقيقة">
+                  <div className={`w-2 h-2 rounded-full ${isAutoSync ? 'bg-emerald-400 animate-pulse' : 'bg-gray-600'}`}></div>
+                  تلقائي
+                </button>
+                <button onClick={syncAll} disabled={isSyncing} className="px-3 py-1.5 bg-gray-800 border border-gray-700 hover:border-amber-500/50 text-xs font-bold text-gray-300 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-amber-500' : ''}`}/>
+                  {isSyncing ? 'جاري...' : 'مزامنة'}
+                </button>
+              </div>
             </div>
             <button onClick={onClose} className="p-2.5 bg-gray-800 rounded-xl border border-gray-700 text-gray-400 hover:text-white hover:bg-red-500/20 hover:border-red-500/30 transition-colors" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
           </div>
