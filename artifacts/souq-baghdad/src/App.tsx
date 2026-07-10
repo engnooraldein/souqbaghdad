@@ -3,7 +3,7 @@ import { supabase } from './lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
 import { LoadingScreen } from './components/LoadingScreen';
-import { useOnlineStatuses } from './hooks/useOnlineStatuses';
+import { useOnlineStatuses, triggerOnlineStatusesSync } from './hooks/useOnlineStatuses';
 import { SellerInfo, Ad, Product, User, StoredUser, Visit, SystemLog, TransportAd } from './types';
 import { formatPrice } from './utils/format';
 import { logSystemAction } from './utils/logs';
@@ -3955,7 +3955,7 @@ function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id:number
 
   useEffect(() => {
     if(tab === 'users') {
-      supabase.from('profiles').select('id, name, phone, points, created_at').order('created_at', { ascending: false }).limit(1000).then(({data}) => {
+      supabase.from('profiles').select('id, name, phone, points, created_at').order('created_at', { ascending: false }).limit(200).then(({data}) => {
         if(data) setUsers(data);
       });
     } else if (tab === 'settings') {
@@ -4408,7 +4408,7 @@ function MarketView({
         const sellersMap = new Map();
 
         // Fetch registered profiles from DB
-        const { data: dbProfiles } = await supabase.from('profiles').select('*').limit(1000);
+        const { data: dbProfiles } = await supabase.from('profiles').select('id, full_name, name, avatar_url, avatar, phone, city, location, created_at, role').limit(200);
         if (dbProfiles && dbProfiles.length > 0) {
           dbProfiles.forEach((p: any) => {
             sellersMap.set(p.id, {
@@ -5937,7 +5937,7 @@ export default function App() {
         const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
         const sellersMap = new Map();
 
-        const { data: dbProfiles } = await supabase.from('profiles').select('*').limit(1000);
+        const { data: dbProfiles } = await supabase.from('profiles').select('id, full_name, name, avatar_url, avatar, phone, city, location, created_at, role').limit(200);
         if (dbProfiles && dbProfiles.length > 0) {
           dbProfiles.forEach((p: any) => {
             sellersMap.set(p.id, {
@@ -7122,6 +7122,7 @@ export default function App() {
       }
 
       const { data, error } = await supabase.from('ads').insert(rowData).select().single();
+      triggerOnlineStatusesSync();
       if (error) { showToast('حدث خطأ أثناء النشر', 'error'); console.error(error); return; }
       if (user && data) {
         setUser(prev => {

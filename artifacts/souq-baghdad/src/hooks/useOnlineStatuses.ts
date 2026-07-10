@@ -9,17 +9,33 @@ export const useOnlineStatuses = () => {
   useEffect(() => {
     const trigger = () => setStatuses({...globalOnlineStatuses});
     onlineListeners.push(trigger);
+    
+    // Fetch only if we haven't fetched recently (e.g. within 3 minutes) or if forced
     fetchGlobalOnlineStatuses();
-    const interval = setInterval(fetchGlobalOnlineStatuses, 300000); // 5 minutes
+    
     return () => { 
       onlineListeners = onlineListeners.filter(l => l !== trigger); 
-      clearInterval(interval);
     };
   }, []);
   return statuses;
 }
 
-const fetchGlobalOnlineStatuses = async () => {
+let isFetching = false;
+
+// We export this so App.tsx can call it when a user publishes an ad
+export const triggerOnlineStatusesSync = () => {
+  fetchGlobalOnlineStatuses(true);
+};
+
+const fetchGlobalOnlineStatuses = async (force = false) => {
+  const now = Date.now();
+  const lastFetchStr = localStorage.getItem('last_online_sync_time');
+  const lastFetchTime = lastFetchStr ? parseInt(lastFetchStr, 10) : 0;
+  
+  // If not forced, only sync once every 3 minutes
+  if (!force && (isFetching || now - lastFetchTime < 180000)) return; 
+  
+  isFetching = true;
   try {
     const { data } = await supabase.from('profiles').select('id, phone, last_seen');
     if (data) {
@@ -32,7 +48,10 @@ const fetchGlobalOnlineStatuses = async () => {
         }
       });
       globalOnlineStatuses = map;
+      localStorage.setItem('last_online_sync_time', Date.now().toString());
       onlineListeners.forEach(l => l());
     }
-  } catch(e) {}
+  } catch(e) {} finally {
+    isFetching = false;
+  }
 };

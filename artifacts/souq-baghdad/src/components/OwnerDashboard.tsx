@@ -55,15 +55,29 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
   const [visibleDashboardLines, setVisibleDashboardLines] = useState(4);
   const [logFilter, setLogFilter] = useState('');
 
-  const filteredDbUsers = useMemo(() => {
-    return dbUsers.filter(u => 
-      !userSearchQuery || 
-      (u.phone && u.phone.includes(userSearchQuery)) ||
-      (u.full_name && u.full_name.includes(userSearchQuery)) ||
-      (u.email && u.email.includes(userSearchQuery))
-    );
-  }, [dbUsers, userSearchQuery]);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
 
+  useEffect(() => {
+    const searchUsers = async () => {
+      setIsSearchingUsers(true);
+      try {
+        let query = supabase.from('profiles').select('id, full_name, email, phone, city, last_seen, points, role, is_banned').order('last_seen', { ascending: false }).limit(200);
+        
+        if (userSearchQuery) {
+          const term = `%${userSearchQuery}%`;
+          query = query.or(`phone.ilike.${term},full_name.ilike.${term},email.ilike.${term}`);
+        }
+        
+        const { data } = await query;
+        if (data) setDbUsers(data);
+      } catch (err) {} finally {
+        setIsSearchingUsers(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(searchUsers, 500);
+    return () => clearTimeout(debounceTimer);
+  }, [userSearchQuery]);
   useEffect(() => {
     const loadLogs = () => {
       try { setSystemLogs(JSON.parse(localStorage.getItem('souq_system_logs') || '[]')); } catch {}
@@ -83,86 +97,47 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
   const [viewersModalItem, setViewersModalItem] = useState<{id:string|number, type:'ad'|'product'|'transport'}|null>(null);
   const onlineStatuses = useOnlineStatuses();
 
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncDate, setLastSyncDate] = useState(() => localStorage.getItem('owner_sync_date') || 'غير مزامن');
+
+  const syncAll = async () => {
+    setIsSyncing(true);
+    try {
+      const [{ data: verReqs }, { data: recReqs }, { data: profiles }, { data: guests }, { data: support }, { data: promos }] = await Promise.all([
+        supabase.from('verification_requests').select('*, profiles(full_name, phone, email)').order('created_at', { ascending: false }),
+        supabase.from('recovery_requests').select('*, profiles(full_name, phone, email)').order('request_time', { ascending: false }),
+        supabase.from('profiles').select('id, full_name, email, phone, city, last_seen, points, role, is_banned').order('last_seen', { ascending: false }).limit(200),
+        supabase.from('guests').select('id, ip_address, platform, browser, city, first_visit, last_seen, visit_count').order('last_seen', { ascending: false }).limit(200),
+        supabase.from('support_messages').select('*').order('created_at', { ascending: false }).limit(500),
+        supabase.from('promo_codes').select('*, profiles:used_by(full_name, phone)').order('created_at', { ascending: false }).limit(500)
+      ]);
+
+      if (verReqs) setVerificationRequests(verReqs);
+      if (recReqs) setRecoveryRequests(recReqs);
+      if (profiles) setDbUsers(profiles);
+      if (guests) setDbGuests(guests);
+      if (support) setReports(support.filter((msg: any) => msg.name && msg.name.startsWith('REPORT:')));
+      if (promos) setPromoCodes(promos);
+
+      const now = new Date().toLocaleString('ar-IQ');
+      setLastSyncDate(now);
+      localStorage.setItem('owner_sync_date', now);
+    } catch(err) {
+      console.error(err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   useEffect(()=>{
     try{setStoredUsers(JSON.parse(localStorage.getItem('souqUsers')||'[]'));}catch{}
     try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}
-    const iv=setInterval(()=>{try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}},300_000); // Changed to 5 minutes
+    const iv=setInterval(()=>{try{setVisits(JSON.parse(localStorage.getItem('souqVisits')||'[]'));}catch{}},300_000); 
     
-    
-    const fetchVerification = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('verification_requests')
-          .select(`*, profiles(full_name, phone, email)`)
-          .order('created_at', { ascending: false });
-        if (data && !error) setVerificationRequests(data);
-      } catch (err) {}
-    };
-    fetchVerification();
-const fetchRecovery = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('recovery_requests')
-          .select(`*, profiles(full_name, phone, email)`)
-          .order('request_time', { ascending: false });
-        if (data && !error) setRecoveryRequests(data);
-      } catch (err) {}
-    };
-    fetchRecovery();
+    // Fetch once on mount
+    syncAll();
 
-    const fetchUsersAndGuests = async () => {
-      try {
-        const { data: profiles } = await supabase.from('profiles').select('*').order('last_seen', { ascending: false }).limit(1000);
-        if (profiles) setDbUsers(profiles);
-        const { data: guests } = await supabase.from('guests').select('*').order('last_seen', { ascending: false }).limit(1000);
-        if (guests) setDbGuests(guests);
-      } catch (err) {}
-    };
-    fetchUsersAndGuests();
-    const fetchInterval = setInterval(fetchUsersAndGuests, 300_000); // 5 minutes
-
-    const fetchReports = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('support_messages')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(500);
-        if (data && !error) {
-          const reportMessages = data.filter((msg: any) => msg.name && msg.name.startsWith('REPORT:'));
-          setReports(reportMessages);
-        }
-      } catch (err) {}
-    };
-    fetchReports();
-    const reportInterval = setInterval(fetchReports, 30_000);
-
-    const fetchPromoCodes = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('promo_codes')
-          .select('*, profiles:used_by(full_name, phone)')
-          .order('created_at', { ascending: false })
-          .limit(500);
-        if (error) {
-          console.error('fetchPromoCodes error:', error);
-        }
-        if (data && !error) {
-          setPromoCodes(data);
-        }
-      } catch (err) {
-        console.error('fetchPromoCodes exception:', err);
-      }
-    };
-    fetchPromoCodes();
-    const promoInterval = setInterval(fetchPromoCodes, 60_000);
-
-    return () => { 
-      clearInterval(iv); 
-      clearInterval(fetchInterval); 
-      clearInterval(reportInterval); 
-      clearInterval(promoInterval);
-    };
+    return () => clearInterval(iv);
   },[]);
 
   useEffect(() => {
@@ -344,7 +319,16 @@ const fetchRecovery = async () => {
             <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg"><Crown className="w-6 h-6 text-black"/></div>
             <div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold text-white">داشبورت المالك</h1><span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">🚀 الإصدار v1.2</span></div><p className="text-amber-400 text-xs mt-0.5">تحليلات شاملة وإدارة كاملة للموقع المنصة حية ومتصلة</p></div>
           </div>
-          <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col items-end">
+              <span className="text-[10px] text-gray-400 mb-1">آخر مزامنة: {lastSyncDate}</span>
+              <button onClick={syncAll} disabled={isSyncing} className="px-3 py-1.5 bg-gray-800 border border-gray-700 hover:border-amber-500/50 text-xs font-bold text-gray-300 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-amber-500' : ''}`}/>
+                {isSyncing ? 'جاري المزامنة...' : 'مزامنة السيرفر'}
+              </button>
+            </div>
+            <button onClick={onClose} className="p-2.5 bg-gray-800 rounded-xl border border-gray-700 text-gray-400 hover:text-white hover:bg-red-500/20 hover:border-red-500/30 transition-colors" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
+          </div>
         </div>
         
         {/* Stat cards */}
@@ -485,7 +469,7 @@ const fetchRecovery = async () => {
             <div className="sticky top-[4rem] z-20 bg-gray-900/95 backdrop-blur-md py-3 px-4 border border-gray-700 rounded-2xl mb-3 flex flex-col gap-3 shadow-lg">
               <div className="flex items-center justify-between">
                 <p className="text-gray-350 font-bold text-xs">إدارة الحسابات المسجلة</p>
-                <p className="text-gray-450 text-xs">تم العثور على {filteredDbUsers.length} مستخدم، يتم عرض {Math.min(visibleUsers, filteredDbUsers.length)}</p>
+                <p className="text-gray-450 text-xs">تم العثور على {dbUsers.length} مستخدم، يتم عرض {Math.min(visibleUsers, dbUsers.length)}</p>
               </div>
               <div className="relative">
                 <Search className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2"/>
@@ -514,7 +498,7 @@ const fetchRecovery = async () => {
                  </button>
                </div>
             )}
-            {filteredDbUsers.length===0?<div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا مستخدمون بعد</p></div>:filteredDbUsers.slice(0, visibleUsers).map(u=>{
+            {dbUsers.length===0?<div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700"><Users className="w-12 h-12 text-gray-600 mx-auto mb-3"/><p className="text-gray-400">لا مستخدمون بعد</p></div>:dbUsers.slice(0, visibleUsers).map(u=>{
               const isOnline = new Date().getTime() - new Date(u.last_seen || 0).getTime() < 5 * 60 * 1000;
               
               return (

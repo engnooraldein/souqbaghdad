@@ -27,7 +27,7 @@ export function UserProfile({ onBack }: UserProfileProps) {
     try {
       const { data, error } = await supabase.from('profiles')
         .select('id, full_name, name, avatar_url, avatar, phone, city, location, created_at, role')
-        .limit(1000);
+        .limit(200);
       if (error) throw error;
       if (data) {
         localStorage.setItem('souq_cached_profiles', JSON.stringify(data));
