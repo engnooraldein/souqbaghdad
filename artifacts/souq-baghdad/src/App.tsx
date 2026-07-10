@@ -6864,24 +6864,14 @@ export default function App() {
 
     fetchNotifications();
 
-    const channel = supabase
-      .channel('user-notifications-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_notifications',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          fetchNotifications();
-        }
-      )
-      .subscribe();
+    // Use polling instead of Realtime to avoid hitting Supabase free tier connection limits (200 connections)
+    // and to prevent the red WebSocket connection errors in the console.
+    const pollInterval = setInterval(() => {
+      fetchNotifications();
+    }, 45000); // 45 seconds
 
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(pollInterval);
     };
   }, [user, fetchNotifications]);
 
