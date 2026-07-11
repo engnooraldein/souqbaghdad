@@ -20,8 +20,35 @@ import {
   Trash2, SlidersHorizontal, Settings, ChevronLeft, Info, LogIn, Edit2,
   Save, BarChart3, Smartphone, Monitor, Tablet, Globe, UserCheck, Activity,
   Crown, UserX, FileText, ShoppingBag, Package, Store, Camera, ZoomIn,
-  ZoomOut, Calendar, Users, ChevronDown, Tag, Layers, Home, Car, UserCircle, Key, Sparkles, Clock, Wallet, MessageCircle
+  ZoomOut, Calendar, Users, ChevronDown, Tag, Layers, Home, Car, UserCircle, Key, Sparkles, Clock, Wallet, MessageCircle, Scissors, Palette, Tv,
+  Laptop, Shirt, Briefcase, Wrench, Sofa, Bike, WashingMachine
 } from 'lucide-react';
+
+import { LionSvg } from './components/LionSvg';
+
+// Premium SVG Component Imports
+import { LogoMain } from './assets/svg/logo/logo-main';
+import { LogoBox } from './assets/svg/logo/logo-box';
+import { LionOutline } from './assets/svg/logo/lion-outline';
+import { CityOutline } from './assets/svg/logo/city-outline';
+import { HeroStars } from './assets/svg/hero/hero-stars';
+import { HeroDots } from './assets/svg/hero/hero-dots';
+import { SearchContainer } from './assets/svg/search/search-container';
+import { SearchGlow } from './assets/svg/search/search-glow';
+import { TransportCard } from './assets/svg/transport/transport-card';
+import { TransportBus } from './assets/svg/transport/transport-bus';
+import { TransportRoad } from './assets/svg/transport/transport-road';
+import { TransportCity } from './assets/svg/transport/transport-city';
+import { TransportGlow } from './assets/svg/transport/transport-glow';
+import { StatsGraph } from './assets/svg/stats/stats-graph';
+import { StatsUsers } from './assets/svg/stats/stats-users';
+import { PatternGold } from './assets/svg/patterns/pattern-gold';
+import { BackgroundNoise } from './assets/svg/background/background-noise';
+import { BackgroundGrid } from './assets/svg/background/background-grid';
+import { GoldParticles } from './assets/svg/effects/gold-particles';
+import { BottomNavGlow } from './assets/svg/navigation/bottom-nav-glow';
+import { CategoryCard as CategoryCardSvg } from './assets/svg/cards/category-card';
+import { AdCard as AdCardSvg } from './assets/svg/cards/ad-card';
 
 const OwnerDashboard = lazy(() => import('./components/OwnerDashboard'));
 const StoreShareGuideModal = lazy(() => import('./components/StoreShareGuideModal').then(m => ({ default: m.StoreShareGuideModal })));
@@ -60,11 +87,34 @@ const CATEGORIES = [
   { id:'cosmetics',    name:'الكوزمتك',    emoji:'💄' },
   { id:'handmade',     name:'حرف يدوية',   emoji:'🧶' },
   { id:'jobs',         name:'وظائف',       emoji:'💼' },
+  { id:'services',     name:'خدمات',       emoji:'🔧' },
   { id:'furniture',    name:'أثاث',        emoji:'🛋️' },
   { id:'bikes',        name:'دراجات',      emoji:'🚲' },
-  { id:'services',     name:'خدمات',       emoji:'🔧' },
+  { id:'supplies',     name:'مستلزمات',    emoji:'🛍️' },
+  { id:'appliances',   name:'أجهزة منزلية', emoji:'📺' },
+  { id:'others',       name:'أخرى',        emoji:'⚙️' },
   { id:'games',        name:'الألعاب',     emoji:'🎮' },
 ];
+
+const getCategoryIcon = (id: string, className = "w-6 h-6 text-[#BF9B30]") => {
+  switch (id) {
+    case 'all': return <Package className={className} />;
+    case 'cars': return <Car className={className} />;
+    case 'real-estate': return <Home className={className} />;
+    case 'phones': return <Smartphone className={className} />;
+    case 'electronics': return <Laptop className={className} />;
+    case 'clothes': return <Shirt className={className} />;
+    case 'cosmetics': return <Sparkles className={className} />;
+    case 'handmade': return <Scissors className={className} />;
+    case 'jobs': return <Briefcase className={className} />;
+    case 'services': return <Wrench className={className} />;
+    case 'furniture': return <Sofa className={className} />;
+    case 'bikes': return <Bike className={className} />;
+    case 'supplies': return <ShoppingBag className={className} />;
+    case 'appliances': return <WashingMachine className={className} />;
+    default: return <Grid className={className} />;
+  }
+};
 
 const GAMES_DATA = [
   { id:1, title:'ضارب الدجاج', emoji:'🐔💥', rating:4.9 },
@@ -268,10 +318,11 @@ const useSound = () => {
 function Logo({ small }:{small?:boolean}) {
   return (
     <div className="flex items-center gap-2">
-      <div className={`${small?'w-10 h-10':'w-14 h-14'} shrink-0 bg-blue-900 rounded-xl flex items-center justify-center border-2 border-amber-500/40 shadow-lg overflow-hidden`}>
-        <img src="/logo.jpg" alt="سوق بغداد" className="w-full h-full object-cover" />
-      </div>
-      {!small && <div className="shrink-0"><h1 className="text-xl font-bold text-white leading-tight">سوك بغداد</h1><p className="text-amber-400 text-xs">السوق الرقمي العراقي</p></div>}
+      {small ? (
+        <LogoBox className="w-10 h-10 shrink-0 filter drop-shadow-[0_2px_8px_rgba(191,155,48,0.2)]" />
+      ) : (
+        <LogoMain className="h-14 w-auto shrink-0 filter drop-shadow-[0_2px_12px_rgba(191,155,48,0.3)]" />
+      )}
     </div>
   );
 }
@@ -1337,6 +1388,69 @@ function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose }: { s
 }
 
 // ─────────────────────────────────────────────
+// Item Status Badge Component
+// ─────────────────────────────────────────────
+function ItemStatusBadge({ 
+  status, 
+  isOwner, 
+  onToggle,
+  mini
+}: { 
+  status: string; 
+  isOwner?: boolean; 
+  onToggle?: () => void; 
+  mini?: boolean;
+}) {
+  const isSold = status === 'sold' || status === 'matched' || status === 'archived';
+  if (mini) {
+    return (
+      <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[9px] font-bold border ${
+        isSold 
+          ? 'bg-red-500/10 text-red-400 border-red-500/20'
+          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+      }`}>
+        <span className={`w-1 h-1 rounded-full ${isSold ? 'bg-red-500' : 'bg-emerald-500 animate-pulse'}`} />
+        <span>{isSold ? 'مباع' : 'متوفر'}</span>
+      </div>
+    );
+  }
+  return (
+    <motion.button
+      whileHover={isOwner ? { scale: 1.05 } : {}}
+      whileTap={isOwner ? { scale: 0.95 } : {}}
+      onClick={(e) => {
+        if (isOwner && onToggle) {
+          e.stopPropagation();
+          onToggle();
+        }
+      }}
+      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold tracking-wide transition-all duration-300 border ${
+        isSold 
+          ? 'bg-red-500/10 text-red-400 border-red-500/20 shadow-[0_0_12px_rgba(239,68,68,0.15)] hover:bg-red-500/15'
+          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_12px_rgba(16,185,129,0.15)] hover:bg-emerald-500/15'
+      } ${isOwner ? 'cursor-pointer hover:border-amber-500/30' : 'cursor-default'}`}
+    >
+      <span className={`relative flex h-2 w-2`}>
+        {isSold ? (
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+        ) : (
+          <>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+          </>
+        )}
+      </span>
+      <span>{isSold ? 'تم البيع' : 'متوفر للبيع'}</span>
+      {isOwner && (
+        <span className="text-[10px] text-amber-400/80 mr-1 border-r border-white/10 pr-1.5 font-normal">
+          تغيير 🔄
+        </span>
+      )}
+    </motion.button>
+  );
+}
+
+// ─────────────────────────────────────────────
 // Ad Card
 // ─────────────────────────────────────────────
 function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu, sellerRole }:{
@@ -1346,34 +1460,63 @@ function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu, selle
   const onlineStatuses = useOnlineStatuses();
   const time = useRelativeTime(ad.createdAtISO);
   return (
-    <motion.div whileHover={{y:-4}} onClick={onSelect} onContextMenu={onActionMenu}
-      className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full">
+    <motion.div whileHover={{ y: -6, scale: 1.015 }} transition={{ type: "spring", stiffness: 350, damping: 20 }} onClick={onSelect} onContextMenu={onActionMenu}
+      className="bg-gradient-to-b from-[#091b40]/90 to-[#030e25]/95 backdrop-blur-md rounded-2xl overflow-hidden border border-white/5 hover:border-[#BF9B30]/45 cursor-pointer transition-all flex flex-col h-full relative group shadow-[0_4px_30px_rgba(0,0,0,0.4)] hover:shadow-[0_15px_45px_rgba(191,155,48,0.22)]">
+      {/* Premium SVG Hover Overlay */}
+      <AdCardSvg className="absolute inset-0 w-full h-full pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-10" />
       <div className="relative w-full aspect-[4/3] overflow-hidden flex-shrink-0">
-        <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=40'} alt={ad.title} className="w-full h-full object-cover" />
+        <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=40'} alt={ad.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+        
         {isNewItem(ad.createdAtISO) && (
-          <div className="absolute top-2 left-2 px-2 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[9px] font-extrabold rounded-lg z-10 shadow-lg shadow-red-500/25 border border-red-400/30 animate-pulse">
+          <div className="absolute top-12 left-2 px-2.5 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[9px] font-extrabold rounded-lg z-10 shadow-lg shadow-red-500/25 border border-red-400/30 animate-pulse">
             حديث ✨
           </div>
         )}
-        {ad.type==='rent'&&<div className={`absolute px-2 py-0.5 bg-blue-500 rounded-full text-[10px] font-bold text-white transition-all ${isNewItem(ad.createdAtISO) ? 'top-8 left-2' : 'top-2 left-2'}`}>للإيجار</div>}
-        <button onClick={onFav} className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'} transition-colors`} title={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"} aria-label={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}>
-          <Heart className={`w-4 h-4 text-white ${isFav?'fill-current':''}`}/></button>
-        {ad.seller?.isVerified&&<div className="absolute bottom-2 left-2 px-2 py-0.5 bg-blue-500 rounded-full text-[10px] font-bold text-white flex items-center gap-1"><Shield className="w-2.5 h-2.5"/>موثق</div>}
-        {ad.status==='sold'&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-[1px]"><span className="bg-red-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
+        
+        {ad.type==='rent'&&<div className={`absolute px-2.5 py-0.5 bg-blue-600/90 backdrop-blur-sm rounded-lg text-[10px] font-bold text-white transition-all ${isNewItem(ad.createdAtISO) ? 'top-18 left-2' : 'top-12 left-2'} border border-blue-400/20 z-10`}>للإيجار</div>}
+        
+        {/* Heart icon inside a highly polished glassmorphic circle */}
+        <button onClick={onFav} className={`absolute top-2 right-2 w-9 h-9 rounded-full flex items-center justify-center ${isFav?'bg-gradient-to-tr from-red-600 to-pink-500 shadow-lg shadow-red-500/30 border border-red-400/30':'bg-slate-950/65 hover:bg-slate-900/90 hover:border-[#BF9B30]/40 text-white/90'} backdrop-blur-md border border-white/10 transition-all duration-300 pointer-events-auto z-20 hover:scale-105 active:scale-95`} title={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"} aria-label={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}>
+          <Heart className={`w-4 h-4 transition-all ${isFav?'fill-current text-white scale-110':'text-white group-hover:text-amber-400'}`}/>
+        </button>
+
+        {/* Premium Golden Verification Badge */}
+        {ad.isPremium ? (
+          <div className="absolute top-2 left-2 px-2.5 py-1 bg-gradient-to-r from-[#BF9B30] to-[#E3C363] text-slate-950 text-[9px] font-black rounded-lg shadow-lg flex items-center gap-1.5 border border-amber-400/25 z-10">
+            <Crown className="w-3 h-3 fill-current" />
+            <span>مميز</span>
+          </div>
+        ) : ad.seller?.isVerified ? (
+          <div className="absolute top-2 left-2 px-2.5 py-1 bg-gradient-to-r from-amber-500/25 to-yellow-500/15 text-amber-300 text-[9px] font-black rounded-lg shadow-md flex items-center gap-1 border border-[#BF9B30]/35 backdrop-blur-md z-10">
+            <Shield className="w-3 h-3 text-[#BF9B30]" />
+            <span>موثق</span>
+          </div>
+        ) : null}
+
+        {ad.status==='sold'&&<div className="absolute inset-0 bg-black/75 flex items-center justify-center z-10 backdrop-blur-[2px]"><span className="bg-red-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
       </div>
-      <div className="p-3 flex-1 flex flex-col">
-        <h3 className="text-white font-bold text-sm mb-1 line-clamp-1">{ad.title}</h3>
-        <p className="text-lg font-bold text-amber-400 mb-2">{formatPrice(ad.price)} <span className="text-xs text-gray-400">د.ع</span></p>
-        <div className="flex items-center gap-1 text-gray-400 text-xs mb-2 flex-1"><MapPin className="w-3 h-3 flex-shrink-0"/><span className="line-clamp-1">{ad.location}</span></div>
-        <div className="flex items-center justify-between mt-auto">
+      <div className="p-3.5 flex-1 flex flex-col">
+        <h3 className="text-slate-100 font-bold text-sm mb-1 line-clamp-1 leading-snug group-hover:text-amber-300 transition-colors">{ad.title}</h3>
+        
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          {/* Extremely clear, bold Price Tag */}
+          <p className="text-lg font-black text-amber-400 flex items-baseline gap-1 filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
+            {formatPrice(ad.price)}
+            <span className="text-[10px] font-bold text-gray-400">د.ع</span>
+          </p>
+          <ItemStatusBadge status={ad.status} mini />
+        </div>
+
+        <div className="flex items-center gap-1.5 text-gray-400 text-xs mb-2.5 flex-1"><MapPin className="w-3.5 h-3.5 text-emerald-500/80 flex-shrink-0"/><span className="line-clamp-1">{ad.location}</span></div>
+        <div className="flex items-center justify-between mt-auto pt-2 border-t border-white/5">
           <button onClick={e=>{e.stopPropagation();onSellerClick?.(ad.postedBy||'');}} className="flex items-center gap-1.5 hover:opacity-80 transition-opacity relative">
             <img src={ad.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&q=40'} alt="" className={`w-5 h-5 rounded-full object-cover ${getGlowClass(sellerRole)}`}/>
             {onlineStatuses[ad.postedBy||''] && <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-gray-800" title="متصل الآن"></div>}
-            <span className="text-gray-400 text-xs truncate max-w-[80px]">{ad.seller?.name || 'مستخدم'}</span>
+            <span className="text-gray-400 text-xs truncate max-w-[80px] font-medium">{ad.seller?.name || 'مستخدم'}</span>
           </button>
           <div className="flex items-center gap-2 text-gray-500 text-xs">
             <span className="text-green-400 font-medium">{time}</span>
-            <span className="flex items-center gap-0.5"><ViewIcon className="w-3 h-3"/>{ad.views}</span>
+            <span className="flex items-center gap-0.5"><ViewIcon className="w-3 h-3 text-gray-400"/>{ad.views}</span>
           </div>
         </div>
       </div>
@@ -1391,36 +1534,59 @@ function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionM
   const onlineStatuses = useOnlineStatuses();
   const time = useRelativeTime(product.createdAtISO);
   return (
-    <motion.div whileHover={{y:-4}} onClick={onSelect} onContextMenu={onActionMenu}
-      className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full">
+    <motion.div whileHover={{ y: -6, scale: 1.015 }} transition={{ type: "spring", stiffness: 350, damping: 20 }} onClick={onSelect} onContextMenu={onActionMenu}
+      className="bg-gradient-to-b from-[#091b40]/90 to-[#030e25]/95 backdrop-blur-md rounded-2xl overflow-hidden border border-white/5 hover:border-[#BF9B30]/45 cursor-pointer transition-all flex flex-col h-full relative group shadow-[0_4px_30px_rgba(0,0,0,0.4)] hover:shadow-[0_15px_45px_rgba(191,155,48,0.22)]">
       <div className="relative w-full aspect-[4/3] overflow-hidden flex-shrink-0">
-        <img src={product.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=40'} alt={product.title} className="w-full h-full object-cover" loading="lazy" decoding="async"/>
-        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{background:product.condition==='new'?'#22c55e':'#f59e0b'}}>
+        <img src={product.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=40'} alt={product.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" decoding="async"/>
+        
+        <div className="absolute top-2 left-2 px-2.5 py-0.5 rounded-lg text-[10px] font-bold text-white shadow-md backdrop-blur-sm border border-white/10 z-10" style={{background:product.condition==='new'?'rgba(34,197,94,0.95)':'rgba(245,158,11,0.95)'}}>
           {product.condition==='new'?'جديد':'مستعمل'}</div>
+        
         {isNewItem(product.createdAtISO) && (
-          <div className="absolute top-8 left-2 px-2 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[9px] font-extrabold rounded-lg z-10 shadow-lg shadow-red-500/25 border border-red-400/30 animate-pulse">
+          <div className="absolute top-8 left-2 px-2.5 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[9px] font-extrabold rounded-lg z-10 shadow-lg shadow-red-500/25 border border-red-400/30 animate-pulse">
             حديث ✨
           </div>
         )}
-        <button onClick={onFav} className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'}`} title={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"} aria-label={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}>
-          <Heart className={`w-4 h-4 text-white ${isFav?'fill-current':''}`}/></button>
-        <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-purple-600 rounded-full text-[10px] font-bold text-white flex items-center gap-1">
-          <ShoppingBag className="w-2.5 h-2.5"/>متجر</div>
-        {product.status==='sold'&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-[1px]"><span className="bg-red-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
+        
+        {/* Heart icon inside a highly polished glassmorphic circle */}
+        <button onClick={onFav} className={`absolute top-2 right-2 w-9 h-9 rounded-full flex items-center justify-center ${isFav?'bg-gradient-to-tr from-red-600 to-pink-500 shadow-lg shadow-red-500/30 border border-red-400/30':'bg-slate-950/65 hover:bg-slate-900/90 hover:border-[#BF9B30]/40 text-white/90'} backdrop-blur-md border border-white/10 transition-all duration-300 pointer-events-auto z-20 hover:scale-105 active:scale-95`} title={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"} aria-label={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}>
+          <Heart className={`w-4 h-4 transition-all ${isFav?'fill-current text-white scale-110':'text-white group-hover:text-amber-400'}`}/>
+        </button>
+
+        {/* Premium Golden Verification Badge for Product sellers if verified */}
+        {product.seller?.isVerified && (
+          <div className="absolute bottom-2 left-2 px-2.5 py-1 bg-gradient-to-r from-amber-500/25 to-yellow-500/15 text-amber-300 text-[9px] font-black rounded-lg shadow-md flex items-center gap-1 border border-[#BF9B30]/35 backdrop-blur-md z-10">
+            <Shield className="w-3 h-3 text-[#BF9B30]" />
+            <span>موثق</span>
+          </div>
+        )}
+
+        <div className="absolute bottom-2 right-2 px-2.5 py-0.5 bg-purple-600/90 backdrop-blur-sm rounded-lg text-[10px] font-bold text-white flex items-center gap-1 border border-purple-500/20 shadow-md">
+          <ShoppingBag className="w-3 h-3 text-purple-200"/>متجر</div>
+        {product.status==='sold'&&<div className="absolute inset-0 bg-black/75 flex items-center justify-center z-10 backdrop-blur-[2px]"><span className="bg-red-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
       </div>
-      <div className="p-3 flex-1 flex flex-col">
-        <h3 className="text-white font-bold text-sm mb-1 line-clamp-1">{product.title}</h3>
-        <p className="text-lg font-bold text-amber-400 mb-2">{formatPrice(product.price)} <span className="text-xs text-gray-400">د.ع</span></p>
-        <div className="flex items-center gap-1 text-gray-400 text-xs mb-2 flex-1"><MapPin className="w-3 h-3 flex-shrink-0"/><span>{product.governorate}</span></div>
-        <div className="flex items-center justify-between mt-auto">
+      <div className="p-3.5 flex-1 flex flex-col">
+        <h3 className="text-slate-100 font-bold text-sm mb-1 line-clamp-1 leading-snug group-hover:text-amber-300 transition-colors">{product.title}</h3>
+        
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          {/* Extremely clear, bold Price Tag */}
+          <p className="text-lg font-black text-amber-400 flex items-baseline gap-1 filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
+            {formatPrice(product.price)}
+            <span className="text-[10px] font-bold text-gray-400">د.ع</span>
+          </p>
+          <ItemStatusBadge status={product.status} mini />
+        </div>
+
+        <div className="flex items-center gap-1.5 text-gray-400 text-xs mb-2.5 flex-1"><MapPin className="w-3.5 h-3.5 text-emerald-500/80 flex-shrink-0"/><span>{product.governorate}</span></div>
+        <div className="flex items-center justify-between mt-auto pt-2 border-t border-white/5">
           <button onClick={e=>{e.stopPropagation();onSellerClick?.(product.postedBy||'');}} className="flex items-center gap-1.5 hover:opacity-80 relative">
             <img src={product.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&q=40'} alt="" className={`w-5 h-5 rounded-full object-cover ${getGlowClass(sellerRole)}`}/>
             {onlineStatuses[product.postedBy||''] && <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-gray-800" title="متصل الآن"></div>}
-            <span className="text-gray-400 text-xs truncate max-w-[80px]">{product.seller?.name || 'مستخدم'}</span>
+            <span className="text-gray-400 text-xs truncate max-w-[80px] font-medium">{product.seller?.name || 'مستخدم'}</span>
           </button>
           <div className="flex items-center gap-2 text-gray-500 text-xs">
             <span className="text-green-400 font-medium">{time}</span>
-            <span className="flex items-center gap-0.5"><ViewIcon className="w-3 h-3"/>{product.views}</span>
+            <span className="flex items-center gap-0.5"><ViewIcon className="w-3 h-3 text-gray-400"/>{product.views}</span>
           </div>
         </div>
       </div>
@@ -1431,10 +1597,11 @@ function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionM
 // ─────────────────────────────────────────────
 // Ad Detail Modal
 // ─────────────────────────────────────────────
-function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom, onViewsUpdated }:{
+function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom, onViewsUpdated, onToggleStatus }:{
   ad:Ad|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; storedUsers?:any[]; onAuthRequired:()=>void; onSellerClick?:(sellerId:string)=>void;
   onViewDurationLogged?:(seconds:number)=>void; onImageZoom?:(src:string, title:string, images?:string[], initialIdx?:number)=>void;
   onViewsUpdated?:(id:string|number, views:number)=>void;
+  onToggleStatus?:()=>void;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
@@ -1566,6 +1733,11 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
                 <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold px-3 py-1 rounded-xl flex items-center gap-1">
                   {catName}
                 </span>
+                <ItemStatusBadge 
+                  status={ad.status} 
+                  isOwner={user ? String(user.id) === String(ad.postedBy) : false} 
+                  onToggle={onToggleStatus} 
+                />
                 <div className="flex items-center gap-1.5 bg-gray-800 px-2.5 py-1 rounded-xl border border-gray-700 text-xs text-gray-400">
                   <span>{ad.short_id ? `#${ad.short_id}` : `#${String(ad.id).substring(0, 5)}`}</span>
                   <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(String(ad.short_id || String(ad.id).substring(0, 5))); alert('تم نسخ رقم الإعلان!'); }} className="text-amber-400 hover:text-amber-300" title="نسخ رقم الإعلان" aria-label="نسخ رقم الإعلان">
@@ -1667,10 +1839,11 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
 // ─────────────────────────────────────────────
 // Product Detail Modal
 // ─────────────────────────────────────────────
-function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers = [], onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom, onViewsUpdated }:{
+function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers = [], onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom, onViewsUpdated, onToggleStatus }:{
   product:Product|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; storedUsers?:any[]; onAuthRequired:()=>void; onSellerClick?:(id:any)=>void;
   onViewDurationLogged?:(seconds:number)=>void; onImageZoom?:(src:string, title:string, images?:string[], initialIdx?:number)=>void;
   onViewsUpdated?:(id:string|number, views:number)=>void;
+  onToggleStatus?:()=>void;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
@@ -1798,6 +1971,11 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
                 <span className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-bold px-3 py-1 rounded-xl flex items-center gap-1">
                   🛍️ منتج للتسوق
                 </span>
+                <ItemStatusBadge 
+                  status={product.status} 
+                  isOwner={user ? String(user.id) === String(product.postedBy) : false} 
+                  onToggle={onToggleStatus} 
+                />
                 <div className="flex items-center gap-1.5 bg-gray-800 px-2.5 py-1 rounded-xl border border-gray-700 text-xs text-gray-400">
                   <span>{product.short_id ? `#${product.short_id}` : `#${String(product.id).substring(0, 5)}`}</span>
                   <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(String(product.short_id || String(product.id).substring(0, 5))); alert('تم نسخ رقم المنتج!'); }} className="text-amber-400 hover:text-amber-300" title="نسخ رقم المنتج" aria-label="نسخ رقم المنتج">
@@ -3829,113 +4007,119 @@ function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }: { ad: 
   const isNew = new Date().getTime() - new Date(ad.createdAt).getTime() < 24 * 60 * 60 * 1000;
 
   return (
-    <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}}
+    <motion.div whileHover={{ y: -6, scale: 1.01 }} transition={{ type: "spring", stiffness: 300, damping: 20 }}
       onClick={onSelect}
       onContextMenu={onActionMenu}
-      className={`bg-gray-800 rounded-2xl border transition-all overflow-hidden relative cursor-pointer ${
+      className={`bg-gradient-to-b from-[#091b40]/90 to-[#030e25]/95 backdrop-blur-md rounded-2xl border transition-all overflow-hidden relative cursor-pointer shadow-[0_4px_25px_rgba(0,0,0,0.4)] ${
         isEmployee 
-          ? 'border-indigo-500/50 hover:border-indigo-400 shadow-lg shadow-indigo-950/40' 
-          : ad.type === 'offer' ? 'border-emerald-500/30 hover:border-emerald-500/60' : 'border-amber-500/30 hover:border-amber-500/60'
+          ? 'border-indigo-500/40 hover:border-indigo-400 hover:shadow-[0_12px_35px_rgba(99,102,241,0.15)] shadow-indigo-950/40' 
+          : ad.type === 'offer' 
+            ? 'border-emerald-500/25 hover:border-emerald-500/50 hover:shadow-[0_12px_35px_rgba(16,185,129,0.15)]' 
+            : 'border-amber-500/25 hover:border-amber-500/50 hover:shadow-[0_12px_35px_rgba(245,158,11,0.15)]'
       }`}>
       
       {/* Type & Category Badges */}
-      <div className="absolute top-0 right-0 flex items-center gap-1 z-10">
+      <div className="absolute top-0 right-0 flex items-center gap-1.5 z-10">
         {isEmployee && (
-          <div className="px-2.5 py-1 rounded-bl-xl text-[10px] font-bold bg-indigo-600 text-white shadow-sm flex items-center gap-1">
+          <div className="px-2.5 py-1 rounded-bl-xl text-[10px] font-bold bg-indigo-600/90 text-white shadow-sm flex items-center gap-1 backdrop-blur-sm border-b border-l border-indigo-400/25">
             <span>👔</span>
             <span>خط موظفين</span>
           </div>
         )}
-        <div className={`px-3 py-1 text-[10px] font-bold ${!isEmployee ? 'rounded-bl-xl' : 'rounded-b-xl'} ${ad.type === 'offer' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-black'}`}>
+        <div className={`px-3 py-1 text-[10px] font-bold ${!isEmployee ? 'rounded-bl-xl border-l border-b' : 'rounded-b-xl border-l border-r border-b'} ${ad.type === 'offer' ? 'bg-emerald-500/90 text-white border-emerald-400/20' : 'bg-amber-500/90 text-black border-amber-400/20'} backdrop-blur-sm`}>
           {ad.type === 'offer' ? 'متوفر خط' : 'أبحث عن خط'}
         </div>
       </div>
 
       {(ad.status === 'matched') && (
-        <div className="absolute inset-0 bg-black/60 z-20 flex items-center justify-center backdrop-blur-sm">
+        <div className="absolute inset-0 bg-black/75 z-20 flex items-center justify-center backdrop-blur-sm">
           <div className="bg-emerald-500 text-white font-bold px-6 py-2 rounded-xl transform -rotate-12 border-2 border-emerald-300 shadow-xl text-lg">
             {ad.type === 'offer' ? 'اكتمل العدد' : 'تم العثور على خط'}
           </div>
         </div>
       )}
       {ad.status === 'archived' && (
-        <div className="absolute inset-0 bg-black/50 z-20 flex items-center justify-center backdrop-blur-sm">
-          <div className="bg-gray-800 text-white font-bold px-6 py-2 rounded-xl transform border border-gray-600 shadow-xl text-sm opacity-90">
+        <div className="absolute inset-0 bg-black/65 z-20 flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-gray-800/95 text-white font-bold px-6 py-2 rounded-xl transform border border-gray-600 shadow-xl text-sm opacity-90">
             مؤرشف
           </div>
         </div>
       )}
 
       {isNew && (
-        <div className="absolute top-2 left-2 px-2 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[9px] font-extrabold rounded-lg z-10 shadow-lg shadow-red-500/25 border border-red-400/30 animate-pulse">
+        <div className="absolute top-2 left-2 px-2.5 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[9px] font-extrabold rounded-lg z-10 shadow-lg shadow-red-500/25 border border-red-400/30 animate-pulse">
           حديث ✨
         </div>
       )}
 
-      <div className="p-4 pt-6">
-        <div className="flex justify-between items-start mb-3">
+      <div className="p-5 pt-7">
+        <div className="flex justify-between items-start mb-3.5">
           <div>
-            <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
+            <h3 className="text-lg font-black text-white mb-1 flex items-center gap-2 group-hover:text-amber-300 transition-colors leading-snug">
               {ad.university}
             </h3>
             <p className="text-gray-400 text-sm flex items-center gap-1.5 leading-relaxed">
               <MapPin className="w-4 h-4 text-emerald-400 shrink-0"/> 
-              <span>المناطق: <span className="text-white">{ad.regions}</span></span>
+              <span className="font-medium text-slate-300">المناطق: <span className="text-white font-bold">{ad.regions}</span></span>
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-          <div className="bg-gray-900 rounded-xl p-2 text-center">
-            <p className="text-gray-400 text-[10px]">الدوام</p>
-            <p className="text-white font-bold text-xs">{ad.shift}</p>
+          <div className="bg-slate-950/40 border border-white/5 rounded-xl p-2.5 text-center">
+            <p className="text-gray-500 text-[10px] mb-0.5 font-medium">الدوام</p>
+            <p className="text-slate-100 font-extrabold text-xs">{ad.shift}</p>
           </div>
           {ad.type === 'offer' && (
-            <div className="bg-gray-900 rounded-xl p-2 text-center">
-              <p className="text-gray-400 text-[10px]">المقاعد</p>
-              <p className="text-emerald-400 font-bold text-xs">{ad.seats} <span className="text-gray-500 font-normal">متاح</span></p>
+            <div className="bg-slate-950/40 border border-white/5 rounded-xl p-2.5 text-center">
+              <p className="text-gray-500 text-[10px] mb-0.5 font-medium">المقاعد</p>
+              <p className="text-emerald-400 font-extrabold text-xs">{ad.seats} <span className="text-gray-500 text-[10px] font-normal">متاح</span></p>
             </div>
           )}
-          <div className="bg-gray-900 rounded-xl p-2 text-center">
-            <p className="text-gray-400 text-[10px]">الفئة</p>
-            <p className="text-white font-bold text-xs">{ad.targetAudience}</p>
+          <div className="bg-slate-950/40 border border-white/5 rounded-xl p-2.5 text-center">
+            <p className="text-gray-500 text-[10px] mb-0.5 font-medium">الفئة</p>
+            <p className="text-slate-100 font-extrabold text-xs">{ad.targetAudience}</p>
           </div>
-          <div className="bg-gray-900 rounded-xl p-2 text-center">
-            <p className="text-gray-400 text-[10px]">المركبة</p>
-            <p className="text-white font-bold text-xs">{ad.vehicleType}</p>
+          <div className="bg-slate-950/40 border border-white/5 rounded-xl p-2.5 text-center">
+            <p className="text-gray-500 text-[10px] mb-0.5 font-medium">المركبة</p>
+            <p className="text-slate-100 font-extrabold text-xs">{ad.vehicleType}</p>
           </div>
         </div>
 
         {ad.price && (
-          <div className="flex items-center gap-2 text-amber-400 text-sm font-bold mb-3 bg-amber-500/10 px-3 py-2 rounded-lg inline-flex">
-            <Tag className="w-4 h-4"/>
+          <div className="flex items-center gap-2 text-amber-400 text-xs font-bold mb-3.5 bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-xl inline-flex">
+            <Tag className="w-3.5 h-3.5 text-amber-400"/>
             <span>السعر المفضل: {ad.price}</span>
           </div>
         )}
 
-        {ad.note&&<p className="text-gray-300 text-xs mb-4 bg-gray-900/50 rounded-xl p-3 border border-gray-700/50">{ad.note}</p>}
+        {ad.note && (
+          <p className="text-slate-300 text-xs mb-4.5 bg-slate-950/20 rounded-xl p-3 border border-white/5 leading-relaxed font-medium">
+            {ad.note}
+          </p>
+        )}
         
-        <div className="flex items-center justify-between pt-3 border-t border-gray-700/50">
+        <div className="flex items-center justify-between pt-3.5 border-t border-white/5">
           <div className="flex items-center gap-2">
-            <img src={ad.sellerAvatar||'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&q=40'} alt="" className={`w-8 h-8 rounded-full object-cover ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-600'}`}/>
+            <img src={ad.sellerAvatar||'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&q=40'} alt="" className={`w-8 h-8 rounded-full object-cover ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-700'}`}/>
             <div>
-              <span className="text-gray-300 text-xs block font-semibold">{ad.sellerName}</span>
+              <span className="text-gray-300 text-xs block font-bold leading-none">{ad.sellerName}</span>
             </div>
           </div>
           
           <div className="flex gap-2">
             <motion.a href={getWhatsAppLink(ad.phone, 'transport', { id: ad.id, title: ad.type==='offer'?'خط متوفر':'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })} target="_blank" rel="noopener noreferrer"
-              whileHover={{scale:1.05}} whileTap={{scale:0.95}}
+              whileHover={{scale:1.03}} whileTap={{scale:0.97}}
               onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1.5 px-4 py-2 bg-green-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-green-500/20">
+              className="flex items-center gap-1.5 px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-extrabold rounded-xl text-xs shadow-lg shadow-green-500/10 transition-colors">
               <MessageSquare className="w-3.5 h-3.5"/> واتساب
             </motion.a>
             {onShare && (
               <motion.button
                 onClick={(e) => { e.stopPropagation(); onShare(); }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold rounded-xl text-xs hover:bg-amber-500/30"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="flex items-center gap-1.5 px-3 py-2 bg-[#BF9B30]/10 text-amber-400 border border-[#BF9B30]/20 font-bold rounded-xl text-xs hover:bg-[#BF9B30]/20 transition-colors"
               >
                 <Share2 className="w-3.5 h-3.5" /> مشاركة
               </motion.button>
@@ -4534,43 +4718,254 @@ function MarketView({
   return (
     <div>
       {/* Hero */}
-      <section className="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 py-12 relative overflow-hidden">
-        <div className="absolute inset-0"><div className="absolute top-10 right-10 w-48 h-48 bg-amber-500/20 rounded-full blur-3xl"/><div className="absolute bottom-10 left-10 w-64 h-64 bg-blue-400/15 rounded-full blur-3xl"/></div>
+      <section className="bg-gradient-to-br from-[#020b22] via-[#051c47] to-[#020b22] py-20 relative overflow-hidden border-b border-white/5">
+        {/* Stellar light glow effect and Mesopotamian lion background */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-10 right-10 w-72 h-72 bg-amber-500/15 rounded-full blur-3xl" />
+          <div className="absolute bottom-10 left-10 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
+          
+          {/* Centered Golden Lion Watermark directly behind the text for depth, gently scaling and rotating */}
+          <motion.div 
+            animate={{ 
+              scale: [1.08, 1.12, 1.08],
+              rotate: [0, 0.5, 0, -0.5, 0],
+            }}
+            transition={{
+              duration: 15,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none z-0 opacity-[0.14]"
+          >
+            <LionOutline className="w-[110%] max-w-[580px] aspect-square text-[#BF9B30] mix-blend-screen" />
+          </motion.div>
+
+          {/* Ambient Premium Backdrop Elements */}
+          <BackgroundNoise className="absolute inset-0 w-full h-full opacity-[0.14] mix-blend-overlay pointer-events-none" />
+          <BackgroundGrid className="absolute inset-0 w-full h-full opacity-[0.08] mix-blend-overlay pointer-events-none" />
+          
+          <motion.div
+            animate={{
+              opacity: [0.3, 0.9, 0.3],
+              scale: [0.95, 1.05, 0.95],
+            }}
+            transition={{
+              duration: 4,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="absolute top-4 right-10 w-32 h-32 pointer-events-none"
+          >
+            <HeroStars className="w-full h-full text-amber-500/25" />
+          </motion.div>
+          
+          <HeroDots className="absolute bottom-4 left-1/3 w-32 h-32 text-amber-500/15 pointer-events-none" />
+          <GoldParticles className="absolute inset-0 w-full h-full pointer-events-none opacity-50" />
+          <PatternGold className="absolute right-0 top-0 bottom-0 w-1/3 opacity-[0.09] pointer-events-none z-0" />
+          
+          {/* Baghdad Skyline Backdrop in Hero bottom with extra depth & gentle float */}
+          <motion.div 
+            animate={{
+              y: [0, -1.5, 0]
+            }}
+            transition={{
+              duration: 8,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="absolute inset-x-0 bottom-0 h-24 opacity-[0.26] pointer-events-none z-0"
+          >
+            <CityOutline className="w-full h-full object-cover object-bottom text-[#BF9B30]" />
+            <div className="absolute bottom-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#BF9B30]/50 to-transparent" />
+          </motion.div>
+        </div>
+
         <div className="container mx-auto px-4 relative z-10">
-          <div className="text-center mb-8">
-            <motion.h1 initial={{opacity:0,y:15}} animate={{opacity:1,y:0}} className="text-3xl md:text-4xl font-bold text-white mb-3">كل شي تحتاجه <span className="text-amber-400">بمكان واحد</span></motion.h1>
-            <p className="text-gray-300">إعلانات + متجر — السوق الرقمي العراقي</p>
+          
+          {/* Header Title with premium layout and glowing amber backdrop */}
+          <div className="text-center mb-10 relative">
+            {/* Ambient Title Glow Pulse */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-32 bg-gradient-to-r from-amber-500/20 via-yellow-500/10 to-transparent rounded-full blur-2xl pointer-events-none opacity-70 animate-pulse z-0" />
+            
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="inline-block mb-3 relative z-10"
+            >
+              <h2 className="text-3xl md:text-5xl font-black text-white leading-tight tracking-tight">
+                كل شيء تحتاجه <span className="text-amber-400 bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent filter drop-shadow-[0_0_15px_rgba(191,155,48,0.35)]">بمكان واحد</span>
+              </h2>
+            </motion.div>
+            <p className="text-slate-200 text-xs sm:text-sm md:text-base font-bold tracking-wide mt-1 relative z-10 drop-shadow-sm">إعلانات + متجر — السوق الرقمي العراقي الأكبر</p>
           </div>
-          <div className="max-w-2xl mx-auto mb-6">
-            <div className="relative"><Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"/>
-              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="ابحث عن سيارة، هاتف، عقار، منتج..."
-                className="w-full bg-white/10 backdrop-blur text-white placeholder-gray-300 rounded-2xl py-4 pr-12 pl-4 border border-white/20 focus:border-amber-400 outline-none text-sm"/></div>
-          </div>
-          <div className="flex flex-wrap justify-center gap-2">
-            {CATEGORIES.filter(c=>c.id!=='games').map(c=>(
-              <motion.button key={c.id} whileHover={{scale:1.05}} whileTap={{scale:0.95}} onClick={()=>setCat(c.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border ${cat===c.id?'bg-amber-500 text-black border-amber-500':'bg-white/10 text-white border-white/20 hover:bg-white/20'}`}>
-                <span>{c.emoji}</span><span>{c.name}</span>
-              </motion.button>
-            ))}
-          </div>
-          <LiveVisitorCounter />
-          {/* Transport Quick Access */}
-          <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:0.2}}
-            className="mt-5 max-w-2xl mx-auto">
-            <button onClick={()=>onTransportClick?.()}
-              className="w-full flex items-center justify-between px-5 py-3.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded-2xl transition-all group">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-emerald-500/30 rounded-xl flex items-center justify-center">
-                  <Car className="w-5 h-5 text-emerald-400"/>
+
+          {/* Unified Glow Search Capsule */}
+          <div className="max-w-2xl mx-auto mb-8 relative group">
+            <div className="absolute -inset-1.5 bg-gradient-to-r from-[#BF9B30]/30 to-amber-500/20 rounded-2xl blur-xl opacity-40 group-hover:opacity-75 transition duration-500 z-0" />
+            <div className="bg-slate-950/60 backdrop-blur-2xl rounded-2xl border border-[#BF9B30]/30 flex items-center p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.6)] relative z-10" dir="rtl">
+              
+              {/* Search Input (RTL Right) */}
+              <div className="relative flex-1 flex items-center min-w-0">
+                <Search className="w-4 h-4 text-[#BF9B30] mr-2 sm:mr-3 shrink-0" />
+                <input 
+                  value={search} 
+                  onChange={e => setSearch(e.target.value)} 
+                  placeholder="ابحث عن سيارة، هاتف، عقار، خدمات..."
+                  className="w-full bg-transparent text-white placeholder-slate-500 text-[11px] sm:text-xs md:text-sm py-2 px-2.5 outline-none text-right font-bold"
+                />
+              </div>
+
+              <div className="w-px h-6 bg-white/10 mx-1.5 shrink-0" />
+
+              {/* Selector filters - with pristine custom selects */}
+              <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 select-none">
+                <div className="flex items-center gap-1 text-white/90">
+                  <Grid className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#BF9B30]" />
+                  <select 
+                    value={cat} 
+                    onChange={e => setCat(e.target.value)} 
+                    className="bg-transparent text-white font-black text-[10px] sm:text-xs outline-none cursor-pointer pr-1 appearance-none hover:text-amber-300 transition-colors"
+                    title="الفئة"
+                  >
+                    {CATEGORIES.map(c => (
+                      <option key={c.id} value={c.id} className="bg-[#040f28] text-white text-xs">{c.name}</option>
+                    ))}
+                  </select>
                 </div>
-                <div className="text-right">
-                  <p className="text-white font-bold text-sm">🚌 قسم الخطوط</p>
-                  <p className="text-emerald-300 text-xs">نقل يومي للطلاب والموظفين 🎓👔</p>
+
+                <div className="w-px h-6 bg-white/10 mx-0.5 shrink-0" />
+
+                <div className="flex items-center gap-1 text-white/90">
+                  <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#BF9B30]" />
+                  <select 
+                    value={gov} 
+                    onChange={e => setGov(e.target.value)} 
+                    className="bg-transparent text-white font-black text-[10px] sm:text-xs outline-none cursor-pointer pr-1 appearance-none hover:text-amber-300 transition-colors"
+                    title="المحافظة"
+                  >
+                    {IRAQI_GOVERNORATES.map(g => (
+                      <option key={g} value={g} className="bg-[#040f28] text-white text-xs">{g}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
-              <ChevronLeft className="w-5 h-5 text-emerald-400 group-hover:-translate-x-1 transition-transform"/>
-            </button>
+            </div>
+          </div>
+
+          {/* Bento Category Grid (5 Columns fluid) */}
+          <div className="grid grid-cols-5 gap-2 sm:gap-3.5 max-w-2xl mx-auto mt-6">
+            {CATEGORIES.filter(c => c.id !== 'games').map(c => {
+              const isActive = cat === c.id;
+              return (
+                <motion.button 
+                  key={c.id} 
+                  whileHover={{ scale: 1.05, y: -2 }} 
+                  whileTap={{ scale: 0.98 }} 
+                  onClick={() => setCat(c.id)}
+                  className={`category-card flex flex-col items-center justify-center p-2.5 sm:p-4 rounded-2xl border transition-all duration-300 relative overflow-hidden aspect-square group ${
+                    isActive 
+                      ? 'bg-gradient-to-tr from-[#BF9B30]/30 via-amber-500/10 to-[#BF9B30]/5 border-[#BF9B30] shadow-[0_4px_25px_rgba(191,155,48,0.25)] text-white font-black' 
+                      : 'bg-slate-900/40 border-white/5 text-slate-300 hover:bg-slate-800/60 hover:border-white/10'
+                  }`}
+                >
+                  {/* Subtle Premium Gradient Glow Overlay on Hover */}
+                  <div 
+                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-0"
+                    style={{ background: 'linear-gradient(135deg, rgba(191, 155, 48, 0.12), transparent)' }}
+                  />
+                  {/* Decorative Premium Frame */}
+                  <CategoryCardSvg className="absolute inset-0 w-full h-full pointer-events-none opacity-30 group-hover:opacity-60 transition-opacity z-0" />
+                  <div className={`mb-1.5 flex items-center justify-center transition-transform duration-300 z-10 ${isActive ? 'scale-110' : 'group-hover:scale-105'}`}>
+                    {getCategoryIcon(c.id, isActive ? "w-6.5 h-6.5 sm:w-8.5 sm:h-8.5 text-amber-400" : "w-5.5 h-5.5 sm:w-7.5 sm:h-7.5 text-[#BF9B30]")}
+                  </div>
+                  <span className={`text-[10px] sm:text-xs text-center truncate w-full transition-colors ${isActive ? 'font-black text-amber-300' : 'font-bold text-slate-400 group-hover:text-slate-200'}`}>{c.name}</span>
+                </motion.button>
+              );
+            })}
+          </div>
+
+          {/* Verified Stats Banner */}
+          <div className="max-w-2xl mx-auto mt-7 bg-slate-900/30 backdrop-blur-xl rounded-2xl border border-white/5 p-3.5 flex items-center justify-between gap-4 text-right shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 bg-gradient-to-tr from-[#BF9B30]/20 to-amber-500/5 rounded-xl flex items-center justify-center text-[#BF9B30] shrink-0 border border-[#BF9B30]/35 shadow-sm">
+                <Users className="w-5.5 h-5.5" />
+              </div>
+              <div>
+                <p className="text-white font-black text-sm sm:text-base">أكثر من <span className="text-amber-400 font-mono text-base sm:text-lg">5,145+</span></p>
+                <p className="text-slate-400 text-[10px] sm:text-xs font-bold mt-0.5">مستخدم موثق في سوق بغداد</p>
+              </div>
+            </div>
+
+            {/* Glowing line and user avatars */}
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-1.5">
+                <StatsGraph className="w-24 h-8 text-[#BF9B30] overflow-visible opacity-80" />
+              </div>
+              
+              <div className="flex -space-x-2.5 rtl:space-x-reverse shrink-0">
+                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&fit=crop&q=80" alt="" className="w-7.5 h-7.5 sm:w-8.5 sm:h-8.5 rounded-full border-2 border-[#020b22] object-cover" />
+                <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&fit=crop&q=80" alt="" className="w-7.5 h-7.5 sm:w-8.5 sm:h-8.5 rounded-full border-2 border-[#020b22] object-cover" />
+                <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&fit=crop&q=80" alt="" className="w-7.5 h-7.5 sm:w-8.5 sm:h-8.5 rounded-full border-2 border-[#020b22] object-cover" />
+              </div>
+
+              <div className="w-7.5 h-7.5 sm:w-8.5 sm:h-8.5 bg-emerald-500/15 rounded-full flex items-center justify-center text-emerald-400 shrink-0 border border-emerald-500/30">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <LiveVisitorCounter />
+
+          {/* Transport Section (قسم الخطوط) */}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            transition={{ delay: 0.2 }}
+            className="mt-6 max-w-2xl mx-auto"
+          >
+            <div 
+              onClick={() => onTransportClick?.()}
+              className="w-full relative overflow-hidden bg-gradient-to-tr from-[#020a1f] via-[#0c2461] to-[#020a1f] hover:from-[#031131] hover:via-[#0f2f7e] hover:to-[#031131] border border-[#BF9B30]/45 rounded-3xl p-7 transition-all duration-300 group cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)] hover:border-[#BF9B30]/70"
+            >
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#BF9B30]/12 via-transparent to-transparent pointer-events-none" />
+              
+              {/* Premium Transport Decorative Vector */}
+              <TransportCard className="absolute inset-0 w-full h-full pointer-events-none opacity-25 group-hover:opacity-40 transition-opacity duration-300 z-0" />
+              <TransportRoad className="absolute bottom-0 right-1/4 w-36 h-18 pointer-events-none opacity-45 group-hover:opacity-65 transition-opacity duration-300 z-0" />
+              <TransportCity className="absolute bottom-0 left-10 w-48 h-22 pointer-events-none opacity-30 group-hover:opacity-45 transition-opacity duration-300 z-0" />
+              <TransportGlow className="absolute inset-0 w-full h-full pointer-events-none opacity-35 group-hover:opacity-50 transition-opacity duration-300 z-0" />
+              
+              {/* Right: Icon + Text */}
+              <div className="flex items-start gap-4.5 z-10 text-right flex-1">
+                <div className="w-13 h-13 bg-gradient-to-tr from-[#BF9B30]/30 to-transparent rounded-2xl flex items-center justify-center text-amber-400 shrink-0 border border-[#BF9B30]/45 shadow-[0_0_15px_rgba(191,155,48,0.2)]">
+                  <Car className="w-6.5 h-6.5" />
+                </div>
+                <div>
+                  <h4 className="text-white font-black text-lg sm:text-xl flex items-center gap-2">
+                    <span>قسم الخطوط</span>
+                    <span className="bg-[#BF9B30]/25 text-amber-300 text-[10px] px-2.5 py-1.5 rounded-xl font-bold tracking-wide border border-[#BF9B30]/30 shadow-md">نشط حالياً</span>
+                  </h4>
+                  <p className="text-slate-300 text-xs sm:text-sm font-semibold mt-1">نقل يومي للطلاب والموظفين 🎓👔</p>
+                  <p className="text-amber-400 text-xs sm:text-sm font-black mt-2 tracking-wide filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">ابحث عن خطك بسرعة وسهولة وبأفضل الأسعار</p>
+                </div>
+              </div>
+
+              {/* Middle: Bus Illustration (Larger & moves gently on hover) */}
+              <div className="relative shrink-0 w-36 h-22 sm:w-44 sm:h-28 flex items-center justify-center z-10 transition-transform duration-500 group-hover:scale-105 group-hover:-translate-y-1">
+                <div className="absolute inset-0 bg-[#BF9B30]/15 rounded-full blur-2xl animate-pulse" />
+                <TransportBus className="w-full h-full text-amber-400 filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.3)]" />
+              </div>
+
+              {/* Left: Button (Stands out more, gold border and pulse shadow) */}
+              <div className="z-10 shrink-0 self-center">
+                <button className="w-full sm:w-auto px-6 py-3.5 bg-gradient-to-tr from-[#BF9B30] via-amber-400 to-[#E3C363] text-slate-950 font-black rounded-xl text-xs sm:text-sm shadow-[0_0_20px_rgba(191,155,48,0.35)] hover:shadow-[0_0_25px_rgba(191,155,48,0.6)] hover:scale-105 transition-all duration-300 flex items-center justify-center gap-1.5 shrink-0 transform active:scale-95 border border-amber-300/40">
+                  <span>استكشف الخطوط</span>
+                  <ChevronLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1 stroke-[3px]" />
+                </button>
+              </div>
+            </div>
           </motion.div>
 
           {!isStandalone && onInstallClick && (
@@ -4594,6 +4989,150 @@ function MarketView({
               </button>
             </motion.div>
           )}
+
+          {/* Latest Ads Sliding Section */}
+          <div className="mt-10 max-w-2xl mx-auto text-right" dir="rtl">
+            <div className="flex items-center justify-between mb-5 px-1">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-tr from-[#BF9B30]/20 to-amber-500/5 rounded-xl flex items-center justify-center text-[#BF9B30] border border-[#BF9B30]/30 shadow-md">
+                  <Star className="w-5 h-5 fill-current" />
+                </div>
+                <div>
+                  <h3 className="text-white font-black text-base sm:text-lg">أحدث الإعلانات</h3>
+                  <p className="text-slate-400 text-[10px] sm:text-xs font-bold mt-0.5">الإعلانات المضافة حديثاً في السوق</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => { setContentTab('ads'); }}
+                className="px-3.5 py-1.5 bg-slate-900/50 hover:bg-slate-800/80 border border-white/5 hover:border-white/10 rounded-xl text-amber-400 hover:text-amber-300 text-xs font-bold flex items-center gap-1 transition-all"
+              >
+                <span>عرض الكل</span>
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Sliding Ads Row - Premium styled card slider */}
+            <div className="flex gap-4.5 overflow-x-auto pb-5 pt-1 px-1 scrollbar-hide snap-x snap-mandatory">
+              {filterAds.length > 0 ? (
+                filterAds.slice(0, 5).map(ad => {
+                  const isFaved = favorites.includes(ad.id);
+                  return (
+                    <div 
+                      key={ad.id}
+                      onClick={() => onSelectAd(ad)}
+                      className="w-60 sm:w-64 shrink-0 bg-slate-900/40 backdrop-blur-xl rounded-[24px] border border-white/5 p-3 text-right shadow-[0_10px_30px_rgba(0,0,0,0.3)] hover:shadow-[0_20px_50px_rgba(191,155,48,0.12)] transition-all duration-300 relative overflow-hidden group cursor-pointer snap-start hover:border-[#BF9B30]/35 hover:-translate-y-1"
+                    >
+                      {/* Top badging / Actions overlay */}
+                      <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between pointer-events-none" dir="ltr">
+                        {/* Heart icon inside a highly polished glassmorphic circle */}
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleFav(ad.id);
+                          }}
+                          className={`w-9 h-9 rounded-full flex items-center justify-center ${isFaved ? 'bg-gradient-to-tr from-red-600 to-pink-500 shadow-lg shadow-red-500/35 border border-red-400/20' : 'bg-slate-950/65 hover:bg-slate-900/90 hover:border-[#BF9B30]/40 text-white/90'} backdrop-blur-md border border-white/10 transition-all duration-300 pointer-events-auto z-20 hover:scale-105 active:scale-95`}
+                          title="المفضلة"
+                        >
+                          <Heart className={`w-4 h-4 transition-all ${isFaved ? 'fill-current text-white scale-110' : 'text-white'}`} />
+                        </button>
+                        
+                        {/* Premium Golden Verification Badge */}
+                        <span className="px-2.5 py-1 bg-gradient-to-r from-[#BF9B30] to-[#E3C363] text-slate-950 font-black text-[9.5px] rounded-lg shadow-lg flex items-center gap-1 pointer-events-auto border border-amber-400/25">
+                          <Shield className="w-3 h-3 fill-current" />
+                          <span>{ad.isPremium ? 'مميز' : 'موثق'}</span>
+                        </span>
+                      </div>
+
+                      {/* Ad Image with ambient hover shadow */}
+                      <div className="relative aspect-[4/3] rounded-2xl overflow-hidden mb-3 bg-slate-950 border border-white/5">
+                        <img 
+                          src={ad.images && ad.images[0] ? ad.images[0] : DEFAULT_COVER} 
+                          alt={ad.title} 
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent pointer-events-none" />
+                      </div>
+
+                      {/* Ad Content */}
+                      <div className="px-1">
+                        <h4 className="text-white font-bold text-sm truncate mb-1 group-hover:text-amber-300 transition-colors">{ad.title}</h4>
+                        
+                        {/* Price and Location Row */}
+                        <div className="flex items-center justify-between mt-1.5 mb-2">
+                          <span className="text-amber-400 font-mono font-black text-sm filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.3)]">{formatPrice(ad.price)} <span className="text-[10px] font-bold">د.ع</span></span>
+                          <span className="text-slate-400 text-[10px] font-bold flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-[#BF9B30] shrink-0" />
+                            <span className="truncate max-w-[90px]">{ad.governorate}</span>
+                          </span>
+                        </div>
+
+                        {/* Bottom Metadata Line */}
+                        <div className="w-full h-px bg-white/5 my-2.5" />
+                        <div className="flex items-center justify-between text-slate-500 text-[9px] font-bold">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-[#BF9B30]/75" />
+                            <span>{getRelative(ad.createdAtISO)}</span>
+                          </span>
+                          <span className="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded-lg border border-white/5 text-slate-400">
+                            <Eye className="w-3 h-3 text-[#BF9B30]/75" />
+                            <span>{ad.views || 0}</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                [
+                  { id: 'mock-1', title: 'iPhone 14 Pro Max 256GB', price: 1250000, gov: 'بغداد', image: 'https://images.unsplash.com/photo-1678652197831-2d180705cd2c?w=500&q=80', time: 'منذ ساعتين' },
+                  { id: 'mock-2', title: 'كيا سبورتاج 2021 نظيفة جداً', price: 23500000, gov: 'بغداد', image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=500&q=80', time: 'منذ 3 ساعات' },
+                  { id: 'mock-3', title: 'شقة مفروشة للإيجار في المنصور', price: 1100000, gov: 'بغداد', image: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=500&q=80', time: 'منذ 5 ساعات' }
+                ].map(m => (
+                  <div 
+                    key={m.id}
+                    className="w-60 sm:w-64 shrink-0 bg-slate-900/40 backdrop-blur-xl rounded-[24px] border border-white/5 p-3 text-right shadow-[0_10px_30px_rgba(0,0,0,0.3)] hover:shadow-[0_20px_50px_rgba(191,155,48,0.12)] transition-all duration-300 relative overflow-hidden group cursor-pointer snap-start hover:border-[#BF9B30]/35 hover:-translate-y-1"
+                  >
+                    <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between pointer-events-none" dir="ltr">
+                      {/* Heart icon inside a highly polished glassmorphic circle */}
+                      <button className="w-9 h-9 bg-slate-950/65 backdrop-blur-md rounded-full flex items-center justify-center text-white/90 border border-white/10 pointer-events-auto z-20 hover:scale-105 active:scale-95 transition-all">
+                        <Heart className="w-4 h-4 text-white hover:text-red-500" />
+                      </button>
+                      <span className="px-2.5 py-1 bg-gradient-to-r from-[#BF9B30] to-[#E3C363] text-slate-950 font-black text-[9.5px] rounded-lg shadow-md flex items-center gap-1 pointer-events-auto border border-amber-400/25">
+                        <Shield className="w-3 h-3 fill-current" />
+                        <span>موثق</span>
+                      </span>
+                    </div>
+                    <div className="relative aspect-[4/3] rounded-2xl overflow-hidden mb-3 bg-slate-950 border border-white/5">
+                      <img src={m.image} alt={m.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent pointer-events-none" />
+                    </div>
+                    <div className="px-1">
+                      <h4 className="text-white font-bold text-sm truncate mb-1 group-hover:text-amber-300 transition-colors">{m.title}</h4>
+                      <div className="flex items-center justify-between mt-1.5 mb-2">
+                        <span className="text-amber-400 font-mono font-black text-sm filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.3)]">{formatPrice(m.price)} <span className="text-[10px] font-bold">د.ع</span></span>
+                        <span className="text-slate-400 text-[10px] font-bold flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-[#BF9B30]" />
+                          <span>{m.gov}</span>
+                        </span>
+                      </div>
+                      <div className="w-full h-px bg-white/5 my-2.5" />
+                      <div className="flex items-center justify-between text-slate-500 text-[9px] font-bold">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-[#BF9B30]/75" />
+                          <span>{m.time}</span>
+                        </span>
+                        <span className="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded-lg border border-white/5 text-slate-400">
+                          <Eye className="w-3 h-3 text-[#BF9B30]/75" />
+                          <span>0</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -7300,32 +7839,72 @@ export default function App() {
     fetchProducts();
   };
 
-  const handleMarkAdSold = async (ad: Ad) => {
-    if (!window.confirm('هل تريد وضع علامة "تم البيع" على هذا الإعلان؟ سيختفي من المعرض العام ويُحفظ في الأرشيف.')) return;
-    const { error } = await supabase.from('ads').update({ status: 'sold' }).eq('id', ad.id);
+  const handleToggleAdStatus = async (ad: Ad) => {
+    const isCurrentlySold = ad.status === 'sold';
+    const newStatus = isCurrentlySold ? 'active' : 'sold';
+    const confirmMsg = isCurrentlySold 
+      ? 'هل تريد إعادة تفعيل هذا الإعلان وجعله متوفراً مجدداً؟' 
+      : 'هل تريد وضع علامة "تم البيع" على هذا الإعلان؟ سيختفي من المعرض العام ويُحفظ في الأرشيف.';
+    if (!window.confirm(confirmMsg)) return;
+
+    const { error } = await supabase.from('ads').update({ status: newStatus }).eq('id', ad.id);
     if (error) {
       showToast('حدث خطأ أثناء تحديث الحالة', 'error');
       console.error(error);
       return;
     }
-    setAllAds(prev => prev.map(a => a.id === ad.id ? { ...a, status: 'sold' } : a));
+    
+    // Update local states
+    setAllAds(prev => prev.map(a => a.id === ad.id ? { ...a, status: newStatus } : a));
+    if (selectedAd && selectedAd.id === ad.id) {
+      setSelectedAd(prev => prev ? { ...prev, status: newStatus } : null);
+    }
+    
     playSound('success');
-    setCongratulationsItem({ title: ad.title, type: 'ad' });
+    if (newStatus === 'sold') {
+      setCongratulationsItem({ title: ad.title, type: 'ad' });
+    } else {
+      showToast('تمت إعادة تفعيل الإعلان بنجاح! 🎉', 'success');
+    }
     fetchAds();
   };
 
-  const handleMarkProductSold = async (p: Product) => {
-    if (!window.confirm('هل تريد وضع علامة "تم البيع" على هذا المنتج؟ سيختفي من المعرض العام ويُحفظ في الأرشيف.')) return;
-    const { error } = await supabase.from('products').update({ status: 'sold' }).eq('id', p.id);
+  const handleToggleProductStatus = async (p: Product) => {
+    const isCurrentlySold = p.status === 'sold';
+    const newStatus = isCurrentlySold ? 'active' : 'sold';
+    const confirmMsg = isCurrentlySold 
+      ? 'هل تريد إعادة تفعيل هذا المنتج وجعله متوفراً مجدداً؟' 
+      : 'هل تريد وضع علامة "تم البيع" على هذا المنتج؟ سيختفي من المعرض العام ويُحفظ في الأرشيف.';
+    if (!window.confirm(confirmMsg)) return;
+
+    const { error } = await supabase.from('products').update({ status: newStatus }).eq('id', p.id);
     if (error) {
       showToast('حدث خطأ أثناء تحديث الحالة', 'error');
       console.error(error);
       return;
     }
-    setAllProducts(prev => prev.map(pr => pr.id === p.id ? { ...pr, status: 'sold' } : pr));
+    
+    // Update local states
+    setAllProducts(prev => prev.map(pr => pr.id === p.id ? { ...pr, status: newStatus } : pr));
+    if (selectedProduct && selectedProduct.id === p.id) {
+      setSelectedProduct(prev => prev ? { ...prev, status: newStatus } : null);
+    }
+    
     playSound('success');
-    setCongratulationsItem({ title: p.title, type: 'product' });
+    if (newStatus === 'sold') {
+      setCongratulationsItem({ title: p.title, type: 'product' });
+    } else {
+      showToast('تمت إعادة تفعيل المنتج بنجاح! 🎉', 'success');
+    }
     fetchProducts();
+  };
+
+  const handleMarkAdSold = async (ad: Ad) => {
+    await handleToggleAdStatus(ad);
+  };
+
+  const handleMarkProductSold = async (p: Product) => {
+    await handleToggleProductStatus(p);
   };
 
   const handleDeleteAd = async (id: number) => {
@@ -7443,7 +8022,12 @@ export default function App() {
   }
 
   return (
-    <div className="dark min-h-screen bg-[#0c2b5e] pwa-outer-container">
+    <div className="dark min-h-screen bg-[#031131] pwa-outer-container relative overflow-x-hidden">
+      <BackgroundNoise className="fixed inset-0 w-full h-full pointer-events-none opacity-[0.045] z-50 mix-blend-overlay" />
+      <BackgroundGrid className="fixed inset-0 w-full h-full pointer-events-none opacity-[0.06] mix-blend-overlay z-0" />
+      <div className="fixed inset-0 pointer-events-none z-0 opacity-25 overflow-hidden">
+        <GoldParticles className="w-full h-full scale-110" />
+      </div>
       <LoadingScreen isLoading={isInitialLoading} minDuration={800} />
       <Helmet>
         <title>{pageTitle}</title>
@@ -7461,46 +8045,52 @@ export default function App() {
       <Toast msg={toast.msg} type={toast.type} visible={toast.visible} onClose={()=>setToast(t=>({...t,visible:false}))}/>
 
       {/* Nav */}
-      <nav className="fixed top-0 left-0 right-0 z-40 bg-[#0c2b5e]/70 backdrop-blur-xl border-b border-transparent pwa-header shadow-md shadow-[#0c2b5e]/10">
+      <nav className="fixed top-0 left-0 right-0 z-40 bg-[#031131]/80 backdrop-blur-md border-b border-blue-950/45 pwa-header shadow-md shadow-[#031131]/20">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            <button onClick={()=>setView('home')} className="flex items-center gap-2"><Logo small/><span className="text-white font-bold text-sm sm:text-lg">سوك بغداد</span></button>
+            <button onClick={()=>setView('home')} className="flex items-center gap-2 text-right">
+              <div className="flex flex-col justify-center">
+                <span className="text-white font-black text-sm sm:text-lg leading-tight tracking-tight">سوك بغداد</span>
+                <span className="text-[9px] sm:text-xs text-[#BF9B30] font-bold font-mono tracking-widest leading-none">SOUQ BAGHDAD</span>
+              </div>
+              <Logo small/>
+            </button>
             <div className="hidden md:flex flex-1 max-w-sm mx-6">
               <div className="relative w-full"><Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                <input placeholder="ابحث في سوك بغداد..." onClick={()=>setView('home')} readOnly className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-2 pr-9 pl-4 border border-gray-700 outline-none text-sm cursor-pointer"/></div>
+                <input placeholder="ابحث في سوك بغداد..." onClick={()=>setView('home')} readOnly className="w-full bg-[#031131]/75 text-white placeholder-gray-400 rounded-xl py-2 pr-9 pl-4 border border-blue-950 outline-none text-sm cursor-pointer"/></div>
             </div>
             <div className="hidden lg:flex items-center gap-2">
               {user?(
                 <>
-                  <button onClick={()=>setShowNotifs(true)} className="p-2 rounded-xl bg-gray-800 text-white hover:bg-gray-700 relative" title="الإشعارات" aria-label="الإشعارات">
+                  <button onClick={()=>setShowNotifs(true)} className="p-2 rounded-xl bg-[#0b2447] text-white hover:bg-[#0a1e3d] border border-blue-950 relative" title="الإشعارات" aria-label="الإشعارات">
                     <Bell className="w-5 h-5"/>
                     {notifications.length > 0 && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center">
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-black font-black rounded-full text-[10px] flex items-center justify-center animate-bounce">
                         {notifications.length}
                       </span>
                     )}
                   </button>
-                  <button onClick={() => window.location.hash = '#/profile/wallet'} className="flex items-center gap-1.5 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl text-sm border border-gray-700 hover:border-amber-500/50 transition-colors" title="محفظتي">
-                    <Wallet className="w-4 h-4 text-emerald-400"/>
-                    <span className="font-bold font-mono">{user.points || 0}</span>
+                  <button onClick={() => window.location.hash = '#/profile/wallet'} className="flex items-center gap-1.5 px-3.5 py-2 bg-[#0b2447] text-white rounded-xl text-sm border border-[#BF9B30]/40 hover:border-amber-500 transition-all shadow-md shadow-black/20" title="محفظتي">
+                    <span className="font-bold font-mono text-amber-400">{user.points || 0}</span>
+                    <Wallet className="w-4 h-4 text-amber-400"/>
                   </button>
                   {isOwner&&<button onClick={()=>setView('owner')} className={`p-2 rounded-xl text-amber-400 hover:bg-amber-500/20 ${view==='owner'?'bg-amber-500/20':''}`} title="لوحة المالك" aria-label="لوحة المالك"><Crown className="w-5 h-5"/></button>}
                   {isAdmin&&!isOwner&&<button onClick={()=>setView('admin')} className={`p-2 rounded-xl text-red-400 hover:bg-red-500/20 ${view==='admin'?'bg-red-500/20':''}`} title="لوحة الإدارة" aria-label="لوحة الإدارة"><Settings className="w-5 h-5"/></button>}
                   <button onClick={()=>{setShowCreateProduct(true);setEditingProduct(null);}}
-                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-bold rounded-xl text-sm hover:bg-purple-700">
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-900 text-white font-bold rounded-xl text-sm border border-blue-850 hover:bg-blue-850">
                     <ShoppingBag className="w-4 h-4"/> منتج</button>
                   <button onClick={()=>{setShowCreateAd(true);setEditingAd(null);}}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-sm">
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-black rounded-xl text-sm shadow-md shadow-amber-500/15">
                     <Plus className="w-4 h-4"/> إعلان</button>
-                  <button onClick={() => window.location.hash = '#/profile'} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white hover:bg-gray-700'}`}>
-                    <img src={user.avatar} alt="" className={`w-6 h-6 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border border-gray-600'}`}/>
+                  <button onClick={() => window.location.hash = '#/profile'} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-[#0b2447] border-blue-950 text-white hover:bg-[#0a1e3d]'}`}>
+                    <img src={user.avatar} alt="" className={`w-6 h-6 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border border-[#BF9B30]/30'}`}/>
                     <span className="max-w-20 truncate">{user.name}</span>{isOwner&&<Crown className="w-3 h-3 text-amber-400"/>}</button>
                   <button onClick={handleLogout} className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20" title="تسجيل الخروج" aria-label="تسجيل الخروج"><LogOut className="w-5 h-5"/></button>
                 </>
               ):(
                 <>
-                  <button onClick={requireAuth} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-sm"><Plus className="w-4 h-4"/> رفع إعلان</button>
-                  <button onClick={()=>setShowAuth(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-bold rounded-xl text-sm hover:bg-blue-700"><LogIn className="w-4 h-4"/> تسجيل الدخول</button>
+                  <button onClick={requireAuth} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-black rounded-xl text-sm shadow-md shadow-amber-500/10"><Plus className="w-4 h-4"/> رفع إعلان</button>
+                  <button onClick={()=>setShowAuth(true)} className="flex items-center gap-2 px-4 py-2 bg-[#0b2447] text-white font-bold rounded-xl text-sm border border-blue-950 hover:bg-[#0a1e3d]"><LogIn className="w-4 h-4"/> تسجيل الدخول</button>
                 </>
               )}
             </div>
@@ -7512,19 +8102,19 @@ export default function App() {
                   setShowCreateAd(true);
                   setEditingAd(null);
                 }} 
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-xs shadow-md shadow-amber-500/20"
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-black rounded-xl text-xs shadow-md shadow-amber-500/20"
               >
                 <Plus className="w-3.5 h-3.5"/> <span>إعلان</span>
               </button>
 
               {user ? (
                 <>
-                  <button onClick={() => window.location.hash = '#/profile/wallet'} className="flex items-center gap-1 px-2 py-1.5 bg-gray-800 text-white rounded-xl text-xs border border-gray-700" title="محفظتي">
-                    <Wallet className="w-3 h-3 text-emerald-400"/>
-                    <span className="font-bold font-mono">{user.points || 0}</span>
+                  <button onClick={() => window.location.hash = '#/profile/wallet'} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#0b2447] text-white rounded-xl text-xs border border-[#BF9B30]/40 shadow-sm" title="محفظتي">
+                    <span className="font-bold font-mono text-amber-400">{user.points || 0}</span>
+                    <Wallet className="w-3.5 h-3.5 text-amber-400" />
                   </button>
-                  <button onClick={() => window.location.hash = '#/profile'} className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white'}`}>
-                    <img src={user.avatar} alt="" className={`w-5.5 h-5.5 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border border-gray-600'}`}/>
+                  <button onClick={() => window.location.hash = '#/profile'} className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-[#0b2447] border-blue-950 text-white'}`}>
+                    <img src={user.avatar} alt="" className={`w-5.5 h-5.5 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border border-[#BF9B30]/30'}`}/>
                     <span className="max-w-16 truncate hidden sm:block">{user.name}</span>
                   </button>
                 </>
@@ -7533,15 +8123,15 @@ export default function App() {
                   <LogIn className="w-3.5 h-3.5"/> <span>دخول</span>
                 </button>
               )}
-              <button onClick={()=>setShowNotifs(true)} className="p-1.5 rounded-xl bg-gray-800 text-white hover:bg-gray-700 relative" title="الإشعارات" aria-label="الإشعارات">
+              <button onClick={()=>setShowNotifs(true)} className="p-1.5 rounded-xl bg-[#0b2447] text-white hover:bg-[#0a1e3d] border border-blue-950 relative" title="الإشعارات" aria-label="الإشعارات">
                 <Bell className="w-4 h-4"/>
                 {notifications.length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full text-[9px] text-white flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 text-black font-black rounded-full text-[9px] flex items-center justify-center">
                     {notifications.length}
                   </span>
                 )}
               </button>
-              <button onClick={()=>setShowMobileMenu(true)} className="p-1.5 rounded-xl bg-gray-800 text-white" title="القائمة" aria-label="القائمة"><Menu className="w-4.5 h-4.5"/></button>
+              <button onClick={()=>setShowMobileMenu(true)} className="p-1.5 rounded-xl bg-[#0b2447] text-white border border-blue-950 hover:bg-[#0a1e3d]" title="القائمة" aria-label="القائمة"><Menu className="w-4.5 h-4.5"/></button>
             </div>
           </div>
         </div>
@@ -7680,10 +8270,14 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-[#0c2b5e] border-t border-[#d4af37]/20 py-6">
-        <div className="container mx-auto px-4 text-center">
+      <footer className="bg-gradient-to-b from-[#031131] to-[#01091d] border-t border-[#BF9B30]/30 pt-16 pb-20 lg:pb-8 relative overflow-hidden">
+        {/* Baghdad Skyline Vector Backdrop */}
+        <div className="absolute inset-x-0 bottom-0 h-40 opacity-25 pointer-events-none z-0">
+          <CityOutline className="w-full h-full object-cover object-bottom text-[#BF9B30]" />
+        </div>
+        <div className="container mx-auto px-4 text-center relative z-10">
           <div className="flex items-center justify-center gap-2 mb-3"><span className="text-2xl">🇮🇶</span><span className="text-lg font-bold text-white">سوك بغداد</span></div>
-                    <p className="text-gray-500 text-xs">© 2025 سوك بغداد — السوق الرقمي العراقي</p>
+          <p className="text-gray-400 text-xs font-medium">© 2025 سوك بغداد — السوق الرقمي العراقي</p>
           
           <div className="flex items-center justify-center gap-4 mt-3">
             <a href="https://wa.me/9647700028170" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700/50 flex items-center justify-center text-green-400 hover:bg-green-500/10 hover:border-green-500/30 transition-all" title="واتساب الدعم">
@@ -7703,8 +8297,9 @@ export default function App() {
       </footer>
 
       {/* Bottom Navigation Bar - Fixed Mobile First */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#0c2b5e]/95 backdrop-blur-xl border-t border-[#d4af37]/20 lg:hidden pwa-bottom-nav">
-        <div className="flex items-center justify-around h-16 px-2">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-b from-[#031131]/95 to-[#01091d]/98 backdrop-blur-2xl border-t border-white/10 lg:hidden pwa-bottom-nav">
+        <BottomNavGlow className="absolute -top-12 left-0 right-0 h-12 pointer-events-none z-[-1] opacity-75" />
+        <div className="flex items-center justify-around h-16 px-2 relative">
           {/* الملف الشخصي */}
           <button
             onClick={() => {
@@ -7715,23 +8310,23 @@ export default function App() {
                 setView('profile');
               }
             }}
-            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'profile' ? 'text-purple-400' : 'text-gray-400'}`}
+            className={`flex flex-col items-center justify-center flex-1 py-1 transition-all duration-300 ${bottomNavActive === 'profile' ? 'text-amber-400 scale-105' : 'text-slate-400 hover:text-slate-200'}`}
           >
-            <div className={`p-2 rounded-xl ${bottomNavActive === 'profile' ? 'bg-purple-500/20' : ''}`}>
-              <UserCircle className="w-6 h-6" />
+            <div className={`p-2 rounded-xl transition-all duration-300 ${bottomNavActive === 'profile' ? 'bg-gradient-to-tr from-[#BF9B30]/25 to-[#E3C363]/10 border border-[#BF9B30]/40 shadow-[0_0_15px_rgba(191,155,48,0.15)] text-amber-400' : 'border border-transparent'}`}>
+              <UserCircle className="w-5 h-5" />
             </div>
-            <span className="text-[10px] mt-1 font-medium">حسابي</span>
+            <span className="text-[9px] mt-1 font-bold tracking-wide">حسابي</span>
           </button>
 
           {/* المنتجات */}
           <button
             onClick={() => { setBottomNavActive('products'); setView('products'); }}
-            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'products' ? 'text-blue-400' : 'text-gray-400'}`}
+            className={`flex flex-col items-center justify-center flex-1 py-1 transition-all duration-300 ${bottomNavActive === 'products' ? 'text-amber-400 scale-105' : 'text-slate-400 hover:text-slate-200'}`}
           >
-            <div className={`p-2 rounded-xl ${bottomNavActive === 'products' ? 'bg-blue-500/20' : ''}`}>
-              <ShoppingBag className="w-6 h-6" />
+            <div className={`p-2 rounded-xl transition-all duration-300 ${bottomNavActive === 'products' ? 'bg-gradient-to-tr from-[#BF9B30]/25 to-[#E3C363]/10 border border-[#BF9B30]/40 shadow-[0_0_15px_rgba(191,155,48,0.15)] text-amber-400' : 'border border-transparent'}`}>
+              <ShoppingBag className="w-5 h-5" />
             </div>
-            <span className="text-[10px] mt-1 font-medium">المنتجات</span>
+            <span className="text-[9px] mt-1 font-bold tracking-wide">المنتجات</span>
           </button>
 
           {/* إضافة إعلان */}
@@ -7744,34 +8339,34 @@ export default function App() {
                 setShowCreateAd(true);
               }
             }}
-            className="flex flex-col items-center justify-center flex-1 py-2"
+            className="flex flex-col items-center justify-center flex-1 relative z-10"
           >
-            <div className="p-3 bg-gradient-to-r from-amber-500 to-yellow-500 rounded-full -mt-6 shadow-lg shadow-amber-500/30">
-              <Plus className="w-6 h-6 text-black" />
+            <div className="w-13 h-13 bg-gradient-to-tr from-[#BF9B30] to-[#E3C363] rounded-full -mt-7 shadow-[0_4px_20px_rgba(191,155,48,0.4)] border-2 border-[#031131] flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shrink-0">
+              <Plus className="w-6.5 h-6.5 text-slate-950 stroke-[3.5px]" />
             </div>
-            <span className="text-[10px] mt-1 font-medium text-amber-400">إعلان</span>
+            <span className="text-[9px] mt-1 font-black text-amber-400 tracking-wide">إعلان</span>
           </button>
 
           {/* الخطوط */}
           <button
             onClick={() => { setBottomNavActive('transport'); setView('transport'); }}
-            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'transport' ? 'text-emerald-400' : 'text-gray-400'}`}
+            className={`flex flex-col items-center justify-center flex-1 py-1 transition-all duration-300 ${bottomNavActive === 'transport' ? 'text-amber-400 scale-105' : 'text-slate-400 hover:text-slate-200'}`}
           >
-            <div className={`p-2 rounded-xl ${bottomNavActive === 'transport' ? 'bg-emerald-500/20' : ''}`}>
-              <Car className="w-6 h-6" />
+            <div className={`p-2 rounded-xl transition-all duration-300 ${bottomNavActive === 'transport' ? 'bg-gradient-to-tr from-[#BF9B30]/25 to-[#E3C363]/10 border border-[#BF9B30]/40 shadow-[0_0_15px_rgba(191,155,48,0.15)] text-amber-400' : 'border border-transparent'}`}>
+              <Car className="w-5 h-5" />
             </div>
-            <span className="text-[10px] mt-1 font-medium">الخطوط</span>
+            <span className="text-[9px] mt-1 font-bold tracking-wide">الخطوط</span>
           </button>
 
           {/* الرئيسية */}
           <button
             onClick={() => { setBottomNavActive('home'); setView('home'); }}
-            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'home' ? 'text-amber-400' : 'text-gray-400'}`}
+            className={`flex flex-col items-center justify-center flex-1 py-1 transition-all duration-300 ${bottomNavActive === 'home' ? 'text-amber-400 scale-105' : 'text-slate-400 hover:text-slate-200'}`}
           >
-            <div className={`p-2 rounded-xl ${bottomNavActive === 'home' ? 'bg-amber-500/20' : ''}`}>
-              <Home className="w-6 h-6" />
+            <div className={`p-2 rounded-xl transition-all duration-300 ${bottomNavActive === 'home' ? 'bg-gradient-to-tr from-[#BF9B30]/25 to-[#E3C363]/10 border border-[#BF9B30]/40 shadow-[0_0_15px_rgba(191,155,48,0.15)] text-amber-400' : 'border border-transparent'}`}>
+              <Home className="w-5 h-5" />
             </div>
-            <span className="text-[10px] mt-1 font-medium">الرئيسية</span>
+            <span className="text-[9px] mt-1 font-bold tracking-wide">الرئيسية</span>
           </button>
         </div>
       </nav>
@@ -7780,8 +8375,8 @@ export default function App() {
       <AnimatePresence>
         {showOnboarding&&<OnboardingModal onClose={()=>{setShowOnboarding(false);localStorage.setItem('souqOnboarded','1');}}/>}
         {showAuth&&<AuthModal onClose={()=>setShowAuth(false)} onLogin={handleLogin}/>}
-        {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllAds(prev => prev.map(a => String(a.id) === String(id) ? { ...a, views: Math.max(a.views || 0, views) } : a)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'ad' } })); }} />}
-        {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllProducts(prev => prev.map(p => String(p.id) === String(id) ? { ...p, views: Math.max(p.views || 0, views) } : p)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'product' } })); }} />}
+        {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllAds(prev => prev.map(a => String(a.id) === String(id) ? { ...a, views: Math.max(a.views || 0, views) } : a)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'ad' } })); }} onToggleStatus={() => handleToggleAdStatus(selectedAd)} />}
+        {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllProducts(prev => prev.map(p => String(p.id) === String(id) ? { ...p, views: Math.max(p.views || 0, views) } : p)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'product' } })); }} onToggleStatus={() => handleToggleProductStatus(selectedProduct)} />}
         {selectedTransportAd&&<TransportDetailModal ad={selectedTransportAd} onClose={()=>setSelectedTransportAd(null)} user={user} onAuthRequired={requireAuth} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedTransportAd.id, selectedTransportAd.type==='offer'?'خط متوفر':'طلب خط', selectedTransportAd.postedBy || '', 'transport', sec)} storedUsers={storedUsers}/>}
         {showCreateAd&&user&&<AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd} cost={adCosts.ad !== undefined ? adCosts.ad : 1} />}
         {showCreateProduct&&user&&<ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct} cost={adCosts.product !== undefined ? adCosts.product : 1} />}
