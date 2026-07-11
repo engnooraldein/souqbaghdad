@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -78,52 +77,136 @@ serve(async (req) => {
             }
           }
         }
-      } 
+      } else if (isAdmin && msg.text === '🚨 استعلام الأخطاء (Logs)') {
+        // Fetch last 5 critical errors
+        const { data, error } = await supabase
+          .from('critical_errors')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        if (error) {
+          await sendTelegramMessage(chatId, `حدث خطأ أثناء جلب السجلات: ${error.message}`);
+        } else if (!data || data.length === 0) {
+          await sendTelegramMessage(chatId, "لا توجد أخطاء مسجلة حالياً. النظام يعمل بشكل ممتاز! ✅");
+        } else {
+          let replyText = "🚨 *أحدث 5 أخطاء في النظام (Logs):*\n\n";
+          data.forEach((log: any, i: number) => {
+            replyText += `${i + 1}. *النوع:* ${log.error_type}\n*الخطأ:* ${log.error_message}\n*التاريخ:* ${new Date(log.created_at).toLocaleString('ar-IQ')}\n---\n`;
+          });
+          await sendTelegramMessage(chatId, replyText, { parse_mode: "Markdown" });
+        }
+      }
       // -- USER LOGIC (Works for everyone including admin) --
       else {
         const MAIN_KEYBOARD = [
-          [{ text: "🔑 استعادة كلمة المرور" }, { text: "📖 كيفية التسجيل" }],
-          [{ text: "❓ الأسئلة الشائعة" }, { text: "💬 الدعم الفني" }]
+          [{ text: "🛒 المشتري والباحث عن منتج" }, { text: "📢 البائع وصاحب الإعلان" }],
+          [{ text: "🚗 سائق التوصيل / الخطوط" }, { text: "🔑 الحساب والدعم" }]
+        ];
+        
+        const ADMIN_KEYBOARD = [
+          [{ text: "🚨 استعلام الأخطاء (Logs)" }],
+          ...MAIN_KEYBOARD
         ];
 
-        if (msg.text === '/start' || msg.text === '🔙 الرجوع للقائمة الرئيسية') {
-          await sendTelegramMessage(chatId, "أهلاً بك في المساعد الذكي لسوك بغداد! 🛍️\nاختر من القائمة أدناه:", {
-            keyboard: MAIN_KEYBOARD,
+        const BUYER_KEYBOARD = [
+          [{ text: "🛍️ كيف أشتري منتجاً؟" }, { text: "📦 هل يتوفر توصيل؟" }],
+          [{ text: "🛡️ نصائح لتسوق آمن" }],
+          [{ text: "🔙 القائمة الرئيسية" }]
+        ];
+
+        const SELLER_KEYBOARD = [
+          [{ text: "📝 كيف أضيف إعلاناً؟" }, { text: "🔗 كيف أشارك متجري بالبايو؟" }],
+          [{ text: "⭐ كيف أرقي إعلاني؟" }, { text: "👁️ المشاهدات لا تظهر؟" }],
+          [{ text: "🔙 القائمة الرئيسية" }]
+        ];
+
+        const DRIVER_KEYBOARD = [
+          [{ text: "📋 كيف أعمل كمندوب أو أوفر خطاً؟" }],
+          [{ text: "🔙 القائمة الرئيسية" }]
+        ];
+
+        const ACCOUNT_KEYBOARD = [
+          [{ text: "📖 كيفية التسجيل" }, { text: "🔑 نسيت كلمة المرور" }],
+          [{ text: "👤 كيف أغير اسمي/صورتي؟" }, { text: "💳 المحفظة والنقاط" }],
+          [{ text: "💬 التحدث مع الإدارة / الدعم" }],
+          [{ text: "🔙 القائمة الرئيسية" }]
+        ];
+
+        if (msg.text === '/start' || msg.text === '🔙 القائمة الرئيسية' || msg.text === '🔙 الرجوع للقائمة الرئيسية') {
+          await sendTelegramMessage(chatId, "أهلاً بك في المساعد الذكي لسوق بغداد الرقمي! 🛍️\nنحن منصتك الأولى للإعلانات المبوبة المجانية.\n\nيرجى اختيار صفتك لخدمتك بشكل أفضل:", {
+            keyboard: isAdmin ? ADMIN_KEYBOARD : MAIN_KEYBOARD,
             resize_keyboard: true,
             is_persistent: true
           });
-        } else if (msg.text === '🔑 استعادة كلمة المرور' || msg.text === '🔑 نسيت كلمة المرور') {
+        } 
+        // --- Navigation Handlers ---
+        else if (msg.text === '🛒 المشتري والباحث عن منتج') {
+          await sendTelegramMessage(chatId, "أهلاً بك عزيزي! تفضل باختيار استفسارك:", { keyboard: BUYER_KEYBOARD, resize_keyboard: true });
+        }
+        else if (msg.text === '📢 البائع وصاحب الإعلان') {
+          await sendTelegramMessage(chatId, "أهلاً بك كشريك نجاح في سوق بغداد الرقمي! تفضل باختيار استفسارك:", { keyboard: SELLER_KEYBOARD, resize_keyboard: true });
+        }
+        else if (msg.text === '🚗 سائق التوصيل / الخطوط') {
+          await sendTelegramMessage(chatId, "أهلاً بك عزيزي الكابتن! تفضل باختيار استفسارك:", { keyboard: DRIVER_KEYBOARD, resize_keyboard: true });
+        }
+        else if (msg.text === '🔑 الحساب والدعم') {
+          await sendTelegramMessage(chatId, "قسم الحسابات والدعم الفني. تفضل باختيار استفسارك:", { keyboard: ACCOUNT_KEYBOARD, resize_keyboard: true });
+        }
+        
+        // --- Buyer Section ---
+        else if (msg.text === '🛍️ كيف أشتري منتجاً؟') {
+          await sendTelegramMessage(chatId, "منصة 'سوق بغداد الرقمي' هي وسيط يجمعك بالبائعين مجاناً!\n\nللطلب: تصفح الإعلانات، اضغط على الإعلان الذي يعجبك، وتواصل مع البائع مباشرة (عبر الاتصال أو الواتساب) للاتفاق على السعر والتسليم.", { keyboard: BUYER_KEYBOARD, resize_keyboard: true });
+        }
+        else if (msg.text === '📦 هل يتوفر توصيل؟') {
+          await sendTelegramMessage(chatId, "نحن منصة إعلانية (وسيطة).\nالتوصيل يتم بالاتفاق المباشر بينك وبين صاحب الإعلان، أو يمكنكم الاستعانة بمناديب التوصيل الموجودين في قسم (خدمات النقل/الخطوط) في الموقع.", { keyboard: BUYER_KEYBOARD, resize_keyboard: true });
+        }
+        else if (msg.text === '🛡️ نصائح لتسوق آمن') {
+          await sendTelegramMessage(chatId, "احرص دائماً على الدفع عند الاستلام (يداً بيد) بعد فحص المنتج والتأكد منه.\n\n⚠️ لا تقم بتحويل مبالغ مالية مسبقاً لأشخاص لا تعرفهم لتجنب الاحتيال.", { keyboard: BUYER_KEYBOARD, resize_keyboard: true });
+        }
+
+        // --- Seller Section ---
+        else if (msg.text === '📝 كيف أضيف إعلاناً؟') {
+          await sendTelegramMessage(chatId, "1. قم بتسجيل الدخول لموقعنا.\n2. اضغط على زر (+ إعلان جديد).\n3. ارفع صوراً واضحة، واكتب التفاصيل والسعر.\n4. سيُنشر إعلانك فوراً ليراه آلاف المتسوقين!", { keyboard: SELLER_KEYBOARD, resize_keyboard: true });
+        }
+        else if (msg.text === '🔗 كيف أشارك متجري بالبايو؟') {
+          await sendTelegramMessage(chatId, "يمكنك نسخ رابط ملفك الشخصي (متجرك) من داخل الموقع عبر زر المشاركة ⤴️\nثم قم بوضع الرابط في البايو الخاص بك على إنستغرام أو تيك توك، ليتمكن متابعوك من رؤية جميع إعلاناتك بضغطة زر! 📱", { keyboard: SELLER_KEYBOARD, resize_keyboard: true });
+        }
+        else if (msg.text === '⭐ كيف أرقي إعلاني؟') {
+          await sendTelegramMessage(chatId, "لترقية إعلانك ليكون بالقمة وزيادة مشاهداتك ومبيعاتك، يرجى التحدث معنا عبر قسم (الدعم الفني) وسنقوم بتزويدك بالباقات وعروض التمييز المتوفرة حالياً! 🚀", { keyboard: SELLER_KEYBOARD, resize_keyboard: true });
+        }
+        else if (msg.text === '👁️ المشاهدات لا تظهر؟') {
+          await sendTelegramMessage(chatId, "لا تقلق! مشاهدات الإعلان تتحدث بشكل دوري في النظام. ⏱️\nإذا لم تظهر مشاهدات جديدة، فهذا يعني أنه جاري تحديث الأرقام، أو أن الإعلان يحتاج إلى (ترقية) ليصل لعدد أكبر من المهتمين.", { keyboard: SELLER_KEYBOARD, resize_keyboard: true });
+        }
+
+        // --- Driver Section ---
+        else if (msg.text === '📋 كيف أعمل كمندوب أو أوفر خطاً؟') {
+          await sendTelegramMessage(chatId, "بما أننا منصة إعلانية، يمكنك كصاحب سيارة إضافة إعلان مجاني في قسم (خدمات النقل/الخطوط).\n\nاكتب في إعلانك تفاصيل الخط الذي توفره (مثلاً: خط طلاب أو موظفين، والمناطق التي تمر بها)، وسيتواصل معك الأشخاص الباحثون عن خطوط نقل أو البائعون الذين يحتاجون توصيل طلباتهم.", { keyboard: DRIVER_KEYBOARD, resize_keyboard: true });
+        }
+
+        // --- Account Section ---
+        else if (msg.text === '📖 كيفية التسجيل') {
+          await sendTelegramMessage(chatId, "التسجيل سهل جداً! أدخل رقم هاتفك فقط 📱\n\n- إذا كان حسابك **جديداً**، سيطلب منك النظام إدخال رمز التفعيل واسمك الكامل.\n- أما إذا كان حسابك **قديماً**، فسيتم إدخالك مباشرة بمجرد كتابة رقمك.\n\nبكل بساطة! ✨", { keyboard: ACCOUNT_KEYBOARD, resize_keyboard: true, parse_mode: "Markdown" });
+        }
+        else if (msg.text === '👤 كيف أغير اسمي/صورتي؟') {
+          await sendTelegramMessage(chatId, "لتعديل معلوماتك:\n1. قم بالدخول للموقع.\n2. اذهب إلى (حسابي).\n3. اضغط على (تعديل الملف الشخصي) ✏️\nمن هناك يمكنك تغيير اسمك أو وضع صورة شخصية جديدة لحسابك.", { keyboard: ACCOUNT_KEYBOARD, resize_keyboard: true });
+        }
+        else if (msg.text === '💳 المحفظة والنقاط') {
+          await sendTelegramMessage(chatId, "المحفظة موجودة داخل (حسابي) في الموقع 💰.\n\nإذا كنت ترغب بـ (إضافة نقاط) لمحفظتك لغرض ترقية إعلاناتك، يرجى التواصل معنا عبر قسم (الدعم الفني) هنا في البوت وسنقوم بتزويدك بطرق الدفع المتاحة لتعبئة محفظتك!", { keyboard: ACCOUNT_KEYBOARD, resize_keyboard: true });
+        }
+        else if (msg.text === '💬 التحدث مع الإدارة / الدعم') {
+          await sendTelegramMessage(chatId, "يرجى كتابة مشكلتك، بلاغك، أو استفسارك في رسالة واحدة وسنقوم بالرد عليك في أقرب وقت. 📝", { keyboard: ACCOUNT_KEYBOARD, resize_keyboard: true });
+        }
+        else if (msg.text === '🔑 استعادة كلمة المرور' || msg.text === '🔑 نسيت كلمة المرور') {
           await sendTelegramMessage(chatId, "يرجى الضغط على الزر أدناه لمشاركة رقم هاتفك للتحقق من هويتك بأمان 🔒", {
-            keyboard: [[{ text: "📱 مشاركة رقم الهاتف", request_contact: true }], [{ text: "🔙 الرجوع للقائمة الرئيسية" }]],
+            keyboard: [[{ text: "📱 مشاركة رقم الهاتف", request_contact: true }], [{ text: "🔙 القائمة الرئيسية" }]],
             resize_keyboard: true,
             one_time_keyboard: true
           });
-        } else if (msg.text === '📖 كيفية التسجيل') {
-          await sendTelegramMessage(chatId, "لإنشاء حساب في سوق بغداد:\n1. قم بزيارة موقعنا.\n2. اضغط على أيقونة 'حسابي' (تسجيل الدخول).\n3. أدخل رقم هاتفك ومعلوماتك.\n4. ستصلك رسالة تفعيل.\n\nبكل بساطة! ✨", {
-            keyboard: MAIN_KEYBOARD,
-            resize_keyboard: true
-          });
-        } else if (msg.text === '❓ الأسئلة الشائعة') {
-          await sendTelegramMessage(chatId, "إليك أبرز الأسئلة الشائعة، تفضل باختيار أحدها:", {
-            keyboard: [
-              [{ text: "📦 كم مدة التوصيل؟" }, { text: "💰 كم تكلفة التوصيل؟" }],
-              [{ text: "🔄 هل يوجد استرجاع؟" }],
-              [{ text: "🔙 الرجوع للقائمة الرئيسية" }]
-            ],
-            resize_keyboard: true
-          });
-        } else if (msg.text === '📦 كم مدة التوصيل؟') {
-          await sendTelegramMessage(chatId, "تستغرق مدة التوصيل عادةً من 24 إلى 48 ساعة داخل بغداد، ومن 2 إلى 4 أيام لباقي المحافظات.");
-        } else if (msg.text === '💰 كم تكلفة التوصيل؟') {
-          await sendTelegramMessage(chatId, "تكلفة التوصيل داخل بغداد 4000 دينار، وللمحافظات 6000 دينار.");
-        } else if (msg.text === '🔄 هل يوجد استرجاع؟') {
-          await sendTelegramMessage(chatId, "نعم، يمكنك استرجاع أو استبدال المنتج خلال 3 أيام من تاريخ الاستلام بشرط بقائه بحالته الأصلية.");
-        } else if (msg.text === '💬 الدعم الفني') {
-          await sendTelegramMessage(chatId, "يرجى كتابة مشكلتك أو استفسارك في رسالة واحدة، وسيقوم فريقنا بالرد عليك في أقرب وقت. 📝", {
-            keyboard: [[{ text: "🔙 الرجوع للقائمة الرئيسية" }]],
-            resize_keyboard: true
-          });
-        } else if (msg.contact) {
+        }
+        
+        // --- Forgot Password Logic ---
+        else if (msg.contact) {
           let phone = msg.contact.phone_number;
           // Normalize phone to start with 07 instead of +964 or 964
           phone = phone.replace(/^\+964/, '0').replace(/^964/, '0');
@@ -154,8 +237,10 @@ serve(async (req) => {
               });
             }
           }
-        } else {
-          // Fallback - Treat arbitrary text as a support message
+        } 
+        
+        // --- Fallback (Support Message) ---
+        else {
           if (msg.text) {
             const { data: newMsg, error: insertError } = await supabase.from('support_messages').insert({
               name: msg.from?.first_name || 'مستخدم تيليكرام',
@@ -174,7 +259,7 @@ serve(async (req) => {
                 resize_keyboard: true
               });
             } else {
-              await sendTelegramMessage(chatId, "يرجى اختيار أحد الخيارات من القائمة.", {
+              await sendTelegramMessage(chatId, "يرجى اختيار أحد الخيارات من القائمة. للرجوع للخلف أرسل /start", {
                 keyboard: MAIN_KEYBOARD,
                 resize_keyboard: true
               });

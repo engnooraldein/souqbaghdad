@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users } from 'lucide-react';
-import { StatsUsers } from '../assets/svg/stats/stats-users';
 import { supabase } from '../lib/supabase'; // تأكد إن مسار استدعاء supabase صحيح حسب مشروعك
 
 export default function LiveVisitorCounter() {
@@ -98,11 +97,11 @@ export default function LiveVisitorCounter() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
           </span>
-          <StatsUsers className="w-10 h-8 text-[#BF9B30]/80 shrink-0" />
+          <Users className="text-slate-400 w-5 h-5" />
         </div>
 
         <span className="text-[13px] md:text-sm font-medium tracking-wide flex-1 text-right text-slate-200">
-          <span>أكثر من </span>
+          أكثر من 
           <motion.strong 
             key={count} 
             initial={{ scale: 1.1, color: '#6ee7b7' }} 
@@ -112,7 +111,7 @@ export default function LiveVisitorCounter() {
           >
             {count.toLocaleString()}
           </motion.strong> 
-          <span>مستخدم وزائر!</span>
+          مستخدم وزائر!
         </span>
       </div>
 

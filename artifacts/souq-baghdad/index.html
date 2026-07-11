@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover" />
   <!-- Preconnect to Google Fonts for faster font loading -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -37,6 +37,10 @@
 
   <!-- Theme Color & Mobile Edge-to-Edge -->
   <!-- لون #0c2b5e هو اللون الدقيق لخلفية الموقع الأزرق الملكي -->
+  <meta name="theme-color" content="#0c2b5e" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0c2b5e" />
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0c2b5e" />
+  <meta name="msapplication-navbutton-color" content="#0c2b5e" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -94,26 +98,11 @@
         0%, 100% { opacity: 1; }
         50% { opacity: 0.5; }
       }
-      .loader-logo {
-        width: 100px; 
-        height: 100px; 
-        margin-bottom: 24px; 
-        border-radius: 20px; 
-        box-shadow: 0 8px 24px rgba(0,0,0,0.2); 
-        animation: pulse 1.5s ease-in-out infinite;
-      }
-      .loader-subtext {
-        font-size: 0.9rem; 
-        font-weight: normal; 
-        margin-top: 8px; 
-        color: rgba(255,255,255,0.8); 
-        animation: pulse 1.5s ease-in-out infinite;
-      }
     </style>
     <div class="initial-loader">
-      <img src="/logo-256.webp" alt="شعار سوك بغداد" class="loader-logo" />
+      <img src="/logo.png" alt="شعار سوك بغداد" class="loader-logo" style="width: 100px; height: 100px; margin-bottom: 24px; border-radius: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); animation: pulse 1.5s ease-in-out infinite;" />
       <div class="loader-text">أهلاً بك في سوك بغداد</div>
-      <div class="loader-subtext">جاري تحميل أحدث الإعلانات والمنتجات، يرجى الانتظار ثوانٍ...</div>
+      <div class="loader-subtext" style="font-size: 0.9rem; font-weight: normal; margin-top: 8px; color: rgba(255,255,255,0.8); animation: pulse 1.5s ease-in-out infinite;">جاري تحميل أحدث الإعلانات والمنتجات، يرجى الانتظار ثوانٍ...</div>
     </div>
   </div>
   <script type="module" src="/src/main.tsx"></script>

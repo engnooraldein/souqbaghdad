@@ -209,7 +209,6 @@
   /* Glass Effect */
   .glass {
     background-color: rgba(255, 255, 255, 0.8);
-    -webkit-backdrop-filter: blur(24px);
     backdrop-filter: blur(24px);
     border: 1px solid rgba(255, 255, 255, 0.1);
   }
@@ -220,8 +219,8 @@
 
   /* Text Gradient */
   .text-gradient {
-    -webkit-background-clip: text;
     background-clip: text;
+    -webkit-background-clip: text;
     color: transparent;
     background-image: linear-gradient(135deg, #d4af37, #f4d03f, #d4af37);
   }
@@ -258,6 +257,7 @@
   /* Hide scrollbar but keep functionality */
   .scrollbar-hide {
     -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 
   .scrollbar-hide::-webkit-scrollbar {
@@ -360,22 +360,24 @@
   position: relative;
   overflow: hidden;
   border-radius: 1rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .category-card::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(191, 155, 48, 0.12), transparent);
-  z-index: 0;
-  opacity: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.7), transparent, transparent);
+  z-index: 1;
   transition: opacity 0.3s ease;
-  pointer-events: none;
 }
 
 .category-card:hover::before {
-  opacity: 1;
+  background: linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.2), transparent);
+}
+
+.category-card:hover {
+  transform: scale(1.03);
 }
 
 /* Badge Styles */
@@ -418,6 +420,7 @@
 /* Input Focus States */
 input:focus, textarea:focus, select:focus {
   outline: none;
+  ring: 2px;
 }
 
 /* Button Hover Effects */

@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Settings, Heart, ShoppingBag, MessageCircle, Bell, LogOut, Edit3, Camera, Share2, Star, MapPin, Calendar, Facebook, Twitter, Instagram, Check, Crown, ChevronLeft, ChevronRight, Globe, Loader2, Wallet, Sparkles } from 'lucide-react';
+import { User, Settings, Heart, ShoppingBag, MessageCircle, Bell, LogOut, Edit3, Camera, Share2, Star, MapPin, Calendar, Facebook, Twitter, Instagram, Check, Crown, ChevronLeft, ChevronRight, Globe, Loader2, Wallet } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -14,7 +14,7 @@ export function UserProfile({ onBack }: UserProfileProps) {
   const [syncTime, setSyncTime] = useState(localStorage.getItem('souq_profiles_sync_time') || '');
   const [ledger, setLedger] = useState<any[]>([]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (user) {
       supabase.from('points_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).then(({ data }) => {
         if (data) setLedger(data);
@@ -46,7 +46,7 @@ export function UserProfile({ onBack }: UserProfileProps) {
   };
   const [activeTab, setActiveTab] = useState(window.location.hash.includes('/pay') || window.location.hash.includes('/wallet') ? 'wallet' : 'overview');
 
-  useEffect(() => {
+  React.useEffect(() => {
     const handleWalletTab = () => setActiveTab('wallet');
     window.addEventListener('switch-to-wallet-tab', handleWalletTab);
     return () => window.removeEventListener('switch-to-wallet-tab', handleWalletTab);

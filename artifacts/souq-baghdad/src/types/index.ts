@@ -31,7 +31,6 @@ export interface Ad {
   short_id?: string;
   favorites?: number;
   likes?: number;
-  isPremium?: boolean;
 }
 
 export interface Product {
