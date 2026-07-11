@@ -1349,7 +1349,7 @@ function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu, selle
     <motion.div whileHover={{y:-4}} onClick={onSelect} onContextMenu={onActionMenu}
       className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full">
       <div className="relative w-full aspect-[4/3] overflow-hidden flex-shrink-0">
-        <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={ad.title} className="w-full h-full object-cover" />
+        <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=40'} alt={ad.title} className="w-full h-full object-cover" />
         {isNewItem(ad.createdAtISO) && (
           <div className="absolute top-2 left-2 px-2 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[9px] font-extrabold rounded-lg z-10 shadow-lg shadow-red-500/25 border border-red-400/30 animate-pulse">
             حديث ✨
@@ -1367,7 +1367,7 @@ function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu, selle
         <div className="flex items-center gap-1 text-gray-400 text-xs mb-2 flex-1"><MapPin className="w-3 h-3 flex-shrink-0"/><span className="line-clamp-1">{ad.location}</span></div>
         <div className="flex items-center justify-between mt-auto">
           <button onClick={e=>{e.stopPropagation();onSellerClick?.(ad.postedBy||'');}} className="flex items-center gap-1.5 hover:opacity-80 transition-opacity relative">
-            <img src={ad.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-5 h-5 rounded-full object-cover ${getGlowClass(sellerRole)}`}/>
+            <img src={ad.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&q=40'} alt="" className={`w-5 h-5 rounded-full object-cover ${getGlowClass(sellerRole)}`}/>
             {onlineStatuses[ad.postedBy||''] && <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-gray-800" title="متصل الآن"></div>}
             <span className="text-gray-400 text-xs truncate max-w-[80px]">{ad.seller?.name || 'مستخدم'}</span>
           </button>
@@ -1394,7 +1394,7 @@ function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionM
     <motion.div whileHover={{y:-4}} onClick={onSelect} onContextMenu={onActionMenu}
       className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full">
       <div className="relative w-full aspect-[4/3] overflow-hidden flex-shrink-0">
-        <img src={product.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={product.title} className="w-full h-full object-cover" loading="lazy" decoding="async"/>
+        <img src={product.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=40'} alt={product.title} className="w-full h-full object-cover" loading="lazy" decoding="async"/>
         <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{background:product.condition==='new'?'#22c55e':'#f59e0b'}}>
           {product.condition==='new'?'جديد':'مستعمل'}</div>
         {isNewItem(product.createdAtISO) && (
@@ -1414,7 +1414,7 @@ function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionM
         <div className="flex items-center gap-1 text-gray-400 text-xs mb-2 flex-1"><MapPin className="w-3 h-3 flex-shrink-0"/><span>{product.governorate}</span></div>
         <div className="flex items-center justify-between mt-auto">
           <button onClick={e=>{e.stopPropagation();onSellerClick?.(product.postedBy||'');}} className="flex items-center gap-1.5 hover:opacity-80 relative">
-            <img src={product.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-5 h-5 rounded-full object-cover ${getGlowClass(sellerRole)}`}/>
+            <img src={product.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&q=40'} alt="" className={`w-5 h-5 rounded-full object-cover ${getGlowClass(sellerRole)}`}/>
             {onlineStatuses[product.postedBy||''] && <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-gray-800" title="متصل الآن"></div>}
             <span className="text-gray-400 text-xs truncate max-w-[80px]">{product.seller?.name || 'مستخدم'}</span>
           </button>
@@ -1512,10 +1512,10 @@ function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAu
             onTouchEnd={handleTouchEnd}
             className="aspect-video overflow-hidden rounded-t-3xl bg-gray-800 relative group touch-pan-y"
           >
-            <img src={ad.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={ad.title}
+            <img src={ad.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=40'} alt={ad.title}
               decoding="async"
               fetchPriority="high"
-              onClick={() => onImageZoom?.(ad.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700', ad.title, ad.images, imgIdx)}
+              onClick={() => onImageZoom?.(ad.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=40', ad.title, ad.images, imgIdx)}
               draggable={false}
               className="w-full h-full object-cover cursor-zoom-in transition-all duration-300"/>
             
@@ -1743,10 +1743,10 @@ function ProductDetailModal({ product, onClose, isFav, onFav, user, storedUsers 
             onTouchEnd={handleTouchEnd}
             className="aspect-video overflow-hidden rounded-t-3xl bg-gray-800 relative group touch-pan-y"
           >
-            <img src={product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={product.title}
+            <img src={product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=40'} alt={product.title}
               decoding="async"
               fetchPriority="high"
-              onClick={() => onImageZoom?.(product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700', product.title, product.images, imgIdx)}
+              onClick={() => onImageZoom?.(product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=40', product.title, product.images, imgIdx)}
               draggable={false}
               className="w-full h-full object-cover cursor-zoom-in transition-all duration-300"/>
             
@@ -2005,7 +2005,7 @@ function TransportDetailModal({ ad, onClose, user, onAuthRequired, onViewDuratio
           const liveSeller = storedUsers?.find(u=>u.id===ad.postedBy);
           return (
             <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 mb-5 flex items-center gap-3">
-              <img src={ad.sellerAvatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-10 h-10 rounded-full object-cover ${liveSeller?.role && liveSeller.role !== 'user' ? getGlowClass(liveSeller.role) : 'border border-gray-600'}`}/>
+              <img src={ad.sellerAvatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&q=40'} alt="" className={`w-10 h-10 rounded-full object-cover ${liveSeller?.role && liveSeller.role !== 'user' ? getGlowClass(liveSeller.role) : 'border border-gray-600'}`}/>
               <div>
                 <span className="text-white font-bold text-sm block">{ad.sellerName}</span>
                 <span className="text-gray-400 text-xs">صاحب الإعلان</span>
@@ -2083,7 +2083,7 @@ function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1 }:{
     e.preventDefault(); setUploading(true); playSound('click');
     for(let i=0;i<=100;i+=20){await new Promise(r=>setTimeout(r,100));setPct(i);}
     const ad:Ad = { id:isEdit?editAd!.id:Date.now(), title:fd.title, price:fd.price.replace(/,/g,''), governorate:fd.governorate, location:fd.governorate, phone:fd.phone, category:fd.category,
-      images:images.filter(i=>i.preview).map(i=>i.preview).concat(images.length===0?['https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700']:[]),
+      images:images.filter(i=>i.preview).map(i=>i.preview).concat(images.length===0?['https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=40']:[]),
       seller:{name:user.name,avatar:user.avatar,isVerified:user.isVerified,rating:user.rating||5,joinedDate:user.joinedDate,location:user.location},
       time:'الآن', createdAtISO:isEdit?(editAd?.createdAtISO||new Date().toISOString()):new Date().toISOString(), views:isEdit?(editAd?.views||0):0,
       status:'active', type:fd.type, description:fd.description, adCount:user.stats.ads+1, soldCount:0, responseRate:100, avgResponseTime:'5 دقائق', postedBy:user.id };
@@ -2157,7 +2157,7 @@ function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1 }:{
         ):(
           <div className="p-5">
             <div className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700">
-              <div className="aspect-[4/3]"><img src={images[0]?.preview||'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-full h-full object-cover"/></div>
+              <div className="aspect-[4/3]"><img src={images[0]?.preview||'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=40'} alt="" className="w-full h-full object-cover"/></div>
               <div className="p-4"><h3 className="text-white font-bold mb-1">{fd.title||'عنوان الإعلان'}</h3>
                 <p className="text-xl font-bold text-amber-400 mb-2">{formatPrice(fd.price||'0')} <span className="text-xs text-gray-400">د.ع</span></p>
                 <p className="text-gray-400 text-xs">{fd.governorate} • {fd.description?.slice(0,60)||'وصف الإعلان'}</p></div>
@@ -2206,7 +2206,7 @@ function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct, cost =
     e.preventDefault(); setUploading(true); playSound('click');
     for(let i=0;i<=100;i+=20){await new Promise(r=>setTimeout(r,100));setPct(i);}
     const p:Product = { id:isEdit?editProduct!.id:Date.now(), title:fd.title, price:fd.price.replace(/,/g,''), description:fd.description, category:fd.category, governorate:fd.governorate, phone:fd.phone, condition:fd.condition, stock:fd.stock,
-      images:images.filter(i=>i.preview).map(i=>i.preview).concat(images.length===0?['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=700']:[]),
+      images:images.filter(i=>i.preview).map(i=>i.preview).concat(images.length===0?['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=700&q=40']:[]),
       seller:{name:user.name,avatar:user.avatar,isVerified:user.isVerified,rating:user.rating||5,joinedDate:user.joinedDate,location:user.location},
       createdAtISO:isEdit?(editProduct?.createdAtISO||new Date().toISOString()):new Date().toISOString(), views:isEdit?(editProduct?.views||0):0, postedBy:user.id,
       status:isEdit?(editProduct?.status||'active'):'active' };
@@ -3068,7 +3068,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
               <div className="space-y-3">
                 {allMyAds.filter(a=>a.status==='active').map(ad=>(
                   <div key={ad.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-amber-500/30 transition-colors">
-                    <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700"/>
+                    <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=40'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700"/>
                     <div className="flex-1 min-w-0">
                       <p className="text-white font-bold text-sm line-clamp-1">{ad.title}</p>
                       <p className="text-amber-400 text-sm font-bold">{formatPrice(ad.price)} <span className="text-xs text-gray-400">د.ع</span></p>
@@ -3105,7 +3105,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
               <div className="space-y-3">
                 {allMyProducts.filter(p=>p.status==='active').map(p=>(
                   <div key={p.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-purple-500/30 transition-colors">
-                    <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700"/>
+                    <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=40'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700"/>
                     <div className="flex-1 min-w-0">
                       <p className="text-white font-bold text-sm line-clamp-1">{p.title}</p>
                       <p className="text-amber-400 text-sm font-bold">{formatPrice(p.price)} <span className="text-xs text-gray-400">د.ع</span></p>
@@ -3143,7 +3143,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                 {/* Sold Ads */}
                 {allMyAds.filter(a=>a.status==='sold').map(ad=>(
                   <div key={ad.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-red-500/30 transition-colors relative">
-                    <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700 opacity-60"/>
+                    <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=40'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700 opacity-60"/>
                     <div className="flex-1 min-w-0">
                       <p className="text-white font-bold text-sm line-clamp-1 opacity-75">{ad.title}</p>
                       <p className="text-amber-400 text-sm font-bold opacity-75">{formatPrice(ad.price)} <span className="text-xs text-gray-400">د.ع</span></p>
@@ -3162,7 +3162,7 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
                 {/* Sold Products */}
                 {allMyProducts.filter(p=>p.status==='sold').map(p=>(
                   <div key={p.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-red-500/30 transition-colors relative">
-                    <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700 opacity-60"/>
+                    <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=40'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700 opacity-60"/>
                     <div className="flex-1 min-w-0">
                       <p className="text-white font-bold text-sm line-clamp-1 opacity-75">{p.title}</p>
                       <p className="text-amber-400 text-sm font-bold opacity-75">{formatPrice(p.price)} <span className="text-xs text-gray-400">د.ع</span></p>
@@ -3917,7 +3917,7 @@ function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }: { ad: 
         
         <div className="flex items-center justify-between pt-3 border-t border-gray-700/50">
           <div className="flex items-center gap-2">
-            <img src={ad.sellerAvatar||'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-8 h-8 rounded-full object-cover ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-600'}`}/>
+            <img src={ad.sellerAvatar||'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&q=40'} alt="" className={`w-8 h-8 rounded-full object-cover ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-600'}`}/>
             <div>
               <span className="text-gray-300 text-xs block font-semibold">{ad.sellerName}</span>
             </div>
@@ -4002,7 +4002,7 @@ function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id:number
           <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
             {ads.length===0?<div className="p-8 text-center text-gray-400">لا إعلانات</div>:ads.map(ad=>(
               <div key={ad.id} className="flex items-center gap-3 p-3 border-b border-gray-700/50">
-                <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover"/>
+                <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=40'} alt="" className="w-12 h-12 rounded-lg object-cover"/>
                 <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{ad.title}</p>
                   <p className="text-xs text-gray-400">{ad.location} • {formatPrice(ad.price)} د.ع</p></div>
                 <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400" title="حذف الإعلان" aria-label="حذف الإعلان"><Trash2 className="w-4 h-4"/></button>
@@ -4798,7 +4798,7 @@ function MarketView({
                         <div className="flex items-center justify-between pt-3 border-t border-gray-700/50">
                           <div className="flex items-center gap-2">
                             <img
-                              src={ad.sellerAvatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'}
+                              src={ad.sellerAvatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&q=40'}
                               alt=""
                               className="w-8 h-8 rounded-full object-cover border border-gray-600"
                             />
@@ -5552,7 +5552,7 @@ function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, li
                   
                   <div className="flex items-center justify-between pt-3 border-t border-gray-700/50">
                     <div className="flex items-center gap-2">
-                      <img src={ad.sellerAvatar||'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-8 h-8 rounded-full object-cover ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-600'}`}/>
+                      <img src={ad.sellerAvatar||'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&q=40'} alt="" className={`w-8 h-8 rounded-full object-cover ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-600'}`}/>
                       <div>
                         <span className="text-gray-300 text-xs block font-semibold">{ad.sellerName}</span>
                         <span className="text-gray-500 text-[10px] block"><TimeAgo iso={ad.createdAt}/></span>
@@ -5792,7 +5792,7 @@ export default function App() {
                 images: data.images || [],
                 seller: {
                   name: data.seller_name || 'مستخدم',
-                  avatar: data.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
+                  avatar: data.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&q=40',
                   isVerified: false,
                   rating: data.seller_rating || 4.8,
                   joinedDate: data.created_at,
@@ -5840,7 +5840,7 @@ export default function App() {
                 condition: data.condition || 'used',
                 seller: {
                   name: data.seller_name || 'مستخدم',
-                  avatar: data.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
+                  avatar: data.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&q=40',
                   isVerified: false,
                   rating: 4.8,
                   joinedDate: data.created_at,
@@ -6191,7 +6191,7 @@ export default function App() {
               images: data.images || [],
               seller: {
                 name: data.seller_name || 'مستخدم',
-                avatar: data.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
+                avatar: data.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&q=40',
                 isVerified: false,
                 rating: data.seller_rating || 4.8,
                 joinedDate: data.created_at,
@@ -6266,7 +6266,7 @@ export default function App() {
               condition: data.condition || 'used',
               seller: {
                 name: data.seller_name || 'مستخدم',
-                avatar: data.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
+                avatar: data.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&q=40',
                 isVerified: false,
                 rating: 4.8,
                 joinedDate: data.created_at,
@@ -6628,7 +6628,7 @@ export default function App() {
           images: row.images || [],
           seller: {
             name: row.seller_name || 'مستخدم',
-            avatar: row.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
+            avatar: row.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&q=40',
             isVerified: false,
             rating: row.seller_rating || 4.8,
             joinedDate: row.created_at,
@@ -6771,7 +6771,7 @@ export default function App() {
           condition: row.condition || 'used',
           seller: {
             name: row.seller_name || 'مستخدم',
-            avatar: row.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
+            avatar: row.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&q=40',
             isVerified: false,
             rating: 4.8,
             joinedDate: row.created_at,
