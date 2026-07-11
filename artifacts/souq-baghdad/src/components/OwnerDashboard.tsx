@@ -347,7 +347,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                 <button onClick={() => {
                   if(window.confirm('هل أنت متأكد من إرسال خطأ تجريبي للبوت؟')) {
                     import('../lib/errorLogger').then(({ logCriticalError }) => {
-                      logCriticalError('Test Error', 'هذا خطأ تجريبي تم إرساله يدوياً لاختبار البوت.', 'No StackTrace', user?.id);
+                      logCriticalError('Test Error', 'هذا خطأ تجريبي تم إرساله يدوياً لاختبار البوت.', 'No StackTrace', undefined);
                       alert('تم الإرسال بنجاح! راقب البوت الآن.');
                     });
                   }

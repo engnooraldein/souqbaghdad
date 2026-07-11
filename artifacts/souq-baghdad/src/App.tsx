@@ -2661,8 +2661,8 @@ function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeletePr
       setIsLoadingArchive(true);
       const adsQuery = user.phone && !user.phone.includes('-') ? `seller_id.eq.${user.id},phone.eq.${user.phone}` : `seller_id.eq.${user.id}`;
       const [adsRes, prodsRes] = await Promise.all([
-        supabase.from('ads').select('*').or(adsQuery),
-        supabase.from('products').select('*').or(adsQuery)
+        supabase.from('ads').select('*').or(adsQuery).limit(100),
+        supabase.from('products').select('*').or(adsQuery).limit(100)
       ]);
       
       if (adsRes.data && isMounted) {
@@ -3368,8 +3368,8 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
         // 4. Query Supabase profiles table directly and fetch seller's sold ads and products
         const isPhone = !sellerId.includes('-');
         const [adsRes, prodsRes, dbProfileRes] = await Promise.all([
-          isPhone ? supabase.from('ads').select('*').eq('phone', sellerId) : supabase.from('ads').select('*').eq('seller_id', sellerId),
-          isPhone ? supabase.from('products').select('*').eq('phone', sellerId) : supabase.from('products').select('*').eq('seller_id', sellerId),
+          isPhone ? supabase.from('ads').select('*').eq('phone', sellerId).limit(100) : supabase.from('ads').select('*').eq('seller_id', sellerId).limit(100),
+          isPhone ? supabase.from('products').select('*').eq('phone', sellerId).limit(100) : supabase.from('products').select('*').eq('seller_id', sellerId).limit(100),
           isPhone ? supabase.from('profiles').select('*').eq('phone', sellerId).maybeSingle() : supabase.from('profiles').select('*').eq('id', sellerId).maybeSingle()
         ]);
         

@@ -10,6 +10,7 @@ export interface User {
   storeName?: string;
   createdAt: string;
   cover?: string;
+  points?: number;
   rating?: number;
   badges?: {
     isStudent?: boolean;
