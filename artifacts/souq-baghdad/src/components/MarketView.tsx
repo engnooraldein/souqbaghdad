@@ -129,10 +129,9 @@ function HorizontalCarousel({
 
   useEffect(() => {
     const el = containerRef.current;
-    if (el) {
-      el.addEventListener('scroll', handleScroll, { passive: true });
-      return () => el.removeEventListener('scroll', handleScroll);
-    }
+    if (!el) return;
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => el.removeEventListener('scroll', handleScroll);
   }, [items]);
 
   const scrollToItem = (idx: number) => {
@@ -1254,7 +1253,7 @@ export function MarketView({
                           {paginatedGeneralAds.map(ad => {
                             const seller = storedUsers?.find(u => u.id === ad.postedBy);
                             const isFav = favorites.includes(ad.id);
-                            const isOnline = !!onlineStatuses[ad.postedBy];
+                            const isOnline = ad.postedBy ? !!onlineStatuses[ad.postedBy] : false;
                             return (
                               <motion.div 
                                 key={`fb-feed-${ad.id}`}
@@ -1637,7 +1636,7 @@ export function MarketView({
                               href={getWhatsAppLink(ad.phone, 'transport', { id: ad.id, title: ad.type === 'offer' ? 'خط متوفر' : 'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })}
                               target="_blank"
                               rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
+                              onClick={(e: any) => e.stopPropagation()}
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
                               className="flex items-center gap-1.5 px-4 py-2 bg-green-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-green-500/20"
@@ -1645,7 +1644,7 @@ export function MarketView({
                               <MessageSquare className="w-3.5 h-3.5" /> واتساب
                             </motion.a>
                             <motion.button
-                              onClick={(e) => { e.stopPropagation(); handleUniversalShare({ id: ad.id, university: ad.university, type: ad.type, regions: ad.regions, price: ad.price }); }}
+                              onClick={(e: any) => { e.stopPropagation(); handleUniversalShare({ id: ad.id, university: ad.university, type: ad.type, regions: ad.regions, price: ad.price }); }}
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
                               className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold rounded-xl text-xs hover:bg-amber-500/30"
