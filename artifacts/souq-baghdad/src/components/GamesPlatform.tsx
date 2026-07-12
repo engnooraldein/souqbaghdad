@@ -1,3 +1,13 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// منصة الألعاب المدمجة في التطبيق.
+// يعرض قائمة الألعاب المتاحة ويفتح اللعبة المختارة.
+//
+// لا يتصل بـ Supabase مباشرة.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Gamepad2, Users, Trophy, Star, Crown, ChevronLeft, Play, Info, Heart, Share2, Filter, TrendingUp } from 'lucide-react';

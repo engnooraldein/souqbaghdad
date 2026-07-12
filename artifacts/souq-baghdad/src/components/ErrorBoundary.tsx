@@ -1,3 +1,17 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// يلتقط أخطاء React (Error Boundary) ويعرض رسالة خطأ بدلاً من تحطم التطبيق.
+//
+// لا يتصل بـ Supabase مباشرة.
+//
+// انتبه:
+// يجب أن يكون هذا المكوّن مغلّفاً لـ App بالكامل في main.tsx.
+// أي خطأ غير محسوب سيُوقف التطبيق إذا لم يكن هنا.
+//
+// آمن للتعديل:
+// نعم، لكن لا تحذفه.
+// ===========================================
+
 import React from 'react';
 
 const searilizeError = (error: any) => {
@@ -18,6 +32,21 @@ export class ErrorBoundary extends React.Component<
 
   static getDerivedStateFromError(error: any) {
     return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    import('../lib/errorLogger').then(({ logCriticalError }) => {
+      // Get logged in user if available
+      const stored = localStorage.getItem('souqUser');
+      const userId = stored ? JSON.parse(stored).id : undefined;
+      
+      logCriticalError(
+        'React Crash',
+        error.message || 'Unknown React Error',
+        errorInfo.componentStack || error.stack,
+        userId
+      );
+    });
   }
 
   render() {

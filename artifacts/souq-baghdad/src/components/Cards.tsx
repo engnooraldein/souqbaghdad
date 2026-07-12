@@ -1,3 +1,12 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// مجموعة بطاقات UI عامة (Generic Card Components).
+//
+// لا يتصل بـ Supabase. مكوّنات UI بحتة.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import { motion } from 'framer-motion';
 import { LucideIcon, ChevronLeft } from 'lucide-react';
 
@@ -220,6 +229,79 @@ export function VideoCard({
           </span>
         </div>
       </div>
+    </motion.div>
+  );
+}
+
+interface MerchantCardProps {
+  id: string;
+  name: string;
+  avatar: string;
+  location: string;
+  rating: number;
+  adCount: number;
+  isVerified?: boolean;
+  phone?: string;
+  onClick?: () => void;
+}
+
+export function MerchantCard({
+  name,
+  avatar,
+  location,
+  rating,
+  adCount,
+  isVerified,
+  phone,
+  onClick
+}: MerchantCardProps) {
+  return (
+    <motion.div
+      whileHover={{ y: -4, scale: 1.02 }}
+      onClick={onClick}
+      className="cursor-pointer bg-gray-900/80 backdrop-blur-md border border-gray-800 hover:border-amber-500/50 rounded-3xl p-4 transition-all shadow-xl text-right dir-rtl group relative overflow-hidden"
+    >
+      <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-500" />
+      
+      <div className="flex items-center gap-3 relative z-10">
+        <div className="relative">
+          <img src={avatar} alt={name} className="w-14 h-14 rounded-2xl object-cover border-2 border-amber-500/30 group-hover:border-amber-400 transition-colors" />
+          {isVerified && (
+            <div className="absolute -bottom-1 -left-1 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow">
+              ✓
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <h4 className="text-white font-bold text-base truncate">{name}</h4>
+          </div>
+          <p className="text-gray-400 text-xs mt-0.5">📍 {location || 'بغداد'}</p>
+          <div className="flex items-center gap-3 mt-2 text-xs">
+            <span className="text-amber-400 font-bold flex items-center gap-1">
+              ⭐ {rating || 5.0}
+            </span>
+            <span className="text-gray-500">•</span>
+            <span className="text-gray-300 font-medium">📦 {adCount} إعلان</span>
+          </div>
+        </div>
+      </div>
+
+      {phone && (
+        <div className="mt-4 pt-3 border-t border-gray-800/80 flex items-center justify-between">
+          <span className="text-[11px] text-gray-400">تواصل مباشر:</span>
+          <a
+            href={`https://wa.me/964${phone.replace(/^0/, '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="px-3 py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
+          >
+            💬 واتساب
+          </a>
+        </div>
+      )}
     </motion.div>
   );
 }

@@ -1,3 +1,13 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// صفحة عرض قوائم المنتجات أو الإعلانات (Listing Page).
+//
+// قد يجلب البيانات من Supabase مباشرة أو يستقبلها عبر Props.
+// تحقق من useEffect للتأكد.
+//
+// آمن للتعديل:
+// نعم، بحذر.
+// ===========================================
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Filter, Grid, List, ChevronLeft, Heart, MessageCircle, Share2, Eye, MapPin, Clock, Car, Home, Smartphone, Star, Check, X } from 'lucide-react';
@@ -295,7 +305,7 @@ export function ListingPage({ category, onBack }: ListingPageProps) {
               {viewMode === 'grid' ? (
                 <div className="relative">
                   <ProductCard
-                    image={product.images[0]}
+                    image={product.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'}
                     title={product.title}
                     price={product.price}
                     location={product.location}
@@ -320,7 +330,7 @@ export function ListingPage({ category, onBack }: ListingPageProps) {
                 <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-4 flex gap-4 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
                   <div className="relative w-48 h-32 rounded-xl overflow-hidden flex-shrink-0">
                     <img
-                      src={product.images[0]}
+                      src={product.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'}
                       alt={product.title}
                       className="w-full h-full object-cover"
                     />

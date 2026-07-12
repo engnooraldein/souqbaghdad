@@ -1,200 +1,214 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// يعرض القسم العلوي من الصفحة الرئيسية (Hero Section).
+// يشمل: شريط البحث، فلاتر الأقسام، العنوان.
+//
+// لا يجلب البيانات من Supabase.
+// الفلاتر تُرسل كـ Props إلى App.tsx وتُطبَّق هناك.
+//
+// آمن للتعديل:
+// نعم، لكن تأكد من عدم تغيير أسماء Props الخاصة بالبحث.
+// ===========================================
+
+import React from 'react';
 import { motion } from 'framer-motion';
-import { Car, Home, Smartphone, ChevronLeft, ChevronRight, Sparkles, Zap, Shield } from 'lucide-react';
-import { IraqiEagle } from './Icons';
+import { Search, Car, ChevronLeft, Smartphone, Sparkles } from 'lucide-react';
+import { CATEGORIES } from '../App';
+import LiveVisitorCounter from './LiveVisitorCounter';
+import { CityOutline } from '../assets/svg/logo/city-outline';
+import { LionOutline } from '../assets/svg/logo/lion-outline';
+import { BackgroundGrid } from '../assets/svg/background/background-grid';
+import { GoldParticles } from '../assets/svg/effects/gold-particles';
 
 interface HeroSectionProps {
-  onExploreCategory?: (category: string) => void;
+  search: string;
+  setSearch: (s: string) => void;
+  cat: string;
+  setCat: (c: string) => void;
+  onTransportClick?: () => void;
+  isStandalone?: boolean;
+  onInstallClick?: () => void;
+  totalAdsCount?: number;
 }
 
-export function HeroSection({ onExploreCategory }: HeroSectionProps) {
-  const quickCategories = [
-    { id: 'cars', name: 'السيارات', icon: Car, count: '2,450', color: 'from-blue-600 to-blue-800' },
-    { id: 'real-estate', name: 'العقارات', icon: Home, count: '1,890', color: 'from-green-600 to-green-800' },
-    { id: 'phones', name: 'الهواتف', icon: Smartphone, count: '3,200', color: 'from-purple-600 to-purple-800' },
-  ];
-
+export function HeroSection({
+  search, setSearch,
+  cat, setCat,
+  onTransportClick,
+  isStandalone,
+  onInstallClick,
+  totalAdsCount = 2040
+}: HeroSectionProps) {
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden baghdad-night">
-      {/* Animated Particles */}
-      <div className="particles">
-        {[...Array(20)].map((_, i) => (
-          <div
-            key={i}
-            className="particle"
-            style={{
-              left: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 8}s`,
-              animationDuration: `${6 + Math.random() * 4}s`,
-            }}
-          />
-        ))}
+    <section id="hero-section" className="bg-gradient-to-br from-[#070b19] via-[#0c1a3a] to-[#050c1e] py-14 sm:py-20 relative overflow-hidden border-b border-gray-800/40">
+      {/* Background Grid & Particles Decoration */}
+      <BackgroundGrid className="absolute inset-0 opacity-[0.12] mix-blend-color-dodge w-full h-full object-cover pointer-events-none" />
+      <GoldParticles className="absolute inset-0 opacity-30 pointer-events-none w-full h-full" />
+      
+      {/* Ambient Radial Glow */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-10 right-10 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-10 left-10 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl" />
       </div>
 
-      {/* Geometric Patterns */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-blue-600/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] border border-blue-500/10 rounded-full" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] border border-amber-500/10 rounded-full" />
+      {/* Floating Majestic Babylonian Lion (Backdrop Corner decoration) */}
+      <div className="absolute -top-16 -right-16 w-80 h-80 opacity-[0.08] pointer-events-none text-amber-400 select-none">
+        <LionOutline className="w-full h-full" />
       </div>
 
-      {/* Iraqi Eagle */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 1, ease: 'easeOut' }}
-        className="absolute top-24 right-10 opacity-20 hidden lg:block"
-      >
-        <IraqiEagle className="w-40 h-40 eagle-animation" />
-      </motion.div>
-
-      {/* Content */}
-      <div className="container mx-auto px-4 pt-24 pb-12 relative z-10">
-        <div className="max-w-6xl mx-auto">
-          {/* Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="flex justify-center mb-8"
+      <div className="container mx-auto px-4 relative z-10">
+        <div className="text-center max-w-3xl mx-auto mb-10">
+          {/* Top Interactive Badge */}
+          <motion.div 
+            id="hero-badge"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500/15 to-yellow-500/5 border border-amber-500/25 text-amber-400 text-xs font-bold shadow-[0_0_15px_rgba(212,175,55,0.06)] mb-6 cursor-default"
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/20 border border-amber-500/30">
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              <span className="text-amber-400 text-sm font-medium">أكبر منصة إعلانات عراقية</span>
-            </div>
+            <Sparkles className="w-3.5 h-3.5 animate-pulse text-amber-400" />
+            <span>أول منصة متكاملة للإعلانات والمتاجر في العراق</span>
           </motion.div>
 
-          {/* Main Title */}
-          <motion.h1
-            initial={{ opacity: 0, y: 30 }}
+          {/* Main Headline */}
+          <motion.h1 
+            id="hero-main-title"
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-center mb-6 leading-tight"
+            transition={{ duration: 0.6 }}
+            className="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-tight mb-4"
           >
-            <span className="text-white">كل شي تحتاجه</span>
-            <br />
-            <span className="text-gradient">بمكان واحد</span>
+            كل ما تحتاجه في <span className="bg-gradient-to-r from-[#fdf5a6] via-[#d4af37] to-[#b8860b] bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(212,175,55,0.15)]">سوق بغداد</span>
           </motion.h1>
 
-          {/* Subtitle */}
-          <motion.p
-            initial={{ opacity: 0, y: 30 }}
+          {/* Sub-headline */}
+          <motion.p 
+            id="hero-sub-title"
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="text-center text-gray-300 text-lg md:text-xl max-w-2xl mx-auto mb-12"
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="text-gray-300 text-sm sm:text-base md:text-lg max-w-2xl mx-auto font-medium leading-relaxed"
           >
-            سوق بغداد الرقمي الحديث - أفضل مكان لعرض وبيع وشراء كل ما تحتاجه
+            تصفّح آلاف الإعلانات والمنتجات الحصرية، وتسوق بكل ثقة وأمان من أفضل الحسابات والمتاجر الموثقة في جميع المحافظات العراقية.
           </motion.p>
+        </div>
 
-          {/* Search Bar */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="max-w-4xl mx-auto mb-12"
-          >
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-2 border border-white/10">
-              <div className="flex flex-col sm:flex-row gap-2">
-                <div className="flex-1 relative">
-                  <input
-                    type="text"
-                    placeholder="ابحث عن سيارة، عقار، هاتف..."
-                    className="w-full bg-gray-800/50 text-white placeholder-gray-400 rounded-xl py-4 px-6 pr-12 border border-gray-700 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all"
-                  />
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="px-8 py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl hover:shadow-lg hover:shadow-amber-500/30 transition-all"
+        {/* Search Bar Container */}
+        <div id="hero-search-wrapper" className="max-w-2xl mx-auto mb-8 relative z-20 group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-amber-500/30 to-yellow-600/30 rounded-[22px] blur-md opacity-25 group-hover:opacity-40 transition duration-300 pointer-events-none" />
+          <div className="relative bg-gray-900/80 backdrop-blur-xl rounded-2xl border border-gray-700/60 shadow-2xl flex items-center p-1.5">
+            <div className="flex-1 relative flex items-center">
+              <Search className="absolute right-4 w-5 h-5 text-amber-400" />
+              <input 
+                id="hero-search-input"
+                value={search} 
+                onChange={e => setSearch(e.target.value)} 
+                placeholder="ابحث عن سيارة، هاتف، عقار، منتج في العراق..."
+                className="w-full bg-transparent text-white placeholder-gray-400 rounded-xl py-3 sm:py-3.5 pr-12 pl-4 outline-none text-sm md:text-base font-medium"
+              />
+              {search && (
+                <button 
+                  id="hero-search-clear-btn"
+                  onClick={() => setSearch('')} 
+                  className="absolute left-3 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white px-2.5 py-1 rounded-lg text-xs transition-colors"
                 >
-                  بحث
-                </motion.button>
+                  مسح
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Categories Grid/Horizontal Badges */}
+        <div id="hero-categories-tabs" className="flex flex-wrap justify-center gap-2 mb-8 relative z-20 max-w-4xl mx-auto">
+          {CATEGORIES.filter(c => c.id !== 'games').map(c => (
+            <motion.button 
+              id={`cat-btn-${c.id}`}
+              key={c.id} 
+              whileHover={{ y: -2, scale: 1.03 }} 
+              whileTap={{ scale: 0.97 }} 
+              onClick={() => setCat(c.id)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-all duration-300 ${
+                cat === c.id 
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black border-amber-400 shadow-[0_4px_15px_rgba(212,175,55,0.25)] font-black' 
+                  : 'bg-gray-900/60 text-gray-300 border-gray-800 backdrop-blur-md hover:border-gray-700 hover:text-white hover:bg-gray-900/85'
+              }`}
+            >
+              <span className="text-base sm:text-lg">{c.emoji}</span>
+              <span>{c.name}</span>
+            </motion.button>
+          ))}
+        </div>
+
+        {/* Quick Metrics Cards */}
+        <div id="hero-metrics-grid" className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-3xl mx-auto mb-8 relative z-20">
+          <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/60 rounded-xl p-3.5 text-center flex flex-col justify-center">
+            <p className="text-xl sm:text-2xl font-black text-amber-400 font-mono">18</p>
+            <p className="text-gray-400 text-[11px] font-bold mt-1">محافظة عراقية مغطاة</p>
+          </div>
+          <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/60 rounded-xl p-3.5 text-center flex flex-col justify-center">
+            <p className="text-xl sm:text-2xl font-black text-white font-mono">{totalAdsCount}+</p>
+            <p className="text-gray-400 text-[11px] font-bold mt-1">إعلان معروض حالياً</p>
+          </div>
+          <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/60 rounded-xl p-3.5 text-center col-span-2 md:col-span-1 flex flex-col justify-center">
+            <p className="text-xl sm:text-2xl font-black text-emerald-400 font-mono">24/7</p>
+            <p className="text-gray-400 text-[11px] font-bold mt-1">خدمة ومتابعة مباشرة</p>
+          </div>
+        </div>
+
+        {/* Live Visitor Counter */}
+        <div className="mb-6 relative z-20">
+          <LiveVisitorCounter />
+        </div>
+
+        {/* Action Row: Transport & Install App */}
+        <div id="hero-action-cards" className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto relative z-20">
+          {/* Transport Section card */}
+          <motion.button 
+            id="hero-transport-card-btn"
+            whileHover={{ y: -3, scale: 1.01 }}
+            onClick={() => onTransportClick?.()}
+            className="w-full flex items-center justify-between px-5 py-4 bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/35 rounded-2xl transition-all group text-right"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 bg-emerald-500/25 rounded-xl flex items-center justify-center shrink-0">
+                <Car className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-white font-black text-sm">🚌 قسم الخطوط والتوصيل</p>
+                <p className="text-emerald-300 text-xs mt-0.5">نقل يومي مباشر للطلاب والموظفين</p>
               </div>
             </div>
-          </motion.div>
+            <ChevronLeft className="w-5 h-5 text-emerald-400 group-hover:-translate-x-1 transition-transform" />
+          </motion.button>
 
-          {/* Quick Categories */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto mb-12"
-          >
-            {quickCategories.map((category, index) => (
-              <motion.button
-                key={category.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 + index * 0.1 }}
-                whileHover={{ scale: 1.03, y: -5 }}
-                onClick={() => onExploreCategory?.(category.id)}
-                className={`relative overflow-hidden bg-gradient-to-br ${category.color} p-6 rounded-2xl cursor-pointer group`}
-              >
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
-                <div className="relative flex items-center gap-4">
-                  <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
-                    <category.icon className="w-7 h-7 text-white" />
-                  </div>
-                  <div className="text-right">
-                    <h3 className="text-white font-bold text-lg">{category.name}</h3>
-                    <p className="text-white/80 text-sm">{category.count}+ إعلان</p>
-                  </div>
-                </div>
-                <div className="absolute top-2 left-2">
-                  <ChevronLeft className="w-5 h-5 text-white/60 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </motion.button>
-            ))}
-          </motion.div>
-
-          {/* Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto"
-          >
-            {[
-              { label: 'إجمالي الإعلانات', value: '50,000+', icon: Zap },
-              { label: 'المستخدمين النشطين', value: '25,000+', icon: Shield },
-              { label: 'المتاجر', value: '1,200+', icon: Home },
-              { label: 'المبيعات', value: '10,000+', icon: Car },
-            ].map((stat, index) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.7 + index * 0.1 }}
-                className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-4 text-center"
-              >
-                <stat.icon className="w-6 h-6 text-amber-400 mx-auto mb-2" />
-                <p className="text-2xl md:text-3xl font-bold text-white mb-1">{stat.value}</p>
-                <p className="text-gray-400 text-sm">{stat.label}</p>
-              </motion.div>
-            ))}
-          </motion.div>
-
-          {/* Scroll Indicator */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1 }}
-            className="flex justify-center mt-12"
-          >
-            <motion.div
-              animate={{ y: [0, 10, 0] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-              className="flex flex-col items-center text-gray-400"
+          {/* Install PWA section card */}
+          {!isStandalone && onInstallClick ? (
+            <motion.button 
+              id="hero-install-card-btn"
+              whileHover={{ y: -3, scale: 1.01 }}
+              onClick={onInstallClick}
+              className="w-full flex items-center justify-between px-5 py-4 bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/25 rounded-2xl transition-all group text-right"
             >
-              <span className="text-sm mb-2">اكتشف المزيد</span>
-              <ChevronRight className="w-6 h-6 rotate-90" />
-            </motion.div>
-          </motion.div>
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 bg-amber-500/20 rounded-xl flex items-center justify-center shrink-0">
+                  <Smartphone className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-white font-black text-sm">📲 تثبيت التطبيق</p>
+                  <p className="text-amber-300/90 text-xs mt-0.5">ثبّت "سوق بغداد" كـ PWA على جهازك مباشرة</p>
+                </div>
+              </div>
+              <ChevronLeft className="w-5 h-5 text-amber-400 group-hover:-translate-x-1 transition-transform" />
+            </motion.button>
+          ) : null}
         </div>
       </div>
 
-      {/* Bottom Gradient */}
-      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-gray-900 to-transparent" />
+      {/* Baghdad Skyline Vector Backdrop */}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-5xl h-24 opacity-15 pointer-events-none select-none z-0">
+        <CityOutline className="w-full h-full" />
+      </div>
     </section>
   );
 }

@@ -1,1650 +1,2862 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, Check, ArrowLeft, Facebook, Chrome, Gamepad2, ShoppingBag, Home, Smartphone, Car, Video, Heart, MessageCircle, Bell, Plus, Sun, Moon, Settings, LogOut, Crown, Shield, Star, Sparkles, ChevronLeft, Play, X, Search, Filter, MapPin, Clock, Eye as ViewIcon, Phone as PhoneIcon, Send, Camera, Image, MapPin as LocationIcon, Tag, DollarSign, Grid, List, SlidersHorizontal, ChevronDown, UserCircle, Cpu, Menu, ArrowRight, MessageSquare } from 'lucide-react';
-import { useAuth } from './context/AuthContext';
-import { useFeatureFlags } from './context/FeatureFlagsContext';
+import { TimeAgo } from "./components/TimeAgo";
+import { Logo } from "./components/Logo";
+import { Toast } from "./components/Toast";
+import { ImageCropModal } from "./components/ImageCropModal";
+import { InterestTimer } from "./components/InterestTimer";
+import { SkeletonCard } from "./components/SkeletonCard";
+import { OnboardingModal } from "./components/OnboardingModal";
+import { CongratulationsModal } from "./components/CongratulationsModal";
+import { AuthModal } from "./components/AuthModal";
+import { InfoDocsModal } from "./components/InfoDocsModal";
+import { ImageLightboxModal } from "./components/ImageLightboxModal";
+import { AdCard } from "./components/AdCard";
+import { ProductCard } from "./components/ProductCard";
+import { AdDetailModal } from "./components/AdDetailModal";
+import { ProductDetailModal } from "./components/ProductDetailModal";
+import { TransportDetailModal } from "./components/TransportDetailModal";
+import { AdFormModal } from "./components/AdFormModal";
+import { ProductFormModal } from "./components/ProductFormModal";
+import { MyLinesTab } from "./components/MyLinesTab";
+import { PasswordChangeModal } from "./components/PasswordChangeModal";
+import { ProfileView } from "./components/ProfileView";
+import { SellerPublicPage } from "./components/SellerPublicPage";
+import { TransportAdCard } from "./components/TransportAdCard";
+import { AdminPanel } from "./components/AdminPanel";
+import { NotifPanel } from "./components/NotifPanel";
+import { MarketView } from "./components/MarketView";
+import { TransportFormModal } from "./components/TransportFormModal";
+import { TransportView } from "./components/TransportView";
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import { supabase } from './lib/supabase';
-import { UserProfile } from './components/UserProfile';
-import { AICenter } from './components/AICenter';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Helmet } from 'react-helmet-async';
+import { LoadingScreen } from './components/LoadingScreen';
+import { useOnlineStatuses, triggerOnlineStatusesSync } from './hooks/useOnlineStatuses';
+import { SellerInfo, Ad, Product, User, StoredUser, Visit, SystemLog, TransportAd } from './types';
+import { formatPrice } from './utils/format';
+import { logSystemAction } from './utils/logs';
+import { getRelative, useRelativeTime } from './utils/time';
 
-// Logo Component with Iraqi Eagle
-function Logo() {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="w-14 h-14 bg-gradient-to-br from-blue-900 to-blue-950 rounded-xl flex items-center justify-center shadow-lg golden-glow border-2 border-amber-500/30">
-        <svg viewBox="0 0 120 120" className="w-10 h-10">
-          <defs>
-            <linearGradient id="eagleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#d4af37" />
-              <stop offset="50%" stopColor="#f4d03f" />
-              <stop offset="100%" stopColor="#d4af37" />
-            </linearGradient>
-          </defs>
-          <ellipse cx="60" cy="50" rx="25" ry="20" fill="url(#eagleGrad)" />
-          <path d="M35 50 Q20 35 15 55 Q10 75 30 70" fill="url(#eagleGrad)" opacity="0.9" />
-          <path d="M85 50 Q100 35 105 55 Q110 75 90 70" fill="url(#eagleGrad)" opacity="0.9" />
-          <circle cx="60" cy="35" r="12" fill="url(#eagleGrad)" />
-          <path d="M72 33 L85 38 L72 42 Z" fill="#d4af37" />
-          <path d="M50 25 Q60 15 70 25 Q60 20 50 25" fill="#d4af37" />
-          <path d="M45 55 L75 55 L75 85 L60 95 L45 85 Z" fill="#1e3a8a" stroke="#d4af37" strokeWidth="2" />
-          <rect x="48" y="60" width="24" height="6" fill="#ffffff" />
-          <rect x="48" y="66" width="24" height="6" fill="#000000" />
-          <rect x="48" y="72" width="24" height="6" fill="#ce1126" />
-          <path d="M50 90 Q45 100 40 105 M55 92 Q52 102 48 107" stroke="url(#eagleGrad)" strokeWidth="3" strokeLinecap="round" fill="none" />
-          <path d="M70 90 Q75 100 80 105 M65 92 Q68 102 72 107" stroke="url(#eagleGrad)" strokeWidth="3" strokeLinecap="round" fill="none" />
-        </svg>
-      </div>
-      <div>
-        <h1 className="text-2xl font-bold text-white">سوك بغداد</h1>
-        <p className="text-amber-400 text-sm">السوق الرقمي العراقي</p>
-      </div>
-    </div>
-  );
-}
+const ProductsView = lazy(() => import('./components/ProductsView').then(m => ({ default: m.ProductsView })));
+export const ViewersModal = lazy(() => import('./components/ViewersModal').then(m => ({ default: m.ViewersModal })));
+const ShareModal = lazy(() => import('./components/ShareModal').then(m => ({ default: m.ShareModal })));
+import {
+  Eye, EyeOff, Mail, Lock, User as UserIcon, Phone, AlertCircle, Check,
+  Gamepad2, Heart, Bell, Plus, LogOut, Star, X, Search, MapPin,
+  Eye as ViewIcon, Phone as PhoneIcon, Grid, List, Menu, MessageSquare,
+  Share2, Copy, CheckCircle, XCircle, Loader2, ChevronRight, Shield, ImagePlus,
+  Trash2, SlidersHorizontal, Settings, ChevronLeft, Info, LogIn, Edit2,
+  Save, BarChart3, Smartphone, Monitor, Tablet, Globe, UserCheck, Activity,
+  Crown, UserX, FileText, ShoppingBag, Package, Store, Camera, ZoomIn,
+  ZoomOut, Calendar, Users, ChevronDown, Tag, Layers, Home, Car, UserCircle, Key, Sparkles, Clock, Wallet, MessageCircle, Sun, Moon
+} from 'lucide-react';
 
-function normalizeIraqiPhone(phone: string) {
-  const digits = phone.replace(/\D/g, '');
-  if (!digits) return '';
-  if (digits.startsWith('964')) return digits;
-  if (digits.startsWith('0')) return `964${digits.slice(1)}`;
-  return digits;
-}
+const OwnerDashboard = lazy(() => import('./components/OwnerDashboard'));
+const StoreShareGuideModal = lazy(() => import('./components/StoreShareGuideModal').then(m => ({ default: m.StoreShareGuideModal })));
+import LiveVisitorCounter from './components/LiveVisitorCounter';
+import InfiniteScrollTrigger from './components/InfiniteScrollTrigger';
+// ─────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────
+const OWNER_EMAIL = 'nooraldeinsbah@gmail.com';
+export const DEFAULT_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#1e3a5f"/><circle cx="50" cy="38" r="18" fill="#4b7ab5"/><ellipse cx="50" cy="82" rx="28" ry="20" fill="#4b7ab5"/></svg>')}`;
+const DEFAULT_COVER = '/logo.jpg';
 
-function buildAdWhatsAppMessage(ad: any) {
-  const title = ad?.title || 'الإعلان';
-  const location = ad?.location || 'غير محدد';
-  const listingType = ad?.type === 'rent' ? 'إعلان إيجار' : 'إعلان';
+export const getCoverImage = (user: {role?: string, cover?: string}) => {
+  if (['pro', 'vendor', 'admin', 'owner'].includes(user?.role || '')) {
+    return user?.cover || DEFAULT_COVER;
+  }
+  return DEFAULT_COVER;
+};
 
-  return [
-    'السلام عليكم 🌹',
-    '',
-    `شفت ${listingType} (${title}) وحاب أستفسر عنه إذا متوفر حالياً.`,
-    '',
-    'تفاصيل الإعلان:',
-    `📌 ${title}`,
-    `📍 ${location}`,
-    '',
-    'تم إرسال هذه الرسالة مباشرة من خلال منصة سوك بغداد لتسهيل التواصل بين البائع والمشتري.',
-    '',
-    'بانتظار ردكم، شكراً 🙏',
-    '',
-    'تم الإرسال عبر سوك بغداد.',
-    'منصة تجمع الخدمات والإعلانات والفرص المحلية في مكان واحد.',
-  ].join('\n');
-}
+export { getGlowClass, getWhatsAppResetLink } from './utils/helpers';
+import { getGlowClass, getWhatsAppResetLink, slugify } from './utils/helpers';
 
-// Auth Page Component
-function AuthPage() {
-  const { login, register, demoLogin } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [registerName, setRegisterName] = useState('');
-  const [registerEmail, setRegisterEmail] = useState('');
-  const [registerPassword, setRegisterPassword] = useState('');
-  const [registerPhone, setRegisterPhone] = useState('');
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setIsLoading(true);
-
-    const result = await login(loginEmail.trim(), loginPassword);
-    if (result.success) {
-      setSuccess('تم تسجيل الدخول بنجاح!');
-    } else {
-      setError(result.message || 'فشل تسجيل الدخول، تأكد من البريد أو كلمة المرور');
-    }
-
-    setIsLoading(false);
-  };
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setIsLoading(true);
-
-    const result = await register(registerName.trim(), registerEmail.trim(), registerPassword, registerPhone.trim());
-    if (result.success) {
-      setSuccess('تم إنشاء حسابك بنجاح!');
-    } else {
-      setError(result.message || 'فشل التسجيل، حاول مرة أخرى أو تأكد من المعلومات');
-    }
-
-    setIsLoading(false);
-  };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 flex items-center justify-center p-4">
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-20 left-20 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-20 right-20 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] border border-blue-500/10 rounded-full" />
-      </div>
-
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md relative z-10"
-      >
-        <div className="text-center mb-8">
-          <Logo />
-        </div>
-
-        <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20">
-          <div className="text-center mb-6">
-            <motion.div
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              className="text-5xl mb-3"
-            >
-              🔐
-            </motion.div>
-            <h1 className="text-2xl font-bold text-white mb-2">
-              {isLogin ? 'تسجيل الدخول' : 'إنشاء حساب جديد'}
-            </h1>
-            <p className="text-gray-400 text-sm">
-              {isLogin ? 'مرحباً بعودتك!' : 'انضم إلينا اليوم'}
-            </p>
-          </div>
-
-          <AnimatePresence>
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="bg-red-500/20 border border-red-500/30 rounded-xl p-3 mb-4 flex items-center gap-2"
-              >
-                <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                <span className="text-red-400 text-sm">{error}</span>
-              </motion.div>
-            )}
-            {success && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="bg-green-500/20 border border-green-500/30 rounded-xl p-3 mb-4 flex items-center gap-2"
-              >
-                <Check className="w-5 h-5 text-green-400 flex-shrink-0" />
-                <span className="text-green-400 text-sm">{success}</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {isLogin ? (
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="text-gray-300 text-sm mb-2 block">البريد الإلكتروني أو الهاتف</label>
-                <div className="relative">
-                  <Mail className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    placeholder="example@email.com"
-                    required
-                    className="w-full bg-gray-800/50 text-white placeholder-gray-400 rounded-xl py-3 pr-12 pl-4 border border-gray-700 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-gray-300 text-sm mb-2 block">كلمة المرور</label>
-                <div className="relative">
-                  <Lock className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    className="w-full bg-gray-800/50 text-white placeholder-gray-400 rounded-xl py-3 pr-12 pl-4 border border-gray-700 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
-                  >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-              </div>
-
-              <motion.button
-                type="submit"
-                disabled={isLoading}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl hover:shadow-lg hover:shadow-amber-500/30 transition-all disabled:opacity-50"
-              >
-                {isLoading ? 'جاري التحميل...' : 'تسجيل الدخول'}
-              </motion.button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  demoLogin();
-                  setSuccess('تم دخولك كحساب تجريبي');
-                }}
-                className="w-full py-3 rounded-xl border border-amber-400/40 text-amber-100 bg-amber-400/10 hover:bg-amber-400/20 transition-colors text-sm"
-              >
-                الدخول بحساب تجريبي
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleRegister} className="space-y-4">
-              <div>
-                <label className="text-gray-300 text-sm mb-2 block">الاسم الكامل</label>
-                <div className="relative">
-                  <User className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={registerName}
-                    onChange={(e) => setRegisterName(e.target.value)}
-                    placeholder="أحمد محمد"
-                    required
-                    className="w-full bg-gray-800/50 text-white placeholder-gray-400 rounded-xl py-3 pr-12 pl-4 border border-gray-700 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-gray-300 text-sm mb-2 block">البريد الإلكتروني</label>
-                <div className="relative">
-                  <Mail className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="email"
-                    value={registerEmail}
-                    onChange={(e) => setRegisterEmail(e.target.value)}
-                    placeholder="example@email.com"
-                    required
-                    className="w-full bg-gray-800/50 text-white placeholder-gray-400 rounded-xl py-3 pr-12 pl-4 border border-gray-700 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-gray-300 text-sm mb-2 block">رقم الهاتف</label>
-                <div className="relative">
-                  <Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="tel"
-                    value={registerPhone}
-                    onChange={(e) => setRegisterPhone(e.target.value)}
-                    placeholder="07XXXXXXXXX"
-                    required
-                    className="w-full bg-gray-800/50 text-white placeholder-gray-400 rounded-xl py-3 pr-12 pl-4 border border-gray-700 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-gray-300 text-sm mb-2 block">كلمة المرور</label>
-                <div className="relative">
-                  <Lock className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={registerPassword}
-                    onChange={(e) => setRegisterPassword(e.target.value)}
-                    placeholder="4 أحرف على الأقل"
-                    required
-                    minLength={4}
-                    className="w-full bg-gray-800/50 text-white placeholder-gray-400 rounded-xl py-3 pr-12 pl-4 border border-gray-700 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
-                  >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-              </div>
-
-              <motion.button
-                type="submit"
-                disabled={isLoading}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl hover:shadow-lg hover:shadow-amber-500/30 transition-all disabled:opacity-50"
-              >
-                {isLoading ? 'جاري التحميل...' : 'إنشاء حساب'}
-              </motion.button>
-            </form>
-          )}
-
-          <div className="mt-6">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="flex-1 h-px bg-gray-700" />
-              <span className="text-gray-400 text-sm">أو</span>
-              <div className="flex-1 h-px bg-gray-700" />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
-              >
-                <Facebook className="w-5 h-5" />
-                <span className="text-sm">فيسبوك</span>
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center justify-center gap-2 py-3 bg-white text-gray-800 rounded-xl hover:bg-gray-100 transition-colors"
-              >
-                <Chrome className="w-5 h-5" />
-                <span className="text-sm">جوجل</span>
-              </motion.button>
-            </div>
-          </div>
-
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setError('');
-                setSuccess('');
-              }}
-              className="text-gray-400 hover:text-amber-400 text-sm transition-colors"
-            >
-              {isLogin ? 'ليس لديك حساب؟ سجل الآن' : 'لديك حساب؟ تسجيل الدخول'}
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-// Ads Data - Real looking ads
-const adsData: any[] = [
-  { id: 1, title: 'Toyota Land Cruiser 2024', price: '850,000,000', location: 'بغداد - المنصور', phone: '07701234567', category: 'cars', image: 'https://images.unsplash.com/photo-1625231334168-2e3c5d7d6b88?w=400', seller: 'أحمد العاني', time: 'منذ ساعة', views: 234, type: 'sell' },
-  { id: 2, title: 'فيلا 400 متر للبيع', price: '1,200,000,000', location: 'أربيل - مركز المدينة', phone: '07501234567', category: 'real-estate', image: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=400', seller: 'محمد الركابي', time: 'منذ 3 ساعات', views: 456, type: 'sell' },
-  { id: 3, title: 'iPhone 15 Pro Max 256GB', price: '950,000', location: 'بغداد - الكرادة', phone: '07801234567', category: 'phones', image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400', seller: 'Ali Hassan', time: 'منذ 5 ساعات', views: 123, type: 'sell' },
-  { id: 4, title: 'Mercedes G63 AMG 2023', price: '1,500,000,000', location: 'البصرة', phone: '07721234567', category: 'cars', image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=400', seller: 'سعد المالكي', time: 'منذ يوم', views: 567, type: 'sell' },
-  { id: 5, title: 'Samsung Galaxy S24 Ultra', price: '800,000', location: 'نينوى', phone: '07531234567', category: 'phones', image: 'https://images.unsplash.com/photo-1610945415295-d9bbf67e5972?w=400', seller: 'Omar Khalid', time: 'منذ يوم', views: 89, type: 'sell' },
-  { id: 6, title: 'شقة 150 متر للإيجار', price: '1,500,000', location: 'كربلاء', phone: '07841234567', category: 'real-estate', image: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400', seller: 'حسن الموسوي', time: 'منذ يومين', views: 234, type: 'rent' },
-  { id: 7, title: 'BMW X7 2024', price: '950,000,000', location: 'دهوك', phone: '07751234567', category: 'cars', image: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=400', seller: 'Rebaz Ali', time: 'منذ يومين', views: 345, type: 'sell' },
-  { id: 8, title: 'MacBook Pro M3 14"', price: '1,200,000', location: 'السليمانية', phone: '07561234567', category: 'electronics', image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400', seller: 'Zana Kareem', time: 'منذ 3 أيام', views: 167, type: 'sell' },
+export const IRAQI_GOVERNORATES = [
+  'الكل','بغداد','البصرة','نينوى','أربيل','كربلاء','النجف',
+  'دهوك','السليمانية','بابل','ديالى','المثنى','ميسان',
+  'القادسية','صلاح الدين','واسط','الأنبار','ذي قار','كركوك',
 ];
 
-const initialAds = adsData.map((ad) => ({
-  ...ad,
-  publishedAt: ad.publishedAt || new Date().toISOString(),
-  lastUpdated: ad.lastUpdated || new Date().toISOString(),
-  status: ad.status || 'active',
-  images: ad.images || (ad.image ? [ad.image] : []),
-  interestedCount: ad.interestedCount || 0,
-}));
-
-const mapDbRowToAd = (row: any) => ({
-  id: Number(row.id) || Date.now() + Math.random(),
-  title: row.title || 'إعلان',
-  price: String(row.price || '0'),
-  location: row.location || row.city || 'بغداد',
-  city: row.city || row.location || 'بغداد',
-  phone: row.phone || '',
-  category: row.category || 'other',
-  image: row.image || row.images?.[0] || '',
-  images: Array.isArray(row.images) && row.images.length ? row.images : row.image ? [row.image] : [],
-  seller: row.seller_name || 'بائع سوك بغداد',
-  sellerRating: Number(row.seller_rating) || 4.8,
-  sellerFollowers: Number(row.seller_followers) || 0,
-  time: row.published_at ? 'الآن' : 'منذ فترة',
-  views: Number(row.views) || 0,
-  interestedCount: Number(row.interested_count) || 0,
-  type: row.type || 'sell',
-  currency: row.currency || 'IQD',
-  visibility: row.visibility || 'public',
-  publishedAt: row.published_at || row.created_at || new Date().toISOString(),
-  lastUpdated: row.last_updated || row.created_at || new Date().toISOString(),
-  status: row.status || 'active',
-  isFeatured: !!row.is_featured,
-  isDemo: !!row.is_demo,
-  video: row.video_url || '',
-});
-
-const mapAdToDbRow = (ad: any, seller: any) => ({
-  title: ad.title,
-  description: ad.description || '',
-  price: ad.price,
-  category: ad.category,
-  location: ad.location,
-  city: ad.city || ad.location,
-  images: ad.images || (ad.image ? [ad.image] : []),
-  image: ad.image || ad.images?.[0] || '',
-  seller_id: seller?.id || null,
-  seller_name: seller?.name || ad.seller || 'بائع سوك بغداد',
-  seller_avatar: seller?.avatar || '',
-  seller_rating: ad.sellerRating || 4.8,
-  seller_followers: ad.sellerFollowers || 0,
-  type: ad.type || 'sell',
-  currency: ad.currency || 'IQD',
-  visibility: ad.visibility || 'public',
-  views: ad.views || 0,
-  likes: ad.likes || 0,
-  interested_count: ad.interestedCount || 0,
-  status: ad.status || 'active',
-  published_at: ad.publishedAt || new Date().toISOString(),
-  last_updated: ad.lastUpdated || new Date().toISOString(),
-  is_featured: !!ad.isFeatured,
-  is_demo: !!ad.isDemo,
-  video_url: ad.video || null,
-});
-
-// Games Data
-const gamesData = [
-  { id: 1, title: 'ضارب الدجاج', emoji: '🐔💥', players: '1', rating: 4.9, description: 'لعبة ممتعة لضرب الدجاج' },
-  { id: 2, title: 'ورق طاولي', emoji: '🃏', players: '2-4', rating: 4.8, description: 'لعبة ورق كلاسيكية' },
-  { id: 3, title: 'داما', emoji: '🎲', players: '2', rating: 4.6, description: 'لعبة الداما الشهيرة' },
-  { id: 4, title: 'سودوكو', emoji: '🧩', players: '1', rating: 4.5, description: 'لغز الأرقام' },
-  { id: 5, title: 'شطرنج', emoji: '♟️', players: '2', rating: 4.7, description: 'لعبة الشطرنج' },
-  { id: 6, title: 'بورت', emoji: '🎴', players: '2-4', rating: 4.4, description: 'لعبة البورت' },
+export const CATEGORIES = [
+  { id:'all',          name:'الرئيسية',     emoji:'🏠' },
+  { id:'general',      name:'العرض العام',  emoji:'📢' },
+  { id:'cars',         name:'السيارات',    emoji:'🚗' },
+  { id:'real-estate',  name:'العقارات',    emoji:'🏠' },
+  { id:'phones',       name:'الهواتف',     emoji:'📱' },
+  { id:'electronics',  name:'إلكترونيات', emoji:'💻' },
+  { id:'clothes',      name:'الملابس',     emoji:'👕' },
+  { id:'cosmetics',    name:'الكوزمتك',    emoji:'💄' },
+  { id:'handmade',     name:'حرف يدوية',   emoji:'🧶' },
+  { id:'jobs',         name:'وظائف',       emoji:'💼' },
+  { id:'furniture',    name:'أثاث',        emoji:'🛋️' },
+  { id:'bikes',        name:'دراجات',      emoji:'🚲' },
+  { id:'services',     name:'خدمات',       emoji:'🔧' },
+  { id:'games',        name:'الألعاب',     emoji:'🎮' },
 ];
 
-// Create Ad Modal
-function CreateAdModal({ isOpen, onClose, onSubmit }: { isOpen: boolean; onClose: () => void; onSubmit: (data: any) => void }) {
-  const [formData, setFormData] = useState({
-    title: '',
-    price: '',
-    currency: 'IQD',
-    visibility: 'public',
-    description: '',
-    category: 'cars',
-    city: 'بغداد',
-    phone: '',
-    type: 'sell',
+export const GAMES_DATA = [
+  { id:1, title:'ضارب الدجاج', emoji:'🐔💥', rating:4.9 },
+  { id:2, title:'ورق طاولي',   emoji:'🃏',    rating:4.8 },
+  { id:3, title:'داما',         emoji:'🎲',    rating:4.6 },
+  { id:4, title:'سودوكو',       emoji:'🧩',    rating:4.5 },
+  { id:5, title:'شطرنج',        emoji:'♟️',    rating:4.7 },
+  { id:6, title:'بورت',         emoji:'🎴',    rating:4.4 },
+];
+
+// ─────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────
+// Interfaces moved to src/types/index.ts
+
+// ─────────────────────────────────────────────
+// Utilities
+// ─────────────────────────────────────────────
+// ===========================================
+// المسؤولية:
+// ضغط الصور قبل رفعها لقاعدة البيانات لتقليل الحجم.
+//
+// لماذا موجود؟
+// لتوفير المساحة في Supabase Storage وتسريع تحميل الصور للمستخدمين.
+//
+// انتبه:
+// إضافة علامة مائية (Watermark) تتم هنا. أي خطأ في الـ Canvas قد يوقف عملية الرفع.
+//
+// آمن للتعديل:
+// نعم، لضبط جودة الصورة أو حجمها.
+// ===========================================
+export async function compressImage(file: File, maxPx = 900, quality = 0.78, addWatermark = true): Promise<string> {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(maxPx / img.width, maxPx / img.height, 1);
+        const canvas = document.createElement('canvas');
+        canvas.width  = Math.round(img.width  * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        if (addWatermark) {
+          // Add Watermark
+          const fontSize = Math.max(16, Math.floor(canvas.width * 0.035));
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.font = `bold ${fontSize}px Tajawal, sans-serif`;
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'bottom';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+          ctx.shadowBlur = 4;
+          ctx.shadowOffsetX = 2;
+          ctx.shadowOffsetY = 2;
+          ctx.fillText('سوك بغداد | souqbaghdad.store', canvas.width - 20, canvas.height - 20);
+        }
+        
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ===========================================
+// المسؤولية:
+// رفع الصورة إلى Supabase Storage وإرجاع الرابط العام (Public URL).
+//
+// لماذا موجود؟
+// لرفع صور الإعلانات والمنتجات والنقليات.
+//
+// استهلاك Supabase:
+// كل عملية رفع تستهلك من حصة الـ Storage.
+//
+// آمن للتعديل:
+// بحذر، تأكد من سياسات الأمان (RLS) للـ Bucket.
+// ===========================================
+export async function uploadImageToStorage(fileOrBase64: File | string, bucket = 'ad-images', maxPx = 900, quality = 0.78, addWatermark = true): Promise<string> {
+  try {
+    let base64Data: string;
+    if (typeof fileOrBase64 === 'string') {
+      base64Data = fileOrBase64;
+    } else {
+      base64Data = await compressImage(fileOrBase64, maxPx, quality, addWatermark);
+    }
+
+    const response = await fetch(base64Data);
+    const blob = await response.blob();
+    
+    const fileExt = 'jpeg';
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+    
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, blob, {
+        contentType: 'image/jpeg',
+        cacheControl: '3600',
+        upsert: false
+      });
+      
+    if (error) throw error;
+    
+    const { data: publicUrlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(fileName);
+      
+    return publicUrlData.publicUrl;
+  } catch (err) {
+    console.error('Failed to upload image to storage:', err);
+    throw err;
+  }
+}
+
+// formatPrice utility moved to src/utils/format.ts
+
+const isNewItem = (createdAtISO?: string) => {
+  if (!createdAtISO) return false;
+  const createdDate = new Date(createdAtISO).getTime();
+  const diffTime = Date.now() - createdDate;
+  return diffTime > 0 && diffTime < 24 * 60 * 60 * 1000;
+};
+
+// ===========================================
+// المسؤولية:
+// توليد رابط WhatsApp مباشر للتواصل مع البائع.
+//
+// لماذا موجود؟
+// لتسهيل التواصل المباشر بين المشتري والبائع بضغطة زر.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
+function getWhatsAppLink(phone: string, itemType: 'product' | 'transport', details: any) {
+  if (!phone) return '#';
+    let cleanPhone = phone.replace(/[^0-9+]/g, '');
+  if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
+  if (!cleanPhone.startsWith('964') && !cleanPhone.startsWith('+964')) {
+    cleanPhone = '964' + cleanPhone;
+  }
+  cleanPhone = cleanPhone.replace('+', '');
+  const idStr = details.short_id ? `#${details.short_id}` : `#${String(details.id).substring(0, 5)}`;
+  const title = details.title || details.university || 'إعلان';
+  const location = details.location || details.governorate || 'غير محدد';
+  
+  const text = `السلام عليكم 🌹
+شفت إعلان (*${title}*) وحاب أستفسر عنه إذا متوفر حالياً.
+
+*تفاصيل الإعلان:*
+📌 *${title}*
+🆔 *رمز الإعلان:* ${idStr}
+📍 *${location}*
+
+*رسالة من منصة سوق بغداد:*
+سوق بغداد هو السوق الرقمي العراقي الحديث، نسهل عليكم التواصل المباشر بين البائع والمشتري بكل سرعة وأمان.
+🌐 تصفحوا المزيد من العروض عبر موقعنا:
+www.souqbaghdad.store
+بانتظار ردكم، شكراً 🙏`;
+  
+  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+}
+
+// ===========================================
+// المسؤولية:
+// تفعيل واجهة المشاركة الأصلية (Web Share API) في الهواتف، أو نسخ الرابط كبديل.
+//
+// لماذا موجود؟
+// لتسهيل نشر الإعلانات والمنتجات في منصات أخرى.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
+export function handleUniversalShare(details: { title?: string; university?: string; type?: string; location?: string; governorate?: string; regions?: string; id?: any; short_id?: string; price?: string; image?: string; images?: string[]; url?: string; description?: string }) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('open-share-modal', { detail: details }));
+  }
+}
+
+// Time helpers moved to src/utils/time.ts
+
+
+// ===========================================
+// المسؤولية:
+// معرفة نوع جهاز المستخدم (موبايل، ديسكتوب، تابلت).
+//
+// لماذا موجود؟
+// لأغراض الإحصائيات وتحليل البيانات (Analytics).
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
+function detectDevice(): Visit['device'] {
+  const ua = navigator.userAgent;
+  if (/iPad|Android(?!.*Mobile)/i.test(ua)) return 'tablet';
+  if (/Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)) return 'mobile';
+  return 'desktop';
+}
+// ===========================================
+// المسؤولية:
+// تسجيل زيارة المستخدم للتطبيق في قاعدة البيانات.
+//
+// استعلام Supabase:
+// عدد مرات التنفيذ المتوقع: مرة واحدة لكل جلسة متصفح (Session).
+// إذا تكرر بشكل كبير فهناك مشكلة (تأكد من عدم وضعه داخل Render loop).
+// ===========================================
+function recordVisit(user: User | null) {
+  const v: Visit = { id: Date.now()+Math.random().toString(36).slice(2), timestamp: new Date().toISOString(), device: detectDevice(), location: user?.location||'زائر', userId: user?.id, userName: user?.name, page:'home' };
+  try { const prev:Visit[] = JSON.parse(localStorage.getItem('souqVisits')||'[]'); localStorage.setItem('souqVisits', JSON.stringify([v,...prev].slice(0,2000))); } catch {}
+}
+// ===========================================
+// المسؤولية:
+// حفظ بيانات المستخدم في LocalStorage.
+//
+// لماذا موجود؟
+// لتسريع عملية تسجيل الدخول في المرات القادمة (Caching).
+// ===========================================
+function saveStoredUser(user: User, adCount: number) {
+  try {
+    const users: StoredUser[] = JSON.parse(localStorage.getItem('souqUsers')||'[]');
+    const idx = users.findIndex(u=>u.id===user.id);
+    const su: StoredUser = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      location: user.location,
+      role: user.role,
+      avatar: user.avatar,
+      cover: user.cover,
+      bio: user.bio,
+      rating: users[idx]?.rating ?? user.rating ?? 5,
+      ratingCount: users[idx]?.ratingCount ?? 1,
+      registeredAt: users[idx]?.registeredAt || new Date().toISOString(),
+      lastSeen: new Date().toISOString(),
+      adCount,
+      isBanned: users[idx]?.isBanned || false
+    };
+    if (idx>=0) users[idx]=su; else users.unshift(su);
+    localStorage.setItem('souqUsers', JSON.stringify(users));
+  } catch {}
+}
+// ===========================================
+// المسؤولية:
+// التحقق مما إذا كان البريد الإلكتروني محظوراً من النظام.
+// ===========================================
+function isBanned(email: string) {
+  try { return (JSON.parse(localStorage.getItem('souqUsers')||'[]') as StoredUser[]).find(u=>u.email===email)?.isBanned||false; } catch { return false; }
+}
+const useSound = () => {
+  const ctx = useRef<AudioContext|null>(null);
+  return (type:'success'|'error'|'click'|'info') => {
+    try {
+      if (!ctx.current) ctx.current = new (window.AudioContext||(window as any).webkitAudioContext)();
+      const c=ctx.current, osc=c.createOscillator(), gain=c.createGain();
+      osc.connect(gain); gain.connect(c.destination);
+      const f:Record<string,number[]>={success:[800,1000],error:[400,300],click:[500,500],info:[700,900]};
+      osc.frequency.setValueAtTime(f[type][0],c.currentTime); osc.frequency.setValueAtTime(f[type][1],c.currentTime+0.1);
+      gain.gain.setValueAtTime(0.2,c.currentTime); gain.gain.exponentialRampToValueAtTime(0.01,c.currentTime+0.3);
+      osc.start(c.currentTime); osc.stop(c.currentTime+0.3);
+    } catch {}
+  };
+};
+
+
+// ─────────────────────────────────────────────
+// Online Statuses Cache
+// ─────────────────────────────────────────────
+// useOnlineStatuses moved to src/hooks/useOnlineStatuses.ts
+
+// ─────────────────────────────────────────────
+// Logo
+// ─────────────────────────────────────────────
+
+
+// ─────────────────────────────────────────────
+// Toast
+// ─────────────────────────────────────────────
+
+
+// ─────────────────────────────────────────────
+// Image Crop Modal
+// ─────────────────────────────────────────────
+
+
+// ===========================================
+// المسؤولية:
+// تسجيل مشاهدة جديدة لـ (إعلان، منتج، نقل).
+//
+// استهلاك Supabase:
+// يتم استدعاء قاعدة البيانات لإضافة المشاهدة.
+// لمنع الـ Spam، يوجد LocalStorage لحفظ الـ IDs التي تمت مشاهدتها حديثاً.
+// ===========================================
+export async function recordItemView(itemId: string|number, itemType: 'ad'|'product'|'transport', currentUser: User|null, sellerId?: string) {
+  try {
+    // Owner should not count towards their own ad's views
+    if (currentUser && sellerId && currentUser.id === sellerId) {
+      return;
+    }
+
+    const lastViewKey = `last_view_${itemType}_${itemId}`;
+    const lastView = localStorage.getItem(lastViewKey);
+    if (lastView && Date.now() - Number(lastView) < 60 * 60 * 1000) {
+      return; // Already viewed recently
+    }
+
+    localStorage.setItem(lastViewKey, Date.now().toString());
+
+    // Update the views counter on the item itself directly
+    const table = itemType === 'product' ? 'products' : 'ads';
+    const { error: rpcErr } = await supabase.rpc('increment_view', { table_name: table, item_id: itemId });
+    
+    if (rpcErr) {
+      // Fallback if RPC doesn't exist yet
+      const { data: item } = await supabase.from(table).select('views').eq('id', itemId).single();
+      if (item) {
+        await supabase.from(table).update({ views: (item.views || 0) + 1 }).eq('id', itemId);
+      }
+    }
+  } catch (e) {
+    console.error('Failed to record view', e);
+  }
+}
+
+// ViewersModal moved to src/components/ViewersModal.tsx
+
+
+
+// ─────────────────────────────────────────────
+// Skeleton Card
+// ─────────────────────────────────────────────
+
+
+// ─────────────────────────────────────────────
+// Onboarding Modal
+// ─────────────────────────────────────────────
+
+
+// ─────────────────────────────────────────────
+// Congratulations Modal
+// ─────────────────────────────────────────────
+
+
+
+// ─────────────────────────────────────────────
+// Auth Modal
+// ─────────────────────────────────────────────
+
+
+
+
+// ─────────────────────────────────────────────
+
+
+// ─────────────────────────────────────────────
+// Image Lightbox Modal with Watermark Download
+// ─────────────────────────────────────────────
+
+
+// ─────────────────────────────────────────────
+// Ad Card
+// ─────────────────────────────────────────────
+
+
+// ─────────────────────────────────────────────
+// Product Card
+// ─────────────────────────────────────────────
+
+
+// ─────────────────────────────────────────────
+// Ad Detail Modal
+// ─────────────────────────────────────────────
+
+
+// ─────────────────────────────────────────────
+// Product Detail Modal
+// ─────────────────────────────────────────────
+
+
+
+
+// ─────────────────────────────────────────────
+// Ad Form Modal (Create / Edit)
+// ─────────────────────────────────────────────
+
+
+// ─────────────────────────────────────────────
+// Product Form Modal (Create / Edit)
+// ─────────────────────────────────────────────
+
+
+// ─────────────────────────────────────────────
+
+
+
+
+
+
+// ─────────────────────────────────────────────
+// Seller Public Page
+// ─────────────────────────────────────────────
+
+
+// ─────────────────────────────────────────────
+// Owner Dashboard
+// ─────────────────────────────────────────────
+
+// getWhatsAppResetLink is imported from utils/helpers
+
+// SystemLog interface is imported from ./types (removed duplicate)
+
+// logSystemAction moved to src/utils/logs.ts
+
+// OwnerDashboard component has been extracted and is now lazy loaded.
+
+
+
+
+
+// ─────────────────────────────────────────────
+// Notifications Panel
+// ─────────────────────────────────────────────
+
+
+// ─────────────────────────────────────────────
+// Market View
+// ─────────────────────────────────────────────
+
+// ─────────────────────────────────────────────
+// Transport View (قسم خطوط الجامعات)
+// ─────────────────────────────────────────────
+export const UNIVERSITIES = [
+  'الكل', 'جامعة بغداد', 'الجامعة المستنصرية', 'الجامعة التكنولوجية', 'الجامعة العراقية',
+  'جامعة النهرين', 'كلية المأمون الجامعة', 'كلية التراث الجامعة', 'جامعة الفراهيدي',
+  'كلية المنصور الجامعة', 'جامعة دجلة', 'كلية الاسراء الجامعة', 'كلية مدينة العلم', 'أخرى'
+];
+
+export const EMPLOYEE_WORKPLACES = [
+  'الكل', 'الوزارات والدوائر الحكومية', 'المنطقة الخضراء', 'مجمع الكليات / الجادرية',
+  'البنوك والمصارف', 'الشركات الأهلية', 'المستشفيات والدوائر الصحية', 'ميناء / مطار بغداد',
+  'شارع فلسطين / زيونة (تجارية)', 'المنصور / الحارثية (دوائر وشركات)', 'الكرادة (مؤسسات وشركات)', 'أخرى'
+];
+
+// TransportAd moved to src/types/index.ts
+
+
+
+
+
+// ─────────────────────────────────────────────
+// Root App
+
+// ─────────────────────────────────────────────
+type AppView = 'home'|'profile'|'admin'|'owner'|'seller'|'transport'|'products'|'ad-detail'|'product-detail'|'transport-detail';
+
+// ===========================================
+// مسؤولية هذا الملف:
+// الموجه الرئيسي (Router) للتطبيق بأكمله.
+//
+// لماذا موجود؟
+// يحتوي على هيكل الصفحات، حالة المستخدم (User State)، وشريط التنقل (Navigation).
+//
+// انتبه:
+// يحتوي على حالات (States) رئيسية. أي إعادة تعيين (State Update) هنا ستؤدي إلى
+// إعادة تصيير (Re-render) للتطبيق بالكامل.
+// ===========================================
+export default function App() {
+  const [user, setUser] = useState<User|null>(() => {
+    try {
+      const stored = localStorage.getItem('souqUser');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
   });
 
-  const [files, setFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
-  const [status, setStatus] = useState<string>('');
-  const [progress, setProgress] = useState<number>(0);
-  const categories = [
-    { id: 'cars', name: 'سيارات', icon: Car },
-    { id: 'real-estate', name: 'عقارات', icon: Home },
-    { id: 'phones', name: 'هواتف', icon: Smartphone },
-    { id: 'electronics', name: 'إلكترونيات', icon: Phone },
-    { id: 'furniture', name: 'أثاث', icon: Home },
-  ];
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('souqDarkMode');
+      return stored !== null ? stored === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
 
-  const cities = ['بغداد', 'أربيل', 'البصرة', 'نينوى', 'كربلاء', 'النجف', 'دهوك', 'السليمانية', 'بابل', 'ديالى'];
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (isDarkMode) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  }, [isDarkMode]);
 
-  const compressImage = async (file: File) => {
-    if (!file.type.startsWith('image/')) return file;
-    const bitmap = await createImageBitmap(file);
-    const maxWidth = 1400;
-    const scale = Math.min(1, maxWidth / bitmap.width);
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return file;
-    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    return new Promise<File>((resolve) => {
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          resolve(file);
-          return;
-        }
-        resolve(new File([blob], file.name, { type: blob.type }));
-      }, 'image/jpeg', 0.78);
+  const toggleDarkMode = () => {
+    setIsDarkMode(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('souqDarkMode', String(next));
+      } catch {}
+      return next;
     });
   };
 
-  const formatPriceInput = (value: string) => {
-    const onlyDigits = value.replace(/[^0-9]/g, '');
-    if (!onlyDigits) return '';
-    return onlyDigits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  };
+  const [showScrollButtons, setShowScrollButtons] = useState(true);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    (async () => {
-      try {
-        if (files.length === 0) {
-          setStatus('يجب إضافة صورة واحدة على الأقل');
-          return;
-        }
-        setStatus('جاري رفع الإعلان...');
-        playTone(660, 0.12);
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+    let scrollTimeout: NodeJS.Timeout | null = null;
 
-        const uploadedUrls: string[] = [];
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          const compressedFile = await compressImage(file);
-          const path = `ads/${Date.now()}_${Math.random().toString(36).slice(2,9)}_${compressedFile.name}`;
-          const { error } = await supabase.storage.from('ads').upload(path, compressedFile, { upsert: true });
-          if (error) throw error;
-          const { data: urlData } = supabase.storage.from('ads').getPublicUrl(path);
-          uploadedUrls.push(urlData.publicUrl);
-          setProgress(Math.round(((i + 1) / files.length) * 100));
-        }
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
 
-        const createdAd = {
-          id: Date.now(),
-          title: formData.title,
-          price: formData.price,
-          currency: formData.currency,
-          visibility: formData.visibility,
-          description: formData.description,
-          location: formData.city,
-          city: formData.city,
-          phone: formData.phone,
-          category: formData.category,
-          image: uploadedUrls[0] || '',
-          images: uploadedUrls,
-          seller: 'أنت',
-          sellerRating: 4.8,
-          sellerFollowers: 0,
-          time: 'الآن',
-          views: 0,
-          interestedCount: 0,
-          type: formData.type,
-          publishedAt: new Date().toISOString(),
-          lastUpdated: new Date().toISOString(),
-          status: 'active',
-        };
-
-        setStatus('تم نشر الإعلان بنجاح');
-        playTone(880, 0.15);
-        onSubmit(createdAd);
-
-        setTimeout(() => {
-          onClose();
-          setStatus('');
-          setFiles([]);
-          setPreviews([]);
-          setProgress(0);
-          setFormData({
-            title: '',
-            price: '',
-            currency: 'IQD',
-            visibility: 'public',
-            description: '',
-            category: 'cars',
-            city: 'بغداد',
-            phone: '',
-            type: 'sell',
-          });
-        }, 800);
-      } catch (err) {
-        console.error('Upload error', err);
-        setStatus('حدث خطأ في الرفع');
-        playTone(220, 0.2);
+      // Disappear when scrolling down
+      if (currentScrollY > lastScrollY && currentScrollY > 10) {
+        setShowScrollButtons(false);
       }
-    })();
+
+      lastScrollY = currentScrollY;
+
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout);
+      }
+      scrollTimeout = setTimeout(() => {
+        setShowScrollButtons(true);
+      }, 300);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout);
+      }
+    };
+  }, []);
+  const [showStoreGuide, setShowStoreGuide] = useState(false);
+  const [adCosts, setAdCosts] = useState<{ad:number; product:number; transport:number}>({ ad: 1, product: 1, transport: 1 });
+
+  // هذا useEffect يعمل مرة واحدة عند فتح التطبيق.
+  // يجلب إعدادات النظام (تكلفة الإعلانات) من Supabase.
+  // استعلام Supabase — عدد مرات التنفيذ المتوقع: مرة واحدة فقط.
+  // إذا تكرر فهناك مشكلة في تغيير State خارج هذا الـ Effect.
+  useEffect(() => {
+    supabase.from('system_settings').select('*').then(({ data, error }) => {
+      if (!error && data) {
+        const costs: any = { ad: 1, product: 1, transport: 1 };
+        data.forEach(r => { costs[r.category] = r.cost; });
+        setAdCosts(costs);
+      }
+    });
+  }, []);
+  const getInitialRouteInfo = () => {
+    if (typeof window === 'undefined') return { hash: '', path: '' };
+    let hash = window.location.hash;
+    const path = window.location.pathname;
+    
+    // Fallback if hash is empty but path has content (SEO friendly URL)
+    if ((!hash || hash === '#/') && path !== '/') {
+      hash = '#' + path;
+    }
+    return { hash, path };
   };
 
-  function playTone(freq = 440, duration = 0.1) {
-    try {
-      const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
-      const ctx = new AudioCtx();
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.type = 'sine';
-      o.frequency.value = freq;
-      o.connect(g);
-      g.connect(ctx.destination);
-      g.gain.setValueAtTime(0.0001, ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.01);
-      o.start();
-      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
-      setTimeout(() => { o.stop(); ctx.close(); }, (duration + 0.05) * 1000);
-    } catch (e) {
-      // ignore audio errors
+  const [view, setView] = useState<AppView>(() => {
+    const { hash } = getInitialRouteInfo();
+    if (hash.startsWith('#/transport')) return 'transport';
+    if (hash.startsWith('#/products')) return 'products';
+    if (hash.startsWith('#/seller') || hash.startsWith('#/profile/')) return 'seller';
+    if (hash === '#/profile' || hash.startsWith('#/profile')) return 'profile';
+    if (hash.startsWith('#/admin')) return 'admin';
+    if (hash.startsWith('#/owner')) return 'owner';
+    return 'home';
+  });
+  const [bottomNavActive, setBottomNavActive] = useState(() => {
+    const { hash } = getInitialRouteInfo();
+    if (hash.startsWith('#/transport')) return 'transport';
+    if (hash.startsWith('#/products')) return 'products';
+    if (hash.startsWith('#/seller') || hash.startsWith('#/profile')) return 'profile';
+    return 'home';
+  });
+
+  useEffect(() => {
+    if (view === 'transport') setBottomNavActive('transport');
+    else if (view === 'products') setBottomNavActive('products');
+    else if (view === 'profile' || view === 'seller') setBottomNavActive('profile');
+    else if (view === 'home') setBottomNavActive('home');
+  }, [view]);
+  const [selectedSellerId, setSelectedSellerId] = useState<string|null>(() => {
+    const { hash } = getInitialRouteInfo();
+    // Extract UUID from /seller/UUID or /profile/UUID
+    const sellerMatch = hash.match(/^#\/(seller|profile)\/([0-9a-f-]{36})/i);
+    if (sellerMatch) return sellerMatch[2];
+    // Fallback: last segment if it looks like a UUID
+    const parts = hash.split('/').filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(last)) return last;
+    return null;
+  });
+  const [selectedSellerPhone, setSelectedSellerPhone] = useState<string|null>(() => {
+    const { hash } = getInitialRouteInfo();
+    if (hash.startsWith('#/seller/')) return hash.split('/')[2] || null;
+    if (hash.startsWith('#/profile/')) return hash.split('/')[2] || null;
+    return null;
+  });
+
+  // هذا useEffect يعمل عندما يتغير view أو selectedSellerPhone.
+  // يحول رقم الهاتف إلى معرّف UUID للبائع من Supabase.
+  // استعلام Supabase — يعمل فقط عند عرض ملف البائع.
+  useEffect(() => {
+    if (view === 'profile' && selectedSellerPhone) {
+      if (selectedSellerPhone.includes('-')) {
+        setSelectedSellerId(selectedSellerPhone);
+      } else {
+        supabase.from('profiles').select('id').eq('phone', selectedSellerPhone).single().then(({data}) => {
+          if (data) setSelectedSellerId(data.id);
+        });
+      }
     }
-  }
+  }, [view, selectedSellerPhone]);
 
-  if (!isOpen) return null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-    >
-      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="relative bg-gray-900 rounded-3xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto border border-gray-700"
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-white">رفع إعلان جديد</h2>
-          <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white">
-            <X className="w-6 h-6" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="text-gray-300 text-sm mb-2 block">نوع الإعلان</label>
-            <div className="grid grid-cols-2 gap-2">
-              {['sell', 'rent'].map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, type })}
-                  className={`py-2 rounded-xl font-medium ${formData.type === type ? 'bg-amber-500 text-black' : 'bg-gray-800 text-gray-400'}`}
-                >
-                  {type === 'sell' ? 'للبيع' : 'للإيجار'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="text-gray-300 text-sm mb-2 block">التصنيف</label>
-            <div className="grid grid-cols-3 gap-2">
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, category: cat.id })}
-                  className={`p-3 rounded-xl flex flex-col items-center gap-1 ${formData.category === cat.id ? 'bg-amber-500 text-black' : 'bg-gray-800 text-gray-400'}`}
-                >
-                  <cat.icon className="w-5 h-5" />
-                  <span className="text-xs">{cat.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="text-gray-300 text-sm mb-2 block">عنوان الإعلان</label>
-            <input
-              type="text"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="مثال: Toyota Land Cruiser 2024"
-              required
-              className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400"
-            />
-          </div>
-
-          <div>
-            <label className="text-gray-300 text-sm mb-2 block">السعر (دينار عراقي)</label>
-            <input
-              type="text"
-              value={formData.price}
-              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-              placeholder="مثال: 850,000,000"
-              required
-              className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400"
-            />
-          </div>
-
-          <div>
-            <label className="text-gray-300 text-sm mb-2 block">المدينة</label>
-            <select
-              value={formData.city}
-              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-              className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400"
-            >
-              {cities.map((city) => (
-                <option key={city} value={city}>{city}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-gray-300 text-sm mb-2 block">رقم الهاتف للتواصل</label>
-            <input
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="07XXXXXXXXX"
-              required
-              className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400"
-            />
-          </div>
-
-          <div>
-            <label className="text-gray-300 text-sm mb-2 block">وصف الإعلان</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="اكتب وصفاً مفصلاً..."
-              rows={4}
-              className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400 resize-none"
-            />
-          </div>
-
-          <div className="flex items-center gap-4">
-            <input
-              id="ad-images"
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                const selected = e.target.files ? Array.from(e.target.files) : [];
-                setFiles(selected);
-                setPreviews(selected.map((f) => URL.createObjectURL(f)));
-              }}
-            />
-            <label htmlFor="ad-images" className="flex-1 py-3 bg-gray-800 text-white rounded-xl flex items-center justify-center gap-2 cursor-pointer">
-              <Camera className="w-5 h-5" />
-              <span>إضافة صور</span>
-            </label>
-            <div className="flex gap-2">
-              {previews.map((p, i) => (
-                <img key={i} src={p} className="w-14 h-14 object-cover rounded-lg" />
-              ))}
-            </div>
-          </div>
-
-          {status && (
-            <div className="mt-2 text-sm text-gray-300">
-              <div className="flex items-center gap-2">
-                <div className="text-xs text-amber-300 font-semibold">{status}</div>
-                {progress > 0 && progress < 100 && <div className="text-xs text-gray-400">{progress}%</div>}
-              </div>
-            </div>
-          )}
-
-          <motion.button
-            type="submit"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl"
-          >
-            نشر الإعلان
-          </motion.button>
-        </form>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-// Ad Detail Modal
-function AdDetailModal({ ad, onClose }: { ad: any; onClose: () => void }) {
-  if (!ad) return null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-    >
-      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="relative bg-gray-900 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-700"
-      >
-        {/* Image */}
-        <div className="relative aspect-video">
-          <img src={ad.image} alt={ad.title} className="w-full h-full object-cover" />
-          <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-black/50 rounded-xl text-white">
-            <X className="w-6 h-6" />
-          </button>
-          <div className="absolute top-4 left-4 px-3 py-1 bg-amber-500 rounded-full text-sm font-bold text-black">
-            {ad.type === 'sell' ? 'للبيع' : 'للإيجار'}
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="p-6">
-          <h2 className="text-2xl font-bold text-white mb-2">{ad.title}</h2>
-
-          <div className="flex items-center gap-4 mb-4">
-            <span className="text-3xl font-bold text-amber-400">{ad.price} د.ع</span>
-            <div className="flex items-center gap-1 text-gray-400">
-              <ViewIcon className="w-4 h-4" />
-              <span>{ad.views}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 text-gray-400 mb-6">
-            <MapPin className="w-4 h-4" />
-            <span>{ad.location}</span>
-            <span className="mx-2">•</span>
-            <Clock className="w-4 h-4" />
-            <span>{ad.time}</span>
-          </div>
-
-          <div className="bg-gray-800 rounded-2xl p-4 mb-6">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-12 h-12 bg-amber-500/20 rounded-full flex items-center justify-center">
-                <User className="w-6 h-6 text-amber-400" />
-              </div>
-              <div>
-                <h3 className="text-white font-bold">{ad.seller}</h3>
-                <p className="text-gray-400 text-sm">بائع</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Contact Buttons */}
-          <div className="grid grid-cols-2 gap-4">
-            {(() => {
-              const whatsappNumber = normalizeIraqiPhone(ad.phone || '');
-              return (
-            <motion.a
-              href={whatsappNumber ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(buildAdWhatsAppMessage(ad))}` : '#'}
-              target="_blank"
-              rel="noopener noreferrer"
-              whileHover={{ scale: 1.02 }}
-              className="flex items-center justify-center gap-2 py-4 bg-green-500 text-white font-bold rounded-xl"
-            >
-              <MessageSquare className="w-5 h-5" />
-              <span>واتساب</span>
-            </motion.a>
-              );
-            })()}
-            <motion.a
-              href={`tel:${ad.phone}`}
-              whileHover={{ scale: 1.02 }}
-              className="flex items-center justify-center gap-2 py-4 bg-blue-500 text-white font-bold rounded-xl"
-            >
-              <PhoneIcon className="w-5 h-5" />
-              <span>اتصال</span>
-            </motion.a>
-          </div>
-
-          <button className="w-full mt-4 py-3 bg-gray-800 text-white rounded-xl flex items-center justify-center gap-2">
-            <Heart className="w-5 h-5" />
-            <span>إضافة للمفضلة</span>
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-// Main App after Login
-function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
-  const { isEnabled } = useFeatureFlags();
-  const [darkMode, setDarkMode] = useState(true);
-  const [currentView, setCurrentView] = useState('home');
-  const [bottomNavActive, setBottomNavActive] = useState('home');
+  const [showAuth, setShowAuth] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showNotifs, setShowNotifs] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showCreateAd, setShowCreateAd] = useState(false);
   const [showCreateProduct, setShowCreateProduct] = useState(false);
-  const [selectedAd, setSelectedAd] = useState<any>(null);
-  const [viewStartAt, setViewStartAt] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedType, setSelectedType] = useState('all');
-  const [selectedRegion, setSelectedRegion] = useState('all');
-  const [sortBy, setSortBy] = useState('recommended');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [ads, setAds] = useState(initialAds);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<Array<{ id: number; title: string; body: string; read: boolean; createdAt: string }>>([]);
+  const [editingAd, setEditingAd] = useState<Ad|null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product|null>(null);
+  const [editingTransportAd, setEditingTransportAd] = useState<TransportAd|null>(null);
+  const [selectedAd, setSelectedAd] = useState<Ad|null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product|null>(null);
+  const [selectedTransportAd, setSelectedTransportAd] = useState<TransportAd|null>(null);
+  const [actionMenuTarget, setActionMenuTarget] = useState<{type:'ad'|'product'|'transport'; item:any}|null>(null);
+  const [toast, setToast] = useState<{msg:string;type:string;visible:boolean}>({msg:'',type:'info',visible:false});
+  const [showCreateTransport, setShowCreateTransport] = useState(false);
+  const [activeDocTab, setActiveDocTab] = useState<string | null>(null);
+  const [activeLightbox, setActiveLightbox] = useState<{ src: string; title: string; images?: string[]; initialIdx?: number } | null>(null);
+  const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; title: string; url: string; image?: string; price?: string; governorate?: string; location?: string; short_id?: string; description?: string }>({ isOpen: false, title: '', url: '' });
+  const getDefaultAds = (): Ad[] => [];
 
-  // listen for new ad event to insert into state
+  const getDefaultProducts = (): Product[] => [];
+
+  const [allAds, setAllAds] = useState<Ad[]>(getDefaultAds);
+  const [allTransportAds, setAllTransportAds] = useState<TransportAd[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>(getDefaultProducts);
+  const [congratulationsItem, setCongratulationsItem] = useState<{ title: string; type: 'ad' | 'product' } | null>(null);
+  const [favorites, setFavorites] = useState<number[]>(()=>{
+    try{return JSON.parse(localStorage.getItem('souqFavs')||'[]');}catch{return[];}
+  });
+  const [initialHashParsed, setInitialHashParsed] = useState(false);
+  const [loadingRoute, setLoadingRoute] = useState(false);
+  const [storedUsers, setStoredUsers] = useState<any[]>([]);
+  
+  // PWA states
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [showInstallGuide, setShowInstallGuide] = useState<'safari' | 'ios-other' | 'android-fallback' | null>(null);
+  
+  // Pagination & Filtering state
+  const [adsPage, setAdsPage] = useState(0);
+  const [hasMoreAds, setHasMoreAds] = useState(true);
+  const [totalAdsCount, setTotalAdsCount] = useState(0);
+  const [productsPage, setProductsPage] = useState(0);
+  const [hasMoreProducts, setHasMoreProducts] = useState(true);
+  const [totalProductsCount, setTotalProductsCount] = useState(0);
+  const transportPageRef = useRef(0);
+  const [hasMoreTransport, setHasMoreTransport] = useState(true);
+  const [totalTransportCount, setTotalTransportCount] = useState(0);
+  
+  const [search, setSearch] = useState('');
+  const [cat, setCat] = useState('all');
+  const [gov, setGov] = useState('الكل');
+  const [sort, setSort] = useState<'recent'|'views'|'price-low'|'price-high'>('recent');
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
+  const [conditionFilter, setConditionFilter] = useState<'all'|'new'|'used'>('all');
+
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const isFirstLoadDone = useRef(false);
+  const [loadingMoreAds, setLoadingMoreAds] = useState(false);
+  const [loadingMoreProducts, setLoadingMoreProducts] = useState(false);
+  const [loadingTransport, setLoadingTransport] = useState(false);
+
+  const playSound = useSound();
+
+  // هذا useEffect يعمل مرة واحدة عند فتح التطبيق.
+  // يحلل عنوان URL لفتح الإعلان أو المنتج أو النقل مباشرة (Deep Linking).
+  // استعلام Supabase — يُنفَّذ فقط إذا كان الرابط يحتوي على معرّف.
+  // انتبه: قد يسبب جلبين (fetch هنا + fetch في useEffect آخر). تأكد من عدم التكرار.
   useEffect(() => {
-    const handler = (e: any) => {
-      const newAd = e.detail;
-      setAds((prev) => [newAd, ...prev]);
+    const handleUrlRefresh = async () => {
+      try {
+        const path = decodeURIComponent(window.location.pathname);
+        if (!path || path === '/' || path === '/IQ') return;
+
+        if (path.includes('/ad/')) {
+          const cleanPath = path.replace(/[\/#]+$/, '');
+          const parts = cleanPath.split('-');
+          const extractedId = parts[parts.length - 1];
+
+          if (extractedId) {
+            const isNumeric = /^\d+$/.test(extractedId);
+            const searchQuery = isNumeric 
+              ? `id.eq.${extractedId},short_id.eq.${extractedId}` 
+              : `short_id.eq.${extractedId}`;
+
+            const { data } = await supabase.from('ads').select('*').or(searchQuery).maybeSingle();
+            if (data) {
+              const mappedAd: Ad = {
+                id: data.id,
+                title: data.title,
+                price: data.price,
+                governorate: data.city || '',
+                location: data.location || '',
+                phone: data.phone || '',
+                category: data.category,
+                images: data.images || [],
+                seller: {
+                  name: data.seller_name || 'مستخدم',
+                  avatar: data.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
+                  isVerified: false,
+                  rating: data.seller_rating || 4.8,
+                  joinedDate: data.created_at,
+                  location: data.city || '',
+                },
+                time: '',
+                createdAtISO: data.created_at,
+                views: data.views || 0,
+                status: data.status,
+                type: data.type || 'sell',
+                description: data.description || '',
+                adCount: 0,
+                soldCount: 0,
+                responseRate: 100,
+                avgResponseTime: 'دقائق',
+                postedBy: data.seller_id,
+                short_id: data.short_id,
+              };
+              setSelectedAd(mappedAd);
+            }
+          }
+        } 
+        else if (path.includes('/product/')) {
+          const cleanPath = path.replace(/[\/#]+$/, '');
+          const parts = cleanPath.split('-');
+          const extractedId = parts[parts.length - 1];
+
+          if (extractedId) {
+            const isNumeric = /^\d+$/.test(extractedId);
+            const searchQuery = isNumeric 
+              ? `id.eq.${extractedId},short_id.eq.${extractedId}` 
+              : `short_id.eq.${extractedId}`;
+
+            const { data } = await supabase.from('products').select('*').or(searchQuery).maybeSingle();
+            if (data) {
+              const mappedProduct: Product = {
+                id: data.id,
+                title: data.title,
+                price: data.price,
+                description: data.description || '',
+                category: data.category,
+                images: data.images || [],
+                governorate: data.governorate || data.city || '',
+                phone: data.phone || '',
+                condition: data.condition || 'used',
+                seller: {
+                  name: data.seller_name || 'مستخدم',
+                  avatar: data.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
+                  isVerified: false,
+                  rating: 4.8,
+                  joinedDate: data.created_at,
+                  location: data.governorate || '',
+                },
+                createdAtISO: data.created_at,
+                views: data.views || 0,
+                postedBy: data.seller_id,
+                stock: data.stock || 1,
+                status: data.status || 'active',
+                short_id: data.short_id,
+              };
+              setSelectedProduct(mappedProduct);
+            }
+          }
+        }
+        else if (path.includes('/transport/card/')) {
+          const cleanPath = path.replace(/[\/#]+$/, '');
+          const parts = cleanPath.split('/');
+          const extractedId = parts[parts.length - 1];
+
+          if (extractedId) {
+            const isNumeric = /^\d+$/.test(extractedId);
+
+            let query = supabase
+              .from('ads')
+              .select('*')
+              .eq('category', 'transport');
+
+            if (isNumeric) {
+              query = query.or(`id.eq.${extractedId},short_id.eq.${extractedId}`);
+            } else {
+              query = query.eq('short_id', extractedId);
+            }
+
+            const { data: row, error } = await query.maybeSingle();
+
+            if (!error && row) {
+              // Parse JSON description field exactly like fetchAds does
+              let extra: any = {
+                shift: 'صباحي', seats: 4, vehicleType: 'خصوصي',
+                targetAudience: 'مختلط', categoryType: 'student',
+                note: '', interest: 0, whatsappClicks: 0,
+                completedAt: undefined, completion_reason: null
+              };
+              try {
+                if (row.description) extra = { ...extra, ...JSON.parse(row.description) };
+              } catch { extra.note = row.description || ''; }
+
+              const mapped: TransportAd = {
+                id: row.id,
+                type: row.type || 'offer',
+                categoryType: extra.categoryType || 'student',
+                university: row.city || '',
+                regions: row.location || '',
+                shift: extra.shift,
+                seats: Number(extra.seats) || 0,
+                vehicleType: extra.vehicleType,
+                targetAudience: extra.targetAudience,
+                price: row.price ? String(row.price) : '',
+                phone: row.phone || '',
+                note: extra.note,
+                sellerName: row.seller_name || 'مستخدم',
+                sellerAvatar: row.seller_avatar || '',
+                createdAt: row.created_at,
+                status: row.status === 'active' ? 'published' : row.status,
+                postedBy: row.seller_id,
+                views: row.views || 0,
+                interest: extra.interest,
+                whatsappClicks: extra.whatsappClicks,
+                completedAt: extra.completedAt,
+                completion_reason: extra.completion_reason,
+                short_id: row.short_id || undefined,
+              };
+              setSelectedTransportAd(mapped);
+              setView('transport');
+            }
+          }
+        }
+      } catch (error) {
+        console.error("URL parsing error:", error);
+      }
     };
-    window.addEventListener('souq:new-ad', handler as EventListener);
-    return () => window.removeEventListener('souq:new-ad', handler as EventListener);
+
+    handleUrlRefresh();
   }, []);
 
+  // هذا useEffect يعمل مرة واحدة عند فتح التطبيق.
+  // يجلب بيانات جميع البائعين من Supabase (حتى 200 ملف).
+  // استعلام Supabase — عدد مرات التنفيذ المتوقع: مرة واحدة فقط.
+  // اقتراح تحسين: يمكن تطبيق Caching لتقليل استهلاك الباقة.
+  // ✅ آمن: يستخدم isMounted لمنع Memory Leak بعد إلغاء التحميل.
   useEffect(() => {
-    let active = true;
-    void (async () => {
+    let isMounted = true;
+    async function loadAllProfilesGlobal() {
       try {
-        const { data, error } = await supabase.from('ads').select('*').order('created_at', { ascending: false });
-        if (!active || error || !data?.length) return;
-        setAds(data.map(mapDbRowToAd));
-      } catch {
-        // keep local demo ads when remote loading is unavailable
+        const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
+        const sellersMap = new Map();
+
+        const { data: dbProfiles } = await supabase.from('profiles').select('id, full_name, avatar_url, phone, city, created_at, role').limit(200);
+        if (dbProfiles && dbProfiles.length > 0) {
+          dbProfiles.forEach((p: any) => {
+            sellersMap.set(p.id, {
+              id: p.id,
+              name: p.full_name || p.name || 'مستخدم',
+              avatar: p.avatar_url || p.avatar || DEFAULT_AVATAR,
+              phone: p.phone || '',
+              location: p.city || p.location || 'بغداد',
+              adCount: 0,
+              prodCount: 0,
+              rating: 4.9,
+              created_at: p.created_at || new Date().toISOString(),
+              isVerified: p.role === 'owner' || p.role === 'vendor' || p.role === 'admin',
+              role: p.role || 'user'
+            });
+          });
+        }
+
+        localUsers.forEach((u: any) => {
+          if (!sellersMap.has(u.id)) {
+            sellersMap.set(u.id, {
+              id: u.id,
+              name: u.name,
+              avatar: u.avatar || DEFAULT_AVATAR,
+              phone: u.phone || '',
+              location: u.location || 'بغداد',
+              adCount: u.adCount || 0,
+              prodCount: 0,
+              rating: 4.8,
+              created_at: new Date().toISOString(),
+              isVerified: u.role === 'owner' || u.role === 'vendor' || u.isVerified,
+              role: u.role || 'user'
+            });
+          }
+        });
+
+        allAds.forEach(ad => {
+          if (ad.postedBy) {
+            if (!sellersMap.has(ad.postedBy)) {
+              sellersMap.set(ad.postedBy, {
+                id: ad.postedBy,
+                name: ad.seller?.name || 'مستخدم',
+                avatar: ad.seller?.avatar || DEFAULT_AVATAR,
+                phone: ad.phone || '',
+                location: ad.location || ad.governorate || 'بغداد',
+                adCount: 1,
+                prodCount: 0,
+                rating: ad.seller?.rating || 4.8,
+                created_at: ad.createdAtISO || new Date().toISOString(),
+                isVerified: ad.seller?.isVerified || false,
+                role: 'user'
+              });
+            } else {
+              const existing = sellersMap.get(ad.postedBy);
+              existing.adCount = (existing.adCount || 0) + 1;
+              if (ad.phone && !existing.phone) existing.phone = ad.phone;
+            }
+          }
+        });
+
+        allProducts.forEach(p => {
+          if (p.postedBy) {
+            if (!sellersMap.has(p.postedBy)) {
+              sellersMap.set(p.postedBy, {
+                id: p.postedBy,
+                name: p.seller?.name || 'مستخدم',
+                avatar: p.seller?.avatar || DEFAULT_AVATAR,
+                phone: p.phone || '',
+                location: p.governorate || 'بغداد',
+                adCount: 0,
+                prodCount: 1,
+                rating: p.seller?.rating || 4.8,
+                created_at: p.createdAtISO || new Date().toISOString(),
+                isVerified: p.seller?.isVerified || false,
+                role: 'user'
+              });
+            } else {
+              const existing = sellersMap.get(p.postedBy);
+              existing.prodCount = (existing.prodCount || 0) + 1;
+              if (p.phone && !existing.phone) existing.phone = p.phone;
+            }
+          }
+        });
+
+        if (isMounted) setStoredUsers(Array.from(sellersMap.values()));
+      } catch (e) {
+        console.error(e);
       }
-    })();
+    }
+    loadAllProfilesGlobal();
+    return () => { isMounted = false; };
+  }, []);
+
+  // هذا useEffect يعمل مرة واحدة عند فتح التطبيق.
+  // يستمع لحدث (open-share-modal) لفتح نافذة المشاركة من أي مكوّن.
+  // ✅ آمن: يتم تنظيف الـ Event Listener في الـ cleanup function.
+  useEffect(() => {
+    const handleOpenShare = (e: any) => {
+      const d = e.detail || {};
+      const itemTitle = d.title || (d.university ? `${d.type === 'offer' ? 'خط متوفر' : 'طلب خط'} - ${d.university}` : 'إعلان في سوق بغداد');
+      const itemLoc = d.location || d.governorate || d.regions || 'العراق';
+      const itemImg = d.image || (Array.isArray(d.images) && d.images[0] ? d.images[0] : undefined);
+      const itemUrl = d.url || (typeof window !== 'undefined' ? window.location.href : 'https://www.souqbaghdad.store');
+      setShareModalData({
+        isOpen: true,
+        title: itemTitle,
+        url: itemUrl,
+        image: itemImg,
+        price: d.price ? String(d.price) : undefined,
+        governorate: itemLoc,
+        short_id: d.short_id || (d.id ? String(d.id).substring(0, 5) : undefined),
+        description: d.description || d.details || '',
+      });
+    };
+    window.addEventListener('open-share-modal', handleOpenShare);
+    return () => window.removeEventListener('open-share-modal', handleOpenShare);
+  }, []);
+
+  // ── دالة تحميل بيانات المستخدم من Supabase ──────────────────────────
+  const loadUserFromSupabase = async (authUser: any) => {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', authUser.id)
+      .maybeSingle();
+    const role = authUser.email === OWNER_EMAIL ? 'owner'
+      : (profile?.role || authUser.user_metadata?.role || 'user');
+    const u: User = {
+      id: authUser.id,
+      name: profile?.full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'مستخدم',
+      email: authUser.email || '',
+      phone: profile?.phone || authUser.user_metadata?.phone || '',
+      role,
+      avatar: profile?.avatar_url || DEFAULT_AVATAR,
+      cover: profile?.cover_url || DEFAULT_COVER,
+      bio: '',
+      location: profile?.city || authUser.user_metadata?.city || 'بغداد',
+      points: profile?.points || 0,
+      rating: 4.8,
+      isVerified: role !== 'user',
+      joinedDate: profile?.created_at || 'الآن',
+      stats: { ads: profile?.ads_count || 0, favorites: profile?.favorites_count || 0, views: profile?.views_count || 0 },
+      sellerStats: { totalAds: 0, sold: 0, responseRate: 100, avgResponseTime: 'دقائق' }
+    };
+    setUser(u);
+    localStorage.setItem('souqUser', JSON.stringify(u));
+  };
+
+  // ── استعادة الجلسة ومراقبة Auth ────────────────────────────────────
+  
+
+  // هذا useEffect يعمل مرة واحدة عند فتح التطبيق.
+  // يستعيد جلسة المستخدم الحالية ويراقب تغييرات حالة المصادقة.
+  // ✅ آمن: يتم إلغاء اشتراك Auth listener في الـ cleanup.
+  // استعلام Supabase — مرة واحدة فقط + listener دائم.
+  // انتبه: لا تضف State هنا حتى لا يتحول إلى Infinite Loop.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) loadUserFromSupabase(session.user);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) loadUserFromSupabase(session.user);
+      else if (_event === 'SIGNED_OUT') { setUser(null); localStorage.removeItem('souqUser'); }
+    });
+    return () => subscription.unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Notifications handlers and effects are initialized below notifications state
+
+  // --- DEEP LINKING & ROUTING HOOKS ---
+
+  // Ref to track whether a deep link fetch is in-flight (prevents race with URL sync)
+  const pendingDeepLinkRef = useRef<string | null>(null);
+
+  const syncStateFromPath = () => {
+    let path = window.location.pathname;
+    let hasHash = false;
+    if (window.location.hash && window.location.hash.startsWith('#/')) {
+      path = window.location.hash.substring(1);
+      hasHash = true;
+    }
+
+    if (hasHash && typeof window !== 'undefined') {
+      window.history.replaceState(null, '', path + window.location.search);
+    }
+
+    if (!path || path === '/' || path === '/IQ') {
+      setView('home');
+      setSelectedAd(null);
+      setSelectedProduct(null);
+      setSelectedSellerId(null);
+      return;
+    }
+    
+    // Normalize path: remove leading '/'
+    const cleanPath = path.replace(/^\//, '');
+    const parts = cleanPath.split('/').filter(Boolean);
+    // parts[0] is route type ('ad', 'product', 'accounts', 'seller', 'profile', 'transport', 'admin', 'owner')
+    const type = parts[0];
+    const targetId = parts[parts.length - 1]; // Get last segment as ID or slug
+    
+    if (type === 'ad' && targetId) {
+      let actualId = targetId;
+      const uuidMatch = targetId.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+      if (uuidMatch) {
+        actualId = uuidMatch[1];
+      } else if (targetId.includes('-')) {
+        const segments = targetId.split('-');
+        actualId = segments[segments.length - 1];
+      }
+      
+      const slugify = (text: string) => {
+        return text
+          .toString()
+          .toLowerCase()
+          .trim()
+          .replace(/[\s_]+/g, '-')
+          .replace(/[^\w\u0621-\u064A0-9-]+/g, '')
+          .replace(/--+/g, '-');
+      };
+      
+      const targetSlug = slugify(decodeURIComponent(targetId));
+      const ad = allAds.find(a => 
+        String(a.id) === actualId || 
+        a.short_id === actualId ||
+        (a.title && slugify(a.title) === targetSlug) ||
+        (a.title && slugify(a.title).includes(targetSlug)) ||
+        (a.title && targetSlug.includes(slugify(a.title)))
+      );
+      
+      if (ad) {
+        setSelectedAd(ad);
+      } else {
+        setLoadingRoute(true);
+        pendingDeepLinkRef.current = 'ad:' + actualId;
+        const isNumeric = /^\d+$/.test(actualId);
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actualId);
+        let query = supabase.from('ads').select('*').eq('is_demo', false);
+        if (isUUID) {
+          query = query.eq('id', actualId);
+        } else if (isNumeric) {
+          query = query.eq('id', Number(actualId));
+        } else {
+          query = query.eq('short_id', actualId);
+        }
+        query.single().then(({ data, error }) => {
+          if (data && !error) {
+            pendingDeepLinkRef.current = null;
+            setLoadingRoute(false);
+            const mappedAd: Ad = {
+              id: data.id,
+              title: data.title,
+              price: data.price,
+              governorate: data.city || '',
+              location: data.location || '',
+              phone: data.phone || '',
+              category: data.category,
+              images: data.images || [],
+              seller: {
+                name: data.seller_name || 'مستخدم',
+                avatar: data.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
+                isVerified: false,
+                rating: data.seller_rating || 4.8,
+                joinedDate: data.created_at,
+                location: data.city || '',
+              },
+              time: '',
+              createdAtISO: data.created_at,
+              views: data.views || 0,
+              status: data.status,
+              type: data.type || 'sell',
+              description: data.description || '',
+              adCount: 0,
+              soldCount: 0,
+              responseRate: 100,
+              avgResponseTime: 'دقائق',
+              postedBy: data.seller_id,
+              short_id: data.short_id,
+            };
+            setSelectedAd(mappedAd);
+          } else {
+            // Query failed — keep pendingDeepLinkRef so retry from allAds update can pick it up
+            console.warn('[DeepLink] Ad fetch failed for', actualId, error);
+            setLoadingRoute(false);
+          }
+        });
+      }
+    } else if (type === 'product' && targetId) {
+      let actualId = targetId;
+      const uuidMatch = targetId.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+      if (uuidMatch) {
+        actualId = uuidMatch[1];
+      } else if (targetId.includes('-')) {
+        const segments = targetId.split('-');
+        actualId = segments[segments.length - 1];
+      }
+      const prod = allProducts.find(p => 
+        String(p.id) === actualId || 
+        p.short_id === actualId ||
+        String(p.id) === targetId || 
+        p.short_id === targetId
+      );
+      if (prod) {
+        setSelectedProduct(prod);
+      } else {
+        setLoadingRoute(true);
+        pendingDeepLinkRef.current = 'product:' + actualId;
+        const isNumeric = /^\d+$/.test(actualId);
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actualId);
+        let query = supabase.from('products').select('*');
+        if (isUUID) {
+          query = query.eq('id', actualId);
+        } else if (isNumeric) {
+          query = query.eq('id', Number(actualId));
+        } else {
+          query = query.eq('short_id', actualId);
+        }
+        query.single().then(({ data, error }) => {
+          if (data && !error) {
+            pendingDeepLinkRef.current = null;
+            setLoadingRoute(false);
+            const mappedProd: Product = {
+              id: data.id,
+              title: data.title,
+              price: data.price,
+              description: data.description || '',
+              category: data.category,
+              images: data.images || [],
+              governorate: data.governorate || data.city || '',
+              phone: data.phone || '',
+              condition: data.condition || 'used',
+              seller: {
+                name: data.seller_name || 'مستخدم',
+                avatar: data.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
+                isVerified: false,
+                rating: 4.8,
+                joinedDate: data.created_at,
+                location: data.governorate || '',
+              },
+              createdAtISO: data.created_at,
+              views: data.views || 0,
+              postedBy: data.seller_id,
+              stock: data.stock || 1,
+              status: data.status || 'active',
+              short_id: data.short_id,
+            };
+            setSelectedProduct(mappedProd);
+          } else {
+            // Query failed — keep pendingDeepLinkRef so retry from allProducts update can pick it up
+            console.warn('[DeepLink] Product fetch failed for', actualId, error);
+            setLoadingRoute(false);
+          }
+        });
+      }
+    } else if (type === 'profile') {
+      setView('profile');
+      setBottomNavActive('profile');
+      if (targetId === 'pay' || targetId === 'wallet') {
+        if (typeof window !== 'undefined') {
+          setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-wallet-tab')), 100);
+        }
+      }
+    } else if (type === 'products') {
+      setView('products');
+      setBottomNavActive('products');
+    } else if (type === 'seller' && targetId) {
+      if (targetId === 'pay' || targetId === 'wallet') {
+        setView('profile');
+        if (typeof window !== 'undefined') {
+          setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-wallet-tab')), 100);
+        }
+      } else {
+        let actualId = targetId;
+        const uuidMatch = targetId.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+        if (uuidMatch) {
+          actualId = uuidMatch[1];
+        } else if (targetId.includes('-')) {
+          const segments = targetId.split('-');
+          actualId = segments[segments.length - 1];
+        }
+        setSelectedSellerId(actualId);
+        setView('seller');
+      }
+    } else if (type === 'accounts' || type === 'sellers') {
+      setView('home');
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('switch-to-profiles-tab'));
+    } else if (type === 'transport') {
+      setView('transport');
+    } else if (type === 'admin') {
+      setView('admin');
+    } else if (type === 'owner') {
+      setView('owner');
+    }
+  };
+
+  // PWA & Redirection normalization
+  // هذا useEffect يعمل مرة واحدة عند فتح التطبيق.
+  // يتعامل مع أحداث تثبيت التطبيق كـ PWA وتنظيم مسارات URL.
+  // ✅ آمن: يتم تنظيف جميع Event Listeners في الـ cleanup.
+  useEffect(() => {
+    if (typeof window === 'undefined') return () => {};
+    
+    // Normalize old /IQ paths to clean root path
+    if (window.location.pathname === '/IQ') {
+      window.history.replaceState(null, '', '/');
+    }
+
+    // Check standalone mode
+    const checkStandalone = () => {
+      const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+      setIsStandalone(standalone);
+    };
+    checkStandalone();
+
+    const mediaQuery = window.matchMedia('(display-mode: standalone)');
+    const handleMediaChange = (e: MediaQueryListEvent) => setIsStandalone(e.matches);
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleMediaChange);
+    }
+
+    // PWA installation events
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null);
+      setIsStandalone(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
-      active = false;
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', handleMediaChange);
+      }
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
 
+  // هذا useEffect يعمل عند أول تحميل وعند تغيير allAds أو allProducts.
+  // يحلل مسار URL عند التحميل الأول، ثم يعيد المحاولة إذا لم تصل البيانات بعد.
+  // انتبه: يعتمد على allAds وallProducts كـ Dependencies، أي يُعاد تنفيذه عند كل تحديث للإعلانات.
+  // Initial route parsing — runs once on mount, then retries pending deep links when data arrives
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 24);
-    handleScroll();
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    if (!initialHashParsed) {
+      // First run: parse URL and start any async fetch
+      syncStateFromPath();
+      setInitialHashParsed(true);
+      return;
+    }
+
+    // Retry pending deep links when allAds/allProducts update
+    if (pendingDeepLinkRef.current) {
+      const [linkType, linkId] = pendingDeepLinkRef.current.split(':');
+      if (linkType === 'ad' && allAds.length > 0) {
+        const found = allAds.find(a => String(a.id) === linkId || a.short_id === linkId);
+        if (found) {
+          pendingDeepLinkRef.current = null;
+          setSelectedAd(found);
+        }
+      } else if (linkType === 'product' && allProducts.length > 0) {
+        const found = allProducts.find(p => String(p.id) === linkId || p.short_id === linkId);
+        if (found) {
+          pendingDeepLinkRef.current = null;
+          setSelectedProduct(found);
+        } else {
+        }
+      }
+    }
+  }, [allAds, allProducts, initialHashParsed]);
+
+  // هذا useEffect يستمع لحدث "popstate" و "hashchange" (زر الرجوع وتغير الهامش في المتصفح).
+  // ✅ آمن: يتم تنظيف Event Listener في الـ cleanup.
+  useEffect(() => {
+    const handlePopState = () => syncStateFromPath();
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('hashchange', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('hashchange', handlePopState);
+    };
+  }, [allAds, allProducts]);
+
+  // هذا useEffect يعمل عند تغيير أي حالة تتعلق بالتنقل.
+  // يقوم بتحديث عنوان URL في المتصفح ليعكس الصفحة الحالية (History Management).
+  // انتبه: لا تضف States جديدة في dependencies بدون تفكير.
+  useEffect(() => {
+    if (!initialHashParsed || loadingRoute || pendingDeepLinkRef.current) return; // Don't push state before initial parse, while routing/fetching, or while deep link is pending
+    let newPath: string | null = null;
+    
+    if (selectedAd) {
+      const typeText = selectedAd.type === 'buy' ? 'شراء' : selectedAd.type === 'rent' ? 'ايجار' : selectedAd.type === 'service' ? 'خدمات' : 'بيع';
+      const categoryText = selectedAd.category || 'عام';
+      const titleText = selectedAd.title || 'اعلان';
+      const govText = selectedAd.governorate || selectedAd.location || 'العراق';
+      const slug = `${slugify(typeText)}-${slugify(categoryText)}-${slugify(titleText)}-${slugify(govText)}-سوق-بغداد-الرقمي`;
+      newPath = `/ad/${slug}-${selectedAd.short_id || selectedAd.id}`;
+    } else if (selectedProduct) {
+      const categoryText = selectedProduct.category || 'منتجات';
+      const titleText = selectedProduct.title || 'منتج';
+      const govText = selectedProduct.governorate || 'العراق';
+      const slug = `تسوق-${slugify(categoryText)}-${slugify(titleText)}-${slugify(govText)}-سوق-بغداد-الرقمي`;
+      newPath = `/product/${slug}-${selectedProduct.short_id || selectedProduct.id}`;
+    } else if (selectedTransportAd) {
+      newPath = `/transport/card/${selectedTransportAd.short_id || selectedTransportAd.id}`;
+    } else if (view === 'seller' && selectedSellerId) {
+      newPath = `/seller/${selectedSellerPhone || selectedSellerId}`;
+    } else if (view === 'transport') {
+      newPath = `/transport`;
+    } else if (view === 'products') {
+      newPath = `/products`;
+    } else if (view === 'profile') {
+      newPath = `/profile`;
+    } else if (view === 'admin') {
+      newPath = `/admin`;
+    } else if (view === 'owner') {
+      newPath = `/owner`;
+    } else {
+      newPath = `/IQ`;
+    }
+    
+    const currentPath = window.location.pathname + window.location.search;
+    if (newPath && currentPath !== newPath) {
+      window.history.pushState(null, '', newPath);
+    } else if (!newPath && currentPath !== '/IQ') {
+      window.history.pushState(null, '', '/IQ');
+    }
+  }, [view, selectedAd, selectedProduct, selectedSellerId, selectedTransportAd, initialHashParsed, loadingRoute]);
+  // ------------------------------------
+
+  // ── Rate Limit Helper ─────────────────────────
+  const checkPostRateLimit = (): boolean => {
+    const now = Date.now();
+    let posts = [];
+    try {
+      posts = JSON.parse(localStorage.getItem('souq_post_timestamps') || '[]');
+    } catch {
+      posts = [];
+    }
+    posts = posts.filter((t: number) => now - t < 60000);
+    if (posts.length >= 2) {
+      showToast('⚠️ لقد تجاوزت الحد المسموح به. يمكنك نشر إعلانين كحد أقصى في الدقيقة الواحدة. يرجى الانتظار قليلاً.', 'error');
+      return false;
+    }
+    posts.push(now);
+    localStorage.setItem('souq_post_timestamps', JSON.stringify(posts));
+    return true;
+  };
+
+  const fetchTransportAds = useCallback(async (reset = true) => {
+    setLoadingTransport(true);
+    try {
+      const pageToFetch = reset ? 0 : transportPageRef.current + 1;
+      const pageSize = 10;
+      const from = pageToFetch * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data: transportData, error: transportError, count } = await supabase
+        .from('ads')
+        .select('*', { count: 'exact' })
+        .eq('category', 'transport')
+        .eq('is_demo', false)
+        .order('created_at', { ascending: false })
+        .range(from, to);
+        
+      if (!transportError && transportData) {
+        const transportMapped = transportData.map((row: any) => {
+          let extra = {
+            shift: 'صباحي',
+            seats: 4,
+            vehicleType: 'خصوصي',
+            targetAudience: 'مختلط',
+            categoryType: 'student' as 'student' | 'employee',
+            note: '',
+            interest: 0,
+            whatsappClicks: 0,
+            completedAt: undefined,
+            completion_reason: null
+          };
+          try {
+            if (row.description) {
+              const parsed = JSON.parse(row.description);
+              extra = { ...extra, ...parsed };
+            }
+          } catch (e) {
+            extra.note = row.description || '';
+          }
+          return {
+            id: row.id,
+            type: row.type || 'offer',
+            categoryType: extra.categoryType || 'student',
+            university: row.city || '',
+            regions: row.location || '',
+            shift: extra.shift,
+            seats: Number(extra.seats) || 0,
+            vehicleType: extra.vehicleType,
+            targetAudience: extra.targetAudience,
+            price: row.price ? formatPrice(row.price) : '',
+            phone: row.phone || '',
+            note: extra.note,
+            sellerName: row.seller_name || 'مستخدم',
+            sellerAvatar: row.seller_avatar || '',
+            createdAt: row.created_at,
+            status: row.status === 'active' ? 'published' : row.status,
+            postedBy: row.seller_id,
+            views: row.views || 0,
+            interest: extra.interest,
+            whatsappClicks: extra.whatsappClicks,
+            completedAt: extra.completedAt,
+            completion_reason: extra.completion_reason,
+            short_id: row.short_id || undefined,
+          };
+        });
+
+        if (reset) {
+          setAllTransportAds(transportMapped);
+        } else {
+          setAllTransportAds(prev => {
+            const combined = [...prev, ...transportMapped];
+            return combined.filter((v, i, self) => self.findIndex(t => t.id === v.id) === i);
+          });
+        }
+        transportPageRef.current = pageToFetch;
+        if (count !== null) {
+          setTotalTransportCount(count);
+        }
+        setHasMoreTransport(transportData.length === pageSize);
+      }
+    } catch (e) {
+      console.error('Error fetching transport ads:', e);
+    } finally {
+      setLoadingTransport(false);
+    }
   }, []);
 
+  const fetchAds = useCallback(async (reset = true) => {
+    if (reset) {
+      if (!isFirstLoadDone.current) {
+        setIsInitialLoading(true);
+      }
+      setLoadingMoreAds(true);
+    } else {
+      setLoadingMoreAds(true);
+    }
+    try {
+      const pageToFetch = reset ? 0 : adsPage + 1;
+      const pageSize = 4;
+      const from = pageToFetch * pageSize;
+      const to = from + pageSize - 1;
+
+      let query = supabase.from('ads').select('*', { count: 'exact' }).eq('is_demo', false).neq('category', 'transport').neq('category', 'notification').neq('status', 'sold');
+
+      if (cat && cat !== 'all' && cat !== 'general') {
+        query = query.eq('category', cat);
+      }
+      if (gov && gov !== 'الكل' && cat !== 'general') {
+        query = query.eq('city', gov);
+      }
+      if (search && cat !== 'general') {
+        const term = `%${search}%`;
+        query = query.or(`title.ilike.${term},location.ilike.${term},short_id.ilike.${term}`);
+      }
+      if (priceMin && cat !== 'general') {
+        const minVal = parseInt(priceMin.replace(/,/g, ''));
+        if (!isNaN(minVal)) query = query.gte('price', minVal);
+      }
+      if (priceMax && cat !== 'general') {
+        const maxVal = parseInt(priceMax.replace(/,/g, ''));
+        if (!isNaN(maxVal)) query = query.lte('price', maxVal);
+      }
+
+      if (cat === 'general') {
+        query = query.order('views', { ascending: false }).order('created_at', { ascending: false });
+      } else {
+        if (sort === 'views') {
+          query = query.order('views', { ascending: false });
+        } else if (sort === 'price-low') {
+          query = query.order('price', { ascending: true });
+        } else if (sort === 'price-high') {
+          query = query.order('price', { ascending: false });
+        } else {
+          query = query.order('created_at', { ascending: false });
+        }
+      }
+
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
+      if (error) { console.error('Error fetching ads:', error); return; }
+      if (count !== null) setTotalAdsCount(count);
+      if (data) {
+        // Map normal ads
+        const normalRows = data.filter((row: any) => row.category !== 'transport' && row.category !== 'notification');
+        const normalMapped: Ad[] = normalRows.map((row: any) => {
+          const titleAndDesc = `${row.title || ''} ${row.description || ''}`.toLowerCase();
+          const isUsed = titleAndDesc.includes('مستعمل') || titleAndDesc.includes('مستعملة') || titleAndDesc.includes('مستخدم') || titleAndDesc.includes('بالة') || titleAndDesc.includes('ثاني يد') || titleAndDesc.includes('مستعمله');
+          const isNew = titleAndDesc.includes('جديد') || titleAndDesc.includes('جديدة') || titleAndDesc.includes('كارتون') || titleAndDesc.includes('بالكارتون') || titleAndDesc.includes('غير مستخدم') || titleAndDesc.includes('جديده') || titleAndDesc.includes('حديثة') || titleAndDesc.includes('زيرو');
+          const inferredCondition: 'new' | 'used' = isNew && !isUsed ? 'new' : 'used';
+          const condition: 'new' | 'used' = row.condition || inferredCondition;
+
+          return {
+            id: row.id,
+            title: row.title,
+            price: row.price,
+            governorate: row.city || '',
+            location: row.location || '',
+            phone: row.phone || '',
+            category: row.category,
+            images: row.images || [],
+            seller: {
+              name: row.seller_name || 'مستخدم',
+              avatar: row.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
+              isVerified: false,
+              rating: row.seller_rating || 4.8,
+              joinedDate: row.created_at,
+              location: row.city || '',
+            },
+            time: '',
+            createdAtISO: row.created_at,
+            views: row.views || 0,
+            status: row.status,
+            type: row.type || 'sell',
+            condition,
+            description: row.description || '',
+            adCount: 0,
+            soldCount: 0,
+            responseRate: 100,
+            avgResponseTime: 'دقائق',
+            postedBy: row.seller_id,
+            short_id: row.short_id,
+          };
+        });
+
+        const activeMapped = normalMapped.filter(a => a.status === 'active' || a.status === 'sold');
+        
+        if (reset) {
+          setAllAds(activeMapped);
+          setAdsPage(0);
+          setHasMoreAds(data.length === pageSize);
+        } else {
+          setAllAds(prev => {
+            const combined = [...prev, ...activeMapped];
+            const unique = combined.filter((v, i, self) => self.findIndex(t => t.id === v.id) === i);
+            return unique;
+          });
+
+          setAdsPage(pageToFetch);
+          setHasMoreAds(data.length === pageSize);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      isFirstLoadDone.current = true;
+      setIsInitialLoading(false);
+      setLoadingMoreAds(false);
+      setLoadingTransport(false);
+    }
+  }, [adsPage, search, cat, gov, sort, priceMin, priceMax]);
+
+  const handleDeleteProfile = async (profileId: string) => {
+    // Try to delete using the admin RPC first
+    const { error: rpcError } = await supabase.rpc('admin_delete_user', { target_user_id: profileId });
+    
+    if (rpcError) {
+      // Fallback to client-side deletion if RPC fails or doesn't exist yet
+      await supabase.from('ads').delete().eq('seller_id', profileId);
+      await supabase.from('products').delete().eq('seller_id', profileId);
+      await supabase.from('ads').delete().eq('postedBy', profileId).eq('category', 'transport');
+      await supabase.from('profiles').delete().eq('id', profileId);
+    }
+
+    setAllAds(prev => prev.filter(a => a.postedBy !== profileId));
+    setAllTransportAds(prev => prev.filter(a => a.postedBy !== profileId));
+    setAllProducts(prev => prev.filter(p => p.postedBy !== profileId));
+
+    try {
+      const users = JSON.parse(localStorage.getItem('souqUsers') || '[]');
+      const filtered = users.filter((u: any) => u.id !== profileId);
+      localStorage.setItem('souqUsers', JSON.stringify(filtered));
+    } catch (e) {}
+
+    // Only redirect and logout if the current user deletes their own account
+    if (user?.id === profileId) {
+      showToast('تم حذف حسابك وجميع محتوياته بنجاح', 'success');
+      setView('home');
+      handleLogout();
+    } else {
+      showToast('تم حذف الحساب ومحتوياته نهائياً', 'success');
+    }
+  };
+
+  const fetchProducts = useCallback(async (reset = true) => {
+    if (reset) {
+      if (!isFirstLoadDone.current) {
+        setIsInitialLoading(true);
+      }
+      setLoadingMoreProducts(true);
+    } else {
+      setLoadingMoreProducts(true);
+    }
+    try {
+      const pageToFetch = reset ? 0 : productsPage + 1;
+      const pageSize = 4;
+      const from = pageToFetch * pageSize;
+      const to = from + pageSize - 1;
+
+      let query = supabase.from('products').select('*', { count: 'exact' }).neq('status', 'sold');
+
+      if (cat && cat !== 'all' && cat !== 'general') {
+        query = query.eq('category', cat);
+      }
+      if (gov && gov !== 'الكل') {
+        query = query.eq('governorate', gov);
+      }
+      if (search) {
+        const term = `%${search}%`;
+        query = query.or(`title.ilike.${term},description.ilike.${term},short_id.ilike.${term}`);
+      }
+      if (priceMin) {
+        const minVal = parseInt(priceMin.replace(/,/g, ''));
+        if (!isNaN(minVal)) query = query.gte('price', minVal);
+      }
+      if (priceMax) {
+        const maxVal = parseInt(priceMax.replace(/,/g, ''));
+        if (!isNaN(maxVal)) query = query.lte('price', maxVal);
+      }
+
+      if (sort === 'views') {
+        query = query.order('views', { ascending: false });
+      } else if (sort === 'price-low') {
+        query = query.order('price', { ascending: true });
+      } else if (sort === 'price-high') {
+        query = query.order('price', { ascending: false });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
+      if (error) { console.error('Error fetching products:', error); return; }
+      if (count !== null) setTotalProductsCount(count);
+      if (data) {
+        const mapped: Product[] = data.map((row: any) => ({
+          id: row.id,
+          title: row.title,
+          price: row.price,
+          description: row.description || '',
+          category: row.category,
+          images: row.images || [],
+          governorate: row.governorate || row.city || '',
+          phone: row.phone || '',
+          condition: row.condition || 'used',
+          seller: {
+            name: row.seller_name || 'مستخدم',
+            avatar: row.seller_avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100',
+            isVerified: false,
+            rating: 4.8,
+            joinedDate: row.created_at,
+            location: row.governorate || '',
+          },
+          createdAtISO: row.created_at,
+          views: row.views || 0,
+          postedBy: row.seller_id,
+          stock: row.stock || 1,
+          status: row.status || 'active',
+          short_id: row.short_id,
+        }));
+        
+        if (reset) {
+          setAllProducts(mapped);
+          setProductsPage(0);
+          setHasMoreProducts(data.length === pageSize);
+        } else {
+          setAllProducts(prev => {
+            const combined = [...prev, ...mapped];
+            const unique = combined.filter((v, i, self) => self.findIndex(t => t.id === v.id) === i);
+            return unique;
+          });
+          setProductsPage(pageToFetch);
+          setHasMoreProducts(data.length === pageSize);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      isFirstLoadDone.current = true;
+      setIsInitialLoading(false);
+      setLoadingMoreProducts(false);
+    }
+  }, [productsPage, search, cat, gov, sort, priceMin, priceMax]);
+
+
+  const [notifications, setNotifications] = useState<any[]>([]);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!user) return;
+    try {
+      // Only fetch admin/system notifications to reduce load
+      const { data: userNotifs, error: userNotifsError } = await supabase
+        .from('user_notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('read', false)
+        .limit(10);
+
+      let combined: any[] = [];
+      if (!userNotifsError && userNotifs) {
+        userNotifs.forEach((row: any) => {
+          // Filter out the old view/interest notifications so they don't show up anymore
+          if (row.type === 'view' || row.type === 'interest' || (row.title && row.title.includes('مشاهدة'))) {
+            return;
+          }
+          
+          combined.push({
+            id: row.id,
+            type: row.type || 'system',
+            title: row.title,
+            message: row.body,
+            time: row.created_at,
+            senderId: '',
+            senderName: 'إدارة الموقع',
+            senderPhone: '',
+            itemTitle: '',
+            itemType: 'ad',
+            itemId: '',
+            duration: 0,
+            targetType: 'owner',
+            sourceTable: 'user_notifications'
+          });
+        });
+      }
+      
+      combined.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+      setNotifications(combined);
+    } catch (e) {
+      console.error('Error fetching notifications:', e);
+    }
+  }, [user]);
+
+  // هذا useEffect يعمل عند تسجيل الدخول أو الخروج.
+  // يجلب الإشعارات ويفعّل Polling كل 45 ثانية بدلاً من Realtime (لتوفير الباقة).
+  // ✅ آمن: يتم إيقاف الـ Interval في الـ cleanup.
+  // 🔥 استهلاك Supabase: استعلام كل 45 ثانية ما دام المستخدم مسجلاً.
   useEffect(() => {
-    if (!isEnabled('ai_assist') && currentView === 'ai-center') {
-      setCurrentView('home');
+    if (!user) {
+      setNotifications([]);
+      return;
     }
-    if (!isEnabled('games') && currentView === 'games') {
-      setCurrentView('home');
+
+    fetchNotifications();
+
+    // Use polling instead of Realtime to avoid hitting Supabase free tier connection limits (200 connections)
+    // and to prevent the red WebSocket connection errors in the console.
+    const pollInterval = setInterval(() => {
+      fetchNotifications();
+    }, 45000); // 45 seconds
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [user, fetchNotifications]);
+
+  const prevNotifsLength = useRef(0);
+  // هذا useEffect يعمل عند تغيير قائمة الإشعارات.
+  // يُشغّل صوت تنبيه عند وصول إشعار جديد.
+  // آمن للتعديل: نعم، يمكن تغيير الصوت أو تعطيله.
+  useEffect(() => {
+    if (notifications.length > prevNotifsLength.current) {
+      if (prevNotifsLength.current > 0) {
+        const hasNewIncoming = notifications.some(n => n.targetType === 'owner' || !n.targetType);
+        if (hasNewIncoming) {
+          const audio = new Audio('https://cdn.pixabay.com/audio/2022/03/24/audio_783d1a0e1c.mp3');
+          audio.volume = 0.6;
+          audio.play().catch(() => {});
+        }
+      }
     }
-  }, [currentView, isEnabled]);
+    prevNotifsLength.current = notifications.length;
+  }, [notifications]);
 
-  const categories = [
-    { id: 'all', name: 'الكل', emoji: '📦' },
-    { id: 'cars', name: 'السيارات', emoji: '🚗' },
-    { id: 'real-estate', name: 'العقارات', emoji: '🏠' },
-    { id: 'phones', name: 'الهواتف', emoji: '📱' },
-    { id: 'electronics', name: 'إلكترونيات', emoji: '💻' },
-    { id: 'games', name: 'الألعاب', emoji: '🎮' },
-  ];
-  const visibleCategories = categories.filter((cat) => cat.id !== 'games' || isEnabled('games'));
-
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
-    document.documentElement.classList.toggle('dark');
-    localStorage.setItem('souqTheme', darkMode ? 'light' : 'dark');
+  const handleHistoryClick = (itemId: string | number, itemType: string) => {
+    if (itemType === 'ad') {
+      const found = allAds.find(a => String(a.id) === String(itemId));
+      if (found) setSelectedAd(found);
+    } else if (itemType === 'product') {
+      const found = allProducts.find(p => String(p.id) === String(itemId));
+      if (found) setSelectedProduct(found);
+    } else if (itemType === 'transport') {
+      const found = allTransportAds.find(t => String(t.id) === String(itemId));
+      if (found) setSelectedTransportAd(found);
+    }
   };
 
-  const handleLogout = () => {
+  const markNotifAsRead = async (notifId: number | string, sourceTable: 'ads' | 'user_notifications' = 'ads') => {
+    try {
+      if (sourceTable === 'user_notifications') {
+        const { error } = await supabase
+          .from('user_notifications')
+          .update({ read: true })
+          .eq('id', notifId);
+        if (!error) {
+          setNotifications(prev => prev.filter(n => n.id !== notifId));
+        }
+      } else {
+        const { error } = await supabase
+          .from('ads')
+          .update({ status: 'archived' })
+          .eq('id', notifId);
+        if (!error) {
+          setNotifications(prev => prev.filter(n => n.id !== notifId));
+        }
+      }
+    } catch (e) {
+      console.error('Failed to mark notification as read', e);
+    }
+  };
+
+  const handleArchiveAllNotifications = async () => {
+    if (!user) return;
+    try {
+      await supabase
+        .from('ads')
+        .update({ status: 'archived' })
+        .eq('category', 'notification')
+        .eq('seller_id', user.id)
+        .eq('status', 'active');
+
+      await supabase
+        .from('user_notifications')
+        .update({ read: true })
+        .eq('user_id', user.id)
+        .eq('read', false);
+
+      setNotifications([]);
+    } catch (e) {
+      console.error('Failed to archive all notifications', e);
+    }
+  };
+
+  const handleViewDurationLogged = async (itemId: number | string, itemTitle: string, ownerId: string, itemType: string, seconds: number) => {
+    // Disabled to stop heavy DB bandwidth usage and save egress costs
+    return;
+  };
+
+
+  // هذا useEffect يعمل عند كل تغيير في قائمة المفضلة.
+  // يحفظ المفضلة في LocalStorage فوراً. لا يستهلك Supabase.
+  // هذا useEffect يعمل عند كل تغيير في قائمة المفضلة.
+  // يحفظ المفضلة في LocalStorage. لا يستهلك Supabase.
+  useEffect(()=>{localStorage.setItem('souqFavs',JSON.stringify(favorites));},[favorites]);
+
+  // هذا useEffect يعمل عند الانتقال لصفحة النقل أو الملف الشخصي.
+  // استعلام Supabase — يُنفَّذ فقط عند تغيير view.
+  useEffect(() => {
+    if (view === 'transport' || view === 'profile') {
+      fetchTransportAds();
+    }
+  }, [view, fetchTransportAds]);
+
+  // هذا useEffect يعمل عند تغيير view.
+  // يحدث الشريط السفلي للتنقل. لا يستهلك Supabase. آمن للتعديل.
+  useEffect(() => {
+    if (['home', 'profile', 'transport'].includes(view)) {
+      setBottomNavActive(view);
+    }
+  }, [view]);
+
+  // هذا useEffect يعمل عند تغيير أي فلتر بحث.
+  // يطبّق Debounce بمقدار 450ms لمنع إرسال طلبات Supabase عند كل حرف.
+  // ✅ آمن: يتم إلغاء الـ Timeout في الـ cleanup.
+  // 🔥 استعلام Supabase — يُجلب كل مرة تتغير فيها الفلاتر.
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (view === 'home' || view === 'products' || view === 'transport' || view === 'profile') {
+        fetchAds(true);
+        fetchProducts(true);
+      }
+    }, 450);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [search, cat, gov, sort, priceMin, priceMax, view]);
+
+  // هذا useEffect يعمل عند تغيير بيانات المستخدم.
+  // يحفظ بيانات المستخدم مع عدد إعلاناته في LocalStorage. لا يستهلك Supabase.
+  useEffect(()=>{
+    if(user){const mc=allAds.filter(a=>a.postedBy===user.id).length+allProducts.filter(p=>p.postedBy===user.id).length;saveStoredUser(user,mc);}
+  },[user]);
+
+  // هذا useEffect يعمل مرة واحدة عند تغيير user.
+  // يتحقق من حالة الحظر (Ban) للمستخدم أو الجهاز، ويحدث last_seen.
+  // 🔥 استعلام Supabase — مرة واحدة عند تغيير user.
+  // ملاحظة: الـ Interval كان يعمل كل دقيقتين لكن تم تعطيله لتوفير الباقة.
+  // Track online status and guests
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    const trackActivity = async () => {
+      try {
+        if (user) {
+          const { data } = await supabase.from('profiles').select('is_banned').eq('id', user.id).single();
+          if (data?.is_banned) {
+            await supabase.auth.signOut();
+            document.body.innerHTML = '<div style="padding: 3rem; text-align: center; color: red; font-size: 1.5rem; font-weight: bold;">عذراً، هذا الحساب محظور من تصفح الموقع لانتهاكه الشروط.</div>';
+            return;
+          }
+          await supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', user.id);
+        } else {
+          let deviceId = localStorage.getItem('souqGuestId');
+          if (!deviceId) {
+            deviceId = crypto.randomUUID();
+            localStorage.setItem('souqGuestId', deviceId);
+          }
+          const { data } = await supabase.from('guests').select('is_banned').eq('id', deviceId).single();
+          if (data?.is_banned) {
+            document.body.innerHTML = '<div style="padding: 3rem; text-align: center; color: red; font-size: 1.5rem; font-weight: bold;">عذراً، هذا الجهاز محظور من تصفح الموقع لانتهاكه الشروط.</div>';
+            return;
+          }
+          await supabase.from('guests').upsert({ id: deviceId, last_seen: new Date().toISOString(), user_agent: navigator.userAgent });
+        }
+      } catch (e) {
+        // silently fail tracking errors
+      }
+    };
+
+    trackActivity();
+    // Disabled interval to reduce heavy background data usage
+    // interval = setInterval(trackActivity, 2 * 60 * 1000); 
+    // return () => clearInterval(interval);
+  }, [user]);
+
+  const showToast = useCallback((msg:string,type:string)=>{
+    setToast({msg,type,visible:true}); playSound(type==='success'?'success':'info');
+    setTimeout(()=>setToast(t=>({...t,visible:false})),4000);
+  },[]);
+
+  const handleLogin = (u:User)=>{
+    setUser(u); setShowAuth(false); showToast(`مرحباً ${u.name}! 🎉`,'success');
+    if(!localStorage.getItem('souqOnboarded'))setShowOnboarding(true);
+    recordVisit(u);
+  };
+  const handleLogout = async ()=>{
+    await supabase.auth.signOut();
     localStorage.removeItem('souqUser');
-    onLogout();
+    setUser(null);
+    setView('home');
+    showToast('تم تسجيل الخروج', 'info');
+  };
+  const handleUpdateUser = async (u:User, quiet: boolean = false)=>{
+    setUser(u);
+    localStorage.setItem('souqUser', JSON.stringify(u));
+    saveStoredUser(u, allAds.filter(a=>a.postedBy===u.id).length);
+    if (!quiet) {
+      await supabase.from('profiles').upsert({
+        id: u.id,
+        full_name: u.name,
+        email: u.email,
+        phone: u.phone,
+        avatar_url: u.avatar,
+        cover_url: u.cover,
+        city: u.location,
+        role: u.role
+      }, { onConflict: 'id' });
+      showToast('تم حفظ الملف الشخصي ✅', 'success');
+    }
+  };
+  const handleToggleFav = (id:number)=>{setFavorites(prev=>{const f=prev.includes(id);showToast(f?'تمت الإزالة من المفضلة':'تمت الإضافة للمفضلة','success');return f?prev.filter(x=>x!==id):[...prev,id];});};
+  const requireAuth = ()=>setShowAuth(true);
+
+  const handleAddOrEditAd = async (ad: Ad) => {
+    if (!editingAd) {
+      if (!checkPostRateLimit()) return;
+    }
+    const rowData = {
+      seller_id: user?.id || '',
+      title: ad.title,
+      description: ad.description,
+      price: ad.price,
+      category: ad.category,
+      location: ad.location,
+      city: ad.governorate,
+      images: ad.images,
+      phone: ad.phone,
+      type: ad.type,
+      status: 'active',
+      is_demo: false,
+      seller_name: user?.name,
+      seller_avatar: user?.avatar,
+    };
+    if (editingAd) {
+      const { error } = await supabase.from('ads').update(rowData).eq('id', ad.id);
+      if (error) { showToast('حدث خطأ أثناء التعديل', 'error'); return; }
+      setEditingAd(null);
+      showToast('تم تعديل الإعلان ✅', 'success');
+    } else {
+      // Deduct points before publishing
+      const cost = adCosts.ad !== undefined ? adCosts.ad : 1;
+      if (user?.role !== 'admin' && user?.role !== 'owner' && cost > 0) {
+        const { data: deductData, error: deductError } = await supabase.rpc('deduct_points', {
+          p_user_id: user?.id,
+          p_amount: cost,
+          p_reason: 'خصم لنشر إعلان مبوب'
+        });
+        
+        if (deductError || !deductData?.success) {
+          showToast(deductData?.message || 'رصيد النقاط غير كافٍ لنشر إعلان. يرجى شحن المحفظة.', 'error');
+          return;
+        }
+        
+        // Update local points
+        if (user && deductData.remaining !== undefined) {
+          setUser(prev => {
+            if (!prev) return prev;
+            const u = { ...prev, points: deductData.remaining };
+            localStorage.setItem('souqUser', JSON.stringify(u));
+            return u;
+          });
+        }
+      }
+
+      const { data, error } = await supabase.from('ads').insert(rowData).select().single();
+      triggerOnlineStatusesSync();
+      if (error) { showToast('حدث خطأ أثناء النشر', 'error'); console.error(error); return; }
+      if (user && data) {
+        setUser(prev => {
+          if (!prev) return prev;
+          const u = { ...prev, stats: { ...prev.stats, ads: prev.stats.ads + 1 } };
+          localStorage.setItem('souqUser', JSON.stringify(u));
+          return u;
+        });
+      }
+      showToast('تم نشر إعلانك! 🎉', 'success');
+    }
+    fetchAds();
   };
 
-  // ranking: combine views, recency, and interestedCount
-  const scoreAd = (ad: any) => {
-    const ageHours = (Date.now() - new Date(ad.publishedAt).getTime()) / (1000 * 60 * 60);
-    const recencyScore = Math.max(0, 48 - ageHours) / 48; // favors ads within 48h
-    const viewsScore = Math.log10((ad.views || 0) + 1);
-    const interestedScore = Math.log10((ad.interestedCount || 0) + 1);
-    return recencyScore * 0.5 + viewsScore * 0.3 + interestedScore * 0.2;
+  const handlePostTransportAd = async (ad: TransportAd) => {
+    if (!checkPostRateLimit()) return;
+    const rowData = {
+      seller_id: user?.id || ad.postedBy || '',
+      title: ad.type === 'offer' ? `أوفر خط إلى ${ad.university}` : `أبحث عن خط إلى ${ad.university}`,
+      description: JSON.stringify({
+        shift: ad.shift,
+        seats: ad.seats,
+        vehicleType: ad.vehicleType,
+        targetAudience: ad.targetAudience,
+        categoryType: ad.categoryType || 'student',
+        note: ad.note,
+        interest: ad.interest || 0,
+        whatsappClicks: ad.whatsappClicks || 0,
+        completedAt: ad.completedAt,
+        completion_reason: ad.completion_reason
+      }),
+      price: ad.price ? ad.price.replace(/[^0-9]/g, '') : '0',
+      category: 'transport',
+      location: ad.regions,
+      city: ad.university,
+      images: [],
+      phone: ad.phone,
+      type: ad.type,
+      status: ad.status === 'published' ? 'active' : ad.status,
+      is_demo: false,
+      seller_name: ad.sellerName || user?.name || 'مستخدم',
+      seller_avatar: ad.sellerAvatar || user?.avatar || '',
+      short_id: ad.short_id || Math.random().toString(36).substring(2, 7).toUpperCase(),
+    };
+
+    // Deduct points before publishing
+    const cost = adCosts.transport !== undefined ? adCosts.transport : 1;
+    if (user?.role !== 'admin' && user?.role !== 'owner' && cost > 0) {
+      const { data: deductData, error: deductError } = await supabase.rpc('deduct_points', {
+        p_user_id: user?.id,
+        p_amount: cost,
+        p_reason: 'خصم لنشر خط نقل'
+      });
+      
+      if (deductError || !deductData?.success) {
+        showToast(deductData?.message || 'رصيد النقاط غير كافٍ. يرجى شحن المحفظة.', 'error');
+        return;
+      }
+      
+      // Update local points
+      if (user && deductData.remaining !== undefined) {
+        setUser(prev => {
+          if (!prev) return prev;
+          const u = { ...prev, points: deductData.remaining };
+          localStorage.setItem('souqUser', JSON.stringify(u));
+          return u;
+        });
+      }
+    }
+
+    const { error } = await supabase.from('ads').insert(rowData);
+    if (error) {
+      showToast('حدث خطأ أثناء حفظ الخط', 'error');
+      console.error(error);
+      return;
+    }
+    showToast('تم نشر الخط بنجاح ✅', 'success');
+    fetchAds();
   };
 
-  const filteredAds = ads
-    .filter((ad) => {
-      const matchesSearch = ad.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           ad.location.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === 'all' || ad.category === selectedCategory;
-      const matchesType = selectedType === 'all' || ad.type === selectedType;
-      const matchesRegion = selectedRegion === 'all' || ad.region === selectedRegion;
-      return matchesSearch && matchesCategory && matchesType && matchesRegion && ad.status !== 'deleted';
-    })
-    .sort((a, b) => {
-      if (sortBy === 'views') return (b.views || 0) - (a.views || 0);
-      if (sortBy === 'recent') return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
-      if (sortBy === 'rating') return (b.sellerRating || 0) - (a.sellerRating || 0);
-      return scoreAd(b) - scoreAd(a);
+  const handleUpdateTransportStatus = async (id: number, status: string, reason: string | null = null) => {
+    const ad = allTransportAds.find(a => a.id === id);
+    if (!ad) return;
+
+    const newStatus = status === 'published' ? 'active' : status;
+    const dbStatus = newStatus;
+
+    const descriptionData = JSON.stringify({
+      shift: ad.shift,
+      seats: ad.seats,
+      vehicleType: ad.vehicleType,
+      targetAudience: ad.targetAudience,
+      note: ad.note,
+      interest: ad.interest || 0,
+      whatsappClicks: ad.whatsappClicks || 0,
+      completedAt: status === 'matched' ? new Date().toISOString() : ad.completedAt,
+      completion_reason: reason
     });
 
-  // track view duration when opening ad detail
-  useEffect(() => {
-    if (selectedAd) {
-      setViewStartAt(Date.now());
-    } else if (viewStartAt) {
-      const duration = (Date.now() - viewStartAt) / 1000; // seconds
-      // if long view (>10s) mark interested
-      if (duration > 10 && selectedAd && (selectedAd.id)) {
-        setAds((prev) => prev.map((a) => a.id === selectedAd.id ? { ...a, interestedCount: (a.interestedCount || 0) + 1 } : a));
-      }
-      setViewStartAt(null);
+    const { error } = await supabase
+      .from('ads')
+      .update({
+        status: dbStatus,
+        description: descriptionData
+      })
+      .eq('id', id);
+
+    if (error) {
+      showToast('حدث خطأ أثناء تحديث حالة الخط', 'error');
+      console.error(error);
+      return;
     }
-  }, [selectedAd]);
+    showToast('تم تحديث حالة الخط بنجاح ✅', 'success');
+    fetchAds();
+  };
 
-  // Games View
-  if (currentView === 'profile') {
-    return <UserProfile onBack={() => setCurrentView('home')} />;
-  }
+  const handleDeleteTransportAd = async (id: number) => {
+    const { error } = await supabase
+      .from('ads')
+      .delete()
+      .eq('id', id);
 
-  if (currentView === 'ai-center') {
-    return <AICenter onBack={() => setCurrentView('home')} />;
-  }
+    if (error) {
+      showToast('حدث خطأ أثناء حذف الخط', 'error');
+      console.error(error);
+      return;
+    }
+    showToast('تم حذف الخط بنجاح', 'info');
+    fetchAds();
+  };
 
-  if (currentView === 'games') {
-    return (
-      <div className="min-h-screen bg-gray-900">
-        <div className="bg-gradient-to-r from-purple-900 via-blue-900 to-purple-900 pt-8 pb-16 relative overflow-hidden">
-          <div className="container mx-auto px-4 relative z-10">
-            <button
-              onClick={() => setCurrentView('home')}
-              className="flex items-center gap-2 text-white hover:text-amber-400 mb-4"
-            >
-              <ArrowLeft className="w-6 h-6" />
-              <span>رجوع</span>
-            </button>
+  const handleAddOrEditProduct = async (p: Product) => {
+    if (!editingProduct) {
+      if (!checkPostRateLimit()) return;
+    }
+    const rowData = {
+      seller_id: user?.id || '',
+      title: p.title,
+      description: p.description,
+      price: p.price,
+      category: p.category,
+      governorate: p.governorate,
+      phone: p.phone,
+      images: p.images,
+      condition: p.condition,
+      stock: p.stock,
+      seller_name: user?.name,
+      seller_avatar: user?.avatar,
+    };
+    if (editingProduct) {
+      const { error } = await supabase.from('products').update(rowData).eq('id', p.id);
+      if (error) { showToast('حدث خطأ أثناء التعديل', 'error'); return; }
+      setEditingProduct(null);
+      showToast('تم تعديل المنتج ✅', 'success');
+    } else {
+      // Deduct points before publishing
+      const cost = adCosts.product !== undefined ? adCosts.product : 1;
+      if (user?.role !== 'admin' && user?.role !== 'owner' && cost > 0) {
+        const { data: deductData, error: deductError } = await supabase.rpc('deduct_points', {
+          p_user_id: user?.id,
+          p_amount: cost,
+          p_reason: 'خصم لنشر منتج'
+        });
+        
+        if (deductError || !deductData?.success) {
+          showToast(deductData?.message || 'رصيد النقاط غير كافٍ لنشر منتج. يرجى شحن المحفظة.', 'error');
+          return;
+        }
+        
+        // Update local points
+        if (user && deductData.remaining !== undefined) {
+          setUser(prev => {
+            if (!prev) return prev;
+            const u = { ...prev, points: deductData.remaining };
+            localStorage.setItem('souqUser', JSON.stringify(u));
+            return u;
+          });
+        }
+      }
 
-            <div className="text-center">
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="text-6xl mb-4"
-              >
-                🎮
-              </motion.div>
-              <h1 className="text-3xl font-bold text-white mb-2">منصة الألعاب</h1>
-              <p className="text-gray-300">استمتع بأفضل الألعاب الترفيهية!</p>
-            </div>
-          </div>
-        </div>
+      const { error } = await supabase.from('products').insert(rowData);
+      if (error) { showToast('حدث خطأ أثناء النشر', 'error'); console.error(error); return; }
+      showToast('تم نشر المنتج في متجرك! 🛍️', 'success');
+    }
+    fetchProducts();
+  };
 
-        <div className="container mx-auto px-4 py-8">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {gamesData.map((game) => (
-              <motion.div
-                key={game.id}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-gray-800 rounded-2xl p-6 text-center border border-gray-700 hover:border-amber-500/50 cursor-pointer"
-              >
-                <div className="text-5xl mb-3">{game.emoji}</div>
-                <h3 className="text-white font-bold mb-2">{game.title}</h3>
-                <p className="text-gray-400 text-sm mb-3">{game.description}</p>
-                <div className="flex items-center justify-center gap-2 text-gray-400 text-sm mb-4">
-                  <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-                  <span>{game.rating}</span>
-                  <span>•</span>
-                  <span>{game.players} لاعبين</span>
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="w-full py-2 bg-amber-500 text-black font-semibold rounded-xl flex items-center justify-center gap-2"
-                >
-                  <Play className="w-4 h-4" />
-                  <span>لعب الآن</span>
-                </motion.button>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
+  const handleMarkAdSold = async (ad: Ad) => {
+    if (!window.confirm('هل تريد وضع علامة "تم البيع" على هذا الإعلان؟ سيختفي من المعرض العام ويُحفظ في الأرشيف.')) return;
+    const { error } = await supabase.from('ads').update({ status: 'sold' }).eq('id', ad.id);
+    if (error) {
+      showToast('حدث خطأ أثناء تحديث الحالة', 'error');
+      console.error(error);
+      return;
+    }
+    setAllAds(prev => prev.map(a => a.id === ad.id ? { ...a, status: 'sold' } : a));
+    playSound('success');
+    setCongratulationsItem({ title: ad.title, type: 'ad' });
+    fetchAds();
+  };
+
+  const handleMarkProductSold = async (p: Product) => {
+    if (!window.confirm('هل تريد وضع علامة "تم البيع" على هذا المنتج؟ سيختفي من المعرض العام ويُحفظ في الأرشيف.')) return;
+    const { error } = await supabase.from('products').update({ status: 'sold' }).eq('id', p.id);
+    if (error) {
+      showToast('حدث خطأ أثناء تحديث الحالة', 'error');
+      console.error(error);
+      return;
+    }
+    setAllProducts(prev => prev.map(pr => pr.id === p.id ? { ...pr, status: 'sold' } : pr));
+    playSound('success');
+    setCongratulationsItem({ title: p.title, type: 'product' });
+    fetchProducts();
+  };
+
+  const handleDeleteAd = async (id: number) => {
+    await supabase.from('ads').delete().eq('id', id);
+    setAllAds(prev => prev.filter(a => a.id !== id));
+    showToast('تم حذف الإعلان', 'info');
+  };
+
+  const handleDeleteProduct = async (id: number) => {
+    await supabase.from('products').delete().eq('id', id);
+    setAllProducts(prev => prev.filter(p => p.id !== id));
+    showToast('تم حذف المنتج', 'info');
+  };
+
+  
+  const [previousSellerSource, setPreviousSellerSource] = useState<'home'|'accounts'>('home');
+  const handleSellerClick = (sellerId:string, source: 'home'|'accounts' = 'home') => {
+    if(sellerId) {
+      setPreviousSellerSource(source);
+      setSelectedSellerId(sellerId);
+      setView('seller');
+      if (typeof window !== 'undefined') window.location.hash = `#/seller/${sellerId}`;
+    }
+  };
+
+  const myAds = allAds.filter(a=>a.postedBy===user?.id);
+  const handleInstallClick = () => {
+    if (typeof window === 'undefined') return;
+    const ua = navigator.userAgent;
+    const isIOS = /iPad|iPhone|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/i.test(ua);
+    const isSafari = isIOS && /Safari/i.test(ua) && !/CriOS|FxiOS|OPiOS|EdgiOS|mercury/i.test(ua);
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+
+    if (standalone) {
+      alert("التطبيق مثبت بالفعل ويعمل حالياً.");
+      return;
+    }
+
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult: any) => {
+        if (choiceResult.outcome === 'accepted') {
+          setDeferredPrompt(null);
+        }
+      });
+    } else if (isIOS) {
+      if (isSafari) {
+        setShowInstallGuide('safari');
+      } else {
+        setShowInstallGuide('ios-other');
+      }
+    } else {
+      setShowInstallGuide('android-fallback');
+    }
+  };
+
+  const myProducts = allProducts.filter(p=>p.postedBy===user?.id);
+  const isAdmin = user?.role==='admin';
+  const isOwner = user?.role==='owner';
+
+  // Dynamic SEO metadata based on current router state
+  let pageTitle = "سوق بغداد - السوق الرقمي العراقي | أكبر منصة إعلانات في العراق";
+  let pageDescription = "سوق بغداد - أكبر منصة عراقية للبيع والشراء والإعلانات. سيارات، عقارات، هواتف، إلكترونيات، خدمات والمزيد. اكتشف آلاف الإعلانات في أقسام متعددة.";
+  let pageImage = "https://souqbaghdad.store/opengraph.jpg";
+  let canonicalUrl = "https://souqbaghdad.store/";
+
+  if (selectedAd) {
+    const slugify = (text: string) => {
+      return text
+        .toString()
+        .toLowerCase()
+        .trim()
+        .replace(/[\s_]+/g, '-')
+        .replace(/[^\w\u0621-\u064A0-9-]+/g, '')
+        .replace(/--+/g, '-');
+    };
+    const typeText = selectedAd.type === 'buy' ? 'شراء' : selectedAd.type === 'rent' ? 'ايجار' : selectedAd.type === 'service' ? 'خدمات' : 'بيع';
+    const categoryText = selectedAd.category || 'عام';
+    const titleText = selectedAd.title || 'اعلان';
+    const govText = selectedAd.governorate || selectedAd.location || 'العراق';
+    const slug = `${slugify(typeText)}-${slugify(categoryText)}-${slugify(titleText)}-${slugify(govText)}-سوق-بغداد-الرقمي`;
+
+    pageTitle = `${selectedAd.title} - ${govText} | ${formatPrice(selectedAd.price)} د.ع - سوق بغداد`;
+    pageDescription = `${selectedAd.description ? selectedAd.description.slice(0, 150) + '...' : 'تفاصيل الإعلان'} | سوق بغداد - أكبر منصة عراقية للبيع والشراء والإعلانات. سيارات، عقارات، هواتف، إلكترونيات، خدمات والمزيد.`;
+    pageImage = selectedAd.images?.[0] || pageImage;
+    canonicalUrl = `https://souqbaghdad.store/ad/${slug}-${selectedAd.short_id || selectedAd.id}`;
+  } else if (selectedProduct) {
+    const slugify = (text: string) => {
+      return text
+        .toString()
+        .toLowerCase()
+        .trim()
+        .replace(/[\s_]+/g, '-')
+        .replace(/[^\w\u0621-\u064A0-9-]+/g, '')
+        .replace(/--+/g, '-');
+    };
+    const categoryText = selectedProduct.category || 'منتجات';
+    const titleText = selectedProduct.title || 'منتج';
+    const govText = selectedProduct.governorate || 'العراق';
+    const slug = `تسوق-${slugify(categoryText)}-${slugify(titleText)}-${slugify(govText)}-سوق-بغداد-الرقمي`;
+
+    pageTitle = `${selectedProduct.title} - ${govText} | ${formatPrice(selectedProduct.price)} د.ع - سوق بغداد`;
+    pageDescription = `${selectedProduct.description ? selectedProduct.description.slice(0, 150) + '...' : 'تفاصيل المنتج'} | سوق بغداد - أكبر منصة عراقية للبيع والشراء والإعلانات. سيارات، عقارات، هواتف، إلكترونيات، خدمات والمزيد.`;
+    pageImage = selectedProduct.images?.[0] || pageImage;
+    canonicalUrl = `https://souqbaghdad.store/product/${slug}-${selectedProduct.short_id || selectedProduct.id}`;
+  } else if (view === 'seller' && selectedSellerId) {
+    pageTitle = `صفحة البائع | سوق بغداد`;
+    pageDescription = `تصفح كافة الإعلانات والمنتجات المتوفرة لدى هذا المعلن في منصة سوق بغداد.`;
+    canonicalUrl = `https://souqbaghdad.store/seller/${selectedSellerPhone || selectedSellerId}`;
+  } else if (view === 'transport') {
+    pageTitle = `خطوط النقل والتوصيل | سوق بغداد`;
+    pageDescription = `تصفح خطوط النقل والتوصيل المتاحة في العراق - سوق بغداد`;
+    canonicalUrl = `https://souqbaghdad.store/transport`;
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
-      {/* Navigation */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${isScrolled ? 'bg-slate-950/95 backdrop-blur-2xl shadow-2xl shadow-black/20 border-b border-gray-800/80' : 'bg-transparent border-b border-transparent'}`}>
+    <div className={`min-h-screen pwa-outer-container transition-colors duration-300 ${isDarkMode ? 'dark bg-[#0c2b5e] text-white' : 'bg-slate-50 text-slate-900'}`}>
+      <LoadingScreen isLoading={isInitialLoading} />
+      <Helmet>
+        <title>{pageTitle}</title>
+        <meta name="description" content={pageDescription} />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={pageDescription} />
+        <meta property="og:image" content={pageImage} />
+        <meta property="og:image:secure_url" content={pageImage} />
+        <meta property="og:url" content={canonicalUrl} />
+        <meta name="twitter:title" content={pageTitle} />
+        <meta name="twitter:description" content={pageDescription} />
+        <meta name="twitter:image" content={pageImage} />
+        <link rel="canonical" href={canonicalUrl} />
+      </Helmet>
+      <Toast msg={toast.msg} type={toast.type} visible={toast.visible} onClose={()=>setToast(t=>({...t,visible:false}))}/>
+
+      {/* Nav */}
+      <nav className={`fixed top-0 left-0 right-0 z-40 backdrop-blur-xl border-b transition-colors duration-300 pwa-header shadow-md ${isDarkMode ? 'bg-[#0c2b5e]/70 border-transparent shadow-[#0c2b5e]/10' : 'bg-white/80 border-slate-200/80 shadow-slate-100'}`}>
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('home')}>
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-900 to-blue-950 rounded-xl flex items-center justify-center border border-amber-500/30">
-                <span className="text-amber-400 text-xl">🇮🇶</span>
-              </div>
-              <div className="hidden sm:block">
-                <h1 className="text-lg font-bold text-white">سوك بغداد</h1>
-              </div>
-            </div>
-
-            {/* Search Bar */}
-            <div className="hidden md:flex flex-1 max-w-xl mx-8">
+            <button onClick={()=>setView('home')} className="flex items-center gap-2">
+              <Logo small/>
+              <span className={`font-bold text-sm sm:text-lg transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>سوك بغداد</span>
+            </button>
+            <div className="hidden md:flex flex-1 max-w-sm mx-6">
               <div className="relative w-full">
-                <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="ابحث عن سيارة، عقار، هاتف..."
-                  className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-2 pr-12 pl-4 border border-gray-700 focus:border-amber-400"
-                />
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
+                <input placeholder="ابحث في سوك بغداد..." onClick={()=>setView('home')} readOnly className={`w-full rounded-xl py-2 pr-9 pl-4 border outline-none text-sm cursor-pointer transition-colors ${isDarkMode ? 'bg-gray-800 text-white placeholder-gray-400 border-gray-700' : 'bg-slate-100 text-slate-800 placeholder-slate-400 border-slate-200'}`}/>
               </div>
             </div>
-
-            {/* Desktop Menu */}
-            <div className="hidden lg:flex items-center gap-3">
-              <button
-                onClick={toggleDarkMode}
-                className="p-2 rounded-xl bg-gray-800 text-amber-400 hover:bg-gray-700"
-              >
-                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
-              <button className="p-2 rounded-xl bg-gray-800 text-white hover:bg-gray-700 relative" onClick={() => setCurrentView('profile')}>
-                <UserCircle className="w-5 h-5" />
-              </button>
-              {isEnabled('ai_assist') && (
-                <button className="p-2 rounded-xl bg-gray-800 text-white hover:bg-gray-700 relative" onClick={() => setCurrentView('ai-center')}>
-                  <Cpu className="w-5 h-5" />
+            <div className="hidden lg:flex items-center gap-2">
+              {user?(
+                <>
+                  <button onClick={()=>setShowNotifs(true)} className={`p-2 rounded-xl relative transition-colors ${isDarkMode ? 'bg-gray-800 text-white hover:bg-gray-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`} title="الإشعارات" aria-label="الإشعارات">
+                    <Bell className="w-5 h-5"/>
+                    {notifications.length > 0 && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center">
+                        {notifications.length}
+                      </span>
+                    )}
+                  </button>
+                  <button onClick={() => window.location.hash = '#/profile/wallet'} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border transition-colors ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-white border-gray-700 hover:border-amber-500/50' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 hover:border-amber-500/50'}`} title="محفظتي">
+                    <Wallet className="w-4 h-4 text-emerald-400"/>
+                    <span className="font-bold font-mono">{user.points || 0}</span>
+                  </button>
+                  {isOwner&&<button onClick={()=>setView('owner')} className={`p-2 rounded-xl text-amber-400 hover:bg-amber-500/20 ${view==='owner'?'bg-amber-500/20':''}`} title="لوحة المالك" aria-label="لوحة المالك"><Crown className="w-5 h-5"/></button>}
+                  {isAdmin&&!isOwner&&<button onClick={()=>setView('admin')} className={`p-2 rounded-xl text-red-400 hover:bg-red-500/20 ${view==='admin'?'bg-red-500/20':''}`} title="لوحة الإدارة" aria-label="لوحة الإدارة"><Settings className="w-5 h-5"/></button>}
+                  <button onClick={()=>{setShowCreateProduct(true);setEditingProduct(null);}}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-bold rounded-xl text-sm hover:bg-purple-700">
+                    <ShoppingBag className="w-4 h-4"/> منتج</button>
+                  <button onClick={() => window.location.hash = '#/profile'} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm border transition-colors ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':(isDarkMode ? 'bg-gray-800 border-gray-700 text-white hover:bg-gray-700' : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200')}`}>
+                    <img src={user.avatar} alt="" className={`w-6 h-6 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border border-gray-600'}`}/>
+                    <span className="max-w-20 truncate">{user.name}</span>{isOwner&&<Crown className="w-3 h-3 text-amber-400"/>}</button>
+                  <button onClick={handleLogout} className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20" title="تسجيل الخروج" aria-label="تسجيل الخروج"><LogOut className="w-5 h-5"/></button>
+                </>
+              ):(
+                <>
+                  <button onClick={()=>setShowAuth(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-bold rounded-xl text-sm hover:bg-blue-700"><LogIn className="w-4 h-4"/> تسجيل الدخول</button>
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 lg:hidden">
+              {/* Dark mode toggle mobile */}
+              {user ? (
+                <>
+                  <button onClick={() => window.location.hash = '#/profile/wallet'} className="flex items-center gap-1 px-2 py-1.5 bg-gray-800 text-white rounded-xl text-xs border border-gray-700" title="محفظتي">
+                    <Wallet className="w-3 h-3 text-emerald-400"/>
+                    <span className="font-bold font-mono">{user.points || 0}</span>
+                  </button>
+                  <button onClick={() => window.location.hash = '#/profile'} className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white'}`}>
+                    <img src={user.avatar} alt="" className={`w-5.5 h-5.5 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border border-gray-600'}`}/>
+                    <span className="max-w-16 truncate hidden sm:block">{user.name}</span>
+                  </button>
+                </>
+              ) : (
+                <button onClick={()=>setShowAuth(true)} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white font-bold rounded-xl text-xs hover:bg-blue-700">
+                  <LogIn className="w-3.5 h-3.5"/> <span>دخول</span>
                 </button>
               )}
-              <button className="p-2 rounded-xl bg-gray-800 text-white hover:bg-gray-700 relative">
-                <Heart className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-xs text-white">3</span>
+              <button onClick={()=>setShowNotifs(true)} className="p-1.5 rounded-xl bg-gray-800 text-white hover:bg-gray-700 relative" title="الإشعارات" aria-label="الإشعارات">
+                <Bell className="w-4 h-4"/>
+                {notifications.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full text-[9px] text-white flex items-center justify-center">
+                    {notifications.length}
+                  </span>
+                )}
               </button>
-              <button
-                onClick={() => setShowNotifications((prev) => !prev)}
-                className="p-2 rounded-xl bg-gray-800 text-white hover:bg-gray-700 relative"
-              >
-                <Bell className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full text-xs text-black">{notifications.filter((n) => !n.read).length || 0}</span>
-              </button>
-              <button
-                onClick={() => setShowCreateAd(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl"
-              >
-                <Plus className="w-5 h-5" />
-                <span>رفع إعلان</span>
-              </button>
-              <button
-                onClick={handleLogout}
-                className="p-2 rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500/30"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
+              <button onClick={()=>setShowMobileMenu(true)} className="p-1.5 rounded-xl bg-gray-800 text-white" title="القائمة" aria-label="القائمة"><Menu className="w-4.5 h-4.5"/></button>
             </div>
-
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="lg:hidden p-2 rounded-xl bg-gray-800 text-white"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
           </div>
         </div>
       </nav>
 
-      {/* Mobile Menu */}
-      {showMobileMenu && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowMobileMenu(false)} />
-          <div className="absolute right-0 top-0 bottom-0 w-80 bg-gray-900 p-6 overflow-y-auto">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-900 rounded-xl flex items-center justify-center">
-                  <span className="text-amber-400">🇮🇶</span>
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-white">سوك بغداد</h2>
-                  <p className="text-xs text-amber-400">مرحباً {user.name}</p>
-                </div>
-              </div>
-              <button onClick={() => setShowMobileMenu(false)} className="p-2 bg-gray-800 rounded-xl text-white">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="bg-gray-800 rounded-2xl p-4 mb-6">
-              <div className="flex items-center gap-4 mb-4">
-                <img src={user.avatar} alt={user.name} className="w-12 h-12 rounded-full" />
-                <div>
-                  <h3 className="text-white font-bold">{user.name}</h3>
-                  <p className="text-gray-400 text-sm">{user.phone}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="text-xl font-bold text-amber-400">0</p>
-                  <p className="text-xs text-gray-400">إعلان</p>
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-amber-400">0</p>
-                  <p className="text-xs text-gray-400">مفضلة</p>
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-amber-400">0</p>
-                  <p className="text-xs text-gray-400">مشاهدة</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              {visibleCategories.map((cat) => (
+      {/* Floating Action Sub-Navbar Controls */}
+      <AnimatePresence>
+        {showScrollButtons && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="fixed top-[76px] inset-x-0 z-30 pointer-events-none"
+          >
+            <div className="container mx-auto px-4 flex justify-between items-center" dir="rtl">
+              {/* Right Side (below Logo in RTL) */}
+              <div className="pointer-events-auto">
                 <button
-                  key={cat.id}
                   onClick={() => {
-                    setSelectedCategory(cat.id);
-                    if (cat.id === 'games' && isEnabled('games')) setCurrentView('games');
-                    setShowMobileMenu(false);
+                    if (!user) { requireAuth(); return; }
+                    setShowCreateAd(true);
+                    setEditingAd(null);
                   }}
-                  className="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-gray-800 transition-colors"
+                  className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-black rounded-full text-xs sm:text-sm shadow-lg shadow-amber-500/30 hover:scale-105 active:scale-95 transition-transform"
                 >
-                  <span className="text-2xl">{cat.emoji}</span>
-                  <span className="text-white font-medium">{cat.name}</span>
+                  <Plus className="w-4 h-4" />
+                  <span>أضف إعلانك</span>
                 </button>
+              </div>
+
+              {/* Left Side (below Other buttons in RTL) */}
+              <div className="pointer-events-auto">
+                <button
+                  onClick={toggleDarkMode}
+                  className={`p-2.5 rounded-full border shadow-lg transition-all flex items-center justify-center hover:scale-105 active:scale-95 ${
+                    isDarkMode
+                      ? 'bg-gray-800 text-amber-400 border-gray-700 hover:border-amber-500/50'
+                      : 'bg-white text-indigo-600 border-slate-200 hover:border-slate-300'
+                  }`}
+                  title={isDarkMode ? 'الوضع النهاري' : 'الوضع الليلي'}
+                  aria-label="تبديل مظهر الموقع"
+                >
+                  {isDarkMode ? <Sun className="w-4.5 h-4.5 text-amber-400" /> : <Moon className="w-4.5 h-4.5 text-indigo-500" />}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Mobile Menu */}
+      <AnimatePresence>
+        {showMobileMenu&&<motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-black/60" onClick={()=>setShowMobileMenu(false)}/>
+          <motion.div initial={{x:300}} animate={{x:0}} exit={{x:300}} className="absolute right-0 top-0 bottom-0 w-72 bg-gray-900 p-5 pb-24 overflow-y-auto border-l border-gray-700">
+            <div className="flex items-center justify-between mb-6"><Logo small/><button onClick={()=>setShowMobileMenu(false)} className="p-2 bg-gray-800 rounded-xl text-white" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button></div>
+            {user?(
+              <div className="bg-gray-800 rounded-2xl p-4 mb-5 border border-gray-700">
+                <div className="flex items-center gap-3">
+                  <img src={user.avatar} alt="" className={`w-12 h-12 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border-2 border-amber-500'}`}/>
+                  <div><div className="flex items-center gap-1"><p className="text-white font-bold text-sm">{user.name}</p>{isOwner&&<Crown className="w-3.5 h-3.5 text-amber-400"/>}</div>
+                    <p className="text-gray-400 text-xs">{user.email}</p></div>
+                </div>
+              </div>
+            ):(
+              <button onClick={()=>{setShowAuth(true);setShowMobileMenu(false);}} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl mb-5 flex items-center justify-center gap-2"><LogIn className="w-4 h-4"/> تسجيل الدخول</button>
+            )}
+            <div className="space-y-1">
+              {CATEGORIES.filter(c=>c.id!=='games').map(c=>(
+                <button key={c.id} onClick={()=>{setView('home');setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800 text-white text-sm">
+                  <span className="text-xl">{c.emoji}</span><span>{c.name}</span></button>
               ))}
             </div>
+            {user&&<div className="mt-5 pt-5 border-t border-gray-700 space-y-1">
+              <button onClick={()=>{setShowCreateAd(true);setEditingAd(null);setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl bg-amber-500 text-black font-bold text-sm"><Plus className="w-5 h-5"/> رفع إعلان</button>
+              <button onClick={()=>{setShowCreateProduct(true);setEditingProduct(null);setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl bg-purple-600 text-white font-bold text-sm"><ShoppingBag className="w-5 h-5"/> إضافة منتج</button>
+              <button onClick={()=>{setView('profile');setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800 text-white text-sm"><UserIcon className="w-5 h-5 text-gray-400"/> ملفي الشخصي</button>
+              {isOwner&&<button onClick={()=>{setView('owner');setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800 text-amber-400 text-sm"><Crown className="w-5 h-5"/> داشبورت المالك</button>}
+              {isAdmin&&!isOwner&&<button onClick={()=>{setView('admin');setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800 text-red-400 text-sm"><Settings className="w-5 h-5"/> لوحة الإدارة</button>}
+              <button onClick={()=>{handleLogout();setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800 text-red-400 text-sm"><LogOut className="w-5 h-5"/> تسجيل الخروج</button>
+            </div>}
+          </motion.div>
+        </motion.div>}
+      </AnimatePresence>
 
-            <div className="mt-6 pt-6 border-t border-gray-800 space-y-2">
-              <button
-                onClick={() => {
-                  setCurrentView('profile');
-                  setShowMobileMenu(false);
-                }}
-                className="w-full flex items-center gap-4 p-3 rounded-xl bg-gray-800 text-white hover:bg-gray-700"
-              >
-                <UserCircle className="w-5 h-5" />
-                <span>صفحتي</span>
-              </button>
-              <button
-                onClick={() => {
-                  setCurrentView('ai-center');
-                  setShowMobileMenu(false);
-                }}
-                className="w-full flex items-center gap-4 p-3 rounded-xl bg-gray-800 text-white hover:bg-gray-700"
-              >
-                <Cpu className="w-5 h-5" />
-                <span>AI Center</span>
-              </button>
-              <button
-                onClick={() => {
-                  setShowCreateAd(true);
-                  setShowMobileMenu(false);
-                }}
-                className="w-full flex items-center gap-4 p-3 rounded-xl bg-amber-500 text-black font-bold"
-              >
-                <Plus className="w-5 h-5" />
-                <span>رفع إعلان</span>
-              </button>
-              <button onClick={toggleDarkMode} className="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-gray-800">
-                {darkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-blue-400" />}
-                <span className="text-white">{darkMode ? 'الوضع الفاتح' : 'الوضع الداكن'}</span>
-              </button>
-              <button onClick={handleLogout} className="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-gray-800 text-red-400">
-                <LogOut className="w-5 h-5" />
-                <span>تسجيل الخروج</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <main className="pt-24 pb-12">
-        {/* Hero Section */}
-        <section className="relative overflow-hidden pt-24 pb-16">
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-6 left-[10%] h-72 w-72 rounded-full bg-amber-500/10 blur-3xl" />
-            <div className="absolute top-24 right-[10%] h-96 w-96 rounded-full bg-sky-500/10 blur-3xl" />
-            <div className="absolute bottom-0 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-cyan-500/10 blur-3xl" />
-            <div className="absolute inset-x-0 top-16 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-40" />
-          </div>
-          <div className="container mx-auto px-4 relative z-10">
-            <div className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] items-center">
-              <div className="space-y-8">
-                <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/10 px-4 py-2 text-sm font-semibold text-amber-300 backdrop-blur-xl">
-                  منصة عراقية ذكية بتصميم عالمي
-                </div>
-                <motion.h1
-                  initial={{ opacity: 0, y: 24 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6 }}
-                  className="text-5xl md:text-6xl font-bold tracking-tight text-white leading-tight"
-                >
-                  تجربة سوق رقمية
-                  <span className="block text-amber-400">فاخرة ومستقبلية</span>
-                </motion.h1>
-                <motion.p
-                  initial={{ opacity: 0, y: 24 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.7, delay: 0.1 }}
-                  className="max-w-2xl text-lg text-slate-200/90 leading-relaxed"
-                >
-                  تصميم مستوحى من HONOR AI مع واجهة زجاجية، هياكل ناعمة، وحركة سلسة تناسب تجربة مستخدم عالمية.
-                </motion.p>
-                <motion.div
-                  initial={{ opacity: 0, y: 24 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.7, delay: 0.2 }}
-                  className="flex flex-wrap gap-4"
-                >
-                  <button onClick={() => setCurrentView('profile')} className="rounded-3xl bg-amber-400 px-8 py-4 text-black font-semibold shadow-xl shadow-amber-500/20 transition hover:-translate-y-0.5">
-                    صفحتي
-                  </button>
-                  {isEnabled('ai_assist') && (
-                    <button onClick={() => setCurrentView('ai-center')} className="rounded-3xl border border-white/20 bg-white/5 px-8 py-4 text-white transition hover:bg-white/10">
-                      AI Center
-                    </button>
-                  )}
-                </motion.div>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <motion.div whileHover={{ y: -6 }} className="glass rounded-3xl border border-white/10 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="inline-flex items-center justify-center h-12 w-12 rounded-2xl bg-amber-500/15 text-amber-300">
-                        <Sparkles className="w-6 h-6" />
-                      </div>
-                      <span className="text-xs uppercase tracking-[0.2em] text-gray-300">Premium</span>
-                    </div>
-                    <h3 className="text-lg font-semibold text-white">تصميم فاخر</h3>
-                    <p className="mt-3 text-sm text-gray-300">واجهة واضحة وسلسة مع تأثير زجاجي ودرجات ألوان متطورة.</p>
-                  </motion.div>
-                  <motion.div whileHover={{ y: -6 }} className="glass rounded-3xl border border-white/10 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="inline-flex items-center justify-center h-12 w-12 rounded-2xl bg-cyan-500/15 text-cyan-300">
-                        <Search className="w-6 h-6" />
-                      </div>
-                      <span className="text-xs uppercase tracking-[0.2em] text-gray-300">Smooth</span>
-                    </div>
-                    <h3 className="text-lg font-semibold text-white">تفاعل ذكي</h3>
-                    <p className="mt-3 text-sm text-gray-300">حركة دقيقة وانتقالات ناعمة تجعل كل قسم تجربة مصقولة.</p>
-                  </motion.div>
-                  <motion.div whileHover={{ y: -6 }} className="glass rounded-3xl border border-white/10 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="inline-flex items-center justify-center h-12 w-12 rounded-2xl bg-blue-500/15 text-blue-300">
-                        <Shield className="w-6 h-6" />
-                      </div>
-                      <span className="text-xs uppercase tracking-[0.2em] text-gray-300">Modern</span>
-                    </div>
-                    <h3 className="text-lg font-semibold text-white">أمان ومصداقية</h3>
-                    <p className="mt-3 text-sm text-gray-300">تصميم يحافظ على هدوء واجهة المستخدم ويعزز الثقة في المنصة.</p>
-                  </motion.div>
-                </div>
-              </div>
-
-              <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.25 }} className="relative">
-                <div className="glass-panel absolute inset-0 -z-10 rounded-[40px]" />
-                <div className="glass-panel relative overflow-hidden rounded-[40px] border border-white/10 p-6 shadow-2xl shadow-slate-950/40">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-sm uppercase tracking-[0.25em] text-amber-300">مرحباً بك</p>
-                      <h2 className="text-3xl font-bold text-white">سوق مُصمم لوظائف المستقبل</h2>
-                    </div>
-                    <div className="rounded-3xl bg-amber-500/15 px-3 py-2 text-amber-200 text-sm">AI Ready</div>
-                  </div>
-                  <div className="mt-6 space-y-4">
-                    <div className="rounded-3xl bg-white/5 p-5 border border-white/10">
-                      <p className="text-sm text-gray-300">واجهة مستخدم متجانسة، سريع التحميل، وتشغيل سلس لكل الأجهزة.</p>
-                    </div>
-                    <div className="rounded-3xl bg-white/5 p-5 border border-white/10">
-                      <p className="text-sm text-gray-300">أزرار واضحة، نصوص مختارة، وتدرجات تليق بالهوية العراقية المتطورة.</p>
-                    </div>
-                    <div className="rounded-3xl bg-white/5 p-5 border border-white/10">
-                      <p className="text-sm text-gray-300">تجربة متكاملة بين السوق والخدمات مع انسيابية مستوحاة من صفحات التقنية العالمية.</p>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          </div>
-        </section>
-
-        <section className="py-12">
-          <div className="container mx-auto px-4">
-            <div className="grid gap-8 xl:grid-cols-[1.15fr_0.85fr] items-center">
-              <div className="glass-panel rounded-[40px] border border-white/10 p-8 shadow-[0_30px_80px_rgba(15,23,41,0.35)]">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.25em] text-amber-300">هندسة تجربة</p>
-                    <h2 className="text-4xl font-bold text-white">واجهة سوق فاخر مع أصالة عراقية</h2>
-                  </div>
-                  <div className="rounded-full bg-white/10 px-4 py-2 text-sm text-gray-300">Premium Design</div>
-                </div>
-
-                <div className="mt-8 grid gap-4 md:grid-cols-3">
-                  <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                    <div className="inline-flex items-center justify-center h-14 w-14 rounded-3xl bg-amber-500/15 text-amber-300 mb-4">
-                      <Shield className="w-6 h-6" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-white">تصميم راقٍ</h3>
-                    <p className="mt-3 text-sm text-gray-300">لوحات زجاجية متداخلة، تدرجات ذهبية، وانسيابية مرئية في كل واجهة.</p>
-                  </div>
-                  <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                    <div className="inline-flex items-center justify-center h-14 w-14 rounded-3xl bg-cyan-500/15 text-cyan-300 mb-4">
-                      <Cpu className="w-6 h-6" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-white">مركز AI متكامل</h3>
-                    <p className="mt-3 text-sm text-gray-300">واجهة تجمع تجربة الذكاء الاصطناعي والتجارة الرقمية بدون تعقيد تقني.</p>
-                  </div>
-                  <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                    <div className="inline-flex items-center justify-center h-14 w-14 rounded-3xl bg-blue-500/15 text-blue-300 mb-4">
-                      <Star className="w-6 h-6" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-white">سرعة ووضوح</h3>
-                    <p className="mt-3 text-sm text-gray-300">تحكم مرئي سريع، فلاتر دقيقة، وتقديم بيانات سلس لكل مستخدم.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="relative rounded-[40px] overflow-hidden border border-white/10 bg-gradient-to-br from-slate-950/80 via-slate-900/80 to-slate-950/90 p-6 shadow-2xl shadow-slate-950/40">
-                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-cyan-500/10 pointer-events-none" />
-                <div className="relative z-10">
-                  <p className="text-sm uppercase tracking-[0.25em] text-amber-300 mb-4">ترند السوق</p>
-                  <h3 className="text-3xl font-bold text-white mb-4">لوحة تحكم السوق الذكي</h3>
-                  <p className="text-gray-300 leading-relaxed mb-8">لوحة عرض مصممة لتبرز مزايا المشروع وتمنح المستخدمين شعوراً بالقوة والرقي في كل خطوة.</p>
-
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="rounded-3xl bg-gray-900/80 p-5 border border-white/10">
-                      <p className="text-sm text-gray-400">الشعبية اليوم</p>
-                      <p className="mt-2 text-white font-semibold">السيارات الفاخرة في المقدمة</p>
-                    </div>
-                    <div className="rounded-3xl bg-gray-900/80 p-5 border border-white/10">
-                      <p className="text-sm text-gray-400">أقوى العروض</p>
-                      <p className="mt-2 text-white font-semibold">هواتف الألعاب الأعلى بحثاً</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-8 rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-xl shadow-slate-950/20">
-                    <div className="flex items-center justify-between gap-4 mb-4">
-                      <div>
-                        <p className="text-sm text-amber-300">نظرة سريعة</p>
-                        <h4 className="text-xl text-white font-semibold">تجربة فاخرة للمستخدم</h4>
-                      </div>
-                      <div className="rounded-3xl bg-amber-500/15 px-4 py-2 text-sm text-amber-200">AI Ready</div>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-3xl bg-gray-900/90 p-4">
-                        <p className="text-sm text-gray-400">بحث أسرع</p>
-                        <p className="mt-2 text-white font-semibold">دقيقة وسلسة</p>
-                      </div>
-                      <div className="rounded-3xl bg-gray-900/90 p-4">
-                        <p className="text-sm text-gray-400">إشعارات ذكية</p>
-                        <p className="mt-2 text-white font-semibold">تصميم مدمج مع نشاط المستخدم</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Ads Section */}
-        <section className="py-12">
-          <div className="container mx-auto px-4">
-            {/* Filter Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-              <h2 className="text-2xl font-bold text-white">
-                {selectedCategory === 'all' ? 'جميع الإعلانات' : categories.find(c => c.id === selectedCategory)?.name}
-                <span className="text-gray-400 text-lg mr-2">({filteredAds.length})</span>
-              </h2>
-
-              <div className="flex items-center gap-3">
-                {/* Category Filter */}
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="bg-gray-800 text-white rounded-xl px-4 py-2 border border-gray-700"
-                >
-                  {visibleCategories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-
-                {/* View Mode Toggle */}
-                <div className="flex bg-gray-800 rounded-xl p-1">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-amber-500 text-black' : 'text-gray-400'}`}
-                  >
-                    <Grid className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-amber-500 text-black' : 'text-gray-400'}`}
-                  >
-                    <List className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Ads Grid/List */}
-            <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6' : 'space-y-4'}>
-              {filteredAds.map((ad) => (
-                <motion.div
-                  key={ad.id}
-                  whileHover={{ y: -5 }}
-                  onClick={() => setSelectedAd(ad)}
-                  className={`premium-card bg-gray-900/90 rounded-[32px] overflow-hidden border border-white/10 hover:border-amber-500/50 cursor-pointer transition-all ${viewMode === 'list' ? 'flex' : ''}`}
-                >
-                  <div className={`relative ${viewMode === 'list' ? 'w-48' : 'aspect-[4/3]'} ${viewMode === 'list' ? 'h-48' : ''}`}>
-                    <img src={ad.image} alt={ad.title} className="w-full h-full object-cover" />
-                    {ad.type === 'rent' && (
-                      <div className="absolute top-3 left-3 px-2 py-1 bg-blue-500 rounded-full text-xs font-bold text-white">
-                        للإيجار
-                      </div>
-                    )}
-                  </div>
-                  <div className={`p-4 ${viewMode === 'list' ? 'flex-1' : ''}`}>
-                    <h3 className="text-white font-bold mb-2 line-clamp-1">{ad.title}</h3>
-                    <p className="text-xl font-bold text-amber-400 mb-2">{ad.price} د.ع</p>
-                    <div className="flex items-center gap-2 text-gray-400 text-sm mb-3">
-                      <MapPin className="w-4 h-4" />
-                      <span className="line-clamp-1">{ad.location}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-gray-500 text-xs">
-                      <span>{ad.time}</span>
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1">
-                          <ViewIcon className="w-3 h-3" />
-                          <span>{ad.views}</span>
-                        </div>
-                        <span className="px-2 py-1 rounded-full bg-gray-800 text-gray-300 text-[11px]">{ad.status}</span>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Entertainment Section */}
-        <section className="hidden py-12 bg-gradient-to-br from-purple-900 via-blue-900 to-purple-900">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-8">
-              <span className="inline-flex items-center gap-2 bg-amber-500/20 px-4 py-2 rounded-full mb-4">
-                <Gamepad2 className="w-5 h-5 text-amber-400" />
-                <span className="text-amber-400 font-semibold">قسم الترفيه</span>
-              </span>
-              <h2 className="text-3xl font-bold text-white mb-2">🎮 الألعاب الترفيهية</h2>
-              <p className="text-gray-300">اضغط وابدأ اللعب مباشرة!</p>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {gamesData.map((game) => (
-                <motion.div
-                  key={game.id}
-                  whileHover={{ scale: 1.05, y: -5 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setCurrentView('games')}
-                  className="bg-white/10 backdrop-blur rounded-2xl p-4 text-center border border-white/20 cursor-pointer hover:bg-white/20"
-                >
-                  <div className="text-4xl mb-2">{game.emoji}</div>
-                  <h3 className="text-white font-bold text-sm mb-1">{game.title}</h3>
-                  <div className="flex items-center justify-center gap-1 text-gray-300 text-xs">
-                    <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                    <span>{game.rating}</span>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
+      {/* Main */}
+      <main className="pwa-main">
+        <AnimatePresence mode="wait">
+          {view==='home'&&<motion.div key="home" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+            <MarketView 
+              user={user} 
+              allAds={allAds} 
+              allProducts={allProducts} 
+              favorites={favorites} 
+              storedUsers={storedUsers} 
+              onSelectAd={setSelectedAd} 
+              onSelectProduct={setSelectedProduct} 
+              onToggleFav={handleToggleFav} 
+              onRequireAuth={requireAuth} 
+              onSellerClick={handleSellerClick} 
+              onTransportClick={()=>{setView('transport');setBottomNavActive('transport');}} 
+              isStandalone={isStandalone}
+              onInstallClick={handleInstallClick}
+              onSelectTransportAd={setSelectedTransportAd} 
+              transportLines={allTransportAds}
+              search={search}
+              setSearch={setSearch}
+              cat={cat}
+              setCat={setCat}
+              gov={gov}
+              setGov={setGov}
+              sort={sort}
+              setSort={setSort}
+              priceMin={priceMin}
+              setPriceMin={setPriceMin}
+              priceMax={priceMax}
+              setPriceMax={setPriceMax}
+              hasMoreAds={hasMoreAds}
+              hasMoreProducts={hasMoreProducts}
+              onLoadMoreAds={() => fetchAds(false)}
+              onLoadMoreProducts={() => fetchProducts(false)}
+              totalAdsCount={totalAdsCount}
+              totalProductsCount={totalProductsCount}
+              loadingMoreAds={loadingMoreAds}
+              loadingMoreProducts={loadingMoreProducts}
+              isInitialLoading={isInitialLoading}
+            />
+          </motion.div>}
+          {view==='products'&&<motion.div key="products" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+            <Suspense fallback={<LoadingScreen isLoading={true} />}>
+              <ProductsView 
+                user={user} 
+                onBack={()=>setView('home')} 
+                onCreateProduct={()=>{if(!user){requireAuth();return;}setShowCreateProduct(true);}} 
+                onSelectProduct={setSelectedProduct} 
+                products={allProducts} 
+                onActionMenu={setActionMenuTarget} 
+                hasMoreProducts={hasMoreProducts} 
+                onLoadMoreProducts={() => fetchProducts(false)}
+                totalProductsCount={totalProductsCount}
+                loadingMoreProducts={loadingMoreProducts}
+                isInitialLoading={isInitialLoading}
+                search={search}
+                setSearch={setSearch}
+                cat={cat}
+                setCat={setCat}
+                gov={gov}
+                setGov={setGov}
+                sort={sort}
+                setSort={setSort}
+                priceMin={priceMin}
+                setPriceMin={setPriceMin}
+                priceMax={priceMax}
+                setPriceMax={setPriceMax}
+                conditionFilter={conditionFilter}
+                setConditionFilter={setConditionFilter}
+              />
+            </Suspense>
+          </motion.div>}
+          {view==='profile'&&user&&<motion.div key="profile" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+            <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold} favorites={favorites} allAds={allAds} allProducts={allProducts} onAdSelect={setSelectedAd} onProductSelect={setSelectedProduct} onFav={handleToggleFav} onStoreGuideClick={() => setShowStoreGuide(true)} /></motion.div>}
+          {view==='seller'&&selectedSellerId&&<motion.div key="seller" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+            <SellerPublicPage sellerId={selectedSellerId} allAds={allAds} allProducts={allProducts} allTransportAds={allTransportAds} storedUsers={storedUsers} onBack={() => {
+              setView('home');
+              if (previousSellerSource === 'accounts') {
+                if (typeof window !== 'undefined') window.location.hash = '#/accounts';
+                setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-profiles-tab')), 50);
+              } else {
+                if (typeof window !== 'undefined') window.location.hash = '#/';
+              }
+            }} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} onSelectTransport={setSelectedTransportAd} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile} onActionMenu={setActionMenuTarget}/></motion.div>}
+          {view==='transport'&&<motion.div key="transport" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+            <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd} onActionMenu={setActionMenuTarget} isInitialLoading={isInitialLoading || loadingTransport} storedUsers={storedUsers} onLoadMore={() => fetchTransportAds(false)} hasMore={hasMoreTransport} totalCount={totalTransportCount} adCosts={adCosts}/></motion.div>}
+          {view==='admin'&&isAdmin&&!isOwner&&<motion.div key="admin" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+            <AdminPanel ads={allAds} onDeleteAd={handleDeleteAd} onClose={()=>setView('home')}/></motion.div>}
+          {view==='owner'&&isOwner&&<motion.div key="owner" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+            <Suspense fallback={<LoadingScreen isLoading={true} />}>
+              <OwnerDashboard ads={allAds} products={allProducts} transportAds={allTransportAds} onDeleteAd={handleDeleteAd} onDeleteProduct={handleDeleteProduct} onDeleteTransportAd={handleDeleteTransportAd} onClose={()=>setView('home')} onDeleteProfile={handleDeleteProfile}/>
+            </Suspense></motion.div>}
+        </AnimatePresence>
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-900 border-t border-gray-800 py-8">
+      <footer className="bg-[#0c2b5e] border-t border-[#d4af37]/20 py-6">
         <div className="container mx-auto px-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <span className="text-2xl">🇮🇶</span>
-            <span className="text-xl font-bold text-white">سوك بغداد</span>
+          <div className="flex items-center justify-center gap-2 mb-3"><span className="text-2xl">🇮🇶</span><span className="text-lg font-bold text-white">سوك بغداد</span></div>
+                    <p className="text-gray-500 text-xs">© 2025 سوك بغداد — السوق الرقمي العراقي</p>
+          
+          <div className="flex items-center justify-center gap-4 mt-3">
+            <a href="https://wa.me/9647700028170" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700/50 flex items-center justify-center text-green-400 hover:bg-green-500/10 hover:border-green-500/30 transition-all" title="واتساب الدعم">
+              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
+            </a>
+            <a href="https://instagram.com/SOUQBAGHDAD.IQ" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700/50 flex items-center justify-center text-pink-400 hover:bg-pink-500/10 hover:border-pink-500/30 transition-all" title="انستغرام المنصة">
+              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>
+            </a>
+            <a href="https://t.me/SOUQBAGHDA" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700/50 flex items-center justify-center text-sky-400 hover:bg-sky-500/10 hover:border-sky-500/30 transition-all" title="تليكرام المنصة">
+              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M11.944 0C5.344 0 0 5.344 0 12c0 6.656 5.344 12 12 12 6.656 0 12-5.344 12-12C24 5.344 18.656 0 11.944 0zm5.892 8.046c-.144.9-.99 5.874-1.44 8.286-.192 1.014-.564 1.356-.924 1.392-.786.072-1.386-.516-2.148-1.014-.762-.5-1.188-.81-1.926-1.296-.852-.564-.3-.876.186-1.38.126-.132 2.334-2.136 2.376-2.316.006-.024.012-.114-.042-.162-.054-.048-.132-.03-.186-.018-.084.018-1.392.882-3.924 2.592-.372.258-.708.384-1.008.378-.33-.006-.966-.186-1.44-.342-.582-.192-1.044-.294-1.002-.624.024-.168.252-.342.69-.516 2.688-1.17 4.482-1.938 5.388-2.31 2.562-1.056 3.096-1.242 3.444-1.248.078 0 .252.018.366.114.096.084.12.198.132.282.012.072.024.228.012.384z"/></svg>
+            </a>
           </div>
-          <p className="text-gray-400 text-sm">© 2024 سوك بغداد - السوق الرقمي العراقي</p>
-          <div className="flex items-center justify-center gap-4 mt-4">
-            <div className="w-4 h-4 bg-white rounded-full" />
-            <div className="w-4 h-4 bg-black rounded-full" />
-            <div className="w-4 h-4 bg-red-600 rounded-full" />
-          </div>
-          <p className="text-gray-500 text-xs mt-2">🇮🇶 العراق</p>
+
+          <div className="flex items-center justify-center gap-3 mt-3 text-gray-500 text-xs flex-wrap">
+            {['الشروط والأحكام','سياسة الخصوصية','تواصل معنا','من نحن','سجل التحديثات'].map(l=><button key={l} onClick={()=>setActiveDocTab(l)} className="hover:text-amber-400">{l}</button>)}</div>
         </div>
       </footer>
 
-      {/* Modals */}
-      <CreateAdModal
-        isOpen={showCreateAd}
-        onClose={() => setShowCreateAd(false)}
-        onSubmit={(data) => {
-          setAds((prev) => [data, ...prev]);
-          setNotifications((prev) => [
-            { id: Date.now(), title: 'نشر إعلان جديد', body: 'تم نشر إعلانك بنجاح.', read: false, createdAt: 'الآن' },
-            ...prev,
-          ]);
-          void (async () => {
-            try {
-              const { error } = await supabase.from('ads').insert(mapAdToDbRow(data, user));
-              if (error) {
-                console.error('Failed to sync new ad to Supabase', error);
-              }
-            } catch (syncError) {
-              console.error('Unexpected ad sync error', syncError);
-            }
-          })();
-        }}
-      />
-      {showNotifications && (
-        <div className="fixed right-4 top-20 z-50 w-96 bg-gray-900/95 border border-gray-700 rounded-3xl p-4 shadow-2xl">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-white font-bold">الإشعارات</h3>
-            <button onClick={() => setShowNotifications(false)} className="text-gray-400 hover:text-white">إغلاق</button>
-          </div>
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {notifications.map((note) => (
-              <div key={note.id} className={`rounded-3xl p-4 border ${note.read ? 'border-gray-700 bg-gray-900' : 'border-amber-500 bg-amber-500/10'}`}>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <h4 className="text-white font-semibold">{note.title}</h4>
-                  <span className="text-xs text-gray-400">{note.createdAt}</span>
-                </div>
-                <p className="text-gray-300 text-sm">{note.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <AdDetailModal
-        ad={selectedAd}
-        onClose={() => setSelectedAd(null)}
-      />
-
       {/* Bottom Navigation Bar - Fixed Mobile First */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900/95 backdrop-blur-xl border-t border-gray-800 lg:hidden safe-area-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#0c2b5e]/95 backdrop-blur-xl border-t border-[#d4af37]/20 lg:hidden pwa-bottom-nav">
         <div className="flex items-center justify-around h-16 px-2">
-          {/* الرئيسية */}
+          {/* الملف الشخصي */}
           <button
-            onClick={() => { setBottomNavActive('home'); setCurrentView('home'); }}
-            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'home' ? 'text-amber-400' : 'text-gray-400'}`}
+            onClick={() => {
+              if (!user) {
+                requireAuth();
+              } else {
+                setBottomNavActive('profile');
+                setView('profile');
+              }
+            }}
+            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'profile' ? 'text-purple-400' : 'text-gray-400'}`}
           >
-            <div className={`p-2 rounded-xl ${bottomNavActive === 'home' ? 'bg-amber-500/20' : ''}`}>
-              <Home className="w-6 h-6" />
+            <div className={`p-2 rounded-xl ${bottomNavActive === 'profile' ? 'bg-purple-500/20' : ''}`}>
+              <UserCircle className="w-6 h-6" />
             </div>
-            <span className="text-[10px] mt-1 font-medium">الرئيسية</span>
+            <span className="text-[10px] mt-1 font-medium">حسابي</span>
           </button>
 
-          {/* الخطوط */}
+          {/* المنتجات */}
           <button
-            onClick={() => { setBottomNavActive('transport'); setCurrentView('transport'); }}
-            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'transport' ? 'text-emerald-400' : 'text-gray-400'}`}
+            onClick={() => { setBottomNavActive('products'); setView('products'); }}
+            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'products' ? 'text-blue-400' : 'text-gray-400'}`}
           >
-            <div className={`p-2 rounded-xl ${bottomNavActive === 'transport' ? 'bg-emerald-500/20' : ''}`}>
-              <Car className="w-6 h-6" />
+            <div className={`p-2 rounded-xl ${bottomNavActive === 'products' ? 'bg-blue-500/20' : ''}`}>
+              <ShoppingBag className="w-6 h-6" />
             </div>
-            <span className="text-[10px] mt-1 font-medium">الخطوط</span>
+            <span className="text-[10px] mt-1 font-medium">المنتجات</span>
           </button>
 
           {/* إضافة إعلان */}
           <button
-            onClick={() => { setBottomNavActive('create-ad'); setShowCreateAd(true); }}
+            onClick={() => {
+              if (!user) {
+                requireAuth();
+              } else {
+                setBottomNavActive('create-ad');
+                setShowCreateAd(true);
+              }
+            }}
             className="flex flex-col items-center justify-center flex-1 py-2"
           >
             <div className="p-3 bg-gradient-to-r from-amber-500 to-yellow-500 rounded-full -mt-6 shadow-lg shadow-amber-500/30">
@@ -1653,74 +2865,135 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
             <span className="text-[10px] mt-1 font-medium text-amber-400">إعلان</span>
           </button>
 
-          {/* إضافة منتج */}
+          {/* الخطوط */}
           <button
-            onClick={() => { setBottomNavActive('create-product'); setShowCreateProduct(true); }}
-            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'create-product' ? 'text-blue-400' : 'text-gray-400'}`}
+            onClick={() => { setBottomNavActive('transport'); setView('transport'); }}
+            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'transport' ? 'text-emerald-400' : 'text-gray-400'}`}
           >
-            <div className={`p-2 rounded-xl ${bottomNavActive === 'create-product' ? 'bg-blue-500/20' : ''}`}>
-              <ShoppingBag className="w-6 h-6" />
+            <div className={`p-2 rounded-xl ${bottomNavActive === 'transport' ? 'bg-emerald-500/20' : ''}`}>
+              <Car className="w-6 h-6" />
             </div>
-            <span className="text-[10px] mt-1 font-medium">منتج</span>
+            <span className="text-[10px] mt-1 font-medium">الخطوط</span>
           </button>
 
-          {/* الملف الشخصي */}
+          {/* الرئيسية */}
           <button
-            onClick={() => { setBottomNavActive('profile'); }}
-            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'profile' ? 'text-purple-400' : 'text-gray-400'}`}
+            onClick={() => { setBottomNavActive('home'); setView('home'); }}
+            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'home' ? 'text-amber-400' : 'text-gray-400'}`}
           >
-            <div className={`p-2 rounded-xl ${bottomNavActive === 'profile' ? 'bg-purple-500/20' : ''}`}>
-              <UserCircle className="w-6 h-6" />
+            <div className={`p-2 rounded-xl ${bottomNavActive === 'home' ? 'bg-amber-500/20' : ''}`}>
+              <Home className="w-6 h-6" />
             </div>
-            <span className="text-[10px] mt-1 font-medium">حسابي</span>
+            <span className="text-[10px] mt-1 font-medium">الرئيسية</span>
           </button>
         </div>
       </nav>
-    </div>
-  );
-}
 
-// Main App Component
-export default function App() {
-  const { user, isAuthenticated, isLoading, logout } = useAuth();
+      {/* Modals */}
+      <AnimatePresence>
+        {showOnboarding&&<OnboardingModal onClose={()=>{setShowOnboarding(false);localStorage.setItem('souqOnboarded','1');}}/>}
+        {showAuth&&<AuthModal onClose={()=>setShowAuth(false)} onLogin={handleLogin}/>}
+        {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllAds(prev => prev.map(a => String(a.id) === String(id) ? { ...a, views: Math.max(a.views || 0, views) } : a)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'ad' } })); }} />}
+        {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllProducts(prev => prev.map(p => String(p.id) === String(id) ? { ...p, views: Math.max(p.views || 0, views) } : p)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'product' } })); }} />}
+        {selectedTransportAd&&<TransportDetailModal ad={selectedTransportAd} onClose={()=>setSelectedTransportAd(null)} user={user} onAuthRequired={requireAuth} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedTransportAd.id, selectedTransportAd.type==='offer'?'خط متوفر':'طلب خط', selectedTransportAd.postedBy || '', 'transport', sec)} storedUsers={storedUsers}/>}
+        {showCreateAd&&user&&<AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd} cost={adCosts.ad !== undefined ? adCosts.ad : 1} />}
+        {showCreateProduct&&user&&<ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct} cost={adCosts.product !== undefined ? adCosts.product : 1} />}
+        {showNotifs&&<NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick} onMarkRead={markNotifAsRead} onArchiveAll={handleArchiveAllNotifications}/>}
+        {activeDocTab&&<InfoDocsModal activeTab={activeDocTab} onClose={()=>setActiveDocTab(null)} user={user}/>}
+        {activeLightbox&&<ImageLightboxModal src={activeLightbox.src} title={activeLightbox.title} images={(activeLightbox as any).images} initialIdx={(activeLightbox as any).initialIdx} onClose={()=>setActiveLightbox(null)}/>}
+        {congratulationsItem && <CongratulationsModal item={congratulationsItem} onClose={() => setCongratulationsItem(null)} />}
+        {shareModalData.isOpen && (
+          <Suspense fallback={null}>
+            <ShareModal
+              isOpen={shareModalData.isOpen}
+              onClose={() => setShareModalData(prev => ({ ...prev, isOpen: false }))}
+              title={shareModalData.title}
+              url={shareModalData.url}
+              image={shareModalData.image}
+              price={shareModalData.price}
+              governorate={shareModalData.governorate}
+              location={shareModalData.location}
+              short_id={shareModalData.short_id}
+              description={(shareModalData as any).description}
+            />
+          </Suspense>
+        )}
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('souqTheme');
-    if (savedTheme === 'light') {
-      document.documentElement.classList.remove('dark');
-    }
-  }, []);
+        {showInstallGuide && (
+          <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={()=>setShowInstallGuide(null)}/>
+            <motion.div initial={{scale:0.95}} animate={{scale:1}} className="relative bg-gray-900 rounded-3xl p-6 w-full max-w-md border border-gray-700 shadow-2xl text-right" dir="rtl">
+              <button onClick={()=>setShowInstallGuide(null)} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
+              
+              {showInstallGuide === 'safari' && (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Smartphone className="w-5 h-5 text-amber-400"/> تثبيت التطبيق على iPhone (Safari)</h2>
+                  <p className="text-gray-400 text-sm mb-4">لتثبيت تطبيق "سوك بغداد" على الشاشة الرئيسية لجهاز الـ iPhone الخاص بك، يرجى اتباع الخطوات البسيطة التالية:</p>
+                  <ol className="space-y-3 text-gray-300 text-sm list-decimal list-inside">
+                    <li>اضغط على زر <span className="font-bold text-amber-400">مشاركة (Share)</span> <Share2 className="w-4 h-4 inline-block mx-1 text-amber-400"/> الموجود في شريط الأدوات بالأسفل.</li>
+                    <li>قم بالتمرير لأسفل واضغط على خيار <span className="font-bold text-amber-400">إضافة إلى الشاشة الرئيسية (Add to Home Screen)</span> <Plus className="w-4 h-4 inline-block mx-1 text-amber-400"/>.</li>
+                    <li>اضغط على <span className="font-bold text-amber-400">إضافة (Add)</span> في الزاوية العلوية اليمنى لإتمام التثبيت.</li>
+                  </ol>
+                </>
+              )}
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
-        <p>جارٍ التحقق من حالة تسجيل الدخول...</p>
-      </div>
-    );
-  }
+              {showInstallGuide === 'ios-other' && (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><AlertCircle className="w-5 h-5 text-red-400"/> متصفح غير مدعوم للتثبيت</h2>
+                  <p className="text-gray-300 text-sm mb-4 leading-relaxed">
+                    يبدو أنك تستخدم متصفحًا آخر غير <span className="text-amber-400 font-bold">Safari</span> على هاتف iPhone الخاص بك (مثل Chrome أو Edge).
+                  </p>
+                  <p className="text-gray-400 text-sm mb-4 leading-relaxed">
+                    نظام iOS لا يسمح بتثبيت التطبيقات على الشاشة الرئيسية إلا من خلال متصفح <span className="text-white font-bold">Safari</span>.
+                  </p>
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs mb-4">
+                    <strong>الحل:</strong> يرجى نسخ رابط الموقع الحالي، وفتحه باستخدام متصفح <strong>Safari</strong> الرسمي على جهازك، ثم الضغط على زر التثبيت مرة أخرى.
+                  </div>
+                  <button onClick={() => {
+                    navigator.clipboard.writeText("https://souqbaghdad.store");
+                    alert("تم نسخ رابط الموقع!");
+                  }} className="w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl transition-colors text-sm" title="نسخ رابط الموقع" aria-label="نسخ رابط الموقع">
+                    نسخ رابط الموقع 📋
+                  </button>
+                </>
+              )}
 
-  return (
-    <div className="dark">
-      <AnimatePresence mode="wait">
-        {isAuthenticated && user ? (
-          <motion.div
-            key="main"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            <MainApp user={user} onLogout={logout} />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="auth"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <AuthPage />
+              {showInstallGuide === 'android-fallback' && (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Smartphone className="w-5 h-5 text-amber-400"/> كيفية تثبيت التطبيق</h2>
+                  <p className="text-gray-400 text-sm mb-4">لتثبيت التطبيق على جهازك يدويًا:</p>
+                  <ul className="space-y-3 text-gray-300 text-sm list-disc list-inside">
+                    <li>اضغط على زر <span className="font-bold text-amber-400">خيارات المتصفح (الثلاث نقاط في الأعلى)</span>.</li>
+                    <li>اختر <span className="font-bold text-amber-400">تثبيت التطبيق (Install App)</span> أو <span className="font-bold text-amber-400">إضافة إلى الشاشة الرئيسية (Add to Home Screen)</span>.</li>
+                    <li>أكّد عملية التثبيت في المربع الذي يظهر لك.</li>
+                  </ul>
+                </>
+              )}
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Suspense fallback={null}>
+        {user && showStoreGuide && (
+          <StoreShareGuideModal
+            isOpen={showStoreGuide}
+            onClose={() => setShowStoreGuide(false)}
+            storeUrl={`https://www.souqbaghdad.store/seller/${user.id}`}
+            onShare={() => {
+              setShowStoreGuide(false);
+              handleUniversalShare({
+                title: user.name,
+                type: 'profile',
+                location: user.location || 'بغداد',
+                id: user.id,
+                url: '/seller/' + user.id,
+                image: user.avatar || DEFAULT_AVATAR
+              });
+            }}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }

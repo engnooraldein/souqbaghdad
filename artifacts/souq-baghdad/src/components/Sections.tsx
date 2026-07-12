@@ -1,3 +1,12 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// أقسام UI عامة (Generic Section Components).
+//
+// لا يتصل بـ Supabase. مكوّنات UI بحتة.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import { motion } from 'framer-motion';
 import { Car, Home, Smartphone, Watch, Bike, ShoppingBag, Wrench, ArrowLeft } from 'lucide-react';
 import { CategoryCard } from './Cards';
