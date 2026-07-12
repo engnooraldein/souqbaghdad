@@ -1,39 +1,199 @@
-// ===========================================
-// مسؤولية هذا الملف:
-// ذيل الصفحة الرئيسية (Footer).
-//
-// لا يتصل بـ Supabase. مكوّن UI بحت.
-// يحتوي على روابط التواصل الاجتماعي ومعلومات الموقع.
-//
-// آمن للتعديل:
-// نعم.
-// ===========================================
-import React from 'react';
+import { motion } from 'framer-motion';
+import { Car, Home, Smartphone, Watch, Bike, ShoppingBag, Wrench, Video, Store, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
+import { IraqiEagle } from './Icons';
 
-export function Footer({ setActiveDocTab }: { setActiveDocTab: (tab: string) => void }) {
+interface FooterProps {
+  onDocClick?: (tab: string) => void;
+  onCategoryClick?: (cat: string) => void;
+}
+
+export function Footer({ onDocClick, onCategoryClick }: FooterProps = {}) {
+  const categories = [
+    { name: 'السيارات', icon: Car, link: '#' },
+    { name: 'العقارات', icon: Home, link: '#' },
+    { name: 'الهواتف', icon: Smartphone, link: '#' },
+    { name: 'الإلكترونيات', icon: Watch, link: '#' },
+    { name: 'الدراجات', icon: Bike, link: '#' },
+    { name: 'المنتجات', icon: ShoppingBag, link: '#' },
+    { name: 'الخدمات', icon: Wrench, link: '#' },
+    { name: 'الفيديوهات', icon: Video, link: '#' },
+    { name: 'المتاجر', icon: Store, link: '#' },
+  ];
+
+  const quickLinks = [
+    { name: 'عن سوك بغداد', link: '#' },
+    { name: 'كيف يعمل', link: '#' },
+    { name: 'الأسعار', link: '#' },
+    { name: 'الأسئلة الشائعة', link: '#' },
+    { name: 'شروط الاستخدام', link: '#' },
+    { name: 'سياسة الخصوصية', link: '#' },
+  ];
+
+  const cities = [
+    'بغداد', 'البصرة', 'أربيل', 'نينوى', 'النجف', 'كربلاء', 'ذي قار',
+    'بابل', 'ديالى', 'كركوك', ' صلاح الدين', ' الأنبار', ' القادسية',
+    'ميسان', 'واسط', 'ذي قار', ' المثنى', ' ذي قار'
+  ];
+
   return (
-    <footer className="bg-[#0c2b5e] border-t border-[#d4af37]/20 py-6">
-      <div className="container mx-auto px-4 text-center">
-        <div className="flex items-center justify-center gap-2 mb-3">
-          <span className="text-2xl">🇮🇶</span>
-          <span className="text-lg font-bold text-white">سوك بغداد</span>
-        </div>
-        <p className="text-gray-500 text-xs">© 2025 سوك بغداد — السوق الرقمي العراقي</p>
-        
-        <div className="flex items-center justify-center gap-4 mt-3">
-          <a href="https://wa.me/9647700028170" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700/50 flex items-center justify-center text-green-400 hover:bg-green-500/10 hover:border-green-500/30 transition-all" title="واتساب الدعم">
-            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
-          </a>
-          <a href="https://instagram.com/SOUQBAGHDAD.IQ" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700/50 flex items-center justify-center text-pink-400 hover:bg-pink-500/10 hover:border-pink-500/30 transition-all" title="انستغرام المنصة">
-            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>
-          </a>
-          <a href="https://t.me/SOUQBAGHDA" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700/50 flex items-center justify-center text-sky-400 hover:bg-sky-500/10 hover:border-sky-500/30 transition-all" title="تليكرام المنصة">
-            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M11.944 0C5.344 0 0 5.344 0 12c0 6.656 5.344 12 12 12 6.656 0 12-5.344 12-12C24 5.344 18.656 0 11.944 0zm5.892 8.046c-.144.9-.99 5.874-1.44 8.286-.192 1.014-.564 1.356-.924 1.392-.786.072-1.386-.516-2.148-1.014-.762-.5-1.188-.81-1.926-1.296-.852-.564-.3-.876.186-1.38.126-.132 2.334-2.136 2.376-2.316.006-.024.012-.114-.042-.162-.054-.048-.132-.03-.186-.018-.084.018-1.392.882-3.924 2.592-.372.258-.708.384-1.008.378-.33-.006-.966-.186-1.44-.342-.582-.192-1.044-.294-1.002-.624.024-.168.252-.342.69-.516 2.688-1.17 4.482-1.938 5.388-2.31 2.562-1.056 3.096-1.242 3.444-1.248.078 0 .252.018.366.114.096.084.12.198.132.282.012.072.024.228.012.384z"/></svg>
-          </a>
-        </div>
+    <footer className="bg-gray-900 border-t border-gray-800">
+      {/* Main Footer */}
+      <div className="container mx-auto px-4 py-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+          {/* Brand */}
+          <div>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-900 to-blue-950 rounded-xl flex items-center justify-center golden-glow">
+                <IraqiEagle className="w-10 h-10" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white">سوك بغداد</h2>
+                <p className="text-amber-400 text-sm">السوق الرقمي العراقي</p>
+              </div>
+            </div>
+            <p className="text-gray-400 mb-6 leading-relaxed">
+              أكبر منصة عراقية للبيع والشراء والإعلانات. نوفر لك تجربة تسوق حديثة وسهلة مع هوية عراقية عصرية.
+            </p>
+    {/* Social Links */}
+            <div className="flex items-center gap-3">
+              {[
+                { icon: Instagram, href: 'https://instagram.com/SOUQBAGHDAD.IQ', color: 'bg-pink-600', label: 'انستغرام' },
+                { icon: Youtube, href: 'https://t.me/SOUQBAGHDA', color: 'bg-sky-600', label: 'تليكرام' },
+                { icon: Facebook, href: 'https://wa.me/9647700028170', color: 'bg-green-600', label: 'واتساب' },
+              ].map((social, index) => (
+                <motion.a
+                  key={index}
+                  href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={social.label}
+                  whileHover={{ scale: 1.1 }}
+                  className={`w-10 h-10 ${social.color} rounded-xl flex items-center justify-center`}
+                >
+                  <social.icon className="w-5 h-5 text-white" />
+                </motion.a>
+              ))}
+            </div>
+          </div>
 
-        <div className="flex items-center justify-center gap-3 mt-3 text-gray-500 text-xs flex-wrap">
-          {['الشروط والأحكام','سياسة الخصوصية','تواصل معنا','من نحن','سجل التحديثات'].map(l=><button key={l} onClick={()=>setActiveDocTab(l)} className="hover:text-amber-400">{l}</button>)}
+          {/* Categories */}
+          <div>
+            <h3 className="text-white font-bold text-lg mb-6">الأقسام</h3>
+            <ul className="space-y-3">
+              {categories.slice(0, 6).map((category) => (
+                <li key={category.name}>
+                  <button
+                    onClick={() => onCategoryClick?.(category.name)}
+                    className="text-gray-400 hover:text-amber-400 transition-colors flex items-center gap-2"
+                  >
+                    <category.icon className="w-4 h-4" />
+                    {category.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Quick Links */}
+          <div>
+            <h3 className="text-white font-bold text-lg mb-6">روابط سريعة</h3>
+            <ul className="space-y-3">
+              {([
+                'عن سوك بغداد',
+                'كيف يعمل',
+                'الأسئلة الشائعة',
+                'شروط الاستخدام',
+                'سياسة الخصوصية',
+                'تواصل معنا',
+              ]).map((name) => (
+                <li key={name}>
+                  <button
+                    onClick={() => onDocClick?.(name)}
+                    className="text-gray-400 hover:text-amber-400 transition-colors text-right w-full"
+                  >
+                    {name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Contact */}
+          <div>
+            <h3 className="text-white font-bold text-lg mb-6">تواصل معنا</h3>
+            <ul className="space-y-4">
+              <li className="flex items-start gap-3">
+                <MapPin className="w-5 h-5 text-amber-400 flex-shrink-0 mt-1" />
+                <span className="text-gray-400">بغداد، العراق - شارع الكرادة داخل</span>
+              </li>
+              <li className="flex items-center gap-3">
+                <Phone className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                <span className="text-gray-400">+964 770 123 4567</span>
+              </li>
+              <li className="flex items-center gap-3">
+                <Mail className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                <span className="text-gray-400">info@souqbaghdad.com</span>
+              </li>
+            </ul>
+
+            {/* App Download */}
+            <div className="mt-6">
+              <p className="text-gray-400 text-sm mb-3">حمّل التطبيق</p>
+              <div className="flex gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  className="px-4 py-2 bg-gray-800 rounded-xl flex items-center gap-2"
+                >
+                  <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                  </svg>
+                  <span className="text-white text-sm">App Store</span>
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  className="px-4 py-2 bg-gray-800 rounded-xl flex items-center gap-2"
+                >
+                  <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 01-.61-.92V2.734a1 1 0 01.609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.198l2.807 1.626a1 1 0 010 1.73l-2.808 1.626L15.206 12l2.492-2.491zM5.864 2.658L16.8 8.99l-2.302 2.302-8.634-8.634z"/>
+                  </svg>
+                  <span className="text-white text-sm">Google Play</span>
+                </motion.button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Iraqi Flag Banner */}
+      <div className="border-t border-b border-gray-800 py-6">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-wrap items-center justify-center gap-6 text-gray-400 text-sm">
+            <span className="text-amber-400 font-semibold">المدن الرئيسية:</span>
+            {cities.slice(0, 8).map((city) => (
+              <a key={city} href="#" className="hover:text-amber-400 transition-colors">
+                {city}
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Bar */}
+      <div className="py-6">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-gray-500 text-sm">
+              © 2024 سوك بغداد. جميع الحقوق محفوظة.
+            </p>
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-white rounded-full" />
+                <div className="w-3 h-3 bg-black rounded-full" />
+                <div className="w-3 h-3 bg-red-600 rounded-full" />
+              </div>
+              <span className="text-gray-500 text-sm">العراق</span>
+            </div>
+          </div>
         </div>
       </div>
     </footer>

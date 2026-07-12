@@ -4,34 +4,92 @@
 //
 // لا يتصل بـ Supabase. مكوّن UI بحت.
 //
-// آمن للتعديل:
-// نعم.
+// التصميم مطابق تماماً لـ AdCard و ProductCard:
+// - aspect-[4/3] للصورة
+// - p-3 للمحتوى
+// - صف البائع + الوقت في الأسفل
+//
+// الحركة: Pulse Animation عبر Framer Motion (موجة انسيابية).
+//
+// آمن للتعديل: نعم.
+// النسخة: 1.8.0
 // ===========================================
+import React from 'react';
+import { motion } from 'framer-motion';
 
-import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import * as LucideIcons from 'lucide-react';
-import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
-import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage } from '../App';
-import { slugify, getWhatsAppLink, detectDevice, isNewItem, getWhatsAppResetLink, getGlowClass } from '../utils/helpers';
-import { formatPrice } from '../utils/format';
-import { useSound } from '../hooks/useSound';
-import { supabase } from '../lib/supabase';
+// ─── حركة النبض الأساسية ─────────────────────────────────────────────────────
+const pulseVariants = {
+  start: { opacity: 0.45 },
+  end:   { opacity: 0.9  },
+};
 
-// Map all lucide icons to global scope to avoid missing imports
-const {
-  X, Heart, Share2, MapPin, Phone, Car, Home, Smartphone, Watch, 
-  Bike, ShoppingBag, Wrench, Video, Store, Mail, ChevronRight, 
-  ChevronLeft, Search, SlidersHorizontal, Grid, List, Check, 
-  AlertCircle, AlertTriangle, Info, Bell, Settings, LogOut, 
-  User: UserIcon, Plus, Camera, Trash2, Edit, Save, Upload, 
-  MessageCircle, Star, Image: ImageIcon, Map, Calendar, 
-  Shield, ShieldCheck, Activity, TrendingUp, Users, LogIn, 
-  MessageSquare, ExternalLink, ThumbsUp, MoreVertical, Eye, Lock, Unlock, Zap, Sparkles, UserPlus, 
-  Loader2, Wallet, EyeOff, ZoomOut, ZoomIn, CheckCircle, Key, Tag, Package, ImagePlus, Edit2, Phone: PhoneIcon,
-  FileText, Gamepad2, Copy, Crown, View, Eye: ViewIcon
-} = LucideIcons;
+const pulseTransition = {
+  duration: 1.1,
+  repeat: Infinity,
+  repeatType: 'reverse' as const,
+  ease: 'easeInOut' as const,
+};
 
-export function SkeletonCard() {
-  return <div className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 animate-pulse"><div className="aspect-[4/3] bg-gray-700"/><div className="p-4 space-y-3"><div className="h-4 bg-gray-700 rounded w-3/4"/><div className="h-5 bg-gray-700 rounded w-1/2"/><div className="h-3 bg-gray-700 rounded w-2/3"/></div></div>;
+// مكوّن مساعد لكتلة Skeleton مع تأخير للموجة المتتالية
+function SkeletonBlock({
+  className,
+  delay = 0,
+}: {
+  className: string;
+  delay?: number;
+}) {
+  return (
+    <motion.div
+      className={`bg-gray-700 rounded-lg ${className}`}
+      variants={pulseVariants}
+      initial="start"
+      animate="end"
+      transition={{ ...pulseTransition, delay }}
+    />
+  );
+}
+
+// ─── البطاقة الواحدة — تطابق AdCard / ProductCard ───────────────────────────
+export function SkeletonCard({ delay = 0 }: { delay?: number }) {
+  return (
+    <div className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 flex flex-col h-full">
+      {/* صورة — aspect-[4/3] مثل AdCard */}
+      <SkeletonBlock className="w-full aspect-[4/3] rounded-none" delay={delay} />
+
+      {/* محتوى — p-3 مثل AdCard */}
+      <div className="p-3 flex-1 flex flex-col gap-2">
+        {/* العنوان */}
+        <SkeletonBlock className="h-4 w-3/4" delay={delay + 0.05} />
+
+        {/* السعر */}
+        <SkeletonBlock className="h-5 w-1/2" delay={delay + 0.1} />
+
+        {/* الموقع */}
+        <SkeletonBlock className="h-3 w-2/3" delay={delay + 0.15} />
+
+        {/* صف البائع والوقت */}
+        <div className="flex items-center justify-between mt-auto pt-1">
+          <div className="flex items-center gap-1.5">
+            {/* صورة البائع */}
+            <SkeletonBlock className="w-5 h-5 rounded-full" delay={delay + 0.2} />
+            {/* اسم البائع */}
+            <SkeletonBlock className="h-3 w-16" delay={delay + 0.22} />
+          </div>
+          {/* الوقت + المشاهدات */}
+          <SkeletonBlock className="h-3 w-12" delay={delay + 0.25} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── شبكة من Skeleton Cards — للاستخدام في MarketView / ProductsView ────────
+export function SkeletonGrid({ count = 6 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      {Array.from({ length: count }).map((_, i) => (
+        <SkeletonCard key={i} delay={i * 0.04} />
+      ))}
+    </div>
+  );
 }
