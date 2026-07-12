@@ -2,14 +2,11 @@
   "framework": "vite",
   "buildCommand": "npx vite build --config artifacts/souq-baghdad/vite.config.ts",
   "outputDirectory": "dist/public",
-  "installCommand": "pnpm install",
+  "installCommand": "npm install -g pnpm@9.1.0 && pnpm install",
   "rewrites": [
     {
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "env": {
-    "ENABLE_EXPERIMENTAL_COREPACK": "1"
-  }
+  ]
 }
