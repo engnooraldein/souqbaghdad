@@ -686,38 +686,39 @@ export function MarketView({
               <div className="hidden sm:block h-8 w-[1px] bg-gray-800/80 mx-2 self-center shrink-0" />
 
               {/* Sorting Dropdown container */}
-              <div className="relative shrink-0 flex items-center px-2 sm:px-1" dir="rtl">
-                <motion.button
-                  id="hero-search-sort-dropdown-trigger"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setIsSortOpen(!isSortOpen)}
-                  className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2 px-3.5 py-2 sm:py-2.5 rounded-xl bg-gray-800/60 hover:bg-gray-800 border border-gray-750/50 text-gray-300 hover:text-white text-xs md:text-sm font-bold transition-all"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="whitespace-nowrap">
-                      {sort === 'price-low' ? 'السعر: من الأقل إلى الأعلى' : 
-                       sort === 'price-high' ? 'السعر: من الأعلى إلى الأقل' :
-                       sort === 'views' ? 'الأكثر مشاهدة' : 'الأحدث'}
+              <div className="shrink-0 flex items-center px-2 sm:px-1" dir="rtl">
+                <div className="relative">
+                  <motion.button
+                    id="hero-search-sort-dropdown-trigger"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setIsSortOpen(!isSortOpen)}
+                    className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2 px-3.5 py-2 sm:py-2.5 rounded-xl bg-gray-800/60 hover:bg-gray-800 border border-gray-750/50 text-gray-300 hover:text-white text-xs md:text-sm font-bold transition-all"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="whitespace-nowrap">
+                        {sort === 'price-low' ? 'السعر: من الأقل إلى الأعلى' : 
+                         sort === 'price-high' ? 'السعر: من الأعلى إلى الأقل' :
+                         sort === 'views' ? 'الأكثر مشاهدة' : 'الأحدث'}
+                      </span>
                     </span>
-                  </span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${isSortOpen ? 'rotate-180' : ''}`} />
-                </motion.button>
+                    <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${isSortOpen ? 'rotate-180' : ''}`} />
+                  </motion.button>
 
-                <AnimatePresence>
-                  {isSortOpen && (
-                    <>
-                      {/* Backdrop overlay to close dropdown */}
-                      <div className="fixed inset-0 z-35" onClick={() => setIsSortOpen(false)} />
-                      
-                      <motion.div
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        transition={{ duration: 0.12 }}
-                        className="absolute top-full left-0 right-0 sm:right-auto sm:left-0 mt-2 sm:w-56 bg-gray-950/95 backdrop-blur-md border border-gray-800 rounded-xl shadow-2xl z-40 overflow-hidden"
-                      >
+                  <AnimatePresence>
+                    {isSortOpen && (
+                      <>
+                        {/* Backdrop overlay to close dropdown */}
+                        <div className="fixed inset-0 z-35" onClick={() => setIsSortOpen(false)} />
+                        
+                        <motion.div
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          transition={{ duration: 0.12 }}
+                          className="absolute top-[calc(100%+8px)] left-0 right-0 sm:right-auto sm:left-0 sm:w-56 bg-gray-950/95 backdrop-blur-md border border-gray-800 rounded-xl shadow-2xl z-50 overflow-hidden"
+                        >
                         <div className="py-1 text-right" dir="rtl">
                           <button
                             onClick={() => { setSort('recent'); setIsSortOpen(false); }}
@@ -760,6 +761,7 @@ export function MarketView({
                     </>
                   )}
                 </AnimatePresence>
+                </div>
               </div>
             </div>
           </div>
