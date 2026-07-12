@@ -11,6 +11,7 @@ export interface User {
   createdAt: string;
   cover?: string;
   rating?: number;
+  points?: number;
   badges?: {
     isStudent?: boolean;
     hasID?: boolean;

@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Settings, Heart, ShoppingBag, MessageCircle, Bell, LogOut, Edit3, Camera, Share2, Star, MapPin, Calendar, Facebook, Twitter, Instagram, Check, Crown, ChevronLeft, ChevronRight, Globe, Loader2, Wallet } from 'lucide-react';
+import { User as UserIcon, Settings, Heart, ShoppingBag, MessageCircle, Bell, LogOut, Edit3, Camera, Share2, Star, MapPin, Calendar, Facebook, Twitter, Instagram, Check, Crown, ChevronLeft, ChevronRight, Globe, Loader2, Wallet, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { User } from '../types';
 import { supabase } from '../lib/supabase';
 
 interface UserProfileProps {
@@ -156,7 +157,7 @@ export function UserProfile({ onBack }: UserProfileProps) {
   };
 
   const tabs = [
-    { id: 'overview', label: 'نظرة عامة', icon: User },
+    { id: 'overview', label: 'نظرة عامة', icon: UserIcon },
     { id: 'wallet', label: 'محفظتي', icon: Wallet },
     { id: 'ads', label: 'إعلاناتي', icon: ShoppingBag },
     { id: 'favorites', label: 'المفضلة', icon: Heart },
