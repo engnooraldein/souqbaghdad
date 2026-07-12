@@ -633,7 +633,7 @@ export function MarketView({
           </div>
 
           {/* Search Bar Container */}
-          <div id="hero-search-wrapper" className="max-w-2xl mx-auto mb-8 relative z-20 group" dir="rtl">
+          <div id="hero-search-wrapper" className="max-w-2xl mx-auto mb-8 relative z-30 group" dir="rtl">
             <div className="absolute -inset-1 bg-gradient-to-r from-amber-500/30 to-yellow-600/30 rounded-[22px] blur-md opacity-25 group-hover:opacity-40 transition duration-300 pointer-events-none" />
             <div className="relative bg-gray-900/80 backdrop-blur-xl rounded-2xl border border-gray-700/60 shadow-2xl flex flex-col sm:flex-row items-stretch sm:items-center p-1.5 gap-2 sm:gap-0">
               {/* Input section */}
