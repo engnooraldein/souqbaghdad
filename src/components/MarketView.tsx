@@ -129,10 +129,9 @@ function HorizontalCarousel({
 
   useEffect(() => {
     const el = containerRef.current;
-    if (el) {
-      el.addEventListener('scroll', handleScroll, { passive: true });
-      return () => el.removeEventListener('scroll', handleScroll);
-    }
+    if (!el) return undefined;
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => el.removeEventListener('scroll', handleScroll);
   }, [items]);
 
   const scrollToItem = (idx: number) => {
@@ -1390,7 +1389,7 @@ export function MarketView({
                                           <Phone className="w-3.5 h-3.5" /> اتصال
                                         </motion.a>
                                         <motion.a
-                                          href={getWhatsAppLink(ad.phone, 'ad', ad)}
+                                          href={getWhatsAppLink(ad.phone, 'product', ad)}
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           whileHover={{ scale: 1.03 }}
