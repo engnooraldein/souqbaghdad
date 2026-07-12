@@ -1254,7 +1254,7 @@ export function MarketView({
                           {paginatedGeneralAds.map(ad => {
                             const seller = storedUsers?.find(u => u.id === ad.postedBy);
                             const isFav = favorites.includes(ad.id);
-                            const isOnline = !!onlineStatuses[ad.postedBy];
+                            const isOnline = ad.postedBy ? !!onlineStatuses[ad.postedBy] : false;
                             return (
                               <motion.div 
                                 key={`fb-feed-${ad.id}`}
@@ -1390,7 +1390,7 @@ export function MarketView({
                                           <Phone className="w-3.5 h-3.5" /> اتصال
                                         </motion.a>
                                         <motion.a
-                                          href={getWhatsAppLink(ad.phone, 'general', ad)}
+                                          href={getWhatsAppLink(ad.phone, 'ad', ad)}
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           whileHover={{ scale: 1.03 }}
