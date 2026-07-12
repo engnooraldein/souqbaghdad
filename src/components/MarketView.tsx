@@ -716,7 +716,7 @@ export function MarketView({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
                         transition={{ duration: 0.12 }}
-                        className="absolute left-0 right-0 sm:right-auto sm:left-0 mt-2 sm:w-56 bg-gray-950/95 backdrop-blur-md border border-gray-800 rounded-xl shadow-2xl z-40 overflow-hidden"
+                        className="absolute top-full left-0 right-0 sm:right-auto sm:left-0 mt-2 sm:w-56 bg-gray-950/95 backdrop-blur-md border border-gray-800 rounded-xl shadow-2xl z-40 overflow-hidden"
                       >
                         <div className="py-1 text-right" dir="rtl">
                           <button
