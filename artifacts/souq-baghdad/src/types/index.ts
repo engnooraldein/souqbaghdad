@@ -1,5 +1,5 @@
 export interface SellerInfo {
-  id: string;
+  id?: string;
   name: string;
   avatar: string;
   isVerified: boolean;
