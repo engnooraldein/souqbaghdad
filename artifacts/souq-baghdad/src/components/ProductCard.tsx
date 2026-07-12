@@ -38,7 +38,7 @@ const {
   Shield, ShieldCheck, Activity, TrendingUp, Users, LogIn, 
   MessageSquare, ExternalLink, ThumbsUp, MoreVertical, Eye, Lock, Unlock, Zap, Sparkles, UserPlus, 
   Loader2, Wallet, EyeOff, ZoomOut, ZoomIn, CheckCircle, Key, Tag, Package, ImagePlus, Edit2, Phone: PhoneIcon,
-  FileText, Gamepad2, Copy, Crown, View, Eye: ViewIcon
+  FileText, Gamepad2, Copy, Crown, View, Eye: ViewIcon, Shirt, Laptop
 } = LucideIcons;
 
 export function getProductCategoryPlaceholderImage(category?: string): string {
