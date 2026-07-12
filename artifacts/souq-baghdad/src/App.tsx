@@ -3585,7 +3585,7 @@ function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [],
 
   return (
     <>
-      <LoadingScreen isLoading={loadingProfile || loadingContent} minDuration={800} />
+      <LoadingScreen isLoading={loadingProfile || loadingContent} />
       <div className="min-h-screen bg-[#0c2b5e] pt-16 pb-10">
       {/* Cover */}
       <div className="w-full aspect-[3/1] md:aspect-[4/1] bg-gray-900 relative overflow-hidden flex items-center justify-center">
@@ -7444,7 +7444,7 @@ export default function App() {
 
   return (
     <div className="dark min-h-screen bg-[#0c2b5e] pwa-outer-container">
-      <LoadingScreen isLoading={isInitialLoading} minDuration={800} />
+      <LoadingScreen isLoading={isInitialLoading} />
       <Helmet>
         <title>{pageTitle}</title>
         <meta name="description" content={pageDescription} />

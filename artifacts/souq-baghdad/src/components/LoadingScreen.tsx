@@ -8,7 +8,7 @@ interface LoadingScreenProps {
 
 export const LoadingScreen: React.FC<LoadingScreenProps> = ({ 
   isLoading, 
-  minDuration = 3500 
+  minDuration = 0 
 }) => {
   const [show, setShow] = useState(true);
   const [isFadingOut, setIsFadingOut] = useState(false);
@@ -24,7 +24,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       if (hasTriggeredRef.current) return;
       hasTriggeredRef.current = true;
       setIsFadingOut(true); 
-      setTimeout(() => setShow(false), 800); // Wait 800ms for cinematic transition
+      setTimeout(() => setShow(false), 200); // Reduced transition time
     };
 
     // 1. If data finishes loading, we wait the remaining time to reach minDuration
