@@ -6,15 +6,18 @@ export interface User {
   phone: string;
   role: 'user' | 'vendor' | 'admin';
   avatar: string;
-  coverUrl?: string;
-  isPrivate?: boolean;
   isVerified: boolean;
   storeName?: string;
-  rating?: number;
-  followers?: number;
-  activeAds?: number;
-  products?: number;
   createdAt: string;
+  cover?: string;
+  rating?: number;
+  points?: number;
+  badges?: {
+    isStudent?: boolean;
+    hasID?: boolean;
+    hasVehicle?: boolean;
+    isPhoneVerified?: boolean;
+  };
   stats: {
     ads: number;
     favorites: number;

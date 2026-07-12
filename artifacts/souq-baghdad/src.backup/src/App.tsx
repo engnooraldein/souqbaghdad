@@ -368,7 +368,7 @@ function AuthPage() {
 }
 
 // Ads Data - Real looking ads
-const adsData: any[] = [
+const adsData = [
   { id: 1, title: 'Toyota Land Cruiser 2024', price: '850,000,000', location: 'بغداد - المنصور', phone: '07701234567', category: 'cars', image: 'https://images.unsplash.com/photo-1625231334168-2e3c5d7d6b88?w=400', seller: 'أحمد العاني', time: 'منذ ساعة', views: 234, type: 'sell' },
   { id: 2, title: 'فيلا 400 متر للبيع', price: '1,200,000,000', location: 'أربيل - مركز المدينة', phone: '07501234567', category: 'real-estate', image: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=400', seller: 'محمد الركابي', time: 'منذ 3 ساعات', views: 456, type: 'sell' },
   { id: 3, title: 'iPhone 15 Pro Max 256GB', price: '950,000', location: 'بغداد - الكرادة', phone: '07801234567', category: 'phones', image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400', seller: 'Ali Hassan', time: 'منذ 5 ساعات', views: 123, type: 'sell' },

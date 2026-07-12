@@ -1,3 +1,12 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// أيقونات مخصصة (Custom Icons) مثل النسر العراقي (IraqiEagle).
+//
+// لا يتصل بـ Supabase. مكوّن UI بحت.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import { SVGProps } from 'react';
 
 export function IraqiEagle({ className = '', ...props }: SVGProps<SVGSVGElement> & { className?: string }) {

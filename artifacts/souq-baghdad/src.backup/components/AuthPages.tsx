@@ -1,3 +1,13 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// صفحات المصادقة الاحتياطية (Auth Pages Fallback).
+//
+// يُستخدم كبديل في حالة عدم توفر AuthModal الرئيسي.
+// يتعامل مع Supabase Auth مباشرة.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, Check, ArrowLeft, Facebook, Chrome } from 'lucide-react';
@@ -29,12 +39,12 @@ export function AuthPages({ onBack }: AuthPagesProps) {
     setIsLoading(true);
 
     try {
-      const result = await login(loginEmail.trim(), loginPassword);
-      if (result.success) {
+      const success = await login(loginEmail, loginPassword);
+      if (success) {
         setSuccess('تم تسجيل الدخول بنجاح!');
         setTimeout(() => onBack(), 1000);
       } else {
-        setError(result.message || 'البريد الإلكتروني أو كلمة المرور غير صحيحة');
+        setError('البريد الإلكتروني أو كلمة المرور غير صحيحة');
       }
     } catch {
       setError('حدث خطأ أثناء تسجيل الدخول');
@@ -55,12 +65,10 @@ export function AuthPages({ onBack }: AuthPagesProps) {
     }
 
     try {
-      const result = await register(registerName.trim(), registerEmail.trim(), registerPassword, registerPhone.trim());
-      if (result.success) {
+      const success = await register(registerName, registerEmail, registerPassword, registerPhone);
+      if (success) {
         setSuccess('تم إنشاء الحساب بنجاح!');
         setTimeout(() => onBack(), 1000);
-      } else {
-        setError(result.message || 'حدث خطأ أثناء إنشاء الحساب');
       }
     } catch {
       setError('حدث خطأ أثناء إنشاء الحساب');

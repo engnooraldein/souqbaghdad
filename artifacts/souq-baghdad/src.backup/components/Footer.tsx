@@ -2,7 +2,12 @@ import { motion } from 'framer-motion';
 import { Car, Home, Smartphone, Watch, Bike, ShoppingBag, Wrench, Video, Store, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
 import { IraqiEagle } from './Icons';
 
-export function Footer() {
+interface FooterProps {
+  onDocClick?: (tab: string) => void;
+  onCategoryClick?: (cat: string) => void;
+}
+
+export function Footer({ onDocClick, onCategoryClick }: FooterProps = {}) {
   const categories = [
     { name: 'السيارات', icon: Car, link: '#' },
     { name: 'العقارات', icon: Home, link: '#' },
@@ -49,17 +54,19 @@ export function Footer() {
             <p className="text-gray-400 mb-6 leading-relaxed">
               أكبر منصة عراقية للبيع والشراء والإعلانات. نوفر لك تجربة تسوق حديثة وسهلة مع هوية عراقية عصرية.
             </p>
-            {/* Social Links */}
+    {/* Social Links */}
             <div className="flex items-center gap-3">
               {[
-                { icon: Facebook, href: '#', color: 'bg-blue-600' },
-                { icon: Twitter, href: '#', color: 'bg-sky-500' },
-                { icon: Instagram, href: '#', color: 'bg-pink-600' },
-                { icon: Youtube, href: '#', color: 'bg-red-600' },
+                { icon: Instagram, href: 'https://instagram.com/SOUQBAGHDAD.IQ', color: 'bg-pink-600', label: 'انستغرام' },
+                { icon: Youtube, href: 'https://t.me/SOUQBAGHDA', color: 'bg-sky-600', label: 'تليكرام' },
+                { icon: Facebook, href: 'https://wa.me/9647700028170', color: 'bg-green-600', label: 'واتساب' },
               ].map((social, index) => (
                 <motion.a
                   key={index}
                   href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={social.label}
                   whileHover={{ scale: 1.1 }}
                   className={`w-10 h-10 ${social.color} rounded-xl flex items-center justify-center`}
                 >
@@ -75,13 +82,13 @@ export function Footer() {
             <ul className="space-y-3">
               {categories.slice(0, 6).map((category) => (
                 <li key={category.name}>
-                  <a
-                    href={category.link}
+                  <button
+                    onClick={() => onCategoryClick?.(category.name)}
                     className="text-gray-400 hover:text-amber-400 transition-colors flex items-center gap-2"
                   >
                     <category.icon className="w-4 h-4" />
                     {category.name}
-                  </a>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -91,14 +98,21 @@ export function Footer() {
           <div>
             <h3 className="text-white font-bold text-lg mb-6">روابط سريعة</h3>
             <ul className="space-y-3">
-              {quickLinks.map((link) => (
-                <li key={link.name}>
-                  <a
-                    href={link.link}
-                    className="text-gray-400 hover:text-amber-400 transition-colors"
+              {([
+                'عن سوك بغداد',
+                'كيف يعمل',
+                'الأسئلة الشائعة',
+                'شروط الاستخدام',
+                'سياسة الخصوصية',
+                'تواصل معنا',
+              ]).map((name) => (
+                <li key={name}>
+                  <button
+                    onClick={() => onDocClick?.(name)}
+                    className="text-gray-400 hover:text-amber-400 transition-colors text-right w-full"
                   >
-                    {link.name}
-                  </a>
+                    {name}
+                  </button>
                 </li>
               ))}
             </ul>

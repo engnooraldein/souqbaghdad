@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=IBM+Plex+Arabic:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700;800;900&display=swap');
+/* Google Fonts are loaded in index.html with preconnect for better performance */
 
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -39,11 +39,11 @@
     --radius: 0.75rem;
 
     /* سوك بغداد - الألوان الأساسية */
-    --primary: 221 83% 19%; /* أزرق ملكي غامق */
+    --primary: 221 83% 19%;
     --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 100%; /* أبيض */
+    --secondary: 0 0% 100%;
     --secondary-foreground: 222 47% 11%;
-    --accent: 45 93% 47%; /* ذهبي */
+    --accent: 45 93% 47%;
     --accent-foreground: 0 0% 0%;
     --muted: 220 14% 96%;
     --muted-foreground: 220 9% 46%;
@@ -57,8 +57,6 @@
     --border: 220 13% 91%;
     --input: 220 13% 91%;
     --ring: 221 83% 53%;
-
-    /* Iraqi Red */
     --iraqi-red: 0 90% 47%;
   }
 
@@ -75,18 +73,37 @@
     --foreground: 0 0% 98%;
     --card: 222 47% 9%;
     --card-foreground: 0 0% 98%;
+    --popover: 222 47% 9%;
+    --popover-foreground: 0 0% 98%;
     --border: 222 47% 15%;
+    --input: 222 47% 15%;
+    --ring: 221 83% 60%;
   }
-}
 
-@layer base {
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
+  }
+
+  html {
+    background-color: #030712 !important;
+    height: 100%;
   }
 
   body {
-    @apply bg-background text-foreground font-cairo;
+    background-color: #030712 !important;
+    color: hsl(var(--foreground));
+    font-family: 'Cairo', sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0;
+    padding: 0;
+    /* Edge-to-Edge: خلفية التطبيق تمتد خلف شريط الحالة وشريط التنقل */
+    padding-top: 0px;
+    padding-bottom: 0px;
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    overflow-x: hidden;
   }
 
   /* Custom Scrollbar */
@@ -96,15 +113,29 @@
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-gray-100 dark:bg-gray-800;
+    background: #f1f1f1;
+  }
+
+  .dark ::-webkit-scrollbar-track {
+    background: #1f2937;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+    background: #d1d5db;
+    border-radius: 9999px;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 9999px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-400 dark:bg-gray-500;
+    background: #9ca3af;
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
   }
 }
 
@@ -131,9 +162,14 @@
 
   /* Premium Card Effect */
   .premium-card {
-    @apply bg-white dark:bg-gray-900 rounded-2xl shadow-lg;
+    background-color: white;
+    border-radius: 1rem;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark .premium-card {
+    background-color: #111827;
   }
 
   .premium-card:hover {
@@ -172,20 +208,20 @@
 
   /* Glass Effect */
   .glass {
-    @apply bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl;
+    background-color: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(24px);
     border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
-  .glass-panel {
-    @apply bg-white/10 dark:bg-white/5 backdrop-blur-2xl;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 30px 80px rgba(15, 23, 41, 0.35);
-    background-image: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+  .dark .glass {
+    background-color: rgba(17, 24, 39, 0.8);
   }
 
   /* Text Gradient */
   .text-gradient {
-    @apply bg-clip-text text-transparent;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
     background-image: linear-gradient(135deg, #d4af37, #f4d03f, #d4af37);
   }
 
@@ -226,6 +262,15 @@
 
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Safe Area Utility Classes for Edge-to-Edge display on mobile */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 
@@ -312,19 +357,23 @@
 
 /* Category Card Hover Effect */
 .category-card {
-  @apply relative overflow-hidden rounded-2xl;
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .category-card::before {
   content: '';
-  @apply absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.7), transparent, transparent);
   z-index: 1;
   transition: opacity 0.3s ease;
 }
 
 .category-card:hover::before {
-  @apply bg-gradient-to-t from-black/80 via-black/20 to-transparent;
+  background: linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.2), transparent);
 }
 
 .category-card:hover {
@@ -333,36 +382,59 @@
 
 /* Badge Styles */
 .badge-iraqi {
-  @apply inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
   background: linear-gradient(135deg, #d4af37, #f4d03f);
   color: #000;
 }
 
 .badge-new {
-  @apply inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
   background: linear-gradient(135deg, #10b981, #34d399);
   color: #fff;
 }
 
 .badge-hot {
-  @apply inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
   background: linear-gradient(135deg, #ef4444, #f97316);
   color: #fff;
 }
 
 /* Input Focus States */
 input:focus, textarea:focus, select:focus {
-  @apply outline-none ring-2 ring-primary/50;
+  outline: none;
+  ring: 2px;
 }
 
 /* Button Hover Effects */
 .btn-primary {
-  @apply relative overflow-hidden;
+  position: relative;
+  overflow: hidden;
 }
 
 .btn-primary::before {
   content: '';
-  @apply absolute inset-0 bg-white/20 translate-y-full;
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(100%);
   transition: transform 0.3s ease;
 }
 
@@ -372,7 +444,13 @@ input:focus, textarea:focus, select:focus {
 
 /* Skeleton Loading */
 .skeleton {
-  @apply animate-pulse bg-gray-200 dark:bg-gray-700 rounded;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  background-color: #e5e7eb;
+  border-radius: 0.25rem;
+}
+
+.dark .skeleton {
+  background-color: #374151;
 }
 
 /* Iraqi Eagle SVG Animation */
@@ -389,10 +467,85 @@ input:focus, textarea:focus, select:focus {
 /* Responsive Typography */
 @media (max-width: 640px) {
   .hero-title {
-    @apply text-3xl md:text-5xl lg:text-7xl;
+    font-size: 1.875rem;
   }
 
   .hero-subtitle {
-    @apply text-lg md:text-xl lg:text-2xl;
+    font-size: 1.125rem;
+  }
+}
+
+/* User Role Avatar Glow Effects */
+@keyframes avatar-glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 6px 1px var(--glow-color);
+  }
+  50% {
+    box-shadow: 0 0 14px 4px var(--glow-color);
+  }
+}
+
+.glow-owner {
+  --glow-color: rgba(239, 68, 68, 0.6); /* Red shadow */
+  border-color: #ef4444 !important;
+  animation: avatar-glow-pulse 3s infinite ease-in-out;
+}
+
+.glow-admin {
+  --glow-color: rgba(59, 130, 246, 0.5); /* Blue shadow */
+  border-color: #3b82f6 !important;
+  animation: avatar-glow-pulse 3.5s infinite ease-in-out;
+}
+
+.glow-vendor {
+  --glow-color: rgba(16, 185, 129, 0.5); /* Emerald shadow */
+  border-color: #10b981 !important;
+  animation: avatar-glow-pulse 4s infinite ease-in-out;
+}
+
+.glow-pro {
+  --glow-color: rgba(168, 85, 247, 0.5); /* Purple shadow */
+  border-color: #a855f7 !important;
+  animation: avatar-glow-pulse 4.5s infinite ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glow-owner, .glow-admin, .glow-vendor, .glow-pro {
+    animation: none !important;
+    transform: none !important;
+  }
+  .glow-owner {
+    box-shadow: 0 0 0 2px #ef4444 !important;
+  }
+  .glow-admin {
+    box-shadow: 0 0 0 2px #3b82f6 !important;
+  }
+  .glow-vendor {
+    box-shadow: 0 0 0 2px #10b981 !important;
+  }
+  .glow-pro {
+    box-shadow: 0 0 0 2px #a855f7 !important;
+  }
+}
+
+/* PWA Safe Areas & Glassmorphism */
+.pwa-header {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.pwa-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.pwa-main {
+  padding-top: calc(4.5rem + env(safe-area-inset-top, 0px));
+}
+
+.pwa-outer-container {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 1024px) {
+  .pwa-outer-container {
+    padding-bottom: 0px;
   }
 }
