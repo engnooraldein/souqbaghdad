@@ -208,6 +208,7 @@
   /* Glass Effect */
   .glass {
     background-color: rgba(255, 255, 255, 0.8);
+    -webkit-backdrop-filter: blur(24px);
     backdrop-filter: blur(24px);
     border: 1px solid rgba(255, 255, 255, 0.1);
   }
@@ -218,8 +219,8 @@
 
   /* Text Gradient */
   .text-gradient {
-    background-clip: text;
     -webkit-background-clip: text;
+    background-clip: text;
     color: transparent;
     background-image: linear-gradient(135deg, #d4af37, #f4d03f, #d4af37);
   }
@@ -607,6 +608,7 @@ html:not(.dark) .fixed.inset-0 .bg-black\/60,
 html:not(.dark) .fixed.inset-0 .bg-black\/70,
 html:not(.dark) .fixed.inset-0 .bg-black\/80 {
   background-color: rgba(15, 23, 42, 0.4) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
   backdrop-filter: blur(8px) !important;
 }
 

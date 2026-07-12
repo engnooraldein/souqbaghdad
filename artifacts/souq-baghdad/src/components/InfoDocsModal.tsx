@@ -299,23 +299,36 @@ export function InfoDocsModal({ activeTab, onClose, user }: { activeTab: string;
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-white font-bold text-xl">سجل التحديثات والإصدارات</h2>
-                      <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.7.0</span>
+                      <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.9.0</span>
                     </div>
                     <p className="text-gray-400 text-xs mt-1">تتبع التغييرات والميزات المضافة في كل إصدار</p>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  {/* v1.6.0 */}
-                  <div className="bg-gradient-to-br from-gray-800 via-gray-800 to-amber-950/20 border border-amber-500/40 rounded-2xl p-5 space-y-3 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 bg-amber-500 text-black text-[9px] font-extrabold px-2.5 py-1 rounded-bl-xl uppercase tracking-wider">
+                  {/* v1.9.0 */}
+                  <div className="bg-gradient-to-br from-gray-800 via-gray-800 to-emerald-950/20 border border-emerald-500/40 rounded-2xl p-5 space-y-3 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 bg-emerald-500 text-black text-[9px] font-extrabold px-2.5 py-1 rounded-bl-xl uppercase tracking-wider">
                       الإصدار الأخير
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-amber-400 font-bold text-sm">⚡ الإصدار v1.7.0 (نظام الدفع والمحفظة)</span>
-                      <span className="text-gray-400 text-xs font-mono">(06/07/2026)</span>
+                      <span className="text-emerald-400 font-bold text-sm">⚡ الإصدار v1.9.0 - أجمل إصدار</span>
+                      <span className="text-gray-400 text-xs font-mono">(10/07/2026)</span>
                     </div>
                     <ul className="text-gray-300 text-xs space-y-1.5 list-disc list-inside pr-1">
+                      <li><strong>حماية الاستهلاك:</strong> إيقاف الجلب التلقائي المكثف وإضافة زر مزامنة يدوي لتوفير استهلاك البيانات.</li>
+                      <li><strong>تحسين الصفحة الرئيسية:</strong> تسريع التحميل وتقليص عدد المستخدمين المعروضين لتخفيف الضغط.</li>
+                      <li><strong>الترتيب والفلترة:</strong> إصلاح مشكلة تداخل قائمة الترتيب المنسدلة مع بقية الأقسام.</li>
+                    </ul>
+                  </div>
+
+                  {/* v1.7.0 */}
+                  <div className="bg-gray-800 border border-gray-700 rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-300 font-bold text-sm">⚡ الإصدار v1.7.0 (نظام الدفع والمحفظة)</span>
+                      <span className="text-gray-400 text-xs font-mono">(06/07/2026)</span>
+                    </div>
+                    <ul className="text-gray-350 text-xs space-y-1.5 list-disc list-inside pr-1">
                       <li><strong>تحسين سرعة التحميل:</strong> تطبيق تقنية Lazy Loading والمكونات المنفصلة.</li>
                       <li><strong>سجل التحديثات:</strong> إتاحة سجل التحديثات لجميع المستخدمين من خلال الفوتر.</li>
                       <li><strong>مشاركة الروابط:</strong> إصلاح وتحسين نظام مشاركة روابط الملفات الشخصية.</li>
