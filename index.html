@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <!-- Preconnect to Google Fonts for faster font loading -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- Google Fonts with font-display=swap for better LCP -->
+  <!-- Google Fonts loaded asynchronously to prevent render blocking -->
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" />
+  </noscript>
+  <title>سوك بغداد v1.7.0 - السوق الرقمي العراقي | أكبر منصة إعلانات في العراق</title>
+  <meta name="description" content="سوك بغداد - أكبر منصة عراقية للبيع والشراء والإعلانات. سيارات، عقارات، هواتف، إلكترونيات، خدمات والمزيد. اكتشف آلاف الإعلانات في أقسام متعددة." />
+  <meta name="keywords" content="سوق بغداد, إعلانات العراق, سيارات للبيع, عقارات, هواتف, إلكترونيات, شراء, بيع, العراق" />
+  <meta name="author" content="سوك بغداد" />
+  <meta name="robots" content="index, follow" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="سوك بغداد - السوق الرقمي العراقي" />
+  <meta property="og:description" content="أكبر منصة عراقية للبيع والشراء والإعلانات. سيارات، عقارات، هواتف، إلكترونيات والمزيد." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://www.souqbaghdad.store" />
+  <meta property="og:image" content="https://www.souqbaghdad.store/logo.jpg" />
+  <meta property="og:image:secure_url" content="https://www.souqbaghdad.store/logo.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:locale" content="ar_IQ" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="سوك بغداد - السوق الرقمي العراقي" />
+  <meta name="twitter:description" content="أكبر منصة عراقية للبيع والشراء والإعلانات." />
+  <meta name="twitter:image" content="https://www.souqbaghdad.store/logo.jpg" />
+
+  <!-- Theme Color & Mobile Edge-to-Edge -->
+  <meta name="msapplication-navbutton-color" content="#0c2b5e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <!-- Favicon & Site Logo for Google Search -->
+  <link rel="icon" type="image/webp" sizes="128x128" href="/logo-128.webp" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/logo.png" />
+  <link rel="icon" type="image/jpeg" href="/logo.jpg" />
+  <link rel="shortcut icon" href="/logo-128.webp" />
+  <link rel="apple-touch-icon" href="/logo-256.webp" />
+  <link rel="manifest" href="/manifest.json" />
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('Service Worker registered:', reg.scope))
+          .catch(err => console.log('Service Worker registration failed:', err));
+      });
+    }
+  </script>
+</head>
+<body>
+  <div id="root">
+    <style>
+      .initial-loader {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        width: 100vw;
+        background-color: #0c2b5e;
+        font-family: 'Cairo', sans-serif;
+        color: white;
+      }
+      .spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: #f59e0b; /* amber-500 */
+        animation: spin 1s ease-in-out infinite;
+        margin-bottom: 20px;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .loader-text {
+        font-size: 1.2rem;
+        font-weight: 600;
+        letter-spacing: 1px;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+      .loader-logo {
+        width: 100px;
+        height: 100px;
+        margin-bottom: 24px;
+        border-radius: 20px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      .loader-subtext {
+        font-size: 0.9rem;
+        font-weight: normal;
+        margin-top: 8px;
+        color: rgba(255,255,255,0.8);
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+    </style>
+    <div class="initial-loader">
+      <img src="/logo.png" alt="شعار سوك بغداد" class="loader-logo" />
+      <div class="loader-text">أهلاً بك في سوك بغداد</div>
+      <div class="loader-subtext">جاري تحميل أحدث الإعلانات والمنتجات، يرجى الانتظار ثوانٍ...</div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
