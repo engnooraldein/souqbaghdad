@@ -619,7 +619,7 @@ export default function App() {
       }
       scrollTimeout = setTimeout(() => {
         setShowScrollButtons(true);
-      }, 300);
+      }, 2000);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
