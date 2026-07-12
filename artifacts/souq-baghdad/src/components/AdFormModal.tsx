@@ -1,3 +1,21 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// نافذة نشر إعلان جديد أو تعديل إعلان موجود (Ad Form Modal).
+//
+// يتعامل مع Supabase مباشرة:
+// - رفع الصور (uploadImageToStorage).
+// - إضافة أو تحديث الإعلان في جدول 'ads'.
+//
+// استعلام Supabase:
+// INSERT أو UPDATE عند الضغط على زر النشر/الحفظ.
+//
+// انتبه:
+// - تحقق من rate limit قبل النشر (checkPostRateLimit).
+// - تحقق من عدد الإعلانات المسموح بها للمستخدم.
+//
+// آمن للتعديل:
+// نعم، لكن تأكد من عدم كسر منطق التحقق (Validation).
+// ===========================================
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 

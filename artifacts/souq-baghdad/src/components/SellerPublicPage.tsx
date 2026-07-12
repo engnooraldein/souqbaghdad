@@ -1,3 +1,24 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// يعرض الصفحة العامة للبائع (Seller Public Profile).
+//
+// يجلب البيانات من Supabase:
+// - ملف البائع (profiles).
+// - إعلانات البائع.
+// - منتجات البائع.
+//
+// استعلام Supabase:
+// يُنفَّذ عند تحميل المكوّن أو تغيير sellerId.
+// إذا رأيت جلباً متكرراً، تحقق من useEffect.
+//
+// ملاحظة مهمة:
+// هذه الصفحة تدعم مشاركة رابط البائع (Deep Link).
+// تأكد من اختبار الـ URL عند الوصول المباشر.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
+
 import { DEFAULT_AVATAR } from '../App';
 import InfiniteScrollTrigger from './InfiniteScrollTrigger';
 import { DEFAULT_COVER, getCoverImage } from '../constants';

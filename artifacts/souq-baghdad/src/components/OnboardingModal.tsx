@@ -1,3 +1,13 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// نافذة الترحيب والتعريف بالتطبيق للمستخدمين الجدد (Onboarding Modal).
+//
+// لا يتصل بـ Supabase مباشرة.
+// يحفظ حالة "تم الترحيب" في LocalStorage لمنع الظهور مجدداً.
+//
+// آمن للتعديل:
+// نعم، يمكن تحديث محتوى الشرائح.
+// ===========================================
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';

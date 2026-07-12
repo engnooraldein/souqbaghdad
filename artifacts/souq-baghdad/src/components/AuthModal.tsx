@@ -1,3 +1,20 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// نافذة تسجيل الدخول / إنشاء حساب (Auth Modal).
+//
+// يتعامل مع Supabase Auth مباشرة:
+// - supabase.auth.signInWithPassword()
+// - supabase.auth.signUp()
+// - supabase.auth.signInWithOAuth()
+//
+// استعلام Supabase:
+// يُنفَّذ فقط عند الضغط على زر تسجيل الدخول.
+// لا توجد Background Queries.
+//
+// آمن للتعديل:
+// نعم، لكن تأكد من اختبار جميع حالات الخطأ (Wrong Password, Email not found, etc.).
+// ===========================================
+
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 

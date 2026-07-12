@@ -1,3 +1,11 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// مكوّن UI من مكتبة shadcn/ui (scroll-area).
+//
+// لا يتصل بـ Supabase. مكوّن UI بحت.
+// تم توليده تلقائياً ويُنصح بعدم تعديله مباشرة.
+// استخدمه عبر الـ Props الموثقة في shadcn/ui.
+// ===========================================
 import * as React from "react"
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
 

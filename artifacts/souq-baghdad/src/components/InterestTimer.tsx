@@ -1,3 +1,17 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// مؤقت يُظهر عدد المهتمين بخط النقل (Interest Timer).
+// يُزيد عداد الاهتمام ويعرضه للبائع.
+//
+// يتعامل مع Supabase:
+// - UPDATE على جدول 'ads' لزيادة عداد الاهتمام.
+//
+// استعلام Supabase:
+// يُنفَّذ عند انتهاء المؤقت (ليس بشكل مستمر).
+//
+// آمن للتعديل:
+// نعم. تأكد من عدم زيادة عدد الاستعلامات.
+// ===========================================
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';

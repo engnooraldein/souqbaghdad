@@ -1,3 +1,12 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// مكوّن SVG رسومي مخصص (stats-graph).
+//
+// لا يتصل بـ Supabase. أصل رسومي بحت.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import React from 'react';
 
 export const StatsGraph = (props: React.SVGProps<SVGSVGElement>) => {

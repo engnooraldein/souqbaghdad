@@ -1,3 +1,22 @@
+// ===========================================
+// مسؤولية هذا الـ Hook:
+// يجلب الإعلانات العادية وإعلانات النقل من Supabase مع دعم Pagination.
+//
+// الدوال المُصدَّرة:
+// - fetchAds(filters, reset): يجلب الإعلانات بناءً على فلاتر البحث.
+// - fetchTransportAds(reset): يجلب إعلانات النقل.
+//
+// 🔥 استهلاك Supabase:
+// يُنفَّذ استعلام عند كل تغيير في الفلاتر (مع Debounce في App.tsx).
+// يدعم Infinite Scroll — يجلب صفحات إضافية عند الطلب فقط.
+//
+// ✅ آمن للتعديل:
+// نعم. يمكن تغيير pageSize لتقليل أو زيادة حجم كل صفحة.
+//
+// انتبه:
+// adsPage و transportPage تُستخدمان كـ Dependencies في useCallback.
+// تغيير هيكل الـ State قد يسبب جلباً غير صحيح للصفحات.
+// ===========================================
 import { useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Ad } from '../types';

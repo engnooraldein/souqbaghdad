@@ -1,3 +1,13 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// صفحة عرض قوائم المنتجات أو الإعلانات (Listing Page).
+//
+// قد يجلب البيانات من Supabase مباشرة أو يستقبلها عبر Props.
+// تحقق من useEffect للتأكد.
+//
+// آمن للتعديل:
+// نعم، بحذر.
+// ===========================================
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Filter, Grid, List, ChevronLeft, Heart, MessageCircle, Share2, Eye, MapPin, Clock, Car, Home, Smartphone, Star, Check, X } from 'lucide-react';

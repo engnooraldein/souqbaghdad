@@ -1,3 +1,11 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// مكوّن UI من مكتبة shadcn/ui (button).
+//
+// لا يتصل بـ Supabase. مكوّن UI بحت.
+// تم توليده تلقائياً ويُنصح بعدم تعديله مباشرة.
+// استخدمه عبر الـ Props الموثقة في shadcn/ui.
+// ===========================================
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"

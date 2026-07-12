@@ -1,3 +1,13 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// نافذة مشاركة الإعلان أو المنتج (Share Modal).
+// تدعم مشاركة الرابط، نسخه، أو مشاركته عبر WhatsApp.
+//
+// لا يتصل بـ Supabase مباشرة.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 

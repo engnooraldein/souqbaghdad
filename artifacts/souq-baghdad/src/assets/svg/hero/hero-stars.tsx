@@ -1,3 +1,12 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// مكوّن SVG رسومي مخصص (hero-stars).
+//
+// لا يتصل بـ Supabase. أصل رسومي بحت.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import React from 'react';
 
 export const HeroStars = (props: React.SVGProps<SVGSVGElement>) => {

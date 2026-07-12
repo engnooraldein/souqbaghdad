@@ -1,3 +1,13 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// صفحات المصادقة الاحتياطية (Auth Pages Fallback).
+//
+// يُستخدم كبديل في حالة عدم توفر AuthModal الرئيسي.
+// يتعامل مع Supabase Auth مباشرة.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, Check, ArrowLeft, Facebook, Chrome } from 'lucide-react';

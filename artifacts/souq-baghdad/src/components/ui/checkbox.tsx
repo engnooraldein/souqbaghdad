@@ -1,3 +1,11 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// مكوّن UI من مكتبة shadcn/ui (checkbox).
+//
+// لا يتصل بـ Supabase. مكوّن UI بحت.
+// تم توليده تلقائياً ويُنصح بعدم تعديله مباشرة.
+// استخدمه عبر الـ Props الموثقة في shadcn/ui.
+// ===========================================
 import * as React from "react"
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox"
 import { Check } from "lucide-react"

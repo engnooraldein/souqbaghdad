@@ -1,3 +1,16 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// يعرض عدد الزوار المتصلين حالياً (Live Visitor Counter).
+//
+// يتعامل مع Supabase:
+// - استعلام على جدول 'guests' لعدد المتصلين حالياً.
+//
+// 🔥 استهلاك Supabase:
+// تحقق من مدة تكرار الاستعلام. يُفضَّل Polling كل 60+ ثانية.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users } from 'lucide-react';

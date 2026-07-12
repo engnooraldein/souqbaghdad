@@ -1,3 +1,17 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// دوال تسجيل إجراءات النظام (System Logs Utilities).
+// تُسجّل الأحداث المهمة في جدول Supabase (system_logs).
+//
+// استعلام Supabase:
+// INSERT في جدول system_logs عند كل استدعاء.
+//
+// انتبه:
+// لا تستدعِ هذه الدالة بشكل متكرر حتى لا تملأ الجدول.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import { SystemLog } from '../types';
 
 export const logSystemAction = (action: string, details: string, target?: string, admin: string = 'المالك') => {

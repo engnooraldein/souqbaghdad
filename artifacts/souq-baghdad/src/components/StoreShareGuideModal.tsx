@@ -1,3 +1,13 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// دليل مشاركة رابط المتجر (Store Share Guide Modal).
+// يشرح للبائع كيفية مشاركة رابط متجره.
+//
+// لا يتصل بـ Supabase. مكوّن UI بحت.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Copy, Share2, TrendingUp, Instagram, MessageCircle, ShoppingBag, Check } from 'lucide-react';
 import { useState } from 'react';

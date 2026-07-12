@@ -1,3 +1,16 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// يُهيّئ ويُصدِّر عميل Supabase الموحّد للتطبيق.
+//
+// كل الاستعلامات في التطبيق تمر عبر هذا العميل.
+//
+// انتبه:
+// لا تُعدِّل هذا الملف إلا لتغيير URL أو ANON KEY.
+// المفاتيح موجودة في ملف .env (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY).
+//
+// آمن للتعديل:
+// نعم، لكن بحذر شديد.
+// ===========================================
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;

@@ -1,3 +1,13 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// نافذة قص وتعديل الصور (Image Crop Modal).
+//
+// لا يتصل بـ Supabase مباشرة.
+// الصورة المقصوصة تُرسل للمكوّن الأب عبر callback.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 

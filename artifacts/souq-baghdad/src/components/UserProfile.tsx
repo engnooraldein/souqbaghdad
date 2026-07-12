@@ -1,3 +1,15 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// يعرض الملف الشخصي للمستخدم (User Profile Component).
+//
+// قد يجلب البيانات من Supabase:
+// - ملف المستخدم من جدول 'profiles'.
+//
+// تحقق من useEffect للتأكد من صحة Dependencies.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User as UserIcon, Settings, Heart, ShoppingBag, MessageCircle, Bell, LogOut, Edit3, Camera, Share2, Star, MapPin, Calendar, Facebook, Twitter, Instagram, Check, Crown, ChevronLeft, ChevronRight, Globe, Loader2, Wallet, Sparkles } from 'lucide-react';

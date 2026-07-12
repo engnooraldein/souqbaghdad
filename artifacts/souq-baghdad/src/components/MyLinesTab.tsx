@@ -1,3 +1,14 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// علامة تبويب "خطوطي" في ملف المستخدم الشخصي.
+// يعرض خطوط النقل التي نشرها المستخدم.
+//
+// لا يجلب البيانات مباشرة.
+// البيانات تأتيه عبر Props (allTransportAds مُفلترة).
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';

@@ -1,3 +1,12 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// مكوّن SVG رسومي مخصص (transport-glow).
+//
+// لا يتصل بـ Supabase. أصل رسومي بحت.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import React from 'react';
 
 export const TransportGlow = (props: React.SVGProps<SVGSVGElement>) => {

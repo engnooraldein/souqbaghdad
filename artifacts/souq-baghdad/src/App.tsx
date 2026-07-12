@@ -70,7 +70,7 @@ export const getCoverImage = (user: {role?: string, cover?: string}) => {
 };
 
 export { getGlowClass, getWhatsAppResetLink } from './utils/helpers';
-import { getGlowClass, getWhatsAppResetLink } from './utils/helpers';
+import { getGlowClass, getWhatsAppResetLink, slugify } from './utils/helpers';
 
 export const IRAQI_GOVERNORATES = [
   'الكل','بغداد','البصرة','نينوى','أربيل','كربلاء','النجف',
@@ -111,6 +111,19 @@ export const GAMES_DATA = [
 // ─────────────────────────────────────────────
 // Utilities
 // ─────────────────────────────────────────────
+// ===========================================
+// المسؤولية:
+// ضغط الصور قبل رفعها لقاعدة البيانات لتقليل الحجم.
+//
+// لماذا موجود؟
+// لتوفير المساحة في Supabase Storage وتسريع تحميل الصور للمستخدمين.
+//
+// انتبه:
+// إضافة علامة مائية (Watermark) تتم هنا. أي خطأ في الـ Canvas قد يوقف عملية الرفع.
+//
+// آمن للتعديل:
+// نعم، لضبط جودة الصورة أو حجمها.
+// ===========================================
 export async function compressImage(file: File, maxPx = 900, quality = 0.78, addWatermark = true): Promise<string> {
   return new Promise(resolve => {
     const reader = new FileReader();
@@ -146,6 +159,19 @@ export async function compressImage(file: File, maxPx = 900, quality = 0.78, add
   });
 }
 
+// ===========================================
+// المسؤولية:
+// رفع الصورة إلى Supabase Storage وإرجاع الرابط العام (Public URL).
+//
+// لماذا موجود؟
+// لرفع صور الإعلانات والمنتجات والنقليات.
+//
+// استهلاك Supabase:
+// كل عملية رفع تستهلك من حصة الـ Storage.
+//
+// آمن للتعديل:
+// بحذر، تأكد من سياسات الأمان (RLS) للـ Bucket.
+// ===========================================
 export async function uploadImageToStorage(fileOrBase64: File | string, bucket = 'ad-images', maxPx = 900, quality = 0.78, addWatermark = true): Promise<string> {
   try {
     let base64Data: string;
@@ -191,6 +217,16 @@ const isNewItem = (createdAtISO?: string) => {
   return diffTime > 0 && diffTime < 24 * 60 * 60 * 1000;
 };
 
+// ===========================================
+// المسؤولية:
+// توليد رابط WhatsApp مباشر للتواصل مع البائع.
+//
+// لماذا موجود؟
+// لتسهيل التواصل المباشر بين المشتري والبائع بضغطة زر.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 function getWhatsAppLink(phone: string, itemType: 'product' | 'transport', details: any) {
   if (!phone) return '#';
     let cleanPhone = phone.replace(/[^0-9+]/g, '');
@@ -220,6 +256,16 @@ www.souqbaghdad.store
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
 }
 
+// ===========================================
+// المسؤولية:
+// تفعيل واجهة المشاركة الأصلية (Web Share API) في الهواتف، أو نسخ الرابط كبديل.
+//
+// لماذا موجود؟
+// لتسهيل نشر الإعلانات والمنتجات في منصات أخرى.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 export function handleUniversalShare(details: { title?: string; university?: string; type?: string; location?: string; governorate?: string; regions?: string; id?: any; short_id?: string; price?: string; image?: string; images?: string[]; url?: string; description?: string }) {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('open-share-modal', { detail: details }));
@@ -229,16 +275,41 @@ export function handleUniversalShare(details: { title?: string; university?: str
 // Time helpers moved to src/utils/time.ts
 
 
+// ===========================================
+// المسؤولية:
+// معرفة نوع جهاز المستخدم (موبايل، ديسكتوب، تابلت).
+//
+// لماذا موجود؟
+// لأغراض الإحصائيات وتحليل البيانات (Analytics).
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 function detectDevice(): Visit['device'] {
   const ua = navigator.userAgent;
   if (/iPad|Android(?!.*Mobile)/i.test(ua)) return 'tablet';
   if (/Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)) return 'mobile';
   return 'desktop';
 }
+// ===========================================
+// المسؤولية:
+// تسجيل زيارة المستخدم للتطبيق في قاعدة البيانات.
+//
+// استعلام Supabase:
+// عدد مرات التنفيذ المتوقع: مرة واحدة لكل جلسة متصفح (Session).
+// إذا تكرر بشكل كبير فهناك مشكلة (تأكد من عدم وضعه داخل Render loop).
+// ===========================================
 function recordVisit(user: User | null) {
   const v: Visit = { id: Date.now()+Math.random().toString(36).slice(2), timestamp: new Date().toISOString(), device: detectDevice(), location: user?.location||'زائر', userId: user?.id, userName: user?.name, page:'home' };
   try { const prev:Visit[] = JSON.parse(localStorage.getItem('souqVisits')||'[]'); localStorage.setItem('souqVisits', JSON.stringify([v,...prev].slice(0,2000))); } catch {}
 }
+// ===========================================
+// المسؤولية:
+// حفظ بيانات المستخدم في LocalStorage.
+//
+// لماذا موجود؟
+// لتسريع عملية تسجيل الدخول في المرات القادمة (Caching).
+// ===========================================
 function saveStoredUser(user: User, adCount: number) {
   try {
     const users: StoredUser[] = JSON.parse(localStorage.getItem('souqUsers')||'[]');
@@ -264,6 +335,10 @@ function saveStoredUser(user: User, adCount: number) {
     localStorage.setItem('souqUsers', JSON.stringify(users));
   } catch {}
 }
+// ===========================================
+// المسؤولية:
+// التحقق مما إذا كان البريد الإلكتروني محظوراً من النظام.
+// ===========================================
 function isBanned(email: string) {
   try { return (JSON.parse(localStorage.getItem('souqUsers')||'[]') as StoredUser[]).find(u=>u.email===email)?.isBanned||false; } catch { return false; }
 }
@@ -303,6 +378,14 @@ const useSound = () => {
 // ─────────────────────────────────────────────
 
 
+// ===========================================
+// المسؤولية:
+// تسجيل مشاهدة جديدة لـ (إعلان، منتج، نقل).
+//
+// استهلاك Supabase:
+// يتم استدعاء قاعدة البيانات لإضافة المشاهدة.
+// لمنع الـ Spam، يوجد LocalStorage لحفظ الـ IDs التي تمت مشاهدتها حديثاً.
+// ===========================================
 export async function recordItemView(itemId: string|number, itemType: 'ad'|'product'|'transport', currentUser: User|null, sellerId?: string) {
   try {
     // Owner should not count towards their own ad's views
@@ -465,6 +548,17 @@ export const EMPLOYEE_WORKPLACES = [
 // ─────────────────────────────────────────────
 type AppView = 'home'|'profile'|'admin'|'owner'|'seller'|'transport'|'products'|'ad-detail'|'product-detail'|'transport-detail';
 
+// ===========================================
+// مسؤولية هذا الملف:
+// الموجه الرئيسي (Router) للتطبيق بأكمله.
+//
+// لماذا موجود؟
+// يحتوي على هيكل الصفحات، حالة المستخدم (User State)، وشريط التنقل (Navigation).
+//
+// انتبه:
+// يحتوي على حالات (States) رئيسية. أي إعادة تعيين (State Update) هنا ستؤدي إلى
+// إعادة تصيير (Re-render) للتطبيق بالكامل.
+// ===========================================
 export default function App() {
   const [user, setUser] = useState<User|null>(() => {
     try {
@@ -477,6 +571,10 @@ export default function App() {
   const [showStoreGuide, setShowStoreGuide] = useState(false);
   const [adCosts, setAdCosts] = useState<{ad:number; product:number; transport:number}>({ ad: 1, product: 1, transport: 1 });
 
+  // هذا useEffect يعمل مرة واحدة عند فتح التطبيق.
+  // يجلب إعدادات النظام (تكلفة الإعلانات) من Supabase.
+  // استعلام Supabase — عدد مرات التنفيذ المتوقع: مرة واحدة فقط.
+  // إذا تكرر فهناك مشكلة في تغيير State خارج هذا الـ Effect.
   useEffect(() => {
     supabase.from('system_settings').select('*').then(({ data, error }) => {
       if (!error && data) {
@@ -530,6 +628,9 @@ export default function App() {
     return null;
   });
 
+  // هذا useEffect يعمل عندما يتغير view أو selectedSellerPhone.
+  // يحول رقم الهاتف إلى معرّف UUID للبائع من Supabase.
+  // استعلام Supabase — يعمل فقط عند عرض ملف البائع.
   useEffect(() => {
     if (view === 'profile' && selectedSellerPhone) {
       if (selectedSellerPhone.includes('-')) {
@@ -607,6 +708,10 @@ export default function App() {
 
   const playSound = useSound();
 
+  // هذا useEffect يعمل مرة واحدة عند فتح التطبيق.
+  // يحلل عنوان URL لفتح الإعلان أو المنتج أو النقل مباشرة (Deep Linking).
+  // استعلام Supabase — يُنفَّذ فقط إذا كان الرابط يحتوي على معرّف.
+  // انتبه: قد يسبب جلبين (fetch هنا + fetch في useEffect آخر). تأكد من عدم التكرار.
   useEffect(() => {
     const handleUrlRefresh = async () => {
       try {
@@ -723,8 +828,6 @@ export default function App() {
 
             const { data: row, error } = await query.maybeSingle();
 
-            console.log('🚌 Transport Deep Link — fetched row:', row, 'error:', error);
-
             if (!error && row) {
               // Parse JSON description field exactly like fetchAds does
               let extra: any = {
@@ -775,6 +878,11 @@ export default function App() {
     handleUrlRefresh();
   }, []);
 
+  // هذا useEffect يعمل مرة واحدة عند فتح التطبيق.
+  // يجلب بيانات جميع البائعين من Supabase (حتى 200 ملف).
+  // استعلام Supabase — عدد مرات التنفيذ المتوقع: مرة واحدة فقط.
+  // اقتراح تحسين: يمكن تطبيق Caching لتقليل استهلاك الباقة.
+  // ✅ آمن: يستخدم isMounted لمنع Memory Leak بعد إلغاء التحميل.
   useEffect(() => {
     let isMounted = true;
     async function loadAllProfilesGlobal() {
@@ -876,6 +984,9 @@ export default function App() {
     return () => { isMounted = false; };
   }, []);
 
+  // هذا useEffect يعمل مرة واحدة عند فتح التطبيق.
+  // يستمع لحدث (open-share-modal) لفتح نافذة المشاركة من أي مكوّن.
+  // ✅ آمن: يتم تنظيف الـ Event Listener في الـ cleanup function.
   useEffect(() => {
     const handleOpenShare = (e: any) => {
       const d = e.detail || {};
@@ -931,6 +1042,11 @@ export default function App() {
   // ── استعادة الجلسة ومراقبة Auth ────────────────────────────────────
   
 
+  // هذا useEffect يعمل مرة واحدة عند فتح التطبيق.
+  // يستعيد جلسة المستخدم الحالية ويراقب تغييرات حالة المصادقة.
+  // ✅ آمن: يتم إلغاء اشتراك Auth listener في الـ cleanup.
+  // استعلام Supabase — مرة واحدة فقط + listener دائم.
+  // انتبه: لا تضف State هنا حتى لا يتحول إلى Infinite Loop.
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) loadUserFromSupabase(session.user);
@@ -1085,7 +1201,6 @@ export default function App() {
         pendingDeepLinkRef.current = 'product:' + actualId;
         const isNumeric = /^\d+$/.test(actualId);
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actualId);
-        console.log('[DeepLink] Product lookup:', { actualId, isUUID, isNumeric, targetId: targetId.substring(0, 50) });
         let query = supabase.from('products').select('*');
         if (isUUID) {
           query = query.eq('id', actualId);
@@ -1095,7 +1210,6 @@ export default function App() {
           query = query.eq('short_id', actualId);
         }
         query.single().then(({ data, error }) => {
-          console.log('[DeepLink] Product query result:', { found: !!data, error: error?.message, actualId });
           if (data && !error) {
             pendingDeepLinkRef.current = null;
             setLoadingRoute(false);
@@ -1170,6 +1284,9 @@ export default function App() {
   };
 
   // PWA & Redirection normalization
+  // هذا useEffect يعمل مرة واحدة عند فتح التطبيق.
+  // يتعامل مع أحداث تثبيت التطبيق كـ PWA وتنظيم مسارات URL.
+  // ✅ آمن: يتم تنظيف جميع Event Listeners في الـ cleanup.
   useEffect(() => {
     if (typeof window === 'undefined') return () => {};
     
@@ -1213,11 +1330,13 @@ export default function App() {
     };
   }, []);
 
+  // هذا useEffect يعمل عند أول تحميل وعند تغيير allAds أو allProducts.
+  // يحلل مسار URL عند التحميل الأول، ثم يعيد المحاولة إذا لم تصل البيانات بعد.
+  // انتبه: يعتمد على allAds وallProducts كـ Dependencies، أي يُعاد تنفيذه عند كل تحديث للإعلانات.
   // Initial route parsing — runs once on mount, then retries pending deep links when data arrives
   useEffect(() => {
     if (!initialHashParsed) {
       // First run: parse URL and start any async fetch
-      console.log('[DeepLink] Initial parse, path:', window.location.pathname);
       syncStateFromPath();
       setInitialHashParsed(true);
       return;
@@ -1226,47 +1345,38 @@ export default function App() {
     // Retry pending deep links when allAds/allProducts update
     if (pendingDeepLinkRef.current) {
       const [linkType, linkId] = pendingDeepLinkRef.current.split(':');
-      console.log('[DeepLink] Retry check:', { linkType, linkId, adsLen: allAds.length, prodsLen: allProducts.length });
       if (linkType === 'ad' && allAds.length > 0) {
         const found = allAds.find(a => String(a.id) === linkId || a.short_id === linkId);
         if (found) {
-          console.log('[DeepLink] Retry found ad:', found.id);
           pendingDeepLinkRef.current = null;
           setSelectedAd(found);
         }
       } else if (linkType === 'product' && allProducts.length > 0) {
         const found = allProducts.find(p => String(p.id) === linkId || p.short_id === linkId);
         if (found) {
-          console.log('[DeepLink] Retry found product:', found.id);
           pendingDeepLinkRef.current = null;
           setSelectedProduct(found);
         } else {
-          console.log('[DeepLink] Retry: product NOT found in allProducts. IDs:', allProducts.map(p => String(p.id).substring(0, 8)));
         }
       }
     }
   }, [allAds, allProducts, initialHashParsed]);
 
+  // هذا useEffect يستمع لحدث "popstate" (زر الرجوع في المتصفح).
+  // ✅ آمن: يتم تنظيف Event Listener في الـ cleanup.
   useEffect(() => {
     const handlePopState = () => syncStateFromPath();
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [allAds, allProducts]);
 
+  // هذا useEffect يعمل عند تغيير أي حالة تتعلق بالتنقل.
+  // يقوم بتحديث عنوان URL في المتصفح ليعكس الصفحة الحالية (History Management).
+  // انتبه: لا تضف States جديدة في dependencies بدون تفكير.
   useEffect(() => {
     if (!initialHashParsed || loadingRoute || pendingDeepLinkRef.current) return; // Don't push state before initial parse, while routing/fetching, or while deep link is pending
     let newPath: string | null = null;
     
-    const slugify = (text: string) => {
-      return text
-        .toString()
-        .toLowerCase()
-        .trim()
-        .replace(/[\s_]+/g, '-')
-        .replace(/[^\w\u0621-\u064A0-9-]+/g, '')
-        .replace(/--+/g, '-');
-    };
-
     if (selectedAd) {
       const typeText = selectedAd.type === 'buy' ? 'شراء' : selectedAd.type === 'rent' ? 'ايجار' : selectedAd.type === 'service' ? 'خدمات' : 'بيع';
       const categoryText = selectedAd.category || 'عام';
@@ -1701,6 +1811,10 @@ export default function App() {
     }
   }, [user]);
 
+  // هذا useEffect يعمل عند تسجيل الدخول أو الخروج.
+  // يجلب الإشعارات ويفعّل Polling كل 45 ثانية بدلاً من Realtime (لتوفير الباقة).
+  // ✅ آمن: يتم إيقاف الـ Interval في الـ cleanup.
+  // 🔥 استهلاك Supabase: استعلام كل 45 ثانية ما دام المستخدم مسجلاً.
   useEffect(() => {
     if (!user) {
       setNotifications([]);
@@ -1721,6 +1835,9 @@ export default function App() {
   }, [user, fetchNotifications]);
 
   const prevNotifsLength = useRef(0);
+  // هذا useEffect يعمل عند تغيير قائمة الإشعارات.
+  // يُشغّل صوت تنبيه عند وصول إشعار جديد.
+  // آمن للتعديل: نعم، يمكن تغيير الصوت أو تعطيله.
   useEffect(() => {
     if (notifications.length > prevNotifsLength.current) {
       if (prevNotifsLength.current > 0) {
@@ -1800,20 +1917,32 @@ export default function App() {
   };
 
 
+  // هذا useEffect يعمل عند كل تغيير في قائمة المفضلة.
+  // يحفظ المفضلة في LocalStorage فوراً. لا يستهلك Supabase.
+  // هذا useEffect يعمل عند كل تغيير في قائمة المفضلة.
+  // يحفظ المفضلة في LocalStorage. لا يستهلك Supabase.
   useEffect(()=>{localStorage.setItem('souqFavs',JSON.stringify(favorites));},[favorites]);
 
+  // هذا useEffect يعمل عند الانتقال لصفحة النقل أو الملف الشخصي.
+  // استعلام Supabase — يُنفَّذ فقط عند تغيير view.
   useEffect(() => {
     if (view === 'transport' || view === 'profile') {
       fetchTransportAds();
     }
   }, [view, fetchTransportAds]);
 
+  // هذا useEffect يعمل عند تغيير view.
+  // يحدث الشريط السفلي للتنقل. لا يستهلك Supabase. آمن للتعديل.
   useEffect(() => {
     if (['home', 'profile', 'transport'].includes(view)) {
       setBottomNavActive(view);
     }
   }, [view]);
 
+  // هذا useEffect يعمل عند تغيير أي فلتر بحث.
+  // يطبّق Debounce بمقدار 450ms لمنع إرسال طلبات Supabase عند كل حرف.
+  // ✅ آمن: يتم إلغاء الـ Timeout في الـ cleanup.
+  // 🔥 استعلام Supabase — يُجلب كل مرة تتغير فيها الفلاتر.
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       if (view === 'home' || view === 'products' || view === 'transport' || view === 'profile') {
@@ -1825,10 +1954,16 @@ export default function App() {
     return () => clearTimeout(delayDebounceFn);
   }, [search, cat, gov, sort, priceMin, priceMax, view]);
 
+  // هذا useEffect يعمل عند تغيير بيانات المستخدم.
+  // يحفظ بيانات المستخدم مع عدد إعلاناته في LocalStorage. لا يستهلك Supabase.
   useEffect(()=>{
     if(user){const mc=allAds.filter(a=>a.postedBy===user.id).length+allProducts.filter(p=>p.postedBy===user.id).length;saveStoredUser(user,mc);}
   },[user]);
 
+  // هذا useEffect يعمل مرة واحدة عند تغيير user.
+  // يتحقق من حالة الحظر (Ban) للمستخدم أو الجهاز، ويحدث last_seen.
+  // 🔥 استعلام Supabase — مرة واحدة عند تغيير user.
+  // ملاحظة: الـ Interval كان يعمل كل دقيقتين لكن تم تعطيله لتوفير الباقة.
   // Track online status and guests
   useEffect(() => {
     let interval: NodeJS.Timeout;

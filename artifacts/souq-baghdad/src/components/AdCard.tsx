@@ -1,13 +1,33 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// يعرض بطاقة إعلان مبسّطة (Ad Card) في قائمة الإعلانات.
+//
+// لا يقوم بجلب البيانات.
+// الجلب يتم في MarketView عبر fetchAds() في App.tsx.
+//
+// الـ Props:
+// - ad: بيانات الإعلان.
+// - onSelect: يفتح تفاصيل الإعلان.
+// - isFav/onFav: لإدارة المفضلة.
+// - onSellerClick: للانتقال لملف البائع.
+//
+// انتبه:
+// المكوّن يستخدم hook خارجي (useOnlineStatuses) يستعلم Supabase
+// لمعرفة من هو متصل. تأكد أن هذا الـ Hook لا يُعيد الاستعلام كثيراً.
+//
+// ⚠️ Dead Code تحذير:
+// الـ Import القادم من App.tsx ضخم جداً. الـ CATEGORIES وغيرها لا تُستخدم هنا.
+// يُنصح باستخدام import من ملفات مخصصة بدلاً من App.tsx.
+// ===========================================
 import { useOnlineStatuses } from '../hooks/useOnlineStatuses';
 import { useRelativeTime } from '../utils/time';
-import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React from 'react';
+import { motion } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';
-import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
-import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage } from '../App';
-import { slugify, getWhatsAppLink, detectDevice, isNewItem, getWhatsAppResetLink, getGlowClass } from '../utils/helpers';
+import { Ad } from '../types';
+import { handleUniversalShare } from '../App';
+import { isNewItem, getGlowClass } from '../utils/helpers';
 import { formatPrice } from '../utils/format';
-import { useSound } from '../hooks/useSound';
 import { supabase } from '../lib/supabase';
 
 // Map all lucide icons to global scope to avoid missing imports
@@ -24,7 +44,7 @@ const {
   FileText, Gamepad2, Copy, Crown, View, Eye: ViewIcon
 } = LucideIcons;
 
-export function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu, sellerRole }:{
+export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu, sellerRole }:{
   ad:Ad; onSelect:()=>void; isFav:boolean; onFav:(e:React.MouseEvent)=>void; onSellerClick?:(id:string)=>void; onActionMenu?:(e:React.MouseEvent)=>void;
   sellerRole?: string;
 }) {
@@ -64,4 +84,4 @@ export function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu
       </div>
     </motion.div>
   );
-}
+});

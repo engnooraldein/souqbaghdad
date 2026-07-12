@@ -1,3 +1,13 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// يعرض بطاقة وهمية (Skeleton Loader) أثناء تحميل البيانات.
+//
+// لا يتصل بـ Supabase. مكوّن UI بحت.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
+
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';

@@ -1,3 +1,13 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// نافذة المعلومات والوثائق (Info & Docs Modal).
+// تعرض سياسة الاستخدام، الشروط، وطريقة الاستخدام.
+//
+// لا يتصل بـ Supabase. مكوّن UI بحت.
+//
+// آمن للتعديل:
+// نعم، يمكن تحديث النصوص بحرية.
+// ===========================================
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 

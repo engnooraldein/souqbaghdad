@@ -1,3 +1,17 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// لعبة "ضارب الدجاج" المدمجة في التطبيق.
+//
+// لا يتصل بـ Supabase.
+// منطق اللعبة مكتوب بالكامل داخل هذا الملف.
+//
+// انتبه:
+// اللعبة تستخدم Canvas / Animation. قد تستهلك الذاكرة.
+// تأكد من إيقاف الـ Animation عند إغلاق اللعبة (cleanup في useEffect).
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {

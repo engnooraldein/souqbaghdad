@@ -1,3 +1,16 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// قسم الفيديوهات القصيرة (Short Videos).
+//
+// قد يتصل بـ Supabase Storage لجلب الفيديوهات.
+// تحقق من useEffect للتأكد من عدم وجود جلب متكرر.
+//
+// انتبه:
+// الفيديوهات قد تستهلك bandwidth كبيراً من Supabase Storage.
+//
+// آمن للتعديل:
+// نعم، بحذر.
+// ===========================================
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, MessageCircle, Share2, Bookmark, Volume2, VolumeX, ChevronLeft, ChevronRight, Home, Search, Plus, User } from 'lucide-react';

@@ -1,13 +1,29 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// يعرض بطاقة منتج (Product Card) في قائمة المنتجات.
+//
+// لا يقوم بجلب البيانات.
+// الجلب يتم في MarketView عبر fetchProducts() في App.tsx.
+//
+// الـ Props:
+// - product: بيانات المنتج.
+// - onSelect: يفتح تفاصيل المنتج.
+// - isFav/onFav: لإدارة المفضلة.
+//
+// انتبه:
+// يستخدم useOnlineStatuses (Supabase Hook). تأكد من عدم تكرار الاستعلام.
+//
+// ⚠️ Dead Code تحذير:
+// كثير من الـ Imports لا تُستخدم في هذا المكوّن الصغير.
+// ===========================================
 import { useOnlineStatuses } from '../hooks/useOnlineStatuses';
 import { useRelativeTime } from '../utils/time';
-import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React from 'react';
+import { motion } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';
-import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
-import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage } from '../App';
-import { slugify, getWhatsAppLink, detectDevice, isNewItem, getWhatsAppResetLink, getGlowClass } from '../utils/helpers';
+import { Product } from '../types';
+import { isNewItem, getGlowClass } from '../utils/helpers';
 import { formatPrice } from '../utils/format';
-import { useSound } from '../hooks/useSound';
 import { supabase } from '../lib/supabase';
 
 // Map all lucide icons to global scope to avoid missing imports
@@ -24,7 +40,7 @@ const {
   FileText, Gamepad2, Copy, Crown, View, Eye: ViewIcon
 } = LucideIcons;
 
-export function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionMenu, sellerRole }:{
+export const ProductCard = React.memo(function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, onActionMenu, sellerRole }:{
   product:Product; onSelect:()=>void; isFav:boolean; onFav:(e:React.MouseEvent)=>void; onSellerClick?:(id:string)=>void; onActionMenu?:(e:React.MouseEvent)=>void;
   sellerRole?: string;
 }) {
@@ -66,4 +82,4 @@ export function ProductCard({ product, onSelect, isFav, onFav, onSellerClick, on
       </div>
     </motion.div>
   );
-}
+});

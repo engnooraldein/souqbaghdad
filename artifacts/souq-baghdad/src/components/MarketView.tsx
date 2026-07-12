@@ -1,4 +1,32 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// يعرض الصفحة الرئيسية للسوق (Market View) وقسم المتجر (Shop/Products).
+//
+// لا يقوم بجلب البيانات مباشرة من Supabase.
+// البيانات تأتيه عبر Props من App.tsx (allAds, allProducts, fetchAds, fetchProducts).
+//
+// الميزات المدمجة:
+// - عرض قائمة الإعلانات (Ads)
+// - عرض قائمة المنتجات (Products)
+// - فلاتر البحث (Search, Category, Governorate, Sort, Price)
+// - Infinite Scroll للتحميل التدريجي
+// - زر "نشر إعلان" / "نشر منتج"
+//
+// انتبه:
+// هذا الملف كبير جداً (835 سطر). إذا أردت تعديل تصميم البطاقات
+// أو الفلاتر، ابحث عن القسم المناسب قبل التعديل.
+//
+// اقتراح تحسين:
+// يمكن مستقبلاً تقسيمه إلى:
+// - AdsListSection.tsx (قسم الإعلانات)
+// - ProductsListSection.tsx (قسم المنتجات)
+// - FilterBar.tsx (شريط الفلاتر)
+//
+// آمن للتعديل:
+// نعم، لكن تأكد من عدم تغيير Props المستقبَلة أو أسماء الـ functions المُمرَّرة.
+// ===========================================
 import { DEFAULT_AVATAR } from '../App';
+
 import LiveVisitorCounter from './LiveVisitorCounter';
 import InfiniteScrollTrigger from './InfiniteScrollTrigger';
 import { DEFAULT_COVER, getCoverImage } from '../constants';

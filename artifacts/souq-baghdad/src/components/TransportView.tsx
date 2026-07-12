@@ -1,3 +1,21 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// يعرض صفحة الخطوط والنقل (Transport View).
+//
+// لا يقوم بجلب البيانات مباشرة.
+// البيانات تأتيه عبر Props من App.tsx (allTransportAds, fetchTransportAds).
+//
+// الميزات المدمجة:
+// - عرض إعلانات النقل (TransportAdCard)
+// - فلتر نوع الجمهور (طلاب / موظفون / مختلط)
+// - نافذة نشر خط جديد (TransportFormModal)
+// - نافذة تفاصيل الخط (TransportDetailModal)
+// - تتبع الاهتمام بالخط (InterestTimer)
+//
+// آمن للتعديل:
+// نعم، لكن تأكد من عدم تغيير Props المستقبَلة من App.tsx.
+// ===========================================
+
 import InfiniteScrollTrigger from './InfiniteScrollTrigger';
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';

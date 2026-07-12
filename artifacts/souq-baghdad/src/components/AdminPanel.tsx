@@ -1,3 +1,19 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// لوحة تحكم المشرف (Admin Panel).
+//
+// يجلب البيانات من Supabase:
+// - قائمة الإعلانات للمراجعة.
+// - إجراءات الحذف والحظر.
+//
+// 🔒 وصول مقيّد:
+// يجب أن يكون user.role === 'admin' أو 'owner' للوصول.
+// تحقق من الـ guard في App.tsx قبل عرض هذا المكوّن.
+//
+// آمن للتعديل:
+// نعم، لكن انتبه للصلاحيات وتأثير الحذف على البيانات.
+// ===========================================
+
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 

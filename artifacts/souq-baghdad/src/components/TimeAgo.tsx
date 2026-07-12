@@ -1,3 +1,13 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// يحسب ويعرض الوقت النسبي (منذ 5 دقائق، منذ يوم، إلخ).
+//
+// لا يتصل بـ Supabase. مكوّن Utility بحت.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
+
 import { useRelativeTime } from '../utils/time';
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';

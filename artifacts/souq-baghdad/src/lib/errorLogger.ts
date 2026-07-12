@@ -1,3 +1,15 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// يُسجّل الأخطاء الحرجة (Critical Errors) في Supabase.
+//
+// استعلام Supabase:
+// INSERT في جدول error_logs.
+//
+// يُستخدم في main.tsx لالتقاط Unhandled Promise Rejections.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import { supabase } from './supabase';
 
 /**

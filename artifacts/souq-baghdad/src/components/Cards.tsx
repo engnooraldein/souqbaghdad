@@ -1,3 +1,12 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// مجموعة بطاقات UI عامة (Generic Card Components).
+//
+// لا يتصل بـ Supabase. مكوّنات UI بحتة.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import { motion } from 'framer-motion';
 import { LucideIcon, ChevronLeft } from 'lucide-react';
 

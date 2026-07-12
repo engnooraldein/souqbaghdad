@@ -1,3 +1,16 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// مكوّن يرصد وصول المستخدم لنهاية القائمة (Infinite Scroll Trigger).
+// يستخدم IntersectionObserver لاكتشاف الوصول للأسفل.
+//
+// لا يتصل بـ Supabase مباشرة.
+// عند الاكتشاف يستدعي callback لجلب البيانات التالية.
+//
+// ✅ آمن: IntersectionObserver يُنظَّف في cleanup function.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import React, { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 

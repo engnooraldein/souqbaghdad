@@ -1,3 +1,17 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// نافذة نشر منتج جديد أو تعديل منتج موجود (Product Form Modal).
+//
+// يتعامل مع Supabase مباشرة:
+// - رفع الصور (uploadImageToStorage).
+// - إضافة أو تحديث المنتج في جدول 'products'.
+//
+// استعلام Supabase:
+// INSERT أو UPDATE عند الضغط على زر النشر/الحفظ.
+//
+// آمن للتعديل:
+// نعم، لكن تأكد من عدم كسر منطق التحقق (Validation).
+// ===========================================
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 

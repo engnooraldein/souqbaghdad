@@ -1,3 +1,13 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// نافذة عرض الصور بحجم كامل (Image Lightbox).
+// تدعم التكبير والتصفح بين الصور.
+//
+// لا يتصل بـ Supabase. مكوّن UI بحت.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 

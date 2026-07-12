@@ -1,3 +1,21 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// يعرض نافذة تفاصيل المنتج الكاملة (Product Detail Modal).
+//
+// يجلب البيانات من Supabase:
+// - تسجيل مشاهدة المنتج (recordItemView).
+//
+// الميزات المدمجة:
+// - عرض صور المنتج مع Lightbox.
+// - زر واتساب للتواصل مع البائع.
+// - زر مشاركة المنتج.
+//
+// استعلام Supabase:
+// يُنفَّذ مرة واحدة عند فتح النافذة.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import { useOnlineStatuses } from '../hooks/useOnlineStatuses';
 import { InterestTimer } from './InterestTimer';
 import { TimeAgo } from './TimeAgo';

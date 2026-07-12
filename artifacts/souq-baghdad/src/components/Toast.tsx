@@ -1,4 +1,15 @@
 import { XCircle } from 'lucide-react';
+// ===========================================
+// مسؤولية هذا الملف:
+// يعرض رسالة تنبيه مؤقتة (Toast Notification).
+//
+// لا يتصل بـ Supabase. مكوّن UI بحت.
+// يختفي تلقائياً بعد 4 ثوانٍ (مُضبوط في App.tsx).
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
+
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';

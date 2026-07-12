@@ -1,3 +1,13 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// يعرض بطاقة خط نقل (Transport Ad Card) في قائمة النقليات.
+//
+// لا يجلب البيانات مباشرة.
+// البيانات تأتيه عبر Props من TransportView.
+//
+// آمن للتعديل:
+// نعم. يمكن تحسين التصميم دون التأثير على منطق الجلب.
+// ===========================================
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';

@@ -1,3 +1,13 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// دوال حساب الوقت النسبي (Relative Time Utilities).
+// مثل: "منذ 5 دقائق"، "منذ يوم".
+//
+// لا يتصل بـ Supabase. دوال Utility بحتة.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import { useState, useEffect } from 'react';
 
 export function getRelative(iso: string): string {

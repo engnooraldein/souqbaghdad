@@ -1,3 +1,15 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// يعرض لوحة الإشعارات (Notifications Panel).
+//
+// لا يجلب البيانات مباشرة.
+// الإشعارات تأتيه عبر Props من App.tsx (notifications).
+// الجلب يتم في App.tsx عبر fetchNotifications() (Polling كل 45 ثانية).
+//
+// آمن للتعديل:
+// نعم، يمكن تحسين التصميم دون التأثير على منطق الجلب.
+// ===========================================
+
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 

@@ -1,3 +1,17 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// Hook لجلب إشعارات المستخدم من Supabase.
+//
+// استعلام Supabase:
+// يجلب من جداول 'ads' و 'user_notifications'.
+//
+// 🔥 استهلاك Supabase:
+// تحقق من مدة Polling إذا كان هذا الـ Hook مفعّلاً.
+// يُفضَّل Polling كل 45+ ثانية.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { User } from '../types';

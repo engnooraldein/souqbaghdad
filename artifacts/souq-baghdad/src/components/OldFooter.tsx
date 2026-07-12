@@ -1,3 +1,14 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// نسخة قديمة من الـ Footer (غير مستخدمة حالياً).
+//
+// ⚠️ تحذير Dead Code:
+// هذا الملف قديم ولا يُستخدم في التطبيق.
+// يُنصح بحذفه لتنظيف المشروع.
+//
+// آمن للحذف:
+// نعم، بعد التأكد من عدم استخدامه في أي import.
+// ===========================================
 import { motion } from 'framer-motion';
 import { Car, Home, Smartphone, Watch, Bike, ShoppingBag, Wrench, Video, Store, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
 import { IraqiEagle } from './Icons';

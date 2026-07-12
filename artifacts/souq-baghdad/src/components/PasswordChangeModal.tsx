@@ -1,3 +1,16 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// نافذة تغيير كلمة السر (Password Change Modal).
+//
+// يتعامل مع Supabase Auth:
+// - supabase.auth.updateUser({ password: newPassword })
+//
+// استعلام Supabase:
+// يُنفَّذ فقط عند الضغط على زر التغيير.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 

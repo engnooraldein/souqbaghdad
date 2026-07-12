@@ -1,3 +1,16 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// يعرض نافذة تفاصيل خط النقل (Transport Detail Modal).
+//
+// يجلب البيانات من Supabase:
+// - تسجيل مشاهدة الخط (recordItemView).
+//
+// استعلام Supabase:
+// يُنفَّذ مرة واحدة عند فتح النافذة.
+//
+// آمن للتعديل:
+// نعم.
+// ===========================================
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 

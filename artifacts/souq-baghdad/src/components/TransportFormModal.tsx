@@ -1,3 +1,16 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// نافذة نشر خط نقل جديد أو تعديله (Transport Form Modal).
+//
+// يتعامل مع Supabase مباشرة:
+// - إضافة أو تحديث الخط في جدول 'ads' بـ category = 'transport'.
+//
+// استعلام Supabase:
+// INSERT أو UPDATE عند الضغط على زر النشر/الحفظ.
+//
+// آمن للتعديل:
+// نعم، لكن تأكد من الحفاظ على هيكل JSON في حقل description.
+// ===========================================
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 

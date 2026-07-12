@@ -1,3 +1,11 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// مكوّن UI من مكتبة shadcn/ui (empty).
+//
+// لا يتصل بـ Supabase. مكوّن UI بحت.
+// تم توليده تلقائياً ويُنصح بعدم تعديله مباشرة.
+// استخدمه عبر الـ Props الموثقة في shadcn/ui.
+// ===========================================
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"

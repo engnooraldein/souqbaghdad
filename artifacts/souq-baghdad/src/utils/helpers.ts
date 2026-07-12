@@ -1,3 +1,20 @@
+// ===========================================
+// مسؤولية هذا الملف:
+// مجموعة دوال مساعدة (Utility Functions) مشتركة عبر التطبيق.
+//
+// الدوال المُصدَّرة:
+// - getGlowClass(role): تُرجع class تأثير توهج حسب صلاحية المستخدم.
+// - getWhatsAppResetLink(phone): يولّد رابط WhatsApp لإعادة كلمة السر.
+// - isNewItem(iso): يتحقق إذا كان الإعلان منشوراً خلال الـ 48 ساعة الأخيرة.
+// - getWhatsAppLink(phone, type, details): يولّد رابط تواصل للبائع.
+// - detectDevice(): يكتشف نوع الجهاز (موبايل، تابلت، ديسكتوب).
+// - slugify(text): يحوّل النص إلى URL-safe string.
+//
+// لا يتصل بـ Supabase. ملف Utility بحت.
+//
+// ✅ آمن للتعديل:
+// نعم.
+// ===========================================
 export const getGlowClass = (role?: string): string => {
   if (!role) return '';
   if (role === 'owner') return 'glow-owner';
