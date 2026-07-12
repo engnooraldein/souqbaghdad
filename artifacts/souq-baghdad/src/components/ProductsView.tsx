@@ -16,34 +16,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { SkeletonCard } from './SkeletonCard';
 
-interface SellerInfo {
-  name: string;
-  avatar: string;
-  isVerified: boolean;
-  rating: number;
-  joinedDate: string;
-  location: string;
-}
-
-interface Product {
-  id: number;
-  title: string;
-  price: string;
-  description: string;
-  category: string;
-  images: string[];
-  governorate: string;
-  phone: string;
-  condition: 'new' | 'used';
-  seller: SellerInfo;
-  createdAtISO: string;
-  views: number;
-  postedBy: string;
-  stock: number;
-  status: string;
-  short_id?: string;
-}
-
+import { Product, SellerInfo } from '../types';
 interface ProductsViewProps {
   user: any;
   onBack: () => void;

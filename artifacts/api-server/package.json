@@ -10,8 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@workspace/api-zod": "file:../api-zod",
-    "@workspace/db": "file:../db",
+    "@workspace/api-zod": "file:../../lib/api-zod",
+    "@workspace/db": "file:../../lib/db",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "drizzle-orm": "*",

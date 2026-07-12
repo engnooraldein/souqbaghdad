@@ -1390,7 +1390,7 @@ export function MarketView({
                                           <Phone className="w-3.5 h-3.5" /> اتصال
                                         </motion.a>
                                         <motion.a
-                                          href={getWhatsAppLink(ad.phone, 'general', ad)}
+                                          href={getWhatsAppLink(ad.phone, 'product', ad)}
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           whileHover={{ scale: 1.03 }}

@@ -1,8 +1,10 @@
 export interface SellerInfo {
+  id: string;
   name: string;
   avatar: string;
   isVerified: boolean;
   rating: number;
+  ratingCount?: number;
   joinedDate: string;
   location: string;
 }
