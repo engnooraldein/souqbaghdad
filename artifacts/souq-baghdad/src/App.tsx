@@ -1,32 +1,33 @@
 import { TimeAgo } from "./components/TimeAgo";
 import { Logo } from "./components/Logo";
 import { Toast } from "./components/Toast";
-import { ImageCropModal } from "./components/ImageCropModal";
 import { InterestTimer } from "./components/InterestTimer";
 import { SkeletonCard } from "./components/SkeletonCard";
-import { OnboardingModal } from "./components/OnboardingModal";
 import { CongratulationsModal } from "./components/CongratulationsModal";
 import { AuthModal } from "./components/AuthModal";
-import { InfoDocsModal } from "./components/InfoDocsModal";
 import { ImageLightboxModal } from "./components/ImageLightboxModal";
 import { AdCard } from "./components/AdCard";
 import { ProductCard } from "./components/ProductCard";
-import { AdDetailModal } from "./components/AdDetailModal";
-import { ProductDetailModal } from "./components/ProductDetailModal";
-import { TransportDetailModal } from "./components/TransportDetailModal";
-import { AdFormModal } from "./components/AdFormModal";
-import { ProductFormModal } from "./components/ProductFormModal";
-import { MyLinesTab } from "./components/MyLinesTab";
-import { PasswordChangeModal } from "./components/PasswordChangeModal";
-import { ProfileView } from "./components/ProfileView";
-import { SellerPublicPage } from "./components/SellerPublicPage";
 import { TransportAdCard } from "./components/TransportAdCard";
-import { AdminPanel } from "./components/AdminPanel";
-import { NotifPanel } from "./components/NotifPanel";
-import { MarketView } from "./components/MarketView";
-import { TransportFormModal } from "./components/TransportFormModal";
-import { TransportView } from "./components/TransportView";
 import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
+
+const ImageCropModal = lazy(() => import("./components/ImageCropModal").then(m => ({ default: m.ImageCropModal })));
+const OnboardingModal = lazy(() => import("./components/OnboardingModal").then(m => ({ default: m.OnboardingModal })));
+const InfoDocsModal = lazy(() => import("./components/InfoDocsModal").then(m => ({ default: m.InfoDocsModal })));
+const AdDetailModal = lazy(() => import("./components/AdDetailModal").then(m => ({ default: m.AdDetailModal })));
+const ProductDetailModal = lazy(() => import("./components/ProductDetailModal").then(m => ({ default: m.ProductDetailModal })));
+const TransportDetailModal = lazy(() => import("./components/TransportDetailModal").then(m => ({ default: m.TransportDetailModal })));
+const AdFormModal = lazy(() => import("./components/AdFormModal").then(m => ({ default: m.AdFormModal })));
+const ProductFormModal = lazy(() => import("./components/ProductFormModal").then(m => ({ default: m.ProductFormModal })));
+const MyLinesTab = lazy(() => import("./components/MyLinesTab").then(m => ({ default: m.MyLinesTab })));
+const PasswordChangeModal = lazy(() => import("./components/PasswordChangeModal").then(m => ({ default: m.PasswordChangeModal })));
+const ProfileView = lazy(() => import("./components/ProfileView").then(m => ({ default: m.ProfileView })));
+const SellerPublicPage = lazy(() => import("./components/SellerPublicPage").then(m => ({ default: m.SellerPublicPage })));
+const AdminPanel = lazy(() => import("./components/AdminPanel").then(m => ({ default: m.AdminPanel })));
+const NotifPanel = lazy(() => import("./components/NotifPanel").then(m => ({ default: m.NotifPanel })));
+const MarketView = lazy(() => import("./components/MarketView").then(m => ({ default: m.MarketView })));
+const TransportFormModal = lazy(() => import("./components/TransportFormModal").then(m => ({ default: m.TransportFormModal })));
+const TransportView = lazy(() => import("./components/TransportView").then(m => ({ default: m.TransportView })));
 import { supabase } from './lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
@@ -547,7 +548,7 @@ export const EMPLOYEE_WORKPLACES = [
 // Root App
 
 // ─────────────────────────────────────────────
-type AppView = 'home'|'profile'|'admin'|'owner'|'seller'|'transport'|'products'|'ad-detail'|'product-detail'|'transport-detail';
+type AppView = 'home'|'profile'|'admin'|'owner'|'seller'|'transport'|'products'|'ad-detail'|'product-detail'|'transport-detail' | string;
 
 // ===========================================
 // مسؤولية هذا الملف:
@@ -731,6 +732,33 @@ export default function App() {
   const [toast, setToast] = useState<{msg:string;type:string;visible:boolean}>({msg:'',type:'info',visible:false});
   const [showCreateTransport, setShowCreateTransport] = useState(false);
   const [activeDocTab, setActiveDocTab] = useState<string | null>(null);
+  const [docContactForm, setDocContactForm] = useState({ name: '', email: '', msg: '' });
+  const [docContactSent, setDocContactSent] = useState(false);
+  const [docContactSending, setDocContactSending] = useState(false);
+
+  const handleDocContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!docContactForm.name.trim() || !docContactForm.email.trim() || !docContactForm.msg.trim()) return;
+    setDocContactSending(true);
+    try {
+      const payload: any = {
+        name: docContactForm.name.trim(),
+        contact_info: docContactForm.email.trim(),
+        message: docContactForm.msg.trim()
+      };
+      if (user) {
+        payload.user_id = user.id;
+      }
+      const { error } = await supabase.from('support_messages').insert([payload]);
+      if (error) throw error;
+      setDocContactSent(true);
+      setDocContactForm({ name: '', email: '', msg: '' });
+    } catch (err: any) {
+      alert('حدث خطأ أثناء إرسال الرسالة: ' + (err?.message || err));
+    } finally {
+      setDocContactSending(false);
+    }
+  };
   const [activeLightbox, setActiveLightbox] = useState<{ src: string; title: string; images?: string[]; initialIdx?: number } | null>(null);
   const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; title: string; url: string; image?: string; price?: string; governorate?: string; location?: string; short_id?: string; description?: string }>({ isOpen: false, title: '', url: '' });
   const getDefaultAds = (): Ad[] => [];
@@ -1352,6 +1380,71 @@ export default function App() {
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('switch-to-profiles-tab'));
     } else if (type === 'transport') {
       setView('transport');
+      if (parts.length > 1 && targetId && targetId !== 'transport') {
+        const actualId = targetId;
+        const line = allTransportAds.find(l => String(l.id) === actualId || l.short_id === actualId);
+        if (line) {
+          setSelectedTransportAd(line);
+        } else {
+          const isNumeric = /^\d+$/.test(actualId);
+          let query = supabase.from('ads').select('*').eq('category', 'transport');
+          if (isNumeric) {
+            query = query.eq('id', Number(actualId));
+          } else {
+            query = query.eq('short_id', actualId);
+          }
+          query.single().then(({ data, error }) => {
+            if (data && !error) {
+              let extra = {
+                shift: 'صباحي',
+                seats: 4,
+                vehicleType: 'خصوصي',
+                targetAudience: 'مختلط',
+                categoryType: 'student' as 'student' | 'employee',
+                note: '',
+                interest: 0,
+                whatsappClicks: 0,
+                completedAt: undefined,
+                completion_reason: null
+              };
+              try {
+                if (data.description) {
+                  const parsed = JSON.parse(data.description);
+                  extra = { ...extra, ...parsed };
+                }
+              } catch (e) {
+                extra.note = data.description || '';
+              }
+              const mappedLine: TransportAd = {
+                id: data.id,
+                type: data.type || 'offer',
+                categoryType: extra.categoryType || 'student',
+                university: data.city || '',
+                regions: data.location || '',
+                shift: extra.shift,
+                seats: Number(extra.seats) || 0,
+                vehicleType: extra.vehicleType,
+                targetAudience: extra.targetAudience,
+                price: data.price ? String(data.price) : '',
+                phone: data.phone || '',
+                note: extra.note,
+                sellerName: data.seller_name || 'مستخدم',
+                sellerAvatar: data.seller_avatar || '',
+                createdAt: data.created_at,
+                status: data.status === 'active' ? 'published' : data.status,
+                postedBy: data.seller_id,
+                views: data.views || 0,
+                interest: extra.interest,
+                whatsappClicks: extra.whatsappClicks,
+                completedAt: extra.completedAt,
+                completion_reason: extra.completion_reason,
+                short_id: data.short_id || undefined,
+              };
+              setSelectedTransportAd(mappedLine);
+            }
+          });
+        }
+      }
     } else if (type === 'admin') {
       setView('admin');
     } else if (type === 'owner') {
@@ -1539,7 +1632,7 @@ export default function App() {
             seats: 4,
             vehicleType: 'خصوصي',
             targetAudience: 'مختلط',
-            categoryType: 'student' as 'student' | 'employee',
+            categoryType: 'student' as 'student' | 'employee' | 'emergency',
             note: '',
             interest: 0,
             whatsappClicks: 0,
@@ -2266,6 +2359,60 @@ export default function App() {
       console.error(error);
       return;
     }
+    
+    // Alert matching logic
+    try {
+      const { data: alerts, error: alertError } = await supabase
+        .from('subscription_alerts')
+        .select('*');
+        
+      if (!alertError && alerts && alerts.length > 0) {
+        const matches = alerts.filter(alert => {
+          if (alert.user_id === rowData.seller_id) return false;
+          
+          const alertCat = alert.category_type;
+          const adCat = ad.categoryType || 'student';
+          if (alertCat && alertCat !== 'all' && alertCat !== adCat) return false;
+          
+          if (alert.university && alert.university.trim() !== '') {
+            const alertUnivNorm = alert.university.trim().toLowerCase();
+            const adUnivNorm = ad.university.trim().toLowerCase();
+            if (!adUnivNorm.includes(alertUnivNorm) && !alertUnivNorm.includes(adUnivNorm)) {
+              return false;
+            }
+          }
+          
+          if (alert.regions && alert.regions.trim() !== '') {
+            const alertRegs = alert.regions.split(/[،,,\-]/).map((r: string) => r.trim().toLowerCase()).filter(Boolean);
+            const adRegs = ad.regions.split(/[،,,\-]/).map((r: string) => r.trim().toLowerCase()).filter(Boolean);
+            const hasOverlap = alertRegs.some((ar: string) => adRegs.some((adr: string) => adr.includes(ar) || ar.includes(adr)));
+            if (!hasOverlap) return false;
+          }
+          
+          if (alert.type && alert.type !== 'all' && alert.type !== ad.type) return false;
+          
+          return true;
+        });
+
+        if (matches.length > 0) {
+          const notifsToInsert = matches.map(match => ({
+            user_id: match.user_id,
+            title: ad.categoryType === 'emergency' ? '🚗 رحلة طوارئ يومية مطابقة!' : '🔔 خط نقل جديد يطابق بحثك!',
+            body: ad.categoryType === 'emergency'
+              ? `تم نشر رحلة طوارئ يومية من مناطق (${ad.regions}) إلى (${ad.university}) بسعر ${ad.price || 'غير محدد'}. تواصل الآن!`
+              : `تم نشر خط نقل جديد من مناطق (${ad.regions}) إلى (${ad.university}) بسعر ${ad.price || 'غير محدد'}. تواصل الآن!`,
+            type: 'transport_alert',
+            read: false,
+            created_at: new Date().toISOString()
+          }));
+          
+          await supabase.from('user_notifications').insert(notifsToInsert);
+        }
+      }
+    } catch (e) {
+      console.error("Error matching alert notifications:", e);
+    }
+
     showToast('تم نشر الخط بنجاح ✅', 'success');
     fetchAds();
   };
@@ -2562,7 +2709,7 @@ export default function App() {
                       </span>
                     )}
                   </button>
-                  <button onClick={() => window.location.hash = '#/profile/wallet'} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border transition-colors ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-white border-gray-700 hover:border-amber-500/50' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 hover:border-amber-500/50'}`} title="محفظتي">
+                  <button onClick={() => { setView('profile'); window.location.hash = '#/profile/wallet'; setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-wallet-tab')), 50); }} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border transition-colors ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-white border-gray-700 hover:border-amber-500/50' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 hover:border-amber-500/50'}`} title="محفظتي">
                     <Wallet className="w-4 h-4 text-emerald-400"/>
                     <span className="font-bold font-mono">{user.points || 0}</span>
                   </button>
@@ -2586,12 +2733,12 @@ export default function App() {
               {/* Dark mode toggle mobile */}
               {user ? (
                 <>
-                  <button onClick={() => window.location.hash = '#/profile/wallet'} className="flex items-center gap-1 px-2 py-1.5 bg-gray-800 text-white rounded-xl text-xs border border-gray-700" title="محفظتي">
+                  <button onClick={() => { setView('profile'); window.location.hash = '#/profile/wallet'; setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-wallet-tab')), 50); }} className="flex items-center gap-1 px-2 py-1.5 bg-gray-800 text-white rounded-xl text-xs border border-gray-700" title="محفظتي">
                     <Wallet className="w-3 h-3 text-emerald-400"/>
                     <span className="font-bold font-mono">{user.points || 0}</span>
                   </button>
                   <button onClick={() => window.location.hash = '#/profile'} className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white'}`}>
-                    <img src={user.avatar} alt="" className={`w-5.5 h-5.5 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border border-gray-600'}`}/>
+                    <img src={user.avatar} alt="" className={`w-5.5 h-5.5 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border border-gray-650'}`}/>
                     <span className="max-w-16 truncate hidden sm:block">{user.name}</span>
                   </button>
                 </>
@@ -2614,129 +2761,319 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Floating Action Sub-Navbar Controls */}
-      <AnimatePresence>
-        {showScrollButtons && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="fixed top-[76px] inset-x-0 z-30 pointer-events-none"
-          >
-            <div className="container mx-auto px-4 flex justify-between items-center" dir="rtl">
-              {/* Right Side (below Logo in RTL) */}
-              <div className="pointer-events-auto">
-                <button
-                  onClick={() => {
-                    if (!user) { requireAuth(); return; }
-                    setShowCreateAd(true);
-                    setEditingAd(null);
-                  }}
-                  className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-black rounded-full text-xs sm:text-sm shadow-lg shadow-amber-500/30 hover:scale-105 active:scale-95 transition-transform"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>أضف إعلانك</span>
-                </button>
-              </div>
-
-              {/* Left Side (below Other buttons in RTL) */}
-              <div className="pointer-events-auto">
-                <button
-                  onClick={toggleDarkMode}
-                  className={`p-2.5 rounded-full border shadow-lg transition-all flex items-center justify-center hover:scale-105 active:scale-95 ${
-                    isDarkMode
-                      ? 'bg-gray-800 text-amber-400 border-gray-700 hover:border-amber-500/50'
-                      : 'bg-white text-indigo-600 border-slate-200 hover:border-slate-300'
-                  }`}
-                  title={isDarkMode ? 'الوضع النهاري' : 'الوضع الليلي'}
-                  aria-label="تبديل مظهر الموقع"
-                >
-                  {isDarkMode ? <Sun className="w-4.5 h-4.5 text-amber-400" /> : <Moon className="w-4.5 h-4.5 text-indigo-500" />}
-                </button>
+      {/* Desktop Navigation Sidebar */}
+      <aside className={`hidden lg:flex flex-col w-64 fixed right-0 top-16 bottom-0 z-30 border-l transition-colors duration-300 text-right ${
+        isDarkMode ? 'bg-[#081a3d]/95 border-gray-800/80 text-white' : 'bg-white border-slate-200 text-slate-800'
+      }`} dir="rtl">
+        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+          {/* User Profile Card */}
+          {user ? (
+            <div className={`p-3.5 rounded-2xl border transition-all ${
+              isDarkMode ? 'bg-gray-800/40 border-gray-700/60' : 'bg-slate-50 border-slate-100'
+            }`}>
+              <div className="flex items-center gap-3">
+                <img src={user.avatar} alt={user.name} className={`w-10 h-10 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border border-gray-650'}`}/>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1">
+                    <p className="font-bold text-sm truncate text-white">{user.name}</p>
+                    {isOwner && <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0"/>}
+                  </div>
+                  <button onClick={() => { setView('profile'); window.location.hash = '#/profile/wallet'; setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-wallet-tab')), 50); }} className="text-[10px] text-emerald-400 hover:text-emerald-300 font-black flex items-center gap-1 mt-0.5 transition-colors cursor-pointer">
+                    <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>{user.points || 0} نقطة (محفظتي)</span>
+                  </button>
+                </div>
               </div>
             </div>
-          </motion.div>
+          ) : (
+            <button onClick={() => setShowAuth(true)} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer">
+              <LogIn className="w-4.5 h-4.5"/> 
+              <span>تسجيل الدخول</span>
+            </button>
+          )}
+
+          {/* Core App Navigation */}
+          <div className="space-y-1">
+            <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider pr-3 mb-2">القائمة الرئيسية</p>
+            
+            <button onClick={() => { setView('home'); setBottomNavActive('home'); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
+              view === 'home' 
+                ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/10' 
+                : (isDarkMode ? 'text-gray-300 hover:bg-gray-800/60 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')
+            }`}>
+              <Home className="w-4.5 h-4.5"/>
+              <span>سوق بغداد الرئيسية</span>
+            </button>
+
+            <button onClick={() => { setView('products'); setBottomNavActive('products'); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
+              view === 'products' 
+                ? 'bg-purple-600 text-white shadow-lg shadow-purple-650/25' 
+                : (isDarkMode ? 'text-gray-300 hover:bg-gray-800/60 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')
+            }`}>
+              <ShoppingBag className="w-4.5 h-4.5"/>
+              <span>المتجر الإلكتروني</span>
+            </button>
+
+            <button onClick={() => { setView('transport'); setBottomNavActive('transport'); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
+              view === 'transport' 
+                ? 'bg-blue-600 text-white' 
+                : (isDarkMode ? 'text-gray-300 hover:bg-gray-800/60 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')
+            }`}>
+              <Car className="w-4.5 h-4.5"/>
+              <span>خطوط النقل والتوصيل</span>
+            </button>
+
+            {user && (
+              <button onClick={() => { setView('profile'); setBottomNavActive('profile'); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
+                view === 'profile' && !window.location.hash.includes('/wallet')
+                  ? 'bg-amber-500/15 border border-amber-500/30 text-amber-400' 
+                  : (isDarkMode ? 'text-gray-300 hover:bg-gray-800/60 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')
+              }`}>
+                <UserIcon className="w-4.5 h-4.5 text-gray-400"/>
+                <span>صفحتي الشخصية</span>
+              </button>
+            )}
+
+            {user && (
+              <button onClick={() => { setBottomNavActive('profile'); setView('profile'); window.location.hash = '#/profile/wallet'; setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-wallet-tab')), 50); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
+                view === 'profile' && window.location.hash.includes('/wallet')
+                  ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400' 
+                  : (isDarkMode ? 'text-gray-300 hover:bg-gray-800/60 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')
+              }`}>
+                <Wallet className="w-4.5 h-4.5 text-emerald-400"/>
+                <span>محفظتي وإعادة الشحن</span>
+              </button>
+            )}
+
+            {isOwner && (
+              <button onClick={() => { setView('owner'); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
+                view === 'owner' 
+                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
+                  : (isDarkMode ? 'text-gray-300 hover:bg-gray-800/60 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')
+              }`}>
+                <Crown className="w-4.5 h-4.5 text-amber-400"/>
+                <span>لوحة تحكم المالك</span>
+              </button>
+            )}
+
+            {isAdmin && !isOwner && (
+              <button onClick={() => { setView('admin'); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
+                view === 'admin' 
+                  ? 'bg-red-500/20 text-red-400 border border-red-500/30' 
+                  : (isDarkMode ? 'text-gray-300 hover:bg-gray-800/60 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')
+              }`}>
+                <Settings className="w-4.5 h-4.5 text-red-400"/>
+                <span>لوحة تحكم الإدارة</span>
+              </button>
+            )}
+          </div>
+
+          <hr className={isDarkMode ? 'border-gray-800/60' : 'border-slate-100'} />
+
+          {/* Info and Policy Links inside Sidebar */}
+          <div className="space-y-1">
+            <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider pr-3 mb-2">معلومات وسياسات المنصة</p>
+            
+            <button onClick={() => { setActiveDocTab('من نحن'); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+              activeDocTab === 'من نحن' 
+                ? 'bg-amber-500/10 text-amber-400 font-black border border-amber-500/25' 
+                : (isDarkMode ? 'text-gray-400 hover:bg-gray-800/60 hover:text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900')
+            }`}>
+              <Info className="w-4 h-4 text-amber-500"/>
+              <span>من نحن؟</span>
+            </button>
+
+            <button onClick={() => { setActiveDocTab('الشروط والأحكام'); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+              activeDocTab === 'الشروط والأحكام' 
+                ? 'bg-amber-500/10 text-amber-400 font-black border border-amber-500/25' 
+                : (isDarkMode ? 'text-gray-400 hover:bg-gray-800/60 hover:text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900')
+            }`}>
+              <Shield className="w-4 h-4 text-amber-500"/>
+              <span>الشروط والأحكام</span>
+            </button>
+
+            <button onClick={() => { setActiveDocTab('سياسة الخصوصية'); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+              activeDocTab === 'سياسة الخصوصية' 
+                ? 'bg-amber-500/10 text-amber-400 font-black border border-amber-500/25' 
+                : (isDarkMode ? 'text-gray-400 hover:bg-gray-800/60 hover:text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900')
+            }`}>
+              <Lock className="w-4 h-4 text-amber-500"/>
+              <span>سياسة الخصوصية</span>
+            </button>
+
+            <button onClick={() => { setActiveDocTab('تواصل معنا'); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+              activeDocTab === 'تواصل معنا' 
+                ? 'bg-amber-500/10 text-amber-400 font-black border border-amber-500/25' 
+                : (isDarkMode ? 'text-gray-400 hover:bg-gray-800/60 hover:text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900')
+            }`}>
+              <Mail className="w-4 h-4 text-amber-500"/>
+              <span>تواصل معنا</span>
+            </button>
+
+            <button onClick={() => { setActiveDocTab('سجل التحديثات'); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+              activeDocTab === 'سجل التحديثات' 
+                ? 'bg-amber-500/10 text-amber-400 font-black border border-amber-500/25' 
+                : (isDarkMode ? 'text-gray-400 hover:bg-gray-800/60 hover:text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900')
+            }`}>
+              <Sparkles className="w-4 h-4 text-amber-500 animate-pulse"/>
+              <span>سجل التحديثات (v1.9.0)</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Sidebar Footer */}
+        <div className={`p-4 border-t ${isDarkMode ? 'border-gray-850' : 'border-slate-100'}`}>
+          <div className="flex items-center justify-between">
+            <button onClick={toggleDarkMode} className={`p-2 rounded-xl border flex items-center justify-center transition-colors cursor-pointer ${
+              isDarkMode ? 'bg-gray-850 border-gray-700 text-amber-400' : 'bg-slate-100 border-slate-200 text-indigo-600'
+            }`} title="تبديل الوضع">
+              {isDarkMode ? <Sun className="w-4 h-4"/> : <Moon className="w-4 h-4"/>}
+            </button>
+            <span className="text-[10px] text-gray-500 font-mono">سوك بغداد v1.9.0</span>
+          </div>
+        </div>
+      </aside>
+
+      {/* Mobile Menu Drawer */}
+      <AnimatePresence>
+        {showMobileMenu && (
+          <div className="fixed inset-0 z-[100] lg:hidden">
+            <div 
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+              onClick={() => setShowMobileMenu(false)}
+            />
+            <motion.div 
+              initial={{ x: '100%' }} 
+              animate={{ x: 0 }} 
+              exit={{ x: '100%' }} 
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className={`absolute right-0 top-0 bottom-0 w-72 p-5 pb-24 overflow-y-auto border-l text-right flex flex-col justify-between ${
+                isDarkMode ? 'bg-[#081a3d] border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-800'
+              }`}
+              dir="rtl"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <Logo small />
+                  <button onClick={() => setShowMobileMenu(false)} className="p-2 bg-gray-800/10 hover:bg-gray-800/20 rounded-xl" title="إغلاق" aria-label="إغلاق">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-1">
+                  <button onClick={() => { setView('home'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800/10 text-sm font-bold">
+                    <Home className="w-5 h-5" /> الرئيسية
+                  </button>
+                  <button onClick={() => { setView('products'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800/10 text-sm font-bold">
+                    <ShoppingBag className="w-5 h-5" /> المنتجات
+                  </button>
+                  <button onClick={() => { setView('transport'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800/10 text-sm font-bold">
+                    <Car className="w-5 h-5" /> خطوط النقل والتوصيل
+                  </button>
+                </div>
+
+                <hr className="my-4 border-gray-800/20" />
+
+                {user ? (
+                  <div className="space-y-1">
+                    <button onClick={() => { setShowCreateAd(true); setEditingAd(null); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl bg-amber-500 text-black font-bold text-sm">
+                      <Plus className="w-5 h-5" /> رفع إعلان
+                    </button>
+                    <button onClick={() => { setShowCreateProduct(true); setEditingProduct(null); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl bg-purple-600 text-white font-bold text-sm">
+                      <ShoppingBag className="w-5 h-5" /> إضافة منتج
+                    </button>
+                    <button onClick={() => { setView('profile'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800/10 text-sm font-bold">
+                      <UserIcon className="w-5 h-5 text-gray-400" /> ملفي الشخصي
+                    </button>
+                    {isOwner && (
+                      <button onClick={() => { setView('owner'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800/10 text-amber-400 text-sm font-bold">
+                        <Crown className="w-5 h-5" /> لوحة تحكم المالك
+                      </button>
+                    )}
+                    {isAdmin && !isOwner && (
+                      <button onClick={() => { setView('admin'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800/10 text-red-400 text-sm font-bold">
+                        <Settings className="w-5 h-5" /> لوحة تحكم الإدارة
+                      </button>
+                    )}
+                    <button onClick={() => { handleLogout(); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-500/10 text-red-400 text-sm font-bold">
+                      <LogOut className="w-5 h-5" /> تسجيل الخروج
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => { setShowAuth(true); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-600 text-white font-bold text-sm">
+                    <LogIn className="w-5 h-5" /> تسجيل الدخول
+                  </button>
+                )}
+
+                <hr className="my-4 border-gray-800/20" />
+
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider pr-3 mb-2">معلومات وسياسات المنصة</p>
+                  {['من نحن', 'الشروط والأحكام', 'سياسة الخصوصية', 'تواصل معنا', 'سجل التحديثات'].map((item) => (
+                    <button key={item} onClick={() => { setActiveDocTab(item); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs hover:bg-gray-800/10 font-bold">
+                      <Info className="w-4 h-4 text-amber-500" />
+                      <span>{item}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mobile Menu Footer */}
+              <div className="pt-4 border-t border-gray-800/20 flex items-center justify-between">
+                <button onClick={toggleDarkMode} className="p-2 rounded-xl border flex items-center justify-center">
+                  {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                </button>
+                <span className="text-[10px] text-gray-500 font-mono">سوك بغداد v1.9.0</span>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
-      {/* Mobile Menu */}
-      <AnimatePresence>
-        {showMobileMenu&&<motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/60" onClick={()=>setShowMobileMenu(false)}/>
-          <motion.div initial={{x:300}} animate={{x:0}} exit={{x:300}} className="absolute right-0 top-0 bottom-0 w-72 bg-gray-900 p-5 pb-24 overflow-y-auto border-l border-gray-700">
-            <div className="flex items-center justify-between mb-6"><Logo small/><button onClick={()=>setShowMobileMenu(false)} className="p-2 bg-gray-800 rounded-xl text-white" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button></div>
-            {user?(
-              <div className="bg-gray-800 rounded-2xl p-4 mb-5 border border-gray-700">
-                <div className="flex items-center gap-3">
-                  <img src={user.avatar} alt="" className={`w-12 h-12 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border-2 border-amber-500'}`}/>
-                  <div><div className="flex items-center gap-1"><p className="text-white font-bold text-sm">{user.name}</p>{isOwner&&<Crown className="w-3.5 h-3.5 text-amber-400"/>}</div>
-                    <p className="text-gray-400 text-xs">{user.email}</p></div>
-                </div>
-              </div>
-            ):(
-              <button onClick={()=>{setShowAuth(true);setShowMobileMenu(false);}} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl mb-5 flex items-center justify-center gap-2"><LogIn className="w-4 h-4"/> تسجيل الدخول</button>
-            )}
-            <div className="space-y-1">
-              {CATEGORIES.filter(c=>c.id!=='games').map(c=>(
-                <button key={c.id} onClick={()=>{setView('home');setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800 text-white text-sm">
-                  <span className="text-xl">{c.emoji}</span><span>{c.name}</span></button>
-              ))}
-            </div>
-            {user&&<div className="mt-5 pt-5 border-t border-gray-700 space-y-1">
-              <button onClick={()=>{setShowCreateAd(true);setEditingAd(null);setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl bg-amber-500 text-black font-bold text-sm"><Plus className="w-5 h-5"/> رفع إعلان</button>
-              <button onClick={()=>{setShowCreateProduct(true);setEditingProduct(null);setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl bg-purple-600 text-white font-bold text-sm"><ShoppingBag className="w-5 h-5"/> إضافة منتج</button>
-              <button onClick={()=>{setView('profile');setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800 text-white text-sm"><UserIcon className="w-5 h-5 text-gray-400"/> ملفي الشخصي</button>
-              {isOwner&&<button onClick={()=>{setView('owner');setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800 text-amber-400 text-sm"><Crown className="w-5 h-5"/> داشبورت المالك</button>}
-              {isAdmin&&!isOwner&&<button onClick={()=>{setView('admin');setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800 text-red-400 text-sm"><Settings className="w-5 h-5"/> لوحة الإدارة</button>}
-              <button onClick={()=>{handleLogout();setShowMobileMenu(false);}} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800 text-red-400 text-sm"><LogOut className="w-5 h-5"/> تسجيل الخروج</button>
-            </div>}
-          </motion.div>
-        </motion.div>}
-      </AnimatePresence>
-
       {/* Main */}
-      <main className="pwa-main">
+      <main className="pwa-main lg:pr-64">
         <AnimatePresence mode="wait">
           {view==='home'&&<motion.div key="home" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <MarketView 
-              user={user} 
-              allAds={allAds} 
-              allProducts={allProducts} 
-              favorites={favorites} 
-              storedUsers={storedUsers} 
-              onSelectAd={setSelectedAd} 
-              onSelectProduct={setSelectedProduct} 
-              onToggleFav={handleToggleFav} 
-              onRequireAuth={requireAuth} 
-              onSellerClick={handleSellerClick} 
-              onTransportClick={()=>{setView('transport');setBottomNavActive('transport');}} 
-              isStandalone={isStandalone}
-              onInstallClick={handleInstallClick}
-              onSelectTransportAd={setSelectedTransportAd} 
-              transportLines={allTransportAds}
-              search={search}
-              setSearch={setSearch}
-              cat={cat}
-              setCat={setCat}
-              gov={gov}
-              setGov={setGov}
-              sort={sort}
-              setSort={setSort}
-              priceMin={priceMin}
-              setPriceMin={setPriceMin}
-              priceMax={priceMax}
-              setPriceMax={setPriceMax}
-              hasMoreAds={hasMoreAds}
-              hasMoreProducts={hasMoreProducts}
-              onLoadMoreAds={() => fetchAds(false)}
-              onLoadMoreProducts={() => fetchProducts(false)}
-              totalAdsCount={totalAdsCount}
-              totalProductsCount={totalProductsCount}
-              loadingMoreAds={loadingMoreAds}
-              loadingMoreProducts={loadingMoreProducts}
-              isInitialLoading={isInitialLoading}
-            />
+            <Suspense fallback={<LoadingScreen isLoading={true} />}>
+              <MarketView 
+                user={user} 
+                allAds={allAds} 
+                allProducts={allProducts} 
+                favorites={favorites} 
+                storedUsers={storedUsers} 
+                onSelectAd={setSelectedAd} 
+                onSelectProduct={setSelectedProduct} 
+                onToggleFav={handleToggleFav} 
+                onRequireAuth={requireAuth} 
+                onSellerClick={handleSellerClick} 
+                onTransportClick={()=>{setView('transport');setBottomNavActive('transport');}} 
+                isStandalone={isStandalone}
+                onInstallClick={handleInstallClick}
+                onSelectTransportAd={setSelectedTransportAd} 
+                transportLines={allTransportAds}
+                search={search}
+                setSearch={setSearch}
+                cat={cat}
+                setCat={setCat}
+                gov={gov}
+                setGov={setGov}
+                sort={sort}
+                setSort={setSort}
+                priceMin={priceMin}
+                setPriceMin={setPriceMin}
+                priceMax={priceMax}
+                setPriceMax={setPriceMax}
+                hasMoreAds={hasMoreAds}
+                hasMoreProducts={hasMoreProducts}
+                onLoadMoreAds={() => fetchAds(false)}
+                onLoadMoreProducts={() => fetchProducts(false)}
+                totalAdsCount={totalAdsCount}
+                totalProductsCount={totalProductsCount}
+                loadingMoreAds={loadingMoreAds}
+                loadingMoreProducts={loadingMoreProducts}
+                isInitialLoading={isInitialLoading}
+              />
+            </Suspense>
           </motion.div>}
           {view==='products'&&<motion.div key="products" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <Suspense fallback={<LoadingScreen isLoading={true} />}>
@@ -2770,30 +3107,43 @@ export default function App() {
             </Suspense>
           </motion.div>}
           {view==='profile'&&user&&<motion.div key="profile" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold} favorites={favorites} allAds={allAds} allProducts={allProducts} onAdSelect={setSelectedAd} onProductSelect={setSelectedProduct} onFav={handleToggleFav} onStoreGuideClick={() => setShowStoreGuide(true)} /></motion.div>}
+            <Suspense fallback={<LoadingScreen isLoading={true} />}>
+              <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold} favorites={favorites} allAds={allAds} allProducts={allProducts} onAdSelect={setSelectedAd} onProductSelect={setSelectedProduct} onFav={handleToggleFav} onStoreGuideClick={() => setShowStoreGuide(true)} />
+            </Suspense>
+          </motion.div>}
           {view==='seller'&&selectedSellerId&&<motion.div key="seller" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <SellerPublicPage sellerId={selectedSellerId} allAds={allAds} allProducts={allProducts} allTransportAds={allTransportAds} storedUsers={storedUsers} onBack={() => {
-              setView('home');
-              if (previousSellerSource === 'accounts') {
-                if (typeof window !== 'undefined') window.location.hash = '#/accounts';
-                setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-profiles-tab')), 50);
-              } else {
-                if (typeof window !== 'undefined') window.location.hash = '#/';
-              }
-            }} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} onSelectTransport={setSelectedTransportAd} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile} onActionMenu={setActionMenuTarget}/></motion.div>}
+            <Suspense fallback={<LoadingScreen isLoading={true} />}>
+              <SellerPublicPage sellerId={selectedSellerId} allAds={allAds} allProducts={allProducts} allTransportAds={allTransportAds} storedUsers={storedUsers} onBack={() => {
+                setView('home');
+                if (previousSellerSource === 'accounts') {
+                  if (typeof window !== 'undefined') window.location.hash = '#/accounts';
+                  setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-profiles-tab')), 50);
+                } else {
+                  if (typeof window !== 'undefined') window.location.hash = '#/';
+                }
+              }} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} onSelectTransport={setSelectedTransportAd} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile} onActionMenu={setActionMenuTarget}/>
+            </Suspense>
+          </motion.div>}
           {view==='transport'&&<motion.div key="transport" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd} onActionMenu={setActionMenuTarget} isInitialLoading={isInitialLoading || (loadingTransport && allTransportAds.length === 0)} storedUsers={storedUsers} onLoadMore={() => fetchTransportAds(false)} hasMore={hasMoreTransport} totalCount={totalTransportCount} adCosts={adCosts}/></motion.div>}
+            <Suspense fallback={<LoadingScreen isLoading={true} />}>
+              <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd} onActionMenu={setActionMenuTarget} isInitialLoading={isInitialLoading || (loadingTransport && allTransportAds.length === 0)} storedUsers={storedUsers} onLoadMore={() => fetchTransportAds(false)} hasMore={hasMoreTransport} totalCount={totalTransportCount} adCosts={adCosts}/>
+            </Suspense>
+          </motion.div>}
           {view==='admin'&&isAdmin&&!isOwner&&<motion.div key="admin" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-            <AdminPanel ads={allAds} onDeleteAd={handleDeleteAd} onClose={()=>setView('home')}/></motion.div>}
+            <Suspense fallback={<LoadingScreen isLoading={true} />}>
+              <AdminPanel ads={allAds} onDeleteAd={handleDeleteAd} onClose={()=>setView('home')}/>
+            </Suspense>
+          </motion.div>}
           {view==='owner'&&isOwner&&<motion.div key="owner" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <Suspense fallback={<LoadingScreen isLoading={true} />}>
               <OwnerDashboard ads={allAds} products={allProducts} transportAds={allTransportAds} onDeleteAd={handleDeleteAd} onDeleteProduct={handleDeleteProduct} onDeleteTransportAd={handleDeleteTransportAd} onClose={()=>setView('home')} onDeleteProfile={handleDeleteProfile}/>
-            </Suspense></motion.div>}
+            </Suspense>
+          </motion.div>}
         </AnimatePresence>
       </main>
 
       {/* Footer */}
-      <footer className="bg-[#0c2b5e] border-t border-[#d4af37]/20 py-6">
+      <footer className="bg-[#0c2b5e] border-t border-[#d4af37]/20 py-6 lg:pr-64">
         <div className="container mx-auto px-4 text-center">
           <div className="flex items-center justify-center gap-2 mb-3"><span className="text-2xl">🇮🇶</span><span className="text-lg font-bold text-white">سوك بغداد</span></div>
                     <p className="text-gray-500 text-xs">© 2025 سوك بغداد — السوق الرقمي العراقي</p>
@@ -2891,15 +3241,15 @@ export default function App() {
 
       {/* Modals */}
       <AnimatePresence>
-        {showOnboarding&&<OnboardingModal onClose={()=>{setShowOnboarding(false);localStorage.setItem('souqOnboarded','1');}}/>}
+        {showOnboarding&&<Suspense fallback={null}><OnboardingModal onClose={()=>{setShowOnboarding(false);localStorage.setItem('souqOnboarded','1');}}/></Suspense>}
         {showAuth&&<AuthModal onClose={()=>setShowAuth(false)} onLogin={handleLogin}/>}
-        {selectedAd&&<AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllAds(prev => prev.map(a => String(a.id) === String(id) ? { ...a, views: Math.max(a.views || 0, views) } : a)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'ad' } })); }} />}
-        {selectedProduct&&<ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllProducts(prev => prev.map(p => String(p.id) === String(id) ? { ...p, views: Math.max(p.views || 0, views) } : p)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'product' } })); }} />}
-        {selectedTransportAd&&<TransportDetailModal ad={selectedTransportAd} onClose={()=>setSelectedTransportAd(null)} user={user} onAuthRequired={requireAuth} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedTransportAd.id, selectedTransportAd.type==='offer'?'خط متوفر':'طلب خط', selectedTransportAd.postedBy || '', 'transport', sec)} storedUsers={storedUsers}/>}
-        {showCreateAd&&user&&<AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd} cost={adCosts.ad !== undefined ? adCosts.ad : 1} />}
-        {showCreateProduct&&user&&<ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct} cost={adCosts.product !== undefined ? adCosts.product : 1} />}
-        {showNotifs&&<NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick} onMarkRead={markNotifAsRead} onArchiveAll={handleArchiveAllNotifications}/>}
-        {activeDocTab&&<InfoDocsModal activeTab={activeDocTab} onClose={()=>setActiveDocTab(null)} user={user}/>}
+        {selectedAd&&<Suspense fallback={null}><AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllAds(prev => prev.map(a => String(a.id) === String(id) ? { ...a, views: Math.max(a.views || 0, views) } : a)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'ad' } })); }} /></Suspense>}
+        {selectedProduct&&<Suspense fallback={null}><ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllProducts(prev => prev.map(p => String(p.id) === String(id) ? { ...p, views: Math.max(p.views || 0, views) } : p)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'product' } })); }} /></Suspense>}
+        {selectedTransportAd&&<Suspense fallback={null}><TransportDetailModal ad={selectedTransportAd} onClose={()=>setSelectedTransportAd(null)} user={user} onAuthRequired={requireAuth} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedTransportAd.id, selectedTransportAd.type==='offer'?'خط متوفر':'طلب خط', selectedTransportAd.postedBy || '', 'transport', sec)} storedUsers={storedUsers}/></Suspense>}
+        {showCreateAd&&user&&<Suspense fallback={null}><AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd} cost={adCosts.ad !== undefined ? adCosts.ad : 1} /></Suspense>}
+        {showCreateProduct&&user&&<Suspense fallback={null}><ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct} cost={adCosts.product !== undefined ? adCosts.product : 1} /></Suspense>}
+        {showNotifs&&<Suspense fallback={null}><NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick} onMarkRead={markNotifAsRead} onArchiveAll={handleArchiveAllNotifications}/></Suspense>}
+        {activeDocTab&&<Suspense fallback={null}><InfoDocsModal activeTab={activeDocTab} onClose={()=>setActiveDocTab(null)} user={user}/></Suspense>}
         {activeLightbox&&<ImageLightboxModal src={activeLightbox.src} title={activeLightbox.title} images={(activeLightbox as any).images} initialIdx={(activeLightbox as any).initialIdx} onClose={()=>setActiveLightbox(null)}/>}
         {congratulationsItem && <CongratulationsModal item={congratulationsItem} onClose={() => setCongratulationsItem(null)} />}
         {shareModalData.isOpen && (

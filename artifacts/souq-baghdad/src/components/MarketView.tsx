@@ -1402,11 +1402,12 @@ export function MarketView({
                                     )}
                                     <motion.button
                                       onClick={() => handleUniversalShare(ad)}
-                                      whileHover={{ scale: 1.03 }}
-                                      whileTap={{ scale: 0.97 }}
-                                      className="flex items-center gap-1.5 px-3 py-2 bg-gray-850 hover:bg-gray-800 border border-gray-700/50 text-gray-300 hover:text-white rounded-xl text-xs font-bold transition-all"
+                                      whileHover={{ scale: 1.04 }}
+                                      whileTap={{ scale: 0.96 }}
+                                      className="flex items-center gap-1.5 px-3.5 py-2.5 bg-gradient-to-r from-amber-500/10 to-yellow-500/5 hover:from-amber-500/20 hover:to-yellow-500/15 border border-amber-500/20 hover:border-amber-500/40 text-amber-400 hover:text-amber-300 rounded-xl text-xs font-black transition-all shadow-sm active:scale-[0.98]"
                                     >
-                                      <Share2 className="w-3.5 h-3.5" /> مشاركة
+                                      <Share2 className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                                      <span>مشاركة</span>
                                     </motion.button>
                                   </div>
                                 </div>
@@ -1608,7 +1609,7 @@ export function MarketView({
                         {ad.price && (
                           <div className="flex items-center gap-2 text-amber-400 text-sm font-bold mb-3 bg-amber-500/10 px-3 py-2 rounded-lg inline-flex">
                             <Tag className="w-4 h-4" />
-                            <span>السعر المفضل: {ad.price}</span>
+                            <span>السعر المفضل: {formatPrice(ad.price)} د.ع</span>
                           </div>
                         )}
 
@@ -1647,9 +1648,10 @@ export function MarketView({
                               onClick={(e: any) => { e.stopPropagation(); handleUniversalShare({ id: ad.id, university: ad.university, type: ad.type, regions: ad.regions, price: ad.price }); }}
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
-                              className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold rounded-xl text-xs hover:bg-amber-500/30"
+                              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-gradient-to-r from-amber-500/10 to-yellow-500/5 hover:from-amber-500/20 hover:to-yellow-500/15 border border-amber-500/20 hover:border-amber-500/40 text-amber-400 hover:text-amber-300 rounded-xl text-xs font-black transition-all shadow-sm active:scale-[0.98]"
                             >
-                              <Share2 className="w-3.5 h-3.5" /> مشاركة
+                              <Share2 className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                              <span>مشاركة</span>
                             </motion.button>
                           </div>
                         </div>

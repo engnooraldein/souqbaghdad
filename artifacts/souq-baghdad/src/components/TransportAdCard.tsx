@@ -32,6 +32,79 @@ const {
   FileText, Gamepad2, Copy, Crown, View, Eye: ViewIcon
 } = LucideIcons;
 
+export function VisualRoutePath({ regions, university, type }: { regions: string, university: string, type: 'offer' | 'request' }) {
+  const points = useMemo(() => {
+    const list = regions ? regions.split(/[،,,\-]/).map(r => r.trim()).filter(Boolean) : [];
+    const pts = [];
+    if (list.length > 0) {
+      if (list.length <= 2) {
+        list.forEach((r, idx) => {
+          pts.push({ name: r, type: idx === 0 ? 'start' : 'stop' });
+        });
+      } else {
+        pts.push({ name: list[0], type: 'start' });
+        pts.push({ name: `+${list.length - 2} مناطق`, type: 'stop' });
+        pts.push({ name: list[list.length - 1], type: 'stop' });
+      }
+    }
+    pts.push({ name: university, type: 'destination' });
+    return pts;
+  }, [regions, university]);
+
+  return (
+    <div className="my-3.5 bg-gray-900/60 border border-gray-800/40 rounded-2xl p-3" dir="rtl">
+      <div className="flex items-center justify-between relative px-2">
+        {/* Connection Line */}
+        <div className="absolute top-[11px] left-8 right-8 h-[2px] bg-gray-850 z-0">
+          <div 
+            className={`absolute top-0 right-0 h-full rounded transition-all duration-500 ${
+              type === 'offer' ? 'bg-gradient-to-l from-emerald-500 to-teal-500 shadow-sm shadow-emerald-500/20' : 'bg-gradient-to-l from-amber-500 to-yellow-500 shadow-sm shadow-amber-500/20'
+            }`} 
+            style={{ width: '100%' }}
+          />
+        </div>
+
+        {points.map((pt, idx) => {
+          let dotClass = 'bg-gray-800 border-gray-700';
+          let textClass = 'text-gray-400';
+          let label = 'توقف';
+
+          if (pt.type === 'start') {
+            dotClass = type === 'offer' ? 'bg-emerald-500 border-emerald-400 ring-4 ring-emerald-500/10' : 'bg-amber-500 border-amber-400 ring-4 ring-amber-500/10';
+            textClass = 'text-white font-extrabold';
+            label = 'الانطلاق';
+          } else if (pt.type === 'destination') {
+            dotClass = 'bg-rose-500 border-rose-400 ring-4 ring-rose-500/10';
+            textClass = 'text-rose-400 font-extrabold';
+            label = 'الوصول';
+          } else {
+            dotClass = type === 'offer' ? 'bg-teal-600 border-teal-500 ring-4 ring-teal-500/10' : 'bg-yellow-600 border-yellow-500 ring-4 ring-yellow-500/10';
+            textClass = 'text-gray-300 font-bold';
+            label = 'عبر';
+          }
+
+          return (
+            <div key={idx} className="flex flex-col items-center flex-1 relative z-10 text-center">
+              {/* Dot */}
+              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${dotClass}`}>
+                <div className="w-1 h-1 bg-white rounded-full" />
+              </div>
+              {/* Region/Destination Name */}
+              <span className={`text-[10px] mt-1.5 line-clamp-1 max-w-[75px] truncate px-0.5 ${textClass}`} title={pt.name}>
+                {pt.name}
+              </span>
+              {/* Step label */}
+              <span className="text-[8px] text-gray-500 font-medium">
+                {label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }: { ad: TransportAd, onSelect: () => void, onActionMenu?: (e: any) => void, onShare?: () => void, seller?: any }) {
   const isEmployee = ad.categoryType === 'employee';
   
@@ -85,14 +158,17 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
 
       <div className="p-4 pt-6">
         <div className="flex justify-between items-start mb-3">
-          <div>
+          <div className="w-full">
             <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
               {ad.university}
             </h3>
-            <p className="text-gray-400 text-sm flex items-center gap-1.5 leading-relaxed">
+            <p className="text-gray-400 text-sm flex items-center gap-1.5 leading-relaxed mb-3">
               <MapPin className="w-4 h-4 text-emerald-400 shrink-0"/> 
               <span>المناطق: <span className="text-white">{ad.regions}</span></span>
             </p>
+            
+            {/* Visual Route Path */}
+            <VisualRoutePath regions={ad.regions} university={ad.university} type={ad.type} />
           </div>
         </div>
 
@@ -118,9 +194,9 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
         </div>
 
         {ad.price && (
-          <div className="flex items-center gap-2 text-amber-400 text-sm font-bold mb-3 bg-amber-500/10 px-3 py-2 rounded-lg inline-flex">
+          <div className="flex items-center gap-2 text-amber-400 text-sm font-black mb-3 bg-amber-500/10 px-3 py-2 rounded-lg inline-flex">
             <Tag className="w-4 h-4"/>
-            <span>السعر المفضل: {ad.price}</span>
+            <span>السعر المفضل: {formatPrice(ad.price)} د.ع</span>
           </div>
         )}
 

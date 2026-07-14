@@ -135,9 +135,110 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
   const [images, setImages] = useState<{preview:string;progress:number;_uid?:string}[]>((editProduct?.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)}))||[]));
   const [uploading, setUploading] = useState(false); const [pct, setPct] = useState(0);
   const playSound = useSound();
+
+  const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const [imageError, setImageError] = useState('');
+  const [isModerating, setIsModerating] = useState(false);
+
+  const [smartPrice, setSmartPrice] = useState<number | null>(null);
+  const [loadingSmartPrice, setLoadingSmartPrice] = useState(false);
+
+  const calculateSmartPrice = useCallback(async (cat: string, titleText: string) => {
+    if (!cat) return;
+    setLoadingSmartPrice(true);
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('price, title')
+        .eq('category', cat);
+
+      if (!error && data && data.length > 0) {
+        const titleWords = titleText.trim().toLowerCase().split(/\s+/).filter(w => w.length > 2);
+        let matchingItems = data;
+        if (titleWords.length > 0) {
+          const filtered = data.filter(item => {
+            const t = (item.title || '').toLowerCase();
+            return titleWords.some(word => t.includes(word));
+          });
+          if (filtered.length > 0) {
+            matchingItems = filtered;
+          }
+        }
+        const prices = matchingItems
+          .map(item => {
+            const p = typeof item.price === 'string' ? item.price.replace(/,/g, '') : item.price;
+            return parseInt(p);
+          })
+          .filter(p => !isNaN(p) && p > 0);
+
+        if (prices.length > 0) {
+          const avg = Math.round(prices.reduce((sum, val) => sum + val, 0) / prices.length);
+          const roundedAvg = Math.round(avg / 1000) * 1000;
+          setSmartPrice(roundedAvg);
+        } else {
+          setSmartPrice(null);
+        }
+      } else {
+        setSmartPrice(null);
+      }
+    } catch (err) {
+      console.error('Error fetching smart price for product:', err);
+      setSmartPrice(null);
+    } finally {
+      setLoadingSmartPrice(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let timer: any = null;
+    if (isOpen) {
+      timer = setTimeout(() => {
+        calculateSmartPrice(fd.category, fd.title);
+      }, 500);
+    } else {
+      setSmartPrice(null);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isOpen, fd.category, fd.title, calculateSmartPrice]);
+
+  const handleGenerateAIDescription = async () => {
+    const textToUse = fd.description.trim() || fd.title.trim();
+    if (!textToUse) {
+      setAiError('يرجى كتابة عنوان أو تفاصيل بسيطة أولاً ليقوم الذكاء الاصطناعي بصياغتها.');
+      return;
+    }
+    setAiError('');
+    setIsGeneratingDesc(true);
+    try {
+      const response = await fetch('/api/generate-description', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: textToUse,
+          title: fd.title,
+          category: fd.category
+        })
+      });
+      const data = await response.json();
+      if (response.ok && data.generatedText) {
+        setFd(prev => ({ ...prev, description: data.generatedText }));
+      } else {
+        setAiError(data.error || 'حدث خطأ أثناء توليد الوصف. يرجى المحاولة لاحقاً.');
+      }
+    } catch (err) {
+      setAiError('حدث خطأ في الاتصال. يرجى التحقق من اتصال الإنترنت والمحاولة لاحقاً.');
+    } finally {
+      setIsGeneratingDesc(false);
+    }
+  };
   useEffect(()=>{if(editProduct){setFd({title:editProduct.title,price:formatPrice(editProduct.price),description:editProduct.description,category:editProduct.category,governorate:editProduct.governorate,phone:editProduct.phone,condition:editProduct.condition,stock:editProduct.stock});setImages(editProduct.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)})) || []);}},[editProduct]);
   const handleImages = async (e:React.ChangeEvent<HTMLInputElement>) => {
     if(!e.target.files) return;
+    setImageError('');
+    setIsModerating(true);
     for(const file of Array.from(e.target.files)){
       const uid = Math.random().toString(36).substring(2, 9);
       setImages(prev=>[...prev,{preview:'',progress:0,_uid:uid}]);
@@ -147,14 +248,33 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
         setImages(prev=>prev.map(img=>img._uid===uid&&img.progress<100?{...img,progress:p}:img));
       },120);
       try {
+        // Compress and moderate the image first
+        const base64Data = await compressImage(file, 900, 0.78, false);
+        const modResponse = await fetch('/api/moderate-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: base64Data })
+        });
+        const modData = await modResponse.json();
+
+        if (modResponse.ok && !modData.isSafe) {
+          clearInterval(iv);
+          setImages(prev=>prev.filter(img=>img._uid!==uid));
+          setImageError(`تم رفض الصورة "${file.name}" بسبب: ${modData.reason || 'محتوى غير متوافق مع شروط المنصة.'}`);
+          playSound('error');
+          continue;
+        }
+
         const url = await uploadImageToStorage(file);
         clearInterval(iv);
         setImages(prev=>prev.map(img=>img._uid===uid?{...img,preview:url,progress:100}:img));
       } catch (err) {
         clearInterval(iv);
         setImages(prev=>prev.filter(img=>img._uid!==uid));
+        setImageError('حدث خطأ أثناء فحص الصورة المرفوعة بالذكاء الاصطناعي. يرجى المحاولة لاحقاً.');
       }
     }
+    setIsModerating(false);
   };
   const handleSubmit = async (e:React.FormEvent) => {
     e.preventDefault(); setUploading(true); playSound('click');
@@ -246,6 +366,31 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
             </div>
           </div>
 
+          {/* Smart Pricing Recommendation */}
+          {loadingSmartPrice ? (
+            <div className="flex items-center gap-1.5 text-[11px] text-purple-400 animate-pulse">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>جاري احتساب السعر الذكي المقترح للمنتج والمواصفات...</span>
+            </div>
+          ) : smartPrice !== null ? (
+            <div className="flex items-center justify-between bg-purple-500/10 border border-purple-500/20 rounded-xl px-3 py-2 text-xs">
+              <div className="flex items-center gap-1.5 text-purple-300">
+                <Sparkles className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
+                <span>متوسط السعر المقترح ذكياً: <strong className="text-purple-400">{formatPrice(smartPrice)} د.ع</strong></span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setFd(prev => ({ ...prev, price: fmt(String(smartPrice)) }));
+                  playSound('click');
+                }}
+                className="bg-purple-500 hover:bg-purple-600 text-white font-black px-2.5 py-1 rounded-lg transition-all duration-300 transform active:scale-95 cursor-pointer"
+              >
+                تطبيق السعر
+              </button>
+            </div>
+          ) : null}
+
           {/* Governorate & Phone */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
@@ -262,8 +407,34 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
 
           {/* Description */}
           <div className="space-y-1">
-            <label className="text-gray-300 text-xs font-black block">وصف وتفاصيل المنتج</label>
-            <textarea value={fd.description} onChange={e=>setFd({...fd,description:e.target.value})} placeholder={dynamicPlaceholders.description} rows={4} className="w-full bg-gray-950/40 text-white rounded-2xl py-3.5 px-4 border border-gray-900/80 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 outline-none transition-all duration-300 resize-none text-sm font-medium leading-relaxed"/>
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-gray-300 text-xs font-black block">وصف وتفاصيل المنتج</label>
+              <button
+                type="button"
+                onClick={handleGenerateAIDescription}
+                disabled={isGeneratingDesc}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 disabled:from-gray-800 disabled:to-gray-900 text-white disabled:text-gray-500 rounded-xl text-[10px] sm:text-xs font-black shadow-lg shadow-purple-500/10 transition-all duration-300 hover:scale-102 cursor-pointer disabled:cursor-not-allowed"
+              >
+                {isGeneratingDesc ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>جاري الصياغة بالذكاء الاصطناعي...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>✨ اكتب بالذكاء الاصطناعي</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <textarea value={fd.description} onChange={e=>{setFd({...fd,description:e.target.value}); if(aiError) setAiError('');}} placeholder={dynamicPlaceholders.description} rows={5} className="w-full bg-gray-950/40 text-white rounded-2xl py-3.5 px-4 border border-gray-900/80 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 outline-none transition-all duration-300 resize-none text-sm font-medium leading-relaxed"/>
+            {aiError && (
+              <p className="text-red-400 text-[10px] sm:text-xs font-bold flex items-center gap-1.5 mt-1 bg-red-950/20 px-3 py-1.5 rounded-lg border border-red-900/40">
+                <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                <span>{aiError}</span>
+              </p>
+            )}
           </div>
 
           {/* Images */}
@@ -300,6 +471,18 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
                 </label>
               )}
             </div>
+            {isModerating && (
+              <div className="flex items-center gap-1.5 text-[11px] text-purple-400 mt-2 font-bold animate-pulse">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>جاري فحص الصور بالذكاء الاصطناعي لحظر الصور غير اللائقة...</span>
+              </div>
+            )}
+            {imageError && (
+              <p className="text-red-400 text-[10px] sm:text-xs font-bold flex items-start gap-1.5 mt-2 bg-red-950/20 px-3 py-1.5 rounded-lg border border-red-900/40">
+                <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
+                <span>{imageError}</span>
+              </p>
+            )}
           </div>
 
           {/* Submit Button */}

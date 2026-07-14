@@ -13,6 +13,7 @@
 // ===========================================
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ReadingModeOverlay } from './ReadingModeOverlay';
 import { 
   X, Heart, Share2, MapPin, Phone, Car, Home, Smartphone, Watch, 
   Bike, ShoppingBag, Wrench, Video, Store, Mail, ChevronRight, 
@@ -51,6 +52,7 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
 }) {
   const [showViewers, setShowViewers] = useState(false);
   const [realViews, setRealViews] = useState(0);
+  const [showReadingMode, setShowReadingMode] = useState(false);
 
   useEffect(()=>{
     if (ad) {
@@ -128,8 +130,29 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
 
         {ad.note && (
           <div className="bg-gray-800 rounded-xl p-4 mb-4 border border-gray-700">
-            <h3 className="text-white font-bold text-xs mb-1.5">ملاحظات إضافية</h3>
+            <div className="flex items-center justify-between mb-1.5">
+              <h3 className="text-white font-bold text-xs">ملاحظات إضافية</h3>
+              {ad.note.length > 50 && (
+                <button 
+                  type="button"
+                  onClick={() => setShowReadingMode(true)}
+                  className="px-2 py-0.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 font-bold text-[10px] rounded-lg flex items-center gap-1 transition-all duration-300"
+                >
+                  <span>📖</span> وضع القراءة
+                </button>
+              )}
+            </div>
             <p className="text-gray-300 text-xs leading-relaxed">{ad.note}</p>
+            
+            <AnimatePresence>
+              {showReadingMode && (
+                <ReadingModeOverlay 
+                  text={ad.note} 
+                  title={`خط إلى ${ad.university}`} 
+                  onClose={() => setShowReadingMode(false)} 
+                />
+              )}
+            </AnimatePresence>
           </div>
         )}
 
@@ -173,8 +196,9 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
           <motion.button
             onClick={() => handleUniversalShare({ id: ad.id, short_id: ad.short_id, university: ad.university, type: ad.type, regions: ad.regions, price: ad.price, url: `/transport/card/${ad.short_id || ad.id}` })}
             whileHover={{scale:1.02}} whileTap={{scale:0.98}}
-            className="flex items-center justify-center gap-1.5 py-3 bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold rounded-xl text-xs hover:bg-amber-500/30">
-            <Share2 className="w-4 h-4"/> مشاركة
+            className="flex items-center justify-center gap-1.5 py-3.5 bg-gradient-to-r from-amber-500/10 via-amber-500/15 to-yellow-500/10 hover:from-amber-500/20 hover:to-yellow-500/15 text-amber-400 border border-amber-500/20 hover:border-amber-500/40 font-black rounded-xl text-xs transition-all duration-300 shadow-sm active:scale-[0.98]">
+            <Share2 className="w-4 h-4 text-amber-400 animate-pulse"/>
+            <span>مشاركة الخط</span>
           </motion.button>
           <motion.a href={`tel:${ad.phone}`} whileHover={{scale:1.02}} whileTap={{scale:0.98}}
             className="flex items-center justify-center gap-1.5 py-3 bg-blue-500 text-white font-bold rounded-xl text-xs">
