@@ -121,9 +121,9 @@ export const ProductCard = React.memo(function ProductCard({ product, onSelect, 
       whileHover={{ y: -4 }} 
       onClick={onSelect} 
       onContextMenu={onActionMenu}
-      className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full"
+      className="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full"
     >
-      <div className="relative w-full aspect-[4/3] overflow-hidden flex-shrink-0">
+      <div className="relative w-full aspect-square sm:aspect-[4/3] overflow-hidden flex-shrink-0">
         <ImageWithDataSaver src={product.images?.[0] || getProductCategoryPlaceholderImage(product.category)} alt={product.title} className="w-full h-full object-cover" />
         
         {/* Dynamic Category Overlay Badge */}
@@ -145,7 +145,7 @@ export const ProductCard = React.memo(function ProductCard({ product, onSelect, 
           <ShoppingBag className="w-2.5 h-2.5"/>متجر</div>
         {product.status==='sold'&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-[1px]"><span className="bg-red-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
       </div>
-      <div className="p-3 flex-1 flex flex-col">
+      <div className="p-3 sm:p-4 flex-1 flex flex-col relative z-20 bg-gray-900 rounded-t-2xl -mt-4 border-t border-gray-800 shadow-[0_-8px_15px_-3px_rgba(0,0,0,0.4)]">
         <h3 className="text-white font-bold text-sm mb-1 line-clamp-1">{product.title}</h3>
         <div className="flex items-center justify-between mt-1 mb-2">
           <p className="text-lg sm:text-xl font-black text-amber-400 tracking-tight leading-none">

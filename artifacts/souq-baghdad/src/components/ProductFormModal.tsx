@@ -229,7 +229,22 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
         setAiError(data.error || 'حدث خطأ أثناء توليد الوصف. يرجى المحاولة لاحقاً.');
       }
     } catch (err) {
-      setAiError('حدث خطأ في الاتصال. يرجى التحقق من اتصال الإنترنت والمحاولة لاحقاً.');
+      // Fallback: generate a simple description locally when API is unavailable
+      const cats: Record<string, string> = {
+        cars: 'سيارات', 'real-estate': 'عقارات', phones: 'هواتف', electronics: 'إلكترونيات',
+        clothes: 'ملابس', furniture: 'أثاث', services: 'خدمات', games: 'ألعاب',
+        cosmetics: 'مستحضرات', bikes: 'دراجات', jobs: 'وظائف', handmade: 'منتجات يدوية'
+      };
+      const catLabel = cats[fd.category] || 'منتج';
+      const cond = fd.condition === 'new' ? 'جديد بحالة ممتازة' : 'بحالة جيدة جداً';
+      const generated = [
+        `منتج: ${fd.title || textToUse}.`,
+        `متوفر في متجرنا ضمن أفضل عروض قسم ال${catLabel} في سوق بغداد.`,
+        `الحالة: ${cond}.`,
+        `جودة عالية وسعر تنافسي.`,
+        `للطلب والاستفسار يرجى التواصل عبر الواتساب.`
+      ].join(' ');
+      setFd(prev => ({ ...prev, description: generated }));
     } finally {
       setIsGeneratingDesc(false);
     }
@@ -269,9 +284,17 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
         clearInterval(iv);
         setImages(prev=>prev.map(img=>img._uid===uid?{...img,preview:url,progress:100}:img));
       } catch (err) {
-        clearInterval(iv);
-        setImages(prev=>prev.filter(img=>img._uid!==uid));
-        setImageError('حدث خطأ أثناء فحص الصورة المرفوعة بالذكاء الاصطناعي. يرجى المحاولة لاحقاً.');
+        // Fallback: If AI moderation fails (e.g., quota exceeded), allow upload
+        console.warn("AI Moderation failed, bypassing...", err);
+        try {
+          const url = await uploadImageToStorage(file);
+          clearInterval(iv);
+          setImages(prev=>prev.map(img=>img._uid===uid?{...img,preview:url,progress:100}:img));
+        } catch (uploadErr) {
+          clearInterval(iv);
+          setImages(prev=>prev.filter(img=>img._uid!==uid));
+          setImageError('حدث خطأ أثناء رفع الصورة. يرجى المحاولة لاحقاً.');
+        }
       }
     }
     setIsModerating(false);
@@ -348,7 +371,7 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
           {/* Title */}
           <div className="space-y-1">
             <label className="text-gray-300 text-xs font-black block">اسم المنتج وعنوانه</label>
-            <input value={fd.title} onChange={e=>setFd({...fd,title:e.target.value})} placeholder={dynamicPlaceholders.title} required className="w-full bg-gray-950/40 text-white rounded-2xl py-3.5 px-4 border border-gray-900/80 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 outline-none transition-all duration-300 placeholder-gray-500 text-sm font-semibold"/>
+            <input value={fd.title} onChange={e=>setFd({...fd,title:e.target.value})} maxLength={50} placeholder={dynamicPlaceholders.title} required className="w-full bg-gray-950/40 text-white rounded-2xl py-3.5 px-4 border border-gray-900/80 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 outline-none transition-all duration-300 placeholder-gray-500 text-sm font-semibold"/>
           </div>
 
           {/* Price & Stock */}

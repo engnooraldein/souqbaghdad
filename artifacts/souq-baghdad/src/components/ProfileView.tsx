@@ -411,7 +411,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
   const totalFavorites = allMyAds.reduce((s,a)=>s+(a.favorites||0),0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#061224] via-[#0b2145] to-[#041026] pt-16 pb-24">
+    <div className="min-h-screen bg-gradient-to-br from-[#061224] via-[#0b2145] to-[#041026] pb-24">
       {/* Banner & Header */}
       <div className="relative w-full">
         {/* Banner with 3:1 aspect ratio */}

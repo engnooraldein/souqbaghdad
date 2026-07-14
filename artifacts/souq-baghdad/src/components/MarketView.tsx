@@ -494,40 +494,25 @@ export function MarketView({
   const latestAds = useMemo(() => {
     const now = Date.now();
     const limit = 24 * 60 * 60 * 1000;
-    let ads = filterAds.filter(a => {
-      if (!a.createdAtISO) return false;
-      const diff = now - new Date(a.createdAtISO).getTime();
-      return diff > 0 && diff <= limit;
-    });
-    // Fallback: If no ads were posted in the last 24 hours, take the 12 most recent ones so the UI is never blank
-    if (ads.length === 0) {
-      ads = [...filterAds].sort((a, b) => {
-        const tA = a.createdAtISO ? new Date(a.createdAtISO).getTime() : 0;
-        const tB = b.createdAtISO ? new Date(b.createdAtISO).getTime() : 0;
-        return tB - tA;
-      }).slice(0, 12);
-    }
-    return ads;
+    return filterAds
+      .filter(a => {
+        if (!a.createdAtISO) return false;
+        const diff = now - new Date(a.createdAtISO).getTime();
+        return diff > 0 && diff <= limit;
+      })
+      .sort((a, b) => new Date(b.createdAtISO!).getTime() - new Date(a.createdAtISO!).getTime());
   }, [filterAds]);
 
-  // Compute "Latest Products" (منشور خلال الـ 24 ساعة الماضية)
   const latestProducts = useMemo(() => {
     const now = Date.now();
     const limit = 24 * 60 * 60 * 1000;
-    let prods = filterProds.filter(p => {
-      if (!p.createdAtISO) return false;
-      const diff = now - new Date(p.createdAtISO).getTime();
-      return diff > 0 && diff <= limit;
-    });
-    // Fallback: If no products were posted in the last 24 hours, take the 12 most recent ones so the UI is never blank
-    if (prods.length === 0) {
-      prods = [...filterProds].sort((a, b) => {
-        const tA = a.createdAtISO ? new Date(a.createdAtISO).getTime() : 0;
-        const tB = b.createdAtISO ? new Date(b.createdAtISO).getTime() : 0;
-        return tB - tA;
-      }).slice(0, 12);
-    }
-    return prods;
+    return filterProds
+      .filter(p => {
+        if (!p.createdAtISO) return false;
+        const diff = now - new Date(p.createdAtISO).getTime();
+        return diff > 0 && diff <= limit;
+      })
+      .sort((a, b) => new Date(b.createdAtISO!).getTime() - new Date(a.createdAtISO!).getTime());
   }, [filterProds]);
 
   const totalLatestPages = Math.ceil(latestAds.length / 4);
@@ -1144,7 +1129,11 @@ export function MarketView({
                             >
                               {homeToggleType === 'ads' ? (
                                 latestAds.length === 0 ? (
-                                  <div className="text-center py-10 text-gray-400 text-sm">لا توجد إعلانات نشطة حالياً</div>
+                                  <div className="text-center py-10">
+                                    <div className="text-4xl mb-3">⏳</div>
+                                    <p className="text-gray-400 text-sm font-bold">لا توجد إعلانات جديدة خلال الـ 24 ساعة الماضية</p>
+                                    <p className="text-gray-600 text-xs mt-1">ستظهر الإعلانات الجديدة هنا تلقائياً فور نشرها</p>
+                                  </div>
                                 ) : (
                                   <HorizontalCarousel 
                                     items={latestAds.slice(0, 12)}

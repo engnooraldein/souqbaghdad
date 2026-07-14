@@ -58,6 +58,21 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
   const onlineStatuses = useOnlineStatuses();
   const [realViews, setRealViews] = useState(0);
   const [showReadingMode, setShowReadingMode] = useState(false);
+  const [isPlayingSlideshow, setIsPlayingSlideshow] = useState(false);
+  const slideTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (isPlayingSlideshow && ad && ad.images && ad.images.length > 1) {
+      slideTimerRef.current = setInterval(() => {
+        setImgIdx(i => (i + 1) % ad.images!.length);
+      }, 3000);
+    } else if (slideTimerRef.current) {
+      clearInterval(slideTimerRef.current);
+    }
+    return () => {
+      if (slideTimerRef.current) clearInterval(slideTimerRef.current);
+    };
+  }, [isPlayingSlideshow, ad]);
 
   useEffect(()=>{
     setImgIdx(0);
@@ -243,6 +258,13 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
           {totalImgs > 1 && <>
             <button onClick={()=>setImgIdx(i=>(i - 1 + totalImgs) % totalImgs)} className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 rounded-xl text-white z-10 transition-all" title="الصورة السابقة" aria-label="الصورة السابقة"><ChevronRight className="w-6 h-6"/></button>
             <button onClick={()=>setImgIdx(i=>(i + 1) % totalImgs)} className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 rounded-xl text-white z-10 transition-all" title="الصورة التالية" aria-label="الصورة التالية"><ChevronLeft className="w-6 h-6"/></button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); setIsPlayingSlideshow(!isPlayingSlideshow); }} 
+              className={`absolute top-3 left-3 p-2 rounded-xl text-white z-10 transition-colors flex items-center gap-1 ${isPlayingSlideshow ? 'bg-amber-500/80 hover:bg-amber-500' : 'bg-black/60 hover:bg-black/80'}`}
+              title={isPlayingSlideshow ? "إيقاف العرض التلقائي" : "تشغيل عرض الشرائح"}
+            >
+              {isPlayingSlideshow ? <Activity className="w-4 h-4" /> : <ViewIcon className="w-4 h-4" />}
+            </button>
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">{ad.images?.map((_,i)=><button key={i} onClick={()=>setImgIdx(i)} className={`h-2 rounded-full transition-all ${i===imgIdx?'w-6 bg-amber-400':'w-2 bg-white/60'}`} title={`عرض الصورة ${i + 1}`} aria-label={`عرض الصورة ${i + 1}`}/>)}</div>
           </>}
         </div>
