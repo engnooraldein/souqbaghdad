@@ -115,7 +115,7 @@ export interface SystemLog {
 export interface TransportAd {
   id: number;
   type: 'offer' | 'request'; // متوفر خط أو أبحث عن خط
-  categoryType?: 'student' | 'employee'; // طلاب أم موظفين
+  categoryType?: 'student' | 'employee' | 'emergency'; // طلاب أم موظفين أم طوارئ
   university: string;
   regions: string;
   price: string;

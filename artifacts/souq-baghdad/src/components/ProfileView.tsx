@@ -75,7 +75,37 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
   onFav?: (id: number) => void;
   onStoreGuideClick?: () => void;
 }) {
-  const [tab, setTab] = useState<'ads'|'store'|'favs'|'archive'|'lines'|'account'|'wallet'>('ads');
+  const [tab, setTab] = useState<'ads'|'store'|'favs'|'archive'|'lines'|'account'|'wallet'>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      if (path.includes('/wallet') || path.includes('/pay') || hash.includes('/wallet') || hash.includes('/pay')) {
+        return 'wallet';
+      }
+    }
+    return 'ads';
+  });
+
+  useEffect(() => {
+    const handleUrlCheck = () => {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      if (path.includes('/wallet') || path.includes('/pay') || hash.includes('/wallet') || hash.includes('/pay')) {
+        setTab('wallet');
+      }
+    };
+    const handleSwitchToWallet = () => {
+      setTab('wallet');
+    };
+    window.addEventListener('popstate', handleUrlCheck);
+    window.addEventListener('hashchange', handleUrlCheck);
+    window.addEventListener('switch-to-wallet-tab', handleSwitchToWallet);
+    return () => {
+      window.removeEventListener('popstate', handleUrlCheck);
+      window.removeEventListener('hashchange', handleUrlCheck);
+      window.removeEventListener('switch-to-wallet-tab', handleSwitchToWallet);
+    };
+  }, []);
   const [promoCode, setPromoCode] = useState('');
   const [isRedeeming, setIsRedeeming] = useState(false);
 
@@ -136,7 +166,8 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
   const favAds = allAds.filter(a => favorites.includes(a.id));
   const favProducts = allProducts.filter(p => favorites.includes(p.id));
 
-  const formatJoinedDate = (isoString: string) => {
+  const formatJoinedDate = (isoString: string | undefined | null) => {
+    if (!isoString) return 'مؤخراً';
     try {
       const d = new Date(isoString);
       if (isNaN(d.getTime())) return isoString;
@@ -421,7 +452,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
             </div>
 
             {/* Actions */}
-            <div className="flex gap-2 pb-2">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2 pb-2 justify-end max-w-[200px] sm:max-w-none">
               {editing?(
                 <>
                   <button onClick={handleSave} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-green-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-green-500/20 hover:bg-green-600"><Save className="w-4 h-4"/>حفظ</button>
@@ -492,11 +523,11 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-4 gap-2.5 sm:gap-4 mb-8">
+          <div className="grid grid-cols-4 gap-1.5 xs:gap-2 sm:gap-4 mb-8">
             {[{v:allMyAds.length,l:'إعلان',c:'text-amber-500'},{v:allMyProducts.length,l:'منتج',c:'text-purple-400'},{v:totalViews,l:'مشاهدة',c:'text-blue-400'},{v:totalFavorites,l:'مفضلة',c:'text-red-400'}].map((s,i)=>(
-              <div key={i} className="bg-gray-950/40 rounded-2xl p-3 sm:p-4 text-center border border-gray-900/80 backdrop-blur-md flex flex-col justify-center shadow-xl hover:border-amber-500/20 transition-all duration-300">
-                <p className={`text-xl sm:text-2xl font-black ${s.c}`}>{s.v}</p>
-                <p className="text-gray-400 text-[10px] sm:text-xs font-black mt-1 sm:mt-1.5">{s.l}</p>
+              <div key={i} className="bg-gray-950/40 rounded-xl sm:rounded-2xl p-2 sm:p-4 text-center border border-gray-900/80 backdrop-blur-md flex flex-col justify-center shadow-xl hover:border-amber-500/20 transition-all duration-300">
+                <p className={`text-base sm:text-2xl font-black ${s.c}`}>{s.v}</p>
+                <p className="text-gray-400 text-[9px] sm:text-xs font-black mt-1 sm:mt-1.5">{s.l}</p>
               </div>
             ))}
           </div>
@@ -726,7 +757,14 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                     {multi?(
                       <textarea disabled={!editing} value={(ef as any)[field]} onChange={e=>setEf({...ef,[field]:e.target.value})} placeholder={placeholder} rows={2} className={`w-full bg-gray-700 text-white rounded-xl py-2.5 px-4 border outline-none resize-none text-sm ${editing?'border-amber-400':'border-gray-600 opacity-70'}`}/>
                     ):(
-                      <input disabled={!editing} value={(ef as any)[field]} onChange={e=>setEf({...ef,[field]:e.target.value})} placeholder={placeholder} className={`w-full bg-gray-700 text-white rounded-xl py-2.5 px-4 border outline-none text-sm ${editing?'border-amber-400':'border-gray-600 opacity-70'}`}/>
+                      <input 
+                        disabled={!editing} 
+                        value={(ef as any)[field]} 
+                        onChange={e=>setEf({...ef,[field]:e.target.value})} 
+                        placeholder={placeholder} 
+                        dir={field === 'phone' || field === 'email' ? 'ltr' : undefined}
+                        className={`w-full bg-gray-700 text-white rounded-xl py-2.5 px-4 border outline-none text-sm ${editing?'border-amber-400':'border-gray-600 opacity-70'} ${field === 'phone' || field === 'email' ? 'text-left font-mono' : 'text-right'}`}
+                      />
                     )}
                   </div>
                 ))}
@@ -747,9 +785,9 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
               <h3 className="text-white font-bold flex items-center gap-2 mb-3"><Mail className="w-4 h-4 text-blue-400"/>معلومات الحساب</h3>
               <div className="space-y-2">
                 {[{label:'البريد الإلكتروني',val:user.email},{label:'تاريخ الانضمام',val:formatJoinedDate(user.joinedDate)},{label:'نوع الحساب',val:user.role==='owner'?'مالك':user.role==='admin'?'مشرف':'مستخدم'}].map((r,i)=>(
-                  <div key={i} className="flex items-center justify-between py-2 border-b border-gray-700 last:border-0">
-                    <span className="text-gray-400 text-sm">{r.label}</span>
-                    <span className="text-white text-sm font-medium">{r.val}</span>
+                  <div key={i} className="flex items-center justify-between py-2 border-b border-gray-700 last:border-0 gap-4">
+                    <span className="text-gray-400 text-sm shrink-0">{r.label}</span>
+                    <span className={`text-white text-sm font-medium ${r.label === 'البريد الإلكتروني' ? 'truncate max-w-[150px] sm:max-w-none text-left font-mono block' : 'text-right'}`} dir={r.label === 'البريد الإلكتروني' ? 'ltr' : undefined}>{r.val}</span>
                   </div>
                 ))}
               </div>

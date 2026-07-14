@@ -48,7 +48,7 @@ import { TransportFormModal } from './TransportFormModal';
 import { SkeletonCard } from './SkeletonCard';
 import { AdCard } from './AdCard';
 import { ProductCard } from './ProductCard';
-import { TransportAdCard } from './TransportAdCard';
+import { TransportAdCard, VisualRoutePath } from './TransportAdCard';
 import { InterestTimer } from './InterestTimer';
 import { IraqiEagle } from './Icons';
 
@@ -79,6 +79,57 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
   const [loadingMore, setLoadingMore] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
+  const [rideTypeTab, setRideTypeTab] = useState<'monthly'|'emergency'>('monthly');
+  const [alertSubscribed, setAlertSubscribed] = useState(false);
+  const [isAlertSubmitting, setIsAlertSubmitting] = useState(false);
+
+  useEffect(() => {
+    setAlertSubscribed(false);
+  }, [searchQuery, filterUniversity, filterType, rideTypeTab, mainCategoryFilter]);
+
+  const handleCreateSubscriptionAlert = async () => {
+    if (!user) {
+      onCreateAd();
+      return;
+    }
+    
+    setIsAlertSubmitting(true);
+    try {
+      const alertData = {
+        user_id: user.id,
+        category_type: rideTypeTab === 'emergency' ? 'emergency' : mainCategoryFilter,
+        university: filterUniversity === 'الكل' ? '' : filterUniversity,
+        regions: searchQuery || '',
+        type: filterType === 'الكل' ? 'all' : (filterType === 'صاحب الخط' ? 'offer' : 'request'),
+        created_at: new Date().toISOString()
+      };
+      
+      const { error } = await supabase
+        .from('subscription_alerts')
+        .insert(alertData);
+        
+      if (error) {
+        console.error("Supabase alert insertion error:", error);
+        // Fallback to local storage for robust experience
+        const localAlerts = JSON.parse(localStorage.getItem('local_subscription_alerts') || '[]');
+        localAlerts.push(alertData);
+        localStorage.setItem('local_subscription_alerts', JSON.stringify(localAlerts));
+      }
+      
+      try {
+        const audio = new Audio('https://cdn.pixabay.com/audio/2021/08/04/audio_3d1a0e1c78.mp3');
+        audio.volume = 0.4;
+        audio.play().catch(() => {});
+      } catch (audioErr) {}
+      
+      setAlertSubscribed(true);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsAlertSubmitting(false);
+    }
+  };
+
   const handleTouchStart = (ad: TransportAd) => {
     longPressTimer.current = setTimeout(() => {
       if (user && (user.role === 'admin' || user.role === 'owner' || user.id === ad.postedBy)) {
@@ -106,16 +157,36 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
   const filtered = lines.filter(a => {
     if (a.status !== 'published') return false;
     const adCat = a.categoryType || 'student';
-    if (mainCategoryFilter !== 'all' && adCat !== mainCategoryFilter) return false;
+    
+    if (rideTypeTab === 'emergency') {
+      if (adCat !== 'emergency') return false;
+    } else {
+      if (adCat === 'emergency') return false;
+      if (mainCategoryFilter !== 'all' && adCat !== mainCategoryFilter) return false;
+    }
+
     if (filterUniversity !== 'الكل' && a.university !== filterUniversity) return false;
-    if (filterType !== 'الكل' && a.type !== (filterType === 'خطوط متوفرة' ? 'offer' : 'طلبات خطوط')) return false;
+    if (filterType !== 'الكل' && a.type !== (filterType === 'صاحب الخط' ? 'offer' : 'request')) return false;
     if (searchQuery) {
-      return a.regions.includes(searchQuery) || a.university.includes(searchQuery) || (a.note && a.note.includes(searchQuery));
+      const q = searchQuery.toLowerCase();
+      return (
+        a.regions.toLowerCase().includes(q) || 
+        a.university.toLowerCase().includes(q) || 
+        (a.note && a.note.toLowerCase().includes(q))
+      );
     }
     return true;
   });
 
-  const dynamicUniversities = mainCategoryFilter === 'employee'
+  const dynamicUniversities = rideTypeTab === 'emergency'
+    ? Array.from(new Set([
+        'الكل',
+        'أي مكان / حسب الطلب',
+        ...UNIVERSITIES.slice(1).filter(u => u !== 'أخرى'),
+        ...EMPLOYEE_WORKPLACES.slice(1).filter(u => u !== 'أخرى'),
+        ...lines.filter(l => l.status === 'published' && l.categoryType === 'emergency').map(l => l.university)
+      ])).filter(Boolean)
+    : mainCategoryFilter === 'employee'
     ? Array.from(new Set([
         'الكل',
         ...EMPLOYEE_WORKPLACES.slice(1).filter(u => u !== 'أخرى'),
@@ -124,7 +195,7 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
     : Array.from(new Set([
         'الكل',
         ...UNIVERSITIES.slice(1).filter(u => u !== 'أخرى'),
-        ...lines.filter(l => l.status === 'published' && l.categoryType !== 'employee').map(l => l.university)
+        ...lines.filter(l => l.status === 'published' && l.categoryType === 'student').map(l => l.university)
       ])).filter(Boolean);
 
   return (
@@ -153,32 +224,63 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
           {/* Smart Search & Filters */}
           <div className="bg-gray-950/40 border border-gray-900/80 backdrop-blur-md rounded-3xl p-5 shadow-2xl space-y-4 mb-5">
             
-            {/* Main Category Tabs (Student vs Employee) */}
-            <div className="bg-gray-950/60 p-1.5 rounded-2xl border border-gray-900/80 flex gap-1.5 shadow-inner">
-              <button onClick={() => { setMainCategoryFilter('student'); setFilterUniversity('الكل'); }}
-                className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all duration-300 ${mainCategoryFilter === 'student' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/20' : 'text-gray-400 hover:text-white'}`}>
-                🎓 خطوط الطلاب
+            {/* Tab switch between Monthly and Daily rides */}
+            <div className="bg-gray-950/80 p-1 rounded-2xl border border-gray-900 flex gap-1 shadow-inner">
+              <button 
+                type="button"
+                onClick={() => { setRideTypeTab('monthly'); setMainCategoryFilter('student'); setFilterUniversity('الكل'); }}
+                className={`flex-1 py-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all duration-300 ${
+                  rideTypeTab === 'monthly' 
+                    ? 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-lg shadow-emerald-500/25' 
+                    : 'text-gray-400 hover:text-white hover:bg-gray-900/40'
+                }`}
+              >
+                📅 العقود والخطوط الشهرية
               </button>
-              <button onClick={() => { setMainCategoryFilter('employee'); setFilterUniversity('الكل'); }}
-                className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all duration-300 ${mainCategoryFilter === 'employee' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-500/20' : 'text-gray-400 hover:text-white'}`}>
-                👔 خطوط الموظفين
-              </button>
-              <button onClick={() => { setMainCategoryFilter('all'); setFilterUniversity('الكل'); }}
-                className={`px-4 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1 transition-all duration-300 ${mainCategoryFilter === 'all' ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black shadow-lg shadow-amber-500/15' : 'text-gray-400 hover:text-white'}`}>
-                ⚡ الكل
+              <button 
+                type="button"
+                onClick={() => { setRideTypeTab('emergency'); setMainCategoryFilter('all'); setFilterUniversity('الكل'); }}
+                className={`flex-1 py-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all duration-300 ${
+                  rideTypeTab === 'emergency' 
+                    ? 'bg-gradient-to-r from-rose-600 to-rose-500 text-white shadow-lg shadow-rose-500/25' 
+                    : 'text-gray-400 hover:text-white hover:bg-gray-900/40'
+                }`}
+              >
+                🚗 خطوط الطوارئ اليومية
               </button>
             </div>
 
+            {/* Main Category Tabs (Student vs Employee) - Only shown for Monthly */}
+            {rideTypeTab === 'monthly' && (
+              <div className="bg-gray-950/60 p-1.5 rounded-2xl border border-gray-900/80 flex gap-1.5 shadow-inner">
+                <button onClick={() => { setMainCategoryFilter('student'); setFilterUniversity('الكل'); }}
+                  className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all duration-300 ${mainCategoryFilter === 'student' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/20' : 'text-gray-400 hover:text-white'}`}>
+                  🎓 خطوط الطلاب
+                </button>
+                <button onClick={() => { setMainCategoryFilter('employee'); setFilterUniversity('الكل'); }}
+                  className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all duration-300 ${mainCategoryFilter === 'employee' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-500/20' : 'text-gray-400 hover:text-white'}`}>
+                  👔 خطوط الموظفين
+                </button>
+                <button onClick={() => { setMainCategoryFilter('all'); setFilterUniversity('الكل'); }}
+                  className={`px-4 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1 transition-all duration-300 ${mainCategoryFilter === 'all' ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black shadow-lg shadow-amber-500/15' : 'text-gray-400 hover:text-white'}`}>
+                  ⚡ الكل
+                </button>
+              </div>
+            )}
+
             <div className="relative">
               <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-500"/>
-              <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder={mainCategoryFilter === 'employee' ? "ابحث عن شركة، دائرة، منطقة..." : "ابحث عن جامعة، منطقة، مقصد..."}
+              <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} 
+                placeholder={rideTypeTab === 'emergency' ? "ابحث عن وجهة، منطقة، كراج..." : mainCategoryFilter === 'employee' ? "ابحث عن شركة، دائرة، منطقة..." : "ابحث عن جامعة، منطقة، مقصد..."}
                 className="w-full bg-gray-950/60 backdrop-blur-md text-white placeholder-emerald-200/40 rounded-2xl py-3.5 pr-11 pl-4 border border-gray-800 focus:border-emerald-500/50 outline-none text-xs sm:text-sm shadow-inner transition-all duration-300"/>
             </div>
             
             <div className="grid grid-cols-2 gap-3" dir="rtl">
               <div>
-                <label className="text-gray-400 text-[11px] font-black mr-1 mb-1 block">{mainCategoryFilter === 'employee' ? 'مكان العمل (دوائر / شركات)' : 'الوجهة / الجامعة'}</label>
-                <select value={filterUniversity} onChange={e=>setFilterUniversity(e.target.value)} title="تصفية بالجامعة" aria-label="تصفية بالجامعة"
+                <label className="text-gray-400 text-[11px] font-black mr-1 mb-1 block">
+                  {rideTypeTab === 'emergency' ? 'الوجهة المطلوبة' : mainCategoryFilter === 'employee' ? 'مكان العمل (دوائر / شركات)' : 'الوجهة / الجامعة'}
+                </label>
+                <select value={filterUniversity} onChange={e=>setFilterUniversity(e.target.value)} title="تصفية بالوجهة" aria-label="تصفية بالوجهة"
                   className="w-full bg-gray-900/80 text-white font-bold rounded-xl py-2.5 px-3.5 border border-gray-800 focus:border-emerald-500/50 outline-none text-xs sm:text-sm transition-all duration-300 cursor-pointer [color-scheme:dark]">
                   {dynamicUniversities.map(c=><option key={c} value={c} className="bg-gray-900 text-white">{c}</option>)}
                 </select>
@@ -188,8 +290,8 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
                 <select value={filterType} onChange={e=>setFilterType(e.target.value)} title="تصفية بنوع الإعلان" aria-label="تصفية بنوع الإعلان"
                   className="w-full bg-gray-900/80 text-white font-bold rounded-xl py-2.5 px-3.5 border border-gray-800 focus:border-emerald-500/50 outline-none text-xs sm:text-sm transition-all duration-300 cursor-pointer [color-scheme:dark]">
                   <option className="bg-gray-900 text-white">الكل</option>
-                  <option className="bg-gray-900 text-white">خطوط متوفرة</option>
-                  <option className="bg-gray-900 text-white">طلبات خطوط</option>
+                  <option className="bg-gray-900 text-white">صاحب الخط</option>
+                  <option className="bg-gray-900 text-white">ابحث عن خط</option>
                 </select>
               </div>
             </div>
@@ -227,14 +329,41 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
             </div>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20 bg-gray-950/20 rounded-3xl border border-gray-900 shadow-sm" dir="rtl">
-            <div className="text-6xl mb-4">🚐</div>
-            <h3 className="text-white font-black text-lg mb-2">لا توجد إعلانات حالياً في هذا القسم</h3>
-            <p className="text-gray-400 text-sm mb-6 font-semibold">كن أول من يضيف إعلاناً خط جديد</p>
-            <motion.button whileHover={{scale:1.02}} whileTap={{scale:0.98}} onClick={()=>{if(!user){onCreateAd();return;}setShowForm(true);}}
-              className="px-8 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-500/10 text-xs sm:text-sm border border-emerald-400/20">
-              إضافة إعلان الآن
-            </motion.button>
+          <div className="text-center py-16 px-6 bg-gray-950/20 rounded-3xl border border-gray-900 shadow-sm space-y-5" dir="rtl">
+            <div className="text-6xl animate-pulse">🚐</div>
+            <h3 className="text-white font-black text-lg">لا توجد نتائج تطابق بحثك حالياً</h3>
+            <p className="text-gray-400 text-sm max-w-md mx-auto font-semibold">هل ترغب في تفعيل جرس التنبيهات لهذا البحث؟ سنقوم بإشعارك فور توفر خط يطابق مواصفاتك!</p>
+            
+            {alertSubscribed ? (
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                className="bg-emerald-950/40 border border-emerald-500/30 rounded-2xl p-4 max-w-sm mx-auto text-center space-y-1">
+                <span className="text-xl">🔔</span>
+                <h4 className="text-emerald-400 font-bold text-sm">تم تفعيل التنبيه بنجاح!</h4>
+                <p className="text-gray-300 text-xs">سنرسل لك تنبيهاً فور نشر خط يطابق معايير بحثك.</p>
+              </motion.div>
+            ) : (
+              <div className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-2">
+                <motion.button 
+                  whileHover={{ scale: 1.02 }} 
+                  whileTap={{ scale: 0.98 }} 
+                  disabled={isAlertSubmitting}
+                  onClick={handleCreateSubscriptionAlert}
+                  className="px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-400 text-black font-black rounded-2xl shadow-xl shadow-amber-500/10 text-xs flex items-center justify-center gap-2 border border-amber-400/20 disabled:opacity-50"
+                >
+                  <Bell className="w-4 h-4" /> 
+                  {isAlertSubmitting ? 'جاري التفعيل...' : 'نبهني عند توفر خط مطابق'}
+                </motion.button>
+                
+                <motion.button 
+                  whileHover={{ scale: 1.02 }} 
+                  whileTap={{ scale: 0.98 }} 
+                  onClick={() => { if (!user) { onCreateAd(); return; } setShowForm(true); }}
+                  className="px-6 py-3 bg-gray-900 text-white font-black rounded-2xl text-xs border border-gray-850 hover:bg-gray-800"
+                >
+                  إضافة إعلان الآن
+                </motion.button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -284,14 +413,17 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
 
                 <div className="pt-4">
                   <div className="flex justify-between items-start mb-3.5">
-                    <div>
+                    <div className="w-full">
                       <h3 className="text-lg font-black text-white mb-1.5 flex items-center gap-2">
                         {ad.university}
                       </h3>
-                      <p className="text-gray-400 text-xs sm:text-sm flex items-center gap-1.5 leading-relaxed">
+                      <p className="text-gray-400 text-xs sm:text-sm flex items-center gap-1.5 leading-relaxed mb-3">
                         <MapPin className="w-4 h-4 text-emerald-500 shrink-0"/> 
                         <span>المناطق: <span className="text-white font-bold">{ad.regions}</span></span>
                       </p>
+                      
+                      {/* Visual Route Path */}
+                      <VisualRoutePath regions={ad.regions} university={ad.university} type={ad.type} />
                     </div>
                   </div>
 
@@ -319,7 +451,7 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
                   {ad.price && (
                     <div className="flex items-center gap-2 text-amber-500 text-xs sm:text-sm font-black mb-3.5 bg-amber-500/10 border border-amber-500/20 px-3.5 py-2 rounded-xl inline-flex">
                       <Tag className="w-4 h-4"/>
-                      <span>السعر المفضل: {ad.price}</span>
+                      <span>السعر المفضل: {formatPrice(ad.price)} د.ع</span>
                     </div>
                   )}
 
@@ -347,7 +479,18 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
                         <MessageSquare className="w-3.5 h-3.5"/> واتساب
                       </motion.a>
                       <motion.button
-                        onClick={(e) => { e.stopPropagation(); handleUniversalShare({ id: ad.id, university: ad.university, type: ad.type, regions: ad.regions, price: ad.price }); }}
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          handleUniversalShare({ 
+                            id: ad.id, 
+                            short_id: ad.short_id,
+                            university: ad.university, 
+                            type: ad.type, 
+                            regions: ad.regions, 
+                            price: ad.price,
+                            url: `${window.location.origin}/transport/card/${ad.short_id || ad.id}`
+                          }); 
+                        }}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         className="flex items-center gap-1.5 px-3.5 py-2.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 font-black rounded-xl text-xs hover:bg-amber-500/20 transition-all"

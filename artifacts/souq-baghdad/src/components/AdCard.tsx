@@ -117,8 +117,16 @@ export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, o
   const CategoryIconComponent = catInfo.icon;
 
   return (
-    <motion.div whileHover={{y:-4}} onClick={onSelect} onContextMenu={onActionMenu}
-      className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-40px" }}
+      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ y: -4 }} 
+      onClick={onSelect} 
+      onContextMenu={onActionMenu}
+      className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full"
+    >
       <div className="relative w-full aspect-[4/3] overflow-hidden flex-shrink-0">
         <ImageWithDataSaver src={ad.images?.[0] || getAdCategoryPlaceholderImage(ad.category)} alt={ad.title} className="w-full h-full object-cover" />
         
@@ -146,7 +154,11 @@ export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, o
       </div>
       <div className="p-3 flex-1 flex flex-col">
         <h3 className="text-white font-bold text-sm mb-1 line-clamp-1">{ad.title}</h3>
-        <p className="text-lg font-bold text-amber-400 mb-2">{formatPrice(ad.price)} <span className="text-xs text-gray-400">د.ع</span></p>
+        <div className="flex items-center justify-between mt-1 mb-2">
+          <p className="text-lg sm:text-xl font-black text-amber-400 tracking-tight leading-none">
+            {formatPrice(ad.price)} <span className="text-xs font-bold text-gray-450 mr-0.5">د.ع</span>
+          </p>
+        </div>
         <div className="flex items-center gap-1 text-gray-400 text-xs mb-2 flex-1"><MapPin className="w-3 h-3 flex-shrink-0"/><span className="line-clamp-1">{ad.location}</span></div>
         <div className="flex items-center justify-between mt-auto">
           <button onClick={e=>{e.stopPropagation();onSellerClick?.(ad.postedBy||'');}} className="flex items-center gap-1.5 hover:opacity-80 transition-opacity relative">

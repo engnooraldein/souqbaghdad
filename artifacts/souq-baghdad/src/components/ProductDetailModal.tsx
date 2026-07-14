@@ -19,6 +19,7 @@
 import { useOnlineStatuses } from '../hooks/useOnlineStatuses';
 import { InterestTimer } from './InterestTimer';
 import { TimeAgo } from './TimeAgo';
+import { ReadingModeOverlay } from './ReadingModeOverlay';
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';
@@ -54,6 +55,7 @@ export function ProductDetailModal({ product, onClose, isFav, onFav, user, store
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
   const onlineStatuses = useOnlineStatuses();
   const [realViews, setRealViews] = useState(0);
+  const [showReadingMode, setShowReadingMode] = useState(false);
 
   useEffect(()=>{
     setImgIdx(0);
@@ -239,10 +241,10 @@ export function ProductDetailModal({ product, onClose, isFav, onFav, user, store
             {product.condition==='new'?'جديد':'مستعمل'}</div>
         </div>
         <div className="p-5">
-          <div className="flex items-start justify-between mb-3">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4 pb-4 border-b border-gray-800/60">
+            <div className="flex-1 min-w-0 space-y-2">
               <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <span className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-bold px-3 py-1 rounded-xl flex items-center gap-1">
+                <span className="bg-purple-500/10 text-purple-300 border border-purple-500/20 text-xs font-black px-3 py-1 rounded-xl flex items-center gap-1">
                   🛍️ منتج للتسوق
                 </span>
                 <div className="flex items-center gap-1.5 bg-gray-800 px-2.5 py-1 rounded-xl border border-gray-700 text-xs text-gray-400">
@@ -252,20 +254,30 @@ export function ProductDetailModal({ product, onClose, isFav, onFav, user, store
                   </button>
                 </div>
               </div>
-              <h2 className="text-xl font-bold text-white mb-2">{product.title}</h2>
-              <div className="flex items-center gap-3 text-sm text-gray-400">
-                <span className="flex items-center gap-1"><MapPin className="w-3 h-3"/>{product.governorate}</span>
-                <TimeAgo iso={product.createdAtISO} className="text-green-400 font-medium"/>
+              <h2 className="text-xl sm:text-2xl font-black text-white leading-tight">{product.title}</h2>
+              <div className="flex items-center gap-3 text-xs sm:text-sm text-gray-400 flex-wrap">
+                <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-purple-400"/>{product.governorate}</span>
+                <span className="text-gray-700">•</span>
+                <TimeAgo iso={product.createdAtISO} className="text-green-400 font-bold"/>
+                <span className="text-gray-700">•</span>
                 <button onClick={() => {
                   const canViewViewers = user?.isVerified || String(user?.id) === String(product.postedBy) || user?.role === 'admin' || user?.role === 'owner';
                   if (canViewViewers) setShowViewers(true);
                   else alert('عذراً، رؤية قائمة المشاهدات متاحة للمعلن والحسابات الموثقة فقط 🌟');
-                }} className="flex items-center gap-1 text-xs hover:text-amber-400 text-amber-500 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full transition-colors">
+                }} className="flex items-center gap-1 text-xs hover:text-amber-400 text-amber-500 font-bold bg-amber-500/10 px-2.5 py-0.5 rounded-full transition-colors">
                   <Eye className="w-3.5 h-3.5"/><span>{realViews} مشاهدة</span>
                 </button>
               </div>
             </div>
-            <div className="text-left shrink-0"><p className="text-2xl font-bold text-amber-400">{formatPrice(product.price)}</p><p className="text-gray-400 text-xs">دينار عراقي</p></div>
+            
+            {/* Price Box: responsive layout */}
+            <div className="w-full sm:w-auto bg-gradient-to-l from-purple-500/10 to-indigo-500/5 sm:bg-none border border-purple-500/20 sm:border-0 rounded-2xl p-3.5 sm:p-0 flex items-center justify-between sm:block sm:text-left shrink-0">
+              <span className="text-gray-400 text-xs font-black sm:hidden">السعر المطلوب:</span>
+              <div className="text-left">
+                <p className="text-2xl sm:text-3xl font-black text-amber-400 tracking-tight leading-none">{formatPrice(product.price)}</p>
+                <p className="text-gray-400 text-[10px] sm:text-xs font-bold mt-1">دينار عراقي</p>
+              </div>
+            </div>
           </div>
           <AnimatePresence>
             {showViewers && (
@@ -275,7 +287,33 @@ export function ProductDetailModal({ product, onClose, isFav, onFav, user, store
             )}
           </AnimatePresence>
           {product.stock>0&&<div className="inline-flex items-center gap-1 bg-green-500/20 text-green-400 text-xs px-3 py-1 rounded-full mb-3"><Package className="w-3 h-3"/>متوفر: {product.stock} قطعة</div>}
-          {product.description&&<div className="bg-gray-800 rounded-xl p-4 mb-4"><h3 className="text-white font-bold text-sm mb-2">الوصف</h3><p className="text-gray-300 text-sm leading-relaxed">{product.description}</p></div>}
+          {product.description && (
+            <div className="bg-gray-800 rounded-xl p-4 mb-4 border border-gray-700/50">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-white font-bold text-sm">الوصف</h3>
+                {product.description.length > 50 && (
+                  <button 
+                    type="button"
+                    onClick={() => setShowReadingMode(true)}
+                    className="px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 font-bold text-[11px] rounded-xl flex items-center gap-1 transition-all duration-300"
+                  >
+                    <span>📖</span> وضع القراءة المريح
+                  </button>
+                )}
+              </div>
+              <p className="text-gray-300 text-sm leading-relaxed">{product.description}</p>
+              
+              <AnimatePresence>
+                {showReadingMode && (
+                  <ReadingModeOverlay 
+                    text={product.description} 
+                    title={product.title} 
+                    onClose={() => setShowReadingMode(false)} 
+                  />
+                )}
+              </AnimatePresence>
+            </div>
+          )}
           <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 mb-4">
             <div className="flex items-center gap-3">
               <button onClick={()=>onSellerClick?.(product.postedBy)} className="relative hover:opacity-80 transition-opacity shrink-0">
@@ -360,8 +398,10 @@ export function ProductDetailModal({ product, onClose, isFav, onFav, user, store
                 url: `/product/${slug}-${product.short_id || product.id}`
               });
             }}
-              className="flex-1 py-3 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl flex items-center justify-center gap-2 text-sm font-bold hover:bg-amber-500/30">
-              <Share2 className="w-4 h-4"/> مشاركة</button>
+              className="flex-1 py-3.5 bg-gradient-to-r from-amber-500/10 via-amber-500/15 to-yellow-500/10 hover:from-amber-500/20 hover:to-yellow-500/15 text-amber-400 border border-amber-500/20 hover:border-amber-500/40 rounded-2xl flex items-center justify-center gap-2 text-sm font-black transition-all duration-300 shadow-sm active:scale-[0.98]">
+              <Share2 className="w-4.5 h-4.5 text-amber-400 animate-pulse"/>
+              <span>مشاركة المنتج</span>
+            </button>
           </div>
         </div>
       </motion.div>

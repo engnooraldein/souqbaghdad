@@ -54,16 +54,23 @@ export function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd
 }) {
   const isEdit = !!editAd;
   const [type, setType] = useState<'offer'|'request'>(editAd?.type || 'offer');
-  const [categoryType, setCategoryType] = useState<'student'|'employee'>(editAd?.categoryType || 'student');
+  const [categoryType, setCategoryType] = useState<'student'|'employee'|'emergency'>(editAd?.categoryType || 'student');
   
   const dynamicFormUniversities = categoryType === 'employee'
     ? Array.from(new Set([
         ...EMPLOYEE_WORKPLACES.slice(1).filter(u => u !== 'أخرى'),
         ...lines.filter(l => l.status === 'published' && l.categoryType === 'employee').map(l => l.university)
       ])).filter(Boolean)
+    : categoryType === 'emergency'
+    ? Array.from(new Set([
+        'أي مكان / حسب الطلب',
+        ...UNIVERSITIES.slice(1).filter(u => u !== 'أخرى'),
+        ...EMPLOYEE_WORKPLACES.slice(1).filter(u => u !== 'أخرى'),
+        ...lines.filter(l => l.status === 'published' && l.categoryType === 'emergency').map(l => l.university)
+      ])).filter(Boolean)
     : Array.from(new Set([
         ...UNIVERSITIES.slice(1).filter(u => u !== 'أخرى'),
-        ...lines.filter(l => l.status === 'published' && l.categoryType !== 'employee').map(l => l.university)
+        ...lines.filter(l => l.status === 'published' && l.categoryType === 'student').map(l => l.university)
       ])).filter(Boolean);
 
   const finalFormUniversities = [...dynamicFormUniversities, 'أخرى'];
@@ -122,8 +129,20 @@ export function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd
               <Car className="w-5 h-5 text-emerald-400"/>
             </div>
             <div>
-              <h2 className="text-white font-black text-base">{categoryType==='employee'?'خطوط الموظفين والشركات 👔':'خطوط الجامعات والمدارس 🚐'}</h2>
-              <p className="text-emerald-500/80 text-[10px] font-bold">{categoryType==='employee'?'انشر عرض مقاعد أو طلب خط للموظفين':'انشر عرض مقاعد أو طلب خط للطلاب'}</p>
+              <h2 className="text-white font-black text-base">
+                {categoryType === 'employee' 
+                  ? 'خطوط الموظفين والشركات 👔' 
+                  : categoryType === 'emergency' 
+                  ? 'خطوط الطوارئ والرحلات اليومية 🚗' 
+                  : 'خطوط الجامعات والمدارس 🚐'}
+              </h2>
+              <p className="text-emerald-500/80 text-[10px] font-bold">
+                {categoryType === 'employee' 
+                  ? 'انشر عرض مقاعد أو طلب خط للموظفين' 
+                  : categoryType === 'emergency' 
+                  ? 'انشر رحلة طوارئ فردية لليوم فقط' 
+                  : 'انشر عرض مقاعد أو طلب خط للطلاب'}
+              </p>
             </div>
           </div>
           <button type="button" onClick={onClose} className="p-2.5 bg-gray-950/40 border border-gray-900 hover:border-gray-850 rounded-xl text-gray-400 hover:text-white transition-all duration-300" title="إغلاق" aria-label="إغلاق">
@@ -143,20 +162,24 @@ export function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd
 
           <div className="space-y-1">
             <label className="text-gray-300 text-xs font-black block">فئة الخط والجمهور المستهدف</label>
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-3 gap-2">
               <button type="button" onClick={() => { setCategoryType('student'); setUniversity(UNIVERSITIES[1]); }}
-                className={`py-2.5 px-3 rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition-all duration-300 ${categoryType==='student'?'bg-emerald-500 text-white shadow-lg shadow-emerald-500/15 border-transparent':'bg-gray-950/30 text-gray-400 border border-gray-900/60 hover:text-white'}`}>
-                🎓 خط طلاب
+                className={`py-2.5 px-1 rounded-2xl font-black text-[11px] flex items-center justify-center gap-1 transition-all duration-300 ${categoryType==='student'?'bg-emerald-500 text-white shadow-lg shadow-emerald-500/15 border-transparent':'bg-gray-950/30 text-gray-400 border border-gray-900/60 hover:text-white'}`}>
+                🎓 طلاب
               </button>
               <button type="button" onClick={() => { setCategoryType('employee'); setUniversity(EMPLOYEE_WORKPLACES[1]); }}
-                className={`py-2.5 px-3 rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition-all duration-300 ${categoryType==='employee'?'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25 border-transparent':'bg-gray-950/30 text-gray-400 border border-gray-900/60 hover:text-white'}`}>
-                👔 خط موظفين
+                className={`py-2.5 px-1 rounded-2xl font-black text-[11px] flex items-center justify-center gap-1 transition-all duration-300 ${categoryType==='employee'?'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25 border-transparent':'bg-gray-950/30 text-gray-400 border border-gray-900/60 hover:text-white'}`}>
+                👔 موظفين
+              </button>
+              <button type="button" onClick={() => { setCategoryType('emergency'); setUniversity('أي مكان / حسب الطلب'); }}
+                className={`py-2.5 px-1 rounded-2xl font-black text-[11px] flex items-center justify-center gap-1 transition-all duration-300 ${categoryType==='emergency'?'bg-rose-600 text-white shadow-lg shadow-rose-600/25 border-transparent':'bg-gray-950/30 text-gray-400 border border-gray-900/60 hover:text-white'}`}>
+                🚗 طوارئ يومية
               </button>
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="text-gray-300 text-xs font-black block">{categoryType==='employee'?'مكان العمل (دوائر / شركات)':'الجامعة / الكلية'}</label>
+            <label className="text-gray-300 text-xs font-black block">{categoryType==='employee'?'مكان العمل (دوائر / شركات)':categoryType==='emergency'?'الوجهة المطلوبة':'الجامعة / الكلية'}</label>
             <select value={university} onChange={e=>setUniversity(e.target.value)} title="الجامعة" aria-label="الجامعة"
               className="w-full bg-gray-950/40 text-white rounded-2xl py-3 px-3 border border-gray-900/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 outline-none text-sm mb-2 font-bold transition-all duration-300">
               {finalFormUniversities.map(c=><option key={c} value={c} className="bg-gray-950 text-white">{c}</option>)}
@@ -215,8 +238,10 @@ export function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd
           </div>
 
           <div className="space-y-1">
-            <label className="text-gray-300 text-xs font-black block">الأجور الشهرية (اختياري)</label>
-            <input value={price} onChange={e=>setPrice(formatPriceInput(e.target.value))} placeholder="مثال: 100,000 د.ع"
+            <label className="text-gray-300 text-xs font-black block">
+              {categoryType === 'emergency' ? 'الأجور التقديرية للرحلة اليومية (اختياري)' : 'الأجور الشهرية (اختياري)'}
+            </label>
+            <input value={price} onChange={e=>setPrice(formatPriceInput(e.target.value))} placeholder={categoryType === 'emergency' ? 'مثال: 5,000 د.ع' : 'مثال: 100,000 د.ع'}
               className="w-full bg-gray-950/40 text-white placeholder-gray-500 rounded-2xl py-3 px-3 border border-gray-900/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 outline-none text-sm font-semibold transition-all duration-300"/>
           </div>
 
