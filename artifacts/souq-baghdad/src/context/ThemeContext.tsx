@@ -12,47 +12,59 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('souqBaghdad_theme');
-      if (saved) return saved as Theme;
-      
-      // الكشف التلقائي عن وضع المتصفح / النظام
-      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-        return 'light';
+      try {
+        const saved = window.localStorage.getItem('souqBaghdad_theme');
+        if (saved) return saved as Theme;
+      } catch (e) {
+        console.warn('Safari Private Mode or localStorage error');
       }
-      return 'dark'; // الوضع الافتراضي
+      
+      // الكشف التلقائي - يدعم سفاري وجميع المتصفحات
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return 'dark';
+      }
+      return 'light';
     }
     return 'dark';
   });
 
-  // تطبيق السمة وحفظها عند التغيير اليدوي
+  // تطبيق السمة وحفظها
   useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-    localStorage.setItem('souqBaghdad_theme', theme);
+    
+    try {
+      window.localStorage.setItem('souqBaghdad_theme', theme);
+    } catch (e) {
+      // تجاهل خطأ سفاري في التصفح الخفي
+    }
   }, [theme]);
 
-  // الاستماع لتغييرات وضع النظام في حال لم يقم المستخدم بتحديده يدوياً
+  // الاستماع للتغييرات التلقائية (متوافق مع سفاري)
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     
-    const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
-      // فقط نغير تلقائياً إذا لم يكن هناك خيار محفوظ مسبقاً
-      const saved = localStorage.getItem('souqBaghdad_theme');
-      if (!saved) {
-        setTheme(e.matches ? 'dark' : 'light');
+    const handleChange = () => {
+      try {
+        const saved = window.localStorage.getItem('souqBaghdad_theme');
+        if (!saved) {
+          // استخدام mediaQuery.matches بدلاً من الحدث لضمان عملها في سفاري القديم
+          setTheme(mediaQuery.matches ? 'dark' : 'light');
+        }
+      } catch (e) {
+        setTheme(mediaQuery.matches ? 'dark' : 'light');
       }
     };
 
-    // دعم المتصفحات الحديثة
+    // إضافة المستمع بطرق تدعم كل الإصدارات
     if (mediaQuery.addEventListener) {
       mediaQuery.addEventListener('change', handleChange);
     } else if (mediaQuery.addListener) {
-      // دعم المتصفحات القديمة (مثل إصدارات Safari القديمة)
       mediaQuery.addListener(handleChange);
     }
 
