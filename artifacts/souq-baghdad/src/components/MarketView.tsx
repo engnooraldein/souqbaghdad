@@ -676,7 +676,7 @@ export function MarketView({
                 {localSearch && (
                   <button 
                     id="hero-search-clear-btn"
-                    onClick={() => { setLocalSearch(''); setSearch(''); setSuggestions([]); }} 
+                    onClick={() => { setLocalSearch(''); setSuggestions([]); }} 
                     className="absolute left-3 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white px-2.5 py-1 rounded-lg text-xs transition-colors"
                   >
                     مسح
@@ -1809,7 +1809,7 @@ export function MarketView({
                     className="w-full bg-[#0c2b5e]/80 text-white placeholder-gray-400 rounded-2xl py-3.5 pr-12 pl-4 border border-gray-700 focus:border-amber-400 outline-none text-base shadow-inner"
                   />
                   {localSearch && (
-                    <button onClick={() => { setLocalSearch(''); setSearch(''); }} className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-white bg-gray-800 px-2 py-1 rounded-lg">
+                    <button onClick={() => { setLocalSearch(''); }} className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-white bg-gray-800 px-2 py-1 rounded-lg">
                       مسح
                     </button>
                   )}
