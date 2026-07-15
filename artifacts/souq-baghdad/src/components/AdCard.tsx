@@ -131,11 +131,7 @@ export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, o
       <div className="relative w-full aspect-square sm:aspect-[4/3] overflow-hidden flex-shrink-0">
         <ImageWithDataSaver src={ad.images?.[0] || getAdCategoryPlaceholderImage(ad.category)} alt={ad.title} className="w-full h-full object-cover" />
         
-        {/* Dynamic Category Overlay Badge */}
-        <div className={`absolute bottom-2 right-2 px-2.5 py-1 rounded-xl text-[10px] font-black flex items-center gap-1 border backdrop-blur-md shadow-lg z-10 transition-transform hover:scale-105 ${catInfo.color}`}>
-          <CategoryIconComponent className="w-3.5 h-3.5" />
-          <span>{catInfo.label}</span>
-        </div>
+
 
         <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold text-white shadow-md z-10 ${
           ad.condition === 'new' ? 'bg-emerald-600 border border-emerald-500/30' : 'bg-amber-600 border border-amber-500/30'
@@ -160,7 +156,15 @@ export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, o
             {formatPrice(ad.price)} <span className="text-xs font-bold text-gray-450 mr-0.5">د.ع</span>
           </p>
         </div>
-        <div className="flex items-center gap-1 text-gray-400 text-xs mb-2 flex-1"><MapPin className="w-3 h-3 flex-shrink-0"/><span className="line-clamp-1">{ad.location}</span></div>
+        <div className="flex items-center gap-1 text-gray-400 text-xs mb-2 flex-1">
+          <MapPin className="w-3 h-3 flex-shrink-0"/>
+          <span className="line-clamp-1 max-w-[50%]">{ad.location}</span>
+          <span className="mx-1.5 opacity-50">•</span>
+          <div className="flex items-center gap-1 text-gray-400 font-medium whitespace-nowrap">
+            <CategoryIconComponent className="w-3 h-3"/>
+            <span>{catInfo.label}</span>
+          </div>
+        </div>
         <div className="flex items-center justify-between mt-auto">
           <button onClick={e=>{e.stopPropagation();onSellerClick?.(ad.postedBy||'');}} className="flex items-center gap-1.5 hover:opacity-80 transition-opacity relative">
             <img src={ad.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-5 h-5 rounded-full object-cover ${getGlowClass(sellerRole)}`}/>

@@ -551,37 +551,38 @@ input:focus, textarea:focus, select:focus {
 }
 
 /* ───────────────────────────────────────────── */
-/* Light Mode Theme Overrides */
+/* Light Mode Theme Overrides                    */
 /* ───────────────────────────────────────────── */
 html:not(.dark) {
-  background-color: #f8fafc !important;
+  background-color: #f1f5f9 !important;
 }
 
 html:not(.dark) body {
-  background-color: #f8fafc !important;
-  color: #1e293b !important;
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
 }
 
 html:not(.dark) .pwa-outer-container {
-  background-color: #f8fafc !important;
+  background-color: #f1f5f9 !important;
   background-image: none !important;
-  color: #1e293b !important;
+  color: #0f172a !important;
 }
 
 /* Navigation & Header */
 html:not(.dark) nav.pwa-header {
-  background-color: rgba(255, 255, 255, 0.85) !important;
-  border-bottom: 1px solid #e2e8f0 !important;
+  background-color: rgba(255, 255, 255, 0.97) !important;
+  border-bottom: 1.5px solid #cbd5e1 !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07) !important;
 }
 
 html:not(.dark) nav.pwa-header span {
-  color: #1e293b !important;
+  color: #0f172a !important;
 }
 
 html:not(.dark) .pwa-bottom-nav {
-  background-color: rgba(255, 255, 255, 0.9) !important;
-  border-top: 1px solid #e2e8f0 !important;
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.03) !important;
+  background-color: rgba(255, 255, 255, 0.97) !important;
+  border-top: 1.5px solid #cbd5e1 !important;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.07) !important;
 }
 
 html:not(.dark) .pwa-bottom-nav button p {
@@ -592,7 +593,7 @@ html:not(.dark) .pwa-bottom-nav button.text-amber-400 p,
 html:not(.dark) .pwa-bottom-nav button.text-purple-400 p,
 html:not(.dark) .pwa-bottom-nav button.text-blue-400 p,
 html:not(.dark) .pwa-bottom-nav button.text-emerald-400 p {
-  color: #b45309 !important; /* Amber-700 for active navigation item text */
+  color: #b45309 !important;
   font-weight: 700 !important;
 }
 
@@ -600,19 +601,19 @@ html:not(.dark) .pwa-bottom-nav button.text-amber-400 svg,
 html:not(.dark) .pwa-bottom-nav button.text-purple-400 svg,
 html:not(.dark) .pwa-bottom-nav button.text-blue-400 svg,
 html:not(.dark) .pwa-bottom-nav button.text-emerald-400 svg {
-  color: #d97706 !important; /* Amber-600 */
+  color: #d97706 !important;
 }
 
 /* Modals & Dialogs */
 html:not(.dark) .fixed.inset-0 .bg-black\/60,
 html:not(.dark) .fixed.inset-0 .bg-black\/70,
 html:not(.dark) .fixed.inset-0 .bg-black\/80 {
-  background-color: rgba(15, 23, 42, 0.4) !important;
+  background-color: rgba(15, 23, 42, 0.45) !important;
   -webkit-backdrop-filter: blur(8px) !important;
   backdrop-filter: blur(8px) !important;
 }
 
-/* Generic Dark BG classes to light theme */
+/* Generic Dark BG classes → clean white cards */
 html:not(.dark) .bg-gray-900,
 html:not(.dark) .bg-slate-900,
 html:not(.dark) .bg-gray-950,
@@ -621,31 +622,32 @@ html:not(.dark) .bg-gray-800,
 html:not(.dark) .bg-slate-800,
 html:not(.dark) .bg-gray-950\/40,
 html:not(.dark) .bg-slate-950\/40,
-html:not(.dark) .bg-[#0c2b5e],
-html:not(.dark) .bg-[#0a234d],
-html:not(.dark) .bg-[#071938],
-html:not(.dark) .bg-[#180e2d],
-html:not(.dark) .bg-[#051c14],
-html:not(.dark) .bg-[#2a1b08] {
+html:not(.dark) .bg-\[\#0c2b5e\],
+html:not(.dark) .bg-\[\#0a234d\],
+html:not(.dark) .bg-\[\#071938\],
+html:not(.dark) .bg-\[\#180e2d\],
+html:not(.dark) .bg-\[\#051c14\],
+html:not(.dark) .bg-\[\#2a1b08\] {
   background-color: #ffffff !important;
-  color: #1e293b !important;
-  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.07) !important;
 }
 
 html:not(.dark) .from-gray-900,
 html:not(.dark) .from-slate-900,
-html:not(.dark) .from-[#0c2b5e] {
+html:not(.dark) .from-\[\#0c2b5e\] {
   --tw-gradient-from: #ffffff !important;
   --tw-gradient-stops: #ffffff, #f8fafc !important;
 }
 
 html:not(.dark) .to-gray-950,
 html:not(.dark) .to-slate-950,
-html:not(.dark) .to-[#0a234d] {
+html:not(.dark) .to-\[\#0a234d\] {
   --tw-gradient-to: #f1f5f9 !important;
 }
 
-/* Interactive elements */
+/* Interactive hover elements */
 html:not(.dark) .hover\:bg-gray-800:hover,
 html:not(.dark) .hover\:bg-slate-800:hover,
 html:not(.dark) .hover\:bg-gray-700:hover,
@@ -657,16 +659,27 @@ html:not(.dark) .bg-white\/5,
 html:not(.dark) .bg-white\/10,
 html:not(.dark) .bg-gray-900\/50,
 html:not(.dark) .bg-slate-900\/50 {
+  background-color: #f8fafc !important;
+}
+
+html:not(.dark) .bg-gray-700,
+html:not(.dark) .bg-gray-700\/50,
+html:not(.dark) .bg-gray-800\/50,
+html:not(.dark) .bg-gray-800\/80 {
   background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
 }
 
 /* Text Adaptations */
-html:not(.dark) .text-white,
-html:not(.dark) .text-gray-100,
-html:not(.dark) .text-gray-200,
-html:not(.dark) .text-gray-300,
-html:not(.dark) .text-gray-400 {
-  color: #334155 !important;
+html:not(.dark) .text-white:not(.always-white),
+html:not(.dark) .text-gray-100:not(.always-white),
+html:not(.dark) .text-gray-200:not(.always-white) {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .text-gray-300:not(.always-white),
+html:not(.dark) .text-gray-400:not(.always-white) {
+  color: #475569 !important;
 }
 
 html:not(.dark) .text-gray-500,
@@ -675,31 +688,46 @@ html:not(.dark) .text-slate-400 {
 }
 
 html:not(.dark) .text-amber-400 {
-  color: #d97706 !important;
+  color: #b45309 !important;
 }
 
 html:not(.dark) .text-emerald-400 {
-  color: #059669 !important;
+  color: #047857 !important;
 }
 
 html:not(.dark) .text-purple-400 {
-  color: #7c3aed !important;
+  color: #6d28d9 !important;
 }
 
 html:not(.dark) .text-blue-400 {
-  color: #2563eb !important;
+  color: #1d4ed8 !important;
 }
 
-/* Borders */
+html:not(.dark) .text-red-400 {
+  color: #b91c1c !important;
+}
+
+/* Borders — stronger in light mode */
 html:not(.dark) .border-gray-800,
 html:not(.dark) .border-gray-700,
+html:not(.dark) .border-gray-700\/60,
+html:not(.dark) .border-gray-700\/50,
 html:not(.dark) .border-gray-600,
 html:not(.dark) .border-slate-800,
 html:not(.dark) .border-slate-700,
-html:not(.dark) .border-[#0c2b5e]\/20,
-html:not(.dark) .border-white\/10 {
-  border-color: #e2e8f0 !important;
+html:not(.dark) .border-white\/10,
+html:not(.dark) .border-white\/20,
+html:not(.dark) .border-\[\#0c2b5e\]\/20 {
+  border-color: #94a3b8 !important;
 }
+
+/* White backgrounds → stay white */
+html:not(.dark) .bg-white {
+  background-color: #ffffff !important;
+  border-color: #94a3b8 !important;
+}
+
+
 
 /* Input Fields */
 html:not(.dark) input,
@@ -707,7 +735,15 @@ html:not(.dark) select,
 html:not(.dark) textarea {
   background-color: #ffffff !important;
   color: #0f172a !important;
-  border-color: #cbd5e1 !important;
+  border-color: #94a3b8 !important;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.07) !important;
+}
+
+html:not(.dark) input:focus,
+html:not(.dark) select:focus,
+html:not(.dark) textarea:focus {
+  border-color: #d97706 !important;
+  box-shadow: 0 0 0 2px rgba(217,119,6,0.2) !important;
 }
 
 html:not(.dark) input::placeholder,
@@ -715,7 +751,7 @@ html:not(.dark) textarea::placeholder {
   color: #94a3b8 !important;
 }
 
-/* Keep gradient action buttons text contrast readable */
+/* Keep gradient buttons readable */
 html:not(.dark) button.bg-gradient-to-r.from-amber-500 {
   color: #000000 !important;
 }
@@ -724,25 +760,38 @@ html:not(.dark) button.bg-gradient-to-r.from-purple-600 {
   color: #ffffff !important;
 }
 
-/* Dropdown list overrides */
+/* Dropdown shadows */
 html:not(.dark) .shadow-2xl,
 html:not(.dark) .shadow-xl {
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05) !important;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06) !important;
 }
 
-/* Background elements SVGs or drawings */
+html:not(.dark) .shadow-lg {
+  box-shadow: 0 4px 15px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.05) !important;
+}
+
+/* Background SVG elements — nearly invisible */
 html:not(.dark) .opacity-20 {
-  opacity: 0.05 !important;
+  opacity: 0.04 !important;
 }
 
-/* Footer Section */
+/* Dividers */
+html:not(.dark) .divide-gray-800 > *,
+html:not(.dark) .divide-gray-700 > * {
+  border-color: #cbd5e1 !important;
+}
+
+/* Footer */
 html:not(.dark) footer {
-  background-color: #f1f5f9 !important;
-  border-top: 1px solid #e2e8f0 !important;
-  color: #475569 !important;
+  background-color: #e2e8f0 !important;
+  border-top: 1.5px solid #94a3b8 !important;
+  color: #334155 !important;
 }
 
 html:not(.dark) footer .text-white {
   color: #0f172a !important;
 }
+
+
+
 

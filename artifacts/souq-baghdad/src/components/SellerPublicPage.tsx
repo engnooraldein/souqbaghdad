@@ -152,12 +152,17 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
             adCount: row.adCount || 0,
             soldCount: row.soldCount || 0,
             favorites: row.likes || 0,
-            seller: row.seller || {
+            seller: row.seller || (dbProfileRes.data ? {
+              name: dbProfileRes.data.full_name || dbProfileRes.data.name || 'بائع',
+              avatar: dbProfileRes.data.avatar_url || dbProfileRes.data.avatar || '',
+              isVerified: dbProfileRes.data.role === 'owner' || dbProfileRes.data.role === 'vendor' || dbProfileRes.data.role === 'admin',
+              rating: 5
+            } : {
               name: 'مستخدم',
               avatar: '',
               isVerified: false,
               rating: 5
-            }
+            })
           }));
           setLocalAds(formattedAds);
 
@@ -183,9 +188,12 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
               createdAt: row.created_at,
               createdAtISO: row.created_at,
               views: row.views || 0,
-              seller: row.seller,
-              sellerName: row.seller?.name || 'مستخدم',
-              sellerAvatar: row.seller?.avatar || ''
+              seller: row.seller || (dbProfileRes.data ? {
+                name: dbProfileRes.data.full_name || dbProfileRes.data.name || 'بائع',
+                avatar: dbProfileRes.data.avatar_url || dbProfileRes.data.avatar || ''
+              } : null),
+              sellerName: row.seller?.name || dbProfileRes.data?.full_name || dbProfileRes.data?.name || 'مستخدم',
+              sellerAvatar: row.seller?.avatar || dbProfileRes.data?.avatar_url || dbProfileRes.data?.avatar || ''
             };
           });
           setLocalLines(formattedLines);
@@ -215,12 +223,17 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
             adCount: row.adCount || 0,
             soldCount: row.soldCount || 0,
             favorites: row.favorites || 0,
-            seller: row.seller || {
+            seller: row.seller || (dbProfileRes.data ? {
+              name: dbProfileRes.data.full_name || dbProfileRes.data.name || 'بائع',
+              avatar: dbProfileRes.data.avatar_url || dbProfileRes.data.avatar || '',
+              isVerified: dbProfileRes.data.role === 'owner' || dbProfileRes.data.role === 'vendor' || dbProfileRes.data.role === 'admin',
+              rating: 5
+            } : {
               name: 'مستخدم',
               avatar: '',
               isVerified: false,
               rating: 5
-            }
+            })
           }));
           setLocalProds(formattedProds);
         }
@@ -401,7 +414,7 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
         {/* User Details */}
         <div className="mb-5">
           <div className="flex flex-wrap items-center gap-2 mb-1">
-            <h2 className="text-xl sm:text-2xl font-bold text-white">{effectiveSeller?.name}</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-white always-white">{effectiveSeller?.name}</h2>
             {effectiveSeller?.isVerified && (
               <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full font-bold">
                 <VerifiedBadge className="w-3 h-3"/> موثق

@@ -635,7 +635,7 @@ export function MarketView({
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-tight mb-4"
+              className="text-3xl sm:text-5xl md:text-6xl font-black text-white always-white tracking-tight leading-tight mb-4"
             >
               كل ما تحتاجه في <span className="bg-gradient-to-r from-[#fdf5a6] via-[#d4af37] to-[#b8860b] bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(212,175,55,0.15)]">سوق بغداد</span>
             </motion.h1>
@@ -646,7 +646,7 @@ export function MarketView({
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-gray-300 text-sm sm:text-base md:text-lg max-w-2xl mx-auto font-medium leading-relaxed"
+              className="text-gray-300 always-white text-sm sm:text-base md:text-lg max-w-2xl mx-auto font-medium leading-relaxed"
             >
               تصفّح آلاف الإعلانات والمنتجات الحصرية، وتسوق بكل ثقة وأمان من أفضل الحسابات والمتاجر الموثقة في جميع المحافظات العراقية.
             </motion.p>
