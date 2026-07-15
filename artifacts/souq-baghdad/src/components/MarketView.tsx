@@ -700,7 +700,6 @@ export function MarketView({
                                 type="button"
                                 onClick={() => {
                                   setLocalSearch(recent);
-                                  setSearch(recent);
                                   saveRecentSearch(recent);
                                   setShowSuggestions(false);
                                 }}
@@ -755,7 +754,6 @@ export function MarketView({
                                 type="button"
                                 onClick={() => {
                                   setLocalSearch(suggestion);
-                                  setSearch(suggestion);
                                   saveRecentSearch(suggestion);
                                   setShowSuggestions(false);
                                 }}
