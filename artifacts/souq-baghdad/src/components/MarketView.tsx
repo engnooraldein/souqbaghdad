@@ -31,6 +31,7 @@ import LiveVisitorCounter from './LiveVisitorCounter';
 import InfiniteScrollTrigger from './InfiniteScrollTrigger';
 import { DEFAULT_COVER, getCoverImage } from '../constants';
 import { useOnlineStatuses } from '../hooks/useOnlineStatuses';
+import { useDebounce } from '../hooks/useDebounce';
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -233,14 +234,34 @@ export function MarketView({
 
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('souqRecentSearches') || '[]'); } 
+    catch { return []; }
+  });
+
+  const debouncedSearch = useDebounce(search, 300);
+
+  const saveRecentSearch = (term: string) => {
+    if (!term.trim()) return;
+    const newRecent = [term.trim(), ...recentSearches.filter(s => s !== term.trim())].slice(0, 5);
+    setRecentSearches(newRecent);
+    localStorage.setItem('souqRecentSearches', JSON.stringify(newRecent));
+  };
+
+  const removeRecentSearch = (term: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newRecent = recentSearches.filter(s => s !== term);
+    setRecentSearches(newRecent);
+    localStorage.setItem('souqRecentSearches', JSON.stringify(newRecent));
+  };
 
   useEffect(() => {
-    if (!search || search.trim().length < 2) {
+    if (!debouncedSearch || debouncedSearch.trim().length < 2) {
       setSuggestions([]);
       return;
     }
 
-    const query = search.toLowerCase().trim();
+    const query = debouncedSearch.toLowerCase().trim();
     const sourceItems = [...allAds, ...allProducts];
     
     // Filter by active category if not 'all' or 'general'
@@ -258,7 +279,7 @@ export function MarketView({
     }
 
     setSuggestions(Array.from(matches));
-  }, [search, cat, allAds, allProducts]);
+  }, [debouncedSearch, cat, allAds, allProducts]);
 
   // Sync state when URL hash changes externally
   useEffect(() => {
@@ -629,6 +650,12 @@ export function MarketView({
                   value={search} 
                   onChange={e => { setSearch(e.target.value); setShowSuggestions(true); }} 
                   onFocus={() => setShowSuggestions(true)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      saveRecentSearch(search);
+                      setShowSuggestions(false);
+                    }
+                  }}
                   placeholder="ابحث عن سيارة، هاتف، عقار، منتج في العراق..."
                   className="w-full bg-transparent text-white placeholder-gray-400 rounded-xl py-3 sm:py-3.5 pr-12 pl-4 outline-none text-sm md:text-base font-medium"
                 />
@@ -643,24 +670,95 @@ export function MarketView({
                 )}
 
                 {/* Autocomplete Suggestions Dropdown */}
-                {showSuggestions && suggestions.length > 0 && (
+                {showSuggestions && (search.trim() || recentSearches.length > 0 || CATEGORIES.filter(c => c.id !== 'all' && c.id !== 'general').length > 0) && (
                   <>
                     <div className="fixed inset-0 z-30 cursor-default" onClick={() => setShowSuggestions(false)} />
-                    <div className="absolute top-full right-0 left-0 mt-3 bg-gray-900/95 backdrop-blur-xl border border-gray-750/70 rounded-2xl shadow-2xl z-40 overflow-hidden py-1 max-h-60 overflow-y-auto" dir="rtl">
-                      {suggestions.map((suggestion, index) => (
-                        <button
-                          key={index}
-                          type="button"
-                          onClick={() => {
-                            setSearch(suggestion);
-                            setShowSuggestions(false);
-                          }}
-                          className="w-full text-right px-4 py-3 text-xs sm:text-sm text-gray-200 hover:bg-amber-500/15 hover:text-amber-400 transition-colors flex items-center gap-2.5 border-b border-gray-800/40 last:border-0"
-                        >
-                          <Search className="w-4 h-4 text-gray-500 shrink-0" />
-                          <span className="font-bold truncate">{suggestion}</span>
-                        </button>
-                      ))}
+                    <div className="absolute top-full right-0 left-0 mt-3 bg-gray-900/95 backdrop-blur-xl border border-gray-750/70 rounded-2xl shadow-2xl z-40 overflow-hidden py-2 max-h-80 overflow-y-auto" dir="rtl">
+                      
+                      {!search.trim() && recentSearches.length > 0 && (
+                        <div className="mb-2">
+                          <div className="px-4 py-2 flex items-center justify-between text-xs font-bold text-gray-400">
+                            <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5"/> عمليات البحث الأخيرة</span>
+                          </div>
+                          {recentSearches.map((recent, index) => (
+                            <div key={`recent-${index}`} className="flex items-center justify-between px-4 py-2 hover:bg-gray-800/50 transition-colors group">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSearch(recent);
+                                  saveRecentSearch(recent);
+                                  setShowSuggestions(false);
+                                }}
+                                className="flex-1 text-right text-sm text-gray-300 group-hover:text-amber-400 transition-colors flex items-center gap-2.5"
+                              >
+                                <Search className="w-4 h-4 text-gray-500 shrink-0" />
+                                <span className="font-bold truncate">{recent}</span>
+                              </button>
+                              <button 
+                                onClick={(e) => removeRecentSearch(recent, e)}
+                                className="p-1.5 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded-md hover:bg-red-500/10"
+                                title="إزالة"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {!search.trim() && CATEGORIES.filter(c => c.id !== 'all' && c.id !== 'general').length > 0 && (
+                        <div className="pt-2 border-t border-gray-800/40">
+                          <div className="px-4 py-2 flex items-center gap-1.5 text-xs font-bold text-gray-400">
+                            <Tag className="w-3.5 h-3.5" /> الفئات الشائعة
+                          </div>
+                          <div className="px-4 py-2 flex flex-wrap gap-2">
+                            {CATEGORIES.filter(c => ['cars', 'real-estate', 'phones', 'electronics'].includes(c.id)).map(c => (
+                              <button
+                                key={`pop-cat-${c.id}`}
+                                onClick={() => {
+                                  setCat(c.id);
+                                  setShowSuggestions(false);
+                                }}
+                                className="px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 text-xs font-bold text-gray-300 hover:bg-amber-500/20 hover:text-amber-400 hover:border-amber-500/30 transition-all flex items-center gap-1.5"
+                              >
+                                <span>{c.emoji}</span>
+                                <span>{c.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {search.trim() && suggestions.length > 0 && (
+                        <div>
+                           <div className="px-4 py-2 text-xs font-bold text-gray-400 flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5"/> اقتراحات البحث
+                           </div>
+                           {suggestions.map((suggestion, index) => (
+                              <button
+                                key={`sugg-${index}`}
+                                type="button"
+                                onClick={() => {
+                                  setSearch(suggestion);
+                                  saveRecentSearch(suggestion);
+                                  setShowSuggestions(false);
+                                }}
+                                className="w-full text-right px-4 py-3 text-xs sm:text-sm text-gray-200 hover:bg-amber-500/15 hover:text-amber-400 transition-colors flex items-center gap-2.5 border-b border-gray-800/40 last:border-0"
+                              >
+                                <Search className="w-4 h-4 text-gray-500 shrink-0" />
+                                <span className="font-bold truncate">{suggestion}</span>
+                              </button>
+                            ))}
+                        </div>
+                      )}
+
+                      {search.trim() && suggestions.length === 0 && (
+                         <div className="px-4 py-6 text-center text-gray-400 text-sm flex flex-col items-center gap-2">
+                            <SearchIcon className="w-6 h-6 opacity-50 mb-1" />
+                            لا توجد نتائج مطابقة لـ <span className="font-bold text-white">"{search}"</span>
+                            <span className="text-xs mt-1 block">جرب كلمات بحث مختلفة أو عامة أكثر</span>
+                         </div>
+                      )}
                     </div>
                   </>
                 )}
@@ -1064,7 +1162,7 @@ export function MarketView({
               {contentTab !== 'profiles' && contentTab !== 'transport' && (
                 <>
                   {/* CASE 1: HOME PAGE (الرئيسية) */}
-                  {cat === 'all' && (
+                  {cat === 'all' && !search.trim() && (
                     <div className="space-y-12">
                       {/* 1. Latest Ads (أحدث الإعلانات / المنتجات) Section */}
                       {(latestAds.length > 0 || latestProducts.length > 0) && (
@@ -1426,18 +1524,27 @@ export function MarketView({
                     </div>
                   )}
 
-                  {/* CASE 3: ISOLATED CATEGORY (صفحة الفئة المنعزلة) */}
-                  {cat !== 'all' && cat !== 'general' && (
+                  {/* CASE 3: ISOLATED CATEGORY OR GENERAL SEARCH */}
+                  {(cat !== 'all' && cat !== 'general' || (cat === 'all' && search.trim().length > 0)) && (
                     <div className="space-y-6">
                       {/* Category Header Card */}
                       <div className="bg-[#0c2b5e]/40 border border-gray-800 rounded-3xl p-5 md:p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4" dir="rtl">
                         <div className="space-y-1">
                           <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2">
-                            <span>{CATEGORIES.find(c => c.id === cat)?.emoji || '📦'}</span>
-                            إعلانات {CATEGORIES.find(c => c.id === cat)?.name || 'الفئة'}
+                            {cat === 'all' ? (
+                                <>
+                                  <span>🔍</span>
+                                  نتائج البحث
+                                </>
+                            ) : (
+                                <>
+                                  <span>{CATEGORIES.find(c => c.id === cat)?.emoji || '📦'}</span>
+                                  إعلانات {CATEGORIES.find(c => c.id === cat)?.name || 'الفئة'}
+                                </>
+                            )}
                           </h2>
                           <p className="text-gray-400 text-xs sm:text-sm">
-                            تصفح أحدث عروض {CATEGORIES.find(c => c.id === cat)?.name} الحصرية في العراق مرتبة حسب الأكثر مشاهدة.
+                            {cat === 'all' ? `عرض النتائج المطابقة لبحثك عن "${search}" في جميع الأقسام.` : `تصفح أحدث عروض ${CATEGORIES.find(c => c.id === cat)?.name} الحصرية في العراق مرتبة حسب الأكثر مشاهدة.`}
                           </p>
                         </div>
                         <div className="bg-amber-500/15 border border-amber-500/25 px-4 py-2 rounded-2xl flex items-center gap-2 shrink-0 self-start md:self-auto">
