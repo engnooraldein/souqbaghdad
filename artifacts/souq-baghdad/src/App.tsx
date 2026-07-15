@@ -574,7 +574,10 @@ export default function App() {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     try {
       const stored = localStorage.getItem('souqDarkMode');
-      return stored !== null ? stored === 'true' : true;
+      if (stored !== null) {
+        return stored === 'true';
+      }
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
     } catch {
       return true;
     }
@@ -588,6 +591,22 @@ export default function App() {
       root.classList.remove('dark');
     }
   }, [isDarkMode]);
+
+  useEffect(() => {
+    // Keep theme in sync with system unless manual toggle has been performed
+    try {
+      const stored = localStorage.getItem('souqDarkMode');
+      if (stored !== null) return;
+    } catch {}
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      setIsDarkMode(e.matches);
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
   const toggleDarkMode = () => {
     setIsDarkMode(prev => {
