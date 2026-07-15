@@ -241,7 +241,19 @@ export function MarketView({
     catch { return []; }
   });
 
-  const debouncedSearch = useDebounce(search, 300);
+  const [localSearch, setLocalSearch] = useState(search);
+
+  useEffect(() => {
+    setLocalSearch(search);
+  }, [search]);
+
+  const debouncedSearch = useDebounce(localSearch, 300);
+
+  useEffect(() => {
+    if (debouncedSearch !== search) {
+      setSearch(debouncedSearch);
+    }
+  }, [debouncedSearch, search, setSearch]);
 
   const saveRecentSearch = (term: string) => {
     if (!term.trim()) return;
@@ -649,22 +661,22 @@ export function MarketView({
                 <Search className="absolute right-4 w-5 h-5 text-amber-400" />
                 <input 
                   id="hero-search-input"
-                  value={search} 
-                  onChange={e => { setSearch(e.target.value); setShowSuggestions(true); }} 
+                  value={localSearch} 
+                  onChange={e => { setLocalSearch(e.target.value); setShowSuggestions(true); }} 
                   onFocus={() => setShowSuggestions(true)}
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
-                      saveRecentSearch(search);
+                      saveRecentSearch(localSearch);
                       setShowSuggestions(false);
                     }
                   }}
                   placeholder="ابحث عن سيارة، هاتف، عقار، منتج في العراق..."
                   className="w-full bg-transparent text-white placeholder-gray-400 rounded-xl py-3 sm:py-3.5 pr-12 pl-4 outline-none text-sm md:text-base font-medium"
                 />
-                {search && (
+                {localSearch && (
                   <button 
                     id="hero-search-clear-btn"
-                    onClick={() => { setSearch(''); setSuggestions([]); }} 
+                    onClick={() => { setLocalSearch(''); setSearch(''); setSuggestions([]); }} 
                     className="absolute left-3 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white px-2.5 py-1 rounded-lg text-xs transition-colors"
                   >
                     مسح
@@ -672,12 +684,12 @@ export function MarketView({
                 )}
 
                 {/* Autocomplete Suggestions Dropdown */}
-                {showSuggestions && (search.trim() || recentSearches.length > 0 || CATEGORIES.filter(c => c.id !== 'all' && c.id !== 'general').length > 0) && (
+                {showSuggestions && (localSearch.trim() || recentSearches.length > 0 || CATEGORIES.filter(c => c.id !== 'all' && c.id !== 'general').length > 0) && (
                   <>
                     <div className="fixed inset-0 z-30 cursor-default" onClick={() => setShowSuggestions(false)} />
                     <div className="absolute top-full right-0 left-0 mt-3 bg-gray-900/95 backdrop-blur-xl border border-gray-750/70 rounded-2xl shadow-2xl z-40 overflow-hidden py-2 max-h-80 overflow-y-auto" dir="rtl">
                       
-                      {!search.trim() && recentSearches.length > 0 && (
+                      {!localSearch.trim() && recentSearches.length > 0 && (
                         <div className="mb-2">
                           <div className="px-4 py-2 flex items-center justify-between text-xs font-bold text-gray-400">
                             <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5"/> عمليات البحث الأخيرة</span>
@@ -687,6 +699,7 @@ export function MarketView({
                               <button
                                 type="button"
                                 onClick={() => {
+                                  setLocalSearch(recent);
                                   setSearch(recent);
                                   saveRecentSearch(recent);
                                   setShowSuggestions(false);
@@ -708,7 +721,7 @@ export function MarketView({
                         </div>
                       )}
 
-                      {!search.trim() && CATEGORIES.filter(c => c.id !== 'all' && c.id !== 'general').length > 0 && (
+                      {!localSearch.trim() && CATEGORIES.filter(c => c.id !== 'all' && c.id !== 'general').length > 0 && (
                         <div className="pt-2 border-t border-gray-800/40">
                           <div className="px-4 py-2 flex items-center gap-1.5 text-xs font-bold text-gray-400">
                             <Tag className="w-3.5 h-3.5" /> الفئات الشائعة
@@ -731,7 +744,7 @@ export function MarketView({
                         </div>
                       )}
 
-                      {search.trim() && suggestions.length > 0 && (
+                      {localSearch.trim() && suggestions.length > 0 && (
                         <div>
                            <div className="px-4 py-2 text-xs font-bold text-gray-400 flex items-center gap-1.5">
                               <Sparkles className="w-3.5 h-3.5"/> اقتراحات البحث
@@ -741,6 +754,7 @@ export function MarketView({
                                 key={`sugg-${index}`}
                                 type="button"
                                 onClick={() => {
+                                  setLocalSearch(suggestion);
                                   setSearch(suggestion);
                                   saveRecentSearch(suggestion);
                                   setShowSuggestions(false);
@@ -754,10 +768,10 @@ export function MarketView({
                         </div>
                       )}
 
-                      {search.trim() && suggestions.length === 0 && (
+                      {localSearch.trim() && suggestions.length === 0 && (
                          <div className="px-4 py-6 text-center text-gray-400 text-sm flex flex-col items-center gap-2">
                             <SearchIcon className="w-6 h-6 opacity-50 mb-1" />
-                            لا توجد نتائج مطابقة لـ <span className="font-bold text-white">"{search}"</span>
+                            لا توجد نتائج مطابقة لـ <span className="font-bold text-white">"{localSearch}"</span>
                             <span className="text-xs mt-1 block">جرب كلمات بحث مختلفة أو عامة أكثر</span>
                          </div>
                       )}
@@ -1789,13 +1803,13 @@ export function MarketView({
                 <div className="relative">
                   <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-400" />
                   <input
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
+                    value={localSearch}
+                    onChange={e => setLocalSearch(e.target.value)}
                     placeholder="ابحث عن حساب باسم المستخدم أو رقم الهاتف (077...)"
                     className="w-full bg-[#0c2b5e]/80 text-white placeholder-gray-400 rounded-2xl py-3.5 pr-12 pl-4 border border-gray-700 focus:border-amber-400 outline-none text-sm shadow-inner"
                   />
-                  {search && (
-                    <button onClick={() => setSearch('')} className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-white bg-gray-800 px-2 py-1 rounded-lg">
+                  {localSearch && (
+                    <button onClick={() => { setLocalSearch(''); setSearch(''); }} className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-white bg-gray-800 px-2 py-1 rounded-lg">
                       مسح
                     </button>
                   )}
