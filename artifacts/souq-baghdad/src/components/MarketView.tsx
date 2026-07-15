@@ -860,90 +860,112 @@ export function MarketView({
             </div>
           </div>
 
-          {/* Categories Grid/Horizontal Badges */}
-          <div id="hero-categories-tabs" className="flex flex-wrap justify-center gap-2 mb-8 relative z-20 max-w-4xl mx-auto">
-            {CATEGORIES.filter(c => c.id !== 'games').map(c => (
-              <motion.button 
-                id={`cat-btn-${c.id}`}
-                key={c.id} 
-                whileHover={{ y: -2, scale: 1.03 }} 
-                whileTap={{ scale: 0.97 }} 
-                onClick={() => setCat(c.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-all duration-300 ${
-                  cat === c.id 
-                    ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black border-amber-400 shadow-[0_4px_15px_rgba(212,175,55,0.25)] font-black' 
-                    : 'bg-gray-900/60 text-gray-300 border-gray-800 backdrop-blur-md hover:border-gray-700 hover:text-white hover:bg-gray-900/85'
-                }`}
-              >
-                <span className="text-base sm:text-lg">{c.emoji}</span>
-                <span>{c.name}</span>
-              </motion.button>
-            ))}
-          </div>
-
-          {/* Quick Metrics Cards */}
-          <div id="hero-metrics-grid" className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-3xl mx-auto mb-8 relative z-20">
-            <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/60 rounded-xl p-3.5 text-center flex flex-col justify-center">
-              <p className="text-xl sm:text-2xl font-black text-amber-400 font-mono">18</p>
-              <p className="text-gray-400 text-[11px] font-bold mt-1">محافظة عراقية مغطاة</p>
-            </div>
-            <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/60 rounded-xl p-3.5 text-center flex flex-col justify-center">
-              <p className="text-xl sm:text-2xl font-black text-white font-mono">{totalAdsCount || 2040}+</p>
-              <p className="text-gray-400 text-[11px] font-bold mt-1">إعلان معروض حالياً</p>
-            </div>
-            <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/60 rounded-xl p-3.5 text-center col-span-2 md:col-span-1 flex flex-col justify-center">
-              <p className="text-xl sm:text-2xl font-black text-emerald-400 font-mono">24/7</p>
-              <p className="text-gray-400 text-[11px] font-bold mt-1">خدمة ومتابعة مباشرة</p>
-            </div>
-          </div>
-
-          {/* Live Visitor Counter */}
-          <div className="mb-6 relative z-20">
-            <LiveVisitorCounter />
-          </div>
-
-          {/* Action Row: Transport & Install App */}
-          <div id="hero-action-cards" className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto relative z-20">
-            {/* Transport Section card */}
-            <motion.button 
-              id="hero-transport-card-btn"
-              whileHover={{ y: -3, scale: 1.01 }}
-              onClick={() => onTransportClick?.()}
-              className="w-full flex items-center justify-between px-5 py-4 bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/35 rounded-2xl transition-all group text-right"
+          {!search ? (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="flex flex-col"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 bg-emerald-500/25 rounded-xl flex items-center justify-center shrink-0">
-                  <Car className="w-5 h-5 text-emerald-400" />
+              {/* Categories Grid/Horizontal Badges */}
+              <div id="hero-categories-tabs" className="flex flex-wrap justify-center gap-2 mb-8 relative z-20 max-w-4xl mx-auto">
+                {CATEGORIES.filter(c => c.id !== 'games').map(c => (
+                  <motion.button 
+                    id={`cat-btn-${c.id}`}
+                    key={c.id} 
+                    whileHover={{ y: -2, scale: 1.03 }} 
+                    whileTap={{ scale: 0.97 }} 
+                    onClick={() => setCat(c.id)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-all duration-300 ${
+                      cat === c.id 
+                        ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black border-amber-400 shadow-[0_4px_15px_rgba(212,175,55,0.25)] font-black' 
+                        : 'bg-gray-900/60 text-gray-300 border-gray-800 backdrop-blur-md hover:border-gray-700 hover:text-white hover:bg-gray-900/85'
+                    }`}
+                  >
+                    <span className="text-base sm:text-lg">{c.emoji}</span>
+                    <span>{c.name}</span>
+                  </motion.button>
+                ))}
+              </div>
+
+              {/* Quick Metrics Cards */}
+              <div id="hero-metrics-grid" className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-3xl mx-auto mb-8 relative z-20">
+                <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/60 rounded-xl p-3.5 text-center flex flex-col justify-center">
+                  <p className="text-xl sm:text-2xl font-black text-amber-400 font-mono">18</p>
+                  <p className="text-gray-400 text-[11px] font-bold mt-1">محافظة عراقية مغطاة</p>
                 </div>
-                <div>
-                  <p className="text-white font-black text-sm">🚌 قسم الخطوط والتوصيل</p>
-                  <p className="text-emerald-300 text-xs mt-0.5">نقل يومي مباشر للطلاب والموظفين</p>
+                <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/60 rounded-xl p-3.5 text-center flex flex-col justify-center">
+                  <p className="text-xl sm:text-2xl font-black text-white font-mono">{totalAdsCount || 2040}+</p>
+                  <p className="text-gray-400 text-[11px] font-bold mt-1">إعلان معروض حالياً</p>
+                </div>
+                <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/60 rounded-xl p-3.5 text-center col-span-2 md:col-span-1 flex flex-col justify-center">
+                  <p className="text-xl sm:text-2xl font-black text-emerald-400 font-mono">24/7</p>
+                  <p className="text-gray-400 text-[11px] font-bold mt-1">خدمة ومتابعة مباشرة</p>
                 </div>
               </div>
-              <ChevronLeft className="w-5 h-5 text-emerald-400 group-hover:-translate-x-1 transition-transform" />
-            </motion.button>
 
-            {/* Install PWA section card */}
-            {!isStandalone && onInstallClick ? (
-              <motion.button 
-                id="hero-install-card-btn"
-                whileHover={{ y: -3, scale: 1.01 }}
-                onClick={onInstallClick}
-                className="w-full flex items-center justify-between px-5 py-4 bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/25 rounded-2xl transition-all group text-right"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 bg-amber-500/20 rounded-xl flex items-center justify-center shrink-0">
-                    <Smartphone className="w-5 h-5 text-amber-400" />
+              {/* Live Visitor Counter */}
+              <div className="mb-6 relative z-20">
+                <LiveVisitorCounter />
+              </div>
+
+              {/* Action Row: Transport & Install App */}
+              <div id="hero-action-cards" className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto relative z-20">
+                {/* Transport Section card */}
+                <motion.button 
+                  id="hero-transport-card-btn"
+                  whileHover={{ y: -3, scale: 1.01 }}
+                  onClick={() => onTransportClick?.()}
+                  className="w-full flex items-center justify-between px-5 py-4 bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/35 rounded-2xl transition-all group text-right"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 bg-emerald-500/25 rounded-xl flex items-center justify-center shrink-0">
+                      <Car className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <div>
+                      <p className="text-white font-black text-sm">🚌 قسم الخطوط والتوصيل</p>
+                      <p className="text-emerald-300 text-xs mt-0.5">نقل يومي مباشر للطلاب والموظفين</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-white font-black text-sm">📲 تثبيت التطبيق</p>
-                    <p className="text-amber-300/90 text-xs mt-0.5">ثبّت "سوق بغداد" كـ PWA على جهازك مباشرة</p>
-                  </div>
-                </div>
-                <ChevronLeft className="w-5 h-5 text-amber-400 group-hover:-translate-x-1 transition-transform" />
-              </motion.button>
-            ) : null}
-          </div>
+                  <ChevronLeft className="w-5 h-5 text-emerald-400 group-hover:-translate-x-1 transition-transform" />
+                </motion.button>
+
+                {/* Install PWA section card */}
+                {!isStandalone && onInstallClick ? (
+                  <motion.button 
+                    id="hero-install-card-btn"
+                    whileHover={{ y: -3, scale: 1.01 }}
+                    onClick={onInstallClick}
+                    className="w-full flex items-center justify-between px-5 py-4 bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/25 rounded-2xl transition-all group text-right"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 bg-amber-500/20 rounded-xl flex items-center justify-center shrink-0">
+                        <Smartphone className="w-5 h-5 text-amber-400" />
+                      </div>
+                      <div>
+                        <p className="text-white font-black text-sm">📲 تثبيت التطبيق</p>
+                        <p className="text-amber-300/90 text-xs mt-0.5">ثبّت "سوق بغداد" كـ PWA على جهازك مباشرة</p>
+                      </div>
+                    </div>
+                    <ChevronLeft className="w-5 h-5 text-amber-400 group-hover:-translate-x-1 transition-transform" />
+                  </motion.button>
+                ) : null}
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="py-12 flex flex-col items-center justify-center relative z-20"
+            >
+              <div className="bg-gray-900/60 backdrop-blur-md border border-gray-700/50 rounded-2xl px-6 py-4 shadow-xl flex items-center gap-3 animate-pulse">
+                <SearchIcon className="w-5 h-5 text-amber-400" />
+                <p className="text-sm font-bold text-gray-300">
+                  وضع البحث مفعل.. <span className="text-amber-400">امسح البحث</span> لإظهار الأقسام والأزرار
+                </p>
+              </div>
+            </motion.div>
+          )}
         </div>
 
         {/* Baghdad Skyline Vector Backdrop */}
