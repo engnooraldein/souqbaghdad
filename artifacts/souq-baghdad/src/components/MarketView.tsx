@@ -671,7 +671,7 @@ export function MarketView({
                     }
                   }}
                   placeholder="ابحث عن سيارة، هاتف، عقار، منتج في العراق..."
-                  className="w-full bg-transparent text-white placeholder-gray-400 rounded-xl py-3 sm:py-3.5 pr-12 pl-4 outline-none text-sm md:text-base font-medium"
+                  className="w-full bg-transparent text-white placeholder-gray-400 rounded-xl py-3 sm:py-3.5 pr-12 pl-4 outline-none text-base font-medium"
                 />
                 {localSearch && (
                   <button 
@@ -1806,7 +1806,7 @@ export function MarketView({
                     value={localSearch}
                     onChange={e => setLocalSearch(e.target.value)}
                     placeholder="ابحث عن حساب باسم المستخدم أو رقم الهاتف (077...)"
-                    className="w-full bg-[#0c2b5e]/80 text-white placeholder-gray-400 rounded-2xl py-3.5 pr-12 pl-4 border border-gray-700 focus:border-amber-400 outline-none text-sm shadow-inner"
+                    className="w-full bg-[#0c2b5e]/80 text-white placeholder-gray-400 rounded-2xl py-3.5 pr-12 pl-4 border border-gray-700 focus:border-amber-400 outline-none text-base shadow-inner"
                   />
                   {localSearch && (
                     <button onClick={() => { setLocalSearch(''); setSearch(''); }} className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-white bg-gray-800 px-2 py-1 rounded-lg">
