@@ -59,8 +59,10 @@ import { TimeAgo } from './TimeAgo';
 import { ImageCropModal } from './ImageCropModal';
 import { PasswordChangeModal } from './PasswordChangeModal';
 import { LoadingScreen } from './LoadingScreen';
-import { TransportFormModal } from './TransportFormModal';
+
 import { SkeletonCard } from './SkeletonCard';
+import { VerifiedBadge } from './VerifiedBadge';
+import { TransportFormModal } from './TransportFormModal';
 import { AdCard } from './AdCard';
 import { ProductCard } from './ProductCard';
 import { TransportAdCard } from './TransportAdCard';
@@ -1369,7 +1371,7 @@ export function MarketView({
                                         </span>
                                         {seller?.isVerified && (
                                           <span className="text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded-md border border-blue-500/20 text-[9px] font-bold flex items-center gap-0.5">
-                                            <Shield className="w-2.5 h-2.5 fill-current" /> موثوق
+                                            <VerifiedBadge className="w-2.5 h-2.5" /> موثوق
                                           </span>
                                         )}
                                       </div>
@@ -1830,7 +1832,7 @@ export function MarketView({
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1">
                                 <h4 className="text-white font-bold text-sm truncate">{topUser.name}</h4>
-                                {topUser.isVerified && <Shield className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />}
+                                {topUser.isVerified && <VerifiedBadge className="w-3.5 h-3.5 shrink-0" />}
                               </div>
                               <span className="text-[10px] text-amber-300 font-medium block">⭐ 4.9 تاجر مميز</span>
                             </div>
@@ -1893,7 +1895,7 @@ export function MarketView({
                               <h3 className="text-white font-bold text-sm truncate group-hover:text-amber-300 transition-colors">{profile.name}</h3>
                               {profile.isVerified && (
                                 <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 flex items-center gap-1">
-                                  <Shield className="w-3 h-3 fill-current" /> موثوق
+                                  <VerifiedBadge className="w-3 h-3" /> موثوق
                                 </span>
                               )}
                             </div>

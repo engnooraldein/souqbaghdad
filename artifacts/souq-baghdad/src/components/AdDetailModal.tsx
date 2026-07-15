@@ -21,6 +21,7 @@
 import { useOnlineStatuses } from '../hooks/useOnlineStatuses';
 import { InterestTimer } from './InterestTimer';
 import { TimeAgo } from './TimeAgo';
+import { VerifiedBadge } from './VerifiedBadge';
 import { ReadingModeOverlay } from './ReadingModeOverlay';
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -351,7 +352,7 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <button onClick={()=>onSellerClick?.(ad.postedBy||'')} className="text-white font-bold text-sm hover:text-amber-400 truncate">{currentSeller?.name || ad.seller?.name || 'مستخدم'}</button>
-                  {currentSeller?.isVerified && <Shield className="w-3.5 h-3.5 text-blue-400 fill-blue-400 shrink-0" />}
+                  {currentSeller?.isVerified && <VerifiedBadge className="w-3.5 h-3.5 shrink-0" />}
                 </div>
                 <div className="flex items-center gap-2 text-xs mt-0.5">
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isOnline ? 'bg-green-500/20 text-green-300' : 'bg-gray-700 text-gray-400'}`}>

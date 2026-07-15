@@ -9,6 +9,7 @@
 // ===========================================
 import { motion } from 'framer-motion';
 import { LucideIcon, ChevronLeft } from 'lucide-react';
+import { VerifiedBadge } from './VerifiedBadge';
 
 interface CategoryCardProps {
   title: string;
@@ -267,9 +268,7 @@ export function MerchantCard({
         <div className="relative">
           <img src={avatar} alt={name} className="w-14 h-14 rounded-2xl object-cover border-2 border-amber-500/30 group-hover:border-amber-400 transition-colors" />
           {isVerified && (
-            <div className="absolute -bottom-1 -left-1 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow">
-              ✓
-            </div>
+            <VerifiedBadge className="absolute -bottom-1 -left-1 w-5 h-5 shadow" />
           )}
         </div>
 

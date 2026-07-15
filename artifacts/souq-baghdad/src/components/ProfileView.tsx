@@ -21,8 +21,9 @@
 // ===========================================
 
 import { DEFAULT_AVATAR } from '../App';
-import { MyLinesTab } from './MyLinesTab';
 import { DEFAULT_COVER, getCoverImage } from '../constants';
+import { VerifiedBadge } from './VerifiedBadge';
+import { MyLinesTab } from './MyLinesTab';
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -448,7 +449,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                     <Trash2 className="w-4 h-4 sm:w-5 sm:h-5 text-white"/></button>
                 </div>
               )}
-              {user.isVerified&&!editing&&<div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-8 sm:h-8 bg-blue-500 rounded-full flex items-center justify-center border-2 border-gray-950"><Shield className="w-3 h-3 sm:w-4 sm:h-4 text-white"/></div>}
+              {user.isVerified&&!editing&&<VerifiedBadge className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-8 sm:h-8" />}
             </div>
 
             {/* Actions */}
@@ -813,7 +814,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={()=>setShowVerifyModal(false)}/>
             <motion.div initial={{scale:0.95}} animate={{scale:1}} className="relative bg-gray-900 rounded-3xl p-6 w-full max-w-md border border-gray-700 shadow-2xl">
               <button onClick={()=>setShowVerifyModal(false)} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Shield className="w-5 h-5 text-blue-400"/> طلب توثيق الحساب</h2>
+              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><VerifiedBadge className="w-5 h-5" /> طلب توثيق الحساب</h2>
               <p className="text-gray-400 text-sm mb-4">يرجى رفع صورة واضحة لهويتك الشخصية (البطاقة الوطنية أو جواز السفر) لتوثيق حسابك والحصول على شارة الموثوقية.</p>
               
               <div className="mb-4">

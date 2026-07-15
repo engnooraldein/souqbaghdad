@@ -46,6 +46,7 @@ import { formatPrice } from '../utils/format';
 import { useSound } from '../hooks/useSound';
 import { supabase } from '../lib/supabase';
 import { TimeAgo } from './TimeAgo';
+import { VerifiedBadge } from './VerifiedBadge';
 
 import { ImageCropModal } from './ImageCropModal';
 import { PasswordChangeModal } from './PasswordChangeModal';
@@ -403,7 +404,7 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
             <h2 className="text-xl sm:text-2xl font-bold text-white">{effectiveSeller?.name}</h2>
             {effectiveSeller?.isVerified && (
               <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full font-bold">
-                <Shield className="w-3 h-3"/>موثق
+                <VerifiedBadge className="w-3 h-3"/> موثق
               </span>
             )}
             {Boolean((user && (String(effectiveSeller.id) === String(user.id) || String(effectiveSeller.phone) === String(user.phone))) || onlineStatuses[effectiveSeller.id] || onlineStatuses[effectiveSeller.phone]) ? (

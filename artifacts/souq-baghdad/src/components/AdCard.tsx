@@ -30,6 +30,7 @@ import { isNewItem, getGlowClass } from '../utils/helpers';
 import { formatPrice } from '../utils/format';
 import { supabase } from '../lib/supabase';
 import { ImageWithDataSaver } from './ImageWithDataSaver';
+import { VerifiedBadge } from './VerifiedBadge';
 
 // Map all lucide icons to global scope to avoid missing imports
 const {
@@ -149,7 +150,7 @@ export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, o
         {ad.type==='rent'&&<div className={`absolute px-2 py-0.5 bg-blue-500 rounded-full text-[10px] font-bold text-white transition-all z-10 ${isNewItem(ad.createdAtISO) ? 'top-14 left-2' : 'top-8 left-2'}`}>للإيجار</div>}
         <button onClick={onFav} className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'} transition-colors`} title={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"} aria-label={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}>
           <Heart className={`w-4 h-4 text-white ${isFav?'fill-current':''}`}/></button>
-        {ad.seller?.isVerified&&<div className="absolute bottom-2 left-2 px-2 py-0.5 bg-blue-500 rounded-full text-[10px] font-bold text-white flex items-center gap-1"><Shield className="w-2.5 h-2.5"/>موثق</div>}
+        {ad.seller?.isVerified&&<div className="absolute bottom-2 left-2 px-2 py-0.5 bg-blue-500 rounded-full text-[10px] font-bold text-white flex items-center gap-1"><VerifiedBadge className="w-2.5 h-2.5"/>موثق</div>}
         {ad.status==='sold'&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-[1px]"><span className="bg-red-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
       </div>
       <div className="p-3 sm:p-4 flex-1 flex flex-col relative z-20 bg-gray-900 rounded-t-2xl -mt-4 border-t border-gray-800 shadow-[0_-8px_15px_-3px_rgba(0,0,0,0.4)]">
