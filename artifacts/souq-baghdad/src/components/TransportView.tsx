@@ -272,7 +272,7 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
               <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-500"/>
               <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} 
                 placeholder={rideTypeTab === 'emergency' ? "ابحث عن وجهة، منطقة، كراج..." : mainCategoryFilter === 'employee' ? "ابحث عن شركة، دائرة، منطقة..." : "ابحث عن جامعة، منطقة، مقصد..."}
-                className="w-full bg-gray-950/60 backdrop-blur-md text-white placeholder-emerald-200/40 rounded-2xl py-3.5 pr-11 pl-4 border border-gray-800 focus:border-emerald-500/50 outline-none text-xs sm:text-sm shadow-inner transition-all duration-300"/>
+                className="w-full bg-gray-950/60 backdrop-blur-md text-white placeholder-emerald-200/40 rounded-2xl py-3.5 pr-11 pl-4 border border-gray-800 focus:border-emerald-500/50 outline-none text-base sm:text-sm shadow-inner transition-all duration-300"/>
             </div>
             
             <div className="grid grid-cols-2 gap-3" dir="rtl">
@@ -281,14 +281,14 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
                   {rideTypeTab === 'emergency' ? 'الوجهة المطلوبة' : mainCategoryFilter === 'employee' ? 'مكان العمل (دوائر / شركات)' : 'الوجهة / الجامعة'}
                 </label>
                 <select value={filterUniversity} onChange={e=>setFilterUniversity(e.target.value)} title="تصفية بالوجهة" aria-label="تصفية بالوجهة"
-                  className="w-full bg-gray-900/80 text-white font-bold rounded-xl py-2.5 px-3.5 border border-gray-800 focus:border-emerald-500/50 outline-none text-xs sm:text-sm transition-all duration-300 cursor-pointer [color-scheme:dark]">
+                  className="w-full bg-gray-900/80 text-white font-bold rounded-xl py-2.5 px-3.5 border border-gray-800 focus:border-emerald-500/50 outline-none text-base sm:text-sm transition-all duration-300 cursor-pointer [color-scheme:dark]">
                   {dynamicUniversities.map(c=><option key={c} value={c} className="bg-gray-900 text-white">{c}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-gray-400 text-[11px] font-black mr-1 mb-1 block">نوع الإعلان</label>
                 <select value={filterType} onChange={e=>setFilterType(e.target.value)} title="تصفية بنوع الإعلان" aria-label="تصفية بنوع الإعلان"
-                  className="w-full bg-gray-900/80 text-white font-bold rounded-xl py-2.5 px-3.5 border border-gray-800 focus:border-emerald-500/50 outline-none text-xs sm:text-sm transition-all duration-300 cursor-pointer [color-scheme:dark]">
+                  className="w-full bg-gray-900/80 text-white font-bold rounded-xl py-2.5 px-3.5 border border-gray-800 focus:border-emerald-500/50 outline-none text-base sm:text-sm transition-all duration-300 cursor-pointer [color-scheme:dark]">
                   <option className="bg-gray-900 text-white">الكل</option>
                   <option className="bg-gray-900 text-white">صاحب الخط</option>
                   <option className="bg-gray-900 text-white">ابحث عن خط</option>
