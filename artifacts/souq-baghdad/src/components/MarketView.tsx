@@ -273,6 +273,7 @@ export function MarketView({
   isInitialLoading?: boolean;
   isDarkMode?: boolean;
 }) {
+  const playSound = useSound();
   const [viewMode, setViewMode] = useState<'grid'|'list'>('grid');
   const [homeToggleType, setHomeToggleType] = useState<'ads' | 'products'>('ads');
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -738,11 +739,55 @@ export function MarketView({
     return vipAds.slice(start, start + 4);
   }, [vipAds, vipAdsPage]);
 
-  // Compute "General Ads" Pagination
+  // Compute "General Ads" Pagination with Smart Algorithm
   const totalGeneralPages = Math.ceil(filterAds.length / 4);
   const paginatedGeneralAds = useMemo(() => {
-    return filterAds.slice(0, visibleGeneralAdsCount);
-  }, [filterAds, visibleGeneralAdsCount]);
+    if (filterAds.length === 0) return [];
+
+    // الخوارزمية التفاعلية: ترتيب ذكي بناءً على النقاط لتشبه منصات التواصل الاجتماعي
+    const scoredAds = [...filterAds].map(ad => {
+      let score = 0;
+      
+      // 1. التفاعل (المشاهدات تعطيه قوة - بحد أقصى 150 نقطة)
+      score += Math.min((ad.views || 0) * 0.5, 150);
+      
+      // 2. موثوقية الحساب (أولوية عالية جداً)
+      const seller = storedUsers?.find(u => u.id === ad.postedBy);
+      const isVerified = seller?.isVerified || seller?.verified || seller?.role === 'admin' || seller?.role === 'owner' || ad.seller?.isVerified;
+      if (isVerified) score += 250;
+
+      // 3. جودة المحتوى (الصور تعطي جاذبية للإعلان)
+      if (ad.images && ad.images.length > 0) {
+        score += 100;
+        if (ad.images.length > 2) score += 50; // إضافي للصور المتعددة
+      }
+
+      // 4. حداثة الإعلان (الأحدث يأخذ نقاط أكثر)
+      if (ad.createdAtISO) {
+        const ageInHours = (Date.now() - new Date(ad.createdAtISO).getTime()) / (1000 * 60 * 60);
+        // خصم نقاط كلما مر الوقت، بحيث لا يتصدر الإعلان القديم إلا إذا كان موثوقاً جداً أو متفاعلاً جداً
+        score -= ageInHours * 1.5;
+      }
+
+      // 5. معامل عشوائي ذكي (لضمان تجدد المحتوى وعدم الملل)
+      // يعتمد على اليوم والساعة ليتغير الترتيب كل ساعة للمستخدم
+      const currentHour = new Date().getHours();
+      const currentDay = new Date().getDate();
+      const pseudoRandomSeed = (ad.id.charCodeAt(0) + ad.id.charCodeAt(ad.id.length - 1) + currentHour + currentDay) % 150;
+      score += pseudoRandomSeed; // إضافة حتى 150 نقطة عشوائية تتغير كل ساعة
+
+      return { ...ad, _feedScore: score };
+    });
+
+    // ترتيب تنازلي بناءً على السكور الكلي
+    scoredAds.sort((a, b) => (b._feedScore as number) - (a._feedScore as number));
+    
+    // إرجاع الإعلانات للواجهة
+    return scoredAds.map(a => {
+      const { _feedScore, ...cleanAd } = a;
+      return cleanAd;
+    }).slice(0, visibleGeneralAdsCount);
+  }, [filterAds, visibleGeneralAdsCount, storedUsers]);
 
   // Category specific paginated ads
   const totalCategoryAdsPages = Math.ceil(filterAds.length / 8);
@@ -1731,7 +1776,7 @@ export function MarketView({
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-3">
                                     <div className="relative cursor-pointer" onClick={() => ad.postedBy && onSellerClick(ad.postedBy)}>
-                                      <img 
+                                      <img loading="lazy" decoding="async"
                                         src={seller?.avatar || ad.seller?.avatar || DEFAULT_AVATAR} 
                                         alt="" 
                                         className={`w-11 h-11 rounded-full object-cover border ${seller?.role ? getGlowClass(seller.role) : 'border-gray-700'}`} 
@@ -1834,7 +1879,7 @@ export function MarketView({
                                       className="w-full h-full object-cover group-hover:scale-[1.01] transition-transform duration-500" 
                                     />
                                     {ad.images.length > 1 && (
-                                      <div className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md text-white text-[10px] font-black px-2.5 py-1 rounded-full border border-white/10">
+                                      <div className="absolute bottom-3 left-3 bg-black/20 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded-full border border-white/30 shadow-md">
                                         + {ad.images.length - 1} صور إضافية
                                       </div>
                                     )}
@@ -1906,7 +1951,14 @@ export function MarketView({
                               // Artificial delay to prevent rapid scrolling & let them load smoothly
                               await new Promise(r => setTimeout(r, 600));
                               if (visibleGeneralAdsCount < filterAds.length) {
-                                setVisibleGeneralAdsCount(prev => prev + 4);
+                                setVisibleGeneralAdsCount(prev => {
+                                  const next = prev + 4;
+                                  if (next >= filterAds.length && !hasMoreAds) {
+                                    playSound('admin');
+                                    window.dispatchEvent(new CustomEvent('app-toast', { detail: { msg: '🎉 ممتاز! لقد أكملت تصفح جميع الإعلانات المتاحة.', type: 'success' } }));
+                                  }
+                                  return next;
+                                });
                               } else if (hasMoreAds) {
                                 await onLoadMoreAds();
                                 setVisibleGeneralAdsCount(prev => prev + 4);
@@ -2257,7 +2309,7 @@ export function MarketView({
                           <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 rounded-bl-full pointer-events-none" />
                           <div className="flex items-center gap-3 mb-3">
                             <div className="relative shrink-0">
-                              <img src={topUser.avatar} alt="" className={`w-12 h-12 rounded-full object-cover ${topUser.role && topUser.role !== 'user' ? getGlowClass(topUser.role) : 'border-2 border-amber-400'}`} />
+                              <img loading="lazy" decoding="async" src={topUser.avatar} alt="" className={`w-12 h-12 rounded-full object-cover ${topUser.role && topUser.role !== 'user' ? getGlowClass(topUser.role) : 'border-2 border-amber-400'}`} />
                               <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-transparent shadow-sm shadow-[#0c2b5e]/10 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'أوفلاين'} />
                             </div>
                             <div className="min-w-0 flex-1">
