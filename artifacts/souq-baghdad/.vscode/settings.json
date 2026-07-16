@@ -1,3 +1,6 @@
 {
+  "html.validate.enable": false,
+  "css.validate": false,
+  "html.validate.styles": false,
   "css.lint.unknownAtRules": "ignore"
 }
