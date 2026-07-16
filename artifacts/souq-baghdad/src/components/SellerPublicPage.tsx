@@ -59,11 +59,11 @@ import { TransportAdCard } from './TransportAdCard';
 import { InterestTimer } from './InterestTimer';
 import { IraqiEagle } from './Icons';
 
-export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [], storedUsers = [], onBack, onSelectAd, onSelectProduct, onSelectTransport, favorites, onToggleFav, user, onAuthRequired, onDeleteProfile, onActionMenu }:{
+export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAds = [], storedUsers = [], onBack, onSelectAd, onSelectProduct, onSelectTransport, favorites, onToggleFav, user, onAuthRequired, onDeleteProfile, onActionMenu, isDarkMode = true }:{
   sellerId:string; allAds:Ad[]; allProducts:Product[]; allTransportAds?:TransportAd[]; storedUsers?: any[]; onBack:()=>void;
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void; onSelectTransport?:(ad:TransportAd)=>void;
   favorites:number[]; onToggleFav:(id:number)=>void; user:User|null; onAuthRequired:()=>void;
-  onDeleteProfile?:(id:string)=>void; onActionMenu?:any;
+  onDeleteProfile?:(id:string)=>void; onActionMenu?:any; isDarkMode?:boolean;
 }) {
   const onlineStatuses = useOnlineStatuses();
   const [tab, setTab] = useState<'ads'|'products'|'lines'>('ads');
@@ -353,9 +353,9 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
   return (
     <>
       <LoadingScreen isLoading={loadingProfile || loadingContent} />
-      <div className="min-h-screen bg-black pt-16 pb-10">
+      <div className={`min-h-screen pt-16 pb-10 transition-colors duration-300 ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-800'}`}>
       {/* Cover */}
-      <div className="w-full aspect-[3/1] md:aspect-[4/1] bg-gray-900 relative overflow-hidden flex items-center justify-center">
+      <div className={`w-full aspect-[3/1] md:aspect-[4/1] ${isDarkMode ? 'bg-gray-900' : 'bg-slate-200'} relative overflow-hidden flex items-center justify-center`}>
         <img src={effectiveSeller?.cover || DEFAULT_COVER} alt="" className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110"/>
         <img 
           src={effectiveSeller?.cover || DEFAULT_COVER} 
@@ -364,12 +364,12 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
         />
         {/* Watermark */}
         <div className="absolute top-4 left-4 z-10 flex items-center gap-2 opacity-60 select-none pointer-events-none drop-shadow-xl">
-          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-900 rounded-lg flex items-center justify-center border border-amber-500/40">
-            <span className="text-white font-bold text-[10px] sm:text-xs">سوك</span>
+          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center border ${isDarkMode ? 'bg-gray-900 border-amber-500/40' : 'bg-white border-amber-500/30'}`}>
+            <span className={isDarkMode ? 'text-white font-bold text-[10px] sm:text-xs' : 'text-slate-800 font-bold text-[10px] sm:text-xs'}>سوك</span>
           </div>
-          <span className="text-white font-bold text-xs sm:text-sm drop-shadow-md">سوك بغداد</span>
+          <span className={`font-bold text-xs sm:text-sm drop-shadow-md ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>سوك بغداد</span>
         </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/30 to-transparent z-10"/>
+        <div className={`absolute inset-0 bg-gradient-to-t ${isDarkMode ? 'from-gray-950 via-gray-950/30' : 'from-slate-900/60 via-transparent'} to-transparent z-10`}/>
       </div>
 
       <div className="container mx-auto px-4 max-w-3xl relative">
@@ -377,15 +377,15 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
         <div className="flex justify-between items-end -mt-12 sm:-mt-16 mb-4 relative z-10">
           {/* Avatar */}
           <div className="relative z-20">
-            <div className={`w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 shadow-xl overflow-hidden bg-white flex-shrink-0 flex items-center justify-center ${effectiveSeller.role && effectiveSeller.role !== 'user' ? getGlowClass(effectiveSeller.role) : 'border-gray-950'}`}>
+            <div className={`w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 shadow-xl overflow-hidden flex-shrink-0 flex items-center justify-center ${effectiveSeller.role && effectiveSeller.role !== 'user' ? getGlowClass(effectiveSeller.role) : (isDarkMode ? 'border-gray-950 bg-gray-950' : 'border-white bg-slate-100')}`}>
               <img src={effectiveSeller?.avatar || DEFAULT_AVATAR} alt={effectiveSeller?.name} className="w-full h-full object-cover"/>
             </div>
             {Boolean((user && (String(effectiveSeller.id) === String(user.id) || String(effectiveSeller.phone) === String(user.phone))) || onlineStatuses[effectiveSeller.id] || onlineStatuses[effectiveSeller.phone]) ? (
-              <span className="absolute bottom-2 right-2 w-5 h-5 bg-emerald-500 rounded-full border-2 border-gray-950 flex items-center justify-center shadow-lg z-30" title="متصل الآن">
+              <span className={`absolute bottom-2 right-2 w-5 h-5 bg-emerald-500 rounded-full border-2 flex items-center justify-center shadow-lg z-30 ${isDarkMode ? 'border-gray-950' : 'border-white'}`} title="متصل الآن">
                 <span className="w-2 h-2 bg-white rounded-full animate-ping" />
               </span>
             ) : (
-              <span className="absolute bottom-2 right-2 w-5 h-5 bg-gray-500 rounded-full border-2 border-gray-950 shadow-lg z-30" title="غير متصل" />
+              <span className={`absolute bottom-2 right-2 w-5 h-5 bg-gray-500 rounded-full border-2 shadow-lg z-30 ${isDarkMode ? 'border-gray-950' : 'border-white'}`} title="غير متصل" />
             )}
           </div>
 
@@ -400,11 +400,11 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
                 url: '/seller/' + effectiveSeller.id,
                 image: effectiveSeller.avatar || DEFAULT_AVATAR
               });
-            }} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-gray-800 text-white rounded-xl text-sm font-bold shadow-lg border border-gray-700 hover:bg-gray-700" title="مشاركة الملف">
+            }} className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-sm font-bold shadow-lg border transition-colors ${isDarkMode ? 'bg-gray-800 text-white border-gray-700 hover:bg-gray-700' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`} title="مشاركة الملف">
               <Share2 className="w-4 h-4"/>
               <span className="hidden sm:inline">مشاركة</span>
             </button>
-            <button onClick={onBack} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-gray-800 text-white rounded-xl text-sm font-bold shadow-lg hover:bg-gray-800">
+            <button onClick={onBack} className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-sm font-bold shadow-lg transition-colors ${isDarkMode ? 'bg-gray-800 text-white hover:bg-gray-750' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}`}>
               <ChevronRight className="w-4 h-4"/>
               <span className="hidden sm:inline">رجوع</span>
             </button>
@@ -414,26 +414,26 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
         {/* User Details */}
         <div className="mb-5">
           <div className="flex flex-wrap items-center gap-2 mb-1">
-            <h2 className="text-xl sm:text-2xl font-bold text-white always-white">{effectiveSeller?.name}</h2>
+            <h2 className={`text-xl sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{effectiveSeller?.name}</h2>
             {effectiveSeller?.isVerified && (
-              <span className="flex items-center gap-1 px-2 py-0.5 bg-gray-800/20 text-gray-400 text-xs rounded-full font-bold">
+              <span className={`flex items-center gap-1 px-2 py-0.5 text-xs rounded-full font-bold ${isDarkMode ? 'bg-gray-800/20 text-gray-400' : 'bg-slate-200/50 text-slate-500'}`}>
                 <VerifiedBadge className="w-3 h-3"/> موثق
               </span>
             )}
             {Boolean((user && (String(effectiveSeller.id) === String(user.id) || String(effectiveSeller.phone) === String(user.phone))) || onlineStatuses[effectiveSeller.id] || onlineStatuses[effectiveSeller.phone]) ? (
-              <span className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs rounded-full font-bold">
+              <span className={`flex items-center gap-1 px-2.5 py-0.5 border text-xs rounded-full font-bold ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50/70 text-emerald-600 border-emerald-200/60'}`}>
                 <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> متصل الآن
               </span>
             ) : (
-              <span className="flex items-center gap-1 px-2.5 py-0.5 bg-gray-800 text-gray-400 border border-gray-700 text-xs rounded-full font-medium">
+              <span className={`flex items-center gap-1 px-2.5 py-0.5 border text-xs rounded-full font-medium ${isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700' : 'bg-slate-200 text-slate-500 border-slate-350'}`}>
                 غير متصل
               </span>
             )}
           </div>
           
           {/* Interactive Rating */}
-          <div className="flex items-center gap-2 mt-2 bg-gray-800/40 p-2.5 rounded-xl border border-gray-800/80 inline-flex flex-wrap">
-            <span className="text-gray-400 text-xs font-medium">تقييم البائع:</span>
+          <div className={`flex items-center gap-2 mt-2 p-2.5 rounded-xl border inline-flex flex-wrap ${isDarkMode ? 'bg-gray-800/40 border-gray-800/80 text-gray-400' : 'bg-white border-slate-200 text-slate-650 shadow-sm'}`}>
+            <span className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>تقييم البائع:</span>
             <div className="flex items-center gap-1">
               {[1, 2, 3, 4, 5].map((stars) => {
                 const isLit = stars <= Math.round(effectiveSeller.rating);
@@ -444,13 +444,13 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
                     className="p-0.5 hover:scale-125 transition-transform"
                     title={`تقييم بـ ${stars} نجوم`}
                   >
-                    <Star className={`w-5 h-5 ${isLit ? 'fill-amber-400 text-amber-400' : 'text-gray-600'}`} />
+                    <Star className={`w-5 h-5 ${isLit ? 'fill-amber-400 text-amber-400' : (isDarkMode ? 'text-gray-600' : 'text-slate-300')}`} />
                   </button>
                 );
               })}
             </div>
             <span className="text-amber-400 font-bold text-sm mr-1">{effectiveSeller.rating}</span>
-            <span className="text-gray-500 text-xs">({effectiveSeller.ratingCount || 1} تقييم)</span>
+            <span className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>({effectiveSeller.ratingCount || 1} تقييم)</span>
           </div>
 
           {user && (user.role === 'admin' || user.role === 'owner') && (
@@ -461,58 +461,58 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
                     onDeleteProfile?.(sellerId);
                   }
                 }} 
-                className="flex items-center gap-1.5 px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl font-bold hover:bg-red-500/20 transition-colors text-sm w-max"
+                className={`flex items-center gap-1.5 px-4 py-2 border rounded-xl font-bold transition-colors text-sm w-max ${isDarkMode ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20' : 'bg-red-50 text-red-500 border-red-100 hover:bg-red-100/85 shadow-sm'}`}
               >
                 <Trash2 className="w-4 h-4"/> حذف الملف الشخصي
               </button>
             </div>
           )}
 
-          <p className="text-gray-400 text-sm mt-3 flex items-center gap-3">
-            <span className="flex items-center gap-1"><MapPin className="w-4 h-4 text-gray-500" />{effectiveSeller.location}</span>
-            <span className="flex items-center gap-1"><Calendar className="w-4 h-4 text-gray-500" />انضم في {formatJoinedDate(effectiveSeller.joinedDate || effectiveSeller.created_at || new Date().toISOString())}</span>
+          <p className={`text-sm mt-3 flex items-center gap-3 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+            <span className="flex items-center gap-1"><MapPin className={`w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`} />{effectiveSeller.location}</span>
+            <span className="flex items-center gap-1"><Calendar className={`w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`} />انضم في {formatJoinedDate(effectiveSeller.joinedDate || effectiveSeller.created_at || new Date().toISOString())}</span>
           </p>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 mb-5">
           {[{v:sellerAds.length,l:'إعلان',c:'text-amber-400'},{v:sellerProds.length,l:'منتج',c:'text-purple-400'},{v:sellerAds.reduce((s,a)=>s+a.views,0)+sellerProds.reduce((s,p)=>s+p.views,0),l:'مشاهدة',c:'text-gray-400'}].map((s,i)=>(
-            <div key={i} className="bg-gray-800 rounded-2xl p-3 text-center border border-gray-700">
+            <div key={i} className={`rounded-2xl p-3 text-center border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200/80 shadow-sm'}`}>
               <p className={`text-2xl font-bold ${s.c}`}>{s.v}</p>
-              <p className="text-gray-400 text-xs">{s.l}</p>
+              <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>{s.l}</p>
             </div>
           ))}
         </div>
         {/* Tabs */}
         {loadingContent ? (
-          <div className="bg-gray-800 rounded-2xl p-12 text-center border border-gray-700 flex flex-col items-center justify-center">
+          <div className={`rounded-2xl p-12 text-center border flex flex-col items-center justify-center ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200 shadow-sm'}`}>
             <Loader2 className="w-8 h-8 text-amber-500 animate-spin mb-4" />
             <p className="text-amber-400 font-bold mb-1">جاري جلب كامل المحتوى...</p>
-            <p className="text-gray-400 text-sm">يرجى الانتظار ثوانٍ قليلة</p>
+            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>يرجى الانتظار ثوانٍ قليلة</p>
           </div>
         ) : (
           <>
-            <div className="flex gap-2 mb-5 bg-gray-800 p-1.5 rounded-2xl border border-gray-700 overflow-x-auto hide-scrollbar">
+            <div className={`flex gap-2 mb-5 p-1.5 rounded-2xl border overflow-x-auto hide-scrollbar ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-slate-100 border-slate-200'}`}>
               {([['ads',`📢 الإعلانات (${sellerAds.length})`],['products',`🛍️ المنتجات (${sellerProds.length})`]] as [string,string][]).map(([t,l])=>(
-                <button key={t} onClick={()=>setTab(t as any)} className={`flex-shrink-0 flex-1 py-2 px-3 rounded-xl text-sm font-bold ${tab===t?'bg-amber-500 text-black':'text-gray-400 hover:text-white'}`}>{l}</button>
+                <button key={t} onClick={()=>setTab(t as any)} className={`flex-shrink-0 flex-1 py-2 px-3 rounded-xl text-sm font-bold transition-all ${tab===t?'bg-amber-500 text-black shadow-sm':(isDarkMode ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-900')}`}>{l}</button>
               ))}
               {sellerLines.length > 0 && (
-                <button onClick={() => setTab('lines')} className={`flex-shrink-0 flex-1 py-2 px-3 rounded-xl text-sm font-bold ${tab==='lines'?'bg-amber-500 text-black':'text-gray-400 hover:text-white'}`}>
+                <button onClick={() => setTab('lines')} className={`flex-shrink-0 flex-1 py-2 px-3 rounded-xl text-sm font-bold transition-all ${tab==='lines'?'bg-amber-500 text-black shadow-sm':(isDarkMode ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-900')}`}>
                   🚐 الخطوط ({sellerLines.length})
                 </button>
               )}
             </div>
 
             {tab==='ads'&&(sellerAds.length===0?(
-              <div className="bg-gray-800 rounded-2xl p-8 text-center border border-gray-700"><div className="text-3xl mb-2">📭</div><p className="text-gray-400">لا إعلانات بعد</p></div>
+              <div className={`rounded-2xl p-8 text-center border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200 shadow-sm'}`}><div className="text-3xl mb-2">📭</div><p className={isDarkMode ? 'text-gray-400' : 'text-slate-500'}>لا إعلانات بعد</p></div>
             ):(
               <div className="space-y-4">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {sellerAds.slice(0, visibleAdsCount).map(ad=><AdCard key={ad.id} ad={ad} onSelect={()=>onSelectAd(ad)} isFav={favorites.includes(ad.id)} onFav={e=>{e.stopPropagation();if(!user){onAuthRequired();return;}onToggleFav(ad.id);}} onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===ad.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"ad",item:ad});}} sellerRole={effectiveSeller.role}/>)}
                 </div>
                 {visibleAdsCount < sellerAds.length && (
-                  <div className="bg-gray-800/50 rounded-2xl p-4 border border-gray-700 text-center">
-                    <p className="text-gray-400 text-sm mb-3">
+                  <div className={`rounded-2xl p-4 border text-center ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-100 border-slate-200'}`}>
+                    <p className={`text-sm mb-3 ${isDarkMode ? 'text-gray-400' : 'text-slate-650'}`}>
                       تم العثور على {sellerAds.length} إعلان، يتم عرض {visibleAdsCount} من أصل {sellerAds.length} (يتوفر {sellerAds.length - visibleAdsCount} إعلان متاح حالياً)
                     </p>
                     <InfiniteScrollTrigger
@@ -528,15 +528,15 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
             ))}
             
             {tab==='products'&&(sellerProds.length===0?(
-              <div className="bg-gray-800 rounded-2xl p-8 text-center border border-gray-700"><div className="text-3xl mb-2">🛍️</div><p className="text-gray-400">لا منتجات بعد</p></div>
+              <div className={`rounded-2xl p-8 text-center border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200 shadow-sm'}`}><div className="text-3xl mb-2">🛍️</div><p className={isDarkMode ? 'text-gray-400' : 'text-slate-500'}>لا منتجات بعد</p></div>
             ):(
               <div className="space-y-4">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {sellerProds.slice(0, visibleProdsCount).map(p=><ProductCard key={p.id} product={p} onSelect={()=>onSelectProduct(p)} isFav={favorites.includes(p.id)} onFav={e=>{e.stopPropagation();if(!user){onAuthRequired();return;}onToggleFav(p.id);}} onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===p.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"product",item:p});}} sellerRole={effectiveSeller.role}/>)}
                 </div>
                 {visibleProdsCount < sellerProds.length && (
-                  <div className="bg-gray-800/50 rounded-2xl p-4 border border-gray-700 text-center">
-                    <p className="text-gray-400 text-sm mb-3">
+                  <div className={`rounded-2xl p-4 border text-center ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-100 border-slate-200'}`}>
+                    <p className={`text-sm mb-3 ${isDarkMode ? 'text-gray-400' : 'text-slate-650'}`}>
                       تم العثور على {sellerProds.length} منتج، يتم عرض {visibleProdsCount} من أصل {sellerProds.length} (يتوفر {sellerProds.length - visibleProdsCount} منتج متاح حالياً)
                     </p>
                     <InfiniteScrollTrigger
@@ -552,15 +552,15 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
             ))}
 
             {tab==='lines'&&(sellerLines.length===0?(
-              <div className="bg-gray-800 rounded-2xl p-8 text-center border border-gray-700"><div className="text-3xl mb-2">🚐</div><p className="text-gray-400">لا خطوط نقل بعد</p></div>
+              <div className={`rounded-2xl p-8 text-center border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200 shadow-sm'}`}><div className="text-3xl mb-2">🚐</div><p className={isDarkMode ? 'text-gray-400' : 'text-slate-500'}>لا خطوط نقل بعد</p></div>
             ):(
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {sellerLines.slice(0, visibleLinesCount).map(line=><TransportAdCard key={line.id} ad={line} onSelect={()=>onSelectTransport?.(line)} onActionMenu={(e)=>{e.preventDefault(); if(user&&(user.id===line.postedBy||user.role==="admin"||user.role==="owner")) onActionMenu?.({type:"transport",item:line});}} onShare={() => handleUniversalShare({ id: line.id, university: line.university, type: line.type, regions: line.regions, price: line.price })} seller={storedUsers.find(u=>u.id===line.postedBy)} />)}
                 </div>
                 {visibleLinesCount < sellerLines.length && (
-                  <div className="bg-gray-800/50 rounded-2xl p-4 border border-gray-700 text-center">
-                    <p className="text-gray-400 text-sm mb-3">
+                  <div className={`rounded-2xl p-4 border text-center ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-100 border-slate-200'}`}>
+                    <p className={`text-sm mb-3 ${isDarkMode ? 'text-gray-400' : 'text-slate-650'}`}>
                       تم العثور على {sellerLines.length} خط نقل، يتم عرض {visibleLinesCount} من أصل {sellerLines.length}
                     </p>
                     <InfiniteScrollTrigger

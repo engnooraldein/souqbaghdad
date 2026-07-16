@@ -2,7 +2,7 @@ export const OWNER_EMAIL = 'nooraldeinsbah@gmail.com';
 
 export const DEFAULT_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#1e3a5f"/><circle cx="50" cy="38" r="18" fill="#4b7ab5"/><ellipse cx="50" cy="82" rx="28" ry="20" fill="#4b7ab5"/></svg>')}`;
 
-export const DEFAULT_COVER = '/logo-512.webp';
+export const DEFAULT_COVER = '/baghdad_night_bg.png';
 
 export const getCoverImage = (user: {role?: string, cover?: string}) => {
   if (['pro', 'vendor', 'admin', 'owner'].includes(user?.role || '')) {

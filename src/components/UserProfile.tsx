@@ -70,11 +70,15 @@ export function UserProfile({ onBack }: UserProfileProps) {
   return (
     <div className="min-h-screen bg-gray-900">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 pt-8 pb-20 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-10 right-10 w-40 h-40 bg-amber-400 rounded-full blur-3xl" />
-          <div className="absolute bottom-10 left-10 w-60 h-60 bg-blue-400 rounded-full blur-3xl" />
-        </div>
+      <div 
+        className="pt-8 pb-20 relative overflow-hidden bg-gray-900"
+        style={{
+          backgroundImage: 'url(/baghdad_night_bg.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}
+      >
+        <div className="absolute inset-0 bg-black/50" /> {/* Dark overlay for better text readability */}
 
         <div className="container mx-auto px-4 relative z-10">
           <button

@@ -773,7 +773,7 @@ export function MarketView({
       // يعتمد على اليوم والساعة ليتغير الترتيب كل ساعة للمستخدم
       const currentHour = new Date().getHours();
       const currentDay = new Date().getDate();
-      const pseudoRandomSeed = (ad.id.charCodeAt(0) + ad.id.charCodeAt(ad.id.length - 1) + currentHour + currentDay) % 150;
+      const pseudoRandomSeed = (String(ad.id).charCodeAt(0) + String(ad.id).charCodeAt(String(ad.id).length - 1) + currentHour + currentDay) % 150;
       score += pseudoRandomSeed; // إضافة حتى 150 نقطة عشوائية تتغير كل ساعة
 
       return { ...ad, _feedScore: score };

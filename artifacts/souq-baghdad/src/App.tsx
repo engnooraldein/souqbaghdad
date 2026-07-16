@@ -607,17 +607,27 @@ export default function App() {
     }
   });
 
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>(() => {
     try {
-      const stored = localStorage.getItem('souqDarkMode');
-      if (stored !== null) {
-        return stored === 'true';
+      const stored = localStorage.getItem('souqThemeMode');
+      if (stored === 'light' || stored === 'dark' || stored === 'system') {
+        return stored;
       }
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    } catch {
-      return true;
-    }
+    } catch {}
+    return 'system';
   });
+
+  const [showThemeMenu, setShowThemeMenu] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (themeMode === 'system') {
+      const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setIsDarkMode(systemDark);
+    } else {
+      setIsDarkMode(themeMode === 'dark');
+    }
+  }, [themeMode]);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -629,26 +639,28 @@ export default function App() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    // Keep theme in sync with system unless manual toggle has been performed
-    try {
-      const stored = localStorage.getItem('souqDarkMode');
-      if (stored !== null) return;
-    } catch {}
-
+    if (themeMode !== 'system') return;
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e: MediaQueryListEvent) => {
       setIsDarkMode(e.matches);
     };
-
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
+  }, [themeMode]);
+
+  const changeThemeMode = (mode: 'light' | 'dark' | 'system') => {
+    setThemeMode(mode);
+    try {
+      localStorage.setItem('souqThemeMode', mode);
+    } catch {}
+    setShowThemeMenu(false);
+  };
 
   const toggleDarkMode = () => {
-    setIsDarkMode(prev => {
-      const next = !prev;
+    setThemeMode(prev => {
+      const next = prev === 'system' ? 'light' : prev === 'light' ? 'dark' : 'system';
       try {
-        localStorage.setItem('souqDarkMode', String(next));
+        localStorage.setItem('souqThemeMode', next);
       } catch {}
       return next;
     });
@@ -2773,6 +2785,29 @@ export default function App() {
               </div>
             </div>
             <div className="hidden lg:flex items-center gap-2">
+              <div className="relative">
+                <button 
+                  onClick={() => setShowThemeMenu(!showThemeMenu)} 
+                  className={`p-2 rounded-xl border transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white hover:bg-gray-700' : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'}`}
+                  title="تغيير المظهر"
+                  aria-label="تغيير المظهر"
+                >
+                  {themeMode === 'light' ? <Sun className="w-5 h-5 text-amber-500" /> : themeMode === 'dark' ? <Moon className="w-5 h-5 text-blue-400" /> : <Monitor className="w-5 h-5 text-purple-400" />}
+                </button>
+                {showThemeMenu && (
+                  <div className={`absolute left-0 mt-2 w-32 rounded-xl shadow-xl border p-1 z-50 ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white shadow-black/40' : 'bg-white border-slate-100 text-slate-800 shadow-slate-100'}`}>
+                    <button onClick={() => changeThemeMode('light')} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${themeMode === 'light' ? 'text-amber-500 bg-amber-500/10' : (isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-slate-100')}`}>
+                      <Sun className="w-4 h-4" /> فاتح
+                    </button>
+                    <button onClick={() => changeThemeMode('dark')} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${themeMode === 'dark' ? 'text-blue-400 bg-blue-400/10' : (isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-slate-100')}`}>
+                      <Moon className="w-4 h-4" /> داكن
+                    </button>
+                    <button onClick={() => changeThemeMode('system')} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${themeMode === 'system' ? 'text-purple-400 bg-purple-400/10' : (isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-slate-100')}`}>
+                      <Monitor className="w-4 h-4" /> تلقائي
+                    </button>
+                  </div>
+                )}
+              </div>
               {user?(
                 <>
                   <button onClick={()=>setShowNotifs(true)} className={`p-2 rounded-xl relative transition-colors ${isDarkMode ? 'bg-gray-800 text-white hover:bg-gray-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`} title="الإشعارات" aria-label="الإشعارات">
@@ -2804,6 +2839,29 @@ export default function App() {
               )}
             </div>
             <div className="flex items-center gap-1.5 lg:hidden">
+              <div className="relative">
+                <button 
+                  onClick={() => setShowThemeMenu(!showThemeMenu)} 
+                  className="p-1.5 rounded-xl bg-gray-800 text-white hover:bg-gray-700"
+                  title="تغيير المظهر"
+                  aria-label="تغيير المظهر"
+                >
+                  {themeMode === 'light' ? <Sun className="w-4 h-4 text-amber-500" /> : themeMode === 'dark' ? <Moon className="w-4 h-4 text-blue-400" /> : <Monitor className="w-4 h-4 text-purple-400" />}
+                </button>
+                {showThemeMenu && (
+                  <div className={`absolute left-0 mt-2 w-28 rounded-xl shadow-xl border p-1 z-50 ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white shadow-black/40' : 'bg-white border-slate-100 text-slate-800 shadow-slate-100'}`}>
+                    <button onClick={() => changeThemeMode('light')} className={`w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors ${themeMode === 'light' ? 'text-amber-500 bg-amber-500/10' : (isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-slate-100')}`}>
+                      <Sun className="w-3.5 h-3.5" /> فاتح
+                    </button>
+                    <button onClick={() => changeThemeMode('dark')} className={`w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors ${themeMode === 'dark' ? 'text-blue-400 bg-blue-400/10' : (isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-slate-100')}`}>
+                      <Moon className="w-3.5 h-3.5" /> داكن
+                    </button>
+                    <button onClick={() => changeThemeMode('system')} className={`w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors ${themeMode === 'system' ? 'text-purple-400 bg-purple-400/10' : (isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-slate-100')}`}>
+                      <Monitor className="w-3.5 h-3.5" /> تلقائي
+                    </button>
+                  </div>
+                )}
+              </div>
               {/* Dark mode toggle mobile */}
               {user ? (
                 <>
@@ -3196,7 +3254,7 @@ export default function App() {
                 } else {
                   if (typeof window !== 'undefined') window.location.hash = '#/';
                 }
-              }} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} onSelectTransport={setSelectedTransportAd} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile} onActionMenu={setActionMenuTarget}/>
+              }} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} onSelectTransport={setSelectedTransportAd} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile} onActionMenu={setActionMenuTarget} isDarkMode={isDarkMode}/>
             </Suspense>
           </motion.div>}
           {view==='transport'&&<motion.div key="transport" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>

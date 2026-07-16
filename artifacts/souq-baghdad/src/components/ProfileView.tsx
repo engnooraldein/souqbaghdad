@@ -573,7 +573,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                 <>
                   <button onClick={()=>{
                     onStoreGuideClick?.();
-                  }} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-xl text-sm font-bold shadow-lg hover:from-gray-700 hover:to-gray-800" title="نسخ رابط المتجر للبايو">
+                  }} className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-sm font-bold shadow-lg transition-colors border ${isDarkMode ? 'bg-gradient-to-r from-gray-800 to-gray-900 text-white border-transparent hover:from-gray-700 hover:to-gray-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`} title="نسخ رابط المتجر للبايو">
                     <Copy className="w-4 h-4"/>
                     <span className="hidden sm:inline">رابط المتجر</span>
                   </button>
