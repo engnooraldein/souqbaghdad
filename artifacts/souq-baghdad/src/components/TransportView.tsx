@@ -199,7 +199,7 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
       ])).filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#061224] via-[#0b2145] to-[#041026] pb-20">
+    <div className="min-h-screen bg-black pb-20">
       {/* Header */}
       <div className="bg-gradient-to-br from-slate-950 via-emerald-950/40 to-slate-950 pt-10 pb-12 px-4 relative overflow-hidden border-b border-gray-900/60 shadow-2xl">
         <div className="absolute inset-0 opacity-5">
@@ -208,15 +208,15 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
         <div className="container mx-auto max-w-2xl relative">
           <div className="flex items-center justify-between gap-3 mb-6">
             <div className="flex items-center gap-3.5">
-              <button onClick={onBack} className="p-3 bg-white/5 border border-white/10 rounded-2xl text-white hover:bg-white/15 transition-all" title="رجوع" aria-label="رجوع">
-                <ChevronLeft className="w-5 h-5"/>
+              <button onClick={onBack} className="p-3 always-dark-bg rounded-2xl text-white always-white transition-all shadow-md" title="رجوع" aria-label="رجوع">
+                <ChevronLeft className="w-5 h-5 always-white"/>
               </button>
               <div>
-                <h1 className="text-white font-black text-2xl flex items-center gap-2" dir="rtl">
-                  <span>🚌</span>
-                  <span>قسم الخطوط والنقل اليومي</span>
+                <h1 className="text-white always-white font-black text-2xl flex items-center gap-2" dir="rtl">
+                  <span className="always-white">🚌</span>
+                  <span className="always-white">قسم الخطوط والنقل اليومي</span>
                 </h1>
-                <p className="text-gray-400 text-xs mt-1 font-semibold" dir="rtl">أسرع وأأمن طريق لدوامك اليومي (طلاب وموظفين)</p>
+                <p className="text-gray-300 always-white opacity-90 text-xs mt-1 font-semibold" dir="rtl">أسرع وأأمن طريق لدوامك اليومي (طلاب وموظفين)</p>
               </div>
             </div>
           </div>
@@ -258,7 +258,7 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
                   🎓 خطوط الطلاب
                 </button>
                 <button onClick={() => { setMainCategoryFilter('employee'); setFilterUniversity('الكل'); }}
-                  className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all duration-300 ${mainCategoryFilter === 'employee' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-500/20' : 'text-gray-400 hover:text-white'}`}>
+                  className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all duration-300 ${mainCategoryFilter === 'employee' ? 'bg-gradient-to-r from-indigo-600 to-gray-600 text-white shadow-lg shadow-indigo-500/20' : 'text-gray-400 hover:text-white'}`}>
                   👔 خطوط الموظفين
                 </button>
                 <button onClick={() => { setMainCategoryFilter('all'); setFilterUniversity('الكل'); }}
@@ -386,99 +386,221 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
                 onMouseUp={handleTouchEnd}
                 onMouseLeave={handleTouchEnd}
                 onContextMenu={(e) => handleContextMenu(e, ad)}
-                className={`bg-gray-950/40 border hover:border-emerald-500/40 backdrop-blur-md rounded-3xl transition-all duration-300 overflow-hidden relative cursor-pointer p-5 shadow-xl ${
+                className={`bg-white dark:bg-gray-950/40 border hover:border-emerald-500/40 backdrop-blur-md rounded-2xl sm:rounded-3xl transition-all duration-300 overflow-hidden relative cursor-pointer p-3.5 sm:p-5 shadow-xl ${
                   isEmployee 
                     ? 'border-indigo-500/30 shadow-lg shadow-indigo-950/20 hover:border-indigo-500/50' 
-                    : ad.type === 'offer' ? 'border-emerald-500/20 hover:border-emerald-500/40' : 'border-amber-500/20 hover:border-amber-500/40'
+                    : ad.type === 'offer' ? 'border-gray-200 dark:border-emerald-500/20 hover:border-emerald-500/40' : 'border-gray-200 dark:border-amber-500/20 hover:border-amber-500/40'
                 }`} dir="rtl">
                 
-                {/* Type & Category Badges */}
-                <div className="absolute top-0 left-0 flex items-center gap-1.5">
-                  {isEmployee && (
-                    <div className="px-3 py-1 rounded-br-2xl text-[10px] font-black bg-indigo-600/90 text-white shadow-lg flex items-center gap-1">
-                      <span>👔</span>
-                      <span>خط موظفين</span>
+                {/* 1. DESKTOP LAYOUT (Vertical details card) */}
+                <div className="hidden sm:block">
+                  {/* Type & Category Badges */}
+                  <div className="absolute top-0 left-0 flex items-center gap-1.5">
+                    {isEmployee && (
+                      <div className="px-3 py-1 rounded-br-2xl text-[10px] font-black bg-indigo-600/90 text-white shadow-lg flex items-center gap-1">
+                        <span>👔</span>
+                        <span>خط موظفين</span>
+                      </div>
+                    )}
+                    <div className={`px-3.5 py-1 text-[10px] font-black ${!isEmployee ? 'rounded-br-2xl' : 'rounded-b-2xl'} ${ad.type === 'offer' ? 'bg-emerald-600/95 text-white' : 'bg-amber-600/95 text-white'}`}>
+                      {ad.type === 'offer' ? 'متوفر خط' : 'أبحث عن خط'}
+                    </div>
+                  </div>
+
+                  {isNewItem(ad.createdAt) && (
+                    <div className="absolute top-8 left-3 px-2.5 py-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[9px] font-black rounded-full z-10 shadow-lg shadow-red-500/20 border border-red-400/20 animate-pulse">
+                      حديث ✨
                     </div>
                   )}
-                  <div className={`px-3.5 py-1 text-[10px] font-black ${!isEmployee ? 'rounded-br-2xl' : 'rounded-b-2xl'} ${ad.type === 'offer' ? 'bg-emerald-600/95 text-white' : 'bg-amber-600/95 text-white'}`}>
-                    {ad.type === 'offer' ? 'متوفر خط' : 'أبحث عن خط'}
+
+                  <div className="pt-4">
+                    <div className="flex justify-between items-start mb-3.5">
+                      <div className="w-full">
+                        <h3 className="text-lg font-black text-gray-900 dark:text-white mb-1.5 flex items-center gap-2">
+                          {ad.university}
+                        </h3>
+                        <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm flex items-center gap-1.5 leading-relaxed mb-3">
+                          <MapPin className="w-4 h-4 text-emerald-500 shrink-0"/> 
+                          <span>المناطق: <span className="text-gray-800 dark:text-white font-bold">{ad.regions}</span></span>
+                        </p>
+                        
+                        {/* Visual Route Path */}
+                        <VisualRoutePath regions={ad.regions} university={ad.university} type={ad.type} />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4.5">
+                      <div className="bg-gray-50 dark:bg-gray-900/60 border border-gray-150 dark:border-gray-850/40 rounded-2xl p-2.5 text-center shadow-inner">
+                        <p className="text-gray-500 dark:text-gray-400 text-[10px] font-bold mb-0.5">الدوام</p>
+                        <p className="text-gray-800 dark:text-white font-black text-xs">{ad.shift}</p>
+                      </div>
+                      {ad.type === 'offer' && (
+                        <div className="bg-gray-50 dark:bg-gray-900/60 border border-gray-150 dark:border-gray-850/40 rounded-2xl p-2.5 text-center shadow-inner">
+                          <p className="text-gray-500 dark:text-gray-400 text-[10px] font-bold mb-0.5">المقاعد</p>
+                          <p className="text-emerald-600 dark:text-emerald-400 font-black text-xs">{ad.seats} <span className="text-gray-500 font-normal">متاح</span></p>
+                        </div>
+                      )}
+                      <div className="bg-gray-50 dark:bg-gray-900/60 border border-gray-150 dark:border-gray-850/40 rounded-2xl p-2.5 text-center shadow-inner">
+                        <p className="text-gray-500 dark:text-gray-400 text-[10px] font-bold mb-0.5">الفئة</p>
+                        <p className="text-gray-800 dark:text-white font-black text-xs">{ad.targetAudience}</p>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-900/60 border border-gray-150 dark:border-gray-850/40 rounded-2xl p-2.5 text-center shadow-inner">
+                        <p className="text-gray-500 dark:text-gray-400 text-[10px] font-bold mb-0.5">المركبة</p>
+                        <p className="text-gray-800 dark:text-white font-black text-xs">{ad.vehicleType}</p>
+                      </div>
+                    </div>
+
+                    {ad.price && (
+                      <div className="flex items-center gap-2 text-amber-600 dark:text-amber-500 text-xs sm:text-sm font-black mb-3.5 bg-amber-500/10 border border-amber-500/20 px-3.5 py-2 rounded-xl inline-flex">
+                        <Tag className="w-4 h-4"/>
+                        <span>السعر المفضل: {formatPrice(ad.price)} د.ع</span>
+                      </div>
+                    )}
+
+                    {ad.note&&<p className="text-gray-700 dark:text-gray-300 text-xs mb-4.5 bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-850 rounded-2xl p-3.5 leading-relaxed">{ad.note}</p>}
+                    
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-150 dark:border-gray-900/60">
+                      <div className="flex items-center gap-2.5">
+                        <img src={ad.sellerAvatar||'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-9 h-9 rounded-full object-cover ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-200 dark:border-gray-800'}`}/>
+                        <div>
+                          <span className="text-gray-700 dark:text-gray-300 text-xs block font-bold">{ad.sellerName}</span>
+                          <span className="text-gray-500 text-[10px] block font-semibold"><TimeAgo iso={ad.createdAt}/></span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        {user && user.id === ad.postedBy && (
+                          <button onClick={(e) => { e.stopPropagation(); onUpdateStatus(ad.id, 'matched', ad.type === 'request' ? 'found_line' : 'line_full'); }} className="flex items-center gap-1.5 px-3.5 py-2.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black rounded-xl text-xs hover:bg-emerald-500/20 transition-all">
+                            <CheckCircle className="w-3.5 h-3.5"/> حصلت
+                          </button>
+                        )}
+                        <motion.a href={getWhatsAppLink(ad.phone, 'transport', { id: ad.id, title: ad.type==='offer'?'خط متوفر':'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })} target="_blank" rel="noopener noreferrer"
+                          whileHover={{scale:1.05}} whileTap={{scale:0.95}}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-1.5 px-4.5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-black rounded-xl text-xs shadow-lg shadow-green-500/10 hover:from-green-400 hover:to-emerald-500 transition-all">
+                          <MessageSquare className="w-3.5 h-3.5"/> واتساب
+                        </motion.a>
+                        <motion.button
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            handleUniversalShare({ 
+                              id: ad.id, 
+                              short_id: ad.short_id,
+                              university: ad.university, 
+                              type: ad.type, 
+                              regions: ad.regions, 
+                              price: ad.price,
+                              url: `${window.location.origin}/transport/card/${ad.short_id || ad.id}`
+                            }); 
+                          }}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className="flex items-center gap-1.5 px-3.5 py-2.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 font-black rounded-xl text-xs hover:bg-amber-500/20 transition-all"
+                        >
+                          <Share2 className="w-3.5 h-3.5" /> مشاركة
+                        </motion.button>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {isNewItem(ad.createdAt) && (
-                  <div className="absolute top-8 left-3 px-2.5 py-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[9px] font-black rounded-full z-10 shadow-lg shadow-red-500/20 border border-red-400/20 animate-pulse">
-                    حديث ✨
-                  </div>
-                )}
-
-                <div className="pt-4">
-                  <div className="flex justify-between items-start mb-3.5">
-                    <div className="w-full">
-                      <h3 className="text-lg font-black text-white mb-1.5 flex items-center gap-2">
-                        {ad.university}
-                      </h3>
-                      <p className="text-gray-400 text-xs sm:text-sm flex items-center gap-1.5 leading-relaxed mb-3">
-                        <MapPin className="w-4 h-4 text-emerald-500 shrink-0"/> 
-                        <span>المناطق: <span className="text-white font-bold">{ad.regions}</span></span>
-                      </p>
-                      
-                      {/* Visual Route Path */}
-                      <VisualRoutePath regions={ad.regions} university={ad.university} type={ad.type} />
+                {/* 2. MOBILE LAYOUT (Compact Wide Horizontal Rectangular Card) */}
+                <div className="block sm:hidden relative">
+                  {/* Top Badge/Header section */}
+                  <div className="flex items-center justify-between gap-1.5 mb-2.5">
+                    <div className="flex items-center gap-1">
+                      {isEmployee && (
+                        <span className="px-1.5 py-0.5 rounded bg-indigo-600 text-white text-[9px] font-bold flex items-center gap-0.5">
+                          👔 خط موظفين
+                        </span>
+                      )}
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-black ${
+                        ad.type === 'offer' ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white'
+                      }`}>
+                        {ad.type === 'offer' ? 'متوفر خط' : 'طلب خط'}
+                      </span>
+                      {isNewItem(ad.createdAt) && (
+                        <span className="px-1.5 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[8px] font-bold rounded animate-pulse">
+                          جديد ✨
+                        </span>
+                      )}
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4.5">
-                    <div className="bg-gray-900/60 border border-gray-850/40 rounded-2xl p-2.5 text-center shadow-inner">
-                      <p className="text-gray-400 text-[10px] font-bold mb-0.5">الدوام</p>
-                      <p className="text-white font-black text-xs">{ad.shift}</p>
-                    </div>
-                    {ad.type === 'offer' && (
-                      <div className="bg-gray-900/60 border border-gray-850/40 rounded-2xl p-2.5 text-center shadow-inner">
-                        <p className="text-gray-400 text-[10px] font-bold mb-0.5">المقاعد</p>
-                        <p className="text-emerald-400 font-black text-xs">{ad.seats} <span className="text-gray-500 font-normal">متاح</span></p>
-                      </div>
+                    {ad.price && (
+                      <span className="text-amber-600 dark:text-amber-400 text-xs font-black bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg">
+                        {formatPrice(ad.price)} د.ع
+                      </span>
                     )}
-                    <div className="bg-gray-900/60 border border-gray-850/40 rounded-2xl p-2.5 text-center shadow-inner">
-                      <p className="text-gray-400 text-[10px] font-bold mb-0.5">الفئة</p>
-                      <p className="text-white font-black text-xs">{ad.targetAudience}</p>
-                    </div>
-                    <div className="bg-gray-900/60 border border-gray-850/40 rounded-2xl p-2.5 text-center shadow-inner">
-                      <p className="text-gray-400 text-[10px] font-bold mb-0.5">المركبة</p>
-                      <p className="text-white font-black text-xs">{ad.vehicleType}</p>
-                    </div>
                   </div>
 
-                  {ad.price && (
-                    <div className="flex items-center gap-2 text-amber-500 text-xs sm:text-sm font-black mb-3.5 bg-amber-500/10 border border-amber-500/20 px-3.5 py-2 rounded-xl inline-flex">
-                      <Tag className="w-4 h-4"/>
-                      <span>السعر المفضل: {formatPrice(ad.price)} د.ع</span>
-                    </div>
+                  {/* Body Info */}
+                  <div className="mb-2.5">
+                    <h3 className="text-base font-black text-gray-900 dark:text-white leading-tight flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0"></span>
+                      {ad.university}
+                    </h3>
+                    
+                    <p className="text-gray-700 dark:text-gray-300 text-xs flex items-center gap-1.5 mt-1.5 bg-gray-50 dark:bg-gray-900/30 p-2 rounded-xl border border-gray-150 dark:border-gray-850/50">
+                      <MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <span className="truncate leading-none">
+                        <span className="text-gray-500 dark:text-gray-400 text-[10px]">المناطق:</span> {ad.regions}
+                      </span>
+                    </p>
+                  </div>
+
+                  {/* Compact Specs Row */}
+                  <div className="flex flex-wrap gap-1.5 mb-2.5">
+                    <span className="bg-gray-50 dark:bg-gray-900/60 border border-gray-150 dark:border-gray-850/30 text-gray-700 dark:text-gray-300 text-[9px] font-bold px-2 py-0.5 rounded-lg">
+                      🕒 {ad.shift}
+                    </span>
+                    {ad.type === 'offer' && (
+                      <span className="bg-gray-50 dark:bg-gray-900/60 border border-gray-150 dark:border-gray-850/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-bold px-2 py-0.5 rounded-lg">
+                        🪑 {ad.seats} متاح
+                      </span>
+                    )}
+                    <span className="bg-gray-50 dark:bg-gray-900/60 border border-gray-150 dark:border-gray-850/30 text-gray-700 dark:text-gray-300 text-[9px] font-bold px-2 py-0.5 rounded-lg">
+                      👥 {ad.targetAudience}
+                    </span>
+                    <span className="bg-gray-50 dark:bg-gray-900/60 border border-gray-150 dark:border-gray-850/30 text-gray-700 dark:text-gray-300 text-[9px] font-bold px-2 py-0.5 rounded-lg">
+                      🚗 {ad.vehicleType}
+                    </span>
+                  </div>
+
+                  {ad.note && (
+                    <p className="text-gray-500 dark:text-gray-400 text-[10px] line-clamp-1 mb-2.5 italic">
+                      {ad.note}
+                    </p>
                   )}
 
-                  {ad.note&&<p className="text-gray-300 text-xs mb-4.5 bg-gray-900/40 border border-gray-850 rounded-2xl p-3.5 leading-relaxed">{ad.note}</p>}
-                  
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-900/60">
-                    <div className="flex items-center gap-2.5">
-                      <img src={ad.sellerAvatar||'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-9 h-9 rounded-full object-cover ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-800'}`}/>
-                      <div>
-                        <span className="text-gray-300 text-xs block font-bold">{ad.sellerName}</span>
-                        <span className="text-gray-500 text-[10px] block font-semibold"><TimeAgo iso={ad.createdAt}/></span>
+                  {/* Bottom Row - Seller & Quick Actions */}
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-150 dark:border-gray-900/60">
+                    <div className="flex items-center gap-2">
+                      <img src={ad.sellerAvatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-7 h-7 rounded-full object-cover shrink-0 ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-200 dark:border-gray-800'}`} />
+                      <div className="leading-tight">
+                        <span className="text-gray-700 dark:text-gray-300 text-[10px] block font-bold max-w-[70px] truncate">{ad.sellerName}</span>
+                        <span className="text-gray-500 text-[8px] block"><TimeAgo iso={ad.createdAt} /></span>
                       </div>
                     </div>
-                    
-                    <div className="flex gap-2">
+
+                    <div className="flex gap-1.5">
                       {user && user.id === ad.postedBy && (
-                        <button onClick={(e) => { e.stopPropagation(); onUpdateStatus(ad.id, 'matched', ad.type === 'request' ? 'found_line' : 'line_full'); }} className="flex items-center gap-1.5 px-3.5 py-2.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black rounded-xl text-xs hover:bg-emerald-500/20 transition-all">
-                          <CheckCircle className="w-3.5 h-3.5"/> حصلت
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onUpdateStatus(ad.id, 'matched', ad.type === 'request' ? 'found_line' : 'line_full'); }} 
+                          className="px-2 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black rounded-lg text-[9px]"
+                        >
+                          حصلت
                         </button>
                       )}
-                      <motion.a href={getWhatsAppLink(ad.phone, 'transport', { id: ad.id, title: ad.type==='offer'?'خط متوفر':'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })} target="_blank" rel="noopener noreferrer"
-                        whileHover={{scale:1.05}} whileTap={{scale:0.95}}
+                      <a 
+                        href={getWhatsAppLink(ad.phone, 'transport', { id: ad.id, title: ad.type==='offer'?'خط متوفر':'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="flex items-center gap-1.5 px-4.5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-black rounded-xl text-xs shadow-lg shadow-green-500/10 hover:from-green-400 hover:to-emerald-500 transition-all">
-                        <MessageSquare className="w-3.5 h-3.5"/> واتساب
-                      </motion.a>
-                      <motion.button
+                        className="flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-black rounded-lg text-[10px] shadow"
+                      >
+                        <MessageSquare className="w-3 h-3" /> واتساب
+                      </a>
+                      <button
                         onClick={(e) => { 
                           e.stopPropagation(); 
                           handleUniversalShare({ 
@@ -491,15 +613,14 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
                             url: `${window.location.origin}/transport/card/${ad.short_id || ad.id}`
                           }); 
                         }}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="flex items-center gap-1.5 px-3.5 py-2.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 font-black rounded-xl text-xs hover:bg-amber-500/20 transition-all"
+                        className="p-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 font-black rounded-lg text-[10px]"
                       >
-                        <Share2 className="w-3.5 h-3.5" /> مشاركة
-                      </motion.button>
+                        <Share2 className="w-3 h-3" />
+                      </button>
                     </div>
                   </div>
                 </div>
+
               </motion.div>
               );
             })}

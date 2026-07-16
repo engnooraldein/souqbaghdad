@@ -42,7 +42,7 @@ export function Toast({ msg,type,visible,onClose }:{msg:string;type:string;visib
     }
     return undefined;
   }, [visible, onClose]);
-  const c:Record<string,string>={success:'from-green-500 to-emerald-500',error:'from-red-500 to-rose-500',info:'from-blue-500 to-cyan-500'};
+  const c:Record<string,string>={success:'from-green-500 to-emerald-500',error:'from-red-500 to-rose-500',info:'from-gray-500 to-cyan-500'};
   return (
     <AnimatePresence>
       {visible&&<motion.div initial={{opacity:0,y:-40}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-40}}

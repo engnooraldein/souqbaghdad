@@ -389,7 +389,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
   };
 
   return (
-    <div className="min-h-screen bg-[#0c2b5e] pt-16 pb-8">
+    <div className="min-h-screen bg-black pt-16 pb-8">
       <div className="container mx-auto px-4 max-w-5xl">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -427,7 +427,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
         {/* Stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {[{l:'زيارات اليوم',v:todayV.length,icon:<Activity className="w-5 h-5"/>,c:'text-green-400',bg:'bg-green-500/10 border-green-500/20'},
-            {l:'إجمالي الزيارات',v:visits.length,icon:<Globe className="w-5 h-5"/>,c:'text-blue-400',bg:'bg-blue-500/10 border-blue-500/20'},
+            {l:'إجمالي الزيارات',v:visits.length,icon:<Globe className="w-5 h-5"/>,c:'text-gray-400',bg:'bg-gray-800/10 border-gray-800/20'},
             {l:'المستخدمون',v:storedUsers.length,icon:<Users className="w-5 h-5"/>,c:'text-purple-400',bg:'bg-purple-500/10 border-purple-500/20'},
             {l:'المحتوى',v:ads.length+products.length,icon:<Layers className="w-5 h-5"/>,c:'text-amber-400',bg:'bg-amber-500/10 border-amber-500/20'}].map((s,i)=>(
             <div key={i} className={`${s.bg} rounded-2xl p-4 border text-center`}>
@@ -483,7 +483,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700">
-                <h3 className="text-white font-bold mb-4 flex items-center gap-2"><Smartphone className="w-5 h-5 text-blue-400"/>حسب الجهاز</h3>
+                <h3 className="text-white font-bold mb-4 flex items-center gap-2"><Smartphone className="w-5 h-5 text-gray-400"/>حسب الجهاز</h3>
                 {deviceData.length===0?<p className="text-gray-500 text-sm text-center py-6">لا بيانات</p>:(
                   <>
                     <ResponsiveContainer width="100%" height={140}><PieChart><Pie data={deviceData} cx="50%" cy="50%" innerRadius={35} outerRadius={60} paddingAngle={3} dataKey="value">{deviceData.map((_,i)=><Cell key={i} fill={DEVICE_COLORS[i%3]}/>)}</Pie><Tooltip contentStyle={{background:'#1f2937',border:'1px solid #374151',borderRadius:'12px',color:'#fff'}}/><Legend formatter={v=><span style={{color:'#d1d5db',fontSize:11}}>{v}</span>}/></PieChart></ResponsiveContainer>
@@ -585,7 +585,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                     {visits.slice(0, visibleVisits).map((v,i)=>(
                       <tr key={i} className="border-t border-gray-700/50 hover:bg-gray-700/30">
                         <td className="py-2.5 px-4 text-gray-300 text-xs">{new Date(v.timestamp).toLocaleString('ar-IQ',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'})}</td>
-                        <td className="py-2.5 px-4"><span className={`flex items-center gap-1 text-xs ${v.device==='mobile'?'text-amber-400':v.device==='tablet'?'text-purple-400':'text-blue-400'}`}>{v.device==='mobile'?<Smartphone className="w-3 h-3"/>:v.device==='tablet'?<Tablet className="w-3 h-3"/>:<Monitor className="w-3 h-3"/>}{v.device==='mobile'?'موبايل':v.device==='tablet'?'تابلت':'كمبيوتر'}</span></td>
+                        <td className="py-2.5 px-4"><span className={`flex items-center gap-1 text-xs ${v.device==='mobile'?'text-amber-400':v.device==='tablet'?'text-purple-400':'text-gray-400'}`}>{v.device==='mobile'?<Smartphone className="w-3 h-3"/>:v.device==='tablet'?<Tablet className="w-3 h-3"/>:<Monitor className="w-3 h-3"/>}{v.device==='mobile'?'موبايل':v.device==='tablet'?'تابلت':'كمبيوتر'}</span></td>
                         <td className="py-2.5 px-4 text-gray-300 text-xs">{v.location}</td>
                         <td className="py-2.5 px-4 text-gray-300 text-xs">{v.userName||<span className="text-gray-500">زائر</span>}</td>
                       </tr>
@@ -667,7 +667,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                     <p className="text-white font-bold text-sm">{u.full_name}</p>
                     {u.is_banned&&<span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 text-[10px] rounded-full font-bold">موقوف</span>}
                     {u.role==='owner'&&<span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] rounded-full flex items-center gap-0.5"><Crown className="w-2.5 h-2.5"/>مالك</span>}
-                    {u.role==='admin'&&<span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-[10px] rounded-full flex items-center gap-0.5"><Shield className="w-2.5 h-2.5"/>مشرف</span>}
+                    {u.role==='admin'&&<span className="px-1.5 py-0.5 bg-gray-800/20 text-gray-400 text-[10px] rounded-full flex items-center gap-0.5"><Shield className="w-2.5 h-2.5"/>مشرف</span>}
                     {u.role==='vendor'&&<span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[10px] rounded-full flex items-center gap-0.5"><UserCheck className="w-2.5 h-2.5"/>تاجر موثق</span>}
                     {u.role==='pro'&&<span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-[10px] rounded-full flex items-center gap-0.5"><Star className="w-2.5 h-2.5"/>برو</span>}
                   </div>
@@ -684,7 +684,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
 
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0 mt-2 sm:mt-0 flex-wrap justify-end">
-                  <button onClick={() => alert('تفاصيل المستخدم: \n' + JSON.stringify(u, null, 2))} className="p-2 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-xl" title="معلومات المستخدم"><Eye className="w-4 h-4"/></button>
+                  <button onClick={() => alert('تفاصيل المستخدم: \n' + JSON.stringify(u, null, 2))} className="p-2 bg-gray-800/20 text-gray-400 hover:bg-gray-800/30 rounded-xl" title="معلومات المستخدم"><Eye className="w-4 h-4"/></button>
                   {u.role !== 'owner' && (
                     <button onClick={() => {
                       setItemToDelete({ id: u.id, type: 'profile' });
@@ -1012,7 +1012,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                   const maxUses = parseInt(maxStr);
                   if(isNaN(maxUses) || maxUses <= 0) return alert('الرجاء إدخال رقم صحيح');
                   generatePromoCode(pts, customCode.trim().toUpperCase(), maxUses);
-                }} className="flex-1 py-4 bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-bold rounded-xl flex flex-col items-center justify-center shadow-lg shadow-blue-500/20 hover:scale-[1.02] transition-transform">
+                }} className="flex-1 py-4 bg-gradient-to-r from-gray-500 to-cyan-600 text-white font-bold rounded-xl flex flex-col items-center justify-center shadow-lg shadow-gray-800/20 hover:scale-[1.02] transition-transform">
                   <span className="text-xl mb-1">🔄 كود متعدد الاستخدام</span>
                   <span className="text-xs opacity-80">إنشاء كود يمكن استخدامه من قبل عدة أشخاص</span>
                 </button>
@@ -1044,7 +1044,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                         <td className="px-4 py-3 font-bold text-emerald-400">+{promo.points}</td>
                         <td className="px-4 py-3">
                           {promo.max_uses > 1 ? (
-                            <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">متعدد ({promo.max_uses})</span>
+                            <span className="text-xs bg-gray-800/20 text-gray-400 px-2 py-1 rounded">متعدد ({promo.max_uses})</span>
                           ) : (
                             <span className="text-xs text-gray-500">مفرد</span>
                           )}

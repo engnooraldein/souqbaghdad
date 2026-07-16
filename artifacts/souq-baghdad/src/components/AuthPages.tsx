@@ -84,7 +84,7 @@ export function AuthPages({ onBack }: AuthPagesProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-800 to-gray-900 flex items-center justify-center p-4">
       {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-20 left-20 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl" />
@@ -299,7 +299,7 @@ export function AuthPages({ onBack }: AuthPagesProps) {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
+                className="flex items-center justify-center gap-2 py-3 bg-gray-800 text-white rounded-xl hover:bg-blue-700 transition-colors"
               >
                 <Facebook className="w-5 h-5" />
                 <span className="text-sm">فيسبوك</span>

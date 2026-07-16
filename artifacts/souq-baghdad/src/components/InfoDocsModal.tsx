@@ -75,7 +75,7 @@ export function InfoDocsModal({ activeTab, onClose, user }: { activeTab: string;
         </div>
 
         {/* Tab Selector */}
-        <div className="flex border-b border-gray-800 bg-[#0c2b5e] p-2 gap-1 overflow-x-auto">
+        <div className="flex border-b border-gray-800 bg-black p-2 gap-1 overflow-x-auto">
           {tabs.map((t) => (
             <button key={t.id} onClick={() => { setTab(t.id); setSent(false); }}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
@@ -234,7 +234,7 @@ export function InfoDocsModal({ activeTab, onClose, user }: { activeTab: string;
                   <div className="flex flex-wrap items-center justify-center gap-2">
                     <a 
                       href="tel:07700028170" 
-                      className="flex items-center gap-2 px-4 py-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 font-bold rounded-2xl border border-blue-500/20 transition-all text-xs"
+                      className="flex items-center gap-2 px-4 py-2.5 bg-gray-800/10 hover:bg-gray-800/20 text-gray-400 hover:text-blue-300 font-bold rounded-2xl border border-gray-800/20 transition-all text-xs"
                     >
                       <Phone className="w-4 h-4" />
                       <span>اتصال هاتفي مباشر</span>

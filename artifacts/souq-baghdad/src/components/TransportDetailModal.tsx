@@ -201,7 +201,7 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
             <span>مشاركة الخط</span>
           </motion.button>
           <motion.a href={`tel:${ad.phone}`} whileHover={{scale:1.02}} whileTap={{scale:0.98}}
-            className="flex items-center justify-center gap-1.5 py-3 bg-blue-500 text-white font-bold rounded-xl text-xs">
+            className="flex items-center justify-center gap-1.5 py-3 bg-gray-800 text-white font-bold rounded-xl text-xs">
             <PhoneIcon className="w-4 h-4"/> اتصال
           </motion.a>
         </div>

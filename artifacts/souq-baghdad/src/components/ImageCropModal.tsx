@@ -51,6 +51,37 @@ export function ImageCropModal({ src, aspectRatio=1, title='قص الصورة', 
   const [start, setStart] = useState({ x:0, y:0 });
   const imgRef = useRef<HTMLImageElement>(null);
 
+  // High-resolution save dimensions based on target aspect ratio to prevent blurriness (مغوشة)
+  const SAVE_W = aspectRatio === 1 ? 800 : 1200;
+  const SAVE_H = Math.round(SAVE_W / aspectRatio);
+
+  const [naturalSize, setNaturalSize] = useState<{w:number; h:number} | null>(null);
+
+  const onImgLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
+  };
+
+  const imgStyle = useMemo(() => {
+    if (!naturalSize) return { opacity: 0 };
+    const nw = naturalSize.w;
+    const nh = naturalSize.h;
+    const coverScale = Math.max((PREV_W * zoom) / nw, (PREV_H * zoom) / nh);
+    const dw = nw * coverScale;
+    const dh = nh * coverScale;
+    const dx = (PREV_W - dw) / 2 + pos.x;
+    const dy = (PREV_H - dh) / 2 + pos.y;
+    return {
+      width: dw,
+      height: dh,
+      left: dx,
+      top: dy,
+      position: 'absolute' as const,
+      maxWidth: 'none',
+      maxHeight: 'none',
+    };
+  }, [naturalSize, zoom, pos, PREV_W, PREV_H]);
+
   const onMouseDown = (e:React.MouseEvent) => { e.preventDefault(); setDragging(true); setStart({x:e.clientX-pos.x, y:e.clientY-pos.y}); };
   const onMouseMove = (e:React.MouseEvent) => { if(!dragging) return; setPos({x:e.clientX-start.x, y:e.clientY-start.y}); };
   const onMouseUp   = () => setDragging(false);
@@ -60,19 +91,24 @@ export function ImageCropModal({ src, aspectRatio=1, title='قص الصورة', 
   const handleSave = () => {
     const img = imgRef.current; if(!img) return;
     const c = document.createElement('canvas');
-    c.width=PREV_W; c.height=PREV_H;
+    c.width=SAVE_W; c.height=SAVE_H;
     const ctx = c.getContext('2d')!;
+    
     const nw = img.naturalWidth, nh = img.naturalHeight;
-    // Calculate the scale at which the browser's object-cover renders the image
-    const coverScale = Math.max((PREV_W*zoom)/nw, (PREV_H*zoom)/nh);
+    // We calculate position of the image in the high-res canvas scale
+    // UI_PREV_W is the scale of the user's drag.
+    // We scale the offset (pos.x, pos.y) by (SAVE_W / PREV_W) to match high-res!
+    const scaleFactor = SAVE_W / PREV_W;
+    const coverScale = Math.max((SAVE_W * zoom) / nw, (SAVE_H * zoom) / nh);
     const dw = nw * coverScale;
     const dh = nh * coverScale;
-    const dx = (PREV_W - dw)/2 + pos.x;
-    const dy = (PREV_H - dh)/2 + pos.y;
+    const dx = (SAVE_W - dw) / 2 + pos.x * scaleFactor;
+    const dy = (SAVE_H - dh) / 2 + pos.y * scaleFactor;
+
     ctx.fillStyle = '#111827';
-    ctx.fillRect(0, 0, PREV_W, PREV_H);
+    ctx.fillRect(0, 0, SAVE_W, SAVE_H);
     ctx.drawImage(img, dx, dy, dw, dh);
-    onSave(c.toDataURL('image/jpeg', 0.88));
+    onSave(c.toDataURL('image/jpeg', 0.92));
   };
 
   return (
@@ -84,13 +120,15 @@ export function ImageCropModal({ src, aspectRatio=1, title='قص الصورة', 
           <button onClick={onClose} className="p-1.5 bg-gray-800 rounded-lg text-gray-400" title="إغلاق" aria-label="إغلاق"><X className="w-4 h-4"/></button>
         </div>
         {/* Crop area */}
-        <div className="relative overflow-hidden rounded-xl bg-gray-800 border border-gray-600 cursor-grab active:cursor-grabbing select-none mx-auto"
+        <div className="relative overflow-hidden rounded-xl bg-gray-800 border border-gray-600 cursor-grab active:cursor-grabbing select-none mx-auto no-screenshot"
           style={{width:PREV_W, height:PREV_H}}
           onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
           onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onMouseUp}>
           <img ref={imgRef} src={src} alt=""
-            className="absolute object-cover pointer-events-none"
-            style={{ width:PREV_W*zoom, height:PREV_H*zoom, left:(PREV_W-PREV_W*zoom)/2+pos.x, top:(PREV_H-PREV_H*zoom)/2+pos.y }}
+            onLoad={onImgLoad}
+            className="absolute pointer-events-none select-none"
+            style={imgStyle}
+            onContextMenu={e => e.preventDefault()}
             draggable={false}/>
           {/* Grid overlay */}
           <div className="absolute inset-0 pointer-events-none" style={{backgroundImage:'linear-gradient(rgba(255,255,255,0.1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.1) 1px,transparent 1px)',backgroundSize:`${PREV_W/3}px ${PREV_H/3}px`}}/>
@@ -99,7 +137,7 @@ export function ImageCropModal({ src, aspectRatio=1, title='قص الصورة', 
         {/* Zoom */}
         <div className="flex items-center gap-3 mt-4">
           <ZoomOut className="w-4 h-4 text-gray-400 flex-shrink-0"/>
-          <input type="range" min="0.5" max="3" step="0.05" value={zoom} onChange={e=>setZoom(+e.target.value)} className="flex-1 accent-amber-400" title="نسبة التقريب" aria-label="نسبة التقريب"/>
+          <input type="range" min="1" max="3" step="0.05" value={zoom} onChange={e=>setZoom(+e.target.value)} className="flex-1 accent-amber-400" title="نسبة التقريب" aria-label="نسبة التقريب"/>
           <ZoomIn className="w-4 h-4 text-gray-400 flex-shrink-0"/>
           <span className="text-gray-400 text-xs w-8">{(zoom*100).toFixed(0)}%</span>
         </div>

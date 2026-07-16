@@ -54,6 +54,20 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
     };
   }, [isLoading, minDuration]);
 
+  useEffect(() => {
+    if (show) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, [show]);
+
   if (!show) return null;
 
   return (
@@ -144,7 +158,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       {/* Professional Golden Loading Bar (Left to Right) */}
       <div 
         dir="ltr"
-        className={`w-3/4 max-w-md h-4 rounded-full border-[2px] border-[#d4af37] bg-[#0c2b5e]/40 p-[2px] shadow-[0_0_15px_rgba(212,175,55,0.3)] transition-all duration-500 ease-in-out ${
+        className={`w-3/4 max-w-md h-4 rounded-full border-[2px] border-[#d4af37] bg-black/40 p-[2px] shadow-[0_0_15px_rgba(212,175,55,0.3)] transition-all duration-500 ease-in-out ${
           isFadingOut ? 'translate-y-10 scale-95 opacity-0' : 'translate-y-0 scale-100 opacity-100'
         }`}
       >

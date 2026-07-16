@@ -49,7 +49,7 @@ export function Footer() {
           {/* Brand */}
           <div>
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-14 h-14 bg-gradient-to-br from-blue-900 to-blue-950 rounded-xl flex items-center justify-center golden-glow">
+              <div className="w-14 h-14 bg-gradient-to-br from-gray-900 to-gray-950 rounded-xl flex items-center justify-center golden-glow">
                 <IraqiEagle className="w-10 h-10" />
               </div>
               <div>
@@ -63,7 +63,7 @@ export function Footer() {
             {/* Social Links */}
             <div className="flex items-center gap-3">
               {[
-                { icon: Facebook, href: '#', color: 'bg-blue-600' },
+                { icon: Facebook, href: '#', color: 'bg-gray-800' },
                 { icon: Twitter, href: '#', color: 'bg-sky-500' },
                 { icon: Instagram, href: '#', color: 'bg-pink-600' },
                 { icon: Youtube, href: '#', color: 'bg-red-600' },

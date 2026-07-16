@@ -637,7 +637,7 @@ export function ChickenGame() {
   // Start screen
   if (gameState.showStart) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-800 to-gray-900 flex items-center justify-center p-4">
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -969,7 +969,7 @@ export function ChickenGame() {
       </div>
 
       {/* Level info */}
-      <div className="bg-blue-900/50 py-2 text-center">
+      <div className="bg-gray-900/50 py-2 text-center">
         <p className="text-blue-200 text-sm">
           {levels[gameState.level - 1]?.name} - اضرب {levels[gameState.level - 1]?.chickensCount} دجاجة!
         </p>
@@ -984,7 +984,7 @@ export function ChickenGame() {
           {/* Background decorations */}
           <div className="absolute inset-0 opacity-20">
             <div className="absolute top-10 left-10 w-20 h-20 bg-amber-500 rounded-full blur-2xl" />
-            <div className="absolute bottom-20 right-20 w-32 h-32 bg-blue-500 rounded-full blur-2xl" />
+            <div className="absolute bottom-20 right-20 w-32 h-32 bg-gray-800 rounded-full blur-2xl" />
           </div>
 
           {/* Chickens */}
@@ -1041,7 +1041,7 @@ export function ChickenGame() {
               <span className="text-gray-400">500</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center"><Shield className="w-4 h-4" /></span>
+              <span className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center"><Shield className="w-4 h-4" /></span>
               <span className="text-gray-400">حياة</span>
             </div>
             <div className="flex items-center gap-2">

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SkeletonCard } from './SkeletonCard';
+import InfiniteScrollTrigger from './InfiniteScrollTrigger';
 
 import { Product, SellerInfo } from '../types';
 interface ProductsViewProps {
@@ -113,7 +114,7 @@ export function ProductsView({
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#061224] via-[#0b2145] to-[#041026] pb-20">
+    <div className="min-h-screen bg-black pb-20">
       {/* Header Banner */}
       <div className="bg-gradient-to-br from-gray-950 via-blue-950/60 to-gray-950 pt-10 pb-12 px-4 relative overflow-hidden border-b border-gray-900/60 shadow-2xl">
         <div className="absolute inset-0 opacity-5">
@@ -135,15 +136,15 @@ export function ProductsView({
         <div className="container mx-auto max-w-4xl relative z-10">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
             <div className="flex items-center gap-3.5">
-              <button onClick={onBack} className="p-3 bg-white/5 border border-white/10 rounded-2xl text-white hover:bg-white/15 transition-all">
-                <ChevronLeft className="w-5 h-5" />
+              <button onClick={onBack} className="p-3 always-dark-bg rounded-2xl text-white always-white transition-all shadow-md" title="رجوع" aria-label="رجوع">
+                <ChevronLeft className="w-5 h-5 always-white" />
               </button>
               <div>
-                <h1 className="text-white font-black text-2xl flex items-center gap-2" dir="rtl">
-                  <span>🛍️</span>
-                  <span>قسم المنتجات والمتجر المخصص</span>
+                <h1 className="text-white always-white font-black text-2xl flex items-center gap-2" dir="rtl">
+                  <span className="always-white">🛍️</span>
+                  <span className="always-white">قسم المنتجات والمتجر المخصص</span>
                 </h1>
-                <p className="text-gray-400 text-xs mt-1 font-semibold" dir="rtl">تصفح وتسوق آلاف المنتجات من التجار الموثوقين مباشرة</p>
+                <p className="text-gray-300 always-white opacity-90 text-xs mt-1 font-semibold" dir="rtl">تصفح وتسوق آلاف المنتجات من التجار الموثوقين مباشرة</p>
               </div>
             </div>
             
@@ -176,7 +177,7 @@ export function ProductsView({
               <div className="bg-gray-950/60 p-1 rounded-2xl border border-gray-900 flex gap-1 shadow-inner">
                 <button 
                   onClick={() => setConditionFilter('all')}
-                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all duration-300 ${conditionFilter === 'all' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/20' : 'text-gray-400 hover:text-white'}`}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all duration-300 ${conditionFilter === 'all' ? 'bg-gradient-to-r from-gray-600 to-indigo-600 text-white shadow-lg shadow-gray-800/20' : 'text-gray-400 hover:text-white'}`}
                 >
                   الكل
                 </button>
@@ -411,24 +412,14 @@ export function ProductsView({
                 </div>
 
                 {/* Pagination Controls */}
-                {hasMoreProducts && (
-                  <div className="text-center py-8 mt-6 border-t border-gray-900/40">
-                    <button 
-                      onClick={onLoadMoreProducts} 
-                      disabled={loadingMoreProducts}
-                      className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-gray-900 disabled:to-gray-900 text-white font-black rounded-2xl text-xs sm:text-sm transition-all shadow-xl shadow-blue-500/10 border border-blue-400/10 flex items-center gap-2 mx-auto"
-                    >
-                      {loadingMoreProducts ? (
-                        <>
-                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                          <span>جاري تحميل المزيد...</span>
-                        </>
-                      ) : (
-                        <span>عرض المزيد من المنتجات</span>
-                      )}
-                    </button>
-                  </div>
-                )}
+                <InfiniteScrollTrigger 
+                  onLoadMore={onLoadMoreProducts}
+                  hasMore={hasMoreProducts}
+                  isLoading={loadingMoreProducts}
+                  loadingText="جاري تحميل المزيد من المنتجات..."
+                  skeletonType="grid"
+                  skeletonCount={4}
+                />
               </div>
             )}
           </>

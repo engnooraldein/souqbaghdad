@@ -35,8 +35,8 @@ const {
 export function Logo({ small }:{small?:boolean}) {
   return (
     <div className="flex items-center gap-2">
-      <div className={`${small?'w-10 h-10':'w-14 h-14'} shrink-0 bg-blue-900 rounded-xl flex items-center justify-center border-2 border-amber-500/40 shadow-lg overflow-hidden`}>
-        <img src="/logo.jpg" alt="سوق بغداد" className="w-full h-full object-cover" />
+      <div className={`${small?'w-10 h-10':'w-14 h-14'} shrink-0 bg-gray-950 rounded-xl flex items-center justify-center border-2 border-amber-500/40 shadow-lg overflow-hidden`}>
+        <img src={small ? "/logo-128.webp" : "/logo-256.webp"} alt="سوق بغداد" className="w-full h-full object-cover" />
       </div>
       {!small && <div className="shrink-0"><h1 className="text-xl font-bold text-white leading-tight">سوك بغداد</h1><p className="text-amber-400 text-xs">السوق الرقمي العراقي</p></div>}
     </div>

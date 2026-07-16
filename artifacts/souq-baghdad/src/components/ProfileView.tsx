@@ -24,6 +24,8 @@ import { DEFAULT_AVATAR } from '../App';
 import { DEFAULT_COVER, getCoverImage } from '../constants';
 import { VerifiedBadge } from './VerifiedBadge';
 import { MyLinesTab } from './MyLinesTab';
+import { BackgroundGrid } from '../assets/svg/background/background-grid';
+import { GoldParticles } from '../assets/svg/effects/gold-particles';
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -49,6 +51,7 @@ import { supabase } from '../lib/supabase';
 import { TimeAgo } from './TimeAgo';
 
 import { ImageCropModal } from './ImageCropModal';
+import InfiniteScrollTrigger from './InfiniteScrollTrigger';
 import { PasswordChangeModal } from './PasswordChangeModal';
 import { LoadingScreen } from './LoadingScreen';
 import { TransportFormModal } from './TransportFormModal';
@@ -59,7 +62,7 @@ import { TransportAdCard } from './TransportAdCard';
 import { InterestTimer } from './InterestTimer';
 import { IraqiEagle } from './Icons';
 
-export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeleteProduct, onEditProduct, onUpdateUser, onAddAd, onAddProduct, transportLines, onUpdateTransportStatus, onDeleteTransportAd, onMarkAdSold, onMarkProductSold, favorites = [], allAds = [], allProducts = [], onAdSelect, onProductSelect, onFav, onStoreGuideClick }:{
+export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeleteProduct, onEditProduct, onUpdateUser, onAddAd, onAddProduct, transportLines, onUpdateTransportStatus, onDeleteTransportAd, onMarkAdSold, onMarkProductSold, favorites = [], allAds = [], allProducts = [], onAdSelect, onProductSelect, onFav, onStoreGuideClick, isDarkMode = true }:{
   user:User; myAds:Ad[]; myProducts:Product[]; onDeleteAd:(id:number)=>void; onEditAd:(ad:Ad)=>void;
   onDeleteProduct:(id:number)=>void; onEditProduct:(p:Product)=>void; onUpdateUser:(u:User, quiet?:boolean)=>void;
   onAddAd:()=>void; onAddProduct:()=>void;
@@ -75,6 +78,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
   onProductSelect?: (p: Product) => void;
   onFav?: (id: number) => void;
   onStoreGuideClick?: () => void;
+  isDarkMode?: boolean;
 }) {
   const [tab, setTab] = useState<'ads'|'store'|'favs'|'archive'|'lines'|'account'|'wallet'>(() => {
     if (typeof window !== 'undefined') {
@@ -163,6 +167,30 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
   const [avatarPreview, setAvatarPreview] = useState(user.avatar||DEFAULT_AVATAR);
   const [coverPreview, setCoverPreview] = useState(getCoverImage(user));
   const playSound = useSound();
+
+  // Smart load more limits for bottom cards
+  const [visibleAdsLimit, setVisibleAdsLimit] = useState(4);
+  const [visibleProdsLimit, setVisibleProdsLimit] = useState(4);
+  const [visibleArchLimit, setVisibleArchLimit] = useState(4);
+
+  // Drag-and-drop states for profile uploads
+  const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
+  const [isDraggingCover, setIsDraggingCover] = useState(false);
+
+  // Sync profile data and previews dynamically when user prop changes (fixes double-save)
+  useEffect(() => {
+    if (user) {
+      setAvatarPreview(user.avatar || DEFAULT_AVATAR);
+      setCoverPreview(getCoverImage(user));
+      setEf({
+        name: user.name,
+        phone: user.phone,
+        location: user.location,
+        bio: user.bio || '',
+        email: user.email || ''
+      });
+    }
+  }, [user]);
 
   const favAds = allAds.filter(a => favorites.includes(a.id));
   const favProducts = allProducts.filter(p => favorites.includes(p.id));
@@ -305,6 +333,13 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
   const allMyProducts = [...myProducts, ...localArchiveProds].filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
   const allMyLines = [...transportLines.filter(line => line.postedBy === user?.id), ...localArchiveLines].filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
 
+  // Memoized unified array of sold/archived items
+  const combinedArchive = useMemo(() => {
+    const ads = allMyAds.filter(a => a.status === 'sold').map(item => ({ ...item, isProduct: false }));
+    const prods = allMyProducts.filter(p => p.status === 'sold').map(item => ({ ...item, isProduct: true }));
+    return [...ads, ...prods];
+  }, [allMyAds, allMyProducts]);
+
   useEffect(() => {
     const handleSwitchLines = () => setTab('lines');
     const handleSwitchWallet = () => setTab('wallet');
@@ -379,11 +414,13 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
       let finalAvatar = avatarPreview;
       if (finalAvatar && finalAvatar.startsWith('data:image/')) {
         finalAvatar = await uploadImageToStorage(finalAvatar, 'ad-images', 1200, 0.8, false);
+        setAvatarPreview(finalAvatar);
       }
       
       let finalCover = coverPreview;
       if (finalCover && finalCover.startsWith('data:image/')) {
         finalCover = await uploadImageToStorage(finalCover, 'ad-images', 1200, 0.9, false);
+        setCoverPreview(finalCover);
       }
 
       const updated: User = { ...user, ...ef, email: ef.email.trim().toLowerCase(), phone: ef.phone.trim(), avatar: finalAvatar, cover: finalCover };
@@ -408,25 +445,91 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
     setCropSrc(null);
   };
 
+  // Drag and drop handlers for effortless upload (سهولة الرفع)
+  const handleDragOver = (e: React.DragEvent, type: 'avatar' | 'cover') => {
+    e.preventDefault();
+    if (type === 'avatar') setIsDraggingAvatar(true);
+    else setIsDraggingCover(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent, type: 'avatar' | 'cover') => {
+    e.preventDefault();
+    if (type === 'avatar') setIsDraggingAvatar(false);
+    else setIsDraggingCover(false);
+  };
+
+  const handleDropImage = async (e: React.DragEvent, type: 'avatar' | 'cover') => {
+    e.preventDefault();
+    if (type === 'avatar') setIsDraggingAvatar(false);
+    else setIsDraggingCover(false);
+
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+
+    const quality = type === 'avatar' ? 0.8 : 0.9;
+    const b64 = await compressImage(file, 1200, quality, false);
+    setCropType(type);
+    setCropSrc(b64);
+  };
+
   const totalViews = allMyAds.reduce((s,a)=>s+(a.views||0),0) + allMyProducts.reduce((s,p)=>s+(p.views||0),0);
   const totalFavorites = allMyAds.reduce((s,a)=>s+(a.favorites||0),0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#061224] via-[#0b2145] to-[#041026] pb-24">
+    <div className={`min-h-screen relative overflow-hidden ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'} pb-24 select-none no-screenshot`}>
+      {/* Background Grid & Particles Decoration for Light Mode */}
+      {!isDarkMode && (
+        <>
+          <BackgroundGrid className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-opacity duration-500 opacity-[0.05] mix-blend-overlay z-0" />
+          <GoldParticles className="absolute inset-0 pointer-events-none w-full h-full transition-opacity duration-500 opacity-10 z-0" />
+        </>
+      )}
+
+      {/* Dynamic styles for screenshot & copy protection */}
+      <style>{`
+        @media print {
+          body { display: none !important; }
+        }
+        .no-screenshot {
+          -webkit-touch-callout: none !important;
+          -webkit-user-select: none !important;
+          -khtml-user-select: none !important;
+          -moz-user-select: none !important;
+          -ms-user-select: none !important;
+          user-select: none !important;
+        }
+        .secure-watermark {
+          background-image: radial-gradient(${isDarkMode ? 'rgba(245, 158, 11, 0.15)' : 'rgba(15, 23, 42, 0.08)'} 1.5px, transparent 1.5px);
+          background-size: 16px 16px;
+        }
+      `}</style>
+
       {/* Banner & Header */}
-      <div className="relative w-full">
+      <div className="relative w-full z-10">
         {/* Banner with 3:1 aspect ratio */}
-        <div className="w-full aspect-[3/1] md:aspect-[4/1] bg-gray-900 relative overflow-hidden flex items-center justify-center">
-          <img src={coverPreview} alt="" className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110"/>
-          <img src={coverPreview} alt="Cover" className="relative w-full h-full object-cover z-0"/>
+        <div 
+          onDragOver={(e) => editing && ['pro','vendor','admin','owner'].includes(user.role) && handleDragOver(e, 'cover')}
+          onDragLeave={(e) => editing && ['pro','vendor','admin','owner'].includes(user.role) && handleDragLeave(e, 'cover')}
+          onDrop={(e) => editing && ['pro','vendor','admin','owner'].includes(user.role) && handleDropImage(e, 'cover')}
+          className={`w-full aspect-[3/1] md:aspect-[4/1] ${isDarkMode ? 'bg-gray-900' : 'bg-slate-200'} relative overflow-hidden flex items-center justify-center transition-all duration-300 ${isDraggingCover ? 'ring-4 ring-amber-500 ring-inset opacity-80' : ''}`}
+        >
+          <img src={coverPreview} alt="" className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110 select-none pointer-events-none no-screenshot" onContextMenu={e => e.preventDefault()} draggable={false}/>
+          <img src={coverPreview} alt="Cover" className="relative w-full h-full object-cover z-0 select-none pointer-events-none no-screenshot" onContextMenu={e => e.preventDefault()} draggable={false}/>
+          
+          {/* Watermark security grid overlay */}
+          <div className="absolute inset-0 z-10 secure-watermark opacity-25 pointer-events-none select-none" />
+          <div className="absolute bottom-3 right-3 z-10 text-[9px] text-white/30 tracking-widest uppercase pointer-events-none select-none font-bold">
+            Souq Baghdad Secured Profile
+          </div>
+
           {/* Watermark */}
           <div className="absolute top-4 left-4 z-10 flex items-center gap-2 opacity-60 select-none pointer-events-none drop-shadow-xl">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-950 rounded-xl flex items-center justify-center border border-amber-500/40">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-900 rounded-xl flex items-center justify-center border border-amber-500/40">
               <span className="text-white font-black text-[10px] sm:text-xs">سوق</span>
             </div>
             <span className="text-white font-black text-xs sm:text-sm drop-shadow-md">سوق بغداد</span>
           </div>
-          <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/30 to-transparent z-10"/>
+          <div className={`absolute inset-0 bg-gradient-to-t ${isDarkMode ? 'from-gray-950 via-gray-950/30' : 'from-slate-900/60 via-transparent'} to-transparent z-10`}/>
           {editing && ['pro','vendor','admin','owner'].includes(user.role) && <label className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 bg-black/60 text-white text-xs rounded-xl cursor-pointer hover:bg-black/80 backdrop-blur-md z-20">
             <Camera className="w-4 h-4"/> تغيير الغلاف
             <input type="file" accept="image/*" onChange={e=>openCrop(e,'cover')} className="hidden"/></label>}
@@ -436,9 +539,16 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
           {/* Avatar & Actions Container */}
           <div className="flex justify-between items-end -mt-12 sm:-mt-16 mb-4 relative z-10">
             {/* Avatar */}
-            <div className="relative z-20">
-              <div className={`w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 shadow-xl overflow-hidden bg-white flex items-center justify-center ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border-gray-950'}`}>
-                <img src={avatarPreview} alt={user.name} className="w-full h-full object-cover"/>
+            <div 
+              onDragOver={(e) => editing && handleDragOver(e, 'avatar')}
+              onDragLeave={(e) => editing && handleDragLeave(e, 'avatar')}
+              onDrop={(e) => editing && handleDropImage(e, 'avatar')}
+              className="relative z-20"
+            >
+              <div className={`w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 shadow-xl overflow-hidden bg-white flex items-center justify-center relative transition-all duration-300 ${isDraggingAvatar ? 'scale-110 ring-4 ring-amber-500' : ''} ${user.role && user.role !== 'user' ? getGlowClass(user.role) : (isDarkMode ? 'border-gray-950 bg-gray-950' : 'border-white bg-slate-100')}`}>
+                <img src={avatarPreview} alt={user.name} className="w-full h-full object-cover select-none pointer-events-none no-screenshot" onContextMenu={e => e.preventDefault()} draggable={false}/>
+                {/* Micro watermark grid to block screenshots */}
+                <div className="absolute inset-0 secure-watermark opacity-20 pointer-events-none select-none" />
               </div>
               {editing&&(
                 <div className="absolute -bottom-1 -right-1 flex gap-1">
@@ -456,21 +566,21 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
             <div className="flex flex-wrap gap-1.5 sm:gap-2 pb-2 justify-end max-w-[200px] sm:max-w-none">
               {editing?(
                 <>
-                  <button onClick={handleSave} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-green-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-green-500/20 hover:bg-green-600"><Save className="w-4 h-4"/>حفظ</button>
-                  <button onClick={()=>{setEditing(false);setAvatarPreview(user.avatar||DEFAULT_AVATAR);setCoverPreview(user.cover||DEFAULT_COVER);}} className="px-3 py-2 sm:px-4 sm:py-2 bg-gray-800 text-gray-300 border border-gray-700 rounded-xl text-sm hover:bg-gray-700">إلغاء</button>
+                  <button onClick={handleSave} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-green-50 text-white rounded-xl text-sm font-bold shadow-lg shadow-green-500/20 hover:bg-green-600"><Save className="w-4 h-4"/>حفظ</button>
+                  <button onClick={()=>{setEditing(false);setAvatarPreview(user.avatar||DEFAULT_AVATAR);setCoverPreview(user.cover||DEFAULT_COVER);}} className={`px-3 py-2 sm:px-4 sm:py-2 border rounded-xl text-sm transition-colors ${isDarkMode ? 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 shadow-sm'}`}>إلغاء</button>
                 </>
               ):(
                 <>
                   <button onClick={()=>{
                     onStoreGuideClick?.();
-                  }} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl text-sm font-bold shadow-lg hover:from-purple-600 hover:to-indigo-600" title="نسخ رابط المتجر للبايو">
+                  }} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-xl text-sm font-bold shadow-lg hover:from-gray-700 hover:to-gray-800" title="نسخ رابط المتجر للبايو">
                     <Copy className="w-4 h-4"/>
                     <span className="hidden sm:inline">رابط المتجر</span>
                   </button>
                   <button onClick={()=>{
                     window.location.hash = '#/accounts';
                     window.dispatchEvent(new CustomEvent('switch-to-profiles-tab'));
-                  }} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-blue-500 text-white rounded-xl text-sm font-bold shadow-lg hover:bg-blue-600" title="دليل الحسابات والمتاجر">
+                  }} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl text-sm font-bold shadow-lg hover:bg-gray-800" title="دليل الحسابات والمتاجر">
                     <Users className="w-4 h-4"/>
                     <span className="hidden sm:inline">دليل الحسابات</span>
                   </button>
@@ -483,7 +593,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                       url: '/seller/' + user.id,
                       image: user.avatar || DEFAULT_AVATAR
                     });
-                  }} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-gray-800 text-white rounded-xl text-sm font-bold shadow-lg border border-gray-700 hover:bg-gray-700">
+                  }} className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 border rounded-xl text-sm font-bold shadow-lg transition-colors ${isDarkMode ? 'bg-gray-800 text-white border-gray-700 hover:bg-gray-700' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
                     <Share2 className="w-4 h-4"/>
                     <span className="hidden sm:inline">مشاركة</span>
                   </button>
@@ -498,65 +608,65 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
           {/* User Details */}
           <div className="mb-5" dir="rtl">
             <div className="flex flex-wrap items-center gap-2 mb-1">
-              <h2 className="text-xl sm:text-2xl font-black text-white">{user.name}</h2>
+              <h2 className={`text-xl sm:text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{user.name}</h2>
               {user.role==='owner'&&<span className="flex items-center gap-1 px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs rounded-full font-bold"><Crown className="w-3 h-3"/>مالك</span>}
               {user.role==='admin'&&<span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs rounded-full font-bold">مشرف</span>}
               {user.role==='vendor'&&<span className="flex items-center gap-1 px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs rounded-full font-bold"><Crown className="w-3 h-3"/>تاجر موثق</span>}
               {user.role==='pro'&&<span className="flex items-center gap-1 px-2 py-0.5 bg-purple-500/20 text-purple-400 text-xs rounded-full font-bold"><Star className="w-3 h-3"/>حساب برو</span>}
-              {user.badges?.isStudent && <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded-md text-xs font-semibold flex items-center gap-1">🎓 طالب موثق</span>}
+              {user.badges?.isStudent && <span className="px-2 py-0.5 bg-gray-800 hover:bg-gray-700/20 text-gray-300 rounded-md text-xs font-semibold flex items-center gap-1">🎓 طالب موثق</span>}
               {user.badges?.hasVehicle && <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded-md text-xs font-semibold flex items-center gap-1">🚗 مركبة موثقة</span>}
               {user.badges?.hasID && <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded-md text-xs font-semibold flex items-center gap-1">🪪 هوية موثقة</span>}
               {user.badges?.isPhoneVerified && <span className="px-2 py-0.5 bg-sky-500/20 text-sky-400 rounded-md text-xs font-semibold flex items-center gap-1">📱 هاتف موثق</span>}
             
               {!user.isVerified && (
-                <button onClick={() => setShowVerifyModal(true)} className="px-2 py-1 bg-gray-800 border border-gray-700 text-gray-300 hover:text-white rounded-md text-xs font-semibold flex items-center gap-1 transition-colors ml-2">
+                <button onClick={() => setShowVerifyModal(true)} className={`px-2 py-1 border rounded-md text-xs font-semibold flex items-center gap-1 transition-colors ml-2 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-300 hover:text-white' : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 shadow-sm'}`}>
                   🛡️ طلب توثيق
                 </button>
               )}
-</div>
+            </div>
             
-            <div className="flex flex-wrap gap-3 mt-2 text-xs font-bold text-gray-400">
+            <div className={`flex flex-wrap gap-3 mt-2 text-xs font-bold ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>
               <div className="flex items-center gap-1"><MapPin className="w-4 h-4 text-amber-500"/><span>{user.location || 'العراق'}</span></div>
               <div className="flex items-center gap-1"><Calendar className="w-4 h-4 text-amber-500"/><span>انضم في {formatJoinedDate(user.joinedDate)}</span></div>
               {user.rating && <div className="flex items-center gap-1 text-amber-400"><Star className="w-4 h-4 fill-current"/><span className="font-extrabold">{user.rating}</span></div>}
             </div>
-            {user.bio&&<p className="text-gray-300 text-sm mt-3 line-clamp-2 bg-gray-950/40 p-3.5 rounded-2xl border border-gray-900/60 backdrop-blur-md leading-relaxed">{user.bio}</p>}
+            {user.bio&&<p className={`text-sm mt-3 line-clamp-2 p-3.5 rounded-2xl border backdrop-blur-md leading-relaxed ${isDarkMode ? 'text-gray-300 bg-gray-950/40 border-gray-900/60' : 'text-slate-700 bg-white/80 border-slate-200/60 shadow-sm'}`}>{user.bio}</p>}
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-4 gap-1.5 xs:gap-2 sm:gap-4 mb-8">
-            {[{v:allMyAds.length,l:'إعلان',c:'text-amber-500'},{v:allMyProducts.length,l:'منتج',c:'text-purple-400'},{v:totalViews,l:'مشاهدة',c:'text-blue-400'},{v:totalFavorites,l:'مفضلة',c:'text-red-400'}].map((s,i)=>(
-              <div key={i} className="bg-gray-950/40 rounded-xl sm:rounded-2xl p-2 sm:p-4 text-center border border-gray-900/80 backdrop-blur-md flex flex-col justify-center shadow-xl hover:border-amber-500/20 transition-all duration-300">
+            {[{v:allMyAds.length,l:'إعلان',c:'text-amber-500'},{v:allMyProducts.length,l:'منتج',c:'text-purple-400'},{v:totalViews,l:'مشاهدة',c:'text-gray-300'},{v:totalFavorites,l:'مفضلة',c:'text-red-400'}].map((s,i)=>(
+              <div key={i} className={`rounded-xl sm:rounded-2xl p-2 sm:p-4 text-center border backdrop-blur-md flex flex-col justify-center shadow-xl transition-all duration-300 ${isDarkMode ? 'bg-gray-950/40 border-gray-900/80 hover:border-amber-500/20' : 'bg-white border-slate-200/80 hover:border-amber-500/40 shadow-slate-100'}`}>
                 <p className={`text-base sm:text-2xl font-black ${s.c}`}>{s.v}</p>
-                <p className="text-gray-400 text-[9px] sm:text-xs font-black mt-1 sm:mt-1.5">{s.l}</p>
+                <p className={`text-[9px] sm:text-xs font-black mt-1 sm:mt-1.5 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>{s.l}</p>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 max-w-3xl">
+      <div className="container mx-auto px-4 max-w-3xl relative z-10">
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 bg-gray-950/60 p-2 rounded-2xl border border-gray-900 overflow-x-auto scrollbar-hide shadow-lg" dir="rtl">
+        <div className={`flex gap-2 mb-6 p-2 rounded-2xl border overflow-x-auto scrollbar-hide shadow-lg ${isDarkMode ? 'bg-gray-950/60 border-gray-900' : 'bg-white border-slate-200/80 shadow-slate-100'}`} dir="rtl">
           {([['ads',`📢 إعلاناتي (${allMyAds.filter(a=>a.status==='active').length})`],['store',`🛍️ متجري (${allMyProducts.filter(p=>p.status==='active').length})`],['wallet', '💳 محفظتي'],['archive',`📦 الأرشيف (${allMyAds.filter(a=>a.status==='sold').length + allMyProducts.filter(p=>p.status==='sold').length})`],['lines',`🚌 خطوطي`],['account','⚙️ الحساب']] as [string,string][]).map(([t,l])=>(
-            <button key={t} onClick={()=>setTab(t as any)} className={`whitespace-nowrap px-4.5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all duration-300 ${tab===t?'bg-gradient-to-r from-amber-500 to-yellow-400 text-black shadow-lg shadow-amber-500/15':'text-gray-400 hover:text-white'}`}>{l}</button>
+            <button key={t} onClick={()=>setTab(t as any)} className={`whitespace-nowrap px-4.5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all duration-300 ${tab===t?'bg-gradient-to-r from-amber-500 to-yellow-400 text-black shadow-lg shadow-amber-500/15':(isDarkMode ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50')}`}>{l}</button>
           ))}
         </div>
 
         {tab==='wallet'&&(
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-6 sm:p-8 border border-gray-700 shadow-xl relative overflow-hidden">
+            <div className={`rounded-3xl p-6 sm:p-8 border shadow-xl relative overflow-hidden ${isDarkMode ? 'bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700' : 'bg-gradient-to-br from-white to-slate-50 border-slate-200/80 shadow-md shadow-slate-100'}`}>
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl" />
               <div className="absolute bottom-0 left-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl" />
               
               <div className="relative z-10 flex flex-col items-center justify-center text-center">
-                <div className="w-16 h-16 bg-gray-800 border-2 border-emerald-500/30 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/20">
+                <div className={`w-16 h-16 border-2 border-emerald-500/30 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/20 ${isDarkMode ? 'bg-gray-800' : 'bg-slate-100'}`}>
                   <Wallet className="w-8 h-8 text-emerald-400" />
                 </div>
-                <h3 className="text-gray-400 font-medium mb-1">الرصيد الحالي</h3>
+                <h3 className={`${isDarkMode ? 'text-gray-400' : 'text-slate-500 font-semibold'} font-medium mb-1`}>الرصيد الحالي</h3>
                 <div className="flex items-baseline gap-2 mb-6">
-                  <span className="text-5xl font-black text-white font-mono tracking-tight">{user.points || 0}</span>
+                  <span className={`text-5xl font-black font-mono tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{user.points || 0}</span>
                   <span className="text-emerald-400 font-bold">نقطة</span>
                 </div>
                 
@@ -571,12 +681,12 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
               </div>
             </div>
 
-            <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
+            <div className={`rounded-2xl p-6 border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200 shadow-sm'}`}>
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-amber-500/10 rounded-xl">
                   <Sparkles className="w-5 h-5 text-amber-400" />
                 </div>
-                <h3 className="text-white font-bold text-lg">تفعيل برومو كود</h3>
+                <h3 className={`font-bold text-lg ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>تفعيل برومو كود</h3>
               </div>
               
               <div className="flex flex-col sm:flex-row gap-3">
@@ -585,7 +695,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                   value={promoCode}
                   onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
                   placeholder="أدخل الكود هنا (مثال: GIFT-100)" 
-                  className="flex-1 bg-gray-900 text-white placeholder-gray-500 border border-gray-700 rounded-xl px-4 py-3 outline-none focus:border-amber-500/50 transition-colors uppercase font-mono text-center sm:text-right"
+                  className={`flex-1 border rounded-xl px-4 py-3 outline-none transition-colors uppercase font-mono text-center sm:text-right ${isDarkMode ? 'bg-gray-900 text-white placeholder-gray-500 border-gray-700 focus:border-amber-500/50' : 'bg-slate-50 text-slate-900 placeholder-slate-400 border-slate-200 focus:border-amber-500'}`}
                   disabled={isRedeeming}
                 />
                 <button 
@@ -608,30 +718,40 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
             {isLoadingArchive ? (
               <div className="flex justify-center p-10"><div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>
             ) : allMyAds.filter(a=>a.status==='active').length===0?(
-              <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700 border-dashed">
-                <div className="text-4xl mb-3">📭</div><p className="text-white font-bold mb-1">لا إعلانات بعد</p><p className="text-gray-400 text-sm">انشر أول إعلان الآن!</p>
+              <div className={`rounded-2xl p-10 text-center border border-dashed ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-slate-200 text-slate-800 shadow-sm'}`}>
+                <div className="text-4xl mb-3">📭</div><p className={`font-bold mb-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>لا إعلانات بعد</p><p className={`${isDarkMode ? 'text-gray-400' : 'text-slate-500'} text-sm`}>انشر أول إعلان الآن!</p>
               </div>
-            ):(
+            ) : (
               <div className="space-y-3">
-                {allMyAds.filter(a=>a.status==='active').map(ad=>(
-                  <div key={ad.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-amber-500/30 transition-colors">
-                    <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700"/>
+                {allMyAds.filter(a=>a.status==='active').slice(0, visibleAdsLimit).map(ad=>(
+                  <div key={ad.id} className={`rounded-2xl p-3 border flex gap-3 transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700 hover:border-amber-500/30' : 'bg-white border-slate-200/80 hover:border-amber-500/40 hover:shadow-md'}`}>
+                    <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className={`w-16 h-16 rounded-xl object-cover flex-shrink-0 border ${isDarkMode ? 'border-gray-700' : 'border-slate-100'}`}/>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white font-bold text-sm line-clamp-1">{ad.title}</p>
-                      <p className="text-amber-400 text-sm font-bold">{formatPrice(ad.price)} <span className="text-xs text-gray-400">د.ع</span></p>
+                      <p className={`font-bold text-sm line-clamp-1 ${isDarkMode ? 'text-white' : 'text-slate-800 font-extrabold'}`}>{ad.title}</p>
+                      <p className="text-amber-500 text-sm font-bold">{formatPrice(ad.price)} <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>د.ع</span></p>
                       <div className="flex items-center gap-3 text-xs mt-1">
-                        <TimeAgo iso={ad.createdAtISO} className="text-green-400"/>
-                        <span className="text-gray-400 flex items-center gap-0.5"><ViewIcon className="w-3 h-3"/>{ad.views}</span>
-                        <span className="text-gray-500">{ad.location}</span>
+                        <TimeAgo iso={ad.createdAtISO} className="text-green-500 font-bold"/>
+                        <span className={`${isDarkMode ? 'text-gray-400' : 'text-slate-500'} flex items-center gap-0.5`}><ViewIcon className="w-3 h-3"/>{ad.views}</span>
+                        <span className={`${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>{ad.location}</span>
                       </div>
                     </div>
                     <div className="flex flex-col gap-1.5 self-center">
-                      <button onClick={()=>onMarkAdSold(ad)} title="تم البيع" className="p-2 bg-green-500/20 rounded-xl text-green-400 hover:bg-green-500/30"><CheckCircle className="w-3.5 h-3.5"/></button>
-                      <button onClick={()=>onEditAd(ad)} className="p-2 bg-amber-500/20 rounded-xl text-amber-400 hover:bg-amber-500/30" title="تعديل الإعلان" aria-label="تعديل الإعلان"><Edit2 className="w-3.5 h-3.5"/></button>
-                      <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30" title="حذف الإعلان" aria-label="حذف الإعلان"><Trash2 className="w-3.5 h-3.5"/></button>
+                      <button onClick={()=>onMarkAdSold(ad)} title="تم البيع" className={`p-2 rounded-xl transition-all ${isDarkMode ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}><CheckCircle className="w-3.5 h-3.5"/></button>
+                      <button onClick={()=>onEditAd(ad)} className={`p-2 rounded-xl transition-all ${isDarkMode ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`} title="تعديل الإعلان" aria-label="تعديل الإعلان"><Edit2 className="w-3.5 h-3.5"/></button>
+                      <button onClick={()=>onDeleteAd(ad.id)} className={`p-2 rounded-xl transition-all ${isDarkMode ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-red-50 text-red-600 hover:bg-red-100'}`} title="حذف الإعلان" aria-label="حذف الإعلان"><Trash2 className="w-3.5 h-3.5"/></button>
                     </div>
                   </div>
                 ))}
+                
+                <InfiniteScrollTrigger
+                  onLoadMore={async () => {
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    setVisibleAdsLimit(prev => prev + 5);
+                  }}
+                  hasMore={visibleAdsLimit < allMyAds.filter(a=>a.status==='active').length}
+                  loadingText="جاري عرض المزيد من الإعلانات..."
+                  skeletonType="none"
+                />
               </div>
             )}
           </>
@@ -645,30 +765,40 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
             {isLoadingArchive ? (
               <div className="flex justify-center p-10"><div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>
             ) : allMyProducts.filter(p=>p.status==='active').length===0?(
-              <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700 border-dashed">
-                <div className="text-4xl mb-3">🛍️</div><p className="text-white font-bold mb-1">متجرك فارغ</p><p className="text-gray-400 text-sm">أضف أول منتج الآن!</p>
+              <div className={`rounded-2xl p-10 text-center border border-dashed ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-slate-200 text-slate-800 shadow-sm'}`}>
+                <div className="text-4xl mb-3">🛍️</div><p className={`font-bold mb-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>متجرك فارغ</p><p className={`${isDarkMode ? 'text-gray-400' : 'text-slate-500'} text-sm`}>أضف أول منتج الآن!</p>
               </div>
-            ):(
+            ) : (
               <div className="space-y-3">
-                {allMyProducts.filter(p=>p.status==='active').map(p=>(
-                  <div key={p.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-purple-500/30 transition-colors">
-                    <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700"/>
+                {allMyProducts.filter(p=>p.status==='active').slice(0, visibleProdsLimit).map(p=>(
+                  <div key={p.id} className={`rounded-2xl p-3 border flex gap-3 transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700 hover:border-purple-500/30' : 'bg-white border-slate-200/80 hover:border-purple-500/40 hover:shadow-md'}`}>
+                    <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className={`w-16 h-16 rounded-xl object-cover flex-shrink-0 border ${isDarkMode ? 'border-gray-700' : 'border-slate-100'}`}/>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white font-bold text-sm line-clamp-1">{p.title}</p>
-                      <p className="text-amber-400 text-sm font-bold">{formatPrice(p.price)} <span className="text-xs text-gray-400">د.ع</span></p>
+                      <p className={`font-bold text-sm line-clamp-1 ${isDarkMode ? 'text-white' : 'text-slate-800 font-extrabold'}`}>{p.title}</p>
+                      <p className="text-amber-500 text-sm font-bold">{formatPrice(p.price)} <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>د.ع</span></p>
                       <div className="flex items-center gap-3 text-xs mt-1">
                         <span className={`px-1.5 py-0.5 rounded-full font-bold text-[10px] ${p.condition==='new'?'bg-green-500/20 text-green-400':'bg-amber-500/20 text-amber-400'}`}>{p.condition==='new'?'جديد':'مستعمل'}</span>
-                        <span className="text-gray-400">الكمية: {p.stock}</span>
-                        <TimeAgo iso={p.createdAtISO} className="text-green-400"/>
+                        <span className={`${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>الكمية: {p.stock}</span>
+                        <TimeAgo iso={p.createdAtISO} className="text-green-500 font-bold"/>
                       </div>
                     </div>
                     <div className="flex flex-col gap-1.5 self-center">
-                      <button onClick={()=>onMarkProductSold(p)} title="تم البيع" className="p-2 bg-green-500/20 rounded-xl text-green-400 hover:bg-green-500/30"><CheckCircle className="w-3.5 h-3.5"/></button>
-                      <button onClick={()=>onEditProduct(p)} className="p-2 bg-purple-500/20 rounded-xl text-purple-400 hover:bg-purple-500/30" title="تعديل المنتج" aria-label="تعديل المنتج"><Edit2 className="w-3.5 h-3.5"/></button>
-                      <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30" title="حذف المنتج" aria-label="حذف المنتج"><Trash2 className="w-3.5 h-3.5"/></button>
+                      <button onClick={()=>onMarkProductSold(p)} title="تم البيع" className={`p-2 rounded-xl transition-all ${isDarkMode ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}><CheckCircle className="w-3.5 h-3.5"/></button>
+                      <button onClick={()=>onEditProduct(p)} className={`p-2 rounded-xl transition-all ${isDarkMode ? 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30' : 'bg-purple-50 text-purple-600 hover:bg-purple-100'}`} title="تعديل المنتج" aria-label="تعديل المنتج"><Edit2 className="w-3.5 h-3.5"/></button>
+                      <button onClick={()=>onDeleteProduct(p.id)} className={`p-2 rounded-xl transition-all ${isDarkMode ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-red-50 text-red-600 hover:bg-red-100'}`} title="حذف المنتج" aria-label="حذف المنتج"><Trash2 className="w-3.5 h-3.5"/></button>
                     </div>
                   </div>
                 ))}
+
+                <InfiniteScrollTrigger
+                  onLoadMore={async () => {
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    setVisibleProdsLimit(prev => prev + 5);
+                  }}
+                  hasMore={visibleProdsLimit < allMyProducts.filter(p=>p.status==='active').length}
+                  loadingText="جاري عرض المزيد من المنتجات..."
+                  skeletonType="none"
+                />
               </div>
             )}
           </>
@@ -679,52 +809,67 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
           <>
             {isLoadingArchive ? (
               <div className="flex justify-center p-10"><div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>
-            ) : (allMyAds.filter(a=>a.status==='sold').length === 0 && allMyProducts.filter(p=>p.status==='sold').length === 0) ? (
-              <div className="bg-gray-800 rounded-2xl p-10 text-center border border-gray-700 border-dashed">
+            ) : combinedArchive.length === 0 ? (
+              <div className={`rounded-2xl p-10 text-center border border-dashed ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-slate-200 text-slate-800 shadow-sm'}`}>
                 <div className="text-4xl mb-3">📦</div>
-                <p className="text-white font-bold mb-1">الأرشيف فارغ</p>
-                <p className="text-gray-400 text-sm">المنتجات والإعلانات التي تبيعها وتؤرشفها ستظهر هنا.</p>
+                <p className={`font-bold mb-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>الأرشيف فارغ</p>
+                <p className={`${isDarkMode ? 'text-gray-400' : 'text-slate-500'} text-sm`}>المنتجات والإعلانات التي تبيعها وتؤرشفها ستظهر هنا.</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {/* Sold Ads */}
-                {allMyAds.filter(a=>a.status==='sold').map(ad=>(
-                  <div key={ad.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-red-500/30 transition-colors relative">
-                    <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700 opacity-60"/>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-bold text-sm line-clamp-1 opacity-75">{ad.title}</p>
-                      <p className="text-amber-400 text-sm font-bold opacity-75">{formatPrice(ad.price)} <span className="text-xs text-gray-400">د.ع</span></p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-[10px] font-bold rounded-lg border border-red-500/30 flex items-center gap-0.5">
-                          🚫 تم البيع
-                        </span>
-                        <span className="text-gray-500 text-xs">إعلان</span>
+                {combinedArchive.slice(0, visibleArchLimit).map(item => {
+                  if (!item.isProduct) {
+                    // Sold Ad
+                    return (
+                      <div key={`sold-ad-${item.id}`} className={`rounded-2xl p-3 border flex gap-3 transition-colors relative ${isDarkMode ? 'bg-gray-800/80 border-gray-700/60 hover:border-red-500/30' : 'bg-white border-slate-200/80 hover:border-red-500/40 hover:shadow-sm'}`}>
+                        <img src={item.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className={`w-16 h-16 rounded-xl object-cover flex-shrink-0 border opacity-60 ${isDarkMode ? 'border-gray-700' : 'border-slate-100'}`}/>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-bold text-sm line-clamp-1 opacity-75 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{item.title}</p>
+                          <p className="text-amber-500 text-sm font-bold opacity-75">{formatPrice(item.price)} <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>د.ع</span></p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className={`px-2 py-0.5 text-[10px] font-bold rounded-lg flex items-center gap-0.5 border ${isDarkMode ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-red-50 text-red-600 border-red-100'}`}>
+                              🚫 تم البيع
+                            </span>
+                            <span className={`text-[10px] ${isDarkMode ? 'text-gray-500' : 'text-slate-400 font-bold'}`}>إعلان</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1.5 self-center">
+                          <button onClick={()=>onDeleteAd(item.id)} className={`p-2 rounded-xl transition-all ${isDarkMode ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-red-50 text-red-600 hover:bg-red-100'}`} title="حذف الإعلان" aria-label="حذف الإعلان"><Trash2 className="w-3.5 h-3.5"/></button>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex flex-col gap-1.5 self-center">
-                      <button onClick={()=>onDeleteAd(ad.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30" title="حذف الإعلان" aria-label="حذف الإعلان"><Trash2 className="w-3.5 h-3.5"/></button>
-                    </div>
-                  </div>
-                ))}
-                {/* Sold Products */}
-                {allMyProducts.filter(p=>p.status==='sold').map(p=>(
-                  <div key={p.id} className="bg-gray-800 rounded-2xl p-3 border border-gray-700 flex gap-3 hover:border-red-500/30 transition-colors relative">
-                    <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-700 opacity-60"/>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-bold text-sm line-clamp-1 opacity-75">{p.title}</p>
-                      <p className="text-amber-400 text-sm font-bold opacity-75">{formatPrice(p.price)} <span className="text-xs text-gray-400">د.ع</span></p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-[10px] font-bold rounded-lg border border-red-500/30 flex items-center gap-0.5">
-                          🚫 تم البيع
-                        </span>
-                        <span className="text-gray-500 text-xs">منتج</span>
+                    );
+                  } else {
+                    // Sold Product
+                    return (
+                      <div key={`sold-prod-${item.id}`} className={`rounded-2xl p-3 border flex gap-3 transition-colors relative ${isDarkMode ? 'bg-gray-800/80 border-gray-700/60 hover:border-red-500/30' : 'bg-white border-slate-200/80 hover:border-red-500/40 hover:shadow-sm'}`}>
+                        <img src={item.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className={`w-16 h-16 rounded-xl object-cover flex-shrink-0 border opacity-60 ${isDarkMode ? 'border-gray-700' : 'border-slate-100'}`}/>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-bold text-sm line-clamp-1 opacity-75 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{item.title}</p>
+                          <p className="text-amber-500 text-sm font-bold opacity-75">{formatPrice(item.price)} <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>د.ع</span></p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className={`px-2 py-0.5 text-[10px] font-bold rounded-lg flex items-center gap-0.5 border ${isDarkMode ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-red-50 text-red-600 border-red-100'}`}>
+                              🚫 تم البيع
+                            </span>
+                            <span className={`text-[10px] ${isDarkMode ? 'text-gray-500' : 'text-slate-400 font-bold'}`}>منتج</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1.5 self-center">
+                          <button onClick={()=>onDeleteProduct(item.id)} className={`p-2 rounded-xl transition-all ${isDarkMode ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-red-50 text-red-600 hover:bg-red-100'}`} title="حذف المنتج" aria-label="حذف المنتج"><Trash2 className="w-3.5 h-3.5"/></button>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex flex-col gap-1.5 self-center">
-                      <button onClick={()=>onDeleteProduct(p.id)} className="p-2 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30" title="حذف المنتج" aria-label="حذف المنتج"><Trash2 className="w-3.5 h-3.5"/></button>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  }
+                })}
+
+                <InfiniteScrollTrigger
+                  onLoadMore={async () => {
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    setVisibleArchLimit(prev => prev + 5);
+                  }}
+                  hasMore={visibleArchLimit < combinedArchive.length}
+                  loadingText="جاري عرض المزيد من الأرشيف..."
+                  skeletonType="none"
+                />
               </div>
             )}
           </>
@@ -747,16 +892,16 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
 
         {tab==='account'&&(
           <div className="space-y-4">
-            <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700">
+            <div className={`rounded-2xl p-5 border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200 shadow-sm'}`}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-white font-bold flex items-center gap-2"><UserIcon className="w-4 h-4 text-amber-400"/>المعلومات الشخصية</h3>
+                <h3 className={`font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-800 font-extrabold'}`}><UserIcon className="w-4 h-4 text-amber-400"/>المعلومات الشخصية</h3>
                 {!editing&&<button onClick={()=>setEditing(true)} className="text-xs text-amber-400 hover:underline flex items-center gap-1"><Edit2 className="w-3 h-3"/> تعديل</button>}
               </div>
               <div className="space-y-3">
-                 {[{label:'الاسم الكامل',field:'name',placeholder:'اسمك الكامل'},{label:'رقم الهاتف',field:'phone',placeholder:'07XXXXXXXXX'},{label:'البريد الإلكتروني',field:'email',placeholder:'example@domain.com'},{label:'نبذة شخصية',field:'bio',placeholder:'اكتب نبذة...',multi:true}].map(({label,field,placeholder,multi})=>(
-                  <div key={field}><label className="text-gray-400 text-xs font-medium mb-1 block">{label}</label>
+                {[{label:'الاسم الكامل',field:'name',placeholder:'اسمك الكامل'},{label:'رقم الهاتف',field:'phone',placeholder:'07XXXXXXXXX'},{label:'البريد الإلكتروني',field:'email',placeholder:'example@domain.com'},{label:'نبذة شخصية',field:'bio',placeholder:'اكتب نبذة...',multi:true}].map(({label,field,placeholder,multi})=>(
+                  <div key={field}><label className={`text-xs font-medium mb-1 block ${isDarkMode ? 'text-gray-400' : 'text-slate-500 font-semibold'}`}>{label}</label>
                     {multi?(
-                      <textarea disabled={!editing} value={(ef as any)[field]} onChange={e=>setEf({...ef,[field]:e.target.value})} placeholder={placeholder} rows={2} className={`w-full bg-gray-700 text-white rounded-xl py-2.5 px-4 border outline-none resize-none text-sm ${editing?'border-amber-400':'border-gray-600 opacity-70'}`}/>
+                      <textarea disabled={!editing} value={(ef as any)[field]} onChange={e=>setEf({...ef,[field]:e.target.value})} placeholder={placeholder} rows={2} className={`w-full rounded-xl py-2.5 px-4 border outline-none resize-none text-sm transition-colors ${isDarkMode ? 'bg-gray-700 text-white border-gray-600 focus:border-amber-400 disabled:opacity-70' : 'bg-slate-50 text-slate-900 border-slate-200 focus:border-amber-500 disabled:opacity-75'}`}/>
                     ):(
                       <input 
                         disabled={!editing} 
@@ -764,35 +909,35 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                         onChange={e=>setEf({...ef,[field]:e.target.value})} 
                         placeholder={placeholder} 
                         dir={field === 'phone' || field === 'email' ? 'ltr' : undefined}
-                        className={`w-full bg-gray-700 text-white rounded-xl py-2.5 px-4 border outline-none text-sm ${editing?'border-amber-400':'border-gray-600 opacity-70'} ${field === 'phone' || field === 'email' ? 'text-left font-mono' : 'text-right'}`}
+                        className={`w-full rounded-xl py-2.5 px-4 border outline-none text-sm transition-colors ${isDarkMode ? 'bg-gray-700 text-white border-gray-600 focus:border-amber-400 disabled:opacity-70' : 'bg-slate-50 text-slate-900 border-slate-200 focus:border-amber-500 disabled:opacity-75'} ${field === 'phone' || field === 'email' ? 'text-left font-mono' : 'text-right'}`}
                       />
                     )}
                   </div>
                 ))}
-                <div><label className="text-gray-400 text-xs font-medium mb-1 block">المحافظة</label>
-                  <select disabled={!editing} value={ef.location} onChange={e=>setEf({...ef,location:e.target.value})} className={`w-full bg-gray-700 text-white rounded-xl py-2.5 px-4 border outline-none text-sm ${editing?'border-amber-400':'border-gray-600 opacity-70'}`} title="المحافظة" aria-label="المحافظة">
+                <div><label className={`text-xs font-medium mb-1 block ${isDarkMode ? 'text-gray-400' : 'text-slate-500 font-semibold'}`}>المحافظة</label>
+                  <select disabled={!editing} value={ef.location} onChange={e=>setEf({...ef,location:e.target.value})} className={`w-full rounded-xl py-2.5 px-4 border outline-none text-sm transition-colors ${isDarkMode ? 'bg-gray-700 text-white border-gray-600 focus:border-amber-400' : 'bg-slate-50 text-slate-900 border-slate-200 focus:border-amber-500'}`} title="المحافظة" aria-label="المحافظة">
                     {IRAQI_GOVERNORATES.filter(g=>g!=='الكل').map(g=><option key={g}>{g}</option>)}</select></div>
                 {editing&&<div className="flex gap-3 pt-2">
                   <button onClick={handleSave} disabled={isSaving} className="flex-1 py-3 bg-green-500 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                     {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4"/>}
                     حفظ التغييرات
                   </button>
-                  <button onClick={()=>setEditing(false)} className="px-4 py-3 bg-gray-700 text-gray-300 rounded-xl text-sm">إلغاء</button>
+                  <button onClick={()=>setEditing(false)} className={`px-4 py-3 rounded-xl text-sm ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>إلغاء</button>
                 </div>}
               </div>
             </div>
             {/* Email (read-only info card, but we add Edit Password button here) */}
-            <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700">
-              <h3 className="text-white font-bold flex items-center gap-2 mb-3"><Mail className="w-4 h-4 text-blue-400"/>معلومات الحساب</h3>
+            <div className={`rounded-2xl p-5 border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200 shadow-sm'}`}>
+              <h3 className={`font-bold flex items-center gap-2 mb-3 ${isDarkMode ? 'text-white' : 'text-slate-800 font-extrabold'}`}><Mail className="w-4 h-4 text-gray-300"/>معلومات الحساب</h3>
               <div className="space-y-2">
                 {[{label:'البريد الإلكتروني',val:user.email},{label:'تاريخ الانضمام',val:formatJoinedDate(user.joinedDate)},{label:'نوع الحساب',val:user.role==='owner'?'مالك':user.role==='admin'?'مشرف':'مستخدم'}].map((r,i)=>(
-                  <div key={i} className="flex items-center justify-between py-2 border-b border-gray-700 last:border-0 gap-4">
-                    <span className="text-gray-400 text-sm shrink-0">{r.label}</span>
-                    <span className={`text-white text-sm font-medium ${r.label === 'البريد الإلكتروني' ? 'truncate max-w-[150px] sm:max-w-none text-left font-mono block' : 'text-right'}`} dir={r.label === 'البريد الإلكتروني' ? 'ltr' : undefined}>{r.val}</span>
+                  <div key={i} className={`flex items-center justify-between py-2 border-b last:border-0 gap-4 ${isDarkMode ? 'border-gray-700' : 'border-slate-100'}`}>
+                    <span className={`text-sm shrink-0 ${isDarkMode ? 'text-gray-400' : 'text-slate-500 font-semibold'}`}>{r.label}</span>
+                    <span className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-slate-800'} ${r.label === 'البريد الإلكتروني' ? 'truncate max-w-[150px] sm:max-w-none text-left font-mono block' : 'text-right'}`} dir={r.label === 'البريد الإلكتروني' ? 'ltr' : undefined}>{r.val}</span>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 pt-4 border-t border-gray-700 flex justify-end">
+              <div className={`mt-4 pt-4 border-t flex justify-end ${isDarkMode ? 'border-gray-700' : 'border-slate-100'}`}>
                 <button 
                   onClick={() => setShowPasswordModal(true)} 
                   className="py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs flex items-center gap-2 transition-colors shadow-lg"
@@ -812,21 +957,21 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
         {showVerifyModal && (
           <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[110] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={()=>setShowVerifyModal(false)}/>
-            <motion.div initial={{scale:0.95}} animate={{scale:1}} className="relative bg-gray-900 rounded-3xl p-6 w-full max-w-md border border-gray-700 shadow-2xl">
-              <button onClick={()=>setShowVerifyModal(false)} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><VerifiedBadge className="w-5 h-5" /> طلب توثيق الحساب</h2>
-              <p className="text-gray-400 text-sm mb-4">يرجى رفع صورة واضحة لهويتك الشخصية (البطاقة الوطنية أو جواز السفر) لتوثيق حسابك والحصول على شارة الموثوقية.</p>
+            <motion.div initial={{scale:0.95}} animate={{scale:1}} className={`relative rounded-3xl p-6 w-full max-w-md border shadow-2xl ${isDarkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}>
+              <button onClick={()=>setShowVerifyModal(false)} className={`absolute top-4 left-4 p-2 rounded-xl transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`} title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
+              <h2 className={`text-xl font-bold mb-4 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}><VerifiedBadge className="w-5 h-5" /> طلب توثيق الحساب</h2>
+              <p className={`text-sm mb-4 leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-slate-500 font-medium'}`}>يرجى رفع صورة واضحة لهويتك الشخصية (البطاقة الوطنية أو جواز السفر) لتوثيق حسابك والحصول على شارة الموثوقية.</p>
               
               <div className="mb-4">
                 {verifyImage ? (
-                  <div className="relative rounded-2xl overflow-hidden border border-gray-700 bg-gray-800">
+                  <div className={`relative rounded-2xl overflow-hidden border ${isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-slate-200 bg-slate-50'}`}>
                     <img src={verifyImage} alt="ID" className="w-full h-48 object-cover"/>
                     <button onClick={()=>setVerifyImage(null)} className="absolute top-2 left-2 p-2 bg-red-500 rounded-xl text-white shadow-lg" title="حذف الصورة" aria-label="حذف الصورة"><Trash2 className="w-4 h-4"/></button>
                   </div>
                 ) : (
-                  <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-gray-700 rounded-2xl cursor-pointer hover:bg-gray-800 transition-colors">
+                  <label className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${isDarkMode ? 'border-gray-700 hover:bg-gray-800' : 'border-slate-200 hover:bg-slate-50'}`}>
                     <Camera className="w-8 h-8 text-gray-500 mb-2"/>
-                    <span className="text-gray-400 text-sm">اضغط هنا لالتقاط أو رفع صورة</span>
+                    <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-slate-500 font-bold'}`}>اضغط هنا لالتقاط أو رفع صورة</span>
                     <input type="file" accept="image/*" capture="environment" className="hidden" title="تحميل صورة الهوية" aria-label="تحميل صورة الهوية" onChange={async (e) => {
                       if(e.target.files?.[0]) {
                         const b64 = await compressImage(e.target.files[0], 1200, 0.8, false);
@@ -837,7 +982,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                 )}
               </div>
               
-              <button onClick={submitVerification} disabled={!verifyImage || isVerifying} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl disabled:opacity-50 hover:bg-blue-700 transition-colors">
+              <button onClick={submitVerification} disabled={!verifyImage || isVerifying} className="w-full py-3 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl disabled:opacity-50 transition-colors">
                 {isVerifying ? 'جاري الإرسال...' : 'إرسال طلب التوثيق'}
               </button>
             </motion.div>

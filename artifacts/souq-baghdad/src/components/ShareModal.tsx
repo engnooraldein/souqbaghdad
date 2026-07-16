@@ -28,6 +28,7 @@ export interface ShareModalProps {
   location?: string;
   short_id?: string;
   description?: string;
+  category?: string;
 }
 
 type PlatformType = 'insta_story' | 'insta_direct' | 'insta_reels' | 'facebook' | 'whatsapp' | 'telegram' | 'copy_link' | 'native' | 'show_more';
@@ -42,7 +43,8 @@ export function ShareModal({
   governorate, 
   location,
   short_id,
-  description 
+  description,
+  category = 'general'
 }: ShareModalProps) {
   const [activeTab, setActiveTab] = useState<'text' | 'card'>('text');
   const [cardFormat, setCardFormat] = useState<'story' | 'post'>('story');
@@ -82,7 +84,7 @@ export function ShareModal({
     if (isOpen) {
       generateCanvasCard(cardFormat);
     }
-  }, [isOpen, cardFormat, title, price, image, locText, description]);
+  }, [isOpen, cardFormat, title, price, image, locText, description, category]);
 
   const triggerToast = (msg: string) => {
     setToastMsg(msg);
@@ -117,51 +119,109 @@ export function ShareModal({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Background Gradient
+      // Category Theme Logic
+      let bgGradColor1 = '#0f172a';
+      let bgGradColor2 = '#020617';
+      let accentColor = '#f59e0b'; // Default Amber
+      let secondaryColor = '#d97706';
+      
+      switch(category) {
+        case 'cars':
+          bgGradColor1 = '#1e1b4b'; // Deep Indigo
+          bgGradColor2 = '#0f172a';
+          accentColor = '#ef4444'; // Red
+          secondaryColor = '#b91c1c';
+          break;
+        case 'real-estate':
+          bgGradColor1 = '#064e3b'; // Emerald dark
+          bgGradColor2 = '#022c22';
+          accentColor = '#10b981'; // Emerald
+          secondaryColor = '#047857';
+          break;
+        case 'electronics':
+          bgGradColor1 = '#172554'; // Blue dark
+          bgGradColor2 = '#020617';
+          accentColor = '#3b82f6'; // Blue
+          secondaryColor = '#1d4ed8';
+          break;
+        case 'furniture':
+        case 'clothes':
+          bgGradColor1 = '#4c0519'; // Rose dark
+          bgGradColor2 = '#2e1065';
+          accentColor = '#f43f5e'; // Rose
+          secondaryColor = '#be123c';
+          break;
+        default:
+          bgGradColor1 = '#1e293b'; // Slate dark
+          bgGradColor2 = '#020617';
+          accentColor = '#f59e0b'; // Amber
+          secondaryColor = '#d97706';
+          break;
+      }
+
+      // 1. Background Gradient
       const bgGrad = ctx.createLinearGradient(0, 0, width, height);
-      bgGrad.addColorStop(0, '#0a1128');
-      bgGrad.addColorStop(0.5, '#0f172a');
-      bgGrad.addColorStop(1, '#070b19');
+      bgGrad.addColorStop(0, bgGradColor1);
+      bgGrad.addColorStop(1, bgGradColor2);
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, width, height);
 
-      // Circles
+      // 2. Decorative Modern Shapes
       ctx.save();
-      ctx.fillStyle = 'rgba(245, 158, 11, 0.05)';
-      ctx.beginPath();
-      ctx.arc(width * 0.9, height * 0.1, 400, 0, Math.PI * 2);
-      ctx.fill();
+      // Glow circle top right
+      const glowGrad1 = ctx.createRadialGradient(width, 0, 0, width, 0, 600);
+      glowGrad1.addColorStop(0, `${accentColor}40`);
+      glowGrad1.addColorStop(1, 'transparent');
+      ctx.fillStyle = glowGrad1;
+      ctx.fillRect(0, 0, width, height);
+      
+      // Glow circle bottom left
+      const glowGrad2 = ctx.createRadialGradient(0, height, 0, 0, height, 800);
+      glowGrad2.addColorStop(0, `${secondaryColor}30`);
+      glowGrad2.addColorStop(1, 'transparent');
+      ctx.fillStyle = glowGrad2;
+      ctx.fillRect(0, 0, width, height);
       ctx.restore();
 
-      // Header Badge
-      const headerY = isStory ? 110 : 50;
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-      ctx.roundRect ? ctx.roundRect(width / 2 - 270, headerY, 540, 90, 45) : ctx.fillRect(width / 2 - 270, headerY, 540, 90);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
-      ctx.lineWidth = 3;
-      ctx.stroke();
+      // 3. Header Area & Logo
+      const headerY = isStory ? 100 : 60;
+      
+      // Draw Logo
+      try {
+        const logoImg = new Image();
+        logoImg.crossOrigin = 'anonymous';
+        logoImg.src = '/logo.png';
+        await new Promise((res, rej) => { logoImg.onload = res; logoImg.onerror = rej; });
+        const logoSize = 120;
+        ctx.drawImage(logoImg, width / 2 - logoSize / 2, headerY, logoSize, logoSize);
+      } catch (e) {
+        console.error('Failed to load logo on canvas');
+      }
 
+      const siteTitleY = headerY + 160;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font = 'bold 40px system-ui, sans-serif';
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillText('سوق بغداد 🇮🇶 SOUQ BAGHDAD', width / 2, headerY + 45);
+      ctx.font = 'bold 36px system-ui, sans-serif';
+      ctx.fillStyle = accentColor;
+      ctx.fillText('سوق بغداد 🇮🇶 SOUQ BAGHDAD', width / 2, siteTitleY);
 
-      // Image Area
-      const imgSize = isStory ? 720 : 480;
+      // 4. Main Image Area (Polished Glassmorphism Look)
+      const imgSize = isStory ? 740 : 480;
       const imgX = (width - imgSize) / 2;
-      const imgY = isStory ? 240 : 160;
+      const imgY = siteTitleY + 60;
 
       ctx.save();
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-      ctx.shadowBlur = 35;
-      ctx.shadowOffsetY = 18;
-      ctx.fillStyle = '#1e293b';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      ctx.shadowBlur = 40;
+      ctx.shadowOffsetY = 20;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
       if (ctx.roundRect) {
         ctx.beginPath();
-        ctx.roundRect(imgX, imgY, imgSize, imgSize, 36);
+        ctx.roundRect(imgX, imgY, imgSize, imgSize, 40);
         ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
       } else {
         ctx.fillRect(imgX, imgY, imgSize, imgSize);
       }
@@ -182,7 +242,7 @@ export function ShareModal({
           ctx.save();
           if (ctx.roundRect) {
             ctx.beginPath();
-            ctx.roundRect(imgX, imgY, imgSize, imgSize, 36);
+            ctx.roundRect(imgX, imgY, imgSize, imgSize, 40);
             ctx.clip();
           }
           
@@ -203,88 +263,102 @@ export function ShareModal({
           ctx.drawImage(img, imgX + offX, imgY + offY, drawW, drawH);
           ctx.restore();
 
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-          ctx.lineWidth = 4;
+          // Image Border Glow
+          ctx.strokeStyle = accentColor;
+          ctx.lineWidth = 5;
+          ctx.globalAlpha = 0.5;
           if (ctx.roundRect) {
             ctx.beginPath();
-            ctx.roundRect(imgX, imgY, imgSize, imgSize, 36);
+            ctx.roundRect(imgX, imgY, imgSize, imgSize, 40);
             ctx.stroke();
           }
+          ctx.globalAlpha = 1.0;
         } catch (err) {
-          console.error('Image draw error:', err);
-          ctx.fillStyle = '#f59e0b';
-          ctx.font = 'bold 120px system-ui';
+          ctx.fillStyle = accentColor;
+          ctx.font = 'bold 150px system-ui';
           ctx.fillText('🛍️', width / 2, imgY + imgSize / 2);
         }
       } else {
-        ctx.fillStyle = '#f59e0b';
-        ctx.font = 'bold 120px system-ui';
+        ctx.fillStyle = accentColor;
+        ctx.font = 'bold 150px system-ui';
         ctx.fillText('🛍️', width / 2, imgY + imgSize / 2);
       }
 
-      // Content Box
-      const contentY = imgY + imgSize + (isStory ? 60 : 35);
-      ctx.font = 'bold 48px system-ui, sans-serif';
+      // 5. Content Box
+      const contentY = imgY + imgSize + 70;
+      
+      // Title
+      ctx.font = '900 54px system-ui, sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
-      
       let displayTitle = title;
-      if (displayTitle.length > 35) {
-        displayTitle = displayTitle.substring(0, 32) + '...';
+      if (displayTitle.length > 32) {
+        displayTitle = displayTitle.substring(0, 29) + '...';
       }
       ctx.fillText(displayTitle, width / 2, contentY);
 
-      const badgeY = contentY + 65;
-      ctx.font = 'bold 32px system-ui, sans-serif';
+      // Location & ID
+      const badgeY = contentY + 70;
+      ctx.font = 'bold 36px system-ui, sans-serif';
       ctx.fillStyle = '#94a3b8';
       ctx.fillText(`📍 ${locText} ${idBadge}`, width / 2, badgeY);
 
-      // Render Description Snippet
-      let nextY = badgeY + 55;
-      if (description) {
-        ctx.font = '28px system-ui, sans-serif';
-        ctx.fillStyle = '#cbd5e1';
-        let cleanDesc = description.replace(/[\r\n]+/g, ' ').trim();
-        if (cleanDesc.length > 60) {
-          cleanDesc = cleanDesc.substring(0, 57) + '...';
-        }
-        ctx.fillText(cleanDesc, width / 2, nextY);
-        nextY += 55;
-      }
-
+      // Price Tag (If exists)
+      let nextY = badgeY + 70;
       if (price) {
-        const priceY = nextY + (isStory ? 35 : 20);
         const priceText = `${price} د.ع`;
-        ctx.font = 'bold 56px system-ui, sans-serif';
-        const pWidth = ctx.measureText(priceText).width + 90;
+        ctx.font = '900 64px system-ui, sans-serif';
+        const pWidth = ctx.measureText(priceText).width + 120;
         
-        const pGrad = ctx.createLinearGradient(width/2 - pWidth/2, priceY - 45, width/2 + pWidth/2, priceY + 45);
-        pGrad.addColorStop(0, '#fbbf24');
-        pGrad.addColorStop(1, '#d97706');
+        const pGrad = ctx.createLinearGradient(width/2 - pWidth/2, nextY - 50, width/2 + pWidth/2, nextY + 50);
+        pGrad.addColorStop(0, accentColor);
+        pGrad.addColorStop(1, secondaryColor);
+        
+        ctx.save();
+        ctx.shadowColor = accentColor;
+        ctx.shadowBlur = 20;
         ctx.fillStyle = pGrad;
-
         if (ctx.roundRect) {
           ctx.beginPath();
-          ctx.roundRect(width / 2 - pWidth / 2, priceY - 45, pWidth, 90, 45);
+          ctx.roundRect(width / 2 - pWidth / 2, nextY - 50, pWidth, 100, 50);
           ctx.fill();
         } else {
-          ctx.fillRect(width / 2 - pWidth / 2, priceY - 45, pWidth, 90);
+          ctx.fillRect(width / 2 - pWidth / 2, nextY - 50, pWidth, 100);
         }
+        ctx.restore();
 
-        ctx.fillStyle = '#0f172a';
-        ctx.fillText(priceText, width / 2, priceY + 4);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(priceText, width / 2, nextY + 5);
+        nextY += 120;
       }
 
-      const footerY = isStory ? height - 130 : height - 50;
-      ctx.font = 'bold 34px system-ui, sans-serif';
-      ctx.fillStyle = '#cbd5e1';
-      ctx.fillText('تصفح الإعلان والتواصل المباشر عبر المنصة 🚀', width / 2, footerY);
-      
-      ctx.font = 'bold 30px system-ui, sans-serif';
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillText('www.souqbaghdad.store', width / 2, footerY + 45);
+      // Description Snippet
+      if (description) {
+        ctx.font = '32px system-ui, sans-serif';
+        ctx.fillStyle = '#cbd5e1';
+        let cleanDesc = description.replace(/[\r\n]+/g, ' ').trim();
+        if (cleanDesc.length > 55) {
+          cleanDesc = cleanDesc.substring(0, 52) + '...';
+        }
+        ctx.fillText(cleanDesc, width / 2, nextY);
+      }
 
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      // 6. Footer (Call to Action)
+      const footerY = isStory ? height - 160 : height - 80;
+      
+      // Footer Divider
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.fillRect(width / 2 - 400, footerY - 70, 800, 2);
+
+      ctx.font = 'bold 38px system-ui, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('لطلب النشر زورنا وشاركوو هاذا تصميم 🚀', width / 2, footerY);
+      
+      ctx.font = 'bold 32px system-ui, sans-serif';
+      ctx.fillStyle = accentColor;
+      ctx.fillText('www.souqbaghdad.store', width / 2, footerY + 60);
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95); // High quality
       setCardDataUrl(dataUrl);
     } catch (e) {
       console.error('Failed card creation', e);
@@ -419,7 +493,7 @@ export function ShareModal({
       name: 'نسخ الرابط', 
       tag: 'رابط مباشر 🔗', 
       icon: <Link2 className="w-6 h-6 text-white" />, 
-      bg: 'bg-blue-500 shadow-blue-500/30' 
+      bg: 'bg-gray-800 shadow-gray-800/30' 
     },
     { 
       id: 'whatsapp', 
@@ -465,7 +539,7 @@ export function ShareModal({
       name: 'فيسبوك', 
       tag: 'بوست / ستوري 📘', 
       icon: <Facebook className="w-6 h-6 text-white" />, 
-      bg: 'bg-blue-600 shadow-blue-500/30' 
+      bg: 'bg-gray-800 shadow-gray-800/30' 
     },
   ];
 
@@ -676,7 +750,7 @@ export function ShareModal({
                 </div>
 
                 {/* PROMINENT USER TIP BOX FOR STORY LINK STICKER */}
-                <div className="p-3.5 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-xs text-blue-200 flex items-start gap-2.5 text-right dir-rtl">
+                <div className="p-3.5 bg-gray-800/10 border border-gray-800/20 rounded-2xl text-xs text-blue-200 flex items-start gap-2.5 text-right dir-rtl">
                   <Lightbulb className="w-5 h-5 text-amber-400 shrink-0 mt-0.5 animate-pulse" />
                   <div className="flex-1">
                     <span className="font-bold block text-blue-300 text-xs mb-0.5">💡 نصيحة للنشر الذكي والسريع:</span>

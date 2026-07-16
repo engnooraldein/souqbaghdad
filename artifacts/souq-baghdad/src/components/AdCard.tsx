@@ -80,7 +80,7 @@ export function getAdCategoryPlaceholderImage(category?: string): string {
 export const getCategoryIcon = (categoryId?: string) => {
   switch (categoryId) {
     case 'cars':
-      return { icon: Car, label: 'سيارات', color: 'bg-blue-500/25 text-blue-300 border-blue-500/40' };
+      return { icon: Car, label: 'سيارات', color: 'bg-gray-800/25 text-blue-300 border-gray-800/40' };
     case 'real-estate':
       return { icon: Home, label: 'عقارات', color: 'bg-emerald-500/25 text-emerald-300 border-emerald-500/40' };
     case 'phones':
@@ -108,9 +108,10 @@ export const getCategoryIcon = (categoryId?: string) => {
   }
 };
 
-export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu, sellerRole }:{
+export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu, sellerRole, compact }:{
   ad:Ad; onSelect:()=>void; isFav:boolean; onFav:(e:React.MouseEvent)=>void; onSellerClick?:(id:string)=>void; onActionMenu?:(e:React.MouseEvent)=>void;
   sellerRole?: string;
+  compact?: boolean;
 }) {
   const onlineStatuses = useOnlineStatuses();
   const time = useRelativeTime(ad.createdAtISO);
@@ -119,61 +120,67 @@ export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, o
 
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 15 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-40px" }}
-      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ y: -4 }} 
+      viewport={{ once: true, margin: "-20px" }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ y: -3 }} 
       onClick={onSelect} 
       onContextMenu={onActionMenu}
-      className="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full"
+      className={`bg-white dark:bg-gray-900 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full shadow-md hover:shadow-lg ${
+        compact ? 'bg-white dark:bg-gray-950/20 border-gray-150 dark:border-gray-900/60' : ''
+      }`}
     >
-      <div className="relative w-full aspect-square sm:aspect-[4/3] overflow-hidden flex-shrink-0">
+      <div className={`relative w-full overflow-hidden flex-shrink-0 rounded-t-xl aspect-[4/3]`}>
         <ImageWithDataSaver src={ad.images?.[0] || getAdCategoryPlaceholderImage(ad.category)} alt={ad.title} className="w-full h-full object-cover" />
         
-
-
-        <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold text-white shadow-md z-10 ${
+        <div className={`absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold text-white shadow-md z-10 ${
           ad.condition === 'new' ? 'bg-emerald-600 border border-emerald-500/30' : 'bg-amber-600 border border-amber-500/30'
         }`}>
           {ad.condition === 'new' ? 'جديد' : 'مستعمل'}
         </div>
         {isNewItem(ad.createdAtISO) && (
-          <div className="absolute top-8 left-2 px-2 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[9px] font-extrabold rounded-lg z-10 shadow-lg shadow-red-500/25 border border-red-400/30 animate-pulse">
+          <div className={`absolute px-1.5 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[8px] font-extrabold rounded z-10 shadow-lg shadow-red-500/25 border border-red-400/30 animate-pulse ${
+            compact ? 'top-6 left-1.5' : 'top-8 left-2'
+          }`}>
             حديث ✨
           </div>
         )}
-        {ad.type==='rent'&&<div className={`absolute px-2 py-0.5 bg-blue-500 rounded-full text-[10px] font-bold text-white transition-all z-10 ${isNewItem(ad.createdAtISO) ? 'top-14 left-2' : 'top-8 left-2'}`}>للإيجار</div>}
-        <button onClick={onFav} className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'} transition-colors`} title={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"} aria-label={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}>
-          <Heart className={`w-4 h-4 text-white ${isFav?'fill-current':''}`}/></button>
-        {ad.seller?.isVerified&&<div className="absolute bottom-2 left-2 px-2 py-0.5 bg-blue-500 rounded-full text-[10px] font-bold text-white flex items-center gap-1"><VerifiedBadge className="w-2.5 h-2.5"/>موثق</div>}
-        {ad.status==='sold'&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-[1px]"><span className="bg-red-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
+        {ad.type==='rent'&&<div className={`absolute px-1.5 py-0.5 bg-gray-800 rounded text-[8px] font-bold text-white transition-all z-10 ${
+          isNewItem(ad.createdAtISO) ? (compact ? 'top-11 left-1.5' : 'top-14 left-2') : (compact ? 'top-6 left-1.5' : 'top-8 left-2')
+        }`}>للإيجار</div>}
+        <button onClick={onFav} className={`absolute top-1.5 right-1.5 w-7 h-7 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'} transition-colors`} title={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"} aria-label={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}>
+          <Heart className={`w-3.5 h-3.5 text-white ${isFav?'fill-current':''}`}/></button>
+        {ad.seller?.isVerified&&<div className={`absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-gray-800 rounded-full text-[8px] font-bold text-white flex items-center gap-0.5`}><VerifiedBadge className="w-2 h-2"/>موثق</div>}
+        {ad.status==='sold'&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-[1px]"><span className="bg-red-600 text-white font-bold text-[10px] px-2 py-1 rounded-lg border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
       </div>
-      <div className="p-3 sm:p-4 flex-1 flex flex-col relative z-20 bg-gray-900 rounded-t-2xl -mt-4 border-t border-gray-800 shadow-[0_-8px_15px_-3px_rgba(0,0,0,0.4)]">
-        <h3 className="text-white font-bold text-sm mb-1 line-clamp-1">{ad.title}</h3>
-        <div className="flex items-center justify-between mt-1 mb-2">
-          <p className="text-lg sm:text-xl font-black text-amber-400 tracking-tight leading-none">
-            {formatPrice(ad.price)} <span className="text-xs font-bold text-gray-450 mr-0.5">د.ع</span>
+      <div className={`flex-1 flex flex-col relative z-20 bg-white dark:bg-gray-900 rounded-t-xl -mt-3 border-t border-gray-200 dark:border-gray-800 shadow-none ${
+        compact ? 'p-2' : 'p-3 sm:p-4'
+      }`}>
+        <h3 className={`text-gray-900 dark:text-white font-bold mb-0.5 line-clamp-1 ${compact ? 'text-xs' : 'text-sm'}`}>{ad.title}</h3>
+        <div className={`flex items-center justify-between ${compact ? 'mt-0 mb-1' : 'mt-1 mb-2'}`}>
+          <p className={`font-black text-amber-500 dark:text-amber-400 tracking-tight leading-none ${compact ? 'text-sm' : 'text-lg sm:text-xl'}`}>
+            {formatPrice(ad.price)} <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mr-0.5">د.ع</span>
           </p>
         </div>
-        <div className="flex items-center gap-1 text-gray-400 text-xs mb-2 flex-1">
-          <MapPin className="w-3 h-3 flex-shrink-0"/>
-          <span className="line-clamp-1 max-w-[50%]">{ad.location}</span>
-          <span className="mx-1.5 opacity-50">•</span>
-          <div className="flex items-center gap-1 text-gray-400 font-medium whitespace-nowrap">
-            <CategoryIconComponent className="w-3 h-3"/>
+        <div className={`flex items-center gap-1 text-gray-500 dark:text-gray-400 text-[10px] flex-1 ${compact ? 'mb-1' : 'mb-2'}`}>
+          <MapPin className="w-2.5 h-2.5 flex-shrink-0"/>
+          <span className="line-clamp-1 max-w-[45%]">{ad.location}</span>
+          <span className="mx-1 opacity-50">•</span>
+          <div className="flex items-center gap-0.5 text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">
+            <CategoryIconComponent className="w-2.5 h-2.5"/>
             <span>{catInfo.label}</span>
           </div>
         </div>
-        <div className="flex items-center justify-between mt-auto">
-          <button onClick={e=>{e.stopPropagation();onSellerClick?.(ad.postedBy||'');}} className="flex items-center gap-1.5 hover:opacity-80 transition-opacity relative">
-            <img src={ad.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-5 h-5 rounded-full object-cover ${getGlowClass(sellerRole)}`}/>
-            {onlineStatuses[ad.postedBy||''] && <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-gray-800" title="متصل الآن"></div>}
-            <span className="text-gray-400 text-xs truncate max-w-[80px]">{ad.seller?.name || 'مستخدم'}</span>
+        <div className="flex items-center justify-between mt-auto pt-1 border-t border-gray-150 dark:border-gray-800/40">
+          <button onClick={e=>{e.stopPropagation();onSellerClick?.(ad.postedBy||'');}} className="flex items-center gap-1 hover:opacity-85 transition-opacity relative">
+            <img src={ad.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-4 h-4 rounded-full object-cover ${getGlowClass(sellerRole)}`}/>
+            {onlineStatuses[ad.postedBy||''] && <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-green-500 rounded-full border border-gray-800" title="متصل الآن"></div>}
+            <span className="text-gray-500 dark:text-gray-400 text-[9px] truncate max-w-[65px]">{ad.seller?.name || 'مستخدم'}</span>
           </button>
-          <div className="flex items-center gap-2 text-gray-500 text-xs">
-            <span className="text-green-400 font-medium">{time}</span>
-            <span className="flex items-center gap-0.5"><ViewIcon className="w-3 h-3"/>{ad.views}</span>
+          <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 text-[9px]">
+            <span className="text-green-500 dark:text-green-400 font-medium">{time}</span>
+            <span className="flex items-center gap-0.5"><ViewIcon className="w-2.5 h-2.5"/>{ad.views}</span>
           </div>
         </div>
       </div>

@@ -49,12 +49,12 @@ export function ConfirmationDialog({
                 >
                   {/* Decorative background accent */}
                   <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-10 pointer-events-none ${
-                    variant === 'danger' ? 'bg-red-500' : variant === 'warning' ? 'bg-amber-500' : 'bg-blue-500'
+                    variant === 'danger' ? 'bg-red-500' : variant === 'warning' ? 'bg-amber-500' : 'bg-gray-800'
                   }`} />
 
                   <div className="flex items-start gap-4">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-                      variant === 'danger' ? 'bg-red-500/10 text-red-400' : variant === 'warning' ? 'bg-amber-500/10 text-amber-400' : 'bg-blue-500/10 text-blue-400'
+                      variant === 'danger' ? 'bg-red-500/10 text-red-400' : variant === 'warning' ? 'bg-amber-500/10 text-amber-400' : 'bg-gray-800/10 text-gray-400'
                     }`}>
                       {variant === 'danger' ? <Trash2 className="w-6 h-6" /> : <AlertTriangle className="w-6 h-6" />}
                     </div>
@@ -83,7 +83,7 @@ export function ConfirmationDialog({
                             ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/20' 
                             : variant === 'warning' 
                               ? 'bg-amber-500 hover:bg-amber-400 text-black shadow-amber-900/20' 
-                              : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/20'
+                              : 'bg-gray-800 hover:bg-gray-800 text-white shadow-blue-900/20'
                         }`}
                       >
                         {confirmText}
