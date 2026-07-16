@@ -420,7 +420,7 @@
 /* Input Focus States */
 input:focus, textarea:focus, select:focus {
   outline: none;
-  ring: 2px;
+  box-shadow: 0 0 0 2px var(--color-ring);
 }
 
 /* Button Hover Effects */

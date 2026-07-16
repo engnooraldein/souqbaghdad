@@ -1,6 +1,30 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
+  <!-- ⚡ Theme Script: يجب أن يكون أول شيء - يمنع وميض الوضع الخاطئ في سفاري وكل المتصفحات -->
+  <script>
+    (function() {
+      try {
+        var saved = window.localStorage && window.localStorage.getItem('souqBaghdad_theme');
+        if (saved === 'dark' || saved === 'light') {
+          if (saved === 'dark') {
+            document.documentElement.classList.add('dark');
+          }
+          return;
+        }
+      } catch(e) {}
+      // لا يوجد خيار محفوظ - اقرأ من النظام
+      try {
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.classList.add('dark');
+        }
+        // إذا كان النظام نهاري أو لم يدعم matchMedia - لا تضف dark
+      } catch(e) {
+        // الوضع الافتراضي الآمن لسفاري القديم = dark
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <!-- Preconnect to Google Fonts for faster font loading -->

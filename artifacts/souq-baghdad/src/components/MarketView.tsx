@@ -76,13 +76,19 @@ import { GoldParticles } from '../assets/svg/effects/gold-particles';
 function PaginationDots({ 
   total, 
   current, 
-  onChange 
+  onChange,
+  hasMore,
+  onLoadMore,
+  loadingMore
 }: { 
   total: number; 
   current: number; 
   onChange: (page: number) => void; 
+  hasMore?: boolean;
+  onLoadMore?: () => void;
+  loadingMore?: boolean;
 }) {
-  if (total <= 1) return null;
+  if (total <= 1 && !hasMore) return null;
   return (
     <div className="flex items-center justify-center gap-2 mt-6 mb-8" dir="rtl">
       {Array.from({ length: total }).map((_, idx) => {
@@ -103,6 +109,18 @@ function PaginationDots({
           />
         );
       })}
+      
+      {hasMore && (
+        <button
+          onClick={() => {
+            if (onLoadMore) onLoadMore();
+          }}
+          disabled={loadingMore}
+          className="mr-2 px-4 py-1.5 bg-gray-800/80 hover:bg-gray-700/90 rounded-full text-xs font-bold text-amber-400 border border-amber-500/30 hover:border-amber-500/60 transition-all shadow-md shadow-black/20 whitespace-nowrap"
+        >
+          {loadingMore ? 'جاري التحميل...' : 'المزيد من النتائج +'}
+        </button>
+      )}
     </div>
   );
 }
@@ -220,7 +238,10 @@ export function MarketView({
   const [vipAdsPage, setVipAdsPage] = useState(0);
   const [generalAdsPage, setGeneralAdsPage] = useState(0);
   const [visibleGeneralAdsCount, setVisibleGeneralAdsCount] = useState(4);
-  const [productsPage, setProductsPage] = useState(0);
+  const [categoryAdsPage, setCategoryAdsPage] = useState(0);
+  const [visibleCategoryAdsCount, setVisibleCategoryAdsCount] = useState(4);
+  const [categoryProductsPage, setCategoryProductsPage] = useState(0);
+  const [visibleCategoryProdsCount, setVisibleCategoryProdsCount] = useState(4);
   const [visibleProfilesCount, setVisibleProfilesCount] = useState(4);
   const [visibleTransportCount, setVisibleTransportCount] = useState(4);
   const [visibleTopSellers, setVisibleTopSellers] = useState(5);
@@ -490,31 +511,99 @@ export function MarketView({
   const fmt=(v:string)=>v.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',');
 
   const filterAds = useMemo(() => {
-    return allAds.filter(a => {
+    let filtered = allAds.filter(a => {
       if (a.status === 'sold') return false;
-      if (cat === 'general') return true;
-      if (conditionFilter === 'all') return true;
-      const text = `${a.title} ${a.description || ''}`.toLowerCase();
-      const isUsed = text.includes('مستعمل') || text.includes('مستعملة') || text.includes('مستخدم') || text.includes('بالة') || text.includes('ثاني يد');
-      const isNew = text.includes('جديد') || text.includes('جديدة') || text.includes('كارتون') || text.includes('بالكارتون') || text.includes('غير مستخدم') || text.includes('جديده');
-      if (conditionFilter === 'new') {
-        if (isUsed && !isNew) return false;
-        return true;
-      } else { // 'used'
-        if (isNew && !isUsed) return false;
-        return true;
+      
+      if (cat !== 'all' && cat !== 'general') {
+        if (a.category !== cat) return false;
       }
+      
+      if (search.trim()) {
+        const text = `${a.title} ${a.description || ''} ${a.category || ''}`.toLowerCase();
+        const term = search.toLowerCase();
+        if (!text.includes(term)) return false;
+      }
+
+      if (gov !== 'الكل' && a.governorate !== gov) return false;
+      
+      if (priceMin || priceMax) {
+        const p = a.price || 0;
+        const pVal = typeof p === 'string' ? parseInt(p.replace(/,/g, '')) || 0 : p;
+        const min = priceMin ? parseInt(priceMin.replace(/,/g, '')) : 0;
+        const max = priceMax ? parseInt(priceMax.replace(/,/g, '')) : Infinity;
+        if (pVal < min || pVal > max) return false;
+      }
+
+      if (conditionFilter !== 'all') {
+        const text = `${a.title} ${a.description || ''}`.toLowerCase();
+        const isUsed = text.includes('مستعمل') || text.includes('مستعملة') || text.includes('مستخدم') || text.includes('بالة') || text.includes('ثاني يد');
+        const isNew = text.includes('جديد') || text.includes('جديدة') || text.includes('كارتون') || text.includes('بالكارتون') || text.includes('غير مستخدم') || text.includes('جديده');
+        if (conditionFilter === 'new') {
+          if (isUsed && !isNew) return false;
+        } else if (conditionFilter === 'used') {
+          if (isNew && !isUsed) return false;
+        }
+      }
+
+      return true;
     });
-  }, [allAds, conditionFilter]);
+
+    if (sort === 'views') {
+      filtered.sort((a, b) => (b.views || 0) - (a.views || 0));
+    } else if (sort === 'price-low') {
+      filtered.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+    } else if (sort === 'price-high') {
+      filtered.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
+    } else {
+      filtered.sort((a, b) => new Date(b.createdAtISO || 0).getTime() - new Date(a.createdAtISO || 0).getTime());
+    }
+
+    return filtered;
+  }, [allAds, cat, search, gov, priceMin, priceMax, conditionFilter, sort]);
 
   const filterProds = useMemo(() => {
-    return allProducts.filter(p => {
+    let filtered = allProducts.filter(p => {
       if (p.status === 'sold') return false;
-      if (cat === 'general') return true;
-      if (conditionFilter === 'all') return true;
-      return p.condition === conditionFilter;
+      
+      if (cat !== 'all' && cat !== 'general') {
+        if (p.category !== cat) return false;
+      }
+      
+      if (search.trim()) {
+        const text = `${p.title} ${p.description || ''} ${p.category || ''}`.toLowerCase();
+        const term = search.toLowerCase();
+        if (!text.includes(term)) return false;
+      }
+
+      if (gov !== 'الكل' && p.governorate !== gov) return false;
+      
+      if (priceMin || priceMax) {
+        const pr = p.price || 0;
+        const prVal = typeof pr === 'string' ? parseInt(pr.replace(/,/g, '')) || 0 : pr;
+        const min = priceMin ? parseInt(priceMin.replace(/,/g, '')) : 0;
+        const max = priceMax ? parseInt(priceMax.replace(/,/g, '')) : Infinity;
+        if (prVal < min || prVal > max) return false;
+      }
+
+      if (conditionFilter !== 'all') {
+        if (p.condition !== conditionFilter) return false;
+      }
+
+      return true;
     });
-  }, [allProducts, conditionFilter]);
+
+    if (sort === 'views') {
+      filtered.sort((a, b) => (b.views || 0) - (a.views || 0));
+    } else if (sort === 'price-low') {
+      filtered.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+    } else if (sort === 'price-high') {
+      filtered.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
+    } else {
+      filtered.sort((a, b) => new Date(b.createdAtISO || 0).getTime() - new Date(a.createdAtISO || 0).getTime());
+    }
+
+    return filtered;
+  }, [allProducts, cat, search, gov, priceMin, priceMax, conditionFilter, sort]);
 
   // Auto-reset page numbers back to 0 when query/filters update to prevent out-of-bounds pages
   useEffect(() => {
@@ -522,13 +611,28 @@ export function MarketView({
     setVipAdsPage(0);
     setGeneralAdsPage(0);
     setVisibleGeneralAdsCount(4);
-    setProductsPage(0);
+    
+    setCategoryAdsPage(0);
+    setVisibleCategoryAdsCount(4);
+
+    setCategoryProductsPage(0);
+    setVisibleCategoryProdsCount(4);
   }, [cat, search, gov, priceMin, priceMax, sort, conditionFilter]);
 
-  // Compute "Latest Ads" (منشور خلال الـ 24 ساعة الماضية)
+  const handleCategoryAdsPageChange = (page: number) => {
+    setCategoryAdsPage(page);
+    setVisibleCategoryAdsCount(4);
+  };
+
+  const handleCategoryProductsPageChange = (page: number) => {
+    setCategoryProductsPage(page);
+    setVisibleCategoryProdsCount(4);
+  };
+
+  // Compute "Latest Ads" (منشور خلال الـ 7 أيام الماضية)
   const latestAds = useMemo(() => {
     const now = Date.now();
-    const limit = 24 * 60 * 60 * 1000;
+    const limit = 7 * 24 * 60 * 60 * 1000; // 7 أيام
     return filterAds
       .filter(a => {
         if (!a.createdAtISO) return false;
@@ -540,7 +644,7 @@ export function MarketView({
 
   const latestProducts = useMemo(() => {
     const now = Date.now();
-    const limit = 24 * 60 * 60 * 1000;
+    const limit = 7 * 24 * 60 * 60 * 1000; // 7 أيام
     return filterProds
       .filter(p => {
         if (!p.createdAtISO) return false;
@@ -580,17 +684,17 @@ export function MarketView({
   }, [filterAds, visibleGeneralAdsCount]);
 
   // Category specific paginated ads
-  const paginatedCategoryAds = useMemo(() => {
-    const start = generalAdsPage * 4;
-    return filterAds.slice(start, start + 4);
-  }, [filterAds, generalAdsPage]);
+  const totalCategoryAdsPages = Math.ceil(filterAds.length / 8);
+  const categoryAdsPageItems = useMemo(() => {
+    const start = categoryAdsPage * 8;
+    return filterAds.slice(start, start + 8);
+  }, [filterAds, categoryAdsPage]);
 
-  // Compute "Products" Pagination
-  const totalProductsPages = Math.ceil(filterProds.length / 4);
-  const paginatedProducts = useMemo(() => {
-    const start = productsPage * 4;
-    return filterProds.slice(start, start + 4);
-  }, [filterProds, productsPage]);
+  const totalCategoryProductsPages = Math.ceil(filterProds.length / 8);
+  const categoryProductsPageItems = useMemo(() => {
+    const start = categoryProductsPage * 8;
+    return filterProds.slice(start, start + 8);
+  }, [filterProds, categoryProductsPage]);
 
   const showAds = contentTab==='ads'||contentTab==='all';
   const showProds = contentTab==='products'||contentTab==='all';
@@ -1208,7 +1312,7 @@ export function MarketView({
                               <h2 className="text-lg font-black text-white flex items-center gap-2">
                                 <span className="text-amber-400">✨</span>
                                 {homeToggleType === 'ads' ? 'أحدث الإعلانات المبوبة' : 'أحدث المنتجات والمتاجر'} 
-                                <span className="text-xs bg-red-500/10 text-red-400 px-2.5 py-1 rounded-full border border-red-500/20 font-bold">خلال 24 ساعة</span>
+                                <span className="text-xs bg-red-500/10 text-red-400 px-2.5 py-1 rounded-full border border-red-500/20 font-bold">خلال 7 أيام</span>
                               </h2>
                               <p className="text-gray-400 text-xs">تطبيق التصفية فوري وسلس دون الحاجة لإعادة تحميل الصفحة</p>
                             </div>
@@ -1608,7 +1712,7 @@ export function MarketView({
                                 <h3 className="text-white font-bold text-sm">إعلانات المعروضة ({filterAds.length})</h3>
                               </div>
                               <div className={viewMode === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4' : 'space-y-3'}>
-                                {paginatedCategoryAds.map(ad => {
+                                {categoryAdsPageItems.slice(0, visibleCategoryAdsCount).map(ad => {
                                   const seller = storedUsers?.find(u => u.id === ad.postedBy);
                                   return (
                                     <AdCard 
@@ -1624,10 +1728,28 @@ export function MarketView({
                                   );
                                 })}
                               </div>
+                              
+                              {visibleCategoryAdsCount < categoryAdsPageItems.length && (
+                                <InfiniteScrollTrigger
+                                  hasMore={true}
+                                  isLoading={loadingMoreAds}
+                                  onLoadMore={async () => {
+                                    await new Promise(r => setTimeout(r, 400));
+                                    setVisibleCategoryAdsCount(prev => Math.min(prev + 4, 8));
+                                  }}
+                                  loadingText="جاري تحميل المزيد من الإعلانات في هذه الصفحة..."
+                                  skeletonType="grid"
+                                  skeletonCount={4}
+                                />
+                              )}
+
                               <PaginationDots 
-                                total={totalGeneralPages} 
-                                current={generalAdsPage} 
-                                onChange={setGeneralAdsPage} 
+                                total={totalCategoryAdsPages} 
+                                current={categoryAdsPage} 
+                                onChange={handleCategoryAdsPageChange} 
+                                hasMore={hasMoreAds}
+                                onLoadMore={onLoadMoreAds}
+                                loadingMore={loadingMoreAds}
                               />
                             </div>
                           )}
@@ -1640,7 +1762,7 @@ export function MarketView({
                                 <h3 className="text-white font-bold text-sm">المنتجات والمتاجر ({filterProds.length})</h3>
                               </div>
                               <div className={viewMode === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4' : 'space-y-3'}>
-                                {paginatedProducts.map(p => {
+                                {categoryProductsPageItems.slice(0, visibleCategoryProdsCount).map(p => {
                                   const seller = storedUsers?.find(u => u.id === p.postedBy);
                                   return (
                                     <ProductCard 
@@ -1656,10 +1778,28 @@ export function MarketView({
                                   );
                                 })}
                               </div>
+                              
+                              {visibleCategoryProdsCount < categoryProductsPageItems.length && (
+                                <InfiniteScrollTrigger
+                                  hasMore={true}
+                                  isLoading={loadingMoreProducts}
+                                  onLoadMore={async () => {
+                                    await new Promise(r => setTimeout(r, 400));
+                                    setVisibleCategoryProdsCount(prev => Math.min(prev + 4, 8));
+                                  }}
+                                  loadingText="جاري تحميل المزيد من المنتجات في هذه الصفحة..."
+                                  skeletonType="grid"
+                                  skeletonCount={4}
+                                />
+                              )}
+
                               <PaginationDots 
-                                total={totalProductsPages} 
-                                current={productsPage} 
-                                onChange={setProductsPage} 
+                                total={totalCategoryProductsPages} 
+                                current={categoryProductsPage} 
+                                onChange={handleCategoryProductsPageChange} 
+                                hasMore={hasMoreProducts}
+                                onLoadMore={onLoadMoreProducts}
+                                loadingMore={loadingMoreProducts}
                               />
                             </div>
                           )}
