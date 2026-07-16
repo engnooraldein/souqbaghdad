@@ -673,7 +673,7 @@ export function MarketView({
     setVisibleCategoryProdsCount(4);
   };
 
-  // Compute "Latest Ads" (منشور خلال الـ 7 أيام الماضية) - للحسابات العادية فقط لتجنب التكرار
+  // Compute "Latest Ads" (منشور خلال الـ 7 أيام الماضية)
   const latestAds = useMemo(() => {
     const now = Date.now();
     const limit = 7 * 24 * 60 * 60 * 1000; // 7 أيام
@@ -681,16 +681,7 @@ export function MarketView({
       .filter(a => {
         if (!a.createdAtISO) return false;
         const diff = now - new Date(a.createdAtISO).getTime();
-        const isInTime = diff > 0 && diff <= limit;
-        if (!isInTime) return false;
-
-        // استبعاد الحسابات الموثقة / المميزة (VIP)
-        const isSellerVerified = a.seller?.isVerified;
-        const sellerProfile = storedUsers.find(u => u.id === a.postedBy);
-        const isProfileVerified = sellerProfile?.isVerified || sellerProfile?.verified;
-        const isPremiumRole = sellerProfile?.role === 'owner' || sellerProfile?.role === 'admin' || sellerProfile?.role === 'vendor';
-        const isVip = isSellerVerified || isProfileVerified || isPremiumRole || (a.seller?.rating && a.seller.rating >= 4.9);
-        return !isVip;
+        return diff > 0 && diff <= limit;
       })
       .sort((a, b) => new Date(b.createdAtISO!).getTime() - new Date(a.createdAtISO!).getTime());
   }, [filterAds, storedUsers]);
@@ -722,9 +713,15 @@ export function MarketView({
     return latestAds.slice(start, start + 4);
   }, [latestAds, latestAdsPage]);
 
-  // Compute "VIP Ads" (إعلانات الحسابات الموثقة)
+  // Compute "VIP Ads" (إعلانات الحسابات الموثقة) - خلال الـ 30 يوم الماضية
   const vipAds = useMemo(() => {
+    const now = Date.now();
+    const limit = 30 * 24 * 60 * 60 * 1000; // 30 يوم
     return filterAds.filter(a => {
+      if (!a.createdAtISO) return false;
+      const diff = now - new Date(a.createdAtISO).getTime();
+      if (diff < 0 || diff > limit) return false;
+
       const isSellerVerified = a.seller?.isVerified;
       const sellerProfile = storedUsers.find(u => u.id === a.postedBy);
       const isProfileVerified = sellerProfile?.isVerified || sellerProfile?.verified;
@@ -1618,8 +1615,8 @@ export function MarketView({
                                 latestAds.length === 0 ? (
                                   <div className="text-center py-10">
                                     <div className="text-4xl mb-3">⏳</div>
-                                    <p className="text-gray-400 text-sm font-bold">لا توجد إعلانات جديدة خلال الـ 24 ساعة الماضية</p>
-                                    <p className="text-gray-600 text-xs mt-1">ستظهر الإعلانات الجديدة هنا تلقائياً فور نشرها</p>
+                                    <p className="text-gray-400 text-sm font-bold">لا توجد إعلانات جديدة خلال الـ 7 أيام الماضية</p>
+                                    <p className="text-gray-650 text-xs mt-1">ستظهر الإعلانات الجديدة هنا تلقائياً فور نشرها</p>
                                   </div>
                                 ) : (
                                   <HorizontalCarousel 
@@ -1690,7 +1687,7 @@ export function MarketView({
                                 isDarkMode 
                                   ? 'bg-amber-400/10 text-amber-400 border-amber-400/20' 
                                   : 'bg-amber-50 text-amber-700 border-amber-200'
-                              }`}>الحسابات الموثقة</span>
+                              }`}>الحسابات الموثقة خلال 30 يوم</span>
                             </h2>
                             <span className={`text-xs font-bold transition-colors duration-500 ${
                               isDarkMode ? 'text-gray-500' : 'text-slate-500'
@@ -1948,8 +1945,6 @@ export function MarketView({
                             hasMore={visibleGeneralAdsCount < filterAds.length || hasMoreAds}
                             isLoading={loadingMoreAds}
                             onLoadMore={async () => {
-                              // Artificial delay to prevent rapid scrolling & let them load smoothly
-                              await new Promise(r => setTimeout(r, 600));
                               if (visibleGeneralAdsCount < filterAds.length) {
                                 setVisibleGeneralAdsCount(prev => {
                                   const next = prev + 4;
@@ -2043,7 +2038,6 @@ export function MarketView({
                                   hasMore={true}
                                   isLoading={loadingMoreAds}
                                   onLoadMore={async () => {
-                                    await new Promise(r => setTimeout(r, 400));
                                     setVisibleCategoryAdsCount(prev => Math.min(prev + 4, 8));
                                   }}
                                   loadingText="جاري تحميل المزيد من الإعلانات في هذه الصفحة..."
@@ -2093,7 +2087,6 @@ export function MarketView({
                                   hasMore={true}
                                   isLoading={loadingMoreProducts}
                                   onLoadMore={async () => {
-                                    await new Promise(r => setTimeout(r, 400));
                                     setVisibleCategoryProdsCount(prev => Math.min(prev + 4, 8));
                                   }}
                                   loadingText="جاري تحميل المزيد من المنتجات في هذه الصفحة..."
@@ -2243,7 +2236,7 @@ export function MarketView({
               )}
                 <InfiniteScrollTrigger
                   hasMore={visibleTransportCount < filteredTransport.length}
-                  onLoadMore={async () => { await new Promise(r => setTimeout(r, 400)); setVisibleTransportCount(prev => prev + 4); }}
+                  onLoadMore={async () => { setVisibleTransportCount(prev => prev + 4); }}
                   loadingText="جاري تحميل المزيد من الخطوط..."
                   skeletonType="transport"
                   skeletonCount={2}
@@ -2437,7 +2430,7 @@ export function MarketView({
               )}
               <InfiniteScrollTrigger
                 hasMore={visibleProfilesCount < filteredProfiles.length}
-                onLoadMore={async () => { await new Promise(r => setTimeout(r, 400)); setVisibleProfilesCount(prev => prev + 4); }}
+                onLoadMore={async () => { setVisibleProfilesCount(prev => prev + 4); }}
                 loadingText="جاري تحميل المزيد من الحسابات..."
                 skeletonType="profile"
                 skeletonCount={3}

@@ -35,7 +35,7 @@ export const getWhatsAppResetLink = (phone: string): string => {
 
 export const isNewItem = (iso?: string): boolean => {
   if (!iso) return false;
-  return new Date().getTime() - new Date(iso).getTime() < 48 * 60 * 60 * 1000;
+  return new Date().getTime() - new Date(iso).getTime() < 7 * 24 * 60 * 60 * 1000;
 };
 
 export function getWhatsAppLink(phone: string, itemType: 'product' | 'transport', details: any) {
