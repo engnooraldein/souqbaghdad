@@ -88,7 +88,7 @@ export function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id
   };
 
   return (
-    <div className="min-h-screen bg-[#0c2b5e] pt-16 pb-8">
+    <div className="min-h-screen bg-black pt-16 pb-8">
       <div className="container mx-auto px-4 max-w-3xl">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3"><div className="w-10 h-10 bg-red-500/20 rounded-xl flex items-center justify-center"><Settings className="w-5 h-5 text-red-400"/></div>

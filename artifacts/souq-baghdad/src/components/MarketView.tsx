@@ -127,32 +127,64 @@ function PaginationDots({
 
 function HorizontalCarousel({ 
   items, 
-  renderItem 
+  renderItem,
+  lazyLoad = false,
+  initialVisibleCount = 8
 }: { 
   items: any[]; 
-  renderItem: (item: any, idx: number) => React.ReactNode 
+  renderItem: (item: any, idx: number) => React.ReactNode;
+  lazyLoad?: boolean;
+  initialVisibleCount?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(lazyLoad ? initialVisibleCount : items.length);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  useEffect(() => {
+    setVisibleCount(lazyLoad ? initialVisibleCount : items.length);
+  }, [items.length, lazyLoad, initialVisibleCount]);
 
   const handleScroll = () => {
     if (!containerRef.current) return;
-    const { scrollLeft, clientWidth } = containerRef.current;
-    const maxScroll = containerRef.current.scrollWidth - clientWidth;
-    if (maxScroll <= 0) return;
+    const { scrollLeft, clientWidth, scrollWidth } = containerRef.current;
+    const maxScroll = scrollWidth - clientWidth;
+    
+    if (maxScroll <= 5) return;
+
     const currentScroll = Math.abs(scrollLeft);
     const index = Math.min(
-      items.length - 1,
-      Math.max(0, Math.round((currentScroll / containerRef.current.scrollWidth) * items.length))
+      visibleCount - 1,
+      Math.max(0, Math.round((currentScroll / scrollWidth) * visibleCount))
     );
     setActiveIndex(index);
+
+    if (lazyLoad && visibleCount < items.length) {
+      if (currentScroll + clientWidth >= scrollWidth - 100) {
+        if (!isLoadingMore) {
+          setIsLoadingMore(true);
+          setTimeout(() => {
+            setVisibleCount(prev => Math.min(items.length, prev + 8));
+            setIsLoadingMore(false);
+          }, 600);
+        }
+      }
+    }
   };
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+
+    const timer = setTimeout(() => {
+      handleScroll();
+    }, 150);
+
     el.addEventListener('scroll', handleScroll, { passive: true });
-    return () => el.removeEventListener('scroll', handleScroll);
+    return () => {
+      el.removeEventListener('scroll', handleScroll);
+      clearTimeout(timer);
+    };
   }, [items]);
 
   const scrollToItem = (idx: number) => {
@@ -166,34 +198,43 @@ function HorizontalCarousel({
     setActiveIndex(idx);
   };
 
+  const visibleItems = items.slice(0, visibleCount);
+
   return (
     <div className="relative w-full overflow-hidden" dir="rtl">
       <div 
         ref={containerRef}
-        className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory scrollbar-none py-3 px-1"
+        className="flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory scrollbar-none py-2 px-0"
         style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
       >
-        {items.map((item, idx) => (
-          <div key={idx} className="flex-none w-[75%] sm:w-[45%] md:w-[30%] lg:w-[23.5%] snap-start">
+        {visibleItems.map((item, idx) => (
+          <div key={idx} className="flex-none w-[46%] sm:w-[30%] md:w-[23%] lg:w-[18%] snap-start">
             {renderItem(item, idx)}
           </div>
         ))}
+        {isLoadingMore && (
+          <div className="flex-none w-[46%] sm:w-[30%] md:w-[23%] lg:w-[18%] snap-start flex items-center justify-center min-h-[150px]">
+            <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+          </div>
+        )}
       </div>
       {/* Dots Indicator */}
-      <div className="flex justify-center gap-1.5 mt-2">
-        {items.map((_, idx) => (
-          <button
-            key={idx}
-            onClick={() => scrollToItem(idx)}
-            className={`w-2 h-2 rounded-full transition-all duration-350 ${
-              activeIndex === idx 
-                ? 'bg-[#fbbf24] w-5 shadow-[0_0_10px_rgba(251,191,36,0.5)]' 
-                : 'bg-white/20 hover:bg-white/40'
-            }`}
-            aria-label={`Go to slide ${idx + 1}`}
-          />
-        ))}
-      </div>
+      {visibleItems.length > 1 && visibleItems.length <= 15 && (
+        <div className="flex justify-center gap-1 mt-1.5 flex-wrap px-4">
+          {visibleItems.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => scrollToItem(idx)}
+              className={`w-1.5 h-1.5 rounded-full transition-all duration-350 ${
+                activeIndex === idx 
+                  ? 'bg-[#fbbf24] w-4 shadow-[0_0_10px_rgba(251,191,36,0.5)]' 
+                  : 'bg-white/20 hover:bg-white/40'
+              }`}
+              aria-label={`Go to slide ${idx + 1}`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -207,7 +248,8 @@ export function MarketView({
   priceMin, setPriceMin, priceMax, setPriceMax,
   hasMoreAds, hasMoreProducts, onLoadMoreAds, onLoadMoreProducts,
   totalAdsCount, totalProductsCount,
-  loadingMoreAds, loadingMoreProducts, isInitialLoading
+  loadingMoreAds, loadingMoreProducts, isInitialLoading,
+  isDarkMode = true
 }:{
   user:User|null; allAds:Ad[]; allProducts:Product[]; favorites:number[]; storedUsers?: any[];
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void;
@@ -229,6 +271,7 @@ export function MarketView({
   totalAdsCount: number; totalProductsCount: number;
   loadingMoreAds?: boolean; loadingMoreProducts?: boolean;
   isInitialLoading?: boolean;
+  isDarkMode?: boolean;
 }) {
   const [viewMode, setViewMode] = useState<'grid'|'list'>('grid');
   const [homeToggleType, setHomeToggleType] = useState<'ads' | 'products'>('ads');
@@ -629,7 +672,7 @@ export function MarketView({
     setVisibleCategoryProdsCount(4);
   };
 
-  // Compute "Latest Ads" (منشور خلال الـ 7 أيام الماضية)
+  // Compute "Latest Ads" (منشور خلال الـ 7 أيام الماضية) - للحسابات العادية فقط لتجنب التكرار
   const latestAds = useMemo(() => {
     const now = Date.now();
     const limit = 7 * 24 * 60 * 60 * 1000; // 7 أيام
@@ -637,10 +680,19 @@ export function MarketView({
       .filter(a => {
         if (!a.createdAtISO) return false;
         const diff = now - new Date(a.createdAtISO).getTime();
-        return diff > 0 && diff <= limit;
+        const isInTime = diff > 0 && diff <= limit;
+        if (!isInTime) return false;
+
+        // استبعاد الحسابات الموثقة / المميزة (VIP)
+        const isSellerVerified = a.seller?.isVerified;
+        const sellerProfile = storedUsers.find(u => u.id === a.postedBy);
+        const isProfileVerified = sellerProfile?.isVerified || sellerProfile?.verified;
+        const isPremiumRole = sellerProfile?.role === 'owner' || sellerProfile?.role === 'admin' || sellerProfile?.role === 'vendor';
+        const isVip = isSellerVerified || isProfileVerified || isPremiumRole || (a.seller?.rating && a.seller.rating >= 4.9);
+        return !isVip;
       })
       .sort((a, b) => new Date(b.createdAtISO!).getTime() - new Date(a.createdAtISO!).getTime());
-  }, [filterAds]);
+  }, [filterAds, storedUsers]);
 
   const latestProducts = useMemo(() => {
     const now = Date.now();
@@ -649,10 +701,19 @@ export function MarketView({
       .filter(p => {
         if (!p.createdAtISO) return false;
         const diff = now - new Date(p.createdAtISO).getTime();
-        return diff > 0 && diff <= limit;
+        const isInTime = diff > 0 && diff <= limit;
+        if (!isInTime) return false;
+
+        // استبعاد الحسابات الموثقة / المميزة (VIP)
+        const isSellerVerified = p.seller?.isVerified;
+        const sellerProfile = storedUsers.find(u => u.id === p.postedBy);
+        const isProfileVerified = sellerProfile?.isVerified || sellerProfile?.verified;
+        const isPremiumRole = sellerProfile?.role === 'owner' || sellerProfile?.role === 'admin' || sellerProfile?.role === 'vendor';
+        const isVip = isSellerVerified || isProfileVerified || isPremiumRole || (p.seller?.rating && p.seller.rating >= 4.9);
+        return !isVip;
       })
       .sort((a, b) => new Date(b.createdAtISO!).getTime() - new Date(a.createdAtISO!).getTime());
-  }, [filterProds]);
+  }, [filterProds, storedUsers]);
 
   const totalLatestPages = Math.ceil(latestAds.length / 4);
   const paginatedLatestAds = useMemo(() => {
@@ -703,19 +764,50 @@ export function MarketView({
   return (
     <div>
       {/* Hero */}
-      <section id="hero-landing-section" className="bg-gradient-to-br from-[#070b19] via-[#0c1a3a] to-[#050c1e] py-14 sm:py-20 relative overflow-hidden border-b border-gray-800/40">
+      <section 
+        id="hero-landing-section" 
+        className={`py-14 sm:py-20 relative overflow-hidden border-b transition-all duration-500 ${
+          isDarkMode 
+            ? 'bg-black border-gray-800/40' 
+            : 'bg-white border-slate-200/60 shadow-sm'
+        }`}
+        style={isDarkMode ? {
+          backgroundImage: "url('/baghdad_night.png')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        } : {
+          backgroundImage: "url('https://www-file.honor.com/content/dam/honor/common/tech/honor-ai/ar/imgs/section-kv/aisubject-kv-bg2.jpg')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      >
+        {/* Dark overlay for text readability in dark mode */}
+        {isDarkMode && (
+          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/50 to-black/90 pointer-events-none z-0" />
+        )}
+        
         {/* Background Grid & Particles Decoration */}
-        <BackgroundGrid className="absolute inset-0 opacity-[0.12] mix-blend-color-dodge w-full h-full object-cover pointer-events-none" />
-        <GoldParticles className="absolute inset-0 opacity-30 pointer-events-none w-full h-full" />
+        <BackgroundGrid className={`absolute inset-0 w-full h-full object-cover pointer-events-none transition-opacity duration-500 ${
+          isDarkMode ? 'opacity-[0.12] mix-blend-color-dodge' : 'opacity-[0.05] mix-blend-overlay'
+        }`} />
+        <GoldParticles className={`absolute inset-0 pointer-events-none w-full h-full transition-opacity duration-500 ${
+          isDarkMode ? 'opacity-30' : 'opacity-10'
+        }`} />
         
         {/* Ambient Radial Glow */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-10 right-10 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-10 left-10 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl" />
-        </div>
+        {isDarkMode && (
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-10 right-10 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl" />
+            <div className="absolute bottom-10 left-10 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl" />
+          </div>
+        )}
 
         {/* Floating Majestic Babylonian Lion (Backdrop Corner decoration) */}
-        <div className="absolute -top-16 -right-16 w-80 h-80 opacity-[0.08] pointer-events-none text-amber-400 select-none">
+        <div className={`absolute -top-16 -right-16 w-80 h-80 pointer-events-none select-none transition-all duration-500 ${
+          isDarkMode ? 'opacity-[0.08] text-amber-400' : 'opacity-[0.04] text-amber-600'
+        }`}>
           <LionOutline className="w-full h-full" />
         </div>
 
@@ -727,9 +819,13 @@ export function MarketView({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500/15 to-yellow-500/5 border border-amber-500/25 text-amber-400 text-xs font-bold shadow-[0_0_15px_rgba(212,175,55,0.06)] mb-6 cursor-default"
+              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-500 mb-6 cursor-default ${
+                isDarkMode 
+                  ? 'bg-gradient-to-r from-amber-500/15 to-yellow-500/5 border border-amber-500/25 text-amber-400 shadow-[0_0_15px_rgba(212,175,55,0.06)]' 
+                  : 'bg-amber-500/10 border border-amber-500/20 text-amber-700 shadow-sm'
+              }`}
             >
-              <Sparkles className="w-3.5 h-3.5 animate-pulse text-amber-400" />
+              <Sparkles className="w-3.5 h-3.5 animate-pulse text-amber-500" />
               <span>أول منصة متكاملة للإعلانات والمتاجر في العراق</span>
             </motion.div>
 
@@ -739,9 +835,15 @@ export function MarketView({
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="text-3xl sm:text-5xl md:text-6xl font-black text-white always-white tracking-tight leading-tight mb-4"
+              className={`text-3xl sm:text-5xl md:text-6xl font-black tracking-tight leading-tight mb-4 transition-colors duration-500 ${
+                isDarkMode ? 'text-white' : 'text-black'
+              }`}
             >
-              كل ما تحتاجه في <span className="bg-gradient-to-r from-[#fdf5a6] via-[#d4af37] to-[#b8860b] bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(212,175,55,0.15)]">سوق بغداد</span>
+              كل ما تحتاجه في <span className={`bg-gradient-to-r bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(212,175,55,0.15)] ${
+                isDarkMode 
+                  ? 'from-[#fdf5a6] via-[#d4af37] to-[#b8860b]' 
+                  : 'from-[#b8860b] via-[#d4af37] to-black'
+              }`}>سوق بغداد</span>
             </motion.h1>
 
             {/* Sub-headline */}
@@ -750,7 +852,9 @@ export function MarketView({
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-gray-300 always-white text-sm sm:text-base md:text-lg max-w-2xl mx-auto font-medium leading-relaxed"
+              className={`text-sm sm:text-base md:text-lg max-w-2xl mx-auto font-medium leading-relaxed transition-colors duration-500 ${
+                isDarkMode ? 'text-gray-300' : 'text-slate-700 font-extrabold'
+              }`}
             >
               تصفّح آلاف الإعلانات والمنتجات الحصرية، وتسوق بكل ثقة وأمان من أفضل الحسابات والمتاجر الموثقة في جميع المحافظات العراقية.
             </motion.p>
@@ -759,10 +863,14 @@ export function MarketView({
           {/* Search Bar Container */}
           <div id="hero-search-wrapper" className="max-w-2xl mx-auto mb-8 relative z-30 group" dir="rtl">
             <div className="absolute -inset-1 bg-gradient-to-r from-amber-500/30 to-yellow-600/30 rounded-[22px] blur-md opacity-25 group-hover:opacity-40 transition duration-300 pointer-events-none" />
-            <div className="relative bg-gray-900/80 backdrop-blur-xl rounded-2xl border border-gray-700/60 shadow-2xl flex flex-col sm:flex-row items-stretch sm:items-center p-1.5 gap-2 sm:gap-0">
+            <div className={`relative rounded-2xl border backdrop-blur-xl shadow-2xl flex flex-col sm:flex-row items-stretch sm:items-center p-1.5 gap-2 sm:gap-0 transition-all duration-500 ${
+              isDarkMode 
+                ? 'bg-black/80 border-gray-700/60 shadow-2xl' 
+                : 'bg-white/95 border-slate-200 shadow-slate-100'
+            }`}>
               {/* Input section */}
               <div className="flex-1 relative flex items-center">
-                <Search className="absolute right-4 w-5 h-5 text-amber-400" />
+                <Search className="absolute right-4 w-5 h-5 text-amber-500" />
                 <input 
                   id="hero-search-input"
                   value={localSearch} 
@@ -775,13 +883,17 @@ export function MarketView({
                     }
                   }}
                   placeholder="ابحث عن سيارة، هاتف، عقار، منتج في العراق..."
-                  className="w-full bg-transparent text-white placeholder-gray-400 rounded-xl py-3 sm:py-3.5 pr-12 pl-4 outline-none text-base font-medium"
+                  className={`w-full bg-transparent rounded-xl py-3 sm:py-3.5 pr-12 pl-4 outline-none text-base font-medium transition-colors duration-500 ${
+                    isDarkMode ? 'text-white placeholder-gray-400' : 'text-slate-900 placeholder-slate-500'
+                  }`}
                 />
                 {localSearch && (
                   <button 
                     id="hero-search-clear-btn"
                     onClick={() => { setLocalSearch(''); setSuggestions([]); }} 
-                    className="absolute left-3 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white px-2.5 py-1 rounded-lg text-xs transition-colors"
+                    className={`absolute left-3 px-2.5 py-1 rounded-lg text-xs transition-colors ${
+                      isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900'
+                    }`}
                   >
                     مسح
                   </button>
@@ -791,7 +903,9 @@ export function MarketView({
                 {showSuggestions && (localSearch.trim() || recentSearches.length > 0 || CATEGORIES.filter(c => c.id !== 'all' && c.id !== 'general').length > 0) && (
                   <>
                     <div className="fixed inset-0 z-30 cursor-default" onClick={() => setShowSuggestions(false)} />
-                    <div className="absolute top-full right-0 left-0 mt-3 bg-gray-900/95 backdrop-blur-xl border border-gray-750/70 rounded-2xl shadow-2xl z-40 overflow-hidden py-2 max-h-80 overflow-y-auto" dir="rtl">
+                    <div className={`absolute top-full right-0 left-0 mt-3 border rounded-2xl shadow-2xl z-40 overflow-hidden py-2 max-h-80 overflow-y-auto backdrop-blur-xl ${
+                      isDarkMode ? 'bg-black/95 border-gray-750/70' : 'bg-white border-slate-200'
+                    }`} dir="rtl">
                       
                       {!localSearch.trim() && recentSearches.length > 0 && (
                         <div className="mb-2">
@@ -799,7 +913,7 @@ export function MarketView({
                             <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5"/> عمليات البحث الأخيرة</span>
                           </div>
                           {recentSearches.map((recent, index) => (
-                            <div key={`recent-${index}`} className="flex items-center justify-between px-4 py-2 hover:bg-gray-800/50 transition-colors group">
+                            <div key={`recent-${index}`} className={`flex items-center justify-between px-4 py-2 transition-colors group ${isDarkMode ? 'hover:bg-gray-800/50' : 'hover:bg-slate-50'}`}>
                               <button
                                 type="button"
                                 onClick={() => {
@@ -807,14 +921,18 @@ export function MarketView({
                                   saveRecentSearch(recent);
                                   setShowSuggestions(false);
                                 }}
-                                className="flex-1 text-right text-sm text-gray-300 group-hover:text-amber-400 transition-colors flex items-center gap-2.5"
+                                className={`flex-1 text-right text-sm font-bold transition-colors flex items-center gap-2.5 ${
+                                  isDarkMode ? 'text-gray-300 group-hover:text-amber-400' : 'text-slate-700 group-hover:text-amber-600'
+                                }`}
                               >
-                                <Search className="w-4 h-4 text-gray-500 shrink-0" />
+                                <Search className="w-4 h-4 text-gray-400 shrink-0" />
                                 <span className="font-bold truncate">{recent}</span>
                               </button>
                               <button 
                                 onClick={(e) => removeRecentSearch(recent, e)}
-                                className="p-1.5 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded-md hover:bg-red-500/10"
+                                className={`p-1.5 opacity-0 group-hover:opacity-100 transition-all rounded-md ${
+                                  isDarkMode ? 'text-gray-500 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-400 hover:text-red-500 hover:bg-red-500/5'
+                                }`}
                                 title="إزالة"
                               >
                                 <X className="w-3.5 h-3.5" />
@@ -825,7 +943,7 @@ export function MarketView({
                       )}
 
                       {!localSearch.trim() && CATEGORIES.filter(c => c.id !== 'all' && c.id !== 'general').length > 0 && (
-                        <div className="pt-2 border-t border-gray-800/40">
+                        <div className={`pt-2 border-t ${isDarkMode ? 'border-gray-800/40' : 'border-slate-100'}`}>
                           <div className="px-4 py-2 flex items-center gap-1.5 text-xs font-bold text-gray-400">
                             <Tag className="w-3.5 h-3.5" /> الفئات الشائعة
                           </div>
@@ -837,7 +955,11 @@ export function MarketView({
                                   setCat(c.id);
                                   setShowSuggestions(false);
                                 }}
-                                className="px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 text-xs font-bold text-gray-300 hover:bg-amber-500/20 hover:text-amber-400 hover:border-amber-500/30 transition-all flex items-center gap-1.5"
+                                className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                  isDarkMode 
+                                    ? 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-amber-500/20 hover:text-amber-400 hover:border-amber-500/30' 
+                                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-amber-500/10 hover:text-amber-600 hover:border-amber-500/20'
+                                }`}
                               >
                                 <span>{c.emoji}</span>
                                 <span>{c.name}</span>
@@ -861,9 +983,13 @@ export function MarketView({
                                   saveRecentSearch(suggestion);
                                   setShowSuggestions(false);
                                 }}
-                                className="w-full text-right px-4 py-3 text-xs sm:text-sm text-gray-200 hover:bg-amber-500/15 hover:text-amber-400 transition-colors flex items-center gap-2.5 border-b border-gray-800/40 last:border-0"
+                                className={`w-full text-right px-4 py-3 text-xs sm:text-sm transition-colors flex items-center gap-2.5 border-b last:border-0 ${
+                                  isDarkMode 
+                                    ? 'text-gray-200 hover:bg-amber-500/15 hover:text-amber-400 border-gray-800/40' 
+                                    : 'text-slate-800 hover:bg-amber-500/10 hover:text-amber-600 border-slate-100'
+                                }`}
                               >
-                                <Search className="w-4 h-4 text-gray-500 shrink-0" />
+                                <Search className="w-4 h-4 text-gray-400 shrink-0" />
                                 <span className="font-bold truncate">{suggestion}</span>
                               </button>
                             ))}
@@ -873,7 +999,7 @@ export function MarketView({
                       {localSearch.trim() && suggestions.length === 0 && (
                          <div className="px-4 py-6 text-center text-gray-400 text-sm flex flex-col items-center gap-2">
                             <SearchIcon className="w-6 h-6 opacity-50 mb-1" />
-                            لا توجد نتائج مطابقة لـ <span className="font-bold text-white">"{localSearch}"</span>
+                            لا توجد نتائج مطابقة لـ <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>"{localSearch}"</span>
                             <span className="text-xs mt-1 block">جرب كلمات بحث مختلفة أو عامة أكثر</span>
                          </div>
                       )}
@@ -883,7 +1009,7 @@ export function MarketView({
               </div>
 
               {/* Vertical divider on desktop */}
-              <div className="hidden sm:block h-8 w-[1px] bg-gray-800/80 mx-2 self-center shrink-0" />
+              <div className={`hidden sm:block h-8 w-[1px] mx-2 self-center shrink-0 ${isDarkMode ? 'bg-gray-800/80' : 'bg-slate-200'}`} />
 
               {/* Sorting Dropdown container */}
               <div className="relative shrink-0 flex items-center px-2 sm:px-1" dir="rtl">
@@ -892,10 +1018,14 @@ export function MarketView({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setIsSortOpen(!isSortOpen)}
-                  className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2 px-3.5 py-2 sm:py-2.5 rounded-xl bg-gray-800/60 hover:bg-gray-800 border border-gray-750/50 text-gray-300 hover:text-white text-xs md:text-sm font-bold transition-all"
+                  className={`w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2 px-3.5 py-2 sm:py-2.5 rounded-xl border text-xs md:text-sm font-bold transition-all duration-500 ${
+                    isDarkMode 
+                      ? 'bg-gray-800/60 hover:bg-gray-800 border-gray-750/50 text-gray-300 hover:text-white' 
+                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900'
+                  }`}
                 >
                   <span className="flex items-center gap-1.5">
-                    <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-amber-500" />
                     <span className="whitespace-nowrap">
                       {sort === 'price-low' ? 'السعر: من الأقل إلى الأعلى' : 
                        sort === 'price-high' ? 'السعر: من الأعلى إلى الأقل' :
@@ -916,44 +1046,54 @@ export function MarketView({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
                         transition={{ duration: 0.12 }}
-                        className="absolute left-0 right-0 sm:right-auto sm:left-0 mt-2 sm:w-56 bg-gray-950/95 backdrop-blur-md border border-gray-800 rounded-xl shadow-2xl z-40 overflow-hidden"
+                        className={`absolute left-0 right-0 sm:right-auto sm:left-0 mt-2 sm:w-56 border rounded-xl shadow-2xl z-40 overflow-hidden ${
+                          isDarkMode ? 'bg-black/95 border-gray-800' : 'bg-white border-slate-200'
+                        }`}
                       >
                         <div className="py-1 text-right" dir="rtl">
                           <button
                             onClick={() => { setSort('recent'); setIsSortOpen(false); }}
                             className={`w-full text-right px-4 py-2.5 text-xs md:text-sm transition-colors flex items-center justify-between ${
-                              sort === 'recent' ? 'bg-amber-500/10 text-amber-400 font-extrabold' : 'text-gray-300 hover:bg-gray-800'
+                              sort === 'recent' 
+                                ? 'bg-amber-500/10 text-amber-500 font-extrabold' 
+                                : isDarkMode ? 'text-gray-300 hover:bg-gray-800' : 'text-slate-700 hover:bg-slate-50'
                             }`}
                           >
                             <span>الأحدث</span>
-                            {sort === 'recent' && <span className="text-amber-400 font-bold">✓</span>}
+                            {sort === 'recent' && <span className="text-amber-500 font-bold">✓</span>}
                           </button>
                           <button
                             onClick={() => { setSort('views'); setIsSortOpen(false); }}
                             className={`w-full text-right px-4 py-2.5 text-xs md:text-sm transition-colors flex items-center justify-between ${
-                              sort === 'views' ? 'bg-amber-500/10 text-amber-400 font-extrabold' : 'text-gray-300 hover:bg-gray-800'
+                              sort === 'views' 
+                                ? 'bg-amber-500/10 text-amber-500 font-extrabold' 
+                                : isDarkMode ? 'text-gray-300 hover:bg-gray-800' : 'text-slate-700 hover:bg-slate-50'
                             }`}
                           >
                             <span>الأكثر مشاهدة</span>
-                            {sort === 'views' && <span className="text-amber-400 font-bold">✓</span>}
+                            {sort === 'views' && <span className="text-amber-500 font-bold">✓</span>}
                           </button>
                           <button
                             onClick={() => { setSort('price-low'); setIsSortOpen(false); }}
                             className={`w-full text-right px-4 py-2.5 text-xs md:text-sm transition-colors flex items-center justify-between ${
-                              sort === 'price-low' ? 'bg-amber-500/10 text-amber-400 font-extrabold' : 'text-gray-300 hover:bg-gray-800'
+                              sort === 'price-low' 
+                                ? 'bg-amber-500/10 text-amber-500 font-extrabold' 
+                                : isDarkMode ? 'text-gray-300 hover:bg-gray-800' : 'text-slate-700 hover:bg-slate-50'
                             }`}
                           >
                             <span>السعر: من الأقل إلى الأعلى</span>
-                            {sort === 'price-low' && <span className="text-amber-400 font-bold">✓</span>}
+                            {sort === 'price-low' && <span className="text-amber-500 font-bold">✓</span>}
                           </button>
                           <button
                             onClick={() => { setSort('price-high'); setIsSortOpen(false); }}
                             className={`w-full text-right px-4 py-2.5 text-xs md:text-sm transition-colors flex items-center justify-between ${
-                              sort === 'price-high' ? 'bg-amber-500/10 text-amber-400 font-extrabold' : 'text-gray-300 hover:bg-gray-800'
+                              sort === 'price-high' 
+                                ? 'bg-amber-500/10 text-amber-500 font-extrabold' 
+                                : isDarkMode ? 'text-gray-300 hover:bg-gray-800' : 'text-slate-700 hover:bg-slate-50'
                             }`}
                           >
                             <span>السعر: من الأعلى إلى الأقل</span>
-                            {sort === 'price-high' && <span className="text-amber-400 font-bold">✓</span>}
+                            {sort === 'price-high' && <span className="text-amber-500 font-bold">✓</span>}
                           </button>
                         </div>
                       </motion.div>
@@ -971,7 +1111,25 @@ export function MarketView({
               exit={{ opacity: 0, y: -10 }}
               className="flex flex-col"
             >
-              {/* Categories Grid/Horizontal Badges */}
+              {cat === 'general' ? (
+                <div className="flex flex-col items-center justify-center py-4 mb-4 relative z-20">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setCat('all')}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm shadow-sm transition-all duration-300 ${
+                      isDarkMode 
+                        ? 'bg-gray-800 text-white hover:bg-gray-700 border border-gray-700' 
+                        : 'bg-white text-slate-800 hover:bg-slate-50 border border-slate-200'
+                    }`}
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                    العودة للرئيسية والأقسام
+                  </motion.button>
+                </div>
+              ) : (
+                <>
+                  {/* Categories Grid/Horizontal Badges */}
               <div id="hero-categories-tabs" className="flex flex-wrap justify-center gap-2 mb-8 relative z-20 max-w-4xl mx-auto">
                 {CATEGORIES.filter(c => c.id !== 'games').map(c => (
                   <motion.button 
@@ -983,7 +1141,9 @@ export function MarketView({
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-all duration-300 ${
                       cat === c.id 
                         ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black border-amber-400 shadow-[0_4px_15px_rgba(212,175,55,0.25)] font-black' 
-                        : 'bg-gray-900/60 text-gray-300 border-gray-800 backdrop-blur-md hover:border-gray-700 hover:text-white hover:bg-gray-900/85'
+                        : isDarkMode
+                          ? 'bg-black/60 text-gray-300 border-gray-800 backdrop-blur-md hover:border-gray-700 hover:text-white hover:bg-black/85'
+                          : 'bg-white/90 text-slate-700 border-slate-200/80 backdrop-blur-md hover:border-slate-350 hover:text-slate-900 hover:bg-white shadow-sm'
                     }`}
                   >
                     <span className="text-base sm:text-lg">{c.emoji}</span>
@@ -994,17 +1154,23 @@ export function MarketView({
 
               {/* Quick Metrics Cards */}
               <div id="hero-metrics-grid" className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-3xl mx-auto mb-8 relative z-20">
-                <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/60 rounded-xl p-3.5 text-center flex flex-col justify-center">
-                  <p className="text-xl sm:text-2xl font-black text-amber-400 font-mono">18</p>
-                  <p className="text-gray-400 text-[11px] font-bold mt-1">محافظة عراقية مغطاة</p>
+                <div className={`backdrop-blur-sm border rounded-xl p-3.5 text-center flex flex-col justify-center transition-all duration-500 ${
+                  isDarkMode ? 'bg-black/50 border-gray-800/60' : 'bg-white/80 border-slate-200 shadow-sm'
+                }`}>
+                  <p className={`text-xl sm:text-2xl font-black font-mono ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>18</p>
+                  <p className={`text-[11px] font-bold mt-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>محافظة عراقية مغطاة</p>
                 </div>
-                <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/60 rounded-xl p-3.5 text-center flex flex-col justify-center">
-                  <p className="text-xl sm:text-2xl font-black text-white font-mono">{totalAdsCount || 2040}+</p>
-                  <p className="text-gray-400 text-[11px] font-bold mt-1">إعلان معروض حالياً</p>
+                <div className={`backdrop-blur-sm border rounded-xl p-3.5 text-center flex flex-col justify-center transition-all duration-500 ${
+                  isDarkMode ? 'bg-black/50 border-gray-800/60' : 'bg-white/80 border-slate-200 shadow-sm'
+                }`}>
+                  <p className={`text-xl sm:text-2xl font-black font-mono ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{totalAdsCount || 2040}+</p>
+                  <p className={`text-[11px] font-bold mt-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>إعلان معروض حالياً</p>
                 </div>
-                <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/60 rounded-xl p-3.5 text-center col-span-2 md:col-span-1 flex flex-col justify-center">
-                  <p className="text-xl sm:text-2xl font-black text-emerald-400 font-mono">24/7</p>
-                  <p className="text-gray-400 text-[11px] font-bold mt-1">خدمة ومتابعة مباشرة</p>
+                <div className={`backdrop-blur-sm border rounded-xl p-3.5 text-center col-span-2 md:col-span-1 flex flex-col justify-center transition-all duration-500 ${
+                  isDarkMode ? 'bg-black/50 border-gray-800/60' : 'bg-white/80 border-slate-200 shadow-sm'
+                }`}>
+                  <p className={`text-xl sm:text-2xl font-black font-mono ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>24/7</p>
+                  <p className={`text-[11px] font-bold mt-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>خدمة ومتابعة مباشرة</p>
                 </div>
               </div>
 
@@ -1020,18 +1186,22 @@ export function MarketView({
                   id="hero-transport-card-btn"
                   whileHover={{ y: -3, scale: 1.01 }}
                   onClick={() => onTransportClick?.()}
-                  className="w-full flex items-center justify-between px-5 py-4 bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/35 rounded-2xl transition-all group text-right"
+                  className={`w-full flex items-center justify-between px-5 py-4 border rounded-2xl transition-all group text-right ${
+                    isDarkMode 
+                      ? 'bg-emerald-500/10 hover:bg-emerald-500/15 border-emerald-500/35' 
+                      : 'bg-white hover:bg-emerald-50/50 border-emerald-500/25 shadow-sm'
+                  }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 bg-emerald-500/25 rounded-xl flex items-center justify-center shrink-0">
-                      <Car className="w-5 h-5 text-emerald-400" />
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-emerald-500/25' : 'bg-emerald-500/10'}`}>
+                      <Car className="w-5 h-5 text-emerald-500" />
                     </div>
                     <div>
-                      <p className="text-white font-black text-sm">🚌 قسم الخطوط والتوصيل</p>
-                      <p className="text-emerald-300 text-xs mt-0.5">نقل يومي مباشر للطلاب والموظفين</p>
+                      <p className={`font-black text-sm ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>👑 قسم الخطوط والتوصيل</p>
+                      <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>نقل يومي مباشر للطلاب والموظفين</p>
                     </div>
                   </div>
-                  <ChevronLeft className="w-5 h-5 text-emerald-400 group-hover:-translate-x-1 transition-transform" />
+                  <ChevronLeft className="w-5 h-5 text-emerald-500 group-hover:-translate-x-1 transition-transform" />
                 </motion.button>
 
                 {/* Install PWA section card */}
@@ -1040,21 +1210,27 @@ export function MarketView({
                     id="hero-install-card-btn"
                     whileHover={{ y: -3, scale: 1.01 }}
                     onClick={onInstallClick}
-                    className="w-full flex items-center justify-between px-5 py-4 bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/25 rounded-2xl transition-all group text-right"
+                    className={`w-full flex items-center justify-between px-5 py-4 border rounded-2xl transition-all group text-right ${
+                      isDarkMode 
+                        ? 'bg-amber-500/10 hover:bg-amber-500/15 border-amber-500/25' 
+                        : 'bg-white hover:bg-amber-50/50 border-amber-500/20 shadow-sm'
+                    }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 bg-amber-500/20 rounded-xl flex items-center justify-center shrink-0">
-                        <Smartphone className="w-5 h-5 text-amber-400" />
+                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-amber-500/20' : 'bg-amber-500/10'}`}>
+                        <Smartphone className="w-5 h-5 text-amber-500" />
                       </div>
                       <div>
-                        <p className="text-white font-black text-sm">📲 تثبيت التطبيق</p>
-                        <p className="text-amber-300/90 text-xs mt-0.5">ثبّت "سوق بغداد" كـ PWA على جهازك مباشرة</p>
+                        <p className={`font-black text-sm ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>📲 تثبيت التطبيق</p>
+                        <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-amber-300/90' : 'text-amber-700'}`}>ثبّت "سوق بغداد" كـ PWA على جهازك مباشرة</p>
                       </div>
                     </div>
-                    <ChevronLeft className="w-5 h-5 text-amber-400 group-hover:-translate-x-1 transition-transform" />
+                    <ChevronLeft className="w-5 h-5 text-amber-500 group-hover:-translate-x-1 transition-transform" />
                   </motion.button>
                 ) : null}
               </div>
+              </>
+              )}
             </motion.div>
           ) : (
             <motion.div 
@@ -1062,10 +1238,12 @@ export function MarketView({
               animate={{ opacity: 1, scale: 1 }}
               className="py-12 flex flex-col items-center justify-center relative z-20"
             >
-              <div className="bg-gray-900/60 backdrop-blur-md border border-gray-700/50 rounded-2xl px-6 py-4 shadow-xl flex items-center gap-3 animate-pulse">
-                <SearchIcon className="w-5 h-5 text-amber-400" />
-                <p className="text-sm font-bold text-gray-300">
-                  وضع البحث مفعل.. <span className="text-amber-400">امسح البحث</span> لإظهار الأقسام والأزرار
+              <div className={`border rounded-2xl px-6 py-4 shadow-xl flex items-center gap-3 animate-pulse ${
+                isDarkMode ? 'bg-black/60 border-gray-700/50' : 'bg-white border-slate-200'
+              }`}>
+                <SearchIcon className="w-5 h-5 text-amber-500" />
+                <p className={`text-sm font-bold ${isDarkMode ? 'text-gray-300' : 'text-slate-700'}`}>
+                  وضع البحث مفعل.. <span className="text-amber-500 font-extrabold">امسح البحث</span> لإظهار الأقسام والأزرار
                 </p>
               </div>
             </motion.div>
@@ -1073,7 +1251,9 @@ export function MarketView({
         </div>
 
         {/* Baghdad Skyline Vector Backdrop */}
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-5xl h-24 opacity-15 pointer-events-none select-none z-0">
+        <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-5xl h-24 pointer-events-none select-none z-0 transition-opacity duration-500 ${
+          isDarkMode ? 'opacity-15' : 'opacity-10'
+        }`}>
           <CityOutline className="w-full h-full" />
         </div>
       </section>
@@ -1083,11 +1263,11 @@ export function MarketView({
         <div className="container mx-auto px-4">
           {/* Filter bar */}
           {(cat !== 'general' && (cat !== 'all' || contentTab === 'profiles' || contentTab === 'transport')) && (
-            <div className="bg-gray-900/40 border border-gray-800/80 backdrop-blur-md rounded-3xl p-4 mb-6 shadow-xl">
+            <div className="bg-black/40 border border-gray-800/80 backdrop-blur-md rounded-3xl p-4 mb-6 shadow-xl">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               {/* Content type tabs - ONLY show on homepage 'all' */}
               {cat === 'all' ? (
-                <div className="flex bg-gray-950/60 border border-gray-850 rounded-2xl p-1 gap-1 overflow-x-auto scrollbar-hide max-w-full">
+                <div className="flex bg-black/60 border border-gray-850 rounded-2xl p-1 gap-1 overflow-x-auto scrollbar-hide max-w-full">
                   {([['all','الكل'],['ads','📢 إعلانات'],['products','🛍️ منتجات'],['profiles','👤 حسابات'],['transport','🚌 الخطوط']] as [string,string][]).map(([t,l])=>(
                     <button 
                       key={t} 
@@ -1115,25 +1295,25 @@ export function MarketView({
                 <select 
                   value={gov} 
                   onChange={e=>setGov(e.target.value)} 
-                  className="bg-gray-950/60 hover:bg-gray-900/80 text-white font-bold rounded-xl px-3.5 py-2 border border-gray-800 hover:border-amber-500/30 text-xs outline-none transition-all duration-300 cursor-pointer min-w-[110px]" 
+                  className="bg-black/60 hover:bg-black/80 text-white font-bold rounded-xl px-3.5 py-2 border border-gray-800 hover:border-amber-500/30 text-xs outline-none transition-all duration-300 cursor-pointer min-w-[110px]" 
                   title="المحافظة" 
                   aria-label="المحافظة"
                 >
-                  {IRAQI_GOVERNORATES.map(g=><option key={g} className="bg-gray-900 text-white">{g}</option>)}
+                  {IRAQI_GOVERNORATES.map(g=><option key={g} className="bg-black text-white">{g}</option>)}
                 </select>
 
                 {/* Sort Select */}
                 <select 
                   value={sort} 
                   onChange={e=>setSort(e.target.value as any)} 
-                  className="bg-gray-950/60 hover:bg-gray-900/80 text-white font-bold rounded-xl px-3.5 py-2 border border-gray-800 hover:border-amber-500/30 text-xs outline-none transition-all duration-300 cursor-pointer min-w-[120px]" 
+                  className="bg-black/60 hover:bg-black/80 text-white font-bold rounded-xl px-3.5 py-2 border border-gray-800 hover:border-amber-500/30 text-xs outline-none transition-all duration-300 cursor-pointer min-w-[120px]" 
                   title="الترتيب" 
                   aria-label="الترتيب"
                 >
-                  <option value="recent" className="bg-gray-900 text-white">الأحدث</option>
-                  <option value="views" className="bg-gray-900 text-white">الأكثر مشاهدة</option>
-                  <option value="price-low" className="bg-gray-900 text-white">السعر: من الأقل</option>
-                  <option value="price-high" className="bg-gray-900 text-white">السعر: من الأعلى</option>
+                  <option value="recent" className="bg-black text-white">الأحدث</option>
+                  <option value="views" className="bg-black text-white">الأكثر مشاهدة</option>
+                  <option value="price-low" className="bg-black text-white">السعر: من الأقل</option>
+                  <option value="price-high" className="bg-black text-white">السعر: من الأعلى</option>
                 </select>
 
                 {/* Advanced Filters Button */}
@@ -1142,7 +1322,7 @@ export function MarketView({
                   className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black border transition-all duration-300 ${
                     showFilters
                       ? 'bg-amber-500 text-black border-amber-500 shadow-lg shadow-amber-500/10'
-                      : 'bg-gray-950/60 hover:bg-gray-900/80 text-gray-300 border-gray-800 hover:border-gray-700'
+                      : 'bg-black/60 hover:bg-black/80 text-gray-300 border-gray-800 hover:border-gray-700'
                   }`}
                 >
                   <SlidersHorizontal className="w-3.5 h-3.5"/>
@@ -1150,7 +1330,7 @@ export function MarketView({
                 </button>
 
                 {/* View Mode Toggle */}
-                <div className="flex bg-gray-950/60 border border-gray-850 rounded-xl p-0.5">
+                <div className="flex bg-black/60 border border-gray-850 rounded-xl p-0.5">
                   <button 
                     onClick={()=>setViewMode('grid')} 
                     className={`p-1.5 rounded-lg transition-all duration-300 ${viewMode==='grid'?'bg-amber-500 text-black shadow-sm shadow-amber-500/5':'text-gray-500 hover:text-white'}`} 
@@ -1185,7 +1365,7 @@ export function MarketView({
                       <span>شريط الفلاتر المتقدمة والخيارات الذكية</span>
                     </p>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-900/40 p-4 rounded-xl border border-gray-750/35">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-black/40 p-4 rounded-xl border border-gray-750/35">
                       {/* 1. Condition selection */}
                       <div className="flex flex-col gap-2">
                         <label className="text-gray-300 text-xs font-bold">الحالة (جديد / مستعمل):</label>
@@ -1281,7 +1461,7 @@ export function MarketView({
 
           {isInitialLoading ? (
             <div className="space-y-8" dir="rtl">
-              <div className="flex items-center justify-between mb-4 bg-gray-900/20 p-4 rounded-2xl border border-gray-800/40">
+              <div className="flex items-center justify-between mb-4 bg-black/20 p-4 rounded-2xl border border-gray-800/40">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse" />
                   <div className="h-5 bg-gray-800 rounded-md w-48 animate-pulse" />
@@ -1306,25 +1486,45 @@ export function MarketView({
                     <div className="space-y-12">
                       {/* 1. Latest Ads (أحدث الإعلانات / المنتجات) Section */}
                       {(latestAds.length > 0 || latestProducts.length > 0) && (
-                        <div className="bg-gray-900/40 border border-gray-800/80 rounded-3xl p-5 md:p-6 backdrop-blur-sm shadow-xl">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 border-b border-gray-800/60 pb-4" dir="rtl">
+                        <div className={`border-y border-x-0 sm:border rounded-none sm:rounded-3xl py-5 px-0 sm:p-5 md:p-6 backdrop-blur-sm shadow-xl -mx-4 sm:mx-0 transition-all duration-500 ${
+                          isDarkMode 
+                            ? 'bg-black/40 border-gray-800/80 shadow-black/20' 
+                            : 'bg-white border-slate-200/80 shadow-slate-100/50'
+                        }`}>
+                          <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 border-b pb-4 px-4 sm:px-0 transition-all duration-500 ${
+                            isDarkMode ? 'border-gray-800/60' : 'border-slate-100'
+                          }`} dir="rtl">
                             <div className="flex flex-col gap-1">
-                              <h2 className="text-lg font-black text-white flex items-center gap-2">
-                                <span className="text-amber-400">✨</span>
+                              <h2 className={`text-lg font-black flex items-center gap-2 transition-colors duration-500 ${
+                                isDarkMode ? 'text-white' : 'text-black'
+                              }`}>
+                                <span className="text-amber-500">✨</span>
                                 {homeToggleType === 'ads' ? 'أحدث الإعلانات المبوبة' : 'أحدث المنتجات والمتاجر'} 
-                                <span className="text-xs bg-red-500/10 text-red-400 px-2.5 py-1 rounded-full border border-red-500/20 font-bold">خلال 7 أيام</span>
+                                <span className={`text-xs px-2.5 py-1 rounded-full border font-bold transition-all duration-500 ${
+                                  isDarkMode 
+                                    ? 'bg-red-500/10 text-red-400 border-red-500/20' 
+                                    : 'bg-red-50 text-red-600 border-red-100'
+                                }`}>خلال 7 أيام</span>
                               </h2>
-                              <p className="text-gray-400 text-xs">تطبيق التصفية فوري وسلس دون الحاجة لإعادة تحميل الصفحة</p>
+                              <p className={`text-xs transition-colors duration-500 ${
+                                isDarkMode ? 'text-gray-400' : 'text-slate-500 font-medium'
+                              }`}>تطبيق التصفية فوري وسلس دون الحاجة لإعادة تحميل الصفحة</p>
                             </div>
 
                             {/* Segmented Toggle Buttons */}
-                            <div className="flex bg-gray-950/60 border border-gray-800 p-1 rounded-2xl shrink-0 self-start sm:self-auto shadow-inner">
+                            <div className={`flex p-1 rounded-2xl shrink-0 self-start sm:self-auto shadow-inner border transition-all duration-500 ${
+                              isDarkMode 
+                                ? 'bg-black/60 border-gray-800' 
+                                : 'bg-slate-100 border-slate-200'
+                            }`}>
                               <button
                                 onClick={() => setHomeToggleType('ads')}
                                 className={`px-4 py-1.5 rounded-xl text-xs font-black transition-all duration-300 flex items-center gap-1.5 ${
                                   homeToggleType === 'ads'
                                     ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black shadow-lg shadow-amber-500/20'
-                                    : 'text-gray-400 hover:text-white'
+                                    : isDarkMode 
+                                      ? 'text-gray-400 hover:text-white' 
+                                      : 'text-slate-500 hover:text-slate-800'
                                 }`}
                               >
                                 <span>📢</span>
@@ -1335,7 +1535,9 @@ export function MarketView({
                                 className={`px-4 py-1.5 rounded-xl text-xs font-black transition-all duration-300 flex items-center gap-1.5 ${
                                   homeToggleType === 'products'
                                     ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black shadow-lg shadow-amber-500/20'
-                                    : 'text-gray-400 hover:text-white'
+                                    : isDarkMode 
+                                      ? 'text-gray-400 hover:text-white' 
+                                      : 'text-slate-500 hover:text-slate-800'
                                 }`}
                               >
                                 <span>🛍️</span>
@@ -1351,7 +1553,9 @@ export function MarketView({
                                   setContentTab('products');
                                 }
                               }}
-                              className="text-amber-400 hover:text-amber-300 text-xs font-bold transition-colors flex items-center gap-1 shrink-0"
+                              className={`text-xs font-bold transition-colors flex items-center gap-1 shrink-0 ${
+                                isDarkMode ? 'text-amber-400 hover:text-amber-300' : 'text-amber-600 hover:text-amber-700'
+                              }`}
                             >
                               عرض الكل &gt;
                             </button>
@@ -1374,7 +1578,7 @@ export function MarketView({
                                   </div>
                                 ) : (
                                   <HorizontalCarousel 
-                                    items={latestAds.slice(0, 12)}
+                                    items={latestAds}
                                     renderItem={(ad) => {
                                       const seller = storedUsers?.find(u => u.id === ad.postedBy);
                                       return (
@@ -1386,6 +1590,7 @@ export function MarketView({
                                           onSellerClick={(id) => { if (id) onSellerClick(id); }}
                                           onActionMenu={e => { e.preventDefault(); if (user && (user.id === ad.postedBy || user.role === "admin" || user.role === "owner")) onActionMenu?.({ type: "ad", item: ad }); }}
                                           sellerRole={seller?.role}
+                                          compact={true}
                                         />
                                       );
                                     }}
@@ -1396,7 +1601,7 @@ export function MarketView({
                                   <div className="text-center py-10 text-gray-400 text-sm">لا توجد منتجات نشطة حالياً</div>
                                 ) : (
                                   <HorizontalCarousel 
-                                    items={latestProducts.slice(0, 12)}
+                                    items={latestProducts}
                                     renderItem={(p) => {
                                       const seller = storedUsers?.find(u => u.id === p.postedBy);
                                       return (
@@ -1408,6 +1613,7 @@ export function MarketView({
                                           onSellerClick={(id) => { if (id) onSellerClick(id); }}
                                           onActionMenu={e => { e.preventDefault(); if (user && (user.id === p.postedBy || user.role === "admin" || user.role === "owner")) onActionMenu?.({ type: "product", item: p }); }}
                                           sellerRole={seller?.role}
+                                          compact={true}
                                         />
                                       );
                                     }}
@@ -1421,19 +1627,35 @@ export function MarketView({
 
                       {/* 2. VIP Ads (إعلانات VIP المميزة) Section */}
                       {vipAds.length > 0 && (
-                        <div className="bg-gradient-to-br from-amber-500/5 via-gray-900/40 to-amber-900/5 border border-amber-500/20 rounded-3xl p-5 md:p-6 backdrop-blur-sm shadow-xl relative overflow-hidden">
+                        <div className={`border-y border-x-0 sm:border rounded-none sm:rounded-3xl py-5 px-0 sm:p-5 md:p-6 backdrop-blur-sm shadow-xl relative overflow-hidden -mx-4 sm:mx-0 transition-all duration-500 ${
+                          isDarkMode 
+                            ? 'bg-gradient-to-br from-amber-500/5 via-gray-900/40 to-amber-900/5 border-amber-500/20 shadow-black/20' 
+                            : 'bg-gradient-to-br from-amber-500/5 via-white to-amber-500/[0.02] border-amber-500/15 shadow-slate-100/50'
+                        }`}>
                           <div className="absolute -top-10 -left-10 w-40 h-40 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
                           
-                          <div className="flex items-center justify-between mb-5 border-b border-amber-500/10 pb-3" dir="rtl">
-                            <h2 className="text-lg font-black text-white flex items-center gap-2">
-                              <span className="text-amber-400">👑</span>
-                              إعلانات VIP <span className="text-xs bg-amber-400/10 text-amber-400 px-2.5 py-1 rounded-full border border-amber-400/20 font-bold">الحسابات الموثقة</span>
+                          <div className={`flex items-center justify-between mb-5 border-b pb-3 px-4 sm:px-0 transition-all duration-500 ${
+                            isDarkMode ? 'border-amber-500/10' : 'border-amber-100'
+                          }`} dir="rtl">
+                            <h2 className={`text-lg font-black flex items-center gap-2 transition-colors duration-500 ${
+                              isDarkMode ? 'text-white' : 'text-black'
+                            }`}>
+                              <span className="text-amber-500">👑</span>
+                              إعلانات VIP <span className={`text-xs px-2.5 py-1 rounded-full border font-bold transition-all duration-500 ${
+                                isDarkMode 
+                                  ? 'bg-amber-400/10 text-amber-400 border-amber-400/20' 
+                                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                              }`}>الحسابات الموثقة</span>
                             </h2>
-                            <span className="text-gray-500 text-xs font-bold">أولوية العرض</span>
+                            <span className={`text-xs font-bold transition-colors duration-500 ${
+                              isDarkMode ? 'text-gray-500' : 'text-slate-500'
+                            }`}>أولوية العرض</span>
                           </div>
 
                           <HorizontalCarousel 
-                            items={vipAds.slice(0, 12)}
+                            items={vipAds}
+                            lazyLoad={true}
+                            initialVisibleCount={8}
                             renderItem={(ad) => {
                               const seller = storedUsers?.find(u => u.id === ad.postedBy);
                               return (
@@ -1447,6 +1669,7 @@ export function MarketView({
                                     onSellerClick={(id) => { if (id) onSellerClick(id); }}
                                     onActionMenu={e => { e.preventDefault(); if (user && (user.id === ad.postedBy || user.role === "admin" || user.role === "owner")) onActionMenu?.({ type: "ad", item: ad }); }}
                                     sellerRole={seller?.role || 'vendor'}
+                                    compact={true}
                                   />
                                 </div>
                               );
@@ -1461,18 +1684,30 @@ export function MarketView({
                   {cat === 'general' && (
                     <div className="space-y-6 max-w-2xl mx-auto" dir="rtl">
                       {/* Feed Header */}
-                      <div className="bg-[#0c2b5e]/40 border border-gray-800 rounded-3xl p-4 flex items-center justify-between shadow-xl">
-                        <h2 className="text-lg font-black text-white flex items-center gap-2">
+                      <div className={`border rounded-3xl p-4 flex items-center justify-between shadow-xl transition-all duration-500 ${
+                        isDarkMode 
+                          ? 'bg-black border-gray-800/80' 
+                          : 'bg-white border-slate-200/80 shadow-slate-100/50'
+                      }`}>
+                        <h2 className={`text-lg font-black flex items-center gap-2 transition-colors duration-500 ${
+                          isDarkMode ? 'text-white' : 'text-black'
+                        }`}>
                           <span>👥</span>
-                          العرض العام <span className="text-xs bg-amber-400/10 text-amber-400 px-2.5 py-1 rounded-full border border-amber-400/20 font-bold">تصفح مثل فيسبوك</span>
+                          العرض العام <span className={`text-xs px-2.5 py-1 rounded-full border font-bold transition-all duration-500 ${
+                            isDarkMode 
+                              ? 'bg-amber-400/10 text-amber-400 border-amber-400/20' 
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}>تصفح مثل فيسبوك</span>
                         </h2>
-                        <span className="text-gray-400 text-xs font-bold">خوارزمية تفاعلية ناجحة</span>
+                        <span className={`text-xs font-bold transition-colors duration-500 ${
+                          isDarkMode ? 'text-gray-400' : 'text-slate-500'
+                        }`}>خوارزمية تفاعلية ناجحة</span>
                       </div>
 
                       {filterAds.length === 0 ? (
-                        <div className="text-center py-20 bg-gray-900/40 rounded-3xl border border-gray-800">
+                        <div className={`text-center py-20 rounded-3xl border ${isDarkMode ? 'bg-black/60 border-gray-800' : 'bg-white border-slate-200'}`}>
                           <p className="text-5xl mb-4">📢</p>
-                          <h3 className="text-lg font-bold text-white mb-1">لا توجد إعلانات عامة حالياً</h3>
+                          <h3 className={`text-lg font-bold mb-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>لا توجد إعلانات عامة حالياً</h3>
                           <p className="text-gray-400 text-xs">تأكد من فلاتر البحث أو أعد المحاولة لاحقاً</p>
                         </div>
                       ) : (
@@ -1486,7 +1721,11 @@ export function MarketView({
                                 key={`fb-feed-${ad.id}`}
                                 initial={{ opacity: 0, y: 15 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="bg-gray-900/60 border border-gray-800 rounded-3xl shadow-2xl p-4 sm:p-5 flex flex-col gap-4 relative overflow-hidden group"
+                                className={`rounded-3xl shadow-2xl p-4 sm:p-5 flex flex-col gap-4 relative overflow-hidden group transition-all duration-500 ${
+                                  isDarkMode 
+                                    ? 'bg-black/60 border border-gray-800/80 backdrop-blur-sm' 
+                                    : 'bg-white border border-slate-200/80 shadow-slate-100/50'
+                                }`}
                               >
                                 {/* Header block */}
                                 <div className="flex items-center justify-between">
@@ -1503,17 +1742,21 @@ export function MarketView({
                                       <div className="flex items-center gap-1.5">
                                         <span 
                                           onClick={() => ad.postedBy && onSellerClick(ad.postedBy)}
-                                          className="text-white text-sm font-bold hover:text-amber-400 transition-colors cursor-pointer"
+                                          className={`text-sm font-bold transition-colors cursor-pointer ${
+                                            isDarkMode ? 'text-white hover:text-amber-400' : 'text-black hover:text-amber-600'
+                                          }`}
                                         >
                                           {seller?.name || ad.seller?.name || 'مستخدم'}
                                         </span>
                                         {seller?.isVerified && (
-                                          <span className="text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded-md border border-blue-500/20 text-[9px] font-bold flex items-center gap-0.5">
+                                          <span className="text-gray-400 bg-gray-800/10 px-1.5 py-0.5 rounded-md border border-gray-800/20 text-[9px] font-bold flex items-center gap-0.5">
                                             <VerifiedBadge className="w-2.5 h-2.5" /> موثوق
                                           </span>
                                         )}
                                       </div>
-                                      <div className="flex items-center gap-2 text-gray-400 text-[10px] mt-0.5 font-medium">
+                                      <div className={`flex items-center gap-2 text-[10px] mt-0.5 font-medium transition-colors duration-500 ${
+                                        isDarkMode ? 'text-gray-400' : 'text-slate-500'
+                                      }`}>
                                         <span className="flex items-center gap-1">
                                           <MapPin className="w-3 h-3 text-amber-500/80" /> {ad.governorate || ad.location || 'العراق'}
                                         </span>
@@ -1536,7 +1779,9 @@ export function MarketView({
                                       className={`p-2 rounded-xl border transition-all ${
                                         isFav 
                                           ? 'bg-red-500/10 border-red-500/30 text-red-500' 
-                                          : 'bg-gray-800/40 border-gray-700/50 text-gray-400 hover:text-white'
+                                          : isDarkMode 
+                                            ? 'bg-gray-800/40 border-gray-700/50 text-gray-400 hover:text-white'
+                                            : 'bg-slate-100 border-slate-200 text-slate-500 hover:text-black'
                                       }`}
                                     >
                                       <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
@@ -1547,7 +1792,11 @@ export function MarketView({
                                           e.preventDefault();
                                           onActionMenu?.({ type: "ad", item: ad });
                                         }}
-                                        className="p-2 rounded-xl bg-gray-800/40 border border-gray-700/50 text-gray-400 hover:text-white transition-all"
+                                        className={`p-2 rounded-xl transition-all ${
+                                          isDarkMode 
+                                            ? 'bg-gray-800/40 border border-gray-700/50 text-gray-400 hover:text-white'
+                                            : 'bg-slate-100 border border-slate-200 text-slate-500 hover:text-black'
+                                        }`}
                                       >
                                         <MoreVertical className="w-4 h-4" />
                                       </button>
@@ -1557,11 +1806,15 @@ export function MarketView({
 
                                 {/* Title & Description body */}
                                 <div className="space-y-1.5 cursor-pointer" onClick={() => onSelectAd(ad)}>
-                                  <h3 className="text-base font-black text-white group-hover:text-amber-300 transition-colors">
+                                  <h3 className={`text-base font-black transition-colors ${
+                                    isDarkMode ? 'text-white group-hover:text-amber-300' : 'text-black group-hover:text-amber-600'
+                                  }`}>
                                     {ad.title}
                                   </h3>
                                   {ad.description && (
-                                    <p className="text-gray-300 text-xs sm:text-sm leading-relaxed line-clamp-3">
+                                    <p className={`text-xs sm:text-sm leading-relaxed line-clamp-3 transition-colors duration-500 ${
+                                      isDarkMode ? 'text-gray-300' : 'text-slate-600'
+                                    }`}>
                                       {ad.description}
                                     </p>
                                   )}
@@ -1570,7 +1823,9 @@ export function MarketView({
                                 {/* Media Attachment */}
                                 {ad.images && ad.images.length > 0 && (
                                   <div 
-                                    className="relative rounded-2xl overflow-hidden border border-gray-800 bg-black/20 aspect-[16/9] cursor-pointer"
+                                    className={`relative rounded-2xl overflow-hidden aspect-[16/9] cursor-pointer transition-all duration-500 ${
+                                      isDarkMode ? 'border border-gray-800 bg-black/20' : 'border border-slate-200 bg-slate-50'
+                                    }`}
                                     onClick={() => onSelectAd(ad)}
                                   >
                                     <img 
@@ -1595,7 +1850,9 @@ export function MarketView({
 
                                 {/* Engagement Metrics & Fast Interaction Buttons */}
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-gray-800/60 mt-1">
-                                  <div className="flex items-center gap-4 text-gray-400 text-xs font-bold">
+                                  <div className={`flex items-center gap-4 text-xs font-bold transition-colors duration-500 ${
+                                    isDarkMode ? 'text-gray-400' : 'text-slate-500'
+                                  }`}>
                                     <span className="flex items-center gap-1">
                                       <Eye className="w-4 h-4 text-gray-500" /> {ad.views || 0} مشاهدة
                                     </span>
@@ -1611,7 +1868,7 @@ export function MarketView({
                                           href={`tel:${ad.phone}`}
                                           whileHover={{ scale: 1.03 }}
                                           whileTap={{ scale: 0.97 }}
-                                          className="flex items-center gap-1.5 px-3 py-2 bg-blue-600/15 hover:bg-blue-600/25 border border-blue-500/30 text-blue-400 hover:text-white rounded-xl text-xs font-black transition-all"
+                                          className="flex items-center gap-1.5 px-3 py-2 bg-gray-800/15 hover:bg-gray-800/25 border border-gray-800/30 text-gray-400 hover:text-white rounded-xl text-xs font-black transition-all"
                                         >
                                           <Phone className="w-3.5 h-3.5" /> اتصال
                                         </motion.a>
@@ -1668,7 +1925,7 @@ export function MarketView({
                   {(cat !== 'all' && cat !== 'general' || (cat === 'all' && search.trim().length > 0)) && (
                     <div className="space-y-6">
                       {/* Category Header Card */}
-                      <div className="bg-[#0c2b5e]/40 border border-gray-800 rounded-3xl p-5 md:p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4" dir="rtl">
+                      <div className="bg-black/40 border border-gray-800 rounded-3xl p-5 md:p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4" dir="rtl">
                         <div className="space-y-1">
                           <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2">
                             {cat === 'all' ? (
@@ -1697,7 +1954,7 @@ export function MarketView({
 
                       {/* Grid rendering ads or products strictly */}
                       {filterAds.length === 0 && filterProds.length === 0 ? (
-                        <div className="text-center py-24 bg-gray-900/40 rounded-3xl border border-gray-800" dir="rtl">
+                        <div className="text-center py-24 bg-black/40 rounded-3xl border border-gray-800" dir="rtl">
                           <div className="text-5xl mb-4">🔍</div>
                           <h3 className="text-xl font-bold text-white mb-2">لا توجد إعلانات حالياً</h3>
                           <p className="text-gray-400 text-sm">جرب ضبط فلاتر البحث أو تصفح في وقت آخر</p>
@@ -1858,21 +2115,21 @@ export function MarketView({
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-                          <div className="bg-gray-900 rounded-xl p-2 text-center">
+                          <div className="bg-black rounded-xl p-2 text-center">
                             <p className="text-gray-400 text-[10px]">الدوام</p>
                             <p className="text-white font-bold text-xs">{ad.shift}</p>
                           </div>
                           {ad.type === 'offer' && (
-                            <div className="bg-gray-900 rounded-xl p-2 text-center">
+                            <div className="bg-black rounded-xl p-2 text-center">
                               <p className="text-gray-400 text-[10px]">المقاعد</p>
                               <p className="text-emerald-400 font-bold text-xs">{ad.seats} <span className="text-gray-500 font-normal">متاح</span></p>
                             </div>
                           )}
-                          <div className="bg-gray-900 rounded-xl p-2 text-center">
+                          <div className="bg-black rounded-xl p-2 text-center">
                             <p className="text-gray-400 text-[10px]">الفئة</p>
                             <p className="text-white font-bold text-xs">{ad.targetAudience}</p>
                           </div>
-                          <div className="bg-gray-900 rounded-xl p-2 text-center">
+                          <div className="bg-black rounded-xl p-2 text-center">
                             <p className="text-gray-400 text-[10px]">المركبة</p>
                             <p className="text-white font-bold text-xs">{ad.vehicleType}</p>
                           </div>
@@ -1886,7 +2143,7 @@ export function MarketView({
                         )}
 
                         {ad.note && (
-                          <p className="text-gray-300 text-xs mb-4 bg-gray-900/50 rounded-xl p-3 border border-gray-700/50">{ad.note}</p>
+                          <p className="text-gray-300 text-xs mb-4 bg-black/50 rounded-xl p-3 border border-gray-700/50">{ad.note}</p>
                         )}
 
                         <div className="flex items-center justify-between pt-3 border-t border-gray-700/50">
@@ -1966,7 +2223,7 @@ export function MarketView({
                     value={localSearch}
                     onChange={e => setLocalSearch(e.target.value)}
                     placeholder="ابحث عن حساب باسم المستخدم أو رقم الهاتف (077...)"
-                    className="w-full bg-[#0c2b5e]/80 text-white placeholder-gray-400 rounded-2xl py-3.5 pr-12 pl-4 border border-gray-700 focus:border-amber-400 outline-none text-base shadow-inner"
+                    className="w-full bg-black/80 text-white placeholder-gray-400 rounded-2xl py-3.5 pr-12 pl-4 border border-gray-700 focus:border-amber-400 outline-none text-base shadow-inner"
                   />
                   {localSearch && (
                     <button onClick={() => { setLocalSearch(''); }} className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-white bg-gray-800 px-2 py-1 rounded-lg">
@@ -2012,7 +2269,7 @@ export function MarketView({
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2 text-center bg-[#0c2b5e]/60 rounded-xl p-2 border border-gray-800">
+                          <div className="grid grid-cols-2 gap-2 text-center bg-black/60 rounded-xl p-2 border border-gray-800">
                             <div>
                               <span className="text-[10px] text-gray-400 block">الإعلانات</span>
                               <span className="text-xs font-bold text-white">{topUser.adCount || 0}</span>
@@ -2033,7 +2290,7 @@ export function MarketView({
               {canViewFullDirectory ? (
                 <>
               {filteredProfiles.length === 0 ? (
-                <div className="text-center py-20 bg-gray-900/60 rounded-3xl border border-gray-800">
+                <div className="text-center py-20 bg-black/60 rounded-3xl border border-gray-800">
                   <div className="text-5xl mb-4">👤</div>
                   <h3 className="text-xl font-bold text-white mb-2">لا توجد حسابات مطابقة للبحث</h3>
                   <p className="text-gray-400 text-sm">جرب البحث باسم آخر أو تأكد من رقم الهاتف المدخل</p>
@@ -2068,7 +2325,7 @@ export function MarketView({
                             <div className="flex items-center justify-between gap-1 mb-1">
                               <h3 className="text-white font-bold text-sm truncate group-hover:text-amber-300 transition-colors">{profile.name}</h3>
                               {profile.isVerified && (
-                                <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 flex items-center gap-1">
+                                <span className="bg-gray-800/20 text-gray-400 border border-gray-800/30 text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 flex items-center gap-1">
                                   <VerifiedBadge className="w-3 h-3" /> موثوق
                                 </span>
                               )}
@@ -2094,7 +2351,7 @@ export function MarketView({
 
                         <div className="pt-3 border-t border-gray-700/60 flex items-center justify-between text-xs gap-2">
                           <div className="flex items-center gap-2">
-                            <span className="text-gray-300 font-bold bg-gray-900/80 px-2 py-1 rounded-lg border border-gray-700/50">
+                            <span className="text-gray-300 font-bold bg-black/80 px-2 py-1 rounded-lg border border-gray-700/50">
                               📢 {profile.adCount || 0} إعلان
                             </span>
                             {(profile.prodCount || 0) > 0 && (
@@ -2135,7 +2392,7 @@ export function MarketView({
               />
                 </>
               ) : (
-                <div className="bg-gray-900/50 border border-gray-800 rounded-3xl p-8 text-center mt-8">
+                <div className="bg-black/50 border border-gray-800 rounded-3xl p-8 text-center mt-8">
                   <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-500/20">
                     <span className="text-3xl">👋</span>
                   </div>

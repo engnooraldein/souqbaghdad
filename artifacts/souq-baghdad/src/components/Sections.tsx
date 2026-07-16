@@ -22,7 +22,7 @@ export function CategoriesSection({ onCategoryClick }: CategoriesSectionProps) {
       name: 'السيارات',
       subtitle: 'سيارات جديدة ومستعملة',
       icon: Car,
-      gradient: 'from-blue-600 to-blue-800',
+      gradient: 'from-gray-600 to-gray-800',
       count: '2,450'
     },
     {

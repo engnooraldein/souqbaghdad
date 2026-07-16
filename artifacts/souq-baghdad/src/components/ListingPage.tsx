@@ -12,6 +12,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Filter, Grid, List, ChevronLeft, Heart, MessageCircle, Share2, Eye, MapPin, Clock, Car, Home, Smartphone, Star, Check, X } from 'lucide-react';
 import { ProductCard } from './Cards';
+import InfiniteScrollTrigger from './InfiniteScrollTrigger';
 
 interface ListingPageProps {
   category: string;
@@ -23,7 +24,7 @@ const categoryData = {
     title: 'السيارات',
     subtitle: 'سيارات جديدة ومستعملة',
     icon: Car,
-    color: 'from-blue-600 to-blue-800',
+    color: 'from-gray-600 to-gray-800',
     filters: [
       { name: 'النوع', options: ['الكل', 'سيدان', 'SUV', 'بيك اب', 'كوبيه'] },
       { name: 'السعر', options: ['الكل', 'حت 50 مليون', '50-100 مليون', '100-300 مليون', 'فوق 300 مليون'] },
@@ -135,6 +136,7 @@ export function ListingPage({ category, onBack }: ListingPageProps) {
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string>>({});
   const [sortBy, setSortBy] = useState('newest');
   const [favorites, setFavorites] = useState<number[]>([]);
+  const [visibleCount, setVisibleCount] = useState(4);
 
   const data = categoryData[category as keyof typeof categoryData] || categoryData.cars;
 
@@ -193,7 +195,7 @@ export function ListingPage({ category, onBack }: ListingPageProps) {
               onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-colors ${
                 showFilters
-                  ? 'bg-blue-600 text-white border-blue-600'
+                  ? 'bg-gray-800 text-white border-blue-600'
                   : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'
               }`}
             >
@@ -218,7 +220,7 @@ export function ListingPage({ category, onBack }: ListingPageProps) {
             <button
               onClick={() => setViewMode('grid')}
               className={`p-2 rounded-lg transition-colors ${
-                viewMode === 'grid' ? 'bg-blue-600 text-white' : 'text-gray-500'
+                viewMode === 'grid' ? 'bg-gray-800 text-white' : 'text-gray-500'
               }`}
             >
               <Grid className="w-5 h-5" />
@@ -226,7 +228,7 @@ export function ListingPage({ category, onBack }: ListingPageProps) {
             <button
               onClick={() => setViewMode('list')}
               className={`p-2 rounded-lg transition-colors ${
-                viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-gray-500'
+                viewMode === 'list' ? 'bg-gray-800 text-white' : 'text-gray-500'
               }`}
             >
               <List className="w-5 h-5" />
@@ -266,7 +268,7 @@ export function ListingPage({ category, onBack }: ListingPageProps) {
                             onClick={() => toggleFilter(filter.name, option)}
                             className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
                               selectedFilters[filter.name] === option
-                                ? 'bg-blue-600 text-white'
+                                ? 'bg-gray-800 text-white'
                                 : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                             }`}
                           >
@@ -295,7 +297,7 @@ export function ListingPage({ category, onBack }: ListingPageProps) {
               : 'space-y-4'
           }
         >
-          {mockProducts.map((product, index) => (
+          {mockProducts.slice(0, visibleCount).map((product, index) => (
             <motion.div
               key={product.id}
               initial={{ opacity: 0, y: 20 }}
@@ -389,15 +391,16 @@ export function ListingPage({ category, onBack }: ListingPageProps) {
         </div>
 
         {/* Load More */}
-        <div className="text-center mt-12">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="px-8 py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-xl hover:shadow-xl transition-all"
-          >
-            تحميل المزيد
-          </motion.button>
-        </div>
+        <InfiniteScrollTrigger
+          onLoadMore={async () => {
+            await new Promise(resolve => setTimeout(resolve, 400));
+            setVisibleCount(prev => prev + 4);
+          }}
+          hasMore={visibleCount < mockProducts.length}
+          loadingText="جاري تحميل المزيد من العروض..."
+          skeletonType="grid"
+          skeletonCount={2}
+        />
       </div>
     </div>
   );

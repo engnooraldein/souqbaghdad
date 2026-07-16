@@ -79,7 +79,7 @@ export function InterestTimer({ itemId, itemType, onInterestRegistered }: { item
       initial={{ scale: 0.9, opacity: 0, y: -10 }}
       animate={{ scale: 1, opacity: 1, y: 0 }}
       exit={{ scale: 0.9, opacity: 0, y: -10 }}
-      className="absolute top-24 left-4 z-50 px-3 py-1.5 bg-[#0c2b5e]/80 backdrop-blur-md text-white border border-[#4b7ab5]/50 rounded-2xl shadow-xl flex items-center gap-2 transition-all"
+      className="absolute top-24 left-4 z-50 px-3 py-1.5 bg-black/80 backdrop-blur-md text-white border border-[#4b7ab5]/50 rounded-2xl shadow-xl flex items-center gap-2 transition-all"
     >
       <div className="flex items-center gap-1.5 text-amber-400 font-bold text-xs sm:text-sm">
         <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />

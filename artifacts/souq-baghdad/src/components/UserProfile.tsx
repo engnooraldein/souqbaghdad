@@ -193,7 +193,7 @@ export function UserProfile({ onBack }: UserProfileProps) {
           {user.cover ? (
             <img src={user.cover} alt="Cover" className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900" />
+            <div className="w-full h-full bg-gradient-to-r from-gray-900 via-blue-800 to-gray-900" />
           )}
           <button
             onClick={onBack}
@@ -251,7 +251,7 @@ export function UserProfile({ onBack }: UserProfileProps) {
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-xl sm:text-2xl font-bold text-white leading-none">{user.name}</h1>
               {user.isVerified && (
-                <div className="text-blue-500" title="موثق">
+                <div className="text-gray-400" title="موثق">
                   <Check className="w-4 h-4" />
                 </div>
               )}
@@ -265,7 +265,7 @@ export function UserProfile({ onBack }: UserProfileProps) {
                  </span>
                )}
                {user.badges?.isStudent && (
-                 <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded-md text-xs font-semibold flex items-center gap-1">
+                 <span className="px-2 py-1 bg-gray-800/20 text-gray-400 rounded-md text-xs font-semibold flex items-center gap-1">
                    🎓 طالب موثق
                  </span>
                )}
@@ -728,7 +728,7 @@ export function UserProfile({ onBack }: UserProfileProps) {
                 <motion.button
                   whileHover={{ scale: 1.1 }}
                   onClick={() => shareToSocial('facebook')}
-                  className="flex flex-col items-center gap-2 p-4 bg-blue-600 rounded-xl text-white"
+                  className="flex flex-col items-center gap-2 p-4 bg-gray-800 rounded-xl text-white"
                 >
                   <Facebook className="w-8 h-8" />
                   <span className="text-sm">فيسبوك</span>

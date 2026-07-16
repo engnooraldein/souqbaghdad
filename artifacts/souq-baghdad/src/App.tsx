@@ -60,8 +60,8 @@ import InfiniteScrollTrigger from './components/InfiniteScrollTrigger';
 // Constants
 // ─────────────────────────────────────────────
 const OWNER_EMAIL = 'nooraldeinsbah@gmail.com';
-export const DEFAULT_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#1e3a5f"/><circle cx="50" cy="38" r="18" fill="#4b7ab5"/><ellipse cx="50" cy="82" rx="28" ry="20" fill="#4b7ab5"/></svg>')}`;
-const DEFAULT_COVER = '/logo.jpg';
+export const DEFAULT_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#111111"/><circle cx="50" cy="38" r="18" fill="#555555"/><ellipse cx="50" cy="82" rx="28" ry="20" fill="#555555"/></svg>')}`;
+const DEFAULT_COVER = '/logo-512.webp';
 
 export const getCoverImage = (user: {role?: string, cover?: string}) => {
   if (['pro', 'vendor', 'admin', 'owner'].includes(user?.role || '')) {
@@ -346,15 +346,51 @@ function isBanned(email: string) {
 }
 const useSound = () => {
   const ctx = useRef<AudioContext|null>(null);
-  return (type:'success'|'error'|'click'|'info') => {
+  return (type: 'success' | 'error' | 'click' | 'info' | 'upload' | 'delete' | 'admin') => {
     try {
-      if (!ctx.current) ctx.current = new (window.AudioContext||(window as any).webkitAudioContext)();
-      const c=ctx.current, osc=c.createOscillator(), gain=c.createGain();
-      osc.connect(gain); gain.connect(c.destination);
-      const f:Record<string,number[]>={success:[800,1000],error:[400,300],click:[500,500],info:[700,900]};
-      osc.frequency.setValueAtTime(f[type][0],c.currentTime); osc.frequency.setValueAtTime(f[type][1],c.currentTime+0.1);
-      gain.gain.setValueAtTime(0.2,c.currentTime); gain.gain.exponentialRampToValueAtTime(0.01,c.currentTime+0.3);
-      osc.start(c.currentTime); osc.stop(c.currentTime+0.3);
+      if (!ctx.current) ctx.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const c = ctx.current;
+      if (c.state === 'suspended') {
+        c.resume();
+      }
+      const playTone = (freqs: number[], duration = 0.3, typeNode: OscillatorType = 'sine', volume = 0.2) => {
+        const osc = c.createOscillator();
+        const gain = c.createGain();
+        osc.type = typeNode;
+        osc.connect(gain);
+        gain.connect(c.destination);
+        const now = c.currentTime;
+        if (freqs.length === 1) {
+          osc.frequency.setValueAtTime(freqs[0], now);
+        } else if (freqs.length === 2) {
+          osc.frequency.setValueAtTime(freqs[0], now);
+          osc.frequency.setValueAtTime(freqs[1], now + duration / 2);
+        } else {
+          freqs.forEach((f, idx) => {
+            osc.frequency.setValueAtTime(f, now + (idx * (duration / freqs.length)));
+          });
+        }
+        gain.gain.setValueAtTime(volume, now);
+        gain.gain.exponentialRampToValueAtTime(0.005, now + duration);
+        osc.start(now);
+        osc.stop(now + duration);
+      };
+
+      if (type === 'upload') {
+        playTone([523.25, 659.25, 783.99], 0.25, 'sine', 0.25);
+      } else if (type === 'delete') {
+        playTone([493.88, 329.63], 0.35, 'triangle', 0.25);
+      } else if (type === 'admin') {
+        playTone([880.00, 1318.51], 0.6, 'sine', 0.3);
+      } else {
+        const f: Record<string, number[]> = {
+          success: [800, 1000],
+          error: [400, 300],
+          click: [500, 500],
+          info: [700, 900]
+        };
+        playTone(f[type], 0.3, 'sine', 0.2);
+      }
     } catch {}
   };
 };
@@ -779,7 +815,7 @@ export default function App() {
     }
   };
   const [activeLightbox, setActiveLightbox] = useState<{ src: string; title: string; images?: string[]; initialIdx?: number } | null>(null);
-  const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; title: string; url: string; image?: string; price?: string; governorate?: string; location?: string; short_id?: string; description?: string }>({ isOpen: false, title: '', url: '' });
+  const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; title: string; url: string; image?: string; price?: string; governorate?: string; location?: string; short_id?: string; description?: string; category?: string }>({ isOpen: false, title: '', url: '' });
   const getDefaultAds = (): Ad[] => [];
 
   const getDefaultProducts = (): Product[] => [];
@@ -826,6 +862,17 @@ export default function App() {
   const [loadingTransport, setLoadingTransport] = useState(false);
 
   const playSound = useSound();
+
+  useEffect(() => {
+    const completed = localStorage.getItem('souq_onboarding_completed') || localStorage.getItem('souqOnboarded');
+    if (!completed) {
+      const timer = setTimeout(() => {
+        setShowOnboarding(true);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, []);
 
   // هذا useEffect يعمل مرة واحدة عند فتح التطبيق.
   // يحلل عنوان URL لفتح الإعلان أو المنتج أو النقل مباشرة (Deep Linking).
@@ -1122,6 +1169,7 @@ export default function App() {
         governorate: itemLoc,
         short_id: d.short_id || (d.id ? String(d.id).substring(0, 5) : undefined),
         description: d.description || d.details || '',
+        category: d.category || 'general',
       });
     };
     window.addEventListener('open-share-modal', handleOpenShare);
@@ -2052,9 +2100,7 @@ export default function App() {
       if (prevNotifsLength.current > 0) {
         const hasNewIncoming = notifications.some(n => n.targetType === 'owner' || !n.targetType);
         if (hasNewIncoming) {
-          const audio = new Audio('https://cdn.pixabay.com/audio/2022/03/24/audio_783d1a0e1c.mp3');
-          audio.volume = 0.6;
-          audio.play().catch(() => {});
+          playSound('admin');
         }
       }
     }
@@ -2212,7 +2258,16 @@ export default function App() {
   }, [user]);
 
   const showToast = useCallback((msg:string,type:string)=>{
-    setToast({msg,type,visible:true}); playSound(type==='success'?'success':'info');
+    setToast({msg,type,visible:true});
+    if (type === 'success') {
+      playSound('success');
+    } else if (type === 'delete') {
+      playSound('delete');
+    } else if (type === 'admin') {
+      playSound('admin');
+    } else {
+      playSound('info');
+    }
     setTimeout(()=>setToast(t=>({...t,visible:false})),4000);
   },[]);
 
@@ -2483,7 +2538,7 @@ export default function App() {
       console.error(error);
       return;
     }
-    showToast('تم حذف الخط بنجاح', 'info');
+    showToast('تم حذف الخط بنجاح', 'delete');
     fetchAds();
   };
 
@@ -2574,13 +2629,13 @@ export default function App() {
   const handleDeleteAd = async (id: number) => {
     await supabase.from('ads').delete().eq('id', id);
     setAllAds(prev => prev.filter(a => a.id !== id));
-    showToast('تم حذف الإعلان', 'info');
+    showToast('تم حذف الإعلان', 'delete');
   };
 
   const handleDeleteProduct = async (id: number) => {
     await supabase.from('products').delete().eq('id', id);
     setAllProducts(prev => prev.filter(p => p.id !== id));
-    showToast('تم حذف المنتج', 'info');
+    showToast('تم حذف المنتج', 'delete');
   };
 
   
@@ -2686,7 +2741,7 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen pwa-outer-container transition-colors duration-300 ${isDarkMode ? 'dark bg-[#0c2b5e] text-white' : 'bg-slate-50 text-slate-900'}`}>
+    <div className={`min-h-screen pwa-outer-container transition-colors duration-300 ${isDarkMode ? 'dark bg-[black] text-white' : 'bg-slate-50 text-slate-900'}`}>
       <LoadingScreen isLoading={isInitialLoading} />
       <Helmet>
         <title>{pageTitle}</title>
@@ -2704,7 +2759,7 @@ export default function App() {
       <Toast msg={toast.msg} type={toast.type} visible={toast.visible} onClose={()=>setToast(t=>({...t,visible:false}))}/>
 
       {/* Nav */}
-      <nav className={`fixed top-0 left-0 right-0 z-40 backdrop-blur-xl border-b transition-colors duration-300 pwa-header shadow-md ${isDarkMode ? 'bg-[#0c2b5e]/70 border-transparent shadow-[#0c2b5e]/10' : 'bg-white/80 border-slate-200/80 shadow-slate-100'}`}>
+      <nav className={`fixed top-0 left-0 right-0 z-40 backdrop-blur-xl border-b transition-colors duration-300 pwa-header shadow-md ${isDarkMode ? 'bg-[black]/70 border-transparent shadow-[black]/10' : 'bg-white/80 border-slate-200/80 shadow-slate-100'}`}>
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <button onClick={()=>setView('home')} className="flex items-center gap-2">
@@ -2744,7 +2799,7 @@ export default function App() {
                 </>
               ):(
                 <>
-                  <button onClick={()=>setShowAuth(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-bold rounded-xl text-sm hover:bg-blue-700"><LogIn className="w-4 h-4"/> تسجيل الدخول</button>
+                  <button onClick={()=>setShowAuth(true)} className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white font-bold rounded-xl text-sm hover:bg-gray-700"><LogIn className="w-4 h-4"/> تسجيل الدخول</button>
                 </>
               )}
             </div>
@@ -2762,7 +2817,7 @@ export default function App() {
                   </button>
                 </>
               ) : (
-                <button onClick={()=>setShowAuth(true)} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white font-bold rounded-xl text-xs hover:bg-blue-700">
+                <button onClick={()=>setShowAuth(true)} className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-800 text-white font-bold rounded-xl text-xs hover:bg-gray-700">
                   <LogIn className="w-3.5 h-3.5"/> <span>دخول</span>
                 </button>
               )}
@@ -2782,7 +2837,7 @@ export default function App() {
 
       {/* Desktop Navigation Sidebar */}
       <aside className={`hidden lg:flex flex-col w-64 fixed right-0 top-16 bottom-0 z-30 border-l transition-colors duration-300 text-right ${
-        isDarkMode ? 'bg-[#081a3d]/95 border-gray-800/80 text-white' : 'bg-white border-slate-200 text-slate-800'
+        isDarkMode ? 'bg-[black]/95 border-gray-800/80 text-white' : 'bg-white border-slate-200 text-slate-800'
       }`} dir="rtl">
         <div className="flex-1 overflow-y-auto p-4 space-y-5">
           {/* User Profile Card */}
@@ -2805,7 +2860,7 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <button onClick={() => setShowAuth(true)} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer">
+            <button onClick={() => setShowAuth(true)} className="w-full py-3 bg-gray-800 hover:bg-gray-700 text-white font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer">
               <LogIn className="w-4.5 h-4.5"/> 
               <span>تسجيل الدخول</span>
             </button>
@@ -2835,7 +2890,7 @@ export default function App() {
 
             <button onClick={() => { setView('transport'); setBottomNavActive('transport'); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
               view === 'transport' 
-                ? 'bg-blue-600 text-white' 
+                ? 'bg-gray-800 text-white' 
                 : (isDarkMode ? 'text-gray-300 hover:bg-gray-800/60 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')
             }`}>
               <Car className="w-4.5 h-4.5"/>
@@ -2967,7 +3022,7 @@ export default function App() {
               exit={{ x: '100%' }} 
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               className={`absolute right-0 top-0 bottom-0 w-72 p-5 pb-24 overflow-y-auto border-l text-right flex flex-col justify-between ${
-                isDarkMode ? 'bg-[#081a3d] border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-800'
+                isDarkMode ? 'bg-[black] border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-800'
               }`}
               dir="rtl"
             >
@@ -3019,7 +3074,7 @@ export default function App() {
                     </button>
                   </div>
                 ) : (
-                  <button onClick={() => { setShowAuth(true); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-600 text-white font-bold text-sm">
+                  <button onClick={() => { setShowAuth(true); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl bg-gray-800 text-white font-bold text-sm">
                     <LogIn className="w-5 h-5" /> تسجيل الدخول
                   </button>
                 )}
@@ -3091,6 +3146,7 @@ export default function App() {
                 loadingMoreAds={loadingMoreAds}
                 loadingMoreProducts={loadingMoreProducts}
                 isInitialLoading={isInitialLoading}
+                isDarkMode={isDarkMode}
               />
             </Suspense>
           </motion.div>}
@@ -3127,7 +3183,7 @@ export default function App() {
           </motion.div>}
           {view==='profile'&&user&&<motion.div key="profile" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <Suspense fallback={<LoadingScreen isLoading={true} />}>
-              <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold} favorites={favorites} allAds={allAds} allProducts={allProducts} onAdSelect={setSelectedAd} onProductSelect={setSelectedProduct} onFav={handleToggleFav} onStoreGuideClick={() => setShowStoreGuide(true)} />
+              <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold} favorites={favorites} allAds={allAds} allProducts={allProducts} onAdSelect={setSelectedAd} onProductSelect={setSelectedProduct} onFav={handleToggleFav} onStoreGuideClick={() => setShowStoreGuide(true)} isDarkMode={isDarkMode} />
             </Suspense>
           </motion.div>}
           {view==='seller'&&selectedSellerId&&<motion.div key="seller" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
@@ -3162,7 +3218,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-[#0c2b5e] border-t border-[#d4af37]/20 py-6 lg:pr-64">
+      <footer className="bg-[black] border-t border-[#d4af37]/20 py-6 lg:pr-64">
         <div className="container mx-auto px-4 text-center">
           <div className="flex items-center justify-center gap-2 mb-3"><span className="text-2xl">🇮🇶</span><span className="text-lg font-bold text-white">سوك بغداد</span></div>
                     <p className="text-gray-500 text-xs">© 2025 سوك بغداد — السوق الرقمي العراقي</p>
@@ -3185,7 +3241,7 @@ export default function App() {
       </footer>
 
       {/* Bottom Navigation Bar - Fixed Mobile First */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#0c2b5e]/95 backdrop-blur-xl border-t border-[#d4af37]/20 lg:hidden pwa-bottom-nav">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[black]/95 backdrop-blur-xl border-t border-[#d4af37]/20 lg:hidden pwa-bottom-nav">
         <div className="flex items-center justify-around h-16 px-2">
           {/* الملف الشخصي */}
           <button
@@ -3208,9 +3264,9 @@ export default function App() {
           {/* المنتجات */}
           <button
             onClick={() => { setBottomNavActive('products'); setView('products'); }}
-            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'products' ? 'text-blue-400' : 'text-gray-400'}`}
+            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'products' ? 'text-gray-400' : 'text-gray-400'}`}
           >
-            <div className={`p-2 rounded-xl ${bottomNavActive === 'products' ? 'bg-blue-500/20' : ''}`}>
+            <div className={`p-2 rounded-xl ${bottomNavActive === 'products' ? 'bg-gray-800/20' : ''}`}>
               <ShoppingBag className="w-6 h-6" />
             </div>
             <span className="text-[10px] mt-1 font-medium">المنتجات</span>
@@ -3260,7 +3316,7 @@ export default function App() {
 
       {/* Modals */}
       <AnimatePresence>
-        {showOnboarding&&<Suspense fallback={null}><OnboardingModal onClose={()=>{setShowOnboarding(false);localStorage.setItem('souqOnboarded','1');}}/></Suspense>}
+        {showOnboarding&&<Suspense fallback={null}><OnboardingModal isOpen={showOnboarding} onClose={()=>{setShowOnboarding(false);localStorage.setItem('souqOnboarded','1');localStorage.setItem('souq_onboarding_completed','true');}}/></Suspense>}
         {showAuth&&<AuthModal onClose={()=>setShowAuth(false)} onLogin={handleLogin}/>}
         {selectedAd&&<Suspense fallback={null}><AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllAds(prev => prev.map(a => String(a.id) === String(id) ? { ...a, views: Math.max(a.views || 0, views) } : a)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'ad' } })); }} /></Suspense>}
         {selectedProduct&&<Suspense fallback={null}><ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllProducts(prev => prev.map(p => String(p.id) === String(id) ? { ...p, views: Math.max(p.views || 0, views) } : p)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'product' } })); }} /></Suspense>}
@@ -3284,6 +3340,7 @@ export default function App() {
               location={shareModalData.location}
               short_id={shareModalData.short_id}
               description={(shareModalData as any).description}
+              category={shareModalData.category}
             />
           </Suspense>
         )}

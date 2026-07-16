@@ -353,7 +353,7 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
   return (
     <>
       <LoadingScreen isLoading={loadingProfile || loadingContent} />
-      <div className="min-h-screen bg-[#0c2b5e] pt-16 pb-10">
+      <div className="min-h-screen bg-black pt-16 pb-10">
       {/* Cover */}
       <div className="w-full aspect-[3/1] md:aspect-[4/1] bg-gray-900 relative overflow-hidden flex items-center justify-center">
         <img src={effectiveSeller?.cover || DEFAULT_COVER} alt="" className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110"/>
@@ -364,7 +364,7 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
         />
         {/* Watermark */}
         <div className="absolute top-4 left-4 z-10 flex items-center gap-2 opacity-60 select-none pointer-events-none drop-shadow-xl">
-          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-900 rounded-lg flex items-center justify-center border border-amber-500/40">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-900 rounded-lg flex items-center justify-center border border-amber-500/40">
             <span className="text-white font-bold text-[10px] sm:text-xs">سوك</span>
           </div>
           <span className="text-white font-bold text-xs sm:text-sm drop-shadow-md">سوك بغداد</span>
@@ -404,7 +404,7 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
               <Share2 className="w-4 h-4"/>
               <span className="hidden sm:inline">مشاركة</span>
             </button>
-            <button onClick={onBack} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-blue-500 text-white rounded-xl text-sm font-bold shadow-lg hover:bg-blue-600">
+            <button onClick={onBack} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-gray-800 text-white rounded-xl text-sm font-bold shadow-lg hover:bg-gray-800">
               <ChevronRight className="w-4 h-4"/>
               <span className="hidden sm:inline">رجوع</span>
             </button>
@@ -416,7 +416,7 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <h2 className="text-xl sm:text-2xl font-bold text-white always-white">{effectiveSeller?.name}</h2>
             {effectiveSeller?.isVerified && (
-              <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full font-bold">
+              <span className="flex items-center gap-1 px-2 py-0.5 bg-gray-800/20 text-gray-400 text-xs rounded-full font-bold">
                 <VerifiedBadge className="w-3 h-3"/> موثق
               </span>
             )}
@@ -476,7 +476,7 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 mb-5">
-          {[{v:sellerAds.length,l:'إعلان',c:'text-amber-400'},{v:sellerProds.length,l:'منتج',c:'text-purple-400'},{v:sellerAds.reduce((s,a)=>s+a.views,0)+sellerProds.reduce((s,p)=>s+p.views,0),l:'مشاهدة',c:'text-blue-400'}].map((s,i)=>(
+          {[{v:sellerAds.length,l:'إعلان',c:'text-amber-400'},{v:sellerProds.length,l:'منتج',c:'text-purple-400'},{v:sellerAds.reduce((s,a)=>s+a.views,0)+sellerProds.reduce((s,p)=>s+p.views,0),l:'مشاهدة',c:'text-gray-400'}].map((s,i)=>(
             <div key={i} className="bg-gray-800 rounded-2xl p-3 text-center border border-gray-700">
               <p className={`text-2xl font-bold ${s.c}`}>{s.v}</p>
               <p className="text-gray-400 text-xs">{s.l}</p>

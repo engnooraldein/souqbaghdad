@@ -12,7 +12,7 @@ import React from 'react';
 
 export function Footer({ setActiveDocTab }: { setActiveDocTab: (tab: string) => void }) {
   return (
-    <footer className="bg-[#0c2b5e] border-t border-[#d4af37]/20 py-6">
+    <footer className="bg-black border-t border-[#d4af37]/20 py-6">
       <div className="container mx-auto px-4 text-center">
         <div className="flex items-center justify-center gap-2 mb-3">
           <span className="text-2xl">🇮🇶</span>

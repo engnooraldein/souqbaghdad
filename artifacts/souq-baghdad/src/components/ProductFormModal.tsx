@@ -283,6 +283,7 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
         const url = await uploadImageToStorage(file);
         clearInterval(iv);
         setImages(prev=>prev.map(img=>img._uid===uid?{...img,preview:url,progress:100}:img));
+        playSound('upload');
       } catch (err) {
         // Fallback: If AI moderation fails (e.g., quota exceeded), allow upload
         console.warn("AI Moderation failed, bypassing...", err);
@@ -290,6 +291,7 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
           const url = await uploadImageToStorage(file);
           clearInterval(iv);
           setImages(prev=>prev.map(img=>img._uid===uid?{...img,preview:url,progress:100}:img));
+          playSound('upload');
         } catch (uploadErr) {
           clearInterval(iv);
           setImages(prev=>prev.filter(img=>img._uid!==uid));

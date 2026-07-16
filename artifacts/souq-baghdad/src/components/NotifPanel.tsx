@@ -178,8 +178,8 @@ export function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryCli
                   className="bg-gray-800 rounded-xl p-3 border border-gray-700 transition-colors cursor-pointer hover:border-amber-500/50 hover:bg-gray-800/80"
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${n.type === 'message' ? 'bg-blue-500/20' : n.type === 'interest' ? 'bg-red-500/20' : 'bg-emerald-500/20'}`}>
-                      {n.type === 'message' ? <MessageSquare className="w-4 h-4 text-blue-400" /> : n.type === 'interest' ? <Heart className="w-4 h-4 text-red-400 fill-red-400" /> : <Eye className="w-4 h-4 text-emerald-400" />}
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${n.type === 'message' ? 'bg-gray-800/20' : n.type === 'interest' ? 'bg-red-500/20' : 'bg-emerald-500/20'}`}>
+                      {n.type === 'message' ? <MessageSquare className="w-4 h-4 text-gray-400" /> : n.type === 'interest' ? <Heart className="w-4 h-4 text-red-400 fill-red-400" /> : <Eye className="w-4 h-4 text-emerald-400" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-white text-sm font-bold truncate">{n.title}</p>
@@ -228,7 +228,7 @@ export function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryCli
                 onClick={(e) => e.stopPropagation()}
                 className="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden"
               >
-                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-500 to-amber-500" />
+                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-gray-500 to-amber-500" />
                 <button title="إغلاق" aria-label="إغلاق" 
                   onClick={() => setSelectedNotif(null)} 
                   className="absolute top-4 left-4 p-1.5 bg-gray-800 hover:bg-gray-750 text-gray-400 hover:text-white rounded-lg transition-colors"
@@ -237,8 +237,8 @@ export function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryCli
                 </button>
                 
                 <div className="flex items-center gap-3 mb-4 mt-2">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                    <Bell className="w-5 h-5 text-blue-400" />
+                  <div className="w-10 h-10 rounded-xl bg-gray-800/10 flex items-center justify-center">
+                    <Bell className="w-5 h-5 text-gray-400" />
                   </div>
                   <div>
                     <h3 className="text-white font-bold text-base leading-tight">{selectedNotif.title}</h3>

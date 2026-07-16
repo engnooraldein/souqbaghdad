@@ -330,7 +330,7 @@ export function ImageLightboxModal({ src, title, images, initialIdx = 0, onClose
           {totalCount > 1 && (
             <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
               onClick={handleDownloadAll} disabled={downloading}
-              className="flex-1 py-3.5 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 disabled:from-gray-800 disabled:to-gray-800 disabled:text-gray-500 text-white font-black rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10 border border-blue-500/20 transition-all">
+              className="flex-1 py-3.5 px-6 bg-gradient-to-r from-gray-600 to-indigo-600 disabled:from-gray-800 disabled:to-gray-800 disabled:text-gray-500 text-white font-black rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-gray-800/10 border border-gray-800/20 transition-all">
               {downloading && downloadAllProgress !== null ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4 rotate-45" />}
               تحميل كافة الصور ({totalCount}) دفعة واحدة 📥
             </motion.button>

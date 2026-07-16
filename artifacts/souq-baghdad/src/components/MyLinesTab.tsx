@@ -65,7 +65,7 @@ export function MyLinesTab({ userId, lines, onUpdateStatus, onDelete }: {
           <p className="text-xs text-gray-400 mt-1">خطوط نشطة</p>
         </div>
         <div className="bg-gray-800 p-3 rounded-xl border border-gray-700 text-center">
-          <p className="text-xl font-bold text-blue-400">{completedLines.length}</p>
+          <p className="text-xl font-bold text-gray-400">{completedLines.length}</p>
           <p className="text-xs text-gray-400 mt-1">مكتملة</p>
         </div>
         <div className="bg-gray-800 p-3 rounded-xl border border-gray-700 text-center">
@@ -116,7 +116,7 @@ export function MyLinesTab({ userId, lines, onUpdateStatus, onDelete }: {
                   <p className="text-sm text-gray-400 mt-1">{line.regions}</p>
                 </div>
                 {line.status === 'matched' && (
-                  <span className={`px-2 py-1 rounded-md text-xs font-bold ${line.completion_reason === 'found_line' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                  <span className={`px-2 py-1 rounded-md text-xs font-bold ${line.completion_reason === 'found_line' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-800/20 text-gray-400'}`}>
                     {line.completion_reason === 'found_line' ? 'تم العثور على خط' : 'اكتمل العدد'}
                   </span>
                 )}

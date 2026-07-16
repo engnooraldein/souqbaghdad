@@ -65,8 +65,8 @@ export function StoreShareGuideModal({ isOpen, onClose, storeUrl, onShare }: Sto
 
           <div className="space-y-4 mb-8 relative z-10">
             <div className="bg-gray-800/50 p-4 rounded-2xl border border-gray-700/50 flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                <ShoppingBag className="w-4 h-4 text-blue-400" />
+              <div className="w-8 h-8 rounded-full bg-gray-800/20 flex items-center justify-center shrink-0 mt-0.5">
+                <ShoppingBag className="w-4 h-4 text-gray-400" />
               </div>
               <div>
                 <h4 className="text-white font-bold text-sm mb-1">تسهيل طلب الأوردرات</h4>
