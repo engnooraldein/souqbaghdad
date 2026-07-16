@@ -54,7 +54,7 @@ export default function InfiniteScrollTrigger({
           }
         }
       },
-      { threshold: 0.1, rootMargin: '200px' }
+      { threshold: 0.1, rootMargin: '800px' }
     );
 
     if (triggerRef.current) {

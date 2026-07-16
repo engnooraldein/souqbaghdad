@@ -60,7 +60,7 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
   const [realViews, setRealViews] = useState(0);
   const [showReadingMode, setShowReadingMode] = useState(false);
   const [isDescExpanded, setIsDescExpanded] = useState(false);
-  const [isPlayingSlideshow, setIsPlayingSlideshow] = useState(false);
+  const [isPlayingSlideshow, setIsPlayingSlideshow] = useState(true);
   const slideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -120,9 +120,9 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
     if (total <= 1) return;
 
     if (distance > 35) {
-      setImgIdx(i => i < total - 1 ? i + 1 : i);
+      setImgIdx(i => (i + 1) % total);
     } else if (distance < -35) {
-      setImgIdx(i => i > 0 ? i - 1 : i);
+      setImgIdx(i => (i - 1 + total) % total);
     }
   };
 

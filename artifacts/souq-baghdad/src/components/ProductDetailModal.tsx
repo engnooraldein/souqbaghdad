@@ -100,9 +100,9 @@ export function ProductDetailModal({ product, onClose, isFav, onFav, user, store
     if (total <= 1) return;
 
     if (distance > 35) {
-      setImgIdx(i => i < total - 1 ? i + 1 : i);
+      setImgIdx(i => (i + 1) % total);
     } else if (distance < -35) {
-      setImgIdx(i => i > 0 ? i - 1 : i);
+      setImgIdx(i => (i - 1 + total) % total);
     }
   };
 
