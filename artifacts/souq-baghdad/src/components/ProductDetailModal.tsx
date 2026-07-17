@@ -294,15 +294,27 @@ export function ProductDetailModal({ product, onClose, isFav, onFav, user, store
             <div className="bg-gray-800 rounded-xl p-3 mb-3 border border-gray-700/50">
               <div className="flex items-center justify-between mb-1.5">
                 <h3 className="text-white font-bold text-xs">الوصف</h3>
-                {product.description.length > 50 && (
+                <div className="flex gap-2">
                   <button 
                     type="button"
-                    onClick={() => setShowReadingMode(true)}
-                    className="px-2 py-0.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 font-bold text-[10px] rounded-lg flex items-center gap-1 transition-all duration-300"
+                    onClick={() => {
+                      navigator.clipboard.writeText(product.description || '');
+                      alert('تم نسخ الوصف!');
+                    }}
+                    className="px-2 py-0.5 bg-gray-700/50 hover:bg-gray-700 border border-gray-600/50 text-gray-300 font-bold text-[10px] rounded-lg flex items-center gap-1 transition-all duration-300"
                   >
-                    <span>📖</span> وضع القراءة المريح
+                    <Copy className="w-3 h-3" /> نسخ
                   </button>
-                )}
+                  {product.description.length > 50 && (
+                    <button 
+                      type="button"
+                      onClick={() => setShowReadingMode(true)}
+                      className="px-2 py-0.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 font-bold text-[10px] rounded-lg flex items-center gap-1 transition-all duration-300"
+                    >
+                      <span>📖</span> وضع القراءة المريح
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="relative">
                 <p className={`text-gray-300 text-xs sm:text-sm leading-relaxed transition-all duration-300 whitespace-pre-line ${!isDescExpanded ? 'line-clamp-4' : ''}`}>
