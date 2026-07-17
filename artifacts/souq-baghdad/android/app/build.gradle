@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "store.souqbaghdad.app"
+    namespace = "souqbaghdad.store"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "store.souqbaghdad.app"
+        applicationId "souqbaghdad.store"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

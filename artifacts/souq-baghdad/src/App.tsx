@@ -54,6 +54,7 @@ import {
 
 const OwnerDashboard = lazy(() => import('./components/OwnerDashboard'));
 const StoreShareGuideModal = lazy(() => import('./components/StoreShareGuideModal').then(m => ({ default: m.StoreShareGuideModal })));
+import { InstallOptionsModal } from './components/InstallOptionsModal';
 import LiveVisitorCounter from './components/LiveVisitorCounter';
 import InfiniteScrollTrigger from './components/InfiniteScrollTrigger';
 import { LocalNotifications } from '@capacitor/local-notifications';
@@ -917,6 +918,7 @@ export default function App() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [showInstallGuide, setShowInstallGuide] = useState<'safari' | 'ios-other' | 'android-fallback' | null>(null);
+  const [showInstallOptions, setShowInstallOptions] = useState(false);
   
   // Pagination & Filtering state
   const [adsPage, setAdsPage] = useState(0);
@@ -2797,7 +2799,7 @@ export default function App() {
   };
 
   const myAds = allAds.filter(a=>a.postedBy===user?.id);
-  const handleInstallClick = () => {
+  const handlePwaInstall = () => {
     if (typeof window === 'undefined') return;
     const ua = navigator.userAgent;
     const isIOS = /iPad|iPhone|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2826,6 +2828,10 @@ export default function App() {
     } else {
       setShowInstallGuide('android-fallback');
     }
+  };
+
+  const handleInstallClick = () => {
+    setShowInstallOptions(true);
   };
 
   const myProducts = allProducts.filter(p=>p.postedBy===user?.id);

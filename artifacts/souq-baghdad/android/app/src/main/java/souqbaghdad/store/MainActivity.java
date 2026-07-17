@@ -1,4 +1,4 @@
-package store.souqbaghdad.app;
+package souqbaghdad.store;
 
 import com.getcapacitor.BridgeActivity;
 
