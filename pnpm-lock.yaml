@@ -255,6 +255,9 @@ importers:
 
   artifacts/souq-baghdad:
     dependencies:
+      '@aparajita/capacitor-biometric-auth':
+        specifier: ^10.0.0
+        version: 10.0.0
       '@capacitor/android':
         specifier: ^8.4.1
         version: 8.4.1(@capacitor/core@8.4.1)
@@ -497,6 +500,10 @@ importers:
 
 packages:
 
+  '@aparajita/capacitor-biometric-auth@10.0.0':
+    resolution: {integrity: sha512-azjWaRucB8x1/gSzSTp/NxelaOZyg+m765gSzjwUkSQgg30RrZPmPq6pyLeeXVSZNDY3Rxf5Hj8obgZaXirCFQ==}
+    engines: {node: '>=20.0.0'}
+
   '@babel/code-frame@7.29.0':
     resolution: {integrity: sha512-9NhCeYjq9+3uxgdtp20LSiJXJvN0FeCtNGpJxuMFZ1Kv3cWUNb6DOhJwUvcVCzKGR66cw4njwM6hrJLqgOwbcw==}
     engines: {node: '>=6.9.0'}
@@ -589,6 +596,11 @@ packages:
     peerDependencies:
       '@capacitor/core': ^8.4.0
 
+  '@capacitor/app@8.1.1':
+    resolution: {integrity: sha512-xM2ZTX5jK60tFtmjsmJv+Cdj1Qsb6NcavkqmdEnCPQBeya9oKhamZJxYOnQNj1ZvcJM7sWfG6BEtSLx42pisbA==}
+    peerDependencies:
+      '@capacitor/core': '>=8.0.0'
+
   '@capacitor/cli@8.4.1':
     resolution: {integrity: sha512-t7F2s7fFHCq113xgrggrmK6ctV0/8E5YfLNVLfPHp4GCTDO+tly9fZvWPf2/sOI8lMm18dLT43qbXLRTz/OZgw==}
     engines: {node: '>=22.0.0'}
@@ -601,6 +613,11 @@ packages:
     resolution: {integrity: sha512-N29QcoIPmme0xSxRkm7+3hjoHp6mBAOarxecvtCCZKyOBeKiJsFUq981cezg2XWBa6fhCXJMCCjQPngKK/dIag==}
     peerDependencies:
       '@capacitor/core': '>=8.0.0'
+
+  '@capacitor/ios@8.4.2':
+    resolution: {integrity: sha512-ClVzIjK++yRjsRPOpdEzhsZfbHfoEc0f4M6vD0v7sWh0qcoF6NkxNAeHpWTn4OPJpJfpGGoYsq+IfEHrYyBiWA==}
+    peerDependencies:
+      '@capacitor/core': ^8.4.0
 
   '@capacitor/local-notifications@8.2.1':
     resolution: {integrity: sha512-Bkim+MGl7UrDTjDferV4ECq0aWciTsa0k15+MX2jnx2PeWgEPvlBy5yrqzBlwEZPrtHFUvPVxPi5V66MPGHkAw==}
@@ -4194,6 +4211,13 @@ packages:
 
 snapshots:
 
+  '@aparajita/capacitor-biometric-auth@10.0.0':
+    dependencies:
+      '@capacitor/android': 8.4.1(@capacitor/core@8.4.1)
+      '@capacitor/app': 8.1.1(@capacitor/core@8.4.1)
+      '@capacitor/core': 8.4.1
+      '@capacitor/ios': 8.4.2(@capacitor/core@8.4.1)
+
   '@babel/code-frame@7.29.0':
     dependencies:
       '@babel/helper-validator-identifier': 7.28.5
@@ -4312,6 +4336,10 @@ snapshots:
     dependencies:
       '@capacitor/core': 8.4.1
 
+  '@capacitor/app@8.1.1(@capacitor/core@8.4.1)':
+    dependencies:
+      '@capacitor/core': 8.4.1
+
   '@capacitor/cli@8.4.1':
     dependencies:
       '@ionic/cli-framework-output': 2.2.8
@@ -4342,6 +4370,10 @@ snapshots:
     dependencies:
       '@capacitor/core': 8.4.1
       '@capacitor/synapse': 1.0.4
+
+  '@capacitor/ios@8.4.2(@capacitor/core@8.4.1)':
+    dependencies:
+      '@capacitor/core': 8.4.1
 
   '@capacitor/local-notifications@8.2.1(@capacitor/core@8.4.1)':
     dependencies:

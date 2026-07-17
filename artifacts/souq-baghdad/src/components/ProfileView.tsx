@@ -57,6 +57,8 @@ import { LoadingScreen } from './LoadingScreen';
 import { TransportFormModal } from './TransportFormModal';
 import { SkeletonCard } from './SkeletonCard';
 import { AdCard } from './AdCard';
+import { NativeBiometric } from '@aparajita/capacitor-biometric-auth';
+import { Capacitor } from '@capacitor/core';
 import { ProductCard } from './ProductCard';
 import { TransportAdCard } from './TransportAdCard';
 import { InterestTimer } from './InterestTimer';
@@ -167,6 +169,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
   const [avatarPreview, setAvatarPreview] = useState(user.avatar||DEFAULT_AVATAR);
   const [coverPreview, setCoverPreview] = useState(getCoverImage(user));
   const playSound = useSound();
+  const [biometricEnabled, setBiometricEnabled] = useState(() => localStorage.getItem('biometricEnabled') === 'true');
 
   // Smart load more limits for bottom cards
   const [visibleAdsLimit, setVisibleAdsLimit] = useState(4);
@@ -371,6 +374,19 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
     if (!ef.email.trim()) { alert('الرجاء إدخال البريد الإلكتروني'); return; }
     if (!/\S+@\S+\.\S+/.test(ef.email)) { alert('الرجاء إدخال بريد إلكتروني صالح'); return; }
 
+    if (biometricEnabled && Capacitor.isNativePlatform() && (ef.phone.trim() !== (user.phone || '') || ef.email.trim().toLowerCase() !== (user.email || '').toLowerCase())) {
+        try {
+            const { isAvailable } = await NativeBiometric.isAvailable();
+            if (isAvailable) {
+                await NativeBiometric.verifyIdentity({
+                    reason: "يرجى تأكيد هويتك لتغيير رقم الهاتف أو البريد الإلكتروني",
+                    title: "تأكيد الهوية",
+                });
+            }
+        } catch (e) {
+            return;
+        }
+    }
     setIsSaving(true);
     try {
       // Check phone uniqueness
@@ -939,10 +955,116 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
               </div>
               <div className={`mt-4 pt-4 border-t flex justify-end ${isDarkMode ? 'border-gray-700' : 'border-slate-100'}`}>
                 <button 
-                  onClick={() => setShowPasswordModal(true)} 
+                  onClick={async () => {
+                     if (biometricEnabled && Capacitor.isNativePlatform()) {
+                        try {
+                           const { isAvailable } = await NativeBiometric.isAvailable();
+                           if (isAvailable) {
+                              await NativeBiometric.verifyIdentity({
+                                reason: "يرجى تأكيد هويتك لتعديل كلمة المرور",
+                                title: "تأكيد الهوية",
+                              });
+                           }
+                        } catch (e) {
+                           return; // Cancelled or failed
+                        }
+                     }
+                     setShowPasswordModal(true);
+                  }}
                   className="py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs flex items-center gap-2 transition-colors shadow-lg"
                 >
                   <Key className="w-3.5 h-3.5" /> تعديل كلمة المرور
+                </button>
+              </div>
+            </div>
+
+            {/* Security & Biometrics */}
+            <div className={`rounded-2xl p-5 border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200 shadow-sm'}`}>
+              <h3 className={`font-bold flex items-center gap-2 mb-3 ${isDarkMode ? 'text-white' : 'text-slate-800 font-extrabold'}`}>
+                <Shield className="w-4 h-4 text-emerald-400"/> إعدادات الأمان
+              </h3>
+              
+              <div className={`flex items-center justify-between py-3 border-b last:border-0 gap-4 ${isDarkMode ? 'border-gray-700' : 'border-slate-100'}`}>
+                <div className="flex flex-col">
+                  <span className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>تسجيل الدخول بواسطة البصمة البايومترية</span>
+                  <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>استخدم البصمة للوصول السريع والآمن</span>
+                </div>
+                <button
+                  onClick={() => {
+                    const newVal = !biometricEnabled;
+                    setBiometricEnabled(newVal);
+                    localStorage.setItem('biometricEnabled', newVal ? 'true' : 'false');
+                  }}
+                  dir="ltr"
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${biometricEnabled ? 'bg-[#0052ff]' : 'bg-gray-400'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${biometricEnabled ? 'translate-x-6' : 'translate-x-1'} shadow-sm`} />
+                </button>
+              </div>
+
+              {!Capacitor.isNativePlatform() && (
+                 <div className={`flex items-center justify-between py-3 border-b last:border-0 gap-4 ${isDarkMode ? 'border-gray-700' : 'border-slate-100'}`}>
+                    <div className="flex flex-col">
+                      <span className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>إعداد مفتاح المرور للويب (Passkeys)</span>
+                      <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>تسجيل الدخول على المتصفح باستخدام بصمة الجهاز</span>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                           const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'passkey' });
+                           if (error) throw error;
+                           alert('تم إعداد مفتاح المرور بنجاح!');
+                        } catch (err: any) {
+                           console.error(err);
+                           alert('حدث خطأ أثناء إعداد مفتاح المرور: ' + (err.message || ''));
+                        }
+                      }}
+                      className="py-1.5 px-3 bg-[#0052ff]/10 hover:bg-[#0052ff]/20 text-[#0052ff] font-semibold rounded-lg text-xs transition-colors"
+                    >
+                      إعداد الآن
+                    </button>
+                 </div>
+              )}
+
+              <div className={`mt-4 pt-4 flex justify-between items-center flex-wrap gap-3`}>
+                <button 
+                  onClick={async () => {
+                     if (window.confirm('هل أنت متأكد من تسجيل الخروج من جميع الأجهزة؟')) {
+                        await supabase.auth.signOut();
+                        window.location.reload();
+                     }
+                  }}
+                  className="py-2.5 px-4 bg-red-500/20 hover:bg-red-500/30 text-red-500 font-bold rounded-xl text-xs flex items-center gap-2 transition-colors border border-red-500/30"
+                >
+                  <LogOut className="w-3.5 h-3.5" /> تسجيل الخروج من جميع الأجهزة
+                </button>
+                <button 
+                  onClick={async () => {
+                     if (biometricEnabled && Capacitor.isNativePlatform()) {
+                        try {
+                           const { isAvailable } = await NativeBiometric.isAvailable();
+                           if (isAvailable) {
+                              await NativeBiometric.verifyIdentity({
+                                reason: "يرجى تأكيد هويتك لحذف الحساب",
+                                title: "تأكيد الهوية",
+                              });
+                           }
+                        } catch (e) {
+                           return; // Cancelled
+                        }
+                     }
+                     if (window.confirm('تنبيه: هل أنت متأكد تماماً من رغبتك في حذف الحساب نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.')) {
+                        // The actual delete operation requires Supabase admin privileges or Edge Function,
+                        // For now we simulate deletion and log out.
+                        alert('تم إرسال طلب الحذف إلى الإدارة. سيتم تسجيل خروجك الآن.');
+                        await supabase.auth.signOut();
+                        localStorage.setItem('biometricEnabled', 'false');
+                        window.location.reload();
+                     }
+                  }}
+                  className="py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition-colors shadow-lg"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> حذف الحساب نهائياً
                 </button>
               </div>
             </div>

@@ -17,6 +17,11 @@ const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string) || 'https://du
 const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || 'dummy';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    experimental: {
+      passkey: true
+    }
+  },
   // Disable realtime to prevent WebSocket connection errors (not used in this app)
   realtime: {
     params: {

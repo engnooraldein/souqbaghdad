@@ -27,7 +27,7 @@ import {
   Shield, ShieldCheck, Activity, TrendingUp, Users, LogIn, 
   MessageSquare, ExternalLink, ThumbsUp, MoreVertical, Eye, Lock, Unlock, Zap, Sparkles, UserPlus, 
   Loader2, Wallet, EyeOff, ZoomOut, ZoomIn, CheckCircle, Key, Tag, Package, ImagePlus, Edit2, Phone as PhoneIcon,
-  FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, 
+  FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, Fingerprint
 } from 'lucide-react';
 import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
 import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage } from '../App';
@@ -36,6 +36,7 @@ import { formatPrice } from '../utils/format';
 import { useSound } from '../hooks/useSound';
 import { supabase } from '../lib/supabase';
 import { TimeAgo } from './TimeAgo';
+import { Capacitor } from '@capacitor/core';
 
 import { ImageCropModal } from './ImageCropModal';
 import { PasswordChangeModal } from './PasswordChangeModal';
@@ -49,7 +50,7 @@ import { InterestTimer } from './InterestTimer';
 import { IraqiEagle } from './Icons';
 
 export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>void}) {
-  const [step, setStep] = useState<'phone'|'login'|'signup'>(() => {
+  const [step, setStep] = useState<'phone'|'login'|'signup'|'biometric_prompt'>(() => {
     const last = localStorage.getItem('souqLastUser');
     return last ? 'login' : 'phone';
   });
@@ -144,7 +145,11 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
           setError(msg); playSound('error'); setLoading(false); return;
         }
         playSound('success');
-        onClose();
+        if (!localStorage.getItem('biometricPromptShown')) {
+          setStep('biometric_prompt');
+        } else {
+          onClose();
+        }
       } else if (step === 'signup') {
         const role = phone === '07701109692' ? 'owner' : 'user';
         const { error } = await supabase.auth.signUp({
@@ -160,7 +165,14 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
           setError(msg); playSound('error'); setLoading(false); return;
         }
         const { error: signInErr } = await supabase.auth.signInWithPassword({ email: emailToUse, password });
-        if (!signInErr) { playSound('success'); onClose(); }
+        if (!signInErr) { 
+          playSound('success');
+          if (!localStorage.getItem('biometricPromptShown')) {
+            setStep('biometric_prompt');
+          } else {
+            onClose();
+          }
+        }
         else { setError('تم إنشاء الحساب. يرجى تسجيل الدخول.'); setStep('login'); }
       }
     } catch {
@@ -195,11 +207,11 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
         className="relative bg-gray-900 rounded-3xl p-7 w-full max-w-md border border-gray-700 shadow-2xl z-10">
         <button onClick={onClose} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white transition-colors" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
         <div className="text-center mb-6">
-          <div className="text-5xl mb-3">{step === 'login' ? '🔐' : step === 'signup' ? '✨' : '📱'}</div>
+          <div className="text-5xl mb-3">{step === 'biometric_prompt' ? '🚀' : step === 'login' ? '🔐' : step === 'signup' ? '✨' : '📱'}</div>
           <h2 className="text-2xl font-bold text-white">
-            {isRecovery ? 'استعادة الحساب' : step === 'phone' ? 'الدخول السريع' : step === 'login' ? 'مرحباً بعودتك' : 'حساب جديد'}
+            {isRecovery ? 'استعادة الحساب' : step === 'biometric_prompt' ? 'أمان وسرعة' : step === 'phone' ? 'الدخول السريع' : step === 'login' ? 'مرحباً بعودتك' : 'حساب جديد'}
           </h2>
-          {!isRecovery && step !== 'phone' && (
+          {!isRecovery && step !== 'phone' && step !== 'biometric_prompt' && (
              <p className="text-gray-400 text-sm mt-1">{identifier}</p>
           )}
         </div>
@@ -236,7 +248,39 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
             </button>
           </div>
         ) : loading?<div className="flex flex-col items-center py-8"><Loader2 className="w-10 h-10 text-amber-400 animate-spin mb-3"/><p className="text-white">جاري التحميل...</p></div>:(
-          step === 'phone' ? (
+          step === 'biometric_prompt' ? (
+             <div className="text-center py-2 space-y-6">
+                <div className="w-20 h-20 bg-[#0052ff]/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                   <Fingerprint className="w-10 h-10 text-[#0052ff]" />
+                </div>
+                <h3 className="text-white text-xl font-bold">تسجيل الدخول بالبصمة 🔒</h3>
+                <p className="text-gray-400 text-sm leading-relaxed px-4">
+                  فعّل تسجيل الدخول بالبصمة للوصول إلى حسابك بسرعة وأمان، بدون كتابة كلمة المرور كل مرة.
+                </p>
+                <div className="flex flex-col gap-3 pt-2">
+                   <button 
+                     onClick={() => {
+                       localStorage.setItem('biometricEnabled', 'true');
+                       localStorage.setItem('biometricPromptShown', 'true');
+                       onClose();
+                     }}
+                     className="w-full py-4 bg-[#0052ff] text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                   >
+                     <CheckCircle className="w-5 h-5" /> تفعيل الآن
+                   </button>
+                   <button 
+                     onClick={() => {
+                       localStorage.setItem('biometricEnabled', 'false');
+                       localStorage.setItem('biometricPromptShown', 'true');
+                       onClose();
+                     }}
+                     className="w-full py-4 bg-gray-800 text-gray-300 font-bold rounded-xl hover:bg-gray-700 transition-colors"
+                   >
+                     لاحقاً
+                   </button>
+                </div>
+             </div>
+          ) : step === 'phone' ? (
              <form onSubmit={handlePhoneSubmit} className="space-y-4">
                <div className="relative"><Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
                  <input type="text" value={identifier} onChange={e=>setIdentifier(e.target.value)} placeholder="رقم الهاتف أو البريد الإلكتروني" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-4 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none text-lg" dir="rtl"/>
@@ -260,6 +304,27 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
               <button type="submit" className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-transform">
                 {step === 'login' ? 'تسجيل الدخول' : 'تأكيد وإنشاء الحساب'}
               </button>
+              
+              {step === 'login' && !Capacitor.isNativePlatform() && (
+                 <button 
+                   type="button" 
+                   onClick={async () => {
+                     try {
+                        const { data, error } = await supabase.auth.signInWithPasskey();
+                        if (error) throw error;
+                        playSound('success');
+                        onClose();
+                     } catch (err: any) {
+                        console.error(err);
+                        setError('حدث خطأ أثناء المصادقة بمفتاح المرور: ' + (err.message || ''));
+                        playSound('error');
+                     }
+                   }}
+                   className="w-full py-4 bg-[#0052ff]/10 text-[#0052ff] font-bold rounded-xl hover:bg-[#0052ff]/20 transition-colors flex items-center justify-center gap-2"
+                 >
+                   <Fingerprint className="w-5 h-5" /> تسجيل الدخول بالمفتاح (Passkey)
+                 </button>
+              )}
               
               <div className="mt-4 flex flex-col items-center gap-3">
                  {step === 'login' && <button type="button" onClick={() => {setIsRecovery(true); setError('');}} className="text-amber-400 hover:text-amber-300 text-sm">نسيت كلمة المرور؟</button>}

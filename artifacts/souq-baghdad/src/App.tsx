@@ -58,6 +58,7 @@ import LiveVisitorCounter from './components/LiveVisitorCounter';
 import InfiniteScrollTrigger from './components/InfiniteScrollTrigger';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Geolocation } from '@capacitor/geolocation';
+import { NativeBiometric } from '@aparajita/capacitor-biometric-auth';
 import { Capacitor } from '@capacitor/core';
 // ─────────────────────────────────────────────
 // Constants
@@ -622,6 +623,37 @@ export default function App() {
 
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
+
+  const [isBiometricLocked, setIsBiometricLocked] = useState<boolean>(() => {
+    return localStorage.getItem('biometricEnabled') === 'true' && localStorage.getItem('souqUser') !== null;
+  });
+
+  useEffect(() => {
+    const checkBiometric = async () => {
+      if (isBiometricLocked) {
+        if (Capacitor.isNativePlatform()) {
+          try {
+            const { isAvailable } = await NativeBiometric.isAvailable();
+            if (isAvailable) {
+              await NativeBiometric.verifyIdentity({
+                reason: "يرجى تأكيد هويتك للوصول إلى التطبيق",
+                title: "المصادقة بالبصمة",
+              });
+              setIsBiometricLocked(false);
+            } else {
+              setIsBiometricLocked(false); // No biometric hardware
+            }
+          } catch (e) {
+            console.log('Biometric failed or cancelled', e);
+            // User cancelled or failed
+          }
+        } else {
+           setIsBiometricLocked(false); // Skip on web
+        }
+      }
+    };
+    checkBiometric();
+  }, [isBiometricLocked]);
 
   useEffect(() => {
     if (themeMode === 'system') {
@@ -2834,6 +2866,59 @@ export default function App() {
     pageTitle = `خطوط النقل والتوصيل | سوق بغداد`;
     pageDescription = `تصفح خطوط النقل والتوصيل المتاحة في العراق - سوق بغداد`;
     canonicalUrl = `https://souqbaghdad.store/transport`;
+  }
+
+  if (isBiometricLocked) {
+    return (
+      <div className={`min-h-screen flex flex-col items-center justify-center p-4 transition-colors duration-300 ${isDarkMode ? 'dark bg-[#0a0a0a] text-white' : 'bg-slate-50 text-slate-900'}`}>
+        <Helmet>
+          <title>قفل التطبيق | سوك بغداد</title>
+        </Helmet>
+        <div className="w-24 h-24 bg-[#0052ff]/10 rounded-full flex items-center justify-center mb-6">
+           {/* Add a Fingerprint icon or Lock icon (Lock imported above) */}
+           <Lock className="w-12 h-12 text-[#0052ff] animate-pulse" />
+        </div>
+        <h2 className="text-2xl font-bold mb-2">تسجيل الدخول بالبصمة</h2>
+        <p className={`text-sm mb-8 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>يرجى تأكيد هويتك للوصول إلى التطبيق</p>
+        <button 
+          onClick={async () => {
+             if (Capacitor.isNativePlatform()) {
+                try {
+                  const { isAvailable } = await NativeBiometric.isAvailable();
+                  if (isAvailable) {
+                    await NativeBiometric.verifyIdentity({
+                      reason: "يرجى تأكيد هويتك للوصول إلى التطبيق",
+                      title: "المصادقة بالبصمة",
+                    });
+                    setIsBiometricLocked(false);
+                  } else {
+                    setIsBiometricLocked(false);
+                  }
+                } catch (e) {
+                  // user cancelled or failed
+                }
+             } else {
+                setIsBiometricLocked(false);
+             }
+          }}
+          className="px-8 py-3 bg-[#0052ff] text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-colors flex items-center gap-2 mb-4"
+        >
+           <Lock className="w-5 h-5" /> المحاولة مرة أخرى
+        </button>
+        <button 
+          onClick={async () => {
+             if (window.confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+                await supabase.auth.signOut();
+                localStorage.setItem('biometricEnabled', 'false');
+                window.location.reload();
+             }
+          }}
+          className="text-red-500 text-sm font-semibold hover:underline"
+        >
+          تسجيل الخروج
+        </button>
+      </div>
+    );
   }
 
   return (
