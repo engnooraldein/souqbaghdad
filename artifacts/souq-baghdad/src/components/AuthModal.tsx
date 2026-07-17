@@ -259,7 +259,14 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
                 </p>
                 <div className="flex flex-col gap-3 pt-2">
                    <button 
-                     onClick={() => {
+                     onClick={async () => {
+                       if (!Capacitor.isNativePlatform()) {
+                          try {
+                             await supabase.auth.registerPasskey();
+                          } catch (err) {
+                             console.error('Passkey registration error:', err);
+                          }
+                       }
                        localStorage.setItem('biometricEnabled', 'true');
                        localStorage.setItem('biometricPromptShown', 'true');
                        onClose();

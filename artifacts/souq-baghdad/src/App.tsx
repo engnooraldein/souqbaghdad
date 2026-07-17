@@ -49,7 +49,7 @@ import {
   Trash2, SlidersHorizontal, Settings, ChevronLeft, Info, LogIn, Edit2,
   Save, BarChart3, Smartphone, Monitor, Tablet, Globe, UserCheck, Activity,
   Crown, UserX, FileText, ShoppingBag, Package, Store, Camera, ZoomIn,
-  ZoomOut, Calendar, Users, ChevronDown, Tag, Layers, Home, Car, UserCircle, Key, Sparkles, Clock, Wallet, MessageCircle, Sun, Moon
+  ZoomOut, Calendar, Users, ChevronDown, Tag, Layers, Home, Car, UserCircle, Key, Sparkles, Clock, Wallet, MessageCircle, Sun, Moon, Fingerprint
 } from 'lucide-react';
 
 const OwnerDashboard = lazy(() => import('./components/OwnerDashboard'));
@@ -272,7 +272,7 @@ www.souqbaghdad.store
 // آمن للتعديل:
 // نعم.
 // ===========================================
-export function handleUniversalShare(details: { title?: string; university?: string; type?: string; location?: string; governorate?: string; regions?: string; id?: any; short_id?: string; price?: string; image?: string; images?: string[]; url?: string; description?: string }) {
+export function handleUniversalShare(details: { title?: string; university?: string; type?: string; location?: string; governorate?: string; regions?: string; id?: any; short_id?: string; price?: string; image?: string; images?: string[]; url?: string; description?: string; views?: number; createdAt?: string; isVerified?: boolean; }) {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('open-share-modal', { detail: details }));
   }
@@ -623,6 +623,8 @@ export default function App() {
 
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
+  const [showBiometricBanner, setShowBiometricBanner] = useState(false);
+  const { playNotificationSound } = useSound();
 
   const [isBiometricLocked, setIsBiometricLocked] = useState<boolean>(() => {
     return localStorage.getItem('biometricEnabled') === 'true' && localStorage.getItem('souqUser') !== null;
@@ -654,6 +656,16 @@ export default function App() {
     };
     checkBiometric();
   }, [isBiometricLocked]);
+
+  useEffect(() => {
+    if (user && !localStorage.getItem('biometricPromptShown') && !isBiometricLocked) {
+      const t = setTimeout(() => {
+        setShowBiometricBanner(true);
+        try { playNotificationSound(); } catch(e){}
+      }, 4000); // Show 4 seconds after loading
+      return () => clearTimeout(t);
+    }
+  }, [user, isBiometricLocked]);
 
   useEffect(() => {
     if (themeMode === 'system') {
@@ -885,7 +897,7 @@ export default function App() {
     }
   };
   const [activeLightbox, setActiveLightbox] = useState<{ src: string; title: string; images?: string[]; initialIdx?: number } | null>(null);
-  const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; title: string; url: string; image?: string; price?: string; governorate?: string; location?: string; short_id?: string; description?: string; category?: string }>({ isOpen: false, title: '', url: '' });
+  const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; title: string; url: string; image?: string; price?: string; governorate?: string; location?: string; short_id?: string; description?: string; category?: string; views?: number; createdAt?: string; isVerified?: boolean; images?: string[] }>({ isOpen: false, title: '', url: '' });
   const getDefaultAds = (): Ad[] => [];
 
   const getDefaultProducts = (): Product[] => [];
@@ -1265,6 +1277,10 @@ export default function App() {
         short_id: d.short_id || (d.id ? String(d.id).substring(0, 5) : undefined),
         description: d.description || d.details || '',
         category: d.category || 'general',
+        views: d.views,
+        createdAt: d.createdAt,
+        isVerified: d.isVerified,
+        images: d.images,
       });
     };
     window.addEventListener('open-share-modal', handleOpenShare);
@@ -3541,6 +3557,50 @@ export default function App() {
         </div>
       </nav>
 
+      {/* Biometric Reminder Banner */}
+      <AnimatePresence>
+      {showBiometricBanner && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-[80px] left-4 right-4 z-[90] bg-[#0052ff] text-white p-4 rounded-2xl shadow-2xl flex flex-col gap-3 border border-blue-400/30"
+            dir="rtl"
+          >
+             <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                   <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center shrink-0">
+                      <Fingerprint className="w-6 h-6 text-white" />
+                   </div>
+                   <div>
+                      <h4 className="font-bold">أمان وسرعة 🔒</h4>
+                      <p className="text-xs text-blue-100 mt-0.5">فعّل تسجيل الدخول بالبصمة للوصول السريع بدون كتابة الرمز كل مرة.</p>
+                   </div>
+                </div>
+                <button onClick={() => {
+                   setShowBiometricBanner(false);
+                   localStorage.setItem('biometricPromptShown', 'true');
+                }} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+                   <X className="w-5 h-5" />
+                </button>
+             </div>
+             <button
+               onClick={async () => {
+                   if (!Capacitor.isNativePlatform()) {
+                      try { await supabase.auth.registerPasskey(); } catch (err) {}
+                   }
+                   localStorage.setItem('biometricEnabled', 'true');
+                   localStorage.setItem('biometricPromptShown', 'true');
+                   setShowBiometricBanner(false);
+               }}
+               className="w-full py-2.5 bg-white text-[#0052ff] font-bold rounded-xl text-sm flex items-center justify-center gap-2 hover:bg-gray-100 transition-colors"
+             >
+                <CheckCircle className="w-4 h-4" /> تفعيل الآن
+             </button>
+          </motion.div>
+      )}
+      </AnimatePresence>
+
       {/* Modals */}
       <AnimatePresence>
         {showOnboarding&&<Suspense fallback={null}><OnboardingModal isOpen={showOnboarding} onClose={()=>{setShowOnboarding(false);localStorage.setItem('souqOnboarded','1');localStorage.setItem('souq_onboarding_completed','true');}}/></Suspense>}
@@ -3568,6 +3628,10 @@ export default function App() {
               short_id={shareModalData.short_id}
               description={(shareModalData as any).description}
               category={shareModalData.category}
+              views={shareModalData.views}
+              createdAt={shareModalData.createdAt}
+              isVerified={shareModalData.isVerified}
+              images={shareModalData.images}
             />
           </Suspense>
         )}
