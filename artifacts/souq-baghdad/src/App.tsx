@@ -3703,6 +3703,13 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      <InstallOptionsModal
+        isOpen={showInstallOptions}
+        onClose={() => setShowInstallOptions(false)}
+        onPwaInstall={handlePwaInstall}
+        playStoreUrl="https://play.google.com/store/apps/details?id=souqbaghdad.store"
+      />
+
       <Suspense fallback={null}>
         {user && showStoreGuide && (
           <StoreShareGuideModal
