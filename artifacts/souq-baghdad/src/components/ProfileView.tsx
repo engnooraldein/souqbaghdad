@@ -1011,7 +1011,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                     <button
                       onClick={async () => {
                         try {
-                           const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'webauthn' });
+                           const { data, error } = await supabase.auth.registerPasskey();
                            if (error) throw error;
                            alert('تم إعداد مفتاح المرور بنجاح!');
                         } catch (err: any) {
