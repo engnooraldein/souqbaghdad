@@ -26,6 +26,7 @@ export interface ShareModalProps {
   images?: string[];
   university?: string;
   regions?: string;
+  type?: string;
 }
 
 type PlatformType = 'insta_story' | 'insta_direct' | 'insta_reels' | 'facebook' | 'whatsapp' | 'telegram' | 'copy_link' | 'native' | 'show_more';
@@ -48,7 +49,8 @@ export function ShareModal({
   isVerified,
   images,
   university,
-  regions
+  regions,
+  type
 }: ShareModalProps) {
   const [activeTab, setActiveTab] = useState<'text' | 'card'>('text');
   const [cardTemplate, setCardTemplate] = useState<TemplateType>('story');

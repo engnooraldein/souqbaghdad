@@ -625,7 +625,7 @@ export default function App() {
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
   const [showBiometricBanner, setShowBiometricBanner] = useState(false);
-  const { playNotificationSound } = useSound();
+  const playNotificationSound = useSound();
 
   const [isBiometricLocked, setIsBiometricLocked] = useState<boolean>(() => {
     return localStorage.getItem('biometricEnabled') === 'true' && localStorage.getItem('souqUser') !== null;
@@ -662,10 +662,11 @@ export default function App() {
     if (user && !localStorage.getItem('biometricPromptShown') && !isBiometricLocked) {
       const t = setTimeout(() => {
         setShowBiometricBanner(true);
-        try { playNotificationSound(); } catch(e){}
+        try { playNotificationSound('info'); } catch(e){}
       }, 4000); // Show 4 seconds after loading
       return () => clearTimeout(t);
     }
+    return undefined;
   }, [user, isBiometricLocked]);
 
   useEffect(() => {
