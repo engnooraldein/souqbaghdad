@@ -24,6 +24,8 @@ export interface ShareModalProps {
   createdAt?: string;
   isVerified?: boolean;
   images?: string[];
+  university?: string;
+  regions?: string;
 }
 
 type PlatformType = 'insta_story' | 'insta_direct' | 'insta_reels' | 'facebook' | 'whatsapp' | 'telegram' | 'copy_link' | 'native' | 'show_more';
@@ -44,7 +46,9 @@ export function ShareModal({
   views,
   createdAt,
   isVerified,
-  images
+  images,
+  university,
+  regions
 }: ShareModalProps) {
   const [activeTab, setActiveTab] = useState<'text' | 'card'>('text');
   const [cardTemplate, setCardTemplate] = useState<TemplateType>('story');
@@ -252,8 +256,128 @@ export function ShareModal({
             ctx.fillRect(imgX, imgY, imgSizeW, imgSizeH);
          }
       } else {
-         ctx.fillStyle = '#cbd5e1';
-         ctx.fillRect(imgX, imgY, imgSizeW, imgSizeH);
+         if (category === 'transport' || university) {
+            const bgGrad = ctx.createLinearGradient(imgX, imgY, imgX, imgY + imgSizeH);
+            bgGrad.addColorStop(0, '#1a1a1a');
+            bgGrad.addColorStop(1, '#000000');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(imgX, imgY, imgSizeW, imgSizeH);
+
+            const scale = imgSizeH / 800;
+            const tX = imgX + 30 * scale;
+            const tY = imgY + 30 * scale;
+            const tW = imgSizeW - 60 * scale;
+            const tH = imgSizeH - 60 * scale;
+            const radius = 20 * scale;
+            const bottomH = tH * 0.28; 
+            const splitY = tY + tH - bottomH;
+
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.moveTo(tX + radius, tY);
+            ctx.lineTo(tX + tW - radius, tY);
+            ctx.quadraticCurveTo(tX + tW, tY, tX + tW, tY + radius);
+            ctx.lineTo(tX + tW, splitY - 15 * scale);
+            ctx.arc(tX + tW, splitY, 15 * scale, Math.PI * 1.5, Math.PI * 0.5, true); 
+            ctx.lineTo(tX + tW, tY + tH - radius);
+            ctx.quadraticCurveTo(tX + tW, tY + tH, tX + tW - radius, tY + tH);
+            ctx.lineTo(tX + radius, tY + tH);
+            ctx.quadraticCurveTo(tX, tY + tH, tX, tY + tH - radius);
+            ctx.lineTo(tX, splitY + 15 * scale);
+            ctx.arc(tX, splitY, 15 * scale, Math.PI * 0.5, Math.PI * 1.5, true); 
+            ctx.lineTo(tX, tY + radius);
+            ctx.quadraticCurveTo(tX, tY, tX + radius, tY);
+            ctx.fill();
+
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 3 * scale;
+            ctx.setLineDash([12 * scale, 12 * scale]);
+            ctx.beginPath();
+            ctx.moveTo(tX + 20 * scale, splitY);
+            ctx.lineTo(tX + tW - 20 * scale, splitY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = '#b8860b';
+            ctx.font = `bold ${24 * scale}px system-ui`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText('🚐 تذكرة خط جامعي - BOARDING PASS', imgX + imgSizeW / 2, tY + 20 * scale);
+
+            const shortRegions = (regions || 'نقطة الانطلاق').substring(0, 30);
+            const shortUniv = (university || 'نقطة الوصول').substring(0, 30);
+
+            let contentY = tY + 70 * scale;
+            ctx.fillStyle = '#64748b';
+            ctx.font = `${18 * scale}px system-ui`;
+            ctx.fillText('من (FROM):', imgX + imgSizeW / 2, contentY);
+            
+            contentY += 25 * scale;
+            ctx.fillStyle = '#0f172a';
+            ctx.font = `900 ${38 * scale}px system-ui`;
+            ctx.fillText(shortRegions, imgX + imgSizeW / 2, contentY);
+
+            contentY += 50 * scale;
+            ctx.fillStyle = '#b8860b';
+            ctx.font = `${30 * scale}px system-ui`;
+            ctx.fillText('⬇️', imgX + imgSizeW / 2, contentY);
+
+            contentY += 45 * scale;
+            ctx.fillStyle = '#64748b';
+            ctx.font = `${18 * scale}px system-ui`;
+            ctx.fillText('إلى (TO):', imgX + imgSizeW / 2, contentY);
+
+            contentY += 25 * scale;
+            ctx.fillStyle = '#0f172a';
+            ctx.font = `900 ${38 * scale}px system-ui`;
+            ctx.fillText(shortUniv, imgX + imgSizeW / 2, contentY);
+
+            contentY += 60 * scale;
+            if (description && (description.includes('مقعد') || description.includes('مجال'))) {
+               ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+               const bW = 200 * scale, bH = 35 * scale;
+               if (ctx.roundRect) {
+                  ctx.beginPath(); ctx.roundRect(imgX + imgSizeW/2 - bW/2, contentY, bW, bH, bH/2); ctx.fill();
+               } else {
+                  ctx.fillRect(imgX + imgSizeW/2 - bW/2, contentY, bW, bH);
+               }
+               ctx.fillStyle = '#10b981';
+               ctx.font = `bold ${18 * scale}px system-ui`;
+               ctx.fillText('🟢 مقاعد متوفرة', imgX + imgSizeW / 2, contentY + bH/2 - 2*scale);
+               contentY += 45 * scale;
+            } else if (views && views > 20) {
+               ctx.fillStyle = 'rgba(239, 68, 68, 0.15)';
+               const bW = 200 * scale, bH = 35 * scale;
+               if (ctx.roundRect) {
+                  ctx.beginPath(); ctx.roundRect(imgX + imgSizeW/2 - bW/2, contentY, bW, bH, bH/2); ctx.fill();
+               } else {
+                  ctx.fillRect(imgX + imgSizeW/2 - bW/2, contentY, bW, bH);
+               }
+               ctx.fillStyle = '#ef4444';
+               ctx.font = `bold ${18 * scale}px system-ui`;
+               ctx.fillText('🔥 خط مطلوب', imgX + imgSizeW / 2, contentY + bH/2 - 2*scale);
+               contentY += 45 * scale;
+            }
+
+            if (price) {
+               ctx.fillStyle = '#b8860b';
+               ctx.font = `900 ${46 * scale}px system-ui`;
+               ctx.textAlign = 'right';
+               ctx.textBaseline = 'middle';
+               ctx.fillText(`${price} د.ع`, tX + tW - 40 * scale, splitY + bottomH / 2);
+            }
+
+            try {
+               const ticketQr = await QRCode.toDataURL(fullUrl, { margin: 1, width: 140 * scale, color: { dark: '#000000', light: '#ffffff' } });
+               const qrImg = new Image();
+               qrImg.src = ticketQr;
+               await new Promise((res) => { qrImg.onload = res; });
+               ctx.drawImage(qrImg, tX + 40 * scale, splitY + bottomH/2 - (70*scale), 140 * scale, 140 * scale);
+            } catch(e) {}
+         } else {
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillRect(imgX, imgY, imgSizeW, imgSizeH);
+         }
       }
       ctx.restore();
 
