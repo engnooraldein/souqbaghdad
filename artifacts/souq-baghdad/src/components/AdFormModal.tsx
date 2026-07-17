@@ -80,12 +80,13 @@ export function getAdCategoryPlaceholderImage(category: string): string {
   }
 }
 
-export function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1 }:{
-  isOpen:boolean; onClose:()=>void; onSubmit:(ad:Ad)=>void; user:User; editAd?:Ad|null; cost?:number;
+export function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1, vipCost = 5 }:{
+  isOpen:boolean; onClose:()=>void; onSubmit:(ad:Ad)=>void; user:User; editAd?:Ad|null; cost?:number; vipCost?:number;
 }) {
   const isEdit = !!editAd;
   const [tab, setTab] = useState<'form'|'preview'>('form');
-  const [fd, setFd] = useState({ title:editAd?.title||'', price:editAd?.price?formatPrice(editAd.price):'', description:editAd?.description||'', category:editAd?.category||'cars', governorate:editAd?.governorate||user?.location||'بغداد', phone:editAd?.phone||user?.phone||'', type:editAd?.type||'sell' });
+  const [fd, setFd] = useState({ title:editAd?.title||'', price:editAd?.price?formatPrice(editAd.price):'', description:editAd?.description||'', category:editAd?.category||'cars', governorate:editAd?.governorate||user?.location||'بغداد', phone:editAd?.phone||user?.phone||'', type:editAd?.type||'sell', is_vip: editAd?.is_vip||false, vip_days: editAd?.vip_days||30 });
+  const totalVipCost = fd.is_vip ? Math.ceil((vipCost / 30) * (fd.vip_days || 30)) : 0;
 
   const dynamicPlaceholders = useMemo(() => {
     switch (fd.category) {
@@ -285,7 +286,7 @@ export function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1 
       setIsGeneratingDesc(false);
     }
   };
-  useEffect(()=>{ if(editAd){ setFd({title:editAd.title,price:formatPrice(editAd.price),description:editAd.description,category:editAd.category,governorate:editAd.governorate,phone:editAd.phone,type:editAd.type}); setImages(editAd.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)})) || []); } },[editAd]);
+  useEffect(()=>{ if(editAd){ setFd({title:editAd.title,price:formatPrice(editAd.price),description:editAd.description,category:editAd.category,governorate:editAd.governorate,phone:editAd.phone,type:editAd.type,is_vip:editAd.is_vip||false}); setImages(editAd.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)})) || []); } },[editAd]);
   const handleImages = async (e:React.ChangeEvent<HTMLInputElement>) => {
     if(!e.target.files) return;
     const files = Array.from(e.target.files);
@@ -345,9 +346,9 @@ export function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1 
       images:images.filter(i=>i.preview).map(i=>i.preview).concat(images.length===0?[getAdCategoryPlaceholderImage(fd.category)]:[]),
       seller:{name:user.name,avatar:user.avatar,isVerified:user.isVerified,rating:user.rating||5,joinedDate:user.joinedDate,location:user.location},
       time:'الآن', createdAtISO:isEdit?(editAd?.createdAtISO||new Date().toISOString()):new Date().toISOString(), views:isEdit?(editAd?.views||0):0,
-      status:'active', type:fd.type, description:fd.description, adCount:user.stats.ads+1, soldCount:0, responseRate:100, avgResponseTime:'5 دقائق', postedBy:user.id };
+      status:'active', type:fd.type, description:fd.description, adCount:user.stats.ads+1, soldCount:0, responseRate:100, avgResponseTime:'5 دقائق', postedBy:user.id, is_vip:fd.is_vip };
     setUploading(false); playSound('success'); onSubmit(ad); onClose();
-    if(!isEdit){setFd({title:'',price:'',description:'',category:'cars',governorate:user?.location||'بغداد',phone:user?.phone||'',type:'sell'});setImages([]);}
+    if(!isEdit){setFd({title:'',price:'',description:'',category:'cars',governorate:user?.location||'بغداد',phone:user?.phone||'',type:'sell',is_vip:false});setImages([]);}
     setTab('form');
   };
   const fmt = (v:string) => v.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',');
@@ -534,6 +535,22 @@ export function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1 
               )}
             </div>
 
+            <div className="space-y-1">
+              <label className="flex items-center gap-2 cursor-pointer bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl hover:bg-amber-500/20 transition-all">
+                <input type="checkbox" checked={fd.is_vip} onChange={e => setFd({...fd, is_vip: e.target.checked})} className="w-5 h-5 accent-amber-500 rounded" />
+                <span className="text-amber-400 font-bold text-sm flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4"/> تمييز الإعلان كـ VIP 
+                </span>
+              </label>
+              {fd.is_vip && (
+                <div className="bg-amber-500/5 border border-amber-500/10 p-3 rounded-xl mt-2 flex items-center gap-3" dir="rtl">
+                  <label className="text-amber-400 text-xs font-bold">مدة التمييز (أيام):</label>
+                  <input type="number" min="1" max="365" value={fd.vip_days} onChange={e => setFd({...fd, vip_days: parseInt(e.target.value) || 1})} className="w-20 bg-gray-950 text-white border border-amber-500/30 rounded-lg px-2 py-1 text-center text-sm outline-none focus:border-amber-500" />
+                  <span className="text-amber-300 text-xs font-bold mr-auto">تضاف {totalVipCost} نقطة إضافية</span>
+                </div>
+              )}
+            </div>
+
             <div className="flex gap-4 pt-4 border-t border-gray-900/60">
               <button type="button" onClick={()=>setTab('preview')} className="flex-1 py-3.5 bg-gray-950/40 text-amber-400 font-black rounded-2xl text-xs sm:text-sm border border-amber-500/20 hover:bg-gray-900/30 transition-all duration-300 shadow-md">
                 👁️ معاينة العرض
@@ -547,12 +564,12 @@ export function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1 
                     <><Save className="w-4 h-4"/> {isEdit ? 'حفظ التعديلات' : 'نشر الإعلان كعرض'}</>
                   )}
                 </div>
-                {!isEdit && user.role !== 'admin' && user.role !== 'owner' && cost > 0 && (
+                {!isEdit && user.role !== 'admin' && user.role !== 'owner' && (cost + totalVipCost) > 0 && (
                   <span className="text-[9px] opacity-80 font-bold bg-black/10 px-2 py-0.5 rounded-full flex items-center gap-1 mt-0.5">
-                    <Wallet className="w-2.5 h-2.5"/> يخصم {cost} نقطة (متبقي {user.points || 0})
+                    <Wallet className="w-2.5 h-2.5"/> يخصم {cost + totalVipCost} نقطة (متبقي {user.points || 0})
                   </span>
                 )}
-                {!isEdit && user.role !== 'admin' && user.role !== 'owner' && cost === 0 && (
+                {!isEdit && user.role !== 'admin' && user.role !== 'owner' && (cost + totalVipCost) === 0 && (
                   <span className="text-[9px] opacity-80 font-bold bg-black/10 px-2 py-0.5 rounded-full flex items-center gap-1 mt-0.5">
                     ✨ مجاني بالكامل
                   </span>

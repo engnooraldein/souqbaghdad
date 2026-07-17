@@ -53,7 +53,7 @@ import { IraqiEagle } from './Icons';
 export function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id:number)=>void;onClose:()=>void}) {
   const [tab, setTab] = useState<'ads'|'users'|'settings'>('ads');
   const [users, setUsers] = useState<any[]>([]);
-  const [costs, setCosts] = useState<{ad:number; product:number; transport:number}>({ad:1, product:1, transport:1});
+  const [costs, setCosts] = useState<{ad:number; product:number; transport:number; vip_ad:number}>({ad:1, product:1, transport:1, vip_ad:5});
   const [saving, setSaving] = useState(false);
   const [deleteAdId, setDeleteAdId] = useState<number | null>(null);
 
@@ -65,7 +65,7 @@ export function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id
     } else if (tab === 'settings') {
       supabase.from('system_settings').select('*').then(({data, error}) => {
         if(!error && data) {
-          const c: any = { ad:1, product:1, transport:1 };
+          const c: any = { ad:1, product:1, transport:1, vip_ad:5 };
           data.forEach(r => { c[r.category] = r.cost; });
           setCosts(c);
         }
@@ -150,6 +150,11 @@ export function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id
               <div>
                 <label className="block text-gray-400 text-sm mb-2">قسم خطوط النقل</label>
                 <input type="number" min="0" value={costs.transport} onChange={e => setCosts({...costs, transport: Number(e.target.value)})} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-white outline-none focus:border-emerald-500" />
+              </div>
+
+              <div>
+                <label className="block text-amber-400 text-sm mb-2 font-bold">تكلفة تمييز إعلان VIP (تضاف للتكلفة الأصلية)</label>
+                <input type="number" min="0" value={costs.vip_ad} onChange={e => setCosts({...costs, vip_ad: Number(e.target.value)})} className="w-full bg-gray-900 border border-amber-500/50 rounded-xl px-4 py-2 text-white outline-none focus:border-amber-500" />
               </div>
             </div>
             

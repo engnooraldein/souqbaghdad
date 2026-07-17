@@ -280,14 +280,14 @@ export function MarketView({
   const [conditionFilter, setConditionFilter] = useState<'all'|'new'|'used'>('all');
   const [latestAdsPage, setLatestAdsPage] = useState(0);
   const [vipAdsPage, setVipAdsPage] = useState(0);
-  const [generalAdsPage, setGeneralAdsPage] = useState(0);
-  const [visibleGeneralAdsCount, setVisibleGeneralAdsCount] = useState(4);
+
+  const [visibleGeneralAdsCount, setVisibleGeneralAdsCount] = useState(6);
   const [categoryAdsPage, setCategoryAdsPage] = useState(0);
-  const [visibleCategoryAdsCount, setVisibleCategoryAdsCount] = useState(4);
+  const [visibleCategoryAdsCount, setVisibleCategoryAdsCount] = useState(6);
   const [categoryProductsPage, setCategoryProductsPage] = useState(0);
-  const [visibleCategoryProdsCount, setVisibleCategoryProdsCount] = useState(4);
-  const [visibleProfilesCount, setVisibleProfilesCount] = useState(4);
-  const [visibleTransportCount, setVisibleTransportCount] = useState(4);
+  const [visibleCategoryProdsCount, setVisibleCategoryProdsCount] = useState(6);
+  const [visibleProfilesCount, setVisibleProfilesCount] = useState(6);
+  const [visibleTransportCount, setVisibleTransportCount] = useState(6);
   const [visibleTopSellers, setVisibleTopSellers] = useState(5);
   const [contentTab, setContentTab] = useState<'ads'|'products'|'profiles'|'transport'|'all'>(() => {
     if (typeof window === 'undefined') return 'all';
@@ -679,42 +679,44 @@ export function MarketView({
   useEffect(() => {
     setLatestAdsPage(0);
     setVipAdsPage(0);
-    setGeneralAdsPage(0);
-    setVisibleGeneralAdsCount(4);
+    setVisibleGeneralAdsCount(6);
     
     setCategoryAdsPage(0);
-    setVisibleCategoryAdsCount(4);
+    setVisibleCategoryAdsCount(6);
 
     setCategoryProductsPage(0);
-    setVisibleCategoryProdsCount(4);
+    setVisibleCategoryProdsCount(6);
   }, [cat, search, gov, priceMin, priceMax, sort, conditionFilter]);
 
   const handleCategoryAdsPageChange = (page: number) => {
     setCategoryAdsPage(page);
-    setVisibleCategoryAdsCount(4);
+    setVisibleCategoryAdsCount(6);
   };
 
   const handleCategoryProductsPageChange = (page: number) => {
     setCategoryProductsPage(page);
-    setVisibleCategoryProdsCount(4);
+    setVisibleCategoryProdsCount(6);
   };
 
-  // Compute "Latest Ads" (منشور خلال الـ 7 أيام الماضية)
+  // Compute "Latest Ads" (منشور خلال الـ 24 ساعة الماضية)
   const latestAds = useMemo(() => {
     const now = Date.now();
-    const limit = 7 * 24 * 60 * 60 * 1000; // 7 أيام
+    const limit = 24 * 60 * 60 * 1000; // 24 ساعة
     return filterAds
       .filter(a => {
         if (!a.createdAtISO) return false;
         const diff = now - new Date(a.createdAtISO).getTime();
-        return diff > 0 && diff <= limit;
+        if (diff < 0 || diff > limit) return false;
+        
+        // استبعاد الإعلانات المدفوعة VIP
+        return !a.is_vip;
       })
       .sort((a, b) => new Date(b.createdAtISO!).getTime() - new Date(a.createdAtISO!).getTime());
-  }, [filterAds, storedUsers]);
+  }, [filterAds]);
 
   const latestProducts = useMemo(() => {
     const now = Date.now();
-    const limit = 7 * 24 * 60 * 60 * 1000; // 7 أيام
+    const limit = 24 * 60 * 60 * 1000; // 24 ساعة
     return filterProds
       .filter(p => {
         if (!p.createdAtISO) return false;
@@ -722,48 +724,39 @@ export function MarketView({
         const isInTime = diff > 0 && diff <= limit;
         if (!isInTime) return false;
 
-        // استبعاد الحسابات الموثقة / المميزة (VIP)
-        const isSellerVerified = p.seller?.isVerified;
-        const sellerProfile = storedUsers.find(u => u.id === p.postedBy);
-        const isProfileVerified = sellerProfile?.isVerified || sellerProfile?.verified;
-        const isPremiumRole = sellerProfile?.role === 'owner' || sellerProfile?.role === 'admin' || sellerProfile?.role === 'vendor';
-        const isVip = isSellerVerified || isProfileVerified || isPremiumRole || (p.seller?.rating && p.seller.rating >= 4.9);
-        return !isVip;
+        // استبعاد المنتجات المدفوعة VIP
+        return !p.is_vip;
       })
       .sort((a, b) => new Date(b.createdAtISO!).getTime() - new Date(a.createdAtISO!).getTime());
-  }, [filterProds, storedUsers]);
+  }, [filterProds]);
 
-  const totalLatestPages = Math.ceil(latestAds.length / 4);
+  const totalLatestPages = Math.ceil(latestAds.length / 6);
   const paginatedLatestAds = useMemo(() => {
-    const start = latestAdsPage * 4;
-    return latestAds.slice(start, start + 4);
+    const start = latestAdsPage * 6;
+    return latestAds.slice(start, start + 6);
   }, [latestAds, latestAdsPage]);
 
-  // Compute "VIP Ads" (إعلانات الحسابات الموثقة) - خلال الـ 30 يوم الماضية
+  // Compute "VIP Ads" (فقط الإعلانات التي دفعت للتمييز ولم تنتهِ مدتها)
   const vipAds = useMemo(() => {
     const now = Date.now();
-    const limit = 30 * 24 * 60 * 60 * 1000; // 30 يوم
     return filterAds.filter(a => {
       if (!a.createdAtISO) return false;
       const diff = now - new Date(a.createdAtISO).getTime();
+      const limit = (a.vip_days || 30) * 24 * 60 * 60 * 1000;
       if (diff < 0 || diff > limit) return false;
 
-      const isSellerVerified = a.seller?.isVerified;
-      const sellerProfile = storedUsers.find(u => u.id === a.postedBy);
-      const isProfileVerified = sellerProfile?.isVerified || sellerProfile?.verified;
-      const isPremiumRole = sellerProfile?.role === 'owner' || sellerProfile?.role === 'admin' || sellerProfile?.role === 'vendor';
-      return isSellerVerified || isProfileVerified || isPremiumRole || (a.seller?.rating && a.seller.rating >= 4.9);
+      return a.is_vip === true;
     });
-  }, [filterAds, storedUsers]);
+  }, [filterAds]);
 
-  const totalVipPages = Math.ceil(vipAds.length / 4);
+  const totalVipPages = Math.ceil(vipAds.length / 6);
   const paginatedVipAds = useMemo(() => {
-    const start = vipAdsPage * 4;
-    return vipAds.slice(start, start + 4);
+    const start = vipAdsPage * 6;
+    return vipAds.slice(start, start + 6);
   }, [vipAds, vipAdsPage]);
 
   // Compute "General Ads" Pagination with Smart Algorithm
-  const totalGeneralPages = Math.ceil(filterAds.length / 4);
+  const totalGeneralPages = Math.ceil(filterAds.length / 6);
   const paginatedGeneralAds = useMemo(() => {
     if (filterAds.length === 0) return [];
 
@@ -794,10 +787,8 @@ export function MarketView({
 
       // 5. معامل عشوائي ذكي (لضمان تجدد المحتوى وعدم الملل)
       // يعتمد على اليوم والساعة ليتغير الترتيب كل ساعة للمستخدم
-      const currentHour = new Date().getHours();
-      const currentDay = new Date().getDate();
-      const pseudoRandomSeed = (String(ad.id).charCodeAt(0) + String(ad.id).charCodeAt(String(ad.id).length - 1) + currentHour + currentDay) % 150;
-      score += pseudoRandomSeed; // إضافة حتى 150 نقطة عشوائية تتغير كل ساعة
+      const pseudoRandomSeed = (String(ad.id).charCodeAt(0) + String(ad.id).charCodeAt(String(ad.id).length - 1)) % 150;
+      score += pseudoRandomSeed; // إضافة نقاط عشوائية ثابتة لا تتغير مع الوقت لمنع إعادة الترتيب العشوائي
 
       return { ...ad, _feedScore: score };
     });
@@ -1572,7 +1563,7 @@ export function MarketView({
                                   isDarkMode 
                                     ? 'bg-red-500/10 text-red-400 border-red-500/20' 
                                     : 'bg-red-50 text-red-600 border-red-100'
-                                }`}>خلال 7 أيام</span>
+                                }`}>خلال 24 ساعة</span>
                               </h2>
                               <p className={`text-xs transition-colors duration-500 ${
                                 isDarkMode ? 'text-gray-400' : 'text-slate-500 font-medium'
@@ -1625,7 +1616,7 @@ export function MarketView({
                                 isDarkMode ? 'text-amber-400 hover:text-amber-300' : 'text-amber-600 hover:text-amber-700'
                               }`}
                             >
-                              عرض الكل &gt;
+                              العرض العام &gt;
                             </button>
                           </div>
 
@@ -1641,7 +1632,7 @@ export function MarketView({
                                 latestAds.length === 0 ? (
                                   <div className="text-center py-10">
                                     <div className="text-4xl mb-3">⏳</div>
-                                    <p className="text-gray-400 text-sm font-bold">لا توجد إعلانات جديدة خلال الـ 7 أيام الماضية</p>
+                                    <p className="text-gray-400 text-sm font-bold">لا توجد إعلانات جديدة خلال الـ 24 ساعة الماضية</p>
                                     <p className="text-gray-650 text-xs mt-1">ستظهر الإعلانات الجديدة هنا تلقائياً فور نشرها</p>
                                   </div>
                                 ) : (
@@ -1973,7 +1964,7 @@ export function MarketView({
                             onLoadMore={async () => {
                               if (visibleGeneralAdsCount < filterAds.length) {
                                 setVisibleGeneralAdsCount(prev => {
-                                  const next = prev + 4;
+                                  const next = prev + 6;
                                   if (next >= filterAds.length && !hasMoreAds) {
                                     playSound('admin');
                                     window.dispatchEvent(new CustomEvent('app-toast', { detail: { msg: '🎉 ممتاز! لقد أكملت تصفح جميع الإعلانات المتاحة.', type: 'success' } }));
@@ -1982,7 +1973,7 @@ export function MarketView({
                                 });
                               } else if (hasMoreAds) {
                                 await onLoadMoreAds();
-                                setVisibleGeneralAdsCount(prev => prev + 4);
+                                setVisibleGeneralAdsCount(prev => prev + 6);
                               }
                             }}
                             loadingText="جاري تحميل المزيد من الإعلانات العامة..."

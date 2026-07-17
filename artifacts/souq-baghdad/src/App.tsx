@@ -699,7 +699,7 @@ export default function App() {
     };
   }, []);
   const [showStoreGuide, setShowStoreGuide] = useState(false);
-  const [adCosts, setAdCosts] = useState<{ad:number; product:number; transport:number}>({ ad: 1, product: 1, transport: 1 });
+  const [adCosts, setAdCosts] = useState<{ad:number; product:number; transport:number; vip_ad:number}>({ ad: 1, product: 1, transport: 1, vip_ad: 5 });
 
   // هذا useEffect يعمل مرة واحدة عند فتح التطبيق.
   // يجلب إعدادات النظام (تكلفة الإعلانات) من Supabase.
@@ -708,7 +708,7 @@ export default function App() {
   useEffect(() => {
     supabase.from('system_settings').select('*').then(({ data, error }) => {
       if (!error && data) {
-        const costs: any = { ad: 1, product: 1, transport: 1 };
+        const costs: any = { ad: 1, product: 1, transport: 1, vip_ad: 5 };
         data.forEach(r => { costs[r.category] = r.cost; });
         setAdCosts(costs);
       }
@@ -1810,7 +1810,7 @@ export default function App() {
     }
     try {
       const pageToFetch = reset ? 0 : adsPage + 1;
-      const pageSize = 4;
+      const pageSize = 20;
       const from = pageToFetch * pageSize;
       const to = from + pageSize - 1;
 
@@ -2362,6 +2362,8 @@ export default function App() {
       type: ad.type,
       status: 'active',
       is_demo: false,
+      is_vip: ad.is_vip || false,
+      vip_days: ad.vip_days || 30,
       seller_name: user?.name,
       seller_avatar: user?.avatar,
     };
@@ -2372,7 +2374,10 @@ export default function App() {
       showToast('تم تعديل الإعلان ✅', 'success');
     } else {
       // Deduct points before publishing
-      const cost = adCosts.ad !== undefined ? adCosts.ad : 1;
+      let cost = adCosts.ad !== undefined ? adCosts.ad : 1;
+      if (ad.is_vip) {
+        cost += Math.ceil(((adCosts.vip_ad !== undefined ? adCosts.vip_ad : 30) / 30) * (ad.vip_days || 30));
+      }
       if (user?.role !== 'admin' && user?.role !== 'owner' && cost > 0) {
         const { data: deductData, error: deductError } = await supabase.rpc('deduct_points', {
           p_user_id: user?.id,
@@ -2598,6 +2603,8 @@ export default function App() {
       images: p.images,
       condition: p.condition,
       stock: p.stock,
+      is_vip: p.is_vip || false,
+      vip_days: p.vip_days || 30,
       seller_name: user?.name,
       seller_avatar: user?.avatar,
     };
@@ -2608,7 +2615,10 @@ export default function App() {
       showToast('تم تعديل المنتج ✅', 'success');
     } else {
       // Deduct points before publishing
-      const cost = adCosts.product !== undefined ? adCosts.product : 1;
+      let cost = adCosts.product !== undefined ? adCosts.product : 1;
+      if (p.is_vip) {
+        cost += Math.ceil(((adCosts.vip_ad !== undefined ? adCosts.vip_ad : 30) / 30) * (p.vip_days || 30));
+      }
       if (user?.role !== 'admin' && user?.role !== 'owner' && cost > 0) {
         const { data: deductData, error: deductError } = await supabase.rpc('deduct_points', {
           p_user_id: user?.id,
@@ -3408,8 +3418,8 @@ export default function App() {
         {selectedAd&&<Suspense fallback={null}><AdDetailModal ad={selectedAd} onClose={()=>setSelectedAd(null)} isFav={favorites.includes(selectedAd.id)} onFav={()=>handleToggleFav(selectedAd.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedAd(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedAd.id, selectedAd.title, selectedAd.postedBy || '', 'ad', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllAds(prev => prev.map(a => String(a.id) === String(id) ? { ...a, views: Math.max(a.views || 0, views) } : a)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'ad' } })); }} /></Suspense>}
         {selectedProduct&&<Suspense fallback={null}><ProductDetailModal product={selectedProduct} onClose={()=>setSelectedProduct(null)} isFav={favorites.includes(selectedProduct.id)} onFav={()=>handleToggleFav(selectedProduct.id)} user={user} storedUsers={storedUsers} onAuthRequired={requireAuth} onSellerClick={id=>{setSelectedProduct(null);handleSellerClick(id);}} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedProduct.id, selectedProduct.title, selectedProduct.postedBy || '', 'product', sec)} onImageZoom={(src, title, imgs, idx) => setActiveLightbox({ src, title, images: imgs, initialIdx: idx })} onViewsUpdated={(id, views) => { setAllProducts(prev => prev.map(p => String(p.id) === String(id) ? { ...p, views: Math.max(p.views || 0, views) } : p)); window.dispatchEvent(new CustomEvent('update-views', { detail: { id, views, type: 'product' } })); }} /></Suspense>}
         {selectedTransportAd&&<Suspense fallback={null}><TransportDetailModal ad={selectedTransportAd} onClose={()=>setSelectedTransportAd(null)} user={user} onAuthRequired={requireAuth} onViewDurationLogged={(sec) => handleViewDurationLogged(selectedTransportAd.id, selectedTransportAd.type==='offer'?'خط متوفر':'طلب خط', selectedTransportAd.postedBy || '', 'transport', sec)} storedUsers={storedUsers}/></Suspense>}
-        {showCreateAd&&user&&<Suspense fallback={null}><AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd} cost={adCosts.ad !== undefined ? adCosts.ad : 1} /></Suspense>}
-        {showCreateProduct&&user&&<Suspense fallback={null}><ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct} cost={adCosts.product !== undefined ? adCosts.product : 1} /></Suspense>}
+        {showCreateAd&&user&&<Suspense fallback={null}><AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd} cost={adCosts.ad !== undefined ? adCosts.ad : 1} vipCost={adCosts.vip_ad !== undefined ? adCosts.vip_ad : 5} /></Suspense>}
+        {showCreateProduct&&user&&<Suspense fallback={null}><ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct} cost={adCosts.product !== undefined ? adCosts.product : 1} vipCost={adCosts.vip_ad !== undefined ? adCosts.vip_ad : 5} /></Suspense>}
         {showNotifs&&<Suspense fallback={null}><NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick} onMarkRead={markNotifAsRead} onArchiveAll={handleArchiveAllNotifications}/></Suspense>}
         {activeDocTab&&<Suspense fallback={null}><InfoDocsModal activeTab={activeDocTab} onClose={()=>setActiveDocTab(null)} user={user}/></Suspense>}
         {activeLightbox&&<ImageLightboxModal src={activeLightbox.src} title={activeLightbox.title} images={(activeLightbox as any).images} initialIdx={(activeLightbox as any).initialIdx} onClose={()=>setActiveLightbox(null)}/>}

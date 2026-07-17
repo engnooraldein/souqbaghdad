@@ -34,6 +34,8 @@ export interface Ad {
   short_id?: string;
   favorites?: number;
   likes?: number;
+  is_vip?: boolean;
+  vip_days?: number;
 }
 
 export interface Product {
@@ -53,6 +55,8 @@ export interface Product {
   stock: number;
   status: string;
   short_id?: string;
+  is_vip?: boolean;
+  vip_days?: number;
 }
 
 export interface User {

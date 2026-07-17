@@ -68,11 +68,12 @@ export function getProductCategoryPlaceholderImage(category: string): string {
   }
 }
 
-export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct, cost = 1 }:{
-  isOpen:boolean; onClose:()=>void; onSubmit:(p:Product)=>void; user:User; editProduct?:Product|null; cost?:number;
+export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct, cost = 1, vipCost = 5 }:{
+  isOpen:boolean; onClose:()=>void; onSubmit:(p:Product)=>void; user:User; editProduct?:Product|null; cost?:number; vipCost?:number;
 }) {
   const isEdit = !!editProduct;
-  const [fd, setFd] = useState({ title:editProduct?.title||'', price:editProduct?.price?formatPrice(editProduct.price):'', description:editProduct?.description||'', category:editProduct?.category||'electronics', governorate:editProduct?.governorate||user?.location||'بغداد', phone:editProduct?.phone||user?.phone||'', condition:(editProduct?.condition||'new') as 'new'|'used', stock:editProduct?.stock||1 });
+  const [fd, setFd] = useState<Partial<Product>>({ title:editProduct?.title||'', price:editProduct?.price?formatPrice(editProduct.price):'', description:editProduct?.description||'', category:editProduct?.category||'phones', governorate:editProduct?.governorate||user?.location||'بغداد', phone:editProduct?.phone||user?.phone||'', condition:(editProduct?.condition||'new') as 'new'|'used', stock:editProduct?.stock||1, is_vip: editProduct?.is_vip||false, vip_days: editProduct?.vip_days||30 });
+  const totalVipCost = fd.is_vip ? Math.ceil((vipCost / 30) * (fd.vip_days || 30)) : 0;
 
   const dynamicPlaceholders = useMemo(() => {
     switch (fd.category) {
@@ -249,7 +250,7 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
       setIsGeneratingDesc(false);
     }
   };
-  useEffect(()=>{if(editProduct){setFd({title:editProduct.title,price:formatPrice(editProduct.price),description:editProduct.description,category:editProduct.category,governorate:editProduct.governorate,phone:editProduct.phone,condition:editProduct.condition,stock:editProduct.stock});setImages(editProduct.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)})) || []);}},[editProduct]);
+  useEffect(()=>{if(editProduct){setFd({title:editProduct.title,price:formatPrice(editProduct.price),description:editProduct.description,category:editProduct.category,governorate:editProduct.governorate,phone:editProduct.phone,condition:editProduct.condition,stock:editProduct.stock,is_vip:editProduct.is_vip||false});setImages(editProduct.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)})) || []);}},[editProduct]);
   const handleImages = async (e:React.ChangeEvent<HTMLInputElement>) => {
     if(!e.target.files) return;
     setImageError('');
@@ -308,9 +309,9 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
       images:images.filter(i=>i.preview).map(i=>i.preview).concat(images.length===0?[getProductCategoryPlaceholderImage(fd.category)]:[]),
       seller:{name:user.name,avatar:user.avatar,isVerified:user.isVerified,rating:user.rating||5,joinedDate:user.joinedDate,location:user.location},
       createdAtISO:isEdit?(editProduct?.createdAtISO||new Date().toISOString()):new Date().toISOString(), views:isEdit?(editProduct?.views||0):0, postedBy:user.id,
-      status:isEdit?(editProduct?.status||'active'):'active' };
+      status:isEdit?(editProduct?.status||'active'):'active', is_vip:fd.is_vip };
     setUploading(false); playSound('success'); onSubmit(p); onClose();
-    if(!isEdit){setFd({title:'',price:'',description:'',category:'electronics',governorate:user?.location||'بغداد',phone:user?.phone||'',condition:'new',stock:1});setImages([]);}
+    if(!isEdit){setFd({title:'',price:'',description:'',category:'electronics',governorate:user?.location||'بغداد',phone:user?.phone||'',condition:'new',stock:1,is_vip:false});setImages([]);}
   };
   const fmt=(v:string)=>v.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',');
   const cats = [
@@ -510,13 +511,42 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
             )}
           </div>
 
+          {/* VIP */}
+          <div className="space-y-1">
+            <label className="flex items-center gap-2 cursor-pointer bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl hover:bg-amber-500/20 transition-all">
+              <input type="checkbox" checked={fd.is_vip} onChange={e => setFd({...fd, is_vip: e.target.checked})} className="w-5 h-5 accent-amber-500 rounded" />
+              <span className="text-amber-400 font-bold text-sm flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4"/> تمييز المنتج كـ VIP 
+              </span>
+            </label>
+            {fd.is_vip && (
+              <div className="bg-amber-500/5 border border-amber-500/10 p-3 rounded-xl mt-2 flex items-center gap-3" dir="rtl">
+                <label className="text-amber-400 text-xs font-bold">مدة التمييز (أيام):</label>
+                <input type="number" min="1" max="365" value={fd.vip_days} onChange={e => setFd({...fd, vip_days: parseInt(e.target.value) || 1})} className="w-20 bg-gray-950 text-white border border-amber-500/30 rounded-lg px-2 py-1 text-center text-sm outline-none focus:border-amber-500" />
+                <span className="text-amber-300 text-xs font-bold mr-auto">تضاف {totalVipCost} نقطة إضافية</span>
+              </div>
+            )}
+          </div>
+
           {/* Submit Button */}
-          <motion.button type="submit" whileHover={{scale:1.02}} whileTap={{scale:0.98}} disabled={uploading}
-            className="w-full py-4 bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-black rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-purple-500/10 disabled:opacity-50">
-            {uploading ? (
-              <><Loader2 className="w-5 h-5 animate-spin"/> {pct}%</>
-            ) : (
-              <><Save className="w-5 h-5"/> {isEdit ? 'حفظ تعديلات المنتج' : 'إضافة المنتج للمتجر'}</>
+          <motion.button type="submit" whileHover={{scale:1.02}} whileTap={{scale:0.98}} disabled={uploading || (!isEdit && (cost + totalVipCost) > 0 && (user.points || 0) < (cost + totalVipCost) && user.role !== 'admin' && user.role !== 'owner')}
+            className="w-full py-4 bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-black rounded-2xl text-xs sm:text-sm flex flex-col items-center justify-center gap-0.5 shadow-lg shadow-purple-500/10 disabled:opacity-50">
+            <div className="flex items-center gap-2">
+              {uploading ? (
+                <><Loader2 className="w-5 h-5 animate-spin"/> {pct}%</>
+              ) : (
+                <><Save className="w-5 h-5"/> {isEdit ? 'حفظ تعديلات المنتج' : 'إضافة المنتج للمتجر'}</>
+              )}
+            </div>
+            {!isEdit && user.role !== 'admin' && user.role !== 'owner' && (cost + totalVipCost) > 0 && (
+              <span className="text-[9px] opacity-80 font-bold bg-white/20 px-2 py-0.5 rounded-full flex items-center gap-1 mt-0.5">
+                <Wallet className="w-2.5 h-2.5"/> يخصم {cost + totalVipCost} نقطة (متبقي {user.points || 0})
+              </span>
+            )}
+            {!isEdit && user.role !== 'admin' && user.role !== 'owner' && (cost + totalVipCost) === 0 && (
+              <span className="text-[9px] opacity-80 font-bold bg-white/20 px-2 py-0.5 rounded-full flex items-center gap-1 mt-0.5">
+                ✨ مجاني بالكامل
+              </span>
             )}
           </motion.button>
         </form>
