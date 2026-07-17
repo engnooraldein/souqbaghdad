@@ -26,8 +26,9 @@ import {
   Loader2, Wallet, EyeOff, ZoomOut, ZoomIn, CheckCircle, Key, Tag, Package, ImagePlus, Edit2, Phone as PhoneIcon,
   FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, 
 } from 'lucide-react';
-import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
-import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage } from '../App';
+import { User, TransportAd } from '../types';
+import { handleUniversalShare, ViewersModal, DEFAULT_AVATAR, recordItemView } from '../App';
+import { ReportModal } from './ReportModal';
 import { slugify, getWhatsAppLink, detectDevice, isNewItem, getWhatsAppResetLink, getGlowClass} from '../utils/helpers';
 import { formatPrice } from '../utils/format';
 import { useSound } from '../hooks/useSound';
@@ -53,6 +54,7 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
   const [showViewers, setShowViewers] = useState(false);
   const [realViews, setRealViews] = useState(0);
   const [showReadingMode, setShowReadingMode] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(()=>{
     if (ad) {
@@ -187,7 +189,7 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
         })()}
 
         {/* Call Actions */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-[1fr,1fr,auto] gap-2">
           <motion.a href={getWhatsAppLink(ad.phone, 'transport', { id: ad.id, title: ad.type==='offer'?'خط متوفر':'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })} target="_blank" rel="noopener noreferrer"
             whileHover={{scale:1.02}} whileTap={{scale:0.98}}
             className="flex items-center justify-center gap-1.5 py-3 bg-green-500 text-white font-bold rounded-xl text-xs">
@@ -198,12 +200,23 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
             whileHover={{scale:1.02}} whileTap={{scale:0.98}}
             className="flex items-center justify-center gap-1.5 py-3.5 bg-gradient-to-r from-amber-500/10 via-amber-500/15 to-yellow-500/10 hover:from-amber-500/20 hover:to-yellow-500/15 text-amber-400 border border-amber-500/20 hover:border-amber-500/40 font-black rounded-xl text-xs transition-all duration-300 shadow-sm active:scale-[0.98]">
             <Share2 className="w-4 h-4 text-amber-400 animate-pulse"/>
-            <span>مشاركة الخط</span>
+            <span>مشاركة الإعلان</span>
           </motion.button>
-          <motion.a href={`tel:${ad.phone}`} whileHover={{scale:1.02}} whileTap={{scale:0.98}}
-            className="flex items-center justify-center gap-1.5 py-3 bg-gray-800 text-white font-bold rounded-xl text-xs">
-            <PhoneIcon className="w-4 h-4"/> اتصال
-          </motion.a>
+          <motion.button 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => {
+              if (!user) {
+                onAuthRequired();
+                return;
+              }
+              setShowReportModal(true);
+            }}
+            className="p-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 rounded-xl transition-all duration-300"
+            title="إبلاغ عن خط النقل"
+          >
+            <AlertTriangle className="w-5 h-5" />
+          </motion.button>
         </div>
 
         <AnimatePresence>
@@ -214,6 +227,13 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
           )}
         </AnimatePresence>
       </motion.div>
+      <ReportModal 
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        targetId={ad.id}
+        targetType="transport"
+        targetTitle={`${ad.startLocation} إلى ${ad.endLocation}`}
+      />
     </motion.div>
   );
 }

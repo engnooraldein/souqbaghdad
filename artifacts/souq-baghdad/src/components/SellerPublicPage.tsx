@@ -56,6 +56,7 @@ import { SkeletonCard } from './SkeletonCard';
 import { AdCard } from './AdCard';
 import { ProductCard } from './ProductCard';
 import { TransportAdCard } from './TransportAdCard';
+import { ReportModal } from './ReportModal';
 import { InterestTimer } from './InterestTimer';
 import { IraqiEagle } from './Icons';
 
@@ -67,6 +68,7 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
 }) {
   const onlineStatuses = useOnlineStatuses();
   const [tab, setTab] = useState<'ads'|'products'|'lines'>('ads');
+  const [showReportModal, setShowReportModal] = useState(false);
   const [sellerUser, setSellerUser] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingContent, setLoadingContent] = useState(true);
@@ -404,6 +406,21 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
               <Share2 className="w-4 h-4"/>
               <span className="hidden sm:inline">مشاركة</span>
             </button>
+            {user && String(effectiveSeller.id) !== String(user.id) && (
+              <>
+                <button onClick={() => setShowReportModal(true)} className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-sm font-bold shadow-lg border transition-colors ${isDarkMode ? 'bg-red-900/20 text-red-400 border-red-900/30 hover:bg-red-900/40' : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'}`} title="إبلاغ">
+                  <AlertTriangle className="w-4 h-4"/>
+                </button>
+                <button onClick={() => {
+                  if(window.confirm('هل أنت متأكد من حظر هذا المستخدم؟ لن تتمكن من رؤية إعلاناته بعد الآن.')) {
+                    alert('تم حظر المستخدم بنجاح.');
+                    onBack();
+                  }
+                }} className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-sm font-bold shadow-lg border transition-colors ${isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:bg-slate-50'}`} title="حظر المستخدم">
+                  <Shield className="w-4 h-4"/>
+                </button>
+              </>
+            )}
             <button onClick={onBack} className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-sm font-bold shadow-lg transition-colors ${isDarkMode ? 'bg-gray-800 text-white hover:bg-gray-750' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}`}>
               <ChevronRight className="w-4 h-4"/>
               <span className="hidden sm:inline">رجوع</span>
@@ -577,6 +594,14 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
           </>
         )}
       </div>
+
+      <ReportModal 
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        targetId={effectiveSeller.id}
+        targetType="user"
+        targetTitle={effectiveSeller.name || ''}
+      />
     </div>
     </>
   );
