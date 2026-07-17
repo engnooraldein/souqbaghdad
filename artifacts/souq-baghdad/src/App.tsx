@@ -56,6 +56,9 @@ const OwnerDashboard = lazy(() => import('./components/OwnerDashboard'));
 const StoreShareGuideModal = lazy(() => import('./components/StoreShareGuideModal').then(m => ({ default: m.StoreShareGuideModal })));
 import LiveVisitorCounter from './components/LiveVisitorCounter';
 import InfiniteScrollTrigger from './components/InfiniteScrollTrigger';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { Geolocation } from '@capacitor/geolocation';
+import { Capacitor } from '@capacitor/core';
 // ─────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────
@@ -628,6 +631,29 @@ export default function App() {
       setIsDarkMode(themeMode === 'dark');
     }
   }, [themeMode]);
+
+  // Initialize Native Permissions
+  useEffect(() => {
+    const initPermissions = async () => {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const notifStatus = await LocalNotifications.checkPermissions();
+          if (notifStatus.display !== 'granted') {
+            await LocalNotifications.requestPermissions();
+          }
+          
+          const geoStatus = await Geolocation.checkPermissions();
+          if (geoStatus.location !== 'granted') {
+            await Geolocation.requestPermissions();
+          }
+        } catch (e) {
+          console.warn('Native permissions error:', e);
+        }
+      }
+    };
+    initPermissions();
+  }, []);
+
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -2146,6 +2172,19 @@ export default function App() {
         const hasNewIncoming = notifications.some(n => n.targetType === 'owner' || !n.targetType);
         if (hasNewIncoming) {
           playSound('admin');
+          if (Capacitor.isNativePlatform()) {
+            const newest = notifications[0];
+            LocalNotifications.schedule({
+              notifications: [
+                {
+                  title: newest?.title || 'سوك بغداد',
+                  body: newest?.message || 'لديك إشعار جديد!',
+                  id: new Date().getTime(),
+                  sound: 'default'
+                }
+              ]
+            }).catch(console.warn);
+          }
         }
       }
     }
