@@ -76,12 +76,17 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
   const [recoverySent, setRecoverySent] = useState(false);
   const playSound = useSound();
 
+  const normalizeArabicNumerals = (str: string) => {
+    return str.replace(/[٠-٩]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 1632))
+              .replace(/[۰-۹]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 1776));
+  };
+
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true); playSound('click');
     try {
       if (identifier.length < 3) { setError('يرجى إدخال رقم الهاتف أو البريد الإلكتروني'); setLoading(false); return; }
       
-      let phoneToCheck = identifier.trim();
+      let phoneToCheck = normalizeArabicNumerals(identifier.trim());
       const isPhone = /^\d+$/.test(phoneToCheck);
       
       if (isPhone || !phoneToCheck.includes('@')) {
@@ -112,8 +117,9 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
   const handleAuthSubmit = async (e:React.FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true); playSound('click');
     try {
-      let emailToUse = identifier.trim().toLowerCase();
-      let phone = identifier.trim();
+      let normalizedIdentifier = normalizeArabicNumerals(identifier.trim());
+      let emailToUse = normalizedIdentifier.toLowerCase();
+      let phone = normalizedIdentifier;
       
       if (!emailToUse.includes('@')) {
         const isPhone = /^\d+$/.test(emailToUse);
@@ -169,7 +175,8 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
     e.preventDefault(); setError(''); setLoading(true); playSound('click');
     try {
       if (recoveryPhone.length < 10) { setError('يرجى إدخال رقم هاتف صحيح'); playSound('error'); setLoading(false); return; }
-      const { error } = await supabase.from('password_recovery_requests').insert([{ phone: recoveryPhone }]);
+      let normalizedRecovery = normalizeArabicNumerals(recoveryPhone.trim());
+      const { error } = await supabase.from('password_recovery_requests').insert([{ phone: normalizedRecovery }]);
       if (error) throw error;
       setRecoverySent(true);
       playSound('success');
