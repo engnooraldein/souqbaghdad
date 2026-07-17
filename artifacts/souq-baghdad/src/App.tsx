@@ -1441,6 +1441,8 @@ export default function App() {
               stock: data.stock || 1,
               status: data.status || 'active',
               short_id: data.short_id,
+              is_vip: data.is_vip || false,
+              vip_days: data.vip_days || 30,
             };
             setSelectedProduct(mappedProd);
           } else {
@@ -1894,6 +1896,8 @@ export default function App() {
             avgResponseTime: 'دقائق',
             postedBy: row.seller_id,
             short_id: row.short_id,
+            is_vip: row.is_vip || false,
+            vip_days: row.vip_days || 30,
           };
         });
 
@@ -2032,6 +2036,8 @@ export default function App() {
           stock: row.stock || 1,
           status: row.status || 'active',
           short_id: row.short_id,
+          is_vip: row.is_vip || false,
+          vip_days: row.vip_days || 30,
         }));
         
         if (reset) {
