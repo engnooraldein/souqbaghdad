@@ -431,14 +431,40 @@ export function MarketView({
   });
 
   useEffect(() => {
+    if (propStoredUsers && propStoredUsers.length > 0) {
+      return;
+    }
     let isMounted = true;
     async function loadAllProfiles() {
       try {
         const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
         const sellersMap = new globalThis.Map();
 
-        // Fetch registered profiles from DB
-        const { data: dbProfiles } = await supabase.from('profiles').select('id, full_name, avatar_url, phone, city, created_at, role').limit(200);
+        // Check cache first
+        const cachedProfilesStr = localStorage.getItem('souq_cached_profiles');
+        const cachedProfilesTime = localStorage.getItem('souq_cached_profiles_time');
+        let dbProfiles = null;
+        let isCacheValid = false;
+
+        if (cachedProfilesStr && cachedProfilesTime) {
+          const cacheAge = Date.now() - Number(cachedProfilesTime);
+          if (cacheAge < 60 * 60 * 1000) { // 1 hour cache
+            try {
+              dbProfiles = JSON.parse(cachedProfilesStr);
+              isCacheValid = true;
+            } catch (e) {}
+          }
+        }
+
+        if (!isCacheValid) {
+          const { data, error } = await supabase.from('profiles').select('id, full_name, avatar_url, phone, city, created_at, role').limit(200);
+          if (!error && data) {
+            dbProfiles = data;
+            localStorage.setItem('souq_cached_profiles', JSON.stringify(data));
+            localStorage.setItem('souq_cached_profiles_time', String(Date.now()));
+          }
+        }
+
         if (dbProfiles && dbProfiles.length > 0) {
           dbProfiles.forEach((p: any) => {
             sellersMap.set(p.id, {

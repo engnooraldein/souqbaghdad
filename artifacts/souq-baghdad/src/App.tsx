@@ -1068,7 +1068,32 @@ export default function App() {
         const localUsers = JSON.parse(localStorage.getItem('souqUsers') || '[]');
         const sellersMap = new Map();
 
-        const { data: dbProfiles } = await supabase.from('profiles').select('id, full_name, avatar_url, phone, city, created_at, role').limit(200);
+        const cachedProfilesStr = localStorage.getItem('souq_cached_profiles');
+        const cachedProfilesTime = localStorage.getItem('souq_cached_profiles_time');
+        let dbProfiles = null;
+        let isCacheValid = false;
+
+        if (cachedProfilesStr && cachedProfilesTime) {
+          const cacheAge = Date.now() - Number(cachedProfilesTime);
+          if (cacheAge < 60 * 60 * 1000) { // 1 hour cache
+            try {
+              dbProfiles = JSON.parse(cachedProfilesStr);
+              isCacheValid = true;
+            } catch (e) {
+              console.warn('Failed to parse cached profiles:', e);
+            }
+          }
+        }
+
+        if (!isCacheValid) {
+          const { data, error } = await supabase.from('profiles').select('id, full_name, avatar_url, phone, city, created_at, role').limit(200);
+          if (!error && data) {
+            dbProfiles = data;
+            localStorage.setItem('souq_cached_profiles', JSON.stringify(data));
+            localStorage.setItem('souq_cached_profiles_time', String(Date.now()));
+          }
+        }
+
         if (dbProfiles && dbProfiles.length > 0) {
           dbProfiles.forEach((p: any) => {
             sellersMap.set(p.id, {
@@ -2093,10 +2118,12 @@ export default function App() {
     fetchNotifications();
 
     // Use polling instead of Realtime to avoid hitting Supabase free tier connection limits (200 connections)
-    // and to prevent the red WebSocket connection errors in the console.
+    // and to prevent the red WebSocket connection errors in the console. Only poll if page is visible to save egress bandwidth.
     const pollInterval = setInterval(() => {
-      fetchNotifications();
-    }, 45000); // 45 seconds
+      if (document.visibilityState === 'visible') {
+        fetchNotifications();
+      }
+    }, 90000); // 90 seconds
 
     return () => {
       clearInterval(pollInterval);
@@ -2300,6 +2327,8 @@ export default function App() {
     localStorage.setItem('souqUser', JSON.stringify(u));
     saveStoredUser(u, allAds.filter(a=>a.postedBy===u.id).length);
     if (!quiet) {
+      localStorage.removeItem('souq_cached_profiles');
+      localStorage.removeItem('souq_cached_profiles_time');
       await supabase.from('profiles').upsert({
         id: u.id,
         full_name: u.name,
