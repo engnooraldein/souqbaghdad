@@ -41,6 +41,7 @@ import { getRelative, useRelativeTime } from './utils/time';
 const ProductsView = lazy(() => import('./components/ProductsView').then(m => ({ default: m.ProductsView })));
 export const ViewersModal = lazy(() => import('./components/ViewersModal').then(m => ({ default: m.ViewersModal })));
 const ShareModal = lazy(() => import('./components/ShareModal').then(m => ({ default: m.ShareModal })));
+const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
 import {
   Eye, EyeOff, Mail, Lock, User as UserIcon, Phone, AlertCircle, Check,
   Gamepad2, Heart, Bell, Plus, LogOut, Star, X, Search, MapPin,
@@ -800,6 +801,7 @@ export default function App() {
 
   const [view, setView] = useState<AppView>(() => {
     const { hash } = getInitialRouteInfo();
+    if (hash.startsWith('#/privacy')) return 'privacy';
     if (hash.startsWith('#/transport')) return 'transport';
     if (hash.startsWith('#/products')) return 'products';
     if (hash.startsWith('#/seller') || hash.startsWith('#/profile/')) return 'seller';
@@ -1755,6 +1757,8 @@ export default function App() {
       newPath = `/seller/${selectedSellerPhone || selectedSellerId}`;
     } else if (view === 'transport') {
       newPath = `/transport`;
+    } else if (view === 'privacy-policy') {
+      newPath = `/privacy-policy`;
     } else if (view === 'products') {
       newPath = `/products`;
     } else if (view === 'profile') {
@@ -3401,6 +3405,11 @@ export default function App() {
                 isInitialLoading={isInitialLoading}
                 isDarkMode={isDarkMode}
               />
+            </Suspense>
+          </motion.div>}
+          {view==='privacy'&&<motion.div key="privacy" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+            <Suspense fallback={<LoadingScreen isLoading={true} />}>
+              <PrivacyPolicy />
             </Suspense>
           </motion.div>}
           {view==='products'&&<motion.div key="products" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>

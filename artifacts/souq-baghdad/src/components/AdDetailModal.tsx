@@ -28,6 +28,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';
 import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
 import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage, DEFAULT_AVATAR } from '../App';
+import { ReportModal } from './ReportModal';
 import { slugify, getWhatsAppLink, detectDevice, isNewItem, getWhatsAppResetLink, getGlowClass } from '../utils/helpers';
 import { formatPrice } from '../utils/format';
 import { useSound } from '../hooks/useSound';
@@ -58,6 +59,8 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
   const onlineStatuses = useOnlineStatuses();
   const [realViews, setRealViews] = useState(0);
+  const [editLoading, setEditLoading] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [showReadingMode, setShowReadingMode] = useState(false);
   const [isDescExpanded, setIsDescExpanded] = useState(false);
   const [isPlayingSlideshow, setIsPlayingSlideshow] = useState(true);
@@ -459,9 +462,30 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
               <Share2 className="w-3.5 h-3.5 text-amber-400 animate-pulse"/>
               <span>مشاركة الإعلان</span>
             </button>
+            <button 
+              onClick={() => {
+                if (!user) {
+                  requireAuth();
+                  return;
+                }
+                setShowReportModal(true);
+              }}
+              className="p-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 rounded-xl transition-all duration-300"
+              title="إبلاغ عن الإعلان"
+            >
+              <AlertTriangle className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </motion.div>
+
+      <ReportModal 
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        targetId={ad.id}
+        targetType="ad"
+        targetTitle={ad.title}
+      />
     </motion.div>
   );
 }
