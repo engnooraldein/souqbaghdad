@@ -897,7 +897,7 @@ export default function App() {
     }
   };
   const [activeLightbox, setActiveLightbox] = useState<{ src: string; title: string; images?: string[]; initialIdx?: number } | null>(null);
-  const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; title: string; url: string; image?: string; price?: string; governorate?: string; location?: string; short_id?: string; description?: string; category?: string; views?: number; createdAt?: string; isVerified?: boolean; images?: string[] }>({ isOpen: false, title: '', url: '' });
+  const [shareModalData, setShareModalData] = useState<{ isOpen: boolean; title: string; url: string; image?: string; price?: string; governorate?: string; location?: string; short_id?: string; description?: string; category?: string; views?: number; createdAt?: string; isVerified?: boolean; images?: string[]; university?: string; regions?: string; type?: string; }>({ isOpen: false, title: '', url: '' });
   const getDefaultAds = (): Ad[] => [];
 
   const getDefaultProducts = (): Product[] => [];
@@ -1281,6 +1281,9 @@ export default function App() {
         createdAt: d.createdAt,
         isVerified: d.isVerified,
         images: d.images,
+        university: d.university,
+        regions: d.regions,
+        type: d.type,
       });
     };
     window.addEventListener('open-share-modal', handleOpenShare);
@@ -3632,6 +3635,9 @@ export default function App() {
               createdAt={shareModalData.createdAt}
               isVerified={shareModalData.isVerified}
               images={shareModalData.images}
+              university={shareModalData.university}
+              regions={shareModalData.regions}
+              type={shareModalData.type}
             />
           </Suspense>
         )}
