@@ -20,7 +20,11 @@ export const formatPrice = (p: string | number) => {
   }
 
   // Remove everything except digits and minus sign
-  const n = parseInt(pStr.replace(/[^\d-]/g, ''));
+  let n = parseInt(pStr.replace(/[^\d-]/g, ''));
+  
+  if (!isNaN(n) && n > 0 && n < 1000) {
+    n = n * 1000;
+  }
   
   return isNaN(n) ? String(p) : n.toLocaleString('en-US');
 };
