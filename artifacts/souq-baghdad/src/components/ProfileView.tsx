@@ -57,7 +57,7 @@ import { LoadingScreen } from './LoadingScreen';
 import { TransportFormModal } from './TransportFormModal';
 import { SkeletonCard } from './SkeletonCard';
 import { AdCard } from './AdCard';
-import { NativeBiometric } from '@aparajita/capacitor-biometric-auth';
+import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
 import { Capacitor } from '@capacitor/core';
 import { ProductCard } from './ProductCard';
 import { TransportAdCard } from './TransportAdCard';
@@ -376,11 +376,11 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
 
     if (biometricEnabled && Capacitor.isNativePlatform() && (ef.phone.trim() !== (user.phone || '') || ef.email.trim().toLowerCase() !== (user.email || '').toLowerCase())) {
         try {
-            const { isAvailable } = await NativeBiometric.isAvailable();
+            const { isAvailable } = await BiometricAuth.checkBiometry();
             if (isAvailable) {
-                await NativeBiometric.verifyIdentity({
+                await BiometricAuth.authenticate({
                     reason: "يرجى تأكيد هويتك لتغيير رقم الهاتف أو البريد الإلكتروني",
-                    title: "تأكيد الهوية",
+                    androidTitle: "تأكيد الهوية",
                 });
             }
         } catch (e) {
@@ -958,11 +958,11 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                   onClick={async () => {
                      if (biometricEnabled && Capacitor.isNativePlatform()) {
                         try {
-                           const { isAvailable } = await NativeBiometric.isAvailable();
+                           const { isAvailable } = await BiometricAuth.checkBiometry();
                            if (isAvailable) {
-                              await NativeBiometric.verifyIdentity({
+                              await BiometricAuth.authenticate({
                                 reason: "يرجى تأكيد هويتك لتعديل كلمة المرور",
-                                title: "تأكيد الهوية",
+                                androidTitle: "تأكيد الهوية",
                               });
                            }
                         } catch (e) {
@@ -1011,7 +1011,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                     <button
                       onClick={async () => {
                         try {
-                           const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'passkey' });
+                           const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'webauthn' });
                            if (error) throw error;
                            alert('تم إعداد مفتاح المرور بنجاح!');
                         } catch (err: any) {
@@ -1042,11 +1042,11 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                   onClick={async () => {
                      if (biometricEnabled && Capacitor.isNativePlatform()) {
                         try {
-                           const { isAvailable } = await NativeBiometric.isAvailable();
+                           const { isAvailable } = await BiometricAuth.checkBiometry();
                            if (isAvailable) {
-                              await NativeBiometric.verifyIdentity({
+                              await BiometricAuth.authenticate({
                                 reason: "يرجى تأكيد هويتك لحذف الحساب",
-                                title: "تأكيد الهوية",
+                                androidTitle: "تأكيد الهوية",
                               });
                            }
                         } catch (e) {

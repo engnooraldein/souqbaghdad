@@ -58,7 +58,7 @@ import LiveVisitorCounter from './components/LiveVisitorCounter';
 import InfiniteScrollTrigger from './components/InfiniteScrollTrigger';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Geolocation } from '@capacitor/geolocation';
-import { NativeBiometric } from '@aparajita/capacitor-biometric-auth';
+import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
 import { Capacitor } from '@capacitor/core';
 // ─────────────────────────────────────────────
 // Constants
@@ -633,11 +633,11 @@ export default function App() {
       if (isBiometricLocked) {
         if (Capacitor.isNativePlatform()) {
           try {
-            const { isAvailable } = await NativeBiometric.isAvailable();
+            const { isAvailable } = await BiometricAuth.checkBiometry();
             if (isAvailable) {
-              await NativeBiometric.verifyIdentity({
+              await BiometricAuth.authenticate({
                 reason: "يرجى تأكيد هويتك للوصول إلى التطبيق",
-                title: "المصادقة بالبصمة",
+                androidTitle: "المصادقة بالبصمة",
               });
               setIsBiometricLocked(false);
             } else {
@@ -2884,11 +2884,11 @@ export default function App() {
           onClick={async () => {
              if (Capacitor.isNativePlatform()) {
                 try {
-                  const { isAvailable } = await NativeBiometric.isAvailable();
+                  const { isAvailable } = await BiometricAuth.checkBiometry();
                   if (isAvailable) {
-                    await NativeBiometric.verifyIdentity({
+                    await BiometricAuth.authenticate({
                       reason: "يرجى تأكيد هويتك للوصول إلى التطبيق",
-                      title: "المصادقة بالبصمة",
+                      androidTitle: "المصادقة بالبصمة",
                     });
                     setIsBiometricLocked(false);
                   } else {
