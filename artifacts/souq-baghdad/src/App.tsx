@@ -684,19 +684,17 @@ export default function App() {
   useEffect(() => {
     const initPermissions = async () => {
       if (Capacitor.isNativePlatform()) {
-        try {
-          const notifStatus = await LocalNotifications.checkPermissions();
-          if (notifStatus.display !== 'granted') {
-            await LocalNotifications.requestPermissions();
+        setTimeout(async () => {
+          try {
+            const notifStatus = await LocalNotifications.checkPermissions();
+            if (notifStatus.display !== 'granted') {
+              const requestResult = await LocalNotifications.requestPermissions();
+              console.log('Notification permission request result:', requestResult);
+            }
+          } catch (e) {
+            console.warn('Native permissions error:', e);
           }
-          
-          const geoStatus = await Geolocation.checkPermissions();
-          if (geoStatus.location !== 'granted') {
-            await Geolocation.requestPermissions();
-          }
-        } catch (e) {
-          console.warn('Native permissions error:', e);
-        }
+        }, 1500); // 1.5 second delay to ensure UI is ready for the OS prompt
       }
     };
     initPermissions();
