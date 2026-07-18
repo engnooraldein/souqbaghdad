@@ -314,7 +314,7 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
                 {step === 'login' ? 'تسجيل الدخول' : 'تأكيد وإنشاء الحساب'}
               </button>
               
-              {step === 'login' && !Capacitor.isNativePlatform() && (
+              {step === 'login' && (
                  <button 
                    type="button" 
                    onClick={async () => {
