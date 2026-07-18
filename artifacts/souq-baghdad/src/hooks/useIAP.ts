@@ -64,9 +64,16 @@ export const useIAP = (userId?: string) => {
       setIsLoading(false);
     });
 
-    store.when().cancelled(() => {
-      setIsLoading(false);
-    });
+    // Cancelled events are handled differently in v13, safely ignore or catch errors
+    try {
+      if (typeof store.when().cancelled === 'function') {
+        store.when().cancelled(() => {
+          setIsLoading(false);
+        });
+      }
+    } catch (e) {
+      console.warn('cancelled listener not supported in this version');
+    }
 
     // تهيئة المنتجات الجاهزة من جوجل
     store.ready(() => {

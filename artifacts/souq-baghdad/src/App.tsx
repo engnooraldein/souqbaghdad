@@ -629,7 +629,7 @@ export default function App() {
   const playNotificationSound = useSound();
 
   const [isBiometricLocked, setIsBiometricLocked] = useState<boolean>(() => {
-    return localStorage.getItem('biometricEnabled') === 'true' && localStorage.getItem('souqUser') !== null;
+    return localStorage.getItem('biometricEnabled') === 'true' && localStorage.getItem('souqUser') !== null && sessionStorage.getItem('biometricUnlocked') !== 'true';
   });
 
   useEffect(() => {
@@ -644,6 +644,7 @@ export default function App() {
                 androidTitle: "المصادقة بالبصمة",
               });
               setIsBiometricLocked(false);
+              sessionStorage.setItem('biometricUnlocked', 'true');
             } else {
               setIsBiometricLocked(false); // No biometric hardware
             }
@@ -2921,6 +2922,7 @@ export default function App() {
                       androidTitle: "المصادقة بالبصمة",
                     });
                     setIsBiometricLocked(false);
+                    sessionStorage.setItem('biometricUnlocked', 'true');
                   } else {
                     setIsBiometricLocked(false);
                   }
