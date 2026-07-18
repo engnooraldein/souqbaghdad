@@ -833,7 +833,7 @@ export function MarketView({
       >
         {/* Background Image for LCP Optimization */}
         <img 
-           src={isDarkMode ? '/baghdad_night_bg.png' : 'https://www-file.honor.com/content/dam/honor/common/tech/honor-ai/ar/imgs/section-kv/aisubject-kv-bg2.jpg'}
+           src={isDarkMode ? '/baghdad_night.png' : 'https://www-file.honor.com/content/dam/honor/common/tech/honor-ai/ar/imgs/section-kv/aisubject-kv-bg2.jpg'}
            alt="سوك بغداد - واجهة المستخدم"
            fetchPriority="high"
            loading="eager"
