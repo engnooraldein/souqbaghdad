@@ -1,28 +1,37 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-  <!-- ⚡ Theme Script: يجب أن يكون أول شيء - يمنع وميض الوضع الخاطئ في سفاري وكل المتصفحات -->
+  <!-- ⚡ Theme & Preload Script: يحدد الوضع الداكن ويقوم بالتحميل المسبق الفوري للصورة الصحيحة فقط لمنع التحذيرات -->
   <script>
     (function() {
+      var isDark = false;
       try {
         var saved = window.localStorage && window.localStorage.getItem('souqBaghdad_theme');
         if (saved === 'dark' || saved === 'light') {
           if (saved === 'dark') {
             document.documentElement.classList.add('dark');
+            isDark = true;
           }
-          return;
+        } else {
+          if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+            isDark = true;
+          }
         }
-      } catch(e) {}
-      // لا يوجد خيار محفوظ - اقرأ من النظام
-      try {
-        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          document.documentElement.classList.add('dark');
-        }
-        // إذا كان النظام نهاري أو لم يدعم matchMedia - لا تضف dark
       } catch(e) {
-        // الوضع الافتراضي الآمن لسفاري القديم = dark
         document.documentElement.classList.add('dark');
+        isDark = true;
       }
+      
+      // تحميل الصورة المناسبة مسبقاً بناءً على الوضع الحالي لتسريع LCP ومنع تحذيرات المتصفح
+      try {
+        var link = document.createElement('link');
+        link.rel = 'preload';
+        link.as = 'image';
+        link.href = isDark ? '/baghdad_night.png' : 'https://www-file.honor.com/content/dam/honor/common/tech/honor-ai/ar/imgs/section-kv/aisubject-kv-bg2.jpg';
+        link.setAttribute('fetchpriority', 'high');
+        document.head.appendChild(link);
+      } catch(e) {}
     })();
   </script>
   <meta charset="UTF-8" />
@@ -32,9 +41,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://lyhqnccpudwgvexqinxa.supabase.co" crossorigin />
   <link rel="preconnect" href="https://www-file.honor.com" crossorigin />
-  <!-- Preload LCP Images based on theme -->
-  <link rel="preload" as="image" href="/baghdad_night.png" media="(prefers-color-scheme: dark)" fetchpriority="high" />
-  <link rel="preload" as="image" href="https://www-file.honor.com/content/dam/honor/common/tech/honor-ai/ar/imgs/section-kv/aisubject-kv-bg2.jpg" media="(prefers-color-scheme: light)" fetchpriority="high" />
   <!-- Google Fonts loaded asynchronously to prevent render blocking -->
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
   <noscript>
