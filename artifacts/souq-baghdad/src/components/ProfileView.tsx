@@ -665,9 +665,16 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
 
       <div className="container mx-auto px-4 max-w-3xl relative z-10">
 
-        {/* Tabs */}
+        {/* Top Priority Tabs */}
+        <div className={`flex gap-2 mb-2 p-2 rounded-2xl border overflow-x-auto scrollbar-hide shadow-lg ${isDarkMode ? 'bg-gray-950/60 border-gray-900' : 'bg-white border-slate-200/80 shadow-slate-100'}`} dir="rtl">
+          {([['wallet', '💳 المحفظة'],['account','⚙️ الإعدادات']] as [string,string][]).map(([t,l])=>(
+            <button key={t} onClick={()=>setTab(t as any)} className={`flex-1 whitespace-nowrap px-4.5 py-3 rounded-xl text-sm sm:text-base font-black transition-all duration-300 ${tab===t?'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-500/20':(isDarkMode ? 'text-gray-300 hover:text-white bg-gray-900 hover:bg-gray-800' : 'text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200')}`}>{l}</button>
+          ))}
+        </div>
+
+        {/* Other Tabs */}
         <div className={`flex gap-2 mb-6 p-2 rounded-2xl border overflow-x-auto scrollbar-hide shadow-lg ${isDarkMode ? 'bg-gray-950/60 border-gray-900' : 'bg-white border-slate-200/80 shadow-slate-100'}`} dir="rtl">
-          {([['ads',`📢 إعلاناتي (${allMyAds.filter(a=>a.status==='active').length})`],['store',`🛍️ متجري (${allMyProducts.filter(p=>p.status==='active').length})`],['wallet', '💳 محفظتي'],['archive',`📦 الأرشيف (${allMyAds.filter(a=>a.status==='sold').length + allMyProducts.filter(p=>p.status==='sold').length})`],['lines',`🚌 خطوطي`],['account','⚙️ الحساب']] as [string,string][]).map(([t,l])=>(
+          {([['ads',`📢 إعلاناتي (${allMyAds.filter(a=>a.status==='active').length})`],['store',`🛍️ متجري (${allMyProducts.filter(p=>p.status==='active').length})`],['archive',`📦 الأرشيف (${allMyAds.filter(a=>a.status==='sold').length + allMyProducts.filter(p=>p.status==='sold').length})`],['lines',`🚌 خطوطي`]] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`whitespace-nowrap px-4.5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all duration-300 ${tab===t?'bg-gradient-to-r from-amber-500 to-yellow-400 text-black shadow-lg shadow-amber-500/15':(isDarkMode ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50')}`}>{l}</button>
           ))}
         </div>
