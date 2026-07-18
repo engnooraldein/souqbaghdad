@@ -1,0 +1,17 @@
+# سوق بغداد - Souq Baghdad
+
+سوق بغداد هو أكبر منصة رقمية عراقية للإعلانات المبوبة والتسوق الإلكتروني، تتيح للمستخدمين في العراق نشر الإعلانات وتصفح المنتجات والخدمات المختلفة مثل السيارات، العقارات، الأجهزة الإلكترونية، والوظائف.
+
+## أقسام الموقع الأساسية
+
+- [الرئيسية](https://www.souqbaghdad.store/)
+- [المنتجات](https://www.souqbaghdad.store/products)
+- [خدمات النقل والتوصيل](https://www.souqbaghdad.store/transport)
+- [تسجيل الدخول / إنشاء حساب](https://www.souqbaghdad.store/auth)
+- [سياسة الخصوصية](https://www.souqbaghdad.store/privacy)
+
+## معلومات التواصل والدعم
+
+- [قناة التليجرام](https://t.me/SOUQBAGHDA)
+- [رابط الواتساب](https://wa.me/9647700028170)
+- [حساب الإنستغرام](https://instagram.com/SOUQBAGHDAD.IQ)
