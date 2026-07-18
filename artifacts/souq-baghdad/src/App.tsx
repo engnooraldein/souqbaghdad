@@ -3483,7 +3483,7 @@ export default function App() {
       <footer className="bg-[black] border-t border-[#d4af37]/20 py-6 lg:pr-64">
         <div className="container mx-auto px-4 text-center">
           <div className="flex items-center justify-center gap-2 mb-3"><span className="text-2xl">🇮🇶</span><span className="text-lg font-bold text-white">سوك بغداد</span></div>
-                    <p className="text-gray-500 text-xs">© 2025 سوك بغداد — السوق الرقمي العراقي</p>
+                    <p className="text-gray-400 text-xs">© 2025 سوك بغداد — السوق الرقمي العراقي</p>
           
           <div className="flex items-center justify-center gap-4 mt-3">
             <a href="https://wa.me/9647700028170" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700/50 flex items-center justify-center text-green-400 hover:bg-green-500/10 hover:border-green-500/30 transition-all" title="واتساب الدعم">
