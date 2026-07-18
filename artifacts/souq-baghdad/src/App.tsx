@@ -25,7 +25,7 @@ const ProfileView = lazy(() => import("./components/ProfileView").then(m => ({ d
 const SellerPublicPage = lazy(() => import("./components/SellerPublicPage").then(m => ({ default: m.SellerPublicPage })));
 const AdminPanel = lazy(() => import("./components/AdminPanel").then(m => ({ default: m.AdminPanel })));
 const NotifPanel = lazy(() => import("./components/NotifPanel").then(m => ({ default: m.NotifPanel })));
-const MarketView = lazy(() => import("./components/MarketView").then(m => ({ default: m.MarketView })));
+import { MarketView } from "./components/MarketView";
 const TransportFormModal = lazy(() => import("./components/TransportFormModal").then(m => ({ default: m.TransportFormModal })));
 const TransportView = lazy(() => import("./components/TransportView").then(m => ({ default: m.TransportView })));
 import { supabase } from './lib/supabase';

@@ -55,8 +55,6 @@ export default defineConfig({
           'framer': ['framer-motion'],
           // Icons - loaded with main bundle
           'icons': ['lucide-react'],
-          // Charts - only needed for admin dashboard (loaded lazily)
-          'charts': ['recharts'],
           // Helmet - separate chunk for head management
           'helmet': ['react-helmet-async'],
           // Supabase - separate chunk for auth/data
