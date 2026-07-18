@@ -781,7 +781,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
               <div className="space-y-3">
                 {allMyAds.filter(a=>a.status==='active').slice(0, visibleAdsLimit).map(ad=>(
                   <div key={ad.id} className={`rounded-2xl p-3 border flex gap-3 transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700 hover:border-amber-500/30' : 'bg-white border-slate-200/80 hover:border-amber-500/40 hover:shadow-md'}`}>
-                    <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className={`w-16 h-16 rounded-xl object-cover flex-shrink-0 border ${isDarkMode ? 'border-gray-700' : 'border-slate-100'}`}/>
+                    <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" loading="lazy" decoding="async" className={`w-16 h-16 rounded-xl object-cover flex-shrink-0 border ${isDarkMode ? 'border-gray-700' : 'border-slate-100'}`}/>
                     <div className="flex-1 min-w-0">
                       <p className={`font-bold text-sm line-clamp-1 ${isDarkMode ? 'text-white' : 'text-slate-800 font-extrabold'}`}>{ad.title}</p>
                       <p className="text-amber-500 text-sm font-bold">{formatPrice(ad.price)} <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>د.ع</span></p>
@@ -828,7 +828,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
               <div className="space-y-3">
                 {allMyProducts.filter(p=>p.status==='active').slice(0, visibleProdsLimit).map(p=>(
                   <div key={p.id} className={`rounded-2xl p-3 border flex gap-3 transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700 hover:border-purple-500/30' : 'bg-white border-slate-200/80 hover:border-purple-500/40 hover:shadow-md'}`}>
-                    <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className={`w-16 h-16 rounded-xl object-cover flex-shrink-0 border ${isDarkMode ? 'border-gray-700' : 'border-slate-100'}`}/>
+                    <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" loading="lazy" decoding="async" className={`w-16 h-16 rounded-xl object-cover flex-shrink-0 border ${isDarkMode ? 'border-gray-700' : 'border-slate-100'}`}/>
                     <div className="flex-1 min-w-0">
                       <p className={`font-bold text-sm line-clamp-1 ${isDarkMode ? 'text-white' : 'text-slate-800 font-extrabold'}`}>{p.title}</p>
                       <p className="text-amber-500 text-sm font-bold">{formatPrice(p.price)} <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>د.ع</span></p>
@@ -878,7 +878,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                     // Sold Ad
                     return (
                       <div key={`sold-ad-${item.id}`} className={`rounded-2xl p-3 border flex gap-3 transition-colors relative ${isDarkMode ? 'bg-gray-800/80 border-gray-700/60 hover:border-red-500/30' : 'bg-white border-slate-200/80 hover:border-red-500/40 hover:shadow-sm'}`}>
-                        <img src={item.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className={`w-16 h-16 rounded-xl object-cover flex-shrink-0 border opacity-60 ${isDarkMode ? 'border-gray-700' : 'border-slate-100'}`}/>
+                        <img src={item.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" loading="lazy" decoding="async" className={`w-16 h-16 rounded-xl object-cover flex-shrink-0 border opacity-60 ${isDarkMode ? 'border-gray-700' : 'border-slate-100'}`}/>
                         <div className="flex-1 min-w-0">
                           <p className={`font-bold text-sm line-clamp-1 opacity-75 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{item.title}</p>
                           <p className="text-amber-500 text-sm font-bold opacity-75">{formatPrice(item.price)} <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>د.ع</span></p>
@@ -898,7 +898,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                     // Sold Product
                     return (
                       <div key={`sold-prod-${item.id}`} className={`rounded-2xl p-3 border flex gap-3 transition-colors relative ${isDarkMode ? 'bg-gray-800/80 border-gray-700/60 hover:border-red-500/30' : 'bg-white border-slate-200/80 hover:border-red-500/40 hover:shadow-sm'}`}>
-                        <img src={item.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className={`w-16 h-16 rounded-xl object-cover flex-shrink-0 border opacity-60 ${isDarkMode ? 'border-gray-700' : 'border-slate-100'}`}/>
+                        <img src={item.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" loading="lazy" decoding="async" className={`w-16 h-16 rounded-xl object-cover flex-shrink-0 border opacity-60 ${isDarkMode ? 'border-gray-700' : 'border-slate-100'}`}/>
                         <div className="flex-1 min-w-0">
                           <p className={`font-bold text-sm line-clamp-1 opacity-75 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{item.title}</p>
                           <p className="text-amber-500 text-sm font-bold opacity-75">{formatPrice(item.price)} <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>د.ع</span></p>

@@ -546,7 +546,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                   {[...ads, ...products].sort((a,b)=>(b.views||0)-(a.views||0)).slice(0,5).map((item, idx) => (
                     <div key={`${item.id}-${idx}`} className="flex items-center gap-3 bg-gray-900/50 p-2 rounded-xl border border-gray-700/50">
                       <div className="w-12 h-12 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
-                        <img src={item.images?.[0] || DEFAULT_COVER} alt={item.title} className="w-full h-full object-cover" />
+                        <img src={item.images?.[0] || DEFAULT_COVER} alt={item.title} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="text-sm font-bold text-white truncate">{item.title}</h4>
@@ -653,7 +653,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                 )}
                 <div className="flex items-center gap-3 w-full sm:w-auto">
                 <div className="relative flex-shrink-0">
-                  <img src={u.avatar_url || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-12 h-12 rounded-full object-cover ${u.is_banned ? 'border-2 border-red-500/50' : (u.role && u.role !== 'user' ? getGlowClass(u.role) : 'border border-gray-600')}`}/>
+                  <img src={u.avatar_url || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" loading="lazy" decoding="async" className={`w-12 h-12 rounded-full object-cover ${u.is_banned ? 'border-2 border-red-500/50' : (u.role && u.role !== 'user' ? getGlowClass(u.role) : 'border border-gray-600')}`}/>
                   <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-gray-800 ${isOnline ? 'bg-green-500' : 'bg-gray-500'}`} title={isOnline ? 'متصل الآن' : 'غير متصل'}></div>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -759,7 +759,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                 <>
                   {ads.slice(0, visibleDashboardAds).map(ad=>(
                     <div key={ad.id} className="flex items-center gap-3 p-3 border-t border-gray-700/50 hover:bg-gray-700/30">
-                      <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
+                      <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" loading="lazy" decoding="async" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
                       <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{ad.title}</p>
                         <p className="text-xs text-gray-400">{ad.location} • {formatPrice(ad.price)} د.ع • <button onClick={() => setViewersModalItem({id: ad.id, type: 'ad'})} className="hover:text-amber-400">{ad.views} 👁</button></p></div>
                       <button onClick={()=>setItemToDelete({ id: ad.id, type: 'ad' })} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0" title="حذف الإعلان" aria-label="حذف الإعلان"><Trash2 className="w-4 h-4"/></button>
@@ -781,7 +781,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                 <>
                   {products.slice(0, visibleDashboardProducts).map(p=>(
                     <div key={p.id} className="flex items-center gap-3 p-3 border-t border-gray-700/50 hover:bg-gray-700/30">
-                      <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
+                      <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" loading="lazy" decoding="async" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
                       <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{p.title}</p>
                         <p className="text-xs text-gray-400">{p.governorate} • {formatPrice(p.price)} د.ع • <button onClick={() => setViewersModalItem({id: p.id, type: 'product'})} className="hover:text-amber-400">{p.views} 👁</button> • {p.condition==='new'?'جديد':'مستعمل'}</p></div>
                       <button onClick={()=>setItemToDelete({ id: p.id, type: 'product' })} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0" title="حذف المنتج" aria-label="حذف المنتج"><Trash2 className="w-4 h-4"/></button>

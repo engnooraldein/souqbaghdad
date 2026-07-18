@@ -3497,8 +3497,8 @@ export default function App() {
             </a>
           </div>
 
-          <div className="flex items-center justify-center gap-3 mt-3 text-gray-500 text-xs flex-wrap">
-            {['الشروط والأحكام','سياسة الخصوصية','تواصل معنا','من نحن','سجل التحديثات'].map(l=><button key={l} onClick={()=>setActiveDocTab(l)} className="hover:text-amber-400">{l}</button>)}</div>
+          <div className="flex items-center justify-center gap-3 mt-3 text-gray-400 text-sm flex-wrap">
+            {['الشروط والأحكام','سياسة الخصوصية','تواصل معنا','من نحن','سجل التحديثات'].map(l=><button key={l} onClick={()=>setActiveDocTab(l)} className="hover:text-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 rounded px-1 transition-colors">{l}</button>)}</div>
         </div>
       </footer>
 

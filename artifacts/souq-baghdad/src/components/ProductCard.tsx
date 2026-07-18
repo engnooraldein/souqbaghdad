@@ -164,7 +164,7 @@ export const ProductCard = React.memo(function ProductCard({ product, onSelect, 
         </div>
         <div className="flex items-center justify-between mt-auto pt-1 border-t border-gray-150 dark:border-gray-800/40">
           <button onClick={e=>{e.stopPropagation();onSellerClick?.(product.postedBy||'');}} className="flex items-center gap-1 hover:opacity-85 transition-opacity relative">
-            <img src={product.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-4 h-4 rounded-full object-cover ${getGlowClass(sellerRole)}`}/>
+            <img src={product.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" loading="lazy" decoding="async" className={`w-4 h-4 rounded-full object-cover ${getGlowClass(sellerRole)}`}/>
             {onlineStatuses[product.postedBy||''] && <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-green-500 rounded-full border border-gray-800" title="متصل الآن"></div>}
             <span className="text-gray-500 dark:text-gray-400 text-[9px] truncate max-w-[65px]">{product.seller?.name || 'مستخدم'}</span>
           </button>

@@ -396,7 +396,7 @@ export function ProductsView({
                           
                           <div className="flex items-center justify-between pt-2.5 border-t border-gray-900/60">
                             <div className="flex items-center gap-1.5">
-                              <img 
+                              <img loading="lazy" decoding="async"
                                 src={p.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} 
                                 alt="" 
                                 className="w-4.5 h-4.5 rounded-full object-cover border border-gray-800"

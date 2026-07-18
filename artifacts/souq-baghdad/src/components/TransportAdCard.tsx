@@ -207,7 +207,7 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
           
           <div className="flex items-center justify-between pt-3 border-t border-gray-150 dark:border-gray-700/50">
             <div className="flex items-center gap-2">
-              <img src={ad.sellerAvatar||'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-8 h-8 rounded-full object-cover ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-200 dark:border-gray-600'}`}/>
+              <img src={ad.sellerAvatar||'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" loading="lazy" decoding="async" className={`w-8 h-8 rounded-full object-cover ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-200 dark:border-gray-600'}`}/>
               <div>
                 <span className="text-gray-700 dark:text-gray-300 text-xs block font-semibold">{ad.sellerName}</span>
               </div>
@@ -306,7 +306,7 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
         {/* Bottom Row - Seller & Quick Actions */}
         <div className="flex items-center justify-between pt-2 border-t border-gray-150 dark:border-gray-700/50">
           <div className="flex items-center gap-2">
-            <img src={ad.sellerAvatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-6 h-6 rounded-full object-cover shrink-0 ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-200 dark:border-gray-800'}`} />
+            <img src={ad.sellerAvatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" loading="lazy" decoding="async" className={`w-6 h-6 rounded-full object-cover shrink-0 ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-200 dark:border-gray-800'}`} />
             <div className="leading-tight">
               <span className="text-gray-700 dark:text-gray-300 text-[10px] block font-bold max-w-[70px] truncate">{ad.sellerName}</span>
             </div>

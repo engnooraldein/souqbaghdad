@@ -461,7 +461,7 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
                     
                     <div className="flex items-center justify-between pt-4 border-t border-gray-150 dark:border-gray-900/60">
                       <div className="flex items-center gap-2.5">
-                        <img src={ad.sellerAvatar||'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-9 h-9 rounded-full object-cover ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-200 dark:border-gray-800'}`}/>
+                        <img src={ad.sellerAvatar||'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" loading="lazy" decoding="async" className={`w-9 h-9 rounded-full object-cover ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-200 dark:border-gray-800'}`}/>
                         <div>
                           <span className="text-gray-700 dark:text-gray-300 text-xs block font-bold">{ad.sellerName}</span>
                           <span className="text-gray-500 text-[10px] block font-semibold"><TimeAgo iso={ad.createdAt}/></span>
@@ -575,7 +575,7 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
                   {/* Bottom Row - Seller & Quick Actions */}
                   <div className="flex items-center justify-between pt-2 border-t border-gray-150 dark:border-gray-900/60">
                     <div className="flex items-center gap-2">
-                      <img src={ad.sellerAvatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" className={`w-7 h-7 rounded-full object-cover shrink-0 ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-200 dark:border-gray-800'}`} />
+                      <img src={ad.sellerAvatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" loading="lazy" decoding="async" className={`w-7 h-7 rounded-full object-cover shrink-0 ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-200 dark:border-gray-800'}`} />
                       <div className="leading-tight">
                         <span className="text-gray-700 dark:text-gray-300 text-[10px] block font-bold max-w-[70px] truncate">{ad.sellerName}</span>
                         <span className="text-gray-500 text-[8px] block"><TimeAgo iso={ad.createdAt} /></span>
