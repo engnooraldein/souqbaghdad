@@ -830,18 +830,17 @@ export function MarketView({
             ? 'bg-black border-gray-800/40' 
             : 'bg-white border-slate-200/60 shadow-sm'
         }`}
-        style={isDarkMode ? {
-          backgroundImage: "url('/baghdad_night.png')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat'
-        } : {
-          backgroundImage: "url('https://www-file.honor.com/content/dam/honor/common/tech/honor-ai/ar/imgs/section-kv/aisubject-kv-bg2.jpg')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat'
-        }}
       >
+        {/* Background Image for LCP Optimization */}
+        <img 
+           src={isDarkMode ? '/baghdad_night_bg.png' : 'https://www-file.honor.com/content/dam/honor/common/tech/honor-ai/ar/imgs/section-kv/aisubject-kv-bg2.jpg'}
+           alt="سوك بغداد - واجهة المستخدم"
+           fetchPriority="high"
+           loading="eager"
+           decoding="sync"
+           className="absolute inset-0 w-full h-full object-cover z-0 opacity-100"
+        />
+
         {/* Dark overlay for text readability in dark mode */}
         {isDarkMode && (
           <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/50 to-black/90 pointer-events-none z-0" />
