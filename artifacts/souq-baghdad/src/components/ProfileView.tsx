@@ -63,7 +63,7 @@ import { ProductCard } from './ProductCard';
 import { TransportAdCard } from './TransportAdCard';
 import { InterestTimer } from './InterestTimer';
 import { IraqiEagle } from './Icons';
-
+import { useIAP } from '../hooks/useIAP';
 export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeleteProduct, onEditProduct, onUpdateUser, onAddAd, onAddProduct, transportLines, onUpdateTransportStatus, onDeleteTransportAd, onMarkAdSold, onMarkProductSold, favorites = [], allAds = [], allProducts = [], onAdSelect, onProductSelect, onFav, onStoreGuideClick, isDarkMode = true }:{
   user:User; myAds:Ad[]; myProducts:Product[]; onDeleteAd:(id:number)=>void; onEditAd:(ad:Ad)=>void;
   onDeleteProduct:(id:number)=>void; onEditProduct:(p:Product)=>void; onUpdateUser:(u:User, quiet?:boolean)=>void;
@@ -113,6 +113,8 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
       window.removeEventListener('switch-to-wallet-tab', handleSwitchToWallet);
     };
   }, []);
+
+  const { packages, isReady, isLoading: isIapLoading, purchasePackage } = useIAP(user.id);
   const [promoCode, setPromoCode] = useState('');
   const [isRedeeming, setIsRedeeming] = useState(false);
 
@@ -686,14 +688,45 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                   <span className="text-emerald-400 font-bold">نقطة</span>
                 </div>
                 
-                <button 
-                  onClick={handleRechargeWhatsApp}
-                  className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
-                >
-                  <MessageCircle className="w-5 h-5" />
-                  <span>تواصل للشحن السريع</span>
-                </button>
-                <p className="text-gray-500 text-xs mt-3">خصم 50% على الباقة الأساسية (100 نقطة بـ 2,500 د.ع)</p>
+                {!Capacitor.isNativePlatform() && (
+                  <>
+                    <button 
+                      onClick={handleRechargeWhatsApp}
+                      className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
+                    >
+                      <MessageCircle className="w-5 h-5" />
+                      <span>تواصل للشحن السريع</span>
+                    </button>
+                    <p className="text-gray-500 text-xs mt-3">خصم 50% على الباقة الأساسية (100 نقطة بـ 2,500 د.ع)</p>
+                  </>
+                )}
+
+                {Capacitor.isNativePlatform() && isReady && packages.length > 0 && user.role === 'owner' && (
+                  <div className="mt-4 w-full text-right">
+                    <h3 className={`font-bold mb-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>الباقات المتوفرة (الدفع الرسمي)</h3>
+                    <div className="flex flex-col gap-3">
+                      {packages.map(pkg => (
+                        <button 
+                          key={pkg.id}
+                          onClick={async () => {
+                            const started = await purchasePackage(pkg.id);
+                            if (started) {
+                              // Operation started, it will be handled asynchronously in the listeners.
+                            }
+                          }}
+                          disabled={isIapLoading}
+                          className="w-full px-6 py-4 bg-gradient-to-r from-emerald-600 to-green-600 text-white font-bold rounded-xl shadow-lg hover:-translate-y-0.5 transition-all flex justify-between items-center opacity-100 disabled:opacity-50"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Wallet className="w-5 h-5 text-emerald-200" />
+                            <span>{pkg.title}</span>
+                          </div>
+                          <span className="font-mono bg-white/20 px-3 py-1 rounded-lg">{pkg.price}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
