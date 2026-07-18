@@ -1054,9 +1054,17 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                            const { data, error } = await supabase.auth.registerPasskey();
                            if (error) throw error;
                            alert('تم إعداد مفتاح المرور بنجاح!');
+                           localStorage.setItem('biometricEnabled', 'true');
+                           setBiometricEnabled(true);
                         } catch (err: any) {
                            console.error(err);
-                           alert('حدث خطأ أثناء إعداد مفتاح المرور: ' + (err.message || ''));
+                           if (err.message && err.message.includes('previously registered')) {
+                               alert('مفتاح المرور مُسجل ومُفعل مسبقاً على هذا الجهاز! يمكنك استخدامه مباشرة في تسجيل الدخول.');
+                               localStorage.setItem('biometricEnabled', 'true');
+                               setBiometricEnabled(true);
+                           } else {
+                               alert('حدث خطأ أثناء إعداد مفتاح المرور: ' + (err.message || ''));
+                           }
                         }
                       }}
                       className="py-1.5 px-3 bg-[#0052ff]/10 hover:bg-[#0052ff]/20 text-[#0052ff] font-semibold rounded-lg text-xs transition-colors"
