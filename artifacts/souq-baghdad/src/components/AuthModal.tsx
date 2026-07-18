@@ -202,7 +202,7 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
 
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose}/>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => { if (step !== 'biometric_prompt') onClose(); }}/>
       <motion.div initial={{scale:0.95,opacity:0}} animate={{scale:1,opacity:1}}
         className="relative bg-gray-900 rounded-3xl p-7 w-full max-w-md border border-gray-700 shadow-2xl z-10">
         <button onClick={onClose} className="absolute top-4 left-4 p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white transition-colors" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
@@ -260,6 +260,7 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
                 <div className="flex flex-col gap-3 pt-2">
                    <button 
                      onClick={async () => {
+                       playSound('click');
                        if (!Capacitor.isNativePlatform()) {
                           try {
                              await supabase.auth.registerPasskey();
@@ -277,6 +278,7 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
                    </button>
                    <button 
                      onClick={() => {
+                       playSound('click');
                        localStorage.setItem('biometricEnabled', 'false');
                        localStorage.setItem('biometricPromptShown', 'true');
                        onClose();
@@ -290,7 +292,7 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
           ) : step === 'phone' ? (
              <form onSubmit={handlePhoneSubmit} className="space-y-4">
                <div className="relative"><Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                 <input type="text" value={identifier} onChange={e=>setIdentifier(e.target.value)} placeholder="رقم الهاتف أو البريد الإلكتروني" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-4 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none text-lg" dir="rtl"/>
+                 <input type="text" value={identifier} onChange={e=>setIdentifier(e.target.value)} placeholder="رقم الهاتف أو البريد الإلكتروني" required autoComplete="username" className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-4 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none text-lg" dir="rtl"/>
                </div>
                <button type="submit" className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-lg mt-2 shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-transform">متابعة</button>
              </form>
@@ -305,7 +307,7 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
               </div>}
               
               <div className="relative"><Lock className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                <input type={showPwd?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="كلمة المرور" required autoFocus className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-10 border border-gray-700 focus:border-amber-400 outline-none"/>
+                <input type={showPwd?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="كلمة المرور" required autoComplete="current-password" autoFocus className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-10 border border-gray-700 focus:border-amber-400 outline-none"/>
                 <button type="button" onClick={()=>setShowPwd(!showPwd)} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" title="إظهار أو إخفاء كلمة المرور" aria-label="إظهار أو إخفاء كلمة المرور">{showPwd?<EyeOff className="w-4 h-4"/>:<Eye className="w-4 h-4"/>}</button></div>
               
               <button type="submit" className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-transform">

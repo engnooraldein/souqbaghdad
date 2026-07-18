@@ -3596,26 +3596,33 @@ export default function App() {
                       <p className="text-xs text-blue-100 mt-0.5">فعّل تسجيل الدخول بالبصمة للوصول السريع بدون كتابة الرمز كل مرة.</p>
                    </div>
                 </div>
-                <button onClick={() => {
-                   setShowBiometricBanner(false);
-                   localStorage.setItem('biometricPromptShown', 'true');
-                }} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
-                   <X className="w-5 h-5" />
-                </button>
              </div>
-             <button
-               onClick={async () => {
-                   if (!Capacitor.isNativePlatform()) {
-                      try { await supabase.auth.registerPasskey(); } catch (err) {}
-                   }
-                   localStorage.setItem('biometricEnabled', 'true');
-                   localStorage.setItem('biometricPromptShown', 'true');
-                   setShowBiometricBanner(false);
-               }}
-               className="w-full py-2.5 bg-white text-[#0052ff] font-bold rounded-xl text-sm flex items-center justify-center gap-2 hover:bg-gray-100 transition-colors"
-             >
-                <CheckCircle className="w-4 h-4" /> تفعيل الآن
-             </button>
+              <div className="flex items-center gap-2 mt-2">
+                 <button
+                   onClick={async () => {
+                       playNotificationSound('click');
+                       if (!Capacitor.isNativePlatform()) {
+                          try { await supabase.auth.registerPasskey(); } catch (err) {}
+                       }
+                       localStorage.setItem('biometricEnabled', 'true');
+                       localStorage.setItem('biometricPromptShown', 'true');
+                       setShowBiometricBanner(false);
+                   }}
+                   className="flex-1 py-2.5 bg-white text-[#0052ff] font-bold rounded-xl text-sm flex items-center justify-center gap-2 hover:bg-gray-100 transition-colors"
+                 >
+                    <CheckCircle className="w-4 h-4" /> تفعيل الآن
+                 </button>
+                 <button
+                   onClick={() => {
+                       playNotificationSound('click');
+                       setShowBiometricBanner(false);
+                       localStorage.setItem('biometricPromptShown', 'true');
+                   }}
+                   className="flex-1 py-2.5 bg-blue-600 text-white font-bold rounded-xl text-sm hover:bg-blue-700 transition-colors"
+                 >
+                    لاحقاً
+                 </button>
+              </div>
           </motion.div>
       )}
       </AnimatePresence>
