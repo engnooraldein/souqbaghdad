@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "souqbaghdad.store"
+    namespace = "store.souqbaghdad.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "souqbaghdad.store"
+        applicationId "store.souqbaghdad.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -16,9 +16,18 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            storeFile file('my-release-key.jks')
+            storePassword 'souqbaghdad123'
+            keyAlias 'my-key-alias'
+            keyPassword 'souqbaghdad123'
+        }
+    }
     buildTypes {
         release {
-            minifyEnabled true
+            signingConfig signingConfigs.release
+            minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
