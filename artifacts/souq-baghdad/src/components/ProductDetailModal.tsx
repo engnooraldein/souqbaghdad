@@ -436,7 +436,7 @@ export function ProductDetailModal({ product, onClose, isFav, onFav, user, store
             <button 
               onClick={() => {
                 if (!user) {
-                  requireAuth();
+                  onAuthRequired();
                   return;
                 }
                 setShowReportModal(true);
@@ -453,7 +453,7 @@ export function ProductDetailModal({ product, onClose, isFav, onFav, user, store
       <ReportModal 
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
-        targetId={product.id}
+        targetId={String(product.id)}
         targetType="product"
         targetTitle={product.title}
       />

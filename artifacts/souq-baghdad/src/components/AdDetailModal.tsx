@@ -465,7 +465,7 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
             <button 
               onClick={() => {
                 if (!user) {
-                  requireAuth();
+                  onAuthRequired();
                   return;
                 }
                 setShowReportModal(true);
@@ -482,7 +482,7 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
       <ReportModal 
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
-        targetId={ad.id}
+        targetId={String(ad.id)}
         targetType="ad"
         targetTitle={ad.title}
       />
