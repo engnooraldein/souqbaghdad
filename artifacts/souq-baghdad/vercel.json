@@ -20,6 +20,14 @@
       "destination": "/api/sitemap"
     },
     {
+      "source": "/IQ/privacy.html",
+      "destination": "/IQ/privacy.html"
+    },
+    {
+      "source": "/privacy.html",
+      "destination": "/privacy.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
