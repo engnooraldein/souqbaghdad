@@ -3729,7 +3729,7 @@ export default function App() {
         isOpen={showInstallOptions}
         onClose={() => setShowInstallOptions(false)}
         onPwaInstall={handlePwaInstall}
-        playStoreUrl="https://play.google.com/store/apps/details?id=souqbaghdad.store"
+        playStoreUrl="https://play.google.com/store/apps/details?id=store.souqbaghdad.app"
       />
 
       <Suspense fallback={null}>
