@@ -171,7 +171,19 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
       }
 
       if (step === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({ email: emailToUse, password });
+        let { data, error } = await supabase.auth.signInWithPassword({ email: emailToUse, password });
+        
+        // Fallback: If it failed with invalid credentials and user typed a phone number, try the default phone email
+        if (error && error.message.includes('Invalid login credentials') && phone) {
+          const fallbackEmail = `${phone}@souqbaghdad.com`;
+          if (fallbackEmail !== emailToUse) {
+            const fallbackRes = await supabase.auth.signInWithPassword({ email: fallbackEmail, password });
+            if (!fallbackRes.error) {
+              error = null; // Succeeded!
+            }
+          }
+        }
+
         if (error) {
           const msg = error.message.includes('Invalid login credentials')
             ? 'كلمة المرور غير صحيحة'
