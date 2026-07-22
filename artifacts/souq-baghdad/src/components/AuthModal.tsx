@@ -190,6 +190,10 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
             : 'حدث خطأ في تسجيل الدخول';
           setError(msg); playSound('error'); setLoading(false); return;
         }
+        
+        // Save user phone/email to localStorage so the app remembers them next time
+        localStorage.setItem('souqLastUser', JSON.stringify({ phone: phone || normalizedIdentifier, email: emailToUse }));
+        
         playSound('success');
         if (!localStorage.getItem('biometricPromptShown')) {
           setStep('biometric_prompt');
@@ -212,6 +216,8 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
         }
         const { error: signInErr } = await supabase.auth.signInWithPassword({ email: emailToUse, password });
         if (!signInErr) { 
+          // Save user phone/email to localStorage so the app remembers them next time
+          localStorage.setItem('souqLastUser', JSON.stringify({ phone, email: emailToUse }));
           playSound('success');
           if (!localStorage.getItem('biometricPromptShown')) {
             setStep('biometric_prompt');
@@ -338,9 +344,31 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
           ) : step === 'phone' ? (
              <form onSubmit={handlePhoneSubmit} className="space-y-4">
                <div className="relative"><Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                 <input type="text" value={identifier} onChange={e=>setIdentifier(e.target.value)} placeholder="رقم الهاتف أو البريد الإلكتروني" required autoComplete="username" className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-4 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none text-lg" dir="rtl"/>
+                 <input type="text" value={identifier} onChange={e=>setIdentifier(e.target.value)} placeholder="رقم الهاتف أو البريد الإلكتروني" required autoComplete="tel username" className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-4 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none text-lg" dir="rtl"/>
                </div>
                <button type="submit" className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-lg mt-2 shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-transform">متابعة</button>
+               
+               {localStorage.getItem('biometricEnabled') === 'true' && (
+                  <button 
+                    type="button" 
+                    onClick={async () => {
+                      setError('');
+                      try {
+                         const { data, error } = await supabase.auth.signInWithPasskey();
+                         if (error) throw error;
+                         playSound('success');
+                         onClose();
+                      } catch (err: any) {
+                         console.error(err);
+                         setError('حدث خطأ أثناء المصادقة بالبصمة: ' + (err.message || ''));
+                         playSound('error');
+                      }
+                    }}
+                    className="w-full py-4 bg-[#0052ff]/10 text-[#0052ff] font-bold rounded-xl hover:bg-[#0052ff]/20 transition-colors flex items-center justify-center gap-2 mt-2"
+                  >
+                    <Fingerprint className="w-5 h-5" /> دخول سريع بالبصمة ⚡
+                  </button>
+               )}
              </form>
           ) : (
             <form onSubmit={handleAuthSubmit} className="space-y-4">
