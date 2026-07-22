@@ -45,10 +45,6 @@ import { TransportFormModal } from './TransportFormModal';
 import { SkeletonCard } from './SkeletonCard';
 import { AdCard } from './AdCard';
 import { ProductCard } from './ProductCard';
-import { TransportAdCard } from './TransportAdCard';
-import { InterestTimer } from './InterestTimer';
-import { IraqiEagle } from './Icons';
-
 export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:User)=>void}) {
   const [step, setStep] = useState<'phone'|'login'|'signup'|'biometric_prompt'>(() => {
     const last = localStorage.getItem('souqLastUser');
@@ -69,8 +65,11 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
   const [error, setError] = useState('');
   
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [city, setCity] = useState('بغداد');
+  
+  const [resolvedEmail, setResolvedEmail] = useState('');
   
   const [isRecovery, setIsRecovery] = useState(false);
   const [recoveryPhone, setRecoveryPhone] = useState('');
@@ -82,6 +81,16 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
               .replace(/[۰-۹]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 1776));
   };
 
+  useEffect(() => {
+    if (step === 'signup' && name === '') {
+      const cleanId = identifier.trim();
+      // If identifier typed in first step is a name (non-numeric and not containing @), pre-fill the name field
+      if (cleanId && !/^\d+$/.test(cleanId) && !cleanId.includes('@')) {
+        setName(cleanId);
+      }
+    }
+  }, [step, identifier]);
+
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true); playSound('click');
     try {
@@ -91,21 +100,28 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
       const isPhone = /^\d+$/.test(phoneToCheck);
       
       if (isPhone || !phoneToCheck.includes('@')) {
-         const { data, error } = await supabase.from('profiles').select('id').eq('phone', phoneToCheck).maybeSingle();
+         const { data, error } = await supabase.from('profiles').select('id, email').eq('phone', phoneToCheck).maybeSingle();
          if (data) {
+           if (data.email) setResolvedEmail(data.email);
            setStep('login');
          } else {
-           if(!isPhone) {
-             const { data: emailData } = await supabase.from('profiles').select('id').eq('email', phoneToCheck).maybeSingle();
-             if (emailData) setStep('login');
-             else setStep('signup');
-           } else {
-             setStep('signup');
-           }
+            if(!isPhone) {
+              const { data: emailData } = await supabase.from('profiles').select('id, email').eq('email', phoneToCheck).maybeSingle();
+              if (emailData) {
+                if (emailData.email) setResolvedEmail(emailData.email);
+                setStep('login');
+              }
+              else setStep('signup');
+            } else {
+              setStep('signup');
+            }
          }
       } else {
-         const { data } = await supabase.from('profiles').select('id').eq('email', phoneToCheck.toLowerCase()).maybeSingle();
-         if (data) setStep('login');
+         const { data } = await supabase.from('profiles').select('id, email').eq('email', phoneToCheck.toLowerCase()).maybeSingle();
+         if (data) {
+           if (data.email) setResolvedEmail(data.email);
+           setStep('login');
+         }
          else setStep('signup');
       }
     } catch(err) {
@@ -119,23 +135,41 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
     e.preventDefault(); setError(''); setLoading(true); playSound('click');
     try {
       let normalizedIdentifier = normalizeArabicNumerals(identifier.trim());
-      let emailToUse = normalizedIdentifier.toLowerCase();
-      let phone = normalizedIdentifier;
-      
-      if (!emailToUse.includes('@')) {
-        const isPhone = /^\d+$/.test(emailToUse);
-        if (isPhone) {
-          emailToUse = `${emailToUse}@souqbaghdad.com`;
+      let emailToUse = resolvedEmail;
+      let phone = '';
+
+      if (!emailToUse) {
+        let identLower = normalizedIdentifier.toLowerCase();
+        if (!identLower.includes('@')) {
+          const isPhone = /^\d+$/.test(identLower);
+          if (isPhone) {
+            phone = identLower;
+            const { data } = await supabase.from('profiles').select('email').eq('phone', identLower).maybeSingle();
+            emailToUse = data?.email || `${identLower}@souqbaghdad.com`;
+          } else {
+            const { data } = await supabase.from('profiles').select('email').eq('email', `${identLower}@souqbaghdad.com`).maybeSingle();
+            emailToUse = data?.email || `${identLower.replace(/\s+/g, '')}@souqbaghdad.com`;
+          }
         } else {
-          emailToUse = `${emailToUse.replace(/\s+/g, '')}@souqbaghdad.com`;
-          phone = ''; // Username
+          emailToUse = identLower;
         }
       } else {
-        phone = ''; // Email
+        // resolvedEmail is already set, if it's not a standard fake email, try finding user phone
+        const identLower = normalizedIdentifier.toLowerCase();
+        if (/^\d+$/.test(identLower)) {
+          phone = identLower;
+        }
       }
 
       if (password.length < 6) { setError('كلمة المرور 6 أحرف على الأقل'); playSound('error'); setLoading(false); return; }
       
+      if (step === 'signup' && password !== confirmPassword) {
+        setError('كلمتا المرور غير متطابقتين');
+        playSound('error');
+        setLoading(false);
+        return;
+      }
+
       if (step === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email: emailToUse, password });
         if (error) {
@@ -299,7 +333,7 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
           ) : (
             <form onSubmit={handleAuthSubmit} className="space-y-4">
               {step === 'signup' && <div className="relative"><UserIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                <input value={name} onChange={e=>setName(e.target.value)} placeholder="الاسم الكامل" required className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none"/></div>}
+                <input value={name} onChange={e=>setName(e.target.value)} placeholder="الاسم الكامل" required autoComplete="name" className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none"/></div>}
               
               {step === 'signup' && <div className="grid grid-cols-1 gap-3">
                 <select value={city} onChange={e=>setCity(e.target.value)} className="w-full bg-gray-800 text-white rounded-xl py-3 px-4 border border-gray-700 focus:border-amber-400 outline-none" title="اختر المدينة" aria-label="اختر المدينة">
@@ -307,8 +341,32 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
               </div>}
               
               <div className="relative"><Lock className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                <input type={showPwd?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="كلمة المرور" required autoComplete="current-password" autoFocus className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-10 border border-gray-700 focus:border-amber-400 outline-none"/>
+                <input type={showPwd?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder={step === 'signup' ? 'كلمة المرور الجديدة' : 'كلمة المرور'} required autoComplete={step === 'signup' ? 'new-password' : 'current-password'} autoFocus className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-10 border border-gray-700 focus:border-amber-400 outline-none"/>
                 <button type="button" onClick={()=>setShowPwd(!showPwd)} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" title="إظهار أو إخفاء كلمة المرور" aria-label="إظهار أو إخفاء كلمة المرور">{showPwd?<EyeOff className="w-4 h-4"/>:<Eye className="w-4 h-4"/>}</button></div>
+
+              {step === 'signup' && (
+                <div className="relative">
+                  <Lock className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
+                  <input 
+                    type={showPwd?'text':'password'} 
+                    value={confirmPassword} 
+                    onChange={e=>setConfirmPassword(e.target.value)} 
+                    placeholder="تأكيد كلمة المرور" 
+                    required 
+                    autoComplete="new-password" 
+                    className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3 pr-10 pl-10 border border-gray-700 focus:border-amber-400 outline-none"
+                  />
+                  {password && confirmPassword && (
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                      {password === confirmPassword ? (
+                        <Check className="w-5 h-5 text-emerald-500 animate-bounce" />
+                      ) : (
+                        <span className="text-xs text-red-500 font-bold">غير متطابق</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
               
               <button type="submit" className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-transform">
                 {step === 'login' ? 'تسجيل الدخول' : 'تأكيد وإنشاء الحساب'}
