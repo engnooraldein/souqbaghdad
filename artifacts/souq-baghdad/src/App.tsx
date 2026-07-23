@@ -680,7 +680,7 @@ export default function App() {
     }
   }, [themeMode]);
 
-  // Initialize Native Permissions
+  // Initialize Native Permissions & Notification Channel
   useEffect(() => {
     const initPermissions = async () => {
       if (Capacitor.isNativePlatform()) {
@@ -688,13 +688,22 @@ export default function App() {
           try {
             const notifStatus = await LocalNotifications.checkPermissions();
             if (notifStatus.display !== 'granted') {
-              const requestResult = await LocalNotifications.requestPermissions();
-              console.log('Notification permission request result:', requestResult);
+              await LocalNotifications.requestPermissions();
             }
+            // Create High Importance Android Notification Channel for sound and lockscreen alert
+            await LocalNotifications.createChannel({
+              id: 'souq_baghdad_high_importance',
+              name: 'إشعارات سوق بغداد',
+              description: 'إشعارات الهواتف العاجلة والرسائل',
+              importance: 5,
+              visibility: 1,
+              sound: 'default',
+              vibration: true
+            });
           } catch (e) {
-            console.warn('Native permissions error:', e);
+            console.warn('Native permissions/channel error:', e);
           }
-        }, 1500); // 1.5 second delay to ensure UI is ready for the OS prompt
+        }, 1500);
       }
     };
     initPermissions();
@@ -2234,10 +2243,11 @@ export default function App() {
             LocalNotifications.schedule({
               notifications: [
                 {
-                  title: newest?.title || 'سوك بغداد',
+                  title: newest?.title || 'سوق بغداد',
                   body: newest?.message || 'لديك إشعار جديد!',
                   id: new Date().getTime(),
-                  sound: 'default'
+                  sound: 'default',
+                  channelId: 'souq_baghdad_high_importance'
                 }
               ]
             }).catch(console.warn);
