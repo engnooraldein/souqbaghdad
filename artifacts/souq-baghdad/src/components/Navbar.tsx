@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { User as UserType } from '../types';
 import LiveVisitorCounter from './LiveVisitorCounter';
+import { triggerHaptic } from '../utils/haptics';
 
 interface NavbarProps {
   user: UserType | null;
@@ -114,7 +115,7 @@ export function Navbar({
     <div className="fixed bottom-0 inset-x-0 bg-gray-900 border-t border-gray-800 z-50 px-2 pb-safe md:hidden" dir="rtl">
       <div className="flex justify-around items-center h-16">
         <button 
-          onClick={() => onSetView('home')} 
+          onClick={() => { triggerHaptic('light'); onSetView('home'); }} 
           className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${view === 'home' ? 'text-amber-500' : 'text-gray-500 hover:text-gray-400'}`}
           title="الرئيسية"
           aria-label="الرئيسية"
@@ -124,7 +125,7 @@ export function Navbar({
         </button>
         
         <button 
-          onClick={() => onSetView('products')} 
+          onClick={() => { triggerHaptic('light'); onSetView('products'); }} 
           className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${view === 'products' ? 'text-amber-500' : 'text-gray-500 hover:text-gray-400'}`}
           title="المنتجات"
           aria-label="المنتجات"
@@ -135,7 +136,7 @@ export function Navbar({
 
         <div className="relative w-full h-full flex justify-center -mt-6">
           <button 
-            onClick={onShowPostAd} 
+            onClick={() => { triggerHaptic('medium'); onShowPostAd(); }} 
             className="absolute flex items-center justify-center w-12 h-12 bg-amber-500 text-black rounded-full shadow-lg shadow-amber-500/20 active:scale-95 transition-transform"
             title="أضف إعلانك"
             aria-label="أضف إعلانك"
@@ -145,7 +146,7 @@ export function Navbar({
         </div>
 
         <button 
-          onClick={() => onSetView('transport')} 
+          onClick={() => { triggerHaptic('light'); onSetView('transport'); }} 
           className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${view === 'transport' ? 'text-amber-500' : 'text-gray-500 hover:text-gray-400'}`}
           title="الخطوط"
           aria-label="الخطوط"
@@ -155,7 +156,7 @@ export function Navbar({
         </button>
 
         <button 
-          onClick={() => onSetView(user ? 'profile' : 'saved')} 
+          onClick={() => { triggerHaptic('light'); onSetView(user ? 'profile' : 'saved'); }} 
           className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${['profile', 'saved'].includes(view) ? 'text-amber-500' : 'text-gray-500 hover:text-gray-400'}`}
           title={user ? 'حسابي' : 'المحفوظات'}
           aria-label={user ? 'حسابي' : 'المحفوظات'}

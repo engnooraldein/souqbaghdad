@@ -31,6 +31,7 @@ import { formatPrice } from '../utils/format';
 import { supabase } from '../lib/supabase';
 import { ImageWithDataSaver } from './ImageWithDataSaver';
 import { VerifiedBadge } from './VerifiedBadge';
+import { triggerHaptic } from '../utils/haptics';
 
 // Map all lucide icons to global scope to avoid missing imports
 const {
@@ -125,7 +126,7 @@ export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, o
       viewport={{ once: true, margin: "-20px" }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       whileHover={{ y: -3 }} 
-      onClick={onSelect} 
+      onClick={() => { triggerHaptic('light'); onSelect(); }} 
       onContextMenu={onActionMenu}
       className={`bg-white dark:bg-gray-900 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full shadow-md hover:shadow-lg ${
         compact ? 'bg-white dark:bg-gray-950/20 border-gray-150 dark:border-gray-900/60' : ''
@@ -149,7 +150,7 @@ export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, o
         {ad.type==='rent'&&<div className={`absolute px-1.5 py-0.5 bg-gray-800 rounded text-[8px] font-bold text-white transition-all z-10 ${
           isNewItem(ad.createdAtISO) ? (compact ? 'top-11 left-1.5' : 'top-14 left-2') : (compact ? 'top-6 left-1.5' : 'top-8 left-2')
         }`}>للإيجار</div>}
-        <button onClick={onFav} className={`absolute top-1.5 right-1.5 w-7 h-7 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'} transition-colors`} title={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"} aria-label={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}>
+        <button onClick={(e) => { e.stopPropagation(); triggerHaptic('medium'); onFav(e); }} className={`absolute top-1.5 right-1.5 w-7 h-7 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'} transition-colors`} title={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"} aria-label={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}>
           <Heart className={`w-3.5 h-3.5 text-white ${isFav?'fill-current':''}`}/></button>
         {ad.seller?.isVerified&&<div className={`absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-gray-800 rounded-full text-[8px] font-bold text-white flex items-center gap-0.5`}><VerifiedBadge className="w-2 h-2"/>موثق</div>}
         {ad.status==='sold'&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-[1px]"><span className="bg-red-600 text-white font-bold text-[10px] px-2 py-1 rounded-lg border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
