@@ -35,8 +35,8 @@ import { slugify, getWhatsAppLink, detectDevice, isNewItem, getWhatsAppResetLink
 import { formatPrice } from '../utils/format';
 import { useSound } from '../hooks/useSound';
 import { supabase } from '../lib/supabase';
-import { TimeAgo } from './TimeAgo';
 import { Capacitor } from '@capacitor/core';
+import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
 
 import { ImageCropModal } from './ImageCropModal';
 import { PasswordChangeModal } from './PasswordChangeModal';
@@ -193,6 +193,7 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
         
         // Save user phone/email to localStorage so the app remembers them next time
         localStorage.setItem('souqLastUser', JSON.stringify({ phone: phone || normalizedIdentifier, email: emailToUse }));
+        localStorage.setItem('biometricCreds', JSON.stringify({ email: emailToUse, password }));
         
         playSound('success');
         if (!localStorage.getItem('biometricPromptShown')) {
@@ -218,6 +219,7 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
         if (!signInErr) { 
           // Save user phone/email to localStorage so the app remembers them next time
           localStorage.setItem('souqLastUser', JSON.stringify({ phone, email: emailToUse }));
+          localStorage.setItem('biometricCreds', JSON.stringify({ email: emailToUse, password }));
           playSound('success');
           if (!localStorage.getItem('biometricPromptShown')) {
             setStep('biometric_prompt');
@@ -233,6 +235,84 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBiometricLogin = async () => {
+    setError('');
+    playSound('click');
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { isAvailable } = await BiometricAuth.checkBiometry();
+        if (!isAvailable) {
+          setError('البصمة غير متوفرة على هذا الجهاز');
+          return;
+        }
+        await BiometricAuth.authenticate({
+          reason: 'تسجيل الدخول إلى سوق بغداد بالبصمة',
+          cancelTitle: 'إلغاء'
+        });
+        const saved = localStorage.getItem('biometricCreds');
+        if (!saved) {
+          setError('يرجى تسجيل الدخول يدويًا مرة واحدة بحسابك لتفعيل البصمة التلقائية.');
+          return;
+        }
+        const { email, password } = JSON.parse(saved);
+        setLoading(true);
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        setLoading(false);
+        if (error) {
+          setError('تعذر تسجيل الدخول بالبصمة. يرجى كتابة كلمة المرور.');
+          playSound('error');
+          return;
+        }
+        playSound('success');
+        onClose();
+      } catch (err: any) {
+        console.error('Native biometric login error:', err);
+        if (err.message && !err.message.toLowerCase().includes('cancel') && !err.message.toLowerCase().includes('user canceled')) {
+          setError('حدث خطأ أثناء المصادقة بالبصمة: ' + (err.message || ''));
+          playSound('error');
+        }
+      }
+    } else {
+      // Web Browser passkey flow
+      try {
+        const { data, error } = await supabase.auth.signInWithPasskey();
+        if (error) throw error;
+        playSound('success');
+        onClose();
+      } catch (err: any) {
+        console.error('Passkey error:', err);
+        setError('حدث خطأ أثناء المصادقة بمفتاح المرور: ' + (err.message || ''));
+        playSound('error');
+      }
+    }
+  };
+
+  const handleEnableBiometricPrompt = async () => {
+    playSound('click');
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { isAvailable } = await BiometricAuth.checkBiometry();
+        if (isAvailable) {
+          await BiometricAuth.authenticate({
+            reason: 'تأكيد تفعيل الدخول بالبصمة لسوق بغداد',
+            cancelTitle: 'إلغاء'
+          });
+        }
+      } catch (err) {
+        console.error('Native biometric prompt error:', err);
+      }
+    } else {
+      try {
+        await supabase.auth.registerPasskey();
+      } catch (err) {
+        console.error('Passkey registration error:', err);
+      }
+    }
+    localStorage.setItem('biometricEnabled', 'true');
+    localStorage.setItem('biometricPromptShown', 'true');
+    onClose();
   };
 
   const submitRecovery = async (e: React.FormEvent) => {
@@ -311,19 +391,7 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
                 </p>
                 <div className="flex flex-col gap-3 pt-2">
                    <button 
-                     onClick={async () => {
-                       playSound('click');
-                       if (!Capacitor.isNativePlatform()) {
-                          try {
-                             await supabase.auth.registerPasskey();
-                          } catch (err) {
-                             console.error('Passkey registration error:', err);
-                          }
-                       }
-                       localStorage.setItem('biometricEnabled', 'true');
-                       localStorage.setItem('biometricPromptShown', 'true');
-                       onClose();
-                     }}
+                     onClick={handleEnableBiometricPrompt}
                      className="w-full py-4 bg-[#0052ff] text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
                    >
                      <CheckCircle className="w-5 h-5" /> تفعيل الآن
@@ -351,19 +419,7 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
                {localStorage.getItem('biometricEnabled') === 'true' && (
                   <button 
                     type="button" 
-                    onClick={async () => {
-                      setError('');
-                      try {
-                         const { data, error } = await supabase.auth.signInWithPasskey();
-                         if (error) throw error;
-                         playSound('success');
-                         onClose();
-                      } catch (err: any) {
-                         console.error(err);
-                         setError('حدث خطأ أثناء المصادقة بالبصمة: ' + (err.message || ''));
-                         playSound('error');
-                      }
-                    }}
+                    onClick={handleBiometricLogin}
                     className="w-full py-4 bg-[#0052ff]/10 text-[#0052ff] font-bold rounded-xl hover:bg-[#0052ff]/20 transition-colors flex items-center justify-center gap-2 mt-2"
                   >
                     <Fingerprint className="w-5 h-5" /> دخول سريع بالبصمة ⚡
@@ -415,18 +471,7 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
               {step === 'login' && (
                  <button 
                    type="button" 
-                   onClick={async () => {
-                     try {
-                        const { data, error } = await supabase.auth.signInWithPasskey();
-                        if (error) throw error;
-                        playSound('success');
-                        onClose();
-                     } catch (err: any) {
-                        console.error(err);
-                        setError('حدث خطأ أثناء المصادقة بمفتاح المرور: ' + (err.message || ''));
-                        playSound('error');
-                     }
-                   }}
+                   onClick={handleBiometricLogin}
                    className="w-full py-4 bg-[#0052ff]/10 text-[#0052ff] font-bold rounded-xl hover:bg-[#0052ff]/20 transition-colors flex items-center justify-center gap-2"
                  >
                    <Fingerprint className="w-5 h-5" /> تسجيل الدخول بالمفتاح (Passkey)
