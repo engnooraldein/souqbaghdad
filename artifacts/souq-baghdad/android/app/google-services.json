@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "768540672381",
+    "project_id": "souqbaghdad-7dc4c",
+    "storage_bucket": "souqbaghdad-7dc4c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:768540672381:android:195ee0e1633e9408100c14",
+        "android_client_info": {
+          "package_name": "store.souqbaghdad.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBHRZts0YYaYe57RmAo60I032wVnwMUtz8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
