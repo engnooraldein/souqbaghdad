@@ -3,10 +3,24 @@ import { motion } from 'framer-motion';
 import { Shield, Lock, FileText, ChevronRight } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 
-export function PrivacyPolicy() {
+interface PrivacyPolicyProps {
+  onBack?: () => void;
+}
+
+export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  const handleGoBack = () => {
+    if (onBack) {
+      onBack();
+    } else if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      window.location.href = '/';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-200 pb-24 pt-16 font-sans">
@@ -19,19 +33,25 @@ export function PrivacyPolicy() {
       <div className="bg-gray-900/90 backdrop-blur-md border-b border-gray-800 fixed top-0 inset-x-0 z-50">
         <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center">
-              <Shield className="w-5 h-5 text-emerald-400" />
-            </div>
+            <button 
+              onClick={handleGoBack}
+              className="p-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl transition-all flex items-center gap-1.5 font-bold text-xs sm:text-sm active:scale-95"
+              title="الرجوع للرئيسية"
+            >
+              <ChevronRight className="w-5 h-5" />
+              <span>الرجوع</span>
+            </button>
             <div>
               <h1 className="text-base font-extrabold text-white">سياسة الخصوصية والأمان</h1>
               <p className="text-[10px] text-emerald-400 font-bold">معتمدة ومطابقة لإرشادات Google Play 🛡️</p>
             </div>
           </div>
           <button 
-            onClick={() => window.history.back()}
-            className="p-2 bg-gray-800 hover:bg-gray-700 rounded-xl text-gray-300 transition-colors"
-            title="الرجوع"
+            onClick={handleGoBack}
+            className="p-2 bg-gray-800 hover:bg-gray-700 rounded-xl text-gray-300 transition-colors flex items-center gap-1"
+            title="إغلاق والعودة"
           >
+            <span className="text-xs font-bold hidden sm:inline">إغلاق</span>
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
@@ -117,6 +137,16 @@ export function PrivacyPolicy() {
             <span className="block mt-1 text-emerald-400 font-mono font-bold dir-ltr text-right">support@souqbaghdad.store</span>
           </p>
         </motion.div>
+
+        {/* Bottom Return Button */}
+        <div className="pt-4 pb-2">
+          <button
+            onClick={handleGoBack}
+            className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black text-base rounded-2xl shadow-lg shadow-emerald-500/20 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2"
+          >
+            <span>العودة للتطبيق / الرئيسية 🏠</span>
+          </button>
+        </div>
 
         {/* Support Footer */}
         <div className="text-center py-4 text-xs text-gray-500 space-y-1">

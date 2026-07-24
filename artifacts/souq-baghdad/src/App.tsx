@@ -3420,7 +3420,7 @@ export default function App() {
           </motion.div>}
           {view==='privacy'&&<motion.div key="privacy" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
             <Suspense fallback={<LoadingScreen isLoading={true} />}>
-              <PrivacyPolicy />
+              <PrivacyPolicy onBack={() => setView('home')} />
             </Suspense>
           </motion.div>}
           {view==='products'&&<motion.div key="products" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
@@ -3510,7 +3510,7 @@ export default function App() {
 
           <div className="flex items-center justify-center gap-3 mt-3 text-gray-400 text-sm flex-wrap">
             <button onClick={()=>setActiveDocTab('الشروط والأحكام')} className="hover:text-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 rounded px-1 transition-colors">الشروط والأحكام</button>
-            <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="hover:text-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 rounded px-1 transition-colors">سياسة الخصوصية</a>
+            <button onClick={() => { setView('privacy'); window.scrollTo(0, 0); }} className="hover:text-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 rounded px-1 transition-colors">سياسة الخصوصية</button>
             <button onClick={()=>setActiveDocTab('تواصل معنا')} className="hover:text-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 rounded px-1 transition-colors">تواصل معنا</button>
             <button onClick={()=>setActiveDocTab('من نحن')} className="hover:text-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 rounded px-1 transition-colors">من نحن</button>
             <button onClick={()=>setActiveDocTab('سجل التحديثات')} className="hover:text-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 rounded px-1 transition-colors">سجل التحديثات</button>
