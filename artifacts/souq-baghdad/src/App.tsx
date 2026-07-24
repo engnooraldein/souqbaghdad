@@ -858,7 +858,7 @@ export default function App() {
       if (selectedSellerPhone.includes('-')) {
         setSelectedSellerId(selectedSellerPhone);
       } else {
-        supabase.from('profiles').select('id').eq('phone', selectedSellerPhone).single().then(({data}) => {
+        supabase.from('profiles').select('id').eq('phone', selectedSellerPhone).maybeSingle().then(({data}) => {
           if (data) setSelectedSellerId(data.id);
         });
       }

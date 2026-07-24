@@ -59,8 +59,8 @@ export function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id
 
   useEffect(() => {
     if(tab === 'users') {
-      supabase.from('profiles').select('id, name, phone, points, created_at').order('created_at', { ascending: false }).limit(200).then(({data}) => {
-        if(data) setUsers(data);
+      supabase.from('profiles').select('id, full_name, phone, points, created_at').order('created_at', { ascending: false }).limit(200).then(({data}) => {
+        if(data) setUsers(data.map(u => ({ ...u, name: u.full_name })));
       });
     } else if (tab === 'settings') {
       supabase.from('system_settings').select('*').then(({data, error}) => {
