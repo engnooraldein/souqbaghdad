@@ -419,9 +419,11 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
                         <h3 className="text-lg font-black text-gray-900 dark:text-white mb-1.5 flex items-center gap-2">
                           {ad.university}
                         </h3>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm flex items-center gap-1.5 leading-relaxed mb-3">
+                        <p className="text-gray-700 dark:text-gray-300 text-xs sm:text-sm flex items-center gap-2 mt-2 bg-gray-50 dark:bg-gray-900/40 px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 leading-normal mb-3">
                           <MapPin className="w-4 h-4 text-emerald-500 shrink-0"/> 
-                          <span>المناطق: <span className="text-gray-800 dark:text-white font-bold">{ad.regions}</span></span>
+                          <span className="leading-normal py-0.5">
+                            <span className="text-gray-500 dark:text-gray-400 font-semibold text-xs">المناطق:</span> <span className="text-gray-900 dark:text-white font-bold">{ad.regions}</span>
+                          </span>
                         </p>
                         
                         {/* Visual Route Path */}
@@ -540,10 +542,10 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
                       {ad.university}
                     </h3>
                     
-                    <p className="text-gray-700 dark:text-gray-300 text-xs flex items-center gap-1.5 mt-1.5 bg-gray-50 dark:bg-gray-900/30 p-2 rounded-xl border border-gray-150 dark:border-gray-850/50">
-                      <MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      <span className="truncate leading-none">
-                        <span className="text-gray-500 dark:text-gray-400 text-[10px]">المناطق:</span> {ad.regions}
+                    <p className="text-gray-700 dark:text-gray-300 text-xs flex items-center gap-2 mt-2 bg-gray-50 dark:bg-gray-900/40 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 leading-normal">
+                      <MapPin className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span className="leading-normal py-0.5">
+                        <span className="text-gray-500 dark:text-gray-400 text-xs font-semibold">المناطق:</span> <span className="font-bold text-gray-900 dark:text-white">{ad.regions}</span>
                       </span>
                     </p>
                   </div>
