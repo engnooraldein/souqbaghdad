@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Capacitor } from '@capacitor/core';
 import { 
   X, Copy, Check, Share2, MessageCircle, Send, Facebook, 
   Smartphone, Download, Sparkles, PlusCircle, PlayCircle, SendHorizontal, Lightbulb, HelpCircle, Info, ChevronDown, ChevronUp,
@@ -521,33 +522,62 @@ export function ShareModal({
   };
 
   const downloadSingleCard = async () => {
-    if (!cardDataUrl) return;
-    try {
-      const file = await dataUrlToFile(cardDataUrl, `souq-baghdad-${(title || 'item').replace(/\s+/g, '-')}.jpg`);
-      if (file) {
-        // Try native sharing first if available
-        if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({ title: title, files: [file] });
-            triggerToast('📸 اختر "حفظ الصورة" لحفظها فوراً بالاستوديو!');
-            return;
-          } catch (e) {}
+    let dataUrl = cardDataUrl;
+    if (!dataUrl) {
+      setIsGeneratingCard(true);
+      dataUrl = await createCardCanvas(cardTemplate, image);
+      setIsGeneratingCard(false);
+    }
+    if (!dataUrl) {
+      triggerToast('❌ تعذر إنشاء صورة التصميم، يرجى المحاولة مرة أخرى.');
+      return;
+    }
+
+    const safeTitle = (title || 'card').replace(/[^\w\d\u0600-\u06FF-]/g, '_').slice(0, 30);
+    const fileName = `souq-baghdad-${cardTemplate}-${safeTitle}.jpg`;
+
+    // 1. Mobile Native App Flow (Capacitor Android / iOS)
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const file = await dataUrlToFile(dataUrl, fileName);
+        if (file && typeof navigator !== 'undefined' && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ title: title || 'سوق بغداد', files: [file] });
+          triggerToast('📸 تم فتح قائمة الحفظ والمشاركة! اختر "حفظ بالاستوديو" 📥');
+          return;
         }
-        
-        // Fallback to Blob URL download
-        const blobUrl = URL.createObjectURL(file);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = `souq-baghdad-${cardTemplate}-${(title || 'item').replace(/\s+/g, '-')}.jpg`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-        triggerToast('📸 تم تنزيل الصورة! اضغط عليها واختر "إضافة للصور"');
-        return;
+      } catch (err) {
+        console.warn('Native share failed:', err);
       }
+    }
+
+    // 2. Web Browser Flow (PC, Mac, Android Web, iOS Safari Web)
+    try {
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
+      triggerToast('📥 تم تنزيل صورة التصميم بنجاح إلى جهازك!');
     } catch (e) {
-      console.warn('Download error:', e);
+      console.warn('Blob download failed, fallback to direct dataUrl:', e);
+      try {
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        triggerToast('📥 تم تنزيل صورة التصميم!');
+      } catch {
+        triggerToast('📸 يمكنك ضغط زر الماوس الأيمن أو الضغط مطولاً على الصورة للحفظ في الاستوديو.');
+      }
     }
   };
 
