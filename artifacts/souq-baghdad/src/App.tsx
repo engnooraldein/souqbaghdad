@@ -1320,7 +1320,7 @@ export default function App() {
       role,
       avatar: profile?.avatar_url || DEFAULT_AVATAR,
       cover: profile?.cover_url || DEFAULT_COVER,
-      bio: '',
+      bio: profile?.bio || '',
       location: profile?.city || authUser.user_metadata?.city || 'بغداد',
       points: profile?.points || 0,
       rating: 4.8,
@@ -2448,6 +2448,7 @@ export default function App() {
         phone: u.phone,
         avatar_url: u.avatar,
         cover_url: u.cover,
+        bio: u.bio,
         city: u.location,
         role: u.role
       }, { onConflict: 'id' });

@@ -193,7 +193,7 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
         
         // Save user phone/email to localStorage so the app remembers them next time
         localStorage.setItem('souqLastUser', JSON.stringify({ phone: phone || normalizedIdentifier, email: emailToUse }));
-        localStorage.setItem('biometricCreds', JSON.stringify({ email: emailToUse, password }));
+        localStorage.setItem('biometricCreds', JSON.stringify({ phone: phone || normalizedIdentifier, email: emailToUse, password }));
         
         playSound('success');
         if (!localStorage.getItem('biometricPromptShown')) {
@@ -219,7 +219,7 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
         if (!signInErr) { 
           // Save user phone/email to localStorage so the app remembers them next time
           localStorage.setItem('souqLastUser', JSON.stringify({ phone, email: emailToUse }));
-          localStorage.setItem('biometricCreds', JSON.stringify({ email: emailToUse, password }));
+          localStorage.setItem('biometricCreds', JSON.stringify({ phone, email: emailToUse, password }));
           playSound('success');
           if (!localStorage.getItem('biometricPromptShown')) {
             setStep('biometric_prompt');
@@ -256,7 +256,16 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
           setError('يرجى تسجيل الدخول يدويًا مرة واحدة بحسابك لتفعيل البصمة التلقائية.');
           return;
         }
-        const { email, password } = JSON.parse(saved);
+        const { email, password, phone: savedPhone } = JSON.parse(saved);
+        
+        // If user typed a phone number that doesn't match the saved biometric credential, don't log into the old account
+        const cleanTyped = normalizeArabicNumerals(identifier.trim());
+        if (cleanTyped && /^\d+$/.test(cleanTyped) && savedPhone && cleanTyped !== savedPhone) {
+          setError(`الرقم المدخل (${cleanTyped}) يختلف عن الحساب المحفوظ بالبصمة (${savedPhone}). يرجى إدخال كلمة المرور للرقم الجديد.`);
+          playSound('error');
+          return;
+        }
+
         setLoading(true);
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         setLoading(false);
@@ -468,15 +477,24 @@ export function AuthModal({ onClose, onLogin }:{onClose:()=>void; onLogin:(u:Use
                 {step === 'login' ? 'تسجيل الدخول' : 'تأكيد وإنشاء الحساب'}
               </button>
               
-              {step === 'login' && (
-                 <button 
-                   type="button" 
-                   onClick={handleBiometricLogin}
-                   className="w-full py-4 bg-[#0052ff]/10 text-[#0052ff] font-bold rounded-xl hover:bg-[#0052ff]/20 transition-colors flex items-center justify-center gap-2"
-                 >
-                   <Fingerprint className="w-5 h-5" /> تسجيل الدخول بالمفتاح (Passkey)
-                 </button>
-              )}
+               {step === 'login' && (
+                 <>
+                   <button 
+                     type="button" 
+                     onClick={handleBiometricLogin}
+                     className="w-full py-3.5 bg-[#0052ff]/10 text-[#0052ff] font-bold rounded-xl hover:bg-[#0052ff]/20 transition-colors flex items-center justify-center gap-2"
+                   >
+                     <Fingerprint className="w-5 h-5" /> تسجيل الدخول السريع بالبصمة ⚡
+                   </button>
+                   <button 
+                     type="button" 
+                     onClick={() => { setStep('phone'); setIdentifier(''); setError(''); }}
+                     className="w-full py-2.5 text-gray-400 hover:text-white text-xs font-semibold flex items-center justify-center gap-1 transition-colors mt-1"
+                   >
+                     <span>تغيير رقم الهاتف أو الدخول بحساب آخر 🔄</span>
+                   </button>
+                 </>
+               )}
               
               <div className="mt-4 flex flex-col items-center gap-3">
                  {step === 'login' && <button type="button" onClick={() => {setIsRecovery(true); setError('');}} className="text-amber-400 hover:text-amber-300 text-sm">نسيت كلمة المرور؟</button>}

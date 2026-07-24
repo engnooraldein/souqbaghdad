@@ -9,120 +9,119 @@ export function PrivacyPolicy() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-black pb-20 pt-16">
+    <div className="min-h-screen bg-gray-950 text-gray-200 pb-24 pt-16 font-sans">
       <Helmet>
         <title>سياسة الخصوصية - سوق بغداد</title>
-        <meta name="description" content="سياسة الخصوصية لمنصة وتطبيق سوق بغداد. تعرف على كيفية جمعنا واستخدامنا وحمايتنا لبياناتك." />
+        <meta name="description" content="سياسة الخصوصية والأمان لمنصة وتطبيق سوق بغداد وفق معايير Google Play." />
       </Helmet>
 
-      {/* Header */}
-      <div className="bg-slate-900 border-b border-gray-800 sticky top-0 z-40">
-        <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
+      {/* Modern Header Bar */}
+      <div className="bg-gray-900/90 backdrop-blur-md border-b border-gray-800 fixed top-0 inset-x-0 z-50">
+        <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center">
-              <Shield className="w-5 h-5 text-amber-500" />
+            <div className="w-9 h-9 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center">
+              <Shield className="w-5 h-5 text-emerald-400" />
             </div>
-            <h1 className="text-xl font-bold text-white">سياسة الخصوصية</h1>
+            <div>
+              <h1 className="text-base font-extrabold text-white">سياسة الخصوصية والأمان</h1>
+              <p className="text-[10px] text-emerald-400 font-bold">معتمدة ومطابقة لإرشادات Google Play 🛡️</p>
+            </div>
           </div>
           <button 
             onClick={() => window.history.back()}
-            className="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors"
+            className="p-2 bg-gray-800 hover:bg-gray-700 rounded-xl text-gray-300 transition-colors"
             title="الرجوع"
           >
-            <ChevronRight className="w-5 h-5 text-white" />
+            <ChevronRight className="w-5 h-5" />
           </button>
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 mt-8 space-y-8" dir="rtl">
+      <div className="max-w-2xl mx-auto px-4 mt-6 space-y-6" dir="rtl">
+        {/* Compliance Badge */}
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-slate-900 rounded-3xl p-6 md:p-8 border border-gray-800 text-gray-300 leading-relaxed space-y-6"
+          className="bg-gradient-to-r from-emerald-950/60 to-gray-900 p-5 rounded-2xl border border-emerald-500/20 shadow-lg flex items-center justify-between gap-3"
         >
-          <div className="bg-slate-800/80 p-4 rounded-2xl border border-gray-700/60 text-sm space-y-1">
-            <div><strong className="text-amber-400">القسم المختص:</strong> الدعم الفني والإدارة</div>
-            <div><strong className="text-amber-400">البريد الإلكتروني:</strong> support@souqbaghdad.store</div>
-            <div><strong className="text-amber-400">تاريخ آخر تحديث:</strong> 21 تموز 2026</div>
-          </div>
-
-          <p>
-            توضح سياسة الخصوصية هذه كيفية قيام منصة وتطبيق "سوق بغداد" (يشار إليها لاحقاً بـ"المنصة" أو "نحن") بجمع بياناتك الشخصية واستخدامها ونقلها والإفصاح عنها والاحتفاظ بها.
-          </p>
-          <p>
-            "سوق بغداد" هي منصة إعلانات مبوّبة رقمية رائدة تهدف إلى تسهيل البيع والشراء وتوفير أفضل تجربة للمستخدمين في جمهورية العراق.
-          </p>
-
-          <h2 className="text-xl font-bold text-sky-400 border-r-4 border-amber-500 pr-3 mt-6">1. التعريفات</h2>
-          <p>يكون للكلمات والتعبيرات المعرفة في شروط الاستخدام نفس المعنى في سياسة الخصوصية هذه.</p>
-
-          <h2 className="text-xl font-bold text-sky-400 border-r-4 border-amber-500 pr-3 mt-6">2. قبول معالجة البيانات</h2>
-          <p>باستخدامك لمنصة "سوق بغداد" والخدمات المرتبطة بها، فإنك تمنح موافقة صريحة للمنصة على جمع بياناتك الشخصية واستخدامها ونقلها والإفصاح عنها والاحتفاظ بها كما هو موضح في سياسة الخصوصية هذه وشروط الاستخدام.</p>
-
-          <h2 className="text-xl font-bold text-sky-400 border-r-4 border-amber-500 pr-3 mt-6">3. ما هي البيانات الشخصية التي يتم جمعها؟</h2>
-          <p>نقوم بجمع ومعالجة البيانات الشخصية التالية:</p>
-          <ul className="list-disc list-inside space-y-2 text-gray-300">
-            <li><strong className="text-white">بيانات التعريف والاتصال:</strong> عند التسجيل، قد نجمع (الاسم، رقم الهاتف للتحقق، البريد الإلكتروني، وغيرها من المعلومات الاختيارية). نقوم بجمعها للتحقق من هويتك، ومنع الاحتيال، وحماية أمن المشترين والبائعين.</li>
-            <li><strong className="text-white">محتوى المستخدمين:</strong> نقوم بجمع أي محتوى تقوم بإنشائه، ويشمل ذلك الإعلانات، الصور، المحادثات عبر رسائل المنصة. نجمع هذه المعلومات لتحسين تجربة المستخدم وجودة خدماتنا.</li>
-            <li><strong className="text-white">البيانات الفنية:</strong> عند استخدامك للتطبيق أو الموقع، نقوم تلقائياً بجمع معلومات فنية (معلومات الجهاز، الموقع الجغرافي، ملفات تعريف الارتباط) لتزويدك بخدمات مخصصة لموقعك.</li>
-            <li><strong className="text-white">البيانات من أطراف ثالثة:</strong> قد نتلقى بيانات شخصية عنك من أطراف ثالثة لأغراض تنفيذ عقد مبرم بينك وبين أي طرف ثالث يستخدم المنصة.</li>
-          </ul>
-
-          <h2 className="text-xl font-bold text-sky-400 border-r-4 border-amber-500 pr-3 mt-6">4. كيف نستخدم بياناتك الشخصية؟</h2>
-          <ul className="list-disc list-inside space-y-2 text-gray-300">
-            <li><strong className="text-white">الالتزامات التعاقدية:</strong> لإبرام عقد معك أو تقديم الخدمات لك.</li>
-            <li><strong className="text-white">الالتزامات القانونية:</strong> للامتثال للقوانين المعمول بها.</li>
-            <li><strong className="text-white">المصالح المشروعة:</strong> لتحسين الخدمات، منع الاحتيال، وحماية أمن المشترين والبائعين.</li>
-            <li><strong className="text-white">الاتصالات التسويقية:</strong> لتزويدك بمعلومات حول السلع والخدمات والإشعارات داخل التطبيق.</li>
-          </ul>
-
-          <h2 className="text-xl font-bold text-sky-400 border-r-4 border-amber-500 pr-3 mt-6">5. كيف نفصح عن بياناتك الشخصية؟</h2>
-          <ul className="list-disc list-inside space-y-2 text-gray-300">
-            <li>نستخدم مزودي خدمات من طرف ثالث (مثل خوادم التخزين السحابية) لمساعدتنا في تشغيل المنصة بأمان.</li>
-            <li>قد نشارك معلومات غير محددة للهوية مع مزودي التحليلات لتحسين جودة التطبيق.</li>
-            <li>يجوز لنا الإفصاح عن بياناتك للامتثال لأي متطلبات قانونية من الجهات الرسمية.</li>
-            <li>عند نشر إعلان، فإنك تختار التصريح عن بعض البيانات (مثل اسمك ورقمك) لمستخدمي "سوق بغداد" الآخرين لتسهيل التواصل.</li>
-          </ul>
-
-          <h2 className="text-xl font-bold text-sky-400 border-r-4 border-amber-500 pr-3 mt-6">6. المسوغات القانونية للمعالجة</h2>
-          <p>نعتمد على موافقتك الصريحة، التزاماتنا التعاقدية معك، الالتزامات القانونية، وحماية المصالح الحيوية والعامة لمستخدمي المنصة.</p>
-
-          <h2 className="text-xl font-bold text-sky-400 border-r-4 border-amber-500 pr-3 mt-6">7. كيف نقوم بتخزين بياناتك الشخصية؟</h2>
-          <ul className="list-disc list-inside space-y-2 text-gray-300">
-            <li>يتم تخزين بياناتك بشكل آمن باستخدام خوادم ومزودي خدمات حوسبة سحابية موثوقين.</li>
-            <li>سنحتفظ ببياناتك طالما كنت مسجلاً. عند إلغاء حسابك، قد نحتفظ ببعض البيانات للفترة التي يقتضيها القانون لحماية مصالحنا، وبعدها يتم إتلافها بشكل آمن.</li>
-          </ul>
-
-          <h2 className="text-xl font-bold text-sky-400 border-r-4 border-amber-500 pr-3 mt-6">8. حقوقك تجاه بياناتك الشخصية</h2>
-          <p>يحق لك:</p>
-          <ul className="list-disc list-inside space-y-2 text-gray-300">
-            <li>العلم بكيفية جمع بياناتك.</li>
-            <li>الوصول إلى بياناتك الشخصية وتعديلها عبر إعدادات حسابك.</li>
-            <li>طلب إتلاف بياناتك في ظروف معينة (ما لم يمنع ذلك قانونياً) وحذف الحساب نهائياً من إعدادات الملف الشخصي.</li>
-            <li>الرجوع عن موافقتك في أي وقت.</li>
-          </ul>
-
-          <h2 className="text-xl font-bold text-sky-400 border-r-4 border-amber-500 pr-3 mt-6">9. الاتصال والتسويق</h2>
-          <p>قد نتواصل معك عبر إشعارات التطبيق (Push Notifications) أو الرسائل أو البريد لتأكيد تسجيلك، ولإبلاغك بحالة إعلاناتك، وللأغراض التسويقية. يمكنك تعديل هذه التفضيلات من إعدادات جهازك.</p>
-
-          <h2 className="text-xl font-bold text-sky-400 border-r-4 border-amber-500 pr-3 mt-6">10. التدابير الأمنية</h2>
-          <p>نحن نستخدم إجراءات أمنية وتقنيات تشفير لحماية بياناتك من الوصول غير المصرح به. ومع ذلك، نرجو ملاحظة أن نقل البيانات عبر الإنترنت ليس آمناً بنسبة 100% مطلقاً.</p>
-
-          <h2 className="text-xl font-bold text-sky-400 border-r-4 border-amber-500 pr-3 mt-6">11. ملفات تعريف الارتباط (Cookies)</h2>
-          <p>نستخدم ملفات تعريف الارتباط لتحسين أداء المنصة، وتذكر إعداداتك، وحماية المنصة من الاحتيال، وتحليل الاستخدام لتقديم أفضل تجربة ممكنة.</p>
-
-          <h2 className="text-xl font-bold text-sky-400 border-r-4 border-amber-500 pr-3 mt-6">12. التعديلات على سياسة الخصوصية</h2>
-          <p>قد نقوم بتحديث هذه السياسة من حين لآخر. إن استمرار استخدامك لمنصة "سوق بغداد" بعد إجراء التعديلات يشير إلى قبولك لها.</p>
-
-          <h2 className="text-xl font-bold text-sky-400 border-r-4 border-amber-500 pr-3 mt-6">13. الشكاوى والاعتراضات</h2>
-          <p>في حال وجود أي استفسارات أو شكاوى تتعلق ببياناتك الشخصية، يرجى التواصل معنا عبر البريد الإلكتروني المذكور أعلاه (support@souqbaghdad.store) أو عبر وسائل الدعم داخل التطبيق. تخضع هذه السياسة وتفسر وفقاً للقوانين المعمول بها في جمهورية العراق، وفي حال وجود نزاع، يتم الرجوع إلى الجهات المختصة في العراق.</p>
-
-          <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl mt-8">
-            <p className="text-amber-200/80 text-sm">
-              باستخدامك لمنصة وتطبيق "سوق بغداد"، فإنك توافق على سياسة الخصوصية هذه وعلى جميع شروط وقواعد الاستخدام.
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Lock className="w-4 h-4 text-emerald-400" />
+              <span className="text-sm font-extrabold text-white">حماية البيانات والخصوصية أولويتنا</span>
+            </div>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              نلتزم بأعلى معايير حماية بيانات المستخدمين، وتقليل طلب الأذونات، ومنحك التحكم الكامل بحسابك.
             </p>
           </div>
+          <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center flex-shrink-0 border border-emerald-500/30">
+            <FileText className="w-6 h-6 text-emerald-400" />
+          </div>
         </motion.div>
+
+        {/* Section 1: Overview */}
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-gray-900/90 rounded-2xl p-5 border border-gray-800 space-y-4"
+        >
+          <div className="flex items-center gap-2 border-b border-gray-800 pb-3">
+            <span className="w-2 h-5 bg-amber-500 rounded-full" />
+            <h2 className="text-base font-bold text-white">1. ما هي البيانات التي نجمعها؟</h2>
+          </div>
+          <ul className="space-y-3 text-xs sm:text-sm text-gray-300 leading-relaxed">
+            <li className="flex gap-2">
+              <span className="text-emerald-400 font-bold">•</span>
+              <div><strong className="text-white">بيانات الحساب:</strong> الاسم، رقم الهاتف لغرض التحقق، والبريد الإلكتروني.</div>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-emerald-400 font-bold">•</span>
+              <div><strong className="text-white">المحتوى والإعلانات:</strong> الإعلانات والمنتجات التي ينشرها المستخدم لتسهيل التواصل.</div>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-emerald-400 font-bold">•</span>
+              <div><strong className="text-white">الأذونات المحصورة:</strong> نطلب الحد الأدنى فقط من الأذونات التي تضمن عمل التطبيق بسلاسة (مثل الكاميرا لإرفاق صور الإعلانات).</div>
+            </li>
+          </ul>
+        </motion.div>
+
+        {/* Section 2: Data Usage */}
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-gray-900/90 rounded-2xl p-5 border border-gray-800 space-y-4"
+        >
+          <div className="flex items-center gap-2 border-b border-gray-800 pb-3">
+            <span className="w-2 h-5 bg-sky-500 rounded-full" />
+            <h2 className="text-base font-bold text-white">2. كيف نحمي ونستخدم بياناتك؟</h2>
+          </div>
+          <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
+            يتم تشفير وتخزين البيانات على خوادم سحابية محمية. لا نقوم ببيع أو مشاركة بياناتك الشخصية مع أي طرف ثالث لأغراض إعلانية غير مصرح بها.
+          </p>
+        </motion.div>
+
+        {/* Section 3: Deletion & Rights */}
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-gray-900/90 rounded-2xl p-5 border border-gray-800 space-y-4"
+        >
+          <div className="flex items-center gap-2 border-b border-gray-800 pb-3">
+            <span className="w-2 h-5 bg-rose-500 rounded-full" />
+            <h2 className="text-base font-bold text-white">3. حقك في حذف الحساب والبيانات</h2>
+          </div>
+          <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
+            وفقاً لسياسة Google Play، يمكنك في أي وقت طلب حذف حسابك الشخصي وجميع بياناتك المترتبة بشكل نهائي من داخل إعدادات الحساب بالتطبيق أو بمراسلة الدعم الفني على:
+            <span className="block mt-1 text-emerald-400 font-mono font-bold dir-ltr text-right">support@souqbaghdad.store</span>
+          </p>
+        </motion.div>
+
+        {/* Support Footer */}
+        <div className="text-center py-4 text-xs text-gray-500 space-y-1">
+          <p>جميع الحقوق محفوظة منصة سوق بغداد الرقمية 🇮🇶 © 2026</p>
+        </div>
       </div>
     </div>
   );

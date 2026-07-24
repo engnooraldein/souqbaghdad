@@ -35,69 +35,48 @@ const {
 export function VisualRoutePath({ regions, university, type }: { regions: string, university: string, type: 'offer' | 'request' }) {
   const points = useMemo(() => {
     const list = regions ? regions.split(/[،,,\-]/).map(r => r.trim()).filter(Boolean) : [];
-    const pts = [];
+    const pts: { name: string, type: 'start' | 'stop' | 'destination' }[] = [];
     if (list.length > 0) {
-      if (list.length <= 2) {
-        list.forEach((r, idx) => {
-          pts.push({ name: r, type: idx === 0 ? 'start' : 'stop' });
-        });
-      } else {
-        pts.push({ name: list[0], type: 'start' });
-        pts.push({ name: `+${list.length - 2} مناطق`, type: 'stop' });
-        pts.push({ name: list[list.length - 1], type: 'stop' });
-      }
+      list.forEach((r, idx) => {
+        pts.push({ name: r, type: idx === 0 ? 'start' : 'stop' });
+      });
     }
     pts.push({ name: university, type: 'destination' });
     return pts;
   }, [regions, university]);
 
   return (
-    <div className="my-3.5 bg-gray-900/60 border border-gray-800/40 rounded-2xl p-3" dir="rtl">
-      <div className="flex items-center justify-between relative px-2">
-        {/* Connection Line */}
-        <div className="absolute top-[11px] left-8 right-8 h-[2px] bg-gray-850 z-0">
-          <div 
-            className={`absolute top-0 right-0 h-full rounded transition-all duration-500 ${
-              type === 'offer' ? 'bg-gradient-to-l from-emerald-500 to-teal-500 shadow-sm shadow-emerald-500/20' : 'bg-gradient-to-l from-amber-500 to-yellow-500 shadow-sm shadow-amber-500/20'
-            }`} 
-            style={{ width: '100%' }}
-          />
-        </div>
-
+    <div className="my-3.5 bg-gray-900/80 border border-gray-800/80 rounded-2xl p-3.5" dir="rtl">
+      <div className="flex flex-wrap items-center gap-2">
         {points.map((pt, idx) => {
-          let dotClass = 'bg-gray-800 border-gray-700';
-          let textClass = 'text-gray-400';
-          let label = 'توقف';
+          let badgeBg = 'bg-gray-800 text-gray-300 border-gray-700';
+          let icon = '📍';
 
           if (pt.type === 'start') {
-            dotClass = type === 'offer' ? 'bg-emerald-500 border-emerald-400 ring-4 ring-emerald-500/10' : 'bg-amber-500 border-amber-400 ring-4 ring-amber-500/10';
-            textClass = 'text-white font-extrabold';
-            label = 'الانطلاق';
+            badgeBg = type === 'offer' 
+              ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 font-extrabold' 
+              : 'bg-amber-500/15 text-amber-400 border-amber-500/30 font-extrabold';
+            icon = '🚏 الانطلاق:';
           } else if (pt.type === 'destination') {
-            dotClass = 'bg-rose-500 border-rose-400 ring-4 ring-rose-500/10';
-            textClass = 'text-rose-400 font-extrabold';
-            label = 'الوصول';
+            badgeBg = 'bg-rose-500/15 text-rose-400 border-rose-500/30 font-extrabold';
+            icon = '🎓 الوصول:';
           } else {
-            dotClass = type === 'offer' ? 'bg-teal-600 border-teal-500 ring-4 ring-teal-500/10' : 'bg-yellow-600 border-yellow-500 ring-4 ring-yellow-500/10';
-            textClass = 'text-gray-300 font-bold';
-            label = 'عبر';
+            badgeBg = type === 'offer'
+              ? 'bg-teal-500/10 text-teal-300 border-teal-500/20 font-bold'
+              : 'bg-yellow-500/10 text-yellow-300 border-yellow-500/20 font-bold';
+            icon = '➔';
           }
 
           return (
-            <div key={idx} className="flex flex-col items-center flex-1 relative z-10 text-center">
-              {/* Dot */}
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${dotClass}`}>
-                <div className="w-1 h-1 bg-white rounded-full" />
+            <React.Fragment key={idx}>
+              <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs sm:text-sm whitespace-normal shadow-sm ${badgeBg}`}>
+                <span className="text-[11px] opacity-80">{icon}</span>
+                <span>{pt.name}</span>
               </div>
-              {/* Region/Destination Name */}
-              <span className={`text-[10px] mt-1.5 line-clamp-1 max-w-[75px] truncate px-0.5 ${textClass}`} title={pt.name}>
-                {pt.name}
-              </span>
-              {/* Step label */}
-              <span className="text-[8px] text-gray-500 font-medium">
-                {label}
-              </span>
-            </div>
+              {idx < points.length - 1 && (
+                <span className="text-gray-600 text-xs font-black select-none">←</span>
+              )}
+            </React.Fragment>
           );
         })}
       </div>

@@ -522,23 +522,33 @@ export function ShareModal({
 
   const downloadSingleCard = async () => {
     if (!cardDataUrl) return;
-    if (typeof navigator !== 'undefined' && navigator.share) {
+    try {
       const file = await dataUrlToFile(cardDataUrl, `souq-baghdad-${(title || 'item').replace(/\s+/g, '-')}.jpg`);
-      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({ title: title, files: [file] });
-          triggerToast('📸 اختر "حفظ الصورة" لحفظها فوراً بالاستوديو!');
-          return;
-        } catch (e) {}
+      if (file) {
+        // Try native sharing first if available
+        if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ title: title, files: [file] });
+            triggerToast('📸 اختر "حفظ الصورة" لحفظها فوراً بالاستوديو!');
+            return;
+          } catch (e) {}
+        }
+        
+        // Fallback to Blob URL download
+        const blobUrl = URL.createObjectURL(file);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `souq-baghdad-${cardTemplate}-${(title || 'item').replace(/\s+/g, '-')}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+        triggerToast('📸 تم تنزيل الصورة! اضغط عليها واختر "إضافة للصور"');
+        return;
       }
+    } catch (e) {
+      console.warn('Download error:', e);
     }
-    const a = document.createElement('a');
-    a.href = cardDataUrl;
-    a.download = `souq-baghdad-${cardTemplate}-${(title || 'item').replace(/\s+/g, '-')}.jpg`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    triggerToast('📸 تم تنزيل الصورة! اضغط عليها واختر "إضافة للصور"');
   };
 
   const downloadAllStories = async () => {
@@ -554,12 +564,14 @@ export function ShareModal({
               }
           }
           const content = await zip.generateAsync({ type: 'blob' });
+          const blobUrl = URL.createObjectURL(content);
           const a = document.createElement('a');
-          a.href = URL.createObjectURL(content);
+          a.href = blobUrl;
           a.download = `souq-baghdad-stories-${(title || 'item').replace(/\s+/g, '-')}.zip`;
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
           triggerToast('📦 تم تحميل ملف الستوريات (ZIP) بنجاح!');
       } catch (err) {
           triggerToast('❌ حدث خطأ أثناء تحميل الستوريات المتعددة.');
@@ -617,10 +629,24 @@ export function ShareModal({
       window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(fullUrl)}`, '_blank');
     } else if (platform === 'whatsapp') {
       triggerToast('💬 تم نسخ النص والرابط! جاري فتح واتساب...');
-      window.open(`https://wa.me/?text=${encodeURIComponent(customCaption)}`, '_blank');
+      const waUri = `whatsapp://send?text=${encodeURIComponent(customCaption)}`;
+      const waWeb = `https://wa.me/?text=${encodeURIComponent(customCaption)}`;
+      try {
+        window.location.href = waUri;
+        setTimeout(() => window.open(waWeb, '_blank'), 1500);
+      } catch {
+        window.open(waWeb, '_blank');
+      }
     } else if (platform === 'telegram') {
       triggerToast('✈️ تم نسخ الإعلان المرفق! جاري فتح تليجرام...');
-      window.open(`https://t.me/share/url?url=${encodeURIComponent(fullUrl)}&text=${encodeURIComponent(telegramText)}`, '_blank');
+      const tgUri = `tg://msg_url?url=${encodeURIComponent(fullUrl)}&text=${encodeURIComponent(telegramText)}`;
+      const tgWeb = `https://t.me/share/url?url=${encodeURIComponent(fullUrl)}&text=${encodeURIComponent(telegramText)}`;
+      try {
+        window.location.href = tgUri;
+        setTimeout(() => window.open(tgWeb, '_blank'), 1500);
+      } catch {
+        window.open(tgWeb, '_blank');
+      }
     }
   };
 
