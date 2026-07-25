@@ -6,6 +6,7 @@ import {
   Smartphone, Download, Sparkles, PlusCircle, PlayCircle, SendHorizontal, Lightbulb, HelpCircle, Info, ChevronDown, ChevronUp,
   FileText, Palette, CheckCircle2, Layers, Link2, Eye, Maximize2
 } from 'lucide-react';
+import { Share } from '@capacitor/share';
 import QRCode from 'qrcode';
 import JSZip from 'jszip';
 
@@ -474,8 +475,30 @@ export function ShareModal({
   const blobToFile = (blob: Blob, filename: string): File =>
     new File([blob], filename, { type: 'image/jpeg' });
 
-  // Save Blob via Web Share API (iOS/Android) or <a download> (desktop)
+  // Save Blob via Native Share (Capacitor App), Web Share API (Mobile Safari/Chrome/PWA), or <a download> (desktop)
   const saveBlobImage = async (blob: Blob, fileName: string, shareTitle: string) => {
+    // Path 0: Native Capacitor Android / iOS App
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const base64Data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        await Share.share({
+          title: shareTitle,
+          text: shareTitle,
+          dialogTitle: 'حفظ / مشاركة الصورة 🖼️',
+          files: [base64Data],
+        });
+        return true;
+      } catch (e: any) {
+        if (e?.name === 'AbortError') return true;
+        console.warn('Capacitor native share error', e);
+      }
+    }
+
     const file = blobToFile(blob, fileName);
     // Path 1: Web Share API (iOS Safari + Android Chrome including PWA)
     if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -557,6 +580,22 @@ export function ShareModal({
       try {
         const blob = await createCardCanvas(cardTemplate, image);
         if (blob) {
+          if (Capacitor.isNativePlatform()) {
+            const base64Data = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+            await Share.share({
+              title: brandTitle,
+              text: customCaption,
+              dialogTitle: 'مشاركة الصورة المباشرة 📱',
+              files: [base64Data]
+            });
+            triggerToast('✅ تم فتح نافذة المشاركة!');
+            return;
+          }
           const file = blobToFile(blob, 'Souq-Baghdad.jpg');
           if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({ title: brandTitle, files: [file] });
