@@ -70,12 +70,19 @@ export function ShareModal({
   const idBadge = short_id ? `#${short_id}` : '';
   const fullUrl = url.startsWith('http') ? url : `https://www.souqbaghdad.store${url.startsWith('/') ? url : '/' + url}`;
 
-  const getShareText = () => {
-    const descSnippet = description ? `\n📝 *الوصف:* ${description.slice(0, 100)}${description.length > 100 ? '...' : ''}` : '';
-    return `✨ *أهلاً بك في منصة سوق بغداد الرقمية* 🇮🇶✨\n\n🛍️ *${title}* ${idBadge}\n📍 *الموقع:* ${locText}${price ? `\n🏷️ *السعر:* ${price} د.ع` : ''}${descSnippet}\n\nتواصل مباشر وسريع بين البائع والمشتري! 🚀🤝\n\n🔗 *رابط التفاصيل:* ${fullUrl}`;
+  const formatSharePrice = (p?: string) => {
+    if (!p) return '';
+    const raw = String(p).replace(/[^\d]/g, '');
+    if (!raw) return `${p} الف دينار عراقي`;
+    return `${Number(raw).toLocaleString('en-US')} الف دينار عراقي`;
   };
 
-  const telegramText = `✨ *أهلاً بك في منصة سوق بغداد الرقمية* 🇮🇶✨\n\n🛍️ *${title}* ${idBadge}\n📍 *الموقع:* ${locText}${price ? `\n🏷️ *السعر:* ${price} د.ع` : ''}\n\nتصفح كافة التفاصيل وتواصل مباشر مع البائع عبر المنصة 🚀\n👇🔗\n${fullUrl}`;
+  const getShareText = () => {
+    const descSnippet = description ? `\n📝 *الوصف:* ${description.slice(0, 100)}${description.length > 100 ? '...' : ''}` : '';
+    return `✨ *أهلاً بك في منصة سوق بغداد الرقمية* 🇮🇶✨\n\n🛍️ *${title}* ${idBadge}\n📍 *الموقع:* ${locText}${price ? `\n🏷️ *السعر:* ${formatSharePrice(price)}` : ''}${descSnippet}\n\nتواصل مباشر وسريع بين البائع والمشتري! 🚀🤝\n\n🔗 *رابط التفاصيل:* ${fullUrl}`;
+  };
+
+  const telegramText = `✨ *أهلاً بك في منصة سوق بغداد الرقمية* 🇮🇶✨\n\n🛍️ *${title}* ${idBadge}\n📍 *الموقع:* ${locText}${price ? `\n🏷️ *السعر:* ${formatSharePrice(price)}` : ''}\n\nتصفح كافة التفاصيل وتواصل مباشر مع البائع عبر المنصة 🚀\n👇🔗\n${fullUrl}`;
 
   useEffect(() => {
     if (isOpen) {
