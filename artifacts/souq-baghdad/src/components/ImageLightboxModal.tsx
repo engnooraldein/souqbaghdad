@@ -136,13 +136,38 @@ function canvasToBlob(canvas: HTMLCanvasElement, quality = 0.92): Promise<Blob |
   });
 }
 
+import { Share } from '@capacitor/share';
+
 /* ─────────────────────────────────────────────────────────────
    Multi-platform save strategy:
+   0. Capacitor.isNativePlatform() -> Share.share({ files: [base64] }) Native Android/iOS share sheet (includes Save to Gallery)
    1. navigator.share({ files })  → iOS Safari / Android Chrome / PWA (saves to Photos)
    2. URL.createObjectURL + <a>   → Desktop browsers
    3. window.open fallback        → last resort
 ───────────────────────────────────────────────────────────── */
 async function saveImageBlob(blob: Blob, fileName: string, shareTitle: string): Promise<void> {
+  // Path 0 — Native Capacitor Android / iOS App
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      await Share.share({
+        title: shareTitle,
+        text: shareTitle,
+        dialogTitle: 'حفظ / مشاركة الصورة 🖼️',
+        files: [base64Data],
+      });
+      return;
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return;
+      console.warn('Capacitor native share error', e);
+    }
+  }
+
   const file = new File([blob], fileName, { type: 'image/jpeg' });
 
   // Path 1 — Web Share API (works on iOS Safari & Android Chrome including PWA)
