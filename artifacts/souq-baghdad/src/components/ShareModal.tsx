@@ -272,13 +272,13 @@ export function ShareModal({
       cursorY += catH + (isSmall ? 28 : 40);
 
       // ── Main image ──
-      const imgAreaH = isSmall ? 380 : template === 'facebook' ? 520 : 760;
+      const imgAreaH = isSmall ? 320 : template === 'facebook' ? 420 : 660;
       const imgX = 60, imgW = width - 120, imgH = imgAreaH;
       const imgY = cursorY;
 
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 50; ctx.shadowOffsetY = 20;
-      const r = 36;
+      const r = 32;
       if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(imgX, imgY, imgW, imgH, r); ctx.clip(); }
       else { ctx.rect(imgX, imgY, imgW, imgH); ctx.clip(); }
 
@@ -301,16 +301,16 @@ export function ShareModal({
         ctx.setLineDash([14, 14]);
         ctx.beginPath(); ctx.moveTo(imgX + 30, splitY2); ctx.lineTo(imgX + imgW - 30, splitY2); ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = '#92400e'; ctx.font = 'bold 36px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('🚐 تذكرة خط جامعي — BOARDING PASS', imgX + imgW/2, imgY + 55);
-        ctx.fillStyle = '#1e293b'; ctx.font = '900 52px system-ui';
+        ctx.fillStyle = '#92400e'; ctx.font = 'bold 32px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('🚐 تذكرة خط جامعي — BOARDING PASS', imgX + imgW/2, imgY + 45);
+        ctx.fillStyle = '#1e293b'; ctx.font = '900 44px system-ui';
         ctx.fillText((regions || 'الانطلاق').slice(0, 22), imgX + imgW/2, imgY + imgH * 0.25);
-        ctx.fillStyle = '#92400e'; ctx.font = '36px system-ui';
+        ctx.fillStyle = '#92400e'; ctx.font = '32px system-ui';
         ctx.fillText('⬇', imgX + imgW/2, imgY + imgH * 0.44);
-        ctx.fillStyle = '#1e293b'; ctx.font = '900 52px system-ui';
+        ctx.fillStyle = '#1e293b'; ctx.font = '900 44px system-ui';
         ctx.fillText((university || 'الوصول').slice(0, 22), imgX + imgW/2, imgY + imgH * 0.60);
         if (price) {
-          ctx.fillStyle = '#92400e'; ctx.font = '900 54px system-ui'; ctx.textAlign = 'right';
+          ctx.fillStyle = '#92400e'; ctx.font = '900 46px system-ui'; ctx.textAlign = 'right';
           ctx.fillText(`${price} د.ع`, imgX + imgW - 40, splitY2 + (imgH - splitY2 + imgY) / 2);
           ctx.textAlign = 'center';
         }
@@ -319,76 +319,104 @@ export function ShareModal({
         ph.addColorStop(0, '#1e293b'); ph.addColorStop(1, '#0f172a');
         ctx.fillStyle = ph; ctx.fillRect(imgX, imgY, imgW, imgH);
         ctx.fillStyle = `${accentColor}30`; ctx.fillRect(imgX, imgY, imgW, imgH);
-        ctx.fillStyle = `${accentColor}44`; ctx.font = '120px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = `${accentColor}44`; ctx.font = '100px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(catLabel.split(' ')[0] || '🛍️', imgX + imgW/2, imgY + imgH/2);
       }
       ctx.restore();
-      cursorY = imgY + imgH + (isSmall ? 40 : 56);
 
-      // ── Thin accent line ──
+      // Thin accent bottom line on image
       ctx.fillStyle = accentColor;
-      ctx.fillRect(imgX, imgY + imgH - 8, imgW, 8);
+      ctx.fillRect(imgX, imgY + imgH - 6, imgW, 6);
 
-      // ── Title ──
-      const maxTitleLen = isSmall ? 32 : 40;
-      const displayTitle = title.length > maxTitleLen ? title.slice(0, maxTitleLen - 1) + '…' : title;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = `900 ${isSmall ? 50 : 64}px system-ui, sans-serif`;
+      cursorY = imgY + imgH + (isSmall ? 28 : 42);
+
+      // ── Title (Clean 2-line wrap if long to prevent squeezing) ──
+      const titleFontSize = isSmall ? 40 : template === 'facebook' ? 48 : 54;
+      ctx.font = `900 ${titleFontSize}px system-ui, sans-serif`;
       ctx.fillStyle = textColor;
-      ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 12;
-      ctx.fillText(displayTitle, width / 2, cursorY);
-      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
-      cursorY += isSmall ? 64 : 84;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
 
-      // ── Description snippet (first 60 chars) ──
-      if (description && !isSmall) {
-        const descSnip = description.length > 72 ? description.slice(0, 70) + '…' : description;
-        ctx.font = `${32}px system-ui, sans-serif`;
-        ctx.fillStyle = textMuted;
-        ctx.fillText(descSnip, width / 2, cursorY);
-        cursorY += 50;
+      const maxTitleWidth = width - 120;
+      if (ctx.measureText(title).width <= maxTitleWidth) {
+        ctx.fillText(title, width / 2, cursorY);
+        cursorY += titleFontSize + (isSmall ? 18 : 26);
+      } else {
+        // Split into 2 lines
+        const words = title.split(' ');
+        let line1 = '', line2 = '';
+        for (const w of words) {
+          if (ctx.measureText(line1 + ' ' + w).width <= maxTitleWidth) {
+            line1 += (line1 ? ' ' : '') + w;
+          } else {
+            line2 += (line2 ? ' ' : '') + w;
+          }
+        }
+        if (!line2) { line1 = title.slice(0, 30); line2 = title.slice(30); }
+        ctx.fillText(line1, width / 2, cursorY);
+        cursorY += titleFontSize + 10;
+        ctx.fillText(line2.length > 30 ? line2.slice(0, 28) + '…' : line2, width / 2, cursorY);
+        cursorY += titleFontSize + (isSmall ? 18 : 26);
       }
 
-      // ── Price badge ──
+      // ── Description snippet ──
+      if (description && !isSmall && template !== 'facebook') {
+        const descSnip = description.length > 65 ? description.slice(0, 63) + '…' : description;
+        ctx.font = '28px system-ui, sans-serif';
+        ctx.fillStyle = textMuted;
+        ctx.fillText(descSnip, width / 2, cursorY);
+        cursorY += 40;
+      }
+
+      // ── Price badge (Strict top-to-bottom layout, zero overlap) ──
       if (price) {
+        cursorY += 12; // top spacing before price box
         const priceText = formatSharePrice(price);
-        ctx.font = `900 ${isSmall ? 48 : 60}px system-ui, sans-serif`;
-        const pW = Math.min(width - 100, ctx.measureText(priceText).width + 100);
+        const priceFontSize = isSmall ? 40 : template === 'facebook' ? 46 : 52;
+        ctx.font = `900 ${priceFontSize}px system-ui, sans-serif`;
+        const pW = Math.min(width - 120, ctx.measureText(priceText).width + 80);
+        const pH = priceFontSize + 32;
+
         ctx.save();
-        ctx.shadowColor = accentColor; ctx.shadowBlur = 36;
+        ctx.shadowColor = accentColor; ctx.shadowBlur = 28;
         ctx.fillStyle = `${accentColor}22`;
-        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(width/2 - pW/2, cursorY - 52, pW, 104, 30); ctx.fill(); }
-        else ctx.fillRect(width/2 - pW/2, cursorY - 52, pW, 104);
-        ctx.strokeStyle = `${accentColor}88`; ctx.lineWidth = 3;
-        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(width/2 - pW/2, cursorY - 52, pW, 104, 30); ctx.stroke(); }
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(width/2 - pW/2, cursorY, pW, pH, 24); ctx.fill(); }
+        else ctx.fillRect(width/2 - pW/2, cursorY, pW, pH);
+        ctx.strokeStyle = `${accentColor}88`; ctx.lineWidth = 2.5;
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(width/2 - pW/2, cursorY, pW, pH, 24); ctx.stroke(); }
         ctx.restore();
+
         ctx.fillStyle = accentColor;
-        ctx.fillText(priceText, width / 2, cursorY);
-        cursorY += isSmall ? 76 : 96;
+        ctx.textBaseline = 'middle';
+        ctx.fillText(priceText, width / 2, cursorY + pH / 2);
+        cursorY += pH + (isSmall ? 20 : 30);
+      } else {
+        cursorY += 16;
       }
 
       // ── Location + Views row ──
-      ctx.font = `${isSmall ? 26 : 30}px system-ui, sans-serif`;
+      ctx.font = `${isSmall ? 24 : 28}px system-ui, sans-serif`;
       ctx.fillStyle = textMuted;
+      ctx.textBaseline = 'top';
       const infoRow = `📍 ${locText}   •   👀 ${(views || 0).toLocaleString()} مشاهدة${isVerified ? '   •   ✅ موثق' : ''}`;
       ctx.fillText(infoRow, width / 2, cursorY);
-      cursorY += isSmall ? 46 : 56;
+      cursorY += isSmall ? 38 : 48;
 
       // ── CTA button ──
-      if (!isSmall || cursorY < height - 200) {
-        const ctaW = 480, ctaH = 88;
+      if (!isSmall || cursorY < height - 180) {
+        const ctaW = 460, ctaH = isSmall ? 74 : 82;
         const ctaY = cursorY;
         ctx.save();
-        ctx.shadowColor = '#10b981'; ctx.shadowBlur = 30;
+        ctx.shadowColor = '#10b981'; ctx.shadowBlur = 24;
         const ctaG = ctx.createLinearGradient(width/2 - ctaW/2, 0, width/2 + ctaW/2, 0);
         ctaG.addColorStop(0, '#059669'); ctaG.addColorStop(1, '#10b981');
         ctx.fillStyle = ctaG;
         if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(width/2 - ctaW/2, ctaY, ctaW, ctaH, ctaH/2); ctx.fill(); }
         else ctx.fillRect(width/2 - ctaW/2, ctaY, ctaW, ctaH);
         ctx.restore();
-        ctx.fillStyle = '#ffffff'; ctx.font = `bold ${isSmall ? 30 : 36}px system-ui`;
+        ctx.fillStyle = '#ffffff'; ctx.font = `bold ${isSmall ? 28 : 34}px system-ui`;
+        ctx.textBaseline = 'middle';
         ctx.fillText('اضغط لمشاهدة الإعلان كاملاً →', width / 2, ctaY + ctaH / 2);
-        cursorY = ctaY + ctaH + 36;
+        cursorY = ctaY + ctaH + 28;
       }
 
       // ── Footer ──
