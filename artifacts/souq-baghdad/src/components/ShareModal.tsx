@@ -53,7 +53,7 @@ export function ShareModal({
   regions,
   type
 }: ShareModalProps) {
-  const [activeTab, setActiveTab] = useState<'text' | 'card'>('text');
+  const [activeTab, setActiveTab] = useState<'text' | 'card'>('card');
   const [cardTemplate, setCardTemplate] = useState<TemplateType>('story');
   const [copiedText, setCopiedText] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -95,6 +95,7 @@ export function ShareModal({
 
   useEffect(() => {
     if (isOpen) {
+      setActiveTab('card');
       setCustomCaption(getShareText());
     }
   }, [isOpen, title, price, locText, description, fullUrl]);
@@ -829,19 +830,34 @@ export function ShareModal({
                 </div>
 
                 <div className="w-full grid grid-cols-1 gap-2.5">
+                  {/* Highlighted Direct Image Share Button — Priority #1 */}
+                  <motion.button
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleAppClick('native')}
+                    disabled={!cardDataUrl}
+                    className="w-full py-4 bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-500 hover:from-amber-500 hover:to-yellow-600 text-black font-black rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-amber-500/20 border-2 border-amber-300 transition-all active:scale-[0.99] disabled:opacity-50 relative overflow-hidden group"
+                  >
+                    <span className="absolute -top-1 right-3 bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded-b-md shadow-md animate-pulse">
+                      🔥 الأكثر استخداماً والمفضل
+                    </span>
+                    <Share2 className="w-5 h-5 shrink-0 text-black stroke-[2.5]" />
+                    <span>مشاركة الصورة المباشرة للتطبيقات 📱🚀</span>
+                  </motion.button>
+
                   <button
                     onClick={downloadSingleCard}
                     disabled={!cardDataUrl || isGeneratingCard}
-                    className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-black font-black rounded-2xl text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-500/10 active:scale-[0.99] disabled:opacity-50"
+                    className="w-full py-3.5 bg-gray-850 hover:bg-gray-800 border border-gray-750 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.99] disabled:opacity-50"
                   >
-                    <Download className="w-4 h-4 shrink-0 text-black" />
+                    <Download className="w-4 h-4 shrink-0 text-amber-400" />
                     <span>حفظ وتنزيل التصميم الحالي 📸</span>
                   </button>
 
                   <button
                     onClick={() => setShowFullPreviewModal(true)}
                     disabled={!cardDataUrl}
-                    className="w-full py-3.5 bg-gray-800 hover:bg-gray-750 border border-gray-700 text-amber-400 font-black rounded-2xl text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
+                    className="w-full py-3.5 bg-gray-850 hover:bg-gray-800 border border-gray-750 text-amber-400 font-black rounded-2xl text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
                   >
                     <Eye className="w-4 h-4 text-amber-400" />
                     <span>معاينة مكبرة وتنزيل عالي الدقة 🔍</span>
@@ -861,15 +877,6 @@ export function ShareModal({
                         <span>تنزيل جميع الصور كستوريات متتالية (ZIP) 📦</span>
                      </button>
                   )}
-                  
-                  <button
-                    onClick={() => handleAppClick('native')}
-                    disabled={!cardDataUrl}
-                    className="w-full py-3.5 bg-gray-800/80 hover:bg-gray-800 border border-gray-700/80 text-gray-200 font-black rounded-2xl text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
-                  >
-                    <Share2 className="w-4 h-4 text-amber-400" />
-                    <span>مشاركة الصورة المباشرة عبر الهاتف</span>
-                  </button>
                 </div>
               </div>
             )}
