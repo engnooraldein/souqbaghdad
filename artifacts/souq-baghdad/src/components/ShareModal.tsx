@@ -4,7 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { 
   X, Copy, Check, Share2, MessageCircle, Send, Facebook, 
   Smartphone, Download, Sparkles, PlusCircle, PlayCircle, SendHorizontal, Lightbulb, HelpCircle, Info, ChevronDown, ChevronUp,
-  FileText, Palette, CheckCircle2, Layers, Link2
+  FileText, Palette, CheckCircle2, Layers, Link2, Eye, Maximize2
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import JSZip from 'jszip';
@@ -62,6 +62,7 @@ export function ShareModal({
   const [cardDataUrl, setCardDataUrl] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [showAllApps, setShowAllApps] = useState(false);
+  const [showFullPreviewModal, setShowFullPreviewModal] = useState(false);
   
   const [customCaption, setCustomCaption] = useState('');
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -72,9 +73,17 @@ export function ShareModal({
 
   const formatSharePrice = (p?: string) => {
     if (!p) return '';
-    const raw = String(p).replace(/[^\d]/g, '');
-    if (!raw) return `${p} الف دينار عراقي`;
-    return `${Number(raw).toLocaleString('en-US')} الف دينار عراقي`;
+    const cleanStr = String(p).trim();
+    const rawNum = cleanStr.replace(/[^\d]/g, '');
+    if (!rawNum) return `${cleanStr} دينار عراقي`;
+    const num = Number(rawNum);
+    const formattedNum = num.toLocaleString('en-US');
+    if (cleanStr.includes('مليون') || num >= 100000000) {
+      return `${formattedNum} مليون دينار عراقي`;
+    } else if (cleanStr.includes('الف') || cleanStr.includes('ألف') || num < 1000000) {
+      return `${formattedNum} الف دينار عراقي`;
+    }
+    return `${formattedNum} دينار عراقي`;
   };
 
   const getShareText = () => {
@@ -461,20 +470,20 @@ export function ShareModal({
 
       contentY += (template === 'whatsapp' ? 80 : 110);
       if (price) {
-         const priceText = `${price} د.ع`;
-         ctx.font = `900 ${template === 'whatsapp' ? '60px' : '72px'} system-ui, sans-serif`;
-         const pWidth = ctx.measureText(priceText).width + 160;
+         const priceText = formatSharePrice(price);
+         ctx.font = `900 ${template === 'whatsapp' ? '46px' : '54px'} system-ui, sans-serif`;
+         const pWidth = Math.min(width - 80, ctx.measureText(priceText).width + 100);
          
          ctx.save();
          ctx.shadowColor = template === 'luxury' ? '#ffd700' : accentColor;
          ctx.shadowBlur = 30;
-         ctx.fillStyle = template === 'luxury' ? 'rgba(255,215,0,0.15)' : 'rgba(245,158,11,0.15)';
+         ctx.fillStyle = template === 'luxury' ? 'rgba(255,215,0,0.18)' : 'rgba(245,158,11,0.18)';
          if (ctx.roundRect) {
             ctx.beginPath();
-            ctx.roundRect(width/2 - pWidth/2, contentY - 60, pWidth, 120, 30);
+            ctx.roundRect(width/2 - pWidth/2, contentY - 50, pWidth, 100, 25);
             ctx.fill();
          } else {
-            ctx.fillRect(width/2 - pWidth/2, contentY - 60, pWidth, 120);
+            ctx.fillRect(width/2 - pWidth/2, contentY - 50, pWidth, 100);
          }
          ctx.restore();
 
@@ -899,10 +908,14 @@ export function ShareModal({
                       <span className="text-xs text-amber-400 font-bold">جاري تصميم بطاقة النشر...</span>
                     </div>
                   ) : cardDataUrl ? (
-                    <div className="relative w-full overflow-hidden rounded-2xl mt-2 select-none shadow-lg">
+                    <div 
+                      onClick={() => setShowFullPreviewModal(true)}
+                      className="relative w-full overflow-hidden rounded-2xl mt-2 select-none shadow-lg cursor-pointer group"
+                    >
                       <img src={cardDataUrl} alt="Design Card Preview" className="w-full h-auto object-contain bg-slate-950" draggable={false} />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
-                        <span className="bg-amber-500 text-black px-3 py-1.5 rounded-full text-[10px] font-black shadow-lg">معاينة حية للتصميم 🎨</span>
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 backdrop-blur-[2px] p-2 text-center">
+                        <Maximize2 className="w-6 h-6 text-amber-400" />
+                        <span className="bg-amber-500 text-black px-3 py-1 rounded-full text-[10px] font-black shadow-lg">اضغط للتكبير والحفظ المباشر 🔍</span>
                       </div>
                     </div>
                   ) : (
@@ -918,6 +931,15 @@ export function ShareModal({
                   >
                     <Download className="w-4 h-4 shrink-0 text-black" />
                     <span>حفظ وتنزيل التصميم الحالي 📸</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowFullPreviewModal(true)}
+                    disabled={!cardDataUrl}
+                    className="w-full py-3.5 bg-gray-800 hover:bg-gray-750 border border-gray-700 text-amber-400 font-black rounded-2xl text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
+                  >
+                    <Eye className="w-4 h-4 text-amber-400" />
+                    <span>معاينة مكبرة وتنزيل عالي الدقة 🔍</span>
                   </button>
 
                   {images && images.length > 1 && (
@@ -960,6 +982,72 @@ export function ShareModal({
             </button>
           </div>
         </motion.div>
+
+        {/* High Resolution Preview & Save Lightbox Modal for Native Mobile WebView */}
+        <AnimatePresence>
+          {showFullPreviewModal && cardDataUrl && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[500] flex flex-col items-center justify-between p-4 bg-black/95 backdrop-blur-xl dir-rtl"
+            >
+              <div className="w-full flex items-center justify-between pt-2 pb-3 border-b border-gray-800 shrink-0">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-400" />
+                  <h3 className="text-white font-black text-sm">معاينة وتنزيل بطاقة الإعلان بدقة عالية 🖼️</h3>
+                </div>
+                <button
+                  onClick={() => setShowFullPreviewModal(false)}
+                  className="p-2 bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 w-full flex flex-col items-center justify-center my-auto overflow-hidden p-2">
+                <div className="relative max-w-full max-h-[70vh] rounded-3xl overflow-hidden shadow-2xl border border-gray-800 bg-gray-950 flex items-center justify-center">
+                  <img
+                    src={cardDataUrl}
+                    alt="High Resolution Preview"
+                    className="max-w-full max-h-[68vh] object-contain rounded-2xl"
+                  />
+                </div>
+                <p className="text-[11px] text-amber-300 font-bold text-center mt-3 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-full">
+                  💡 للحفظ في الاستوديو على الأجهزة الذكية: إضغط مطولاً على الصورة أعلاه واختر (حفظ الصورة / Save Image) 📥
+                </p>
+              </div>
+
+              <div className="w-full max-w-md space-y-2.5 pt-3 border-t border-gray-800 shrink-0">
+                <button
+                  onClick={() => {
+                    downloadSingleCard();
+                  }}
+                  className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-black font-black rounded-2xl text-xs flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.99]"
+                >
+                  <Download className="w-5 h-5 shrink-0 text-black" />
+                  <span>تنزيل الصورة مباشرة إلى الجهاز 📥</span>
+                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => handleAppClick('whatsapp')}
+                    className="py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>مشاركة واتساب 💬</span>
+                  </button>
+                  <button
+                    onClick={() => handleAppClick('telegram')}
+                    className="py-3 bg-sky-600 hover:bg-sky-700 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>مشاركة تليجرام ✈️</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </AnimatePresence>
   );
