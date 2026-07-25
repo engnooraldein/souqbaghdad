@@ -667,15 +667,15 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
 
         {/* Top Priority Tabs */}
         <div className={`flex gap-2 mb-2 p-2 rounded-2xl border overflow-x-auto scrollbar-hide shadow-lg ${isDarkMode ? 'bg-gray-950/60 border-gray-900' : 'bg-white border-slate-200/80 shadow-slate-100'}`} dir="rtl">
-          {([['wallet', '💳 المحفظة'],['account','⚙️ الإعدادات']] as [string,string][]).map(([t,l])=>(
-            <button key={t} onClick={()=>setTab(t as any)} className={`flex-1 whitespace-nowrap px-4.5 py-3 rounded-xl text-sm sm:text-base font-black transition-all duration-300 ${tab===t?'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-500/20':(isDarkMode ? 'text-gray-300 hover:text-white bg-gray-900 hover:bg-gray-800' : 'text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200')}`}>{l}</button>
+          {([['wallet', '💳 المحفظة'],['lines', '🚌 خطوطي'],['account','⚙️ الإعدادات']] as [string,string][]).map(([t,l])=>(
+            <button key={t} onClick={()=>setTab(t as any)} className={`flex-1 whitespace-nowrap px-3.5 sm:px-4.5 py-3 rounded-xl text-xs sm:text-base font-black transition-all duration-300 ${tab===t?'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-500/20':(isDarkMode ? 'text-gray-300 hover:text-white bg-gray-900 hover:bg-gray-800' : 'text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200')}`}>{l}</button>
           ))}
         </div>
 
         {/* Other Tabs */}
         <div className={`flex gap-2 mb-6 p-2 rounded-2xl border overflow-x-auto scrollbar-hide shadow-lg ${isDarkMode ? 'bg-gray-950/60 border-gray-900' : 'bg-white border-slate-200/80 shadow-slate-100'}`} dir="rtl">
-          {([['ads',`📢 إعلاناتي (${allMyAds.filter(a=>a.status==='active').length})`],['store',`🛍️ متجري (${allMyProducts.filter(p=>p.status==='active').length})`],['archive',`📦 الأرشيف (${allMyAds.filter(a=>a.status==='sold').length + allMyProducts.filter(p=>p.status==='sold').length})`],['lines',`🚌 خطوطي`]] as [string,string][]).map(([t,l])=>(
-            <button key={t} onClick={()=>setTab(t as any)} className={`whitespace-nowrap px-4.5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all duration-300 ${tab===t?'bg-gradient-to-r from-amber-500 to-yellow-400 text-black shadow-lg shadow-amber-500/15':(isDarkMode ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50')}`}>{l}</button>
+          {([['ads',`📢 إعلاناتي (${allMyAds.filter(a=>a.status==='active').length})`],['store',`🛍️ متجري (${allMyProducts.filter(p=>p.status==='active').length})`],['archive',`📦 الأرشيف (${allMyAds.filter(a=>a.status==='sold').length + allMyProducts.filter(p=>p.status==='sold').length})`]] as [string,string][]).map(([t,l])=>(
+            <button key={t} onClick={()=>setTab(t as any)} className={`flex-1 whitespace-nowrap px-4.5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all duration-300 ${tab===t?'bg-gradient-to-r from-amber-500 to-yellow-400 text-black shadow-lg shadow-amber-500/15':(isDarkMode ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50')}`}>{l}</button>
           ))}
         </div>
 
@@ -736,6 +736,29 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                 )}
               </div>
             </div>
+
+            {/* Dedicated Fixed "خطوطي" Quick Access Card (Directly Below Wallet Balance) */}
+            <motion.div 
+              whileHover={{ scale: 1.01 }} 
+              whileTap={{ scale: 0.99 }}
+              onClick={() => setTab('lines')}
+              className={`rounded-2xl p-4.5 sm:p-5 border cursor-pointer transition-all duration-300 flex items-center justify-between shadow-lg ${isDarkMode ? 'bg-gradient-to-r from-emerald-950/50 via-teal-950/30 to-gray-900 border-emerald-900/50 hover:border-emerald-500/60' : 'bg-gradient-to-r from-emerald-50 via-teal-50 to-white border-emerald-200 hover:border-emerald-400 shadow-slate-100'}`}
+              dir="rtl"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 shrink-0">
+                  <Car className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className={`font-black text-sm sm:text-base ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>🚌 قسم خطوطي وإعلانات النقل</h4>
+                  <p className={`text-xs ${isDarkMode ? 'text-emerald-400/80' : 'text-emerald-700'}`}>عرض وتعديل ومتابعة جميع خطوطك المسجلة</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs">
+                <span className="hidden sm:inline">فتح قسم الخطوط</span>
+                <ChevronLeft className="w-4.5 h-4.5" />
+              </div>
+            </motion.div>
 
             <div className={`rounded-2xl p-6 border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200 shadow-sm'}`}>
               <div className="flex items-center gap-2 mb-4">
