@@ -653,8 +653,21 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
 
           {/* Stats */}
           <div className="grid grid-cols-4 gap-1.5 xs:gap-2 sm:gap-4 mb-8">
-            {[{v:allMyAds.length,l:'إعلان',c:'text-amber-500'},{v:allMyProducts.length,l:'منتج',c:'text-purple-400'},{v:totalViews,l:'مشاهدة',c:'text-gray-300'},{v:totalFavorites,l:'مفضلة',c:'text-red-400'}].map((s,i)=>(
-              <div key={i} className={`rounded-xl sm:rounded-2xl p-2 sm:p-4 text-center border backdrop-blur-md flex flex-col justify-center shadow-xl transition-all duration-300 ${isDarkMode ? 'bg-gray-950/40 border-gray-900/80 hover:border-amber-500/20' : 'bg-white border-slate-200/80 hover:border-amber-500/40 shadow-slate-100'}`}>
+            {[
+              { v: allMyAds.length, l: 'إعلان', c: 'text-amber-500', t: 'ads' },
+              { v: allMyProducts.length, l: 'منتج', c: 'text-purple-400', t: 'store' },
+              { v: totalViews, l: 'مشاهدة', c: 'text-gray-300', t: 'account' },
+              { v: favAds.length + favProducts.length, l: 'مفضلة ❤️', c: 'text-red-400', t: 'favs' }
+            ].map((s, i) => (
+              <div 
+                key={i} 
+                onClick={() => setTab(s.t as any)}
+                className={`rounded-xl sm:rounded-2xl p-2 sm:p-4 text-center border backdrop-blur-md flex flex-col justify-center shadow-xl transition-all duration-300 cursor-pointer active:scale-95 ${
+                  tab === s.t 
+                    ? (isDarkMode ? 'bg-gray-800 border-amber-500 ring-2 ring-amber-500/30' : 'bg-amber-50 border-amber-500 ring-2 ring-amber-500/20')
+                    : (isDarkMode ? 'bg-gray-950/40 border-gray-900/80 hover:border-amber-500/30' : 'bg-white border-slate-200/80 hover:border-amber-500/40 shadow-slate-100')
+                }`}
+              >
                 <p className={`text-base sm:text-2xl font-black ${s.c}`}>{s.v}</p>
                 <p className={`text-[9px] sm:text-xs font-black mt-1 sm:mt-1.5 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>{s.l}</p>
               </div>
@@ -667,8 +680,8 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
 
         {/* Top Priority Tabs */}
         <div className={`flex gap-2 mb-2 p-2 rounded-2xl border overflow-x-auto scrollbar-hide shadow-lg ${isDarkMode ? 'bg-gray-950/60 border-gray-900' : 'bg-white border-slate-200/80 shadow-slate-100'}`} dir="rtl">
-          {([['wallet', '💳 المحفظة'],['lines', '🚌 خطوطي'],['account','⚙️ الإعدادات']] as [string,string][]).map(([t,l])=>(
-            <button key={t} onClick={()=>setTab(t as any)} className={`flex-1 whitespace-nowrap px-3.5 sm:px-4.5 py-3 rounded-xl text-xs sm:text-base font-black transition-all duration-300 ${tab===t?'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-500/20':(isDarkMode ? 'text-gray-300 hover:text-white bg-gray-900 hover:bg-gray-800' : 'text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200')}`}>{l}</button>
+          {([['wallet', '💳 المحفظة'],['lines', '🚌 خطوطي'],['favs', `❤️ المفضلة (${favAds.length + favProducts.length})`],['account','⚙️ الإعدادات']] as [string,string][]).map(([t,l])=>(
+            <button key={t} onClick={()=>setTab(t as any)} className={`flex-1 whitespace-nowrap px-3.5 sm:px-4.5 py-3 rounded-xl text-xs sm:text-base font-black transition-all duration-300 ${tab===t?'bg-gradient-to-r from-red-500 to-amber-500 text-white shadow-lg shadow-red-500/20':(isDarkMode ? 'text-gray-300 hover:text-white bg-gray-900 hover:bg-gray-800' : 'text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200')}`}>{l}</button>
           ))}
         </div>
 
@@ -967,6 +980,108 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
               onDelete={onDeleteTransportAd}
             />
           )
+        )}
+
+        {/* Favorites Tab */}
+        {tab==='favs'&&(
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+            {favAds.length === 0 && favProducts.length === 0 ? (
+              <div className={`rounded-3xl p-10 text-center border border-dashed flex flex-col items-center justify-center gap-3 ${isDarkMode ? 'bg-gray-900/60 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-800 shadow-sm'}`}>
+                <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-3xl text-red-500 animate-pulse">
+                  ❤️
+                </div>
+                <h3 className={`font-black text-base ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>المفضلة المحفوظة فارغة حالياً</h3>
+                <p className={`text-xs max-w-md leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                  عندما تُعجب بأي إعلان أو منتج أثناء التصفح، اضغط على علامة القلب (❤️) لحفظه وسيطهر هنا فوراً للرجوع إليه في أي وقت!
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between px-1">
+                  <h3 className={`font-black text-sm flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                    <span>العناصر المحفوظة بالمفضلة</span>
+                    <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 text-xs font-bold">
+                      {favAds.length + favProducts.length} عنصر
+                    </span>
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {favAds.map(ad => (
+                    <div 
+                      key={`fav-ad-${ad.id}`}
+                      onClick={() => onAdSelect?.(ad)}
+                      className={`rounded-2xl p-3 border flex gap-3 cursor-pointer transition-all duration-200 relative group ${
+                        isDarkMode ? 'bg-gray-850 hover:bg-gray-800 border-gray-750 hover:border-amber-500/50' : 'bg-white hover:bg-slate-50 border-slate-200/90 shadow-sm hover:shadow-md'
+                      }`}
+                    >
+                      <img 
+                        src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} 
+                        alt={ad.title}
+                        className="w-20 h-20 rounded-xl object-cover shrink-0 border border-gray-700/50"
+                      />
+                      <div className="flex-1 min-w-0 flex flex-col justify-between">
+                        <div>
+                          <span className="text-[10px] font-bold text-amber-400 block mb-0.5">📢 إعلان</span>
+                          <h4 className={`font-black text-xs line-clamp-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{ad.title}</h4>
+                          <p className="text-amber-500 text-xs font-black mt-0.5">{formatPrice(ad.price)} د.ع</p>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-gray-400 mt-1">
+                          <span>📍 {ad.location}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onFav?.(ad.id);
+                            }}
+                            className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
+                            title="إزالة من المفضلة"
+                          >
+                            <Heart className="w-4 h-4 fill-current" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {favProducts.map(prod => (
+                    <div 
+                      key={`fav-prod-${prod.id}`}
+                      onClick={() => onProductSelect?.(prod)}
+                      className={`rounded-2xl p-3 border flex gap-3 cursor-pointer transition-all duration-200 relative group ${
+                        isDarkMode ? 'bg-gray-850 hover:bg-gray-800 border-gray-750 hover:border-purple-500/50' : 'bg-white hover:bg-slate-50 border-slate-200/90 shadow-sm hover:shadow-md'
+                      }`}
+                    >
+                      <img 
+                        src={prod.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} 
+                        alt={prod.title}
+                        className="w-20 h-20 rounded-xl object-cover shrink-0 border border-gray-700/50"
+                      />
+                      <div className="flex-1 min-w-0 flex flex-col justify-between">
+                        <div>
+                          <span className="text-[10px] font-bold text-purple-400 block mb-0.5">🛍️ منتج</span>
+                          <h4 className={`font-black text-xs line-clamp-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{prod.title}</h4>
+                          <p className="text-amber-500 text-xs font-black mt-0.5">{formatPrice(prod.price)} د.ع</p>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-gray-400 mt-1">
+                          <span>📍 {prod.location || 'العراق'}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onFav?.(prod.id);
+                            }}
+                            className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
+                            title="إزالة من المفضلة"
+                          >
+                            <Heart className="w-4 h-4 fill-current" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </motion.div>
         )}
 
         {tab==='account'&&(
