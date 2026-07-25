@@ -589,6 +589,22 @@ export function ShareModal({
     }
   };
 
+  // Keyboard Escape listener & Back handling for PWA / Mobile
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showFullPreviewModal) {
+          setShowFullPreviewModal(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, showFullPreviewModal, onClose]);
+
   if (!isOpen) return null;
 
   const primaryApps: { id: PlatformType; name: string; tag: string; icon: any; bg: string }[] = [
@@ -622,7 +638,8 @@ export function ShareModal({
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-          className="relative bg-gray-900 border-t sm:border border-gray-800 rounded-t-[2.5rem] sm:rounded-3xl p-5 w-full max-w-lg shadow-2xl z-10 text-right dir-rtl max-h-[92vh] flex flex-col overflow-hidden"
+          className="relative bg-gray-900 border-t sm:border border-gray-800 rounded-t-[2.5rem] sm:rounded-3xl p-5 w-full max-w-lg shadow-2xl z-10 text-right dir-rtl max-h-[94vh] flex flex-col overflow-hidden"
+          style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))' }}
         >
           <div className="w-14 h-1.5 bg-gray-800 rounded-full mx-auto mb-4 shrink-0 cursor-pointer hover:bg-gray-700 transition-colors" onClick={onClose} />
 
@@ -662,7 +679,14 @@ export function ShareModal({
                 <HelpCircle className="w-4 h-4 shrink-0" />
                 <span className="hidden sm:inline">كيف أشارك؟</span>
               </button>
-              <button onClick={onClose} className="p-2.5 bg-gray-850 hover:bg-gray-800 rounded-xl text-gray-400 hover:text-white border border-gray-800 transition-colors" title="إغلاق"><X className="w-4 h-4" /></button>
+              <button 
+                onClick={onClose} 
+                className="px-3 py-2 bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-black rounded-xl shadow-lg border border-amber-400 flex items-center gap-1 text-xs transition-all shrink-0" 
+                title="إغلاق النافذة"
+              >
+                <X className="w-4 h-4 stroke-[3]" />
+                <span>إغلاق</span>
+              </button>
             </div>
           </div>
 
@@ -823,7 +847,7 @@ export function ShareModal({
             )}
           </div>
 
-          <div className="pt-3 border-t border-gray-800 shrink-0">
+          <div className="pt-3 border-t border-gray-800 shrink-0 space-y-2">
             <button
               onClick={handleCopyLink}
               className={`w-full py-3.5 border rounded-2xl flex items-center justify-center gap-2 transition-all duration-300 ${
@@ -833,37 +857,60 @@ export function ShareModal({
               {copiedLink ? <Check className="w-4.5 h-4.5 text-emerald-400" /> : <Link2 className="w-4.5 h-4.5 text-amber-400" />}
               <span>{copiedLink ? 'تم نسخ رابط الإعلان مباشر!' : 'نسخ الرابط المباشر للإعلان'}</span>
             </button>
+
+            <button
+              onClick={onClose}
+              className="w-full py-3 bg-gray-950 hover:bg-gray-850 border border-gray-800 text-gray-400 hover:text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all"
+            >
+              <X className="w-4 h-4 text-gray-500" />
+              <span>إغلاق الشاشة ✕</span>
+            </button>
           </div>
         </motion.div>
 
-        {/* High Resolution Preview & Save Lightbox Modal for Native Mobile WebView */}
+        {/* High Resolution Preview & Save Lightbox Overlay for Native Mobile PWA / Add to Home */}
         <AnimatePresence>
           {showFullPreviewModal && cardDataUrl && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[500] flex flex-col items-center justify-between p-4 bg-black/95 backdrop-blur-xl dir-rtl"
+              className="fixed inset-0 z-[500] flex flex-col items-center justify-between p-3 sm:p-5 bg-black/97 backdrop-blur-2xl dir-rtl overflow-hidden"
             >
-              <div className="w-full flex items-center justify-between pt-2 pb-3 border-b border-gray-800 shrink-0">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-amber-400" />
-                  <h3 className="text-white font-black text-sm">معاينة وتنزيل بطاقة الإعلان بدقة عالية 🖼️</h3>
+              {/* Top Bar with Safe Area Inset for PWA iOS Notch */}
+              <div 
+                className="w-full max-w-4xl mx-auto flex items-center justify-between pb-3 border-b border-gray-800 shrink-0 z-50"
+                style={{ paddingTop: 'calc(1.25rem + env(safe-area-inset-top, 0px))' }}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Sparkles className="w-5 h-5 text-amber-400 shrink-0" />
+                  <h3 className="text-white font-black text-xs sm:text-sm truncate">معاينة وتنزيل بطاقة الإعلان بدقة عالية 🖼️</h3>
                 </div>
+
+                {/* Large Prominent Close Button for PWA Notch Safe Area */}
                 <button
                   onClick={() => setShowFullPreviewModal(false)}
-                  className="p-2 bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors"
+                  className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-black rounded-2xl shadow-xl border border-amber-400 flex items-center gap-1.5 text-xs transition-all shrink-0"
+                  aria-label="إغلاق المعاينة المكبرة"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4 stroke-[3]" />
+                  <span>رجوع / إغلاق</span>
                 </button>
               </div>
 
-              <div className="flex-1 w-full flex flex-col items-center justify-center my-auto overflow-hidden p-2">
-                <div className="relative max-w-full max-h-[70vh] rounded-3xl overflow-hidden shadow-2xl border border-gray-800 bg-gray-950 flex items-center justify-center">
+              {/* Main Image View */}
+              <div 
+                className="flex-1 w-full max-w-4xl flex flex-col items-center justify-center my-auto overflow-hidden p-2"
+                onClick={() => setShowFullPreviewModal(false)}
+              >
+                <div 
+                  className="relative max-w-full max-h-[66vh] rounded-3xl overflow-hidden shadow-2xl border border-gray-800 bg-gray-950 flex items-center justify-center cursor-pointer"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <img
                     src={cardDataUrl}
                     alt="High Resolution Preview"
-                    className="max-w-full max-h-[68vh] object-contain rounded-2xl"
+                    className="max-w-full max-h-[64vh] object-contain rounded-2xl"
                   />
                 </div>
                 <p className="text-[11px] text-amber-300 font-bold text-center mt-3 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-full">
@@ -871,7 +918,10 @@ export function ShareModal({
                 </p>
               </div>
 
-              <div className="w-full max-w-md space-y-2.5 pt-3 border-t border-gray-800 shrink-0">
+              <div 
+                className="w-full max-w-md space-y-2.5 pt-3 border-t border-gray-800 shrink-0"
+                style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))' }}
+              >
                 <button
                   onClick={() => {
                     downloadSingleCard();
@@ -879,7 +929,7 @@ export function ShareModal({
                   className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-black font-black rounded-2xl text-xs flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.99]"
                 >
                   <Download className="w-5 h-5 shrink-0 text-black" />
-                  <span>تنزيل الصورة مباشرة إلى الجهاز 📥</span>
+                  <span>تنزيل/حفظ الصورة إلى استوديو الهاتف 📥</span>
                 </button>
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -897,6 +947,15 @@ export function ShareModal({
                     <span>مشاركة تليجرام ✈️</span>
                   </button>
                 </div>
+
+                {/* Dedicated Bottom Close Button for PWA */}
+                <button
+                  onClick={() => setShowFullPreviewModal(false)}
+                  className="w-full py-3 bg-gray-900 hover:bg-gray-800 border border-gray-700/80 text-gray-300 font-bold rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <X className="w-4 h-4 text-gray-400" />
+                  <span>إغلاق المعاينة المكبرة ✕</span>
+                </button>
               </div>
             </motion.div>
           )}
