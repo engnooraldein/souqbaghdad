@@ -136,11 +136,12 @@ function canvasToBlob(canvas: HTMLCanvasElement, quality = 0.92): Promise<Blob |
   });
 }
 
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
 /* ─────────────────────────────────────────────────────────────
    Multi-platform save strategy:
-   0. Capacitor.isNativePlatform() -> Share.share({ files: [base64] }) Native Android/iOS share sheet (includes Save to Gallery)
+   0. Capacitor.isNativePlatform() -> Filesystem.writeFile + Share.share({ files: [fileUri] }) Native Android/iOS share sheet (includes Save to Gallery)
    1. navigator.share({ files })  → iOS Safari / Android Chrome / PWA (saves to Photos)
    2. URL.createObjectURL + <a>   → Desktop browsers
    3. window.open fallback        → last resort
@@ -149,17 +150,26 @@ async function saveImageBlob(blob: Blob, fileName: string, shareTitle: string): 
   // Path 0 — Native Capacitor Android / iOS App
   if (Capacitor.isNativePlatform()) {
     try {
-      const base64Data = await new Promise<string>((resolve, reject) => {
+      const base64WithHeader = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result as string);
         reader.onerror = reject;
         reader.readAsDataURL(blob);
       });
+      const base64Data = base64WithHeader.replace(/^data:image\/\w+;base64,/, '');
+
+      const cleanFileName = fileName.endsWith('.jpg') ? fileName : `${fileName}.jpg`;
+      const savedFile = await Filesystem.writeFile({
+        path: cleanFileName,
+        data: base64Data,
+        directory: Directory.Cache,
+      });
+
       await Share.share({
         title: shareTitle,
         text: shareTitle,
         dialogTitle: 'حفظ / مشاركة الصورة 🖼️',
-        files: [base64Data],
+        files: [savedFile.uri],
       });
       return;
     } catch (e: any) {

@@ -6,6 +6,7 @@ import {
   Smartphone, Download, Sparkles, PlusCircle, PlayCircle, SendHorizontal, Lightbulb, HelpCircle, Info, ChevronDown, ChevronUp,
   FileText, Palette, CheckCircle2, Layers, Link2, Eye, Maximize2
 } from 'lucide-react';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import QRCode from 'qrcode';
 import JSZip from 'jszip';
@@ -480,17 +481,25 @@ export function ShareModal({
     // Path 0: Native Capacitor Android / iOS App
     if (Capacitor.isNativePlatform()) {
       try {
-        const base64Data = await new Promise<string>((resolve, reject) => {
+        const base64WithHeader = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result as string);
           reader.onerror = reject;
           reader.readAsDataURL(blob);
         });
+        const base64Data = base64WithHeader.replace(/^data:image\/\w+;base64,/, '');
+        const cleanFileName = fileName.endsWith('.jpg') ? fileName : `${fileName}.jpg`;
+        const savedFile = await Filesystem.writeFile({
+          path: cleanFileName,
+          data: base64Data,
+          directory: Directory.Cache,
+        });
+
         await Share.share({
           title: shareTitle,
           text: shareTitle,
           dialogTitle: 'حفظ / مشاركة الصورة 🖼️',
-          files: [base64Data],
+          files: [savedFile.uri],
         });
         return true;
       } catch (e: any) {
@@ -581,17 +590,23 @@ export function ShareModal({
         const blob = await createCardCanvas(cardTemplate, image);
         if (blob) {
           if (Capacitor.isNativePlatform()) {
-            const base64Data = await new Promise<string>((resolve, reject) => {
+            const base64WithHeader = await new Promise<string>((resolve, reject) => {
               const reader = new FileReader();
               reader.onloadend = () => resolve(reader.result as string);
               reader.onerror = reject;
               reader.readAsDataURL(blob);
             });
+            const base64Data = base64WithHeader.replace(/^data:image\/\w+;base64,/, '');
+            const savedFile = await Filesystem.writeFile({
+              path: `souq-baghdad-card-${Date.now()}.jpg`,
+              data: base64Data,
+              directory: Directory.Cache,
+            });
             await Share.share({
               title: brandTitle,
               text: customCaption,
               dialogTitle: 'مشاركة الصورة المباشرة 📱',
-              files: [base64Data]
+              files: [savedFile.uri]
             });
             triggerToast('✅ تم فتح نافذة المشاركة!');
             return;
