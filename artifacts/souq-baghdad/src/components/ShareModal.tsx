@@ -115,6 +115,45 @@ export function ShareModal({
     setTimeout(() => setCopiedText(false), 2500);
   };
 
+  const loadSafeImage = async (src: string): Promise<HTMLImageElement | null> => {
+    if (!src) return null;
+    
+    // Attempt 1: Direct Image loading with crossOrigin
+    const img1 = new Image();
+    if (!src.startsWith('data:')) img1.crossOrigin = 'anonymous';
+    const loaded1 = await new Promise<boolean>((resolve) => {
+      img1.onload = () => resolve(true);
+      img1.onerror = () => resolve(false);
+      img1.src = src;
+    });
+    if (loaded1) return img1;
+
+    // Attempt 2: Fetch blob -> Convert to Data URL (Guarantees no CORS canvas taint)
+    try {
+      const res = await fetch(src);
+      if (res.ok) {
+        const blob = await res.blob();
+        const dataUrl = await new Promise<string | null>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(blob);
+        });
+        if (dataUrl) {
+          const img2 = new Image();
+          const loaded2 = await new Promise<boolean>((resolve) => {
+            img2.onload = () => resolve(true);
+            img2.onerror = () => resolve(false);
+            img2.src = dataUrl;
+          });
+          if (loaded2) return img2;
+        }
+      }
+    } catch {}
+
+    return null;
+  };
+
   const createCardCanvas = async (template: TemplateType, targetImage: string | undefined): Promise<string | null> => {
       const width = 1080;
       let height = 1920; 
@@ -197,12 +236,11 @@ export function ShareModal({
       if (template === 'whatsapp') headerY = 40; 
 
       try {
-         const logoImg = new Image();
-         logoImg.crossOrigin = 'anonymous';
-         logoImg.src = '/logo-512.webp';
-         await new Promise((res, rej) => { logoImg.onload = res; logoImg.onerror = rej; });
-         const logoSize = template === 'whatsapp' ? 80 : 120;
-         ctx.drawImage(logoImg, width / 2 - logoSize / 2, headerY, logoSize, logoSize);
+         const logoImg = await loadSafeImage('/logo-512.webp');
+         if (logoImg) {
+            const logoSize = template === 'whatsapp' ? 80 : 120;
+            ctx.drawImage(logoImg, width / 2 - logoSize / 2, headerY, logoSize, logoSize);
+         }
       } catch (e) { }
 
       let siteTitleY = headerY + (template === 'whatsapp' ? 100 : 150);
@@ -246,21 +284,23 @@ export function ShareModal({
 
       if (targetImage) {
          try {
-            const img = new Image();
-            if (!targetImage.startsWith('data:')) img.crossOrigin = 'anonymous';
-            img.src = targetImage;
-            await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
-            const aspect = img.width / img.height;
-            const targetAspect = imgSizeW / imgSizeH;
-            let drawW = imgSizeW, drawH = imgSizeH, offX = 0, offY = 0;
-            if (aspect > targetAspect) {
-               drawW = imgSizeH * aspect;
-               offX = -(drawW - imgSizeW) / 2;
+            const img = await loadSafeImage(targetImage);
+            if (img) {
+               const aspect = img.width / img.height;
+               const targetAspect = imgSizeW / imgSizeH;
+               let drawW = imgSizeW, drawH = imgSizeH, offX = 0, offY = 0;
+               if (aspect > targetAspect) {
+                  drawW = imgSizeH * aspect;
+                  offX = -(drawW - imgSizeW) / 2;
+               } else {
+                  drawH = imgSizeW / aspect;
+                  offY = -(drawH - imgSizeH) / 2;
+               }
+               ctx.drawImage(img, imgX + offX, imgY + offY, drawW, drawH);
             } else {
-               drawH = imgSizeW / aspect;
-               offY = -(drawH - imgSizeH) / 2;
+               ctx.fillStyle = '#cbd5e1';
+               ctx.fillRect(imgX, imgY, imgSizeW, imgSizeH);
             }
-            ctx.drawImage(img, imgX + offX, imgY + offY, drawW, drawH);
          } catch (err) {
             ctx.fillStyle = '#cbd5e1';
             ctx.fillRect(imgX, imgY, imgSizeW, imgSizeH);
@@ -377,13 +417,13 @@ export function ShareModal({
                ctx.fillText(`${price} د.ع`, tX + tW - 40 * scale, splitY + bottomH / 2);
             }
 
-            try {
-               const ticketQr = await QRCode.toDataURL(fullUrl, { margin: 1, width: 140 * scale, color: { dark: '#000000', light: '#ffffff' } });
-               const qrImg = new Image();
-               qrImg.src = ticketQr;
-               await new Promise((res) => { qrImg.onload = res; });
-               ctx.drawImage(qrImg, tX + 40 * scale, splitY + bottomH/2 - (70*scale), 140 * scale, 140 * scale);
-            } catch(e) {}
+             try {
+                const ticketQr = await QRCode.toDataURL(fullUrl, { margin: 1, width: 140 * scale, color: { dark: '#000000', light: '#ffffff' } });
+                const qrImg = await loadSafeImage(ticketQr);
+                if (qrImg) {
+                   ctx.drawImage(qrImg, tX + 40 * scale, splitY + bottomH/2 - (70*scale), 140 * scale, 140 * scale);
+                }
+             } catch(e) {}
          } else {
             ctx.fillStyle = '#cbd5e1';
             ctx.fillRect(imgX, imgY, imgSizeW, imgSizeH);
@@ -471,13 +511,13 @@ export function ShareModal({
          ctx.fillStyle = footerBg;
          ctx.fillRect(0, footerY - 60, width, 180);
 
-         try {
-            const qrDataUrl = await QRCode.toDataURL(fullUrl, { margin: 1, width: 140, color: { dark: '#000000', light: '#ffffff' } });
-            const qrImg = new Image();
-            qrImg.src = qrDataUrl;
-            await new Promise((res) => { qrImg.onload = res; });
-            ctx.drawImage(qrImg, width - 180, footerY - 40, 140, 140);
-         } catch(e) {}
+          try {
+             const qrDataUrl = await QRCode.toDataURL(fullUrl, { margin: 1, width: 140, color: { dark: '#000000', light: '#ffffff' } });
+             const qrImg = await loadSafeImage(qrDataUrl);
+             if (qrImg) {
+                ctx.drawImage(qrImg, width - 180, footerY - 40, 140, 140);
+             }
+          } catch(e) {}
 
          ctx.textAlign = 'right';
          ctx.fillStyle = textColor;
