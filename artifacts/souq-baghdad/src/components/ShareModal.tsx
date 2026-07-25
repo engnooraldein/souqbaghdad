@@ -124,50 +124,41 @@ export function ShareModal({
     setTimeout(() => setCopiedText(false), 2500);
   };
 
+  // ── Safe image loader: fetch as Blob → createObjectURL (never taints canvas) ──
   const loadSafeImage = async (src: string): Promise<HTMLImageElement | null> => {
     if (!src) return null;
-    
-    // Attempt 1: Direct Image loading with crossOrigin
-    const img1 = new Image();
-    if (!src.startsWith('data:')) img1.crossOrigin = 'anonymous';
-    const loaded1 = await new Promise<boolean>((resolve) => {
-      img1.onload = () => resolve(true);
-      img1.onerror = () => resolve(false);
-      img1.src = src;
-    });
-    if (loaded1) return img1;
-
-    // Attempt 2: Fetch blob -> Convert to Data URL (Guarantees no CORS canvas taint)
+    let blobUrl: string | null = null;
     try {
-      const res = await fetch(src);
+      const res = await fetch(src, { cache: 'force-cache' });
       if (res.ok) {
         const blob = await res.blob();
-        const dataUrl = await new Promise<string | null>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = () => resolve(null);
-          reader.readAsDataURL(blob);
-        });
-        if (dataUrl) {
-          const img2 = new Image();
-          const loaded2 = await new Promise<boolean>((resolve) => {
-            img2.onload = () => resolve(true);
-            img2.onerror = () => resolve(false);
-            img2.src = dataUrl;
-          });
-          if (loaded2) return img2;
-        }
+        blobUrl = URL.createObjectURL(blob);
       }
     } catch {}
-
-    return null;
+    const srcToLoad = blobUrl ?? src;
+    const img = await new Promise<HTMLImageElement | null>((resolve) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => resolve(null);
+      el.src = srcToLoad;
+    });
+    // keep blobUrl alive until canvas drawing is done – caller revokes via cleanup
+    if (img) (img as any).__blobUrl = blobUrl;
+    else if (blobUrl) URL.revokeObjectURL(blobUrl);
+    return img;
   };
 
-  const createCardCanvas = async (template: TemplateType, targetImage: string | undefined): Promise<string | null> => {
+  // Revoke all blob URLs stored on images after canvas drawing
+  const revokeBlobUrls = (...imgs: (HTMLImageElement | null)[]) => {
+    imgs.forEach(img => { if (img && (img as any).__blobUrl) URL.revokeObjectURL((img as any).__blobUrl); });
+  };
+
+  // ── Modern iPhone-style card canvas builder → returns Blob (not DataURL) ──
+  const createCardCanvas = async (template: TemplateType, targetImage: string | undefined): Promise<Blob | null> => {
       const width = 1080;
-      let height = 1920; 
-      if (template === 'facebook') height = 1350; 
-      if (template === 'whatsapp') height = 1080; 
+      let height = 1920;
+      if (template === 'facebook') height = 1350;
+      if (template === 'whatsapp') height = 1080;
 
       const canvas = document.createElement('canvas');
       canvas.width = width;
@@ -175,391 +166,275 @@ export function ShareModal({
       const ctx = canvas.getContext('2d');
       if (!ctx) return null;
 
-      let bgGradColor1 = '#1e293b';
-      let bgGradColor2 = '#020617';
-      let accentColor = '#f59e0b'; 
-      let secondaryColor = '#d97706';
-      let textColor = '#ffffff';
-      let textSecondaryColor = '#94a3b8';
-      let footerBg = 'rgba(255, 255, 255, 0.05)';
+      // ── Color scheme by template + category ──
+      let bgGradColor1 = '#0d1117';
+      let bgGradColor2 = '#161b22';
+      let accentColor  = '#f59e0b';
+      let accentDark   = '#d97706';
+      let textColor    = '#f1f5f9';
+      let textMuted    = '#94a3b8';
 
       if (template === 'luxury') {
-         bgGradColor1 = '#1a1a1a';
-         bgGradColor2 = '#000000';
-         accentColor = '#ffd700'; 
-         secondaryColor = '#b8860b';
+        bgGradColor1 = '#0a0a0a'; bgGradColor2 = '#1a1008'; accentColor = '#fbbf24'; accentDark = '#92400e';
       } else if (template === 'simple') {
-         bgGradColor1 = '#f8fafc';
-         bgGradColor2 = '#e2e8f0';
-         accentColor = '#0f172a'; 
-         secondaryColor = '#334155';
-         textColor = '#020617';
-         textSecondaryColor = '#475569';
-         footerBg = 'rgba(0, 0, 0, 0.05)';
+        bgGradColor1 = '#f0f4f8'; bgGradColor2 = '#dbe4ee'; accentColor = '#1e293b'; accentDark = '#334155'; textColor = '#0f172a'; textMuted = '#475569';
       } else {
-         switch(category) {
-            case 'cars':
-               bgGradColor1 = '#1e1b4b'; bgGradColor2 = '#0f172a'; accentColor = '#ef4444'; secondaryColor = '#b91c1c'; break;
-            case 'real-estate':
-               bgGradColor1 = '#064e3b'; bgGradColor2 = '#022c22'; accentColor = '#10b981'; secondaryColor = '#047857'; break;
-            case 'electronics':
-               bgGradColor1 = '#172554'; bgGradColor2 = '#020617'; accentColor = '#3b82f6'; secondaryColor = '#1d4ed8'; break;
-         }
+        switch (category) {
+          case 'cars':          bgGradColor1='#0c0a1e'; bgGradColor2='#1e0a1a'; accentColor='#ef4444'; accentDark='#9f1239'; break;
+          case 'real-estate':   bgGradColor1='#031a0f'; bgGradColor2='#082018'; accentColor='#10b981'; accentDark='#065f46'; break;
+          case 'electronics':   bgGradColor1='#050d24'; bgGradColor2='#0a1a3c'; accentColor='#60a5fa'; accentDark='#1d4ed8'; break;
+          case 'phones':        bgGradColor1='#0f0724'; bgGradColor2='#1a0a38'; accentColor='#a78bfa'; accentDark='#6d28d9'; break;
+          case 'furniture':     bgGradColor1='#1a0e00'; bgGradColor2='#2d1a00'; accentColor='#f97316'; accentDark='#9a3412'; break;
+          case 'animals':       bgGradColor1='#0a1a0a'; bgGradColor2='#142a10'; accentColor='#4ade80'; accentDark='#15803d'; break;
+          case 'jobs':          bgGradColor1='#0f1923'; bgGradColor2='#1a2d3d'; accentColor='#38bdf8'; accentDark='#0369a1'; break;
+          case 'services':      bgGradColor1='#16001e'; bgGradColor2='#2a0038'; accentColor='#e879f9'; accentDark='#86198f'; break;
+          default:              bgGradColor1='#0d1117'; bgGradColor2='#161b22'; accentColor='#f59e0b'; accentDark='#d97706'; break;
+        }
       }
 
-      const bgGrad = ctx.createLinearGradient(0, 0, width, height);
+      // ── Background ──
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
       bgGrad.addColorStop(0, bgGradColor1);
       bgGrad.addColorStop(1, bgGradColor2);
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, width, height);
 
+      // ── Subtle radial accent glows ──
       if (template !== 'simple') {
-         ctx.save();
-         const glowGrad1 = ctx.createRadialGradient(width, 0, 0, width, 0, 600);
-         glowGrad1.addColorStop(0, `${accentColor}30`);
-         glowGrad1.addColorStop(1, 'transparent');
-         ctx.fillStyle = glowGrad1;
-         ctx.fillRect(0, 0, width, height);
-         
-         const glowGrad2 = ctx.createRadialGradient(0, height, 0, 0, height, 800);
-         glowGrad2.addColorStop(0, `${secondaryColor}20`);
-         glowGrad2.addColorStop(1, 'transparent');
-         ctx.fillStyle = glowGrad2;
-         ctx.fillRect(0, 0, width, height);
-         ctx.restore();
+        const g1 = ctx.createRadialGradient(width * 0.85, height * 0.1, 0, width * 0.85, height * 0.1, width * 0.6);
+        g1.addColorStop(0, `${accentColor}22`); g1.addColorStop(1, 'transparent');
+        ctx.fillStyle = g1; ctx.fillRect(0, 0, width, height);
+        const g2 = ctx.createRadialGradient(width * 0.15, height * 0.9, 0, width * 0.15, height * 0.9, width * 0.6);
+        g2.addColorStop(0, `${accentDark}18`); g2.addColorStop(1, 'transparent');
+        ctx.fillStyle = g2; ctx.fillRect(0, 0, width, height);
       }
 
-      let headerY = 100;
+      // ── Top bar: Hot views banner ──
+
+      let cursorY = 0;
       if (views && views > 10) {
-         ctx.fillStyle = '#ef4444'; 
-         ctx.fillRect(0, 0, width, 70);
-         ctx.fillStyle = '#ffffff';
-         ctx.font = 'bold 30px system-ui, sans-serif';
-         ctx.textAlign = 'center';
-         ctx.textBaseline = 'middle';
-         ctx.fillText(`🔥 أكثر من ${views} شخص شاهدوا هذا الإعلان اليوم`, width / 2, 35);
-      } else {
-         headerY = 60;
+        ctx.fillStyle = `${accentColor}dd`;
+        ctx.fillRect(0, 0, width, 68);
+        ctx.fillStyle = template === 'simple' ? '#fff' : '#000';
+        ctx.font = 'bold 28px system-ui, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(`🔥 ${views.toLocaleString()} شخص شاهدوا هذا الإعلان!`, width / 2, 34);
+        cursorY = 68;
       }
 
-      if (template === 'whatsapp') headerY = 40; 
+      // ── Header: Logo + Brand ──
+      const isSmall = template === 'whatsapp';
+      const headerPad = isSmall ? 32 : 52;
+      cursorY += headerPad;
 
-      try {
-         const logoImg = await loadSafeImage('/logo-512.webp');
-         if (logoImg) {
-            const logoSize = template === 'whatsapp' ? 80 : 120;
-            ctx.drawImage(logoImg, width / 2 - logoSize / 2, headerY, logoSize, logoSize);
-         }
-      } catch (e) { }
+      const logoImg = await loadSafeImage('/logo-512.webp');
+      const logoSize = isSmall ? 72 : 110;
+      if (logoImg) {
+        ctx.save();
+        ctx.shadowColor = `${accentColor}66`; ctx.shadowBlur = 28;
+        ctx.drawImage(logoImg, width / 2 - logoSize / 2, cursorY, logoSize, logoSize);
+        ctx.restore();
+        revokeBlobUrls(logoImg);
+      }
+      cursorY += logoSize + (isSmall ? 18 : 26);
 
-      let siteTitleY = headerY + (template === 'whatsapp' ? 100 : 150);
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.font = `bold ${template === 'whatsapp' ? '28px' : '36px'} system-ui, sans-serif`;
+      // Brand name
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = `900 ${isSmall ? 32 : 42}px system-ui, sans-serif`;
       ctx.fillStyle = accentColor;
-      ctx.fillText('سوق بغداد 🇮🇶 SOUQ BAGHDAD', width / 2, siteTitleY);
+      ctx.fillText('سوق بغداد  🇮🇶  SOUQ BAGHDAD', width / 2, cursorY);
+      cursorY += isSmall ? 22 : 30;
 
-      let badgeY = siteTitleY + 50;
-      ctx.fillStyle = template === 'luxury' ? '#ffd700' : accentColor;
-      if (ctx.roundRect) {
-         ctx.beginPath();
-         ctx.roundRect(width / 2 - 140, badgeY - 25, 280, 50, 25);
-         ctx.fill();
-      } else {
-         ctx.fillRect(width / 2 - 140, badgeY - 25, 280, 50);
-      }
-      ctx.fillStyle = template === 'simple' ? '#ffffff' : (template === 'luxury' ? '#000000' : '#ffffff');
-      ctx.font = 'bold 24px system-ui';
-      ctx.fillText(views && views > 50 ? '⭐ فرصة اليوم' : '🔥 إعلان جديد', width / 2, badgeY);
+      // Tagline
+      ctx.font = `${isSmall ? 22 : 28}px system-ui, sans-serif`;
+      ctx.fillStyle = textMuted;
+      ctx.fillText('السوق الرقمي العراقي الأول • souqbaghdad.store', width / 2, cursorY);
+      cursorY += isSmall ? 30 : 46;
 
-      const availableImageH = template === 'whatsapp' ? 400 : (template === 'facebook' ? 550 : 800);
-      const imgSizeW = 900;
-      const imgSizeH = availableImageH;
-      const imgX = (width - imgSizeW) / 2;
-      const imgY = badgeY + 60;
+      // ── Category badge ──
+      const catLabels: Record<string, string> = {
+        cars: '🚗 سيارات', 'real-estate': '🏠 عقارات', electronics: '💻 إلكترونيات',
+        phones: '📱 هواتف', furniture: '🛋️ أثاث', animals: '🐾 حيوانات',
+        jobs: '💼 وظائف', services: '🔧 خدمات', transport: '🚐 مواصلات',
+        general: '🛍️ إعلانات عامة'
+      };
+      const catLabel = catLabels[category ?? 'general'] ?? '🛍️ إعلان';
+      ctx.font = `bold ${isSmall ? 22 : 28}px system-ui, sans-serif`;
+      const catW = Math.max(260, ctx.measureText(catLabel).width + 60);
+      const catH = isSmall ? 46 : 56;
+      ctx.fillStyle = `${accentColor}22`;
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(width/2 - catW/2, cursorY, catW, catH, catH/2); ctx.fill(); }
+      else ctx.fillRect(width/2 - catW/2, cursorY, catW, catH);
+      ctx.strokeStyle = `${accentColor}66`; ctx.lineWidth = 2;
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(width/2 - catW/2, cursorY, catW, catH, catH/2); ctx.stroke(); }
+      ctx.fillStyle = accentColor;
+      ctx.fillText(catLabel, width / 2, cursorY + catH / 2);
+      cursorY += catH + (isSmall ? 28 : 40);
+
+      // ── Main image ──
+      const imgAreaH = isSmall ? 380 : template === 'facebook' ? 520 : 760;
+      const imgX = 60, imgW = width - 120, imgH = imgAreaH;
+      const imgY = cursorY;
 
       ctx.save();
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-      ctx.shadowBlur = 40;
-      ctx.shadowOffsetY = 20;
-      if (ctx.roundRect) {
-         ctx.beginPath();
-         ctx.roundRect(imgX, imgY, imgSizeW, imgSizeH, 40);
-         ctx.clip();
+      ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 50; ctx.shadowOffsetY = 20;
+      const r = 36;
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(imgX, imgY, imgW, imgH, r); ctx.clip(); }
+      else { ctx.rect(imgX, imgY, imgW, imgH); ctx.clip(); }
+
+      const loadedImg = targetImage ? await loadSafeImage(targetImage) : null;
+      if (loadedImg) {
+        const asp = loadedImg.naturalWidth / loadedImg.naturalHeight;
+        const tAsp = imgW / imgH;
+        let dW = imgW, dH = imgH, dX = imgX, dY = imgY;
+        if (asp > tAsp) { dW = imgH * asp; dX = imgX - (dW - imgW) / 2; }
+        else { dH = imgW / asp; dY = imgY - (dH - imgH) / 2; }
+        ctx.drawImage(loadedImg, dX, dY, dW, dH);
+        revokeBlobUrls(loadedImg);
+      } else if (category === 'transport' || university) {
+        // Boarding pass style placeholder
+        const bg2 = ctx.createLinearGradient(imgX, imgY, imgX, imgY + imgH);
+        bg2.addColorStop(0, '#f8f6f0'); bg2.addColorStop(1, '#e8e0cc');
+        ctx.fillStyle = bg2; ctx.fillRect(imgX, imgY, imgW, imgH);
+        const splitY2 = imgY + imgH * 0.72;
+        ctx.strokeStyle = '#c0a060'; ctx.lineWidth = 3;
+        ctx.setLineDash([14, 14]);
+        ctx.beginPath(); ctx.moveTo(imgX + 30, splitY2); ctx.lineTo(imgX + imgW - 30, splitY2); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#92400e'; ctx.font = 'bold 36px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('🚐 تذكرة خط جامعي — BOARDING PASS', imgX + imgW/2, imgY + 55);
+        ctx.fillStyle = '#1e293b'; ctx.font = '900 52px system-ui';
+        ctx.fillText((regions || 'الانطلاق').slice(0, 22), imgX + imgW/2, imgY + imgH * 0.25);
+        ctx.fillStyle = '#92400e'; ctx.font = '36px system-ui';
+        ctx.fillText('⬇', imgX + imgW/2, imgY + imgH * 0.44);
+        ctx.fillStyle = '#1e293b'; ctx.font = '900 52px system-ui';
+        ctx.fillText((university || 'الوصول').slice(0, 22), imgX + imgW/2, imgY + imgH * 0.60);
+        if (price) {
+          ctx.fillStyle = '#92400e'; ctx.font = '900 54px system-ui'; ctx.textAlign = 'right';
+          ctx.fillText(`${price} د.ع`, imgX + imgW - 40, splitY2 + (imgH - splitY2 + imgY) / 2);
+          ctx.textAlign = 'center';
+        }
       } else {
-         ctx.rect(imgX, imgY, imgSizeW, imgSizeH);
-         ctx.clip();
-      }
-
-      if (targetImage) {
-         try {
-            const img = await loadSafeImage(targetImage);
-            if (img) {
-               const aspect = img.width / img.height;
-               const targetAspect = imgSizeW / imgSizeH;
-               let drawW = imgSizeW, drawH = imgSizeH, offX = 0, offY = 0;
-               if (aspect > targetAspect) {
-                  drawW = imgSizeH * aspect;
-                  offX = -(drawW - imgSizeW) / 2;
-               } else {
-                  drawH = imgSizeW / aspect;
-                  offY = -(drawH - imgSizeH) / 2;
-               }
-               ctx.drawImage(img, imgX + offX, imgY + offY, drawW, drawH);
-            } else {
-               ctx.fillStyle = '#cbd5e1';
-               ctx.fillRect(imgX, imgY, imgSizeW, imgSizeH);
-            }
-         } catch (err) {
-            ctx.fillStyle = '#cbd5e1';
-            ctx.fillRect(imgX, imgY, imgSizeW, imgSizeH);
-         }
-      } else {
-         if (category === 'transport' || university) {
-            const bgGrad = ctx.createLinearGradient(imgX, imgY, imgX, imgY + imgSizeH);
-            bgGrad.addColorStop(0, '#1a1a1a');
-            bgGrad.addColorStop(1, '#000000');
-            ctx.fillStyle = bgGrad;
-            ctx.fillRect(imgX, imgY, imgSizeW, imgSizeH);
-
-            const scale = imgSizeH / 800;
-            const tX = imgX + 30 * scale;
-            const tY = imgY + 30 * scale;
-            const tW = imgSizeW - 60 * scale;
-            const tH = imgSizeH - 60 * scale;
-            const radius = 20 * scale;
-            const bottomH = tH * 0.28; 
-            const splitY = tY + tH - bottomH;
-
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.moveTo(tX + radius, tY);
-            ctx.lineTo(tX + tW - radius, tY);
-            ctx.quadraticCurveTo(tX + tW, tY, tX + tW, tY + radius);
-            ctx.lineTo(tX + tW, splitY - 15 * scale);
-            ctx.arc(tX + tW, splitY, 15 * scale, Math.PI * 1.5, Math.PI * 0.5, true); 
-            ctx.lineTo(tX + tW, tY + tH - radius);
-            ctx.quadraticCurveTo(tX + tW, tY + tH, tX + tW - radius, tY + tH);
-            ctx.lineTo(tX + radius, tY + tH);
-            ctx.quadraticCurveTo(tX, tY + tH, tX, tY + tH - radius);
-            ctx.lineTo(tX, splitY + 15 * scale);
-            ctx.arc(tX, splitY, 15 * scale, Math.PI * 0.5, Math.PI * 1.5, true); 
-            ctx.lineTo(tX, tY + radius);
-            ctx.quadraticCurveTo(tX, tY, tX + radius, tY);
-            ctx.fill();
-
-            ctx.strokeStyle = '#e2e8f0';
-            ctx.lineWidth = 3 * scale;
-            ctx.setLineDash([12 * scale, 12 * scale]);
-            ctx.beginPath();
-            ctx.moveTo(tX + 20 * scale, splitY);
-            ctx.lineTo(tX + tW - 20 * scale, splitY);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            ctx.fillStyle = '#b8860b';
-            ctx.font = `bold ${24 * scale}px system-ui`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'top';
-            ctx.fillText('🚐 تذكرة خط جامعي - BOARDING PASS', imgX + imgSizeW / 2, tY + 20 * scale);
-
-            const shortRegions = (regions || 'نقطة الانطلاق').substring(0, 30);
-            const shortUniv = (university || 'نقطة الوصول').substring(0, 30);
-
-            let contentY = tY + 70 * scale;
-            ctx.fillStyle = '#64748b';
-            ctx.font = `${18 * scale}px system-ui`;
-            ctx.fillText('من (FROM):', imgX + imgSizeW / 2, contentY);
-            
-            contentY += 25 * scale;
-            ctx.fillStyle = '#0f172a';
-            ctx.font = `900 ${38 * scale}px system-ui`;
-            ctx.fillText(shortRegions, imgX + imgSizeW / 2, contentY);
-
-            contentY += 50 * scale;
-            ctx.fillStyle = '#b8860b';
-            ctx.font = `${30 * scale}px system-ui`;
-            ctx.fillText('⬇️', imgX + imgSizeW / 2, contentY);
-
-            contentY += 45 * scale;
-            ctx.fillStyle = '#64748b';
-            ctx.font = `${18 * scale}px system-ui`;
-            ctx.fillText('إلى (TO):', imgX + imgSizeW / 2, contentY);
-
-            contentY += 25 * scale;
-            ctx.fillStyle = '#0f172a';
-            ctx.font = `900 ${38 * scale}px system-ui`;
-            ctx.fillText(shortUniv, imgX + imgSizeW / 2, contentY);
-
-            contentY += 60 * scale;
-            if (description && (description.includes('مقعد') || description.includes('مجال'))) {
-               ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
-               const bW = 200 * scale, bH = 35 * scale;
-               if (ctx.roundRect) {
-                  ctx.beginPath(); ctx.roundRect(imgX + imgSizeW/2 - bW/2, contentY, bW, bH, bH/2); ctx.fill();
-               } else {
-                  ctx.fillRect(imgX + imgSizeW/2 - bW/2, contentY, bW, bH);
-               }
-               ctx.fillStyle = '#10b981';
-               ctx.font = `bold ${18 * scale}px system-ui`;
-               ctx.fillText('🟢 مقاعد متوفرة', imgX + imgSizeW / 2, contentY + bH/2 - 2*scale);
-               contentY += 45 * scale;
-            } else if (views && views > 20) {
-               ctx.fillStyle = 'rgba(239, 68, 68, 0.15)';
-               const bW = 200 * scale, bH = 35 * scale;
-               if (ctx.roundRect) {
-                  ctx.beginPath(); ctx.roundRect(imgX + imgSizeW/2 - bW/2, contentY, bW, bH, bH/2); ctx.fill();
-               } else {
-                  ctx.fillRect(imgX + imgSizeW/2 - bW/2, contentY, bW, bH);
-               }
-               ctx.fillStyle = '#ef4444';
-               ctx.font = `bold ${18 * scale}px system-ui`;
-               ctx.fillText('🔥 خط مطلوب', imgX + imgSizeW / 2, contentY + bH/2 - 2*scale);
-               contentY += 45 * scale;
-            }
-
-            if (price) {
-               ctx.fillStyle = '#b8860b';
-               ctx.font = `900 ${46 * scale}px system-ui`;
-               ctx.textAlign = 'right';
-               ctx.textBaseline = 'middle';
-               ctx.fillText(`${price} د.ع`, tX + tW - 40 * scale, splitY + bottomH / 2);
-            }
-
-             try {
-                const ticketQr = await QRCode.toDataURL(fullUrl, { margin: 1, width: 140 * scale, color: { dark: '#000000', light: '#ffffff' } });
-                const qrImg = await loadSafeImage(ticketQr);
-                if (qrImg) {
-                   ctx.drawImage(qrImg, tX + 40 * scale, splitY + bottomH/2 - (70*scale), 140 * scale, 140 * scale);
-                }
-             } catch(e) {}
-         } else {
-            ctx.fillStyle = '#cbd5e1';
-            ctx.fillRect(imgX, imgY, imgSizeW, imgSizeH);
-         }
+        const ph = ctx.createLinearGradient(imgX, imgY, imgX, imgY + imgH);
+        ph.addColorStop(0, '#1e293b'); ph.addColorStop(1, '#0f172a');
+        ctx.fillStyle = ph; ctx.fillRect(imgX, imgY, imgW, imgH);
+        ctx.fillStyle = `${accentColor}30`; ctx.fillRect(imgX, imgY, imgW, imgH);
+        ctx.fillStyle = `${accentColor}44`; ctx.font = '120px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(catLabel.split(' ')[0] || '🛍️', imgX + imgW/2, imgY + imgH/2);
       }
       ctx.restore();
+      cursorY = imgY + imgH + (isSmall ? 40 : 56);
 
-      const catBadgeW = 240;
-      const catBadgeH = 50;
-      const catBadgeX = imgX + imgSizeW - catBadgeW - 20;
-      const catBadgeY = imgY - 25; 
+      // ── Thin accent line ──
+      ctx.fillStyle = accentColor;
+      ctx.fillRect(imgX, imgY + imgH - 8, imgW, 8);
+
+      // ── Title ──
+      const maxTitleLen = isSmall ? 32 : 40;
+      const displayTitle = title.length > maxTitleLen ? title.slice(0, maxTitleLen - 1) + '…' : title;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = `900 ${isSmall ? 50 : 64}px system-ui, sans-serif`;
       ctx.fillStyle = textColor;
-      ctx.shadowColor = 'rgba(0,0,0,0.1)';
-      ctx.shadowBlur = 10;
-      if (ctx.roundRect) {
-         ctx.beginPath();
-         ctx.roundRect(catBadgeX, catBadgeY, catBadgeW, catBadgeH, 25);
-         ctx.fill();
-      } else {
-         ctx.fillRect(catBadgeX, catBadgeY, catBadgeW, catBadgeH);
+      ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 12;
+      ctx.fillText(displayTitle, width / 2, cursorY);
+      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+      cursorY += isSmall ? 64 : 84;
+
+      // ── Description snippet (first 60 chars) ──
+      if (description && !isSmall) {
+        const descSnip = description.length > 72 ? description.slice(0, 70) + '…' : description;
+        ctx.font = `${32}px system-ui, sans-serif`;
+        ctx.fillStyle = textMuted;
+        ctx.fillText(descSnip, width / 2, cursorY);
+        cursorY += 50;
       }
-      ctx.shadowColor = 'transparent';
-      ctx.fillStyle = template === 'simple' ? '#000000' : '#1e293b';
-      ctx.font = 'bold 22px system-ui';
-      ctx.fillText(`${category === 'cars' ? '🚗 سيارات' : '🛍️ إعلان'} | 📍 ${locText}`, catBadgeX + catBadgeW/2, catBadgeY + 25);
 
-      let contentY = imgY + imgSizeH + (template === 'whatsapp' ? 60 : 80);
-      
-      ctx.font = `900 ${template === 'whatsapp' ? '48px' : '64px'} system-ui, sans-serif`;
-      ctx.fillStyle = textColor;
-      ctx.textAlign = 'center';
-      let displayTitle = title;
-      if (displayTitle.length > 30) displayTitle = displayTitle.substring(0, 28) + '...';
-      ctx.fillText(displayTitle, width / 2, contentY);
-
-      contentY += (template === 'whatsapp' ? 80 : 110);
+      // ── Price badge ──
       if (price) {
-         const priceText = formatSharePrice(price);
-         ctx.font = `900 ${template === 'whatsapp' ? '46px' : '54px'} system-ui, sans-serif`;
-         const pWidth = Math.min(width - 80, ctx.measureText(priceText).width + 100);
-         
-         ctx.save();
-         ctx.shadowColor = template === 'luxury' ? '#ffd700' : accentColor;
-         ctx.shadowBlur = 30;
-         ctx.fillStyle = template === 'luxury' ? 'rgba(255,215,0,0.18)' : 'rgba(245,158,11,0.18)';
-         if (ctx.roundRect) {
-            ctx.beginPath();
-            ctx.roundRect(width/2 - pWidth/2, contentY - 50, pWidth, 100, 25);
-            ctx.fill();
-         } else {
-            ctx.fillRect(width/2 - pWidth/2, contentY - 50, pWidth, 100);
-         }
-         ctx.restore();
-
-         ctx.fillStyle = template === 'luxury' ? '#ffd700' : (template === 'simple' ? accentColor : accentColor);
-         ctx.fillText(priceText, width / 2, contentY);
-         contentY += (template === 'whatsapp' ? 80 : 100);
+        const priceText = formatSharePrice(price);
+        ctx.font = `900 ${isSmall ? 48 : 60}px system-ui, sans-serif`;
+        const pW = Math.min(width - 100, ctx.measureText(priceText).width + 100);
+        ctx.save();
+        ctx.shadowColor = accentColor; ctx.shadowBlur = 36;
+        ctx.fillStyle = `${accentColor}22`;
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(width/2 - pW/2, cursorY - 52, pW, 104, 30); ctx.fill(); }
+        else ctx.fillRect(width/2 - pW/2, cursorY - 52, pW, 104);
+        ctx.strokeStyle = `${accentColor}88`; ctx.lineWidth = 3;
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(width/2 - pW/2, cursorY - 52, pW, 104, 30); ctx.stroke(); }
+        ctx.restore();
+        ctx.fillStyle = accentColor;
+        ctx.fillText(priceText, width / 2, cursorY);
+        cursorY += isSmall ? 76 : 96;
       }
 
-      if (template !== 'whatsapp') {
-         contentY += 30;
-         ctx.font = 'bold 28px system-ui, sans-serif';
-         ctx.fillStyle = textSecondaryColor;
-         const infoText = `📍 ${locText}   🕒 ${createdAt ? 'حديث' : 'متاح'}   👀 ${views || 0} مشاهدة   ${isVerified ? '❤️ موثق' : ''}`;
-         ctx.fillText(infoText, width / 2, contentY);
-         contentY += 80;
+      // ── Location + Views row ──
+      ctx.font = `${isSmall ? 26 : 30}px system-ui, sans-serif`;
+      ctx.fillStyle = textMuted;
+      const infoRow = `📍 ${locText}   •   👀 ${(views || 0).toLocaleString()} مشاهدة${isVerified ? '   •   ✅ موثق' : ''}`;
+      ctx.fillText(infoRow, width / 2, cursorY);
+      cursorY += isSmall ? 46 : 56;
+
+      // ── CTA button ──
+      if (!isSmall || cursorY < height - 200) {
+        const ctaW = 480, ctaH = 88;
+        const ctaY = cursorY;
+        ctx.save();
+        ctx.shadowColor = '#10b981'; ctx.shadowBlur = 30;
+        const ctaG = ctx.createLinearGradient(width/2 - ctaW/2, 0, width/2 + ctaW/2, 0);
+        ctaG.addColorStop(0, '#059669'); ctaG.addColorStop(1, '#10b981');
+        ctx.fillStyle = ctaG;
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(width/2 - ctaW/2, ctaY, ctaW, ctaH, ctaH/2); ctx.fill(); }
+        else ctx.fillRect(width/2 - ctaW/2, ctaY, ctaW, ctaH);
+        ctx.restore();
+        ctx.fillStyle = '#ffffff'; ctx.font = `bold ${isSmall ? 30 : 36}px system-ui`;
+        ctx.fillText('اضغط لمشاهدة الإعلان كاملاً →', width / 2, ctaY + ctaH / 2);
+        cursorY = ctaY + ctaH + 36;
       }
 
-      const ctaColor = '#10b981'; 
-      ctx.fillStyle = ctaColor;
-      const ctaW = 420;
-      if (ctx.roundRect) {
-         ctx.beginPath();
-         ctx.roundRect(width/2 - ctaW/2, contentY - 45, ctaW, 90, 45);
-         ctx.fill();
+      // ── Footer ──
+      const footH = isSmall ? 100 : 140;
+      const footY = height - footH;
+      ctx.fillStyle = template === 'simple' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)';
+      ctx.fillRect(0, footY, width, footH);
+      ctx.fillStyle = accentColor;
+      ctx.fillRect(0, footY, width, 4);
+
+      // QR code (non-small templates only)
+      if (!isSmall) {
+        try {
+          const qrData = await QRCode.toDataURL(fullUrl, { margin: 1, width: 130, color: { dark: '#000', light: '#fff' } });
+          const qrImg2 = await loadSafeImage(qrData);
+          if (qrImg2) { ctx.drawImage(qrImg2, width - 168, footY + 5, 128, 128); revokeBlobUrls(qrImg2); }
+        } catch {}
+        ctx.textAlign = 'right'; ctx.font = 'bold 28px system-ui'; ctx.fillStyle = textColor;
+        ctx.fillText('souqbaghdad.store', width - 180, footY + 48);
+        ctx.font = '22px system-ui'; ctx.fillStyle = textMuted;
+        ctx.fillText('السوق الرقمي العراقي الأول 🇮🇶', width - 180, footY + 85);
+        ctx.textAlign = 'left'; ctx.font = 'bold 26px system-ui'; ctx.fillStyle = accentColor;
+        ctx.fillText(idBadge || '🛍️ سوق بغداد', 44, footY + 60);
       } else {
-         ctx.fillRect(width/2 - ctaW/2, contentY - 45, ctaW, 90);
-      }
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 36px system-ui';
-      ctx.fillText('اضغط لمشاهدة الإعلان', width / 2, contentY);
-
-      const footerY = height - 120;
-      if (template !== 'whatsapp') {
-         ctx.fillStyle = footerBg;
-         ctx.fillRect(0, footerY - 60, width, 180);
-
-          try {
-             const qrDataUrl = await QRCode.toDataURL(fullUrl, { margin: 1, width: 140, color: { dark: '#000000', light: '#ffffff' } });
-             const qrImg = await loadSafeImage(qrDataUrl);
-             if (qrImg) {
-                ctx.drawImage(qrImg, width - 180, footerY - 40, 140, 140);
-             }
-          } catch(e) {}
-
-         ctx.textAlign = 'right';
-         ctx.fillStyle = textColor;
-         ctx.font = 'bold 32px system-ui';
-         ctx.fillText('مو لَكيت اللي تريده؟', width - 200, footerY);
-         ctx.font = '28px system-ui';
-         ctx.fillStyle = textSecondaryColor;
-         ctx.fillText('داخل سوق بغداد أكو آلاف الإعلانات غيره', width - 200, footerY + 45);
-         
-         ctx.textAlign = 'left';
-         ctx.font = 'bold 30px system-ui';
-         ctx.fillStyle = accentColor;
-         ctx.fillText('souqbaghdad.store', 40, footerY + 25);
-      } else {
-         ctx.fillStyle = footerBg;
-         ctx.fillRect(0, footerY - 30, width, 150);
-         ctx.textAlign = 'center';
-         ctx.font = 'bold 32px system-ui';
-         ctx.fillStyle = textColor;
-         ctx.fillText('آلاف الإعلانات بانتظارك داخل سوق بغداد 🛒', width/2, footerY + 20);
-         ctx.font = 'bold 28px system-ui';
-         ctx.fillStyle = accentColor;
-         ctx.fillText('souqbaghdad.store', width/2, footerY + 70);
+        ctx.textAlign = 'center'; ctx.font = 'bold 28px system-ui'; ctx.fillStyle = textColor;
+        ctx.fillText('آلاف الإعلانات بانتظارك 🛒  souqbaghdad.store', width/2, footY + footH/2);
       }
 
-      return canvas.toDataURL('image/jpeg', 0.92);
-  };
+      // ── Return Blob (not DataURL) so canvas is never read cross-origin ──
+      return new Promise<Blob | null>((resolve) => {
+        try { canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.92); }
+        catch { resolve(null); }
+      });
+  }; // end createCardCanvas
 
   const generateCanvasCardPreview = async () => {
+
     setIsGeneratingCard(true);
+    setCardDataUrl(null);
     try {
-      const dataUrl = await createCardCanvas(cardTemplate, image);
-      setCardDataUrl(dataUrl);
+      const blob = await createCardCanvas(cardTemplate, image);
+      if (blob) {
+        // For preview we use a temporary Object URL (revoked when modal closes or template changes)
+        const previewUrl = URL.createObjectURL(blob);
+        setCardDataUrl(previewUrl);
+      }
     } catch (e) {
       console.error('Failed card creation', e);
     } finally {
@@ -567,103 +442,75 @@ export function ShareModal({
     }
   };
 
-  const dataUrlToFile = async (dataUrl: string, filename: string): Promise<File | null> => {
-    try {
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
-      return new File([blob], filename, { type: 'image/jpeg' });
-    } catch {
-      return null;
+  const blobToFile = (blob: Blob, filename: string): File =>
+    new File([blob], filename, { type: 'image/jpeg' });
+
+  // Save Blob via Web Share API (iOS/Android) or <a download> (desktop)
+  const saveBlobImage = async (blob: Blob, fileName: string, shareTitle: string) => {
+    const file = blobToFile(blob, fileName);
+    // Path 1: Web Share API (iOS Safari + Android Chrome including PWA)
+    if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ title: shareTitle, files: [file] });
+        return true;
+      } catch (e: any) {
+        if (e?.name === 'AbortError') return true; // user cancelled = success
+        console.warn('share failed', e);
+      }
     }
+    // Path 2: <a download> with blob URL (desktop)
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl; a.download = fileName; a.target = '_blank';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 15_000);
+    return true;
   };
 
   const downloadSingleCard = async () => {
-    let dataUrl = cardDataUrl;
-    if (!dataUrl) {
-      setIsGeneratingCard(true);
-      dataUrl = await createCardCanvas(cardTemplate, image);
-      setIsGeneratingCard(false);
-    }
-    if (!dataUrl) {
-      triggerToast('❌ تعذر إنشاء صورة التصميم، يرجى المحاولة مرة أخرى.');
-      return;
-    }
-
-    const safeTitle = (title || 'card').replace(/[^\w\d\u0600-\u06FF-]/g, '_').slice(0, 30);
-    const fileName = `souq-baghdad-${cardTemplate}-${safeTitle}.jpg`;
-
-    // 1. Mobile Native App Flow (Capacitor Android / iOS)
-    if (Capacitor.isNativePlatform()) {
-      try {
-        const file = await dataUrlToFile(dataUrl, fileName);
-        if (file && typeof navigator !== 'undefined' && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ title: title || 'سوق بغداد', files: [file] });
-          triggerToast('📸 تم فتح قائمة الحفظ والمشاركة! اختر "حفظ بالاستوديو" 📥');
-          return;
-        }
-      } catch (err) {
-        console.warn('Native share failed:', err);
-      }
-    }
-
-    // 2. Web Browser Flow (PC, Mac, Android Web, iOS Safari Web)
+    setIsGeneratingCard(true);
+    triggerToast('⏳ جاري إنشاء التصميم...');
     try {
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
-      triggerToast('📥 تم تنزيل صورة التصميم بنجاح إلى جهازك!');
-    } catch (e) {
-      console.warn('Blob download failed, fallback to direct dataUrl:', e);
-      try {
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        triggerToast('📥 تم تنزيل صورة التصميم!');
-      } catch {
-        triggerToast('📸 يمكنك ضغط زر الماوس الأيمن أو الضغط مطولاً على الصورة للحفظ في الاستوديو.');
-      }
+      const blob = await createCardCanvas(cardTemplate, image);
+      if (!blob) { triggerToast('❌ تعذر إنشاء التصميم.'); return; }
+      const safeTitle = (title || 'card').replace(/[^\w\d\u0600-\u06FF-]/g, '_').slice(0, 30);
+      const fileName = `souq-baghdad-${cardTemplate}-${safeTitle}.jpg`;
+      await saveBlobImage(blob, fileName, `سوق بغداد | ${title}`);
+      triggerToast('✅ تم! اختر «حفظ الصورة» لحفظها في الاستوديو 🖼️');
+    } catch (err) {
+      console.error('downloadSingleCard error', err);
+      triggerToast('❌ فشل التحميل، حاول مرة أخرى.');
+    } finally {
+      setIsGeneratingCard(false);
     }
   };
 
   const downloadAllStories = async () => {
-      if (!images || images.length === 0) return;
-      setIsGeneratingZip(true);
-      try {
-          const zip = new JSZip();
-          for (let i = 0; i < images.length; i++) {
-              const dataUrl = await createCardCanvas(cardTemplate, images[i]);
-              if (dataUrl) {
-                  const base64Data = dataUrl.replace(/^data:image\/jpeg;base64,/, "");
-                  zip.file(`souq-baghdad-story-${i+1}.jpg`, base64Data, {base64: true});
-              }
-          }
-          const content = await zip.generateAsync({ type: 'blob' });
-          const blobUrl = URL.createObjectURL(content);
-          const a = document.createElement('a');
-          a.href = blobUrl;
-          a.download = `souq-baghdad-stories-${(title || 'item').replace(/\s+/g, '-')}.zip`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-          triggerToast('📦 تم تحميل ملف الستوريات (ZIP) بنجاح!');
-      } catch (err) {
-          triggerToast('❌ حدث خطأ أثناء تحميل الستوريات المتعددة.');
-      } finally {
-          setIsGeneratingZip(false);
+    if (!images || images.length === 0) return;
+    setIsGeneratingZip(true);
+    try {
+      const zip = new JSZip();
+      for (let i = 0; i < images.length; i++) {
+        triggerToast(`⏳ تصميم الصورة ${i + 1} من ${images.length}...`);
+        const blob = await createCardCanvas(cardTemplate, images[i]);
+        if (blob) {
+          const buf = await blob.arrayBuffer();
+          zip.file(`souq-baghdad-story-${i + 1}.jpg`, buf);
+        }
       }
+      const content = await zip.generateAsync({ type: 'blob' });
+      const blobUrl = URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `souq-baghdad-stories-${(title || 'item').replace(/\s+/g, '-')}.zip`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
+      triggerToast('📦 تم تحميل ملف الستوريات (ZIP) بنجاح!');
+    } catch (err) {
+      triggerToast('❌ حدث خطأ أثناء تحميل الستوريات المتعددة.');
+    } finally {
+      setIsGeneratingZip(false);
+    }
   };
 
   const handleAppClick = async (platform: PlatformType) => {
@@ -676,18 +523,23 @@ export function ShareModal({
       return;
     }
     if (platform === 'native') {
-      triggerToast('📱 جاري فتح قائمة التطبيقات الرسمية...');
+      triggerToast('⏳ جاري إعداد التصميم للمشاركة...');
       const brandTitle = `سوق بغداد 🇮🇶 | ${title}`;
-      if (cardDataUrl && typeof navigator !== 'undefined' && navigator.share) {
-        try {
-          const file = await dataUrlToFile(cardDataUrl, `Souq-Baghdad.jpg`);
-          if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        const blob = await createCardCanvas(cardTemplate, image);
+        if (blob) {
+          const file = blobToFile(blob, 'Souq-Baghdad.jpg');
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({ title: brandTitle, files: [file] });
+            triggerToast('✅ تم فتح نافذة المشاركة!');
             return;
           }
-        } catch (e) {}
+        }
+      } catch (e: any) {
+        if (e?.name !== 'AbortError') console.warn('native share error', e);
+        else return;
       }
-      if (navigator.share) navigator.share({ title: brandTitle, text: customCaption, url: fullUrl }).catch(()=>{});
+      if (navigator.share) navigator.share({ title: brandTitle, text: customCaption, url: fullUrl }).catch(() => {});
       else handleCopyCaption();
       return;
     }
@@ -695,17 +547,18 @@ export function ShareModal({
     try { await navigator.clipboard.writeText(customCaption); } catch {}
 
     if (platform === 'insta_story' || platform === 'insta_reels') {
-      triggerToast('🚀 جاري مشاركة التصميم والرابط مع انستغرام...');
-      const targetUrl = cardDataUrl;
-      if (targetUrl && typeof navigator !== 'undefined' && navigator.share) {
-        try {
-          const file = await dataUrlToFile(targetUrl, `souq-baghdad-${platform}.jpg`);
-          if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({ title: title, files: [file] });
+      triggerToast('⏳ جاري إعداد تصميم الستوري...');
+      try {
+        const blob = await createCardCanvas(cardTemplate, image);
+        if (blob) {
+          const file = blobToFile(blob, `souq-baghdad-${platform}.jpg`);
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ title, files: [file] });
+            triggerToast('✅ تم! انشر التصميم على ستوري انستغرام 🚀');
             return;
           }
-        } catch (e) {}
-      }
+        }
+      } catch (e: any) { if (e?.name !== 'AbortError') console.warn(e); else return; }
       window.open('https://www.instagram.com/', '_blank');
     } else if (platform === 'insta_direct') {
       triggerToast('💬 تم نسخ نص الإعلان! جاري فتح انستغرام...');
