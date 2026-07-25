@@ -5,33 +5,60 @@ const TRANSPORT_CHANNEL = Deno.env.get("TRANSPORT_CHANNEL") ?? "-1001437356679";
 const GENERAL_CHANNEL = Deno.env.get("GENERAL_CHANNEL") ?? "-1004381673206";
 const SITE_URL = "https://souqbaghdad.com";
 
+const formatPriceWithCommas = (price: any) => {
+  if (!price || price === '0' || price === 0) return 'غير محدد';
+  const priceStr = String(price);
+  const rawNum = priceStr.replace(/[^\d]/g, '');
+  if (!rawNum) return `${priceStr}`;
+  const num = parseInt(rawNum, 10);
+  if (isNaN(num)) return `${priceStr}`;
+  const formatted = num.toLocaleString('en-US');
+  return `${formatted} الف دينار عراقي`;
+};
+
 const formatTransportAd = (ad: any) => {
   let desc: any = {};
   try {
     desc = JSON.parse(ad.description || '{}');
   } catch (e) {}
 
-  const typeText = ad.type === 'offer' ? 'متوفر جديد (صاحب خط)' : 'مطلوب (أبحث عن خط)';
-  const categoryType = desc.categoryType === 'employee' ? '👔 خط موظفين' : '🎓 خط طلاب';
+  const isOwner = ad.type === 'offer';
+  const ownerHeader = isOwner ? '(صاحب خط)' : '(أبحث عن خط)';
   
-  return `🚌 ${categoryType} - ${typeText}\n\n` +
+  const categoryType = desc.categoryType === 'employee' 
+    ? '👔 خط موظفين' 
+    : desc.categoryType === 'emergency'
+    ? '🚗 خط طوارئ'
+    : '🎓 خط طلاب';
+  
+  const statusText = isOwner ? 'متوفر جديد' : 'مطلوب جديد';
+  
+  const itemId = ad.short_id || ad.id;
+  const detailUrl = `https://www.souqbaghdad.store/transport/card/${itemId}`;
+
+  return `${ownerHeader}\n` +
+         `${categoryType} - ${statusText}\n\n` +
          `📍 المناطق: ${ad.location || ''}\n` +
          (desc.categoryType === 'employee' ? `🏢 الوجهة: ${ad.city || ''}\n` : `🏛 الجامعة: ${ad.city || ''}\n`) +
          `🕒 الدوام: ${desc.shift || 'غير محدد'}\n` +
          (desc.vehicleType ? `🚗 المركبة: ${desc.vehicleType}\n` : '') +
-         `💰 السعر: ${ad.price && ad.price !== '0' ? ad.price + ' دينار' : 'غير محدد'}\n\n` +
+         `💰 السعر: ${formatPriceWithCommas(ad.price)}\n\n` +
          `📞 التواصل: عبر الموقع فقط\n` +
          `نشجعك تطلب مباشرة عبر الموقع 👇\n` +
-         `🔗 https://www.souqbaghdad.store/transport`;
+         `🔗 ${detailUrl}`;
 };
 
-const formatGeneralAd = (ad: any) => {
-  return `🛍️ إعلان جديد — ${ad.category}\n\n` +
+const formatGeneralAd = (ad: any, table: string = 'ads') => {
+  const itemId = ad.short_id || ad.id;
+  const typePath = table === 'products' ? 'product' : 'ad';
+  const detailUrl = `https://www.souqbaghdad.store/${typePath}/${itemId}`;
+
+  return `🛍️ إعلان جديد — ${ad.category || 'عام'}\n\n` +
          `📌 ${ad.title}\n` +
-         `📍 ${ad.city} — ${ad.location}\n` +
-         `💰 ${ad.price} دينار\n\n` +
+         (ad.city || ad.location ? `📍 ${ad.city || ''} ${ad.location ? '— ' + ad.location : ''}\n` : '') +
+         `💰 السعر: ${formatPriceWithCommas(ad.price)}\n\n` +
          `🔗 شاهد الإعلان كاملاً:\n` +
-         `https://www.souqbaghdad.store`;
+         `${detailUrl}`;
 };
 
 const sendTelegramMessage = async (chatId: string, text: string) => {
@@ -56,7 +83,12 @@ const sendTelegramPhoto = async (chatId: string, photoUrl: string, caption: stri
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, photo: photoUrl, caption: caption }),
+    body: JSON.stringify({ 
+      chat_id: chatId, 
+      photo: photoUrl, 
+      caption: caption,
+      disable_web_page_preview: true
+    }),
   });
   const data = await response.json();
   if (!data.ok) {
