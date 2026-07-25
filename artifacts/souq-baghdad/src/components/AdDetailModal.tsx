@@ -299,6 +299,22 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">{ad.images?.map((_,i)=><button key={i} onClick={()=>setImgIdx(i)} className={`h-1.5 rounded-full transition-all ${i===imgIdx?'w-4 bg-amber-400':'w-1.5 bg-white/60'}`} title={`عرض الصورة ${i + 1}`} aria-label={`عرض الصورة ${i + 1}`}/>)}</div>
           </>}
         </div>
+
+        {totalImgs > 1 && (
+          <div className="flex items-center gap-2 overflow-x-auto p-2 bg-gray-950 border-b border-gray-800 shrink-0 no-scrollbar">
+            {ad.images?.map((imgUrl, i) => (
+              <button
+                key={i}
+                onClick={() => setImgIdx(i)}
+                className={`relative w-12 h-12 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
+                  i === imgIdx ? 'border-amber-400 scale-105 shadow-md shadow-amber-500/20' : 'border-gray-800 opacity-50 hover:opacity-100'
+                }`}
+              >
+                <img src={imgUrl} alt="" className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
         <div className="p-4 sm:p-5">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 mb-3.5 pb-3.5 border-b border-gray-800/60">
             <div className="flex-1 min-w-0 space-y-1.5">

@@ -271,6 +271,22 @@ export function ProductDetailModal({ product, onClose, isFav, onFav, user, store
           <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-lg text-[10px] font-bold text-white z-10" style={{background:product.condition==='new'?'#22c55e':'#f59e0b'}}>
             {product.condition==='new'?'جديد':'مستعمل'}</div>
         </div>
+
+        {totalImgs > 1 && (
+          <div className="flex items-center gap-2 overflow-x-auto p-2 bg-gray-950 border-b border-gray-800 shrink-0 no-scrollbar">
+            {product.images?.map((imgUrl, i) => (
+              <button
+                key={i}
+                onClick={() => setImgIdx(i)}
+                className={`relative w-12 h-12 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
+                  i === imgIdx ? 'border-amber-400 scale-105 shadow-md shadow-amber-500/20' : 'border-gray-800 opacity-50 hover:opacity-100'
+                }`}
+              >
+                <img src={imgUrl} alt="" className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
         <div className="p-4 sm:p-5">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 mb-3.5 pb-3.5 border-b border-gray-800/60">
             <div className="flex-1 min-w-0 space-y-1.5">
