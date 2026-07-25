@@ -195,18 +195,65 @@ export function ProductDetailModal({ product, onClose, isFav, onFav, user, store
 
   const isOnline = !!onlineStatuses[product.postedBy];
 
+  useEffect(() => {
+    if (product) {
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [product]);
+
   return (
-    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
-      <div className="absolute inset-0 bg-black/80" onClick={onClose}/>
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 touch-none">
+      <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" onClick={onClose}/>
       <motion.div initial={{scale:0.95,opacity:0}} animate={{scale:1,opacity:1}}
-        className="relative bg-gray-900 rounded-2xl w-full max-w-lg max-h-[94vh] overflow-y-auto border border-gray-700 z-10 scrollbar-none">
+        className="relative bg-gray-900 rounded-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto border border-gray-700 z-10 scrollbar-none shadow-2xl">
+        
+        {/* Sticky Header Bar with Fixed Close Button */}
+        <div className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur-md px-4 py-2.5 border-b border-gray-800 flex items-center justify-between shadow-md" dir="rtl">
+          <button 
+            onClick={onClose} 
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black rounded-xl text-xs shadow-md transition-all group cursor-pointer" 
+            title="إغلاق المنتج" 
+            aria-label="إغلاق المنتج"
+          >
+            <X className="w-4 h-4 text-black group-hover:rotate-90 transition-transform"/> 
+            <span>إغلاق</span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={async () => {
+                if(!user) { onAuthRequired(); return; }
+                const reason = window.prompt('يرجى كتابة سبب الإبلاغ عن هذا المنتج:');
+                if (!reason) return;
+                const { error } = await supabase.from('support_messages').insert({
+                  name: `REPORT: ${product.title}`,
+                  contact_info: `${user.name} (${user.phone || user.id})`,
+                  message: JSON.stringify({ item_id: product.id, item_type: 'product', reason })
+                });
+                if (!error) {
+                  alert('تم تقديم البلاغ بنجاح وسيتم مراجعته من قبل الإدارة. شكراً لك! 🚩');
+                } else {
+                  alert('حدث خطأ أثناء إرسال البلاغ.');
+                }
+              }} 
+              className="px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl border border-red-500/20 text-xs font-bold flex items-center gap-1 transition-all"
+              title="إبلاغ عن محتوى مخالف"
+            >
+              <span>🚩</span> إبلاغ
+            </button>
+          </div>
+        </div>
+
         <InterestTimer itemId={product.id} itemType="product" />
         <div className="relative">
           <div 
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            className="aspect-[16/10] sm:aspect-video overflow-hidden rounded-t-2xl bg-gray-800 relative group touch-pan-y"
+            className="aspect-[16/10] sm:aspect-video overflow-hidden bg-gray-800 relative group touch-pan-y"
           >
             <img src={product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={product.title}
               decoding="async"
@@ -216,28 +263,6 @@ export function ProductDetailModal({ product, onClose, isFav, onFav, user, store
               className="w-full h-full object-cover cursor-zoom-in transition-all duration-300"/>
           </div>
 
-          <button onClick={onClose} className="absolute top-2.5 right-2.5 p-1.5 bg-black/60 rounded-lg text-white z-10 hover:bg-black/80" title="إغلاق" aria-label="إغلاق"><X className="w-4 h-4"/></button>
-          <button 
-            onClick={async () => {
-              if(!user) { onAuthRequired(); return; }
-              const reason = window.prompt('يرجى كتابة سبب الإبلاغ عن هذا المنتج:');
-              if (!reason) return;
-              const { error } = await supabase.from('support_messages').insert({
-                name: `REPORT: ${product.title}`,
-                contact_info: `${user.name} (${user.phone || user.id})`,
-                message: JSON.stringify({ item_id: product.id, item_type: 'product', reason })
-              });
-              if (!error) {
-                alert('تم تقديم البلاغ بنجاح وسيتم مراجعته من قبل الإدارة. شكراً لك! 🚩');
-              } else {
-                alert('حدث خطأ أثناء إرسال البلاغ.');
-              }
-            }} 
-            className="absolute top-2.5 right-11 p-1.5 bg-black/60 rounded-lg text-red-400 z-10 hover:bg-red-950/60 flex items-center gap-0.5 font-bold text-[10px]"
-            title="إبلاغ عن محتوى مخالف"
-          >
-            <span>🚩</span> إبلاغ
-          </button>
           {totalImgs > 1 && <>
             <button onClick={()=>setImgIdx(i=>(i - 1 + totalImgs) % totalImgs)} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/60 hover:bg-black/80 rounded-lg text-white z-10 transition-all" title="الصورة السابقة" aria-label="الصورة السابقة"><ChevronRight className="w-5 h-5"/></button>
             <button onClick={()=>setImgIdx(i=>(i + 1) % totalImgs)} className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/60 hover:bg-black/80 rounded-lg text-white z-10 transition-all" title="الصورة التالية" aria-label="الصورة التالية"><ChevronLeft className="w-5 h-5"/></button>
@@ -260,7 +285,7 @@ export function ProductDetailModal({ product, onClose, isFav, onFav, user, store
                   </button>
                 </div>
               </div>
-              <h2 className="text-lg sm:text-xl font-extrabold text-white leading-tight">{product.title}</h2>
+              <h2 className="text-lg sm:text-xl font-extrabold text-white leading-tight line-clamp-2 break-words">{product.title}</h2>
               <div className="flex items-center gap-2.5 text-[11px] sm:text-xs text-gray-400 flex-wrap">
                 <span className="flex items-center gap-0.5"><MapPin className="w-3 h-3 text-purple-400"/>{product.governorate}</span>
                 <span className="text-gray-700">•</span>
@@ -320,16 +345,16 @@ export function ProductDetailModal({ product, onClose, isFav, onFav, user, store
                 </div>
               </div>
               <div className="relative">
-                <p className={`text-gray-300 text-xs sm:text-sm leading-relaxed transition-all duration-300 whitespace-pre-line ${!isDescExpanded ? 'line-clamp-4' : ''}`}>
+                <p className={`text-gray-300 text-xs sm:text-sm leading-relaxed transition-all duration-300 whitespace-pre-line ${!isDescExpanded ? 'line-clamp-3' : ''}`}>
                   {product.description}
                 </p>
-                {(product.description.length > 180 || product.description.split('\n').length > 4) && (
+                {(product.description.length > 140 || product.description.split('\n').length > 3) && (
                   <button 
                     type="button"
                     onClick={() => setIsDescExpanded(!isDescExpanded)}
-                    className="text-amber-400 hover:text-amber-300 text-[10px] sm:text-xs font-bold mt-2 flex items-center gap-0.5 transition-all duration-200"
+                    className="text-amber-400 hover:text-amber-300 text-[11px] sm:text-xs font-bold mt-2 flex items-center gap-1 bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20 transition-all duration-200"
                   >
-                    <span>{isDescExpanded ? 'عرض أقل ⬆️' : 'عرض المزيد... ⬇️'}</span>
+                    <span>{isDescExpanded ? 'عرض أقل ⬆️' : 'اضغط لرؤية المزيد... ⬇️'}</span>
                   </button>
                 )}
               </div>
