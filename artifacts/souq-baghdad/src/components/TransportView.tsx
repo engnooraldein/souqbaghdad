@@ -30,7 +30,7 @@ import {
   MessageSquare, ExternalLink, ThumbsUp, MoreVertical, Eye, Lock, Unlock, Zap, Sparkles, UserPlus, 
   Loader2, Wallet, EyeOff, ZoomOut, ZoomIn, CheckCircle, Key, Tag, Package, ImagePlus, Edit2, Phone as PhoneIcon, 
   RefreshCw, TrendingDown, Clock, HelpCircle, Archive, ShoppingCart, Target, 
-  Globe, Search as SearchIcon, ArrowLeft, MoreHorizontal, LayoutGrid,
+  Globe, Search as SearchIcon, ArrowLeft, MoreHorizontal, LayoutGrid, Send,
   FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, 
 } from 'lucide-react';
 import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
@@ -309,6 +309,28 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
                 🚌 خطوطي
               </motion.button>
             )}
+          </div>
+
+          {/* Telegram Channel & Group Buttons (Below Publish Button) */}
+          <div className="grid grid-cols-2 gap-2.5 mt-3" dir="rtl">
+            <a 
+              href="https://t.me/RUC_1" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 py-2.5 px-3 bg-gradient-to-r from-sky-500/15 to-blue-500/10 hover:from-sky-500/25 hover:to-blue-500/20 border border-sky-500/30 rounded-xl text-sky-400 hover:text-sky-300 transition-all duration-300 text-xs font-bold shadow-md shadow-sky-500/5 group"
+            >
+              <Send className="w-4 h-4 text-sky-400 group-hover:scale-110 transition-transform shrink-0" />
+              <span className="truncate">قناة الخطوط 📢</span>
+            </a>
+            <a 
+              href="https://t.me/+NyZ4V2oo3vZkNmUy" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 py-2.5 px-3 bg-gradient-to-r from-blue-600/15 to-indigo-500/10 hover:from-blue-600/25 hover:to-indigo-500/20 border border-blue-500/30 rounded-xl text-blue-400 hover:text-blue-300 transition-all duration-300 text-xs font-bold shadow-md shadow-blue-500/5 group"
+            >
+              <Users className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform shrink-0" />
+              <span className="truncate">جروب التليكرام 💬</span>
+            </a>
           </div>
         </div>
       </div>
