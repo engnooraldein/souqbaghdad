@@ -72,7 +72,8 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
   isOpen:boolean; onClose:()=>void; onSubmit:(p:Product)=>void; user:User; editProduct?:Product|null; cost?:number; vipCost?:number;
 }) {
   const isEdit = !!editProduct;
-  const [fd, setFd] = useState<Partial<Product>>({ title:editProduct?.title||'', price:editProduct?.price?formatPrice(editProduct.price):'', description:editProduct?.description||'', category:editProduct?.category||'phones', governorate:editProduct?.governorate||user?.location||'بغداد', phone:editProduct?.phone||user?.phone||'', condition:(editProduct?.condition||'new') as 'new'|'used', stock:editProduct?.stock||1, is_vip: editProduct?.is_vip||false, vip_days: editProduct?.vip_days||30 });
+  type FdType = { title:string; price:string; description:string; category:string; governorate:string; phone:string; condition:'new'|'used'; stock:number; is_vip:boolean; vip_days:number; };
+  const [fd, setFd] = useState<FdType>({ title:editProduct?.title||'', price:editProduct?.price?formatPrice(editProduct.price):'', description:editProduct?.description||'', category:editProduct?.category||'phones', governorate:editProduct?.governorate||user?.location||'بغداد', phone:editProduct?.phone||user?.phone||'', condition:(editProduct?.condition||'new') as 'new'|'used', stock:editProduct?.stock||1, is_vip: editProduct?.is_vip||false, vip_days: editProduct?.vip_days||30 });
   const totalVipCost = fd.is_vip ? Math.ceil((vipCost / 30) * (fd.vip_days || 30)) : 0;
 
   const dynamicPlaceholders = useMemo(() => {
@@ -195,7 +196,7 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
     let timer: any = null;
     if (isOpen) {
       timer = setTimeout(() => {
-        calculateSmartPrice(fd.category, fd.title);
+        calculateSmartPrice(fd.category || '', fd.title || '');
       }, 500);
     } else {
       setSmartPrice(null);
@@ -206,7 +207,7 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
   }, [isOpen, fd.category, fd.title, calculateSmartPrice]);
 
   const handleGenerateAIDescription = async () => {
-    const textToUse = fd.description.trim() || fd.title.trim();
+    const textToUse = (fd.description || '').trim() || (fd.title || '').trim();
     if (!textToUse) {
       setAiError('يرجى كتابة عنوان أو تفاصيل بسيطة أولاً ليقوم الذكاء الاصطناعي بصياغتها.');
       return;
@@ -236,7 +237,7 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
         clothes: 'ملابس', furniture: 'أثاث', services: 'خدمات', games: 'ألعاب',
         cosmetics: 'مستحضرات', bikes: 'دراجات', jobs: 'وظائف', handmade: 'منتجات يدوية'
       };
-      const catLabel = cats[fd.category] || 'منتج';
+      const catLabel = (cats as Record<string,string>)[fd.category || ''] || 'منتج';
       const cond = fd.condition === 'new' ? 'جديد بحالة ممتازة' : 'بحالة جيدة جداً';
       const generated = [
         `منتج: ${fd.title || textToUse}.`,
@@ -250,7 +251,7 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
       setIsGeneratingDesc(false);
     }
   };
-  useEffect(()=>{if(editProduct){setFd({title:editProduct.title,price:formatPrice(editProduct.price),description:editProduct.description,category:editProduct.category,governorate:editProduct.governorate,phone:editProduct.phone,condition:editProduct.condition,stock:editProduct.stock,is_vip:editProduct.is_vip||false});setImages(editProduct.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)})) || []);}},[editProduct]);
+  useEffect(()=>{if(editProduct){setFd({title:editProduct.title,price:formatPrice(editProduct.price),description:editProduct.description,category:editProduct.category,governorate:editProduct.governorate,phone:editProduct.phone,condition:editProduct.condition,stock:editProduct.stock,is_vip:editProduct.is_vip||false,vip_days:editProduct.vip_days||30});setImages(editProduct.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)})) || []);}},[editProduct]);
   const handleImages = async (e:React.ChangeEvent<HTMLInputElement>) => {
     if(!e.target.files) return;
     setImageError('');
@@ -305,13 +306,13 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
   const handleSubmit = async (e:React.FormEvent) => {
     e.preventDefault(); setUploading(true); playSound('click');
     for(let i=0;i<=100;i+=20){await new Promise(r=>setTimeout(r,100));setPct(i);}
-    const p:Product = { id:isEdit?editProduct!.id:Date.now(), title:fd.title, price:fd.price.replace(/,/g,''), description:fd.description, category:fd.category, governorate:fd.governorate, phone:fd.phone, condition:fd.condition, stock:fd.stock,
-      images:images.filter(i=>i.preview).map(i=>i.preview).concat(images.length===0?[getProductCategoryPlaceholderImage(fd.category)]:[]),
+    const p:Product = { id:isEdit?editProduct!.id:Date.now(), title:fd.title||'', price:(fd.price||'').replace(/,/g,''), description:fd.description||'', category:fd.category||'electronics', governorate:fd.governorate||'بغداد', phone:fd.phone||'', condition:fd.condition||'new', stock:fd.stock||1,
+      images:images.filter(i=>i.preview).map(i=>i.preview).concat(images.length===0?[getProductCategoryPlaceholderImage(fd.category||'electronics')]:[]),
       seller:{name:user.name,avatar:user.avatar,isVerified:user.isVerified,rating:user.rating||5,joinedDate:user.joinedDate,location:user.location},
       createdAtISO:isEdit?(editProduct?.createdAtISO||new Date().toISOString()):new Date().toISOString(), views:isEdit?(editProduct?.views||0):0, postedBy:user.id,
       status:isEdit?(editProduct?.status||'active'):'active', is_vip:fd.is_vip };
     setUploading(false); playSound('success'); onSubmit(p); onClose();
-    if(!isEdit){setFd({title:'',price:'',description:'',category:'electronics',governorate:user?.location||'بغداد',phone:user?.phone||'',condition:'new',stock:1,is_vip:false});setImages([]);}
+    if(!isEdit){setFd({title:'',price:'',description:'',category:'electronics',governorate:user?.location||'بغداد',phone:user?.phone||'',condition:'new',stock:1,is_vip:false,vip_days:30});setImages([]);}
   };
   const fmt=(v:string)=>v.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',');
   const cats = [
@@ -382,7 +383,7 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
             <div className="space-y-1">
               <label className="text-gray-300 text-xs font-black block">السعر (دينار عراقي)</label>
               <div className="relative">
-                <input value={fmt(fd.price)} onChange={e=>setFd({...fd,price:fmt(e.target.value)})} placeholder={dynamicPlaceholders.price} required className="w-full bg-gray-950/40 text-white rounded-2xl py-3.5 px-4 border border-gray-900/80 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 outline-none transition-all duration-300 text-base font-black placeholder-gray-600 pl-12"/>
+                <input value={fmt(fd.price||'')} onChange={e=>setFd({...fd,price:fmt(e.target.value)})} placeholder={dynamicPlaceholders.price} required className="w-full bg-gray-950/40 text-white rounded-2xl py-3.5 px-4 border border-gray-900/80 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 outline-none transition-all duration-300 text-base font-black placeholder-gray-600 pl-12"/>
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-bold select-none">د.ع</span>
               </div>
             </div>
