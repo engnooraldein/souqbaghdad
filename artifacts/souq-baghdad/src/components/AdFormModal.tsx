@@ -286,7 +286,7 @@ export function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1,
       setIsGeneratingDesc(false);
     }
   };
-  useEffect(()=>{ if(editAd){ setFd({title:editAd.title,price:formatPrice(editAd.price),description:editAd.description,category:editAd.category,governorate:editAd.governorate,phone:editAd.phone,type:editAd.type,is_vip:editAd.is_vip||false}); setImages(editAd.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)})) || []); } },[editAd]);
+  useEffect(()=>{ if(editAd){ setFd({title:editAd.title,price:formatPrice(editAd.price),description:editAd.description,category:editAd.category,governorate:editAd.governorate,phone:editAd.phone,type:editAd.type,is_vip:editAd.is_vip||false,vip_days:0}); setImages(editAd.images?.map(img=>({preview:img,progress:100,_uid:Math.random().toString(36).substring(2,9)})) || []); } },[editAd]);
   const handleImages = async (e:React.ChangeEvent<HTMLInputElement>) => {
     if(!e.target.files) return;
     const files = Array.from(e.target.files);
@@ -348,7 +348,7 @@ export function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1,
       time:'الآن', createdAtISO:isEdit?(editAd?.createdAtISO||new Date().toISOString()):new Date().toISOString(), views:isEdit?(editAd?.views||0):0,
       status:'active', type:fd.type, description:fd.description, adCount:user.stats.ads+1, soldCount:0, responseRate:100, avgResponseTime:'5 دقائق', postedBy:user.id, is_vip:fd.is_vip };
     setUploading(false); playSound('success'); onSubmit(ad); onClose();
-    if(!isEdit){setFd({title:'',price:'',description:'',category:'cars',governorate:user?.location||'بغداد',phone:user?.phone||'',type:'sell',is_vip:false});setImages([]);}
+    if(!isEdit){setFd({title:'',price:'',description:'',category:'cars',governorate:user?.location||'بغداد',phone:user?.phone||'',type:'sell',is_vip:false,vip_days:0});setImages([]);}
     setTab('form');
   };
   const fmt = (v:string) => v.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',');

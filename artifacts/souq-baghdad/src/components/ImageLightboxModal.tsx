@@ -247,10 +247,10 @@ export function ImageLightboxModal({
   }, [onClose]);
 
   // Clear status after 3 s
-  const statusTimer = useRef<ReturnType<typeof setTimeout>>();
+  const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   function showStatus(msg: string) {
     setStatusMsg(msg);
-    clearTimeout(statusTimer.current);
+    clearTimeout(statusTimer.current ?? undefined);
     statusTimer.current = setTimeout(() => setStatusMsg(null), 3000);
   }
 

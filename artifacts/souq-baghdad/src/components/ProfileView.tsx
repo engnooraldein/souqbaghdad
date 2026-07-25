@@ -1063,7 +1063,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                           <p className="text-amber-500 text-xs font-black mt-0.5">{formatPrice(prod.price)} د.ع</p>
                         </div>
                         <div className="flex items-center justify-between text-[11px] text-gray-400 mt-1">
-                          <span>📍 {prod.location || 'العراق'}</span>
+                          <span>📍 {prod.governorate || 'العراق'}</span>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();

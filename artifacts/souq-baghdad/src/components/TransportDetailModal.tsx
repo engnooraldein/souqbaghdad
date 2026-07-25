@@ -291,9 +291,9 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
       <ReportModal 
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
-        targetId={ad.id}
+        targetId={String(ad.id)}
         targetType="transport"
-        targetTitle={`${ad.startLocation} إلى ${ad.endLocation}`}
+        targetTitle={`${ad.university} - ${ad.regions}`}
       />
     </motion.div>
   );
