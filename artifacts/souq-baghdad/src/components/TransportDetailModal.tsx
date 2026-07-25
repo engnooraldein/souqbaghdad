@@ -56,6 +56,17 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
   const [showReadingMode, setShowReadingMode] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
+  const [isNoteExpanded, setIsNoteExpanded] = useState(false);
+
+  useEffect(() => {
+    if (ad) {
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [ad]);
+
   useEffect(()=>{
     if (ad) {
       setRealViews(ad.views || 0);
@@ -78,28 +89,65 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
 
   if(!ad) return null;
   return (
-    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/80" onClick={onClose}/>
-      <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}}
-        className="relative bg-gray-900 rounded-3xl w-full max-w-xl max-h-[92vh] overflow-y-auto border border-gray-700 z-10 p-6">
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 touch-none">
+      <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" onClick={onClose}/>
+      <motion.div initial={{scale:0.95,opacity:0}} animate={{scale:1,opacity:1}}
+        className="relative bg-gray-900 rounded-3xl w-full max-w-xl max-h-[92vh] overflow-y-auto border border-gray-700 z-10 p-5 sm:p-6 scrollbar-none shadow-2xl">
+        
+        {/* Sticky Header Bar with Fixed Close Button */}
+        <div className="sticky -top-5 sm:-top-6 -mx-5 sm:-mx-6 -mt-5 sm:-mt-6 mb-4 z-40 bg-gray-900/95 backdrop-blur-md px-4 py-2.5 border-b border-gray-800 flex items-center justify-between shadow-md" dir="rtl">
+          <button 
+            onClick={onClose} 
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black rounded-xl text-xs shadow-md transition-all group cursor-pointer" 
+            title="إغلاق الإعلان" 
+            aria-label="إغلاق الإعلان"
+          >
+            <X className="w-4 h-4 text-black group-hover:rotate-90 transition-transform"/> 
+            <span>إغلاق</span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={async () => {
+                if(!user) { onAuthRequired(); return; }
+                const reason = window.prompt('يرجى كتابة سبب الإبلاغ عن هذا الخط:');
+                if (!reason) return;
+                const { error } = await supabase.from('support_messages').insert({
+                  name: `REPORT: Transport line #${ad.short_id || ad.id}`,
+                  contact_info: `${user.name} (${user.phone || user.id})`,
+                  message: JSON.stringify({ item_id: ad.id, item_type: 'transport', reason })
+                });
+                if (!error) {
+                  alert('تم تقديم البلاغ بنجاح وسيتم مراجعته من قبل الإدارة. شكراً لك! 🚩');
+                } else {
+                  alert('حدث خطأ أثناء إرسال البلاغ.');
+                }
+              }} 
+              className="px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl border border-red-500/20 text-xs font-bold flex items-center gap-1 transition-all"
+              title="إبلاغ عن محتوى مخالف"
+            >
+              <span>🚩</span> إبلاغ
+            </button>
+          </div>
+        </div>
+
         <InterestTimer itemId={ad.id} itemType="transport" />
         
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center shrink-0">
               <Car className="w-5 h-5 text-emerald-400"/>
             </div>
             <div>
-              <h2 className="text-white font-bold text-lg">{ad.type === 'offer' ? 'خط متوفر' : 'طلب خط'} إلى {ad.university}</h2>
-              <p className="text-gray-400 text-xs flex items-center gap-1 mt-0.5">
-                <MapPin className="w-3.5 h-3.5 text-emerald-400"/> <span>{ad.regions}</span>
+              <h2 className="text-white font-bold text-base sm:text-lg line-clamp-2 break-words">{ad.type === 'offer' ? 'خط متوفر' : 'طلب خط'} إلى {ad.university}</h2>
+              <p className="text-gray-400 text-xs flex items-center gap-1 mt-0.5 flex-wrap">
+                <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0"/> <span>{ad.regions}</span>
                 {ad.short_id && (
                   <span className="mr-1 text-emerald-400 font-mono font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded-md">#{ad.short_id}</span>
                 )}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 bg-gray-800 rounded-xl text-white" title="إغلاق" aria-label="إغلاق"><X className="w-5 h-5"/></button>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
@@ -131,7 +179,7 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
         )}
 
         {ad.note && (
-          <div className="bg-gray-800 rounded-xl p-4 mb-4 border border-gray-700">
+          <div className="bg-gray-800 rounded-xl p-4 mb-4 border border-gray-700/50">
             <div className="flex items-center justify-between mb-1.5">
               <h3 className="text-white font-bold text-xs">ملاحظات إضافية</h3>
               {ad.note.length > 50 && (
@@ -144,7 +192,20 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
                 </button>
               )}
             </div>
-            <p className="text-gray-300 text-xs leading-relaxed">{ad.note}</p>
+            <div className="relative">
+              <p className={`text-gray-300 text-xs sm:text-sm leading-relaxed transition-all duration-300 whitespace-pre-line ${!isNoteExpanded ? 'line-clamp-3' : ''}`}>
+                {ad.note}
+              </p>
+              {(ad.note.length > 120 || ad.note.split('\n').length > 3) && (
+                <button 
+                  type="button"
+                  onClick={() => setIsNoteExpanded(!isNoteExpanded)}
+                  className="text-amber-400 hover:text-amber-300 text-[11px] font-bold mt-2 flex items-center gap-1 bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20 transition-all duration-200"
+                >
+                  <span>{isNoteExpanded ? 'عرض أقل ⬆️' : 'اضغط لرؤية المزيد... ⬇️'}</span>
+                </button>
+              )}
+            </div>
             
             <AnimatePresence>
               {showReadingMode && (
