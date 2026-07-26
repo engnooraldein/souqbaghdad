@@ -1396,10 +1396,16 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) loadUserFromSupabase(session.user);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) loadUserFromSupabase(session.user);
-      else if (_event === 'SIGNED_OUT') { setUser(null); localStorage.removeItem('souqUser'); }
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        loadUserFromSupabase(session.user);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        localStorage.removeItem('souqUser');
+      }
     });
+
     return () => subscription.unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
