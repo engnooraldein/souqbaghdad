@@ -111,8 +111,6 @@
   html.dark body {
     background-color: #030712 !important;
   }
-    overflow-x: hidden;
-  }
 
   /* Custom Scrollbar - hair thin and elegant */
   ::-webkit-scrollbar {
