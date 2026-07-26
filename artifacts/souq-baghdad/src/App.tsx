@@ -1305,20 +1305,49 @@ export default function App() {
 
   // ── دالة تحميل بيانات المستخدم من Supabase ──────────────────────────
   const loadUserFromSupabase = async (authUser: any) => {
-    const { data: profile } = await supabase
+    let { data: profile } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', authUser.id)
       .maybeSingle();
+
+    // إذا كان دخول بـ Google أو أي OAuth لأول مرة وليس لديه بروفايل في قاعدة البيانات
+    if (!profile && authUser.id) {
+      const googleName = authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم جديد';
+      const googleAvatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || null;
+      const role = authUser.email === OWNER_EMAIL ? 'owner' : 'user';
+
+      const newProfileData = {
+        id: authUser.id,
+        full_name: googleName,
+        email: authUser.email || '',
+        phone: authUser.user_metadata?.phone || '',
+        role: role,
+        avatar_url: googleAvatar,
+        city: authUser.user_metadata?.city || 'بغداد',
+        points: 10
+      };
+
+      const { data: createdProfile } = await supabase
+        .from('profiles')
+        .upsert([newProfileData], { onConflict: 'id' })
+        .select()
+        .maybeSingle();
+
+      if (createdProfile) {
+        profile = createdProfile;
+      }
+    }
+
     const role = authUser.email === OWNER_EMAIL ? 'owner'
       : (profile?.role || authUser.user_metadata?.role || 'user');
     const u: User = {
       id: authUser.id,
-      name: profile?.full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'مستخدم',
-      email: authUser.email || '',
+      name: profile?.full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم',
+      email: authUser.email || profile?.email || '',
       phone: profile?.phone || authUser.user_metadata?.phone || '',
       role,
-      avatar: profile?.avatar_url || DEFAULT_AVATAR,
+      avatar: profile?.avatar_url || authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || DEFAULT_AVATAR,
       cover: profile?.cover_url || DEFAULT_COVER,
       bio: profile?.bio || '',
       location: profile?.city || authUser.user_metadata?.city || 'بغداد',
