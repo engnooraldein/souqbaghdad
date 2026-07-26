@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Heart, Share2, MapPin, Phone, Car, Home, Smartphone, Watch, 
   Bike, ShoppingBag, Wrench, Video, Store, Mail, ChevronRight, 
-  ChevronLeft, Search, SlidersHorizontal, Grid, List, Check, 
+  ChevronLeft, ChevronDown, Search, SlidersHorizontal, Grid, List, Check, 
   AlertCircle, AlertTriangle, Info, Bell, Settings, LogOut, 
   User as UserIcon, Plus, Camera, Trash2, Edit, Save, Upload, 
   MessageCircle, Star, Image as ImageIcon, Map, Calendar, 
