@@ -11,6 +11,8 @@
           if (saved === 'dark') {
             document.documentElement.classList.add('dark');
             isDark = true;
+          } else {
+            document.documentElement.classList.remove('dark');
           }
         } else {
           if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -22,8 +24,34 @@
         document.documentElement.classList.add('dark');
         isDark = true;
       }
-      
-      // تحميل الصورة المناسبة مسبقاً بناءً على الوضع الحالي لتسريع LCP ومنع تحذيرات المتصفح
+
+      function syncSafariTheme() {
+        var dark = document.documentElement.classList.contains('dark');
+        var color = dark ? '#050505' : '#ffffff';
+        var metaTheme = document.querySelector('meta[name="theme-color"]');
+        if (!metaTheme) {
+          metaTheme = document.createElement('meta');
+          metaTheme.name = 'theme-color';
+          document.head.appendChild(metaTheme);
+        }
+        metaTheme.setAttribute('content', color);
+
+        var appleMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+        if (appleMeta) {
+          appleMeta.setAttribute('content', dark ? 'black-translucent' : 'default');
+        }
+      }
+
+      // Sync immediately before render
+      syncSafariTheme();
+
+      // Listen for theme toggles
+      if (typeof MutationObserver !== 'undefined') {
+        var observer = new MutationObserver(syncSafariTheme);
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+      }
+
+      // Preload image based on theme
       try {
         var link = document.createElement('link');
         link.rel = 'preload';
@@ -69,31 +97,9 @@
   <meta name="twitter:description" content="أكبر منصة عراقية للبيع والشراء والإعلانات." />
   <meta name="twitter:image" content="https://www.souqbaghdad.store/logo.jpg" />
 
-  <!-- Theme Color & Mobile Safari Edge-to-Edge Sync -->
-  <script>
-    (function() {
-      function updateThemeColor() {
-        var isDark = document.documentElement.classList.contains('dark');
-        var themeColor = isDark ? '#050505' : '#ffffff';
-        
-        var metaThemes = document.querySelectorAll('meta[name="theme-color"]');
-        metaThemes.forEach(function(m) { m.setAttribute('content', themeColor); });
-        
-        var appleMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-        if (appleMeta) {
-          appleMeta.setAttribute('content', isDark ? 'black-translucent' : 'default');
-        }
-      }
-      
-      var observer = new MutationObserver(updateThemeColor);
-      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-      window.addEventListener('DOMContentLoaded', updateThemeColor);
-    })();
-  </script>
-
-  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#050505" media="(prefers-color-scheme: dark)" />
-  <meta name="msapplication-navbutton-color" content="#050505" />
+  <!-- Theme Color & Mobile Edge-to-Edge -->
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="msapplication-navbutton-color" content="#ffffff" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />

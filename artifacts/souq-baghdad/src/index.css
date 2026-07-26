@@ -84,8 +84,12 @@
   }
 
   html {
-    background-color: #030712 !important;
+    background-color: #ffffff;
     height: 100%;
+  }
+
+  html.dark {
+    background-color: #030712 !important;
   }
 
   @media (max-width: 480px) {
@@ -107,7 +111,7 @@
   }
 
   body {
-    background-color: #030712 !important;
+    background-color: #ffffff;
     color: hsl(var(--foreground));
     font-family: 'Cairo', sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
@@ -121,6 +125,10 @@
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
     overflow-x: hidden;
+  }
+
+  html.dark body {
+    background-color: #030712 !important;
   }
 
   /* Custom Scrollbar - hair thin and elegant */
@@ -577,16 +585,16 @@ input:focus, textarea:focus, select:focus {
 /* Light Mode Theme Overrides                    */
 /* ───────────────────────────────────────────── */
 html:not(.dark) {
-  background-color: #f1f5f9 !important;
+  background-color: #ffffff !important;
 }
 
 html:not(.dark) body {
-  background-color: #f1f5f9 !important;
+  background-color: #ffffff !important;
   color: #0f172a !important;
 }
 
 html:not(.dark) .pwa-outer-container {
-  background-color: #f1f5f9 !important;
+  background-color: #ffffff !important;
   background-image: none !important;
   color: #0f172a !important;
 }
