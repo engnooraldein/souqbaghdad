@@ -106,11 +106,6 @@
     }
   }
 
-  /* وضع النهاري: خلفية فاتحة حتى يظهر شريط Safari العلوي والسفلي بلون صحيح */
-  html:not(.dark) {
-    background-color: #f8fafc !important;
-  }
-
   body {
     background-color: #030712 !important;
     color: hsl(var(--foreground));
@@ -126,11 +121,6 @@
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
     overflow-x: hidden;
-  }
-
-  /* تأكيد تطبيق خلفية الوضع النهاري على body */
-  html:not(.dark) body {
-    background-color: #f8fafc !important;
   }
 
   /* Custom Scrollbar - hair thin and elegant */
