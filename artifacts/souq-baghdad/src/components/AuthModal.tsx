@@ -66,27 +66,52 @@ const COUNTRY_CODES = [
 ];
 
 // بناء مفتاح الهاتف المخزن في جدول profiles.phone
-// العراق (+964): نحفظ بالصيغة القديمة 07XXXXXXXXXX لضمان التوافق
-// دول أخرى: كود+رقم مثل 966501234567
+// العراق (+964): نحفظ بالصيغة القياسية 07XXXXXXXXXX لضمان التوافق التام
 function buildPhoneKey(code: string, localInput: string): string {
-  const digits = localInput.replace(/\D/g, '');
+  let digits = localInput.replace(/\D/g, '');
   if (code === '+964') {
-    const withoutLeadingZero = digits.replace(/^0+/, '');
-    return '0' + withoutLeadingZero; // صيغة عراقية: 07XXXXXXXXXX
+    // إذا كان مدخلاً مع كود الدولة 964
+    if (digits.startsWith('964')) {
+      digits = digits.slice(3);
+    }
+    // إذا كان بدون 0، نضيف 0 البداية
+    if (digits.startsWith('7') && digits.length === 10) {
+      return '0' + digits;
+    }
+    if (digits.startsWith('07') && digits.length === 11) {
+      return digits;
+    }
+    return digits.startsWith('0') ? digits : '0' + digits;
   }
   return code.replace('+', '') + digits;
 }
 
-// التحقق من طول رقم الهاتف
+// التحقق الدقيق من طول رقم الهاتف
 function validatePhoneLength(code: string, localInput: string): string | null {
-  const digits = localInput.replace(/\D/g, '');
+  let digits = localInput.replace(/\D/g, '');
+  if (code === '+964') {
+    if (digits.startsWith('964')) {
+      digits = digits.slice(3);
+    }
+    if (digits.startsWith('07')) {
+      if (digits.length < 11) return `رقم الهاتف العراقي ناقص (${digits.length}/11 رقم). تأكد من إدخال الـ 11 رقم بالكامل.`;
+      if (digits.length > 11) return `رقم الهاتف العراقي طويل جداً (${digits.length}/11 رقم).`;
+      return null;
+    } else if (digits.startsWith('7')) {
+      if (digits.length < 10) return `رقم الهاتف ناقص (${digits.length}/10 أرقام). اكتب 10 أرقام بعد الـ 7.`;
+      if (digits.length > 10) return `رقم الهاتف طويل جداً (${digits.length}/10 أرقام).`;
+      return null;
+    } else {
+      return 'يجب أن يبدأ رقم الهاتف العراقي بـ 07 (11 رقم) أو بـ 7 (10 أرقام)';
+    }
+  }
+
   const country = COUNTRY_CODES.find(c => c.code === code);
   if (!country) return null;
-  const countable = code === '+964' ? digits.replace(/^0+/, '') : digits;
-  if (countable.length < country.minLen)
-    return `يحتاج ${country.minLen} أرقام على الأقل (أدخلت ${countable.length})`;
-  if (countable.length > country.maxLen)
-    return `رقم طويل جداً — الحد ${country.maxLen} (أدخلت ${countable.length})`;
+  if (digits.length < country.minLen)
+    return `يحتاج ${country.minLen} أرقام على الأقل (أدخلت ${digits.length})`;
+  if (digits.length > country.maxLen)
+    return `رقم طويل جداً — الحد ${country.maxLen} (أدخلت ${digits.length})`;
   return null;
 }
 
@@ -136,7 +161,7 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
 
   // ─── الرقم/البريد المعروض في شاشة كلمة المرور ─────────────────────────────
   const identifierDisplay = resolvedPhone
-    ? `${countryCode} ${phoneLocal}`
+    ? (countryCode === '+964' ? resolvedPhone : `${countryCode} ${phoneLocal}`)
     : resolvedEmail;
 
   // ─── خطوة رقم الهاتف ──────────────────────────────────────────────────────
