@@ -69,26 +69,33 @@
   <meta name="twitter:description" content="أكبر منصة عراقية للبيع والشراء والإعلانات." />
   <meta name="twitter:image" content="https://www.souqbaghdad.store/logo.jpg" />
 
-  <!-- Dynamic Theme Color Script -->
+  <!-- Dynamic Theme Color Script for Safari & Mobile -->
   <script>
     (function() {
       function updateThemeColor() {
         var isDark = document.documentElement.classList.contains('dark');
         var themeColor = isDark ? '#050505' : '#ffffff';
-        var metaTheme = document.querySelector('meta[name="theme-color"]');
-        if (metaTheme) {
-          metaTheme.setAttribute('content', themeColor);
+        
+        // Update all theme-color meta tags
+        var metaThemes = document.querySelectorAll('meta[name="theme-color"]');
+        metaThemes.forEach(function(m) { m.setAttribute('content', themeColor); });
+        
+        // Update Apple Status Bar Style
+        var appleMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+        if (appleMeta) {
+          appleMeta.setAttribute('content', isDark ? 'black-translucent' : 'default');
         }
       }
+      
       var observer = new MutationObserver(updateThemeColor);
       observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+      window.addEventListener('DOMContentLoaded', updateThemeColor);
     })();
   </script>
 
   <!-- Theme Color & Mobile Edge-to-Edge -->
-  <meta name="theme-color" content="#050505" media="(prefers-color-scheme: dark)" />
-  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-  <meta name="msapplication-navbutton-color" content="#050505" />
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="msapplication-navbutton-color" content="#ffffff" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
