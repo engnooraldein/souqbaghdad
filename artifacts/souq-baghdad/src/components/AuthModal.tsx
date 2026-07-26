@@ -627,39 +627,41 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
             {/* ══ إدخال رقم الهاتف ══ */}
             {!isRecovery && step === 'phone_enter' && (
               <form onSubmit={handlePhoneSubmit} className="space-y-4">
-                {/* صف كود الدولة + الرقم */}
-                <div className="flex gap-2">
-                  <select
-                    value={countryCode}
-                    onChange={e => setCountryCode(e.target.value)}
-                    className="bg-gray-800 text-white border border-gray-700 focus:border-amber-400 rounded-xl px-2 py-3.5 outline-none text-sm shrink-0 cursor-pointer"
-                    style={{ minWidth: '130px' }}
-                    title="كود الدولة" aria-label="كود الدولة"
-                  >
-                    {COUNTRY_CODES.map(c => (
-                      <option key={c.code} value={c.code}>
-                        {c.flag} {c.code}  {c.name}
-                      </option>
-                    ))}
-                  </select>
+                {/* حقل مدمج موحد: كود الدولة يسار + رقم الهاتف LTR */}
+                <div className="relative flex items-center bg-gray-800 rounded-xl border border-gray-700 focus-within:border-amber-400 overflow-hidden dir-ltr">
+                  <div className="flex items-center gap-1.5 px-3 py-3.5 bg-gray-850 border-r border-gray-700/80 shrink-0">
+                    <Phone className="w-4 h-4 text-amber-400 shrink-0" />
+                    <select
+                      value={countryCode}
+                      onChange={e => setCountryCode(e.target.value)}
+                      className="bg-transparent text-white outline-none text-sm cursor-pointer font-medium appearance-none pr-5 relative z-10"
+                      title="كود الدولة" aria-label="كود الدولة"
+                    >
+                      {COUNTRY_CODES.map(c => (
+                        <option key={c.code} value={c.code} className="bg-gray-900 text-white">
+                          {c.flag} {c.code} ({c.name})
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-gray-400 -ml-4 pointer-events-none" />
+                  </div>
                   <input
                     type="tel"
                     inputMode="numeric"
                     value={phoneLocal}
                     onChange={e => setPhoneLocal(normalizeArabicNumerals(e.target.value.replace(/[^\d٠-٩۰-۹\s\-]/g, '')))}
-                    placeholder={countryCode === '+964' ? '07xxxxxxxxxx' : 'رقم الهاتف'}
+                    placeholder={countryCode === '+964' ? '0770 123 4567' : 'رقم الهاتف'}
                     required
                     autoComplete="tel"
                     autoFocus
-                    className="flex-1 bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3.5 px-4 border border-gray-700 focus:border-amber-400 outline-none text-base font-sans"
-                    dir="ltr"
+                    className="flex-1 bg-transparent text-white placeholder-gray-400 py-3.5 px-3 outline-none text-base font-sans dir-ltr"
                   />
                 </div>
 
                 {/* تلميح */}
                 <p className="text-gray-500 text-xs text-center">
                   {countryCode === '+964'
-                    ? 'مثال: 07501234567  (11 رقم)'
+                    ? 'مثال: 07501234567 (11 رقم)'
                     : `${selectedCountry.flag} ${selectedCountry.name} — ${selectedCountry.minLen}–${selectedCountry.maxLen} رقم`}
                 </p>
 
@@ -672,8 +674,10 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
             {/* ══ إدخال البريد الإلكتروني ══ */}
             {!isRecovery && step === 'email_enter' && (
               <form onSubmit={handleEmailSubmit} className="space-y-4">
-                <div className="relative">
-                  <Mail className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <div className="relative flex items-center bg-gray-800 rounded-xl border border-gray-700 focus-within:border-amber-400 overflow-hidden dir-ltr">
+                  <div className="flex items-center pl-3.5 pr-2 py-3.5 shrink-0 text-amber-400">
+                    <Mail className="w-5 h-5" />
+                  </div>
                   <input
                     type="email"
                     inputMode="email"
@@ -683,8 +687,7 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
                     required
                     autoComplete="email"
                     autoFocus
-                    className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-4 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none text-base"
-                    dir="ltr"
+                    className="flex-1 bg-transparent text-white placeholder-gray-400 py-3.5 pr-4 pl-1 outline-none text-base font-sans dir-ltr"
                   />
                 </div>
                 <button type="submit" className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-lg shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-transform">
