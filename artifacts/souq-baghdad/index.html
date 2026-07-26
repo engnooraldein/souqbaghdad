@@ -1,69 +1,64 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-  <!-- ⚡ Theme & Preload Script: يحدد الوضع الداكن ويقوم بالتحميل المسبق الفوري للصورة الصحيحة فقط لمنع التحذيرات -->
+  <meta charset="UTF-8" />
+  <!-- ⚡ 0ms Synchronous Theme & Safari Status Bar Sync Script -->
   <script>
     (function() {
-      var isDark = false;
+      var isDark = true;
       try {
         var saved = window.localStorage && window.localStorage.getItem('souqBaghdad_theme');
-        if (saved === 'dark' || saved === 'light') {
-          if (saved === 'dark') {
-            document.documentElement.classList.add('dark');
-            isDark = true;
-          } else {
-            document.documentElement.classList.remove('dark');
-          }
+        if (saved === 'light') {
+          isDark = false;
+        } else if (saved === 'dark') {
+          isDark = true;
         } else {
-          if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            document.documentElement.classList.add('dark');
-            isDark = true;
-          }
+          isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         }
       } catch(e) {
-        document.documentElement.classList.add('dark');
         isDark = true;
       }
 
-      function syncSafariTheme() {
-        var dark = document.documentElement.classList.contains('dark');
-        var color = dark ? '#030712' : '#ffffff';
-        
-        var metaThemes = document.querySelectorAll('meta[name="theme-color"]');
-        metaThemes.forEach(function(m) { m.setAttribute('content', color); });
-
-        var msMeta = document.querySelector('meta[name="msapplication-navbutton-color"]');
-        if (msMeta) {
-          msMeta.setAttribute('content', color);
-        }
-
-        var appleMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-        if (appleMeta) {
-          appleMeta.setAttribute('content', dark ? 'black-translucent' : 'default');
-        }
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
       }
 
-      // Sync immediately before render
-      syncSafariTheme();
+      var color = isDark ? '#030712' : '#ffffff';
+      
+      // ⚡ Write meta tags synchronously at 0ms during head parsing (Zero Delay!)
+      document.write('<meta name="theme-color" id="theme-color-meta" content="' + color + '">');
+      document.write('<meta name="msapplication-navbutton-color" content="' + color + '">');
+      document.write('<meta name="apple-mobile-web-app-status-bar-style" content="' + (isDark ? 'black-translucent' : 'default') + '">');
+      
+      // ⚡ Match initial loader background color synchronously
+      if (!isDark) {
+        document.write('<style>.initial-loader{background-color:#ffffff !important;color:#0f172a !important;}.loader-subtext{color:rgba(15,23,42,0.7) !important;}</style>');
+      } else {
+        document.write('<style>.initial-loader{background-color:#030712 !important;color:#ffffff !important;}</style>');
+      }
 
-      // Listen for theme toggles
+      // Dynamic theme toggle observer for live switches
+      function syncSafariTheme() {
+        var dark = document.documentElement.classList.contains('dark');
+        var c = dark ? '#030712' : '#ffffff';
+        var metaThemes = document.querySelectorAll('meta[name="theme-color"]');
+        metaThemes.forEach(function(m) { m.setAttribute('content', c); });
+        
+        var msMeta = document.querySelector('meta[name="msapplication-navbutton-color"]');
+        if (msMeta) msMeta.setAttribute('content', c);
+
+        var appleMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+        if (appleMeta) appleMeta.setAttribute('content', dark ? 'black-translucent' : 'default');
+      }
+
       if (typeof MutationObserver !== 'undefined') {
         var observer = new MutationObserver(syncSafariTheme);
         observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
       }
-
-      // Preload image based on theme
-      try {
-        var link = document.createElement('link');
-        link.rel = 'preload';
-        link.as = 'image';
-        link.href = isDark ? '/baghdad_night.png' : 'https://www-file.honor.com/content/dam/honor/common/tech/honor-ai/ar/imgs/section-kv/aisubject-kv-bg2.jpg';
-        link.setAttribute('fetchpriority', 'high');
-        document.head.appendChild(link);
-      } catch(e) {}
     })();
   </script>
-  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
   <!-- Preconnect to Google Fonts, Supabase, and Honor for faster loading -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -98,12 +93,9 @@
   <meta name="twitter:description" content="أكبر منصة عراقية للبيع والشراء والإعلانات." />
   <meta name="twitter:image" content="https://www.souqbaghdad.store/logo.jpg" />
 
-  <!-- Theme Color & Mobile Edge-to-Edge -->
-  <meta name="theme-color" content="#ffffff" />
-  <meta name="msapplication-navbutton-color" content="#ffffff" />
+  <!-- Mobile Edge-to-Edge Web App -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
   <!-- Favicon & Site Logo for Google Search -->
   <link rel="icon" type="image/webp" sizes="128x128" href="/logo-128.webp" />
