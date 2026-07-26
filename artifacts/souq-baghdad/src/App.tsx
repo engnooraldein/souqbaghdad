@@ -1311,7 +1311,29 @@ export default function App() {
       .eq('id', authUser.id)
       .maybeSingle();
 
-    // إذا كان دخول بـ Google أو أي OAuth لأول مرة وليس لديه بروفايل في قاعدة البيانات
+    // إذا لم يجد بروفايل بالـ id (مثلاً سجل بـ Google)، نتحقق أولاً هل يوجد بروفايل سابق بنفس البريد؟
+    if (!profile && authUser.email) {
+      const { data: existingByEmail } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', authUser.email)
+        .maybeSingle();
+
+      if (existingByEmail) {
+        // وجدنا حسابه القديم بنفس البريد! نربطه بالـ ID الجديد أو نستخدم بياناته القديمة
+        profile = existingByEmail;
+        // نحدث رقم الآيدي والرمز إذا لزم الأمر
+        await supabase
+          .from('profiles')
+          .update({
+            id: authUser.id,
+            avatar_url: profile.avatar_url || authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture
+          })
+          .eq('email', authUser.email);
+      }
+    }
+
+    // إذا كان دخول بـ Google أو أي OAuth لأول مرة ولم يجد بروفايل في قاعدة البيانات إطلاقاً
     if (!profile && authUser.id) {
       const googleName = authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم جديد';
       const googleAvatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || null;
