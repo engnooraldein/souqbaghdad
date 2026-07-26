@@ -35,7 +35,7 @@
     })();
   </script>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
   <!-- Preconnect to Google Fonts, Supabase, and Honor for faster loading -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -69,15 +69,34 @@
   <meta name="twitter:description" content="أكبر منصة عراقية للبيع والشراء والإعلانات." />
   <meta name="twitter:image" content="https://www.souqbaghdad.store/logo.jpg" />
 
-  <!-- Theme Color & Mobile Edge-to-Edge -->
-  <!-- لون #050505 هو اللون الدقيق لخلفية الموقع الأزرق الملكي -->
-  <meta name="theme-color" content="#050505" />
-  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#050505" />
-  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#050505" />
+  <!-- Theme Color & Mobile Safari Edge-to-Edge Sync -->
+  <script>
+    (function() {
+      function updateThemeColor() {
+        var isDark = document.documentElement.classList.contains('dark');
+        var themeColor = isDark ? '#050505' : '#ffffff';
+        
+        var metaThemes = document.querySelectorAll('meta[name="theme-color"]');
+        metaThemes.forEach(function(m) { m.setAttribute('content', themeColor); });
+        
+        var appleMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+        if (appleMeta) {
+          appleMeta.setAttribute('content', isDark ? 'black-translucent' : 'default');
+        }
+      }
+      
+      var observer = new MutationObserver(updateThemeColor);
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+      window.addEventListener('DOMContentLoaded', updateThemeColor);
+    })();
+  </script>
+
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#050505" media="(prefers-color-scheme: dark)" />
   <meta name="msapplication-navbutton-color" content="#050505" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
   <!-- Favicon & Site Logo for Google Search -->
   <link rel="icon" type="image/webp" sizes="128x128" href="/logo-128.webp" />
