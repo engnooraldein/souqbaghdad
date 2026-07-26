@@ -1303,10 +1303,15 @@ export default function App() {
     return () => window.removeEventListener('open-share-modal', handleOpenShare);
   }, []);
 
-  // ── دالة تحميل بيانات المستخدم من Supabase (ربط تلقائي وفور ي بـ Google) ──
+  // ── دالة تحميل بيانات المستخدم من Supabase (ربط تلقائي وفوري بـ Google وبدون إيميل وهمي) ──
   const loadUserFromSupabase = async (authUser: any) => {
     try {
       let profile: any = null;
+
+      // فلترة البريد الإلكتروني الحقيقي فقط (إهمال أي إيميل وهمي داخلي ينتهي بـ @souqbaghdad.com)
+      const isRealEmail = authUser.email && !authUser.email.includes('@souqbaghdad.com');
+      const cleanEmail = isRealEmail ? authUser.email : '';
+      const authPhone = authUser.user_metadata?.phone || authUser.phone || '';
 
       // 1. البحث عن البروفايل باستخدام authUser.id
       try {
@@ -1320,44 +1325,57 @@ export default function App() {
         console.warn('Profile search by id error:', err);
       }
 
-      // 2. إذا لم نجد بروفايل بالـ id ونملك email، نربطه تلقائياً بالبروفايل المكتشف بالبريد الإلكتروني!
-      if (!profile && authUser.email) {
-        try {
-          const { data: existingByEmail } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('email', authUser.email)
-            .maybeSingle();
-
-          if (existingByEmail) {
-            profile = existingByEmail;
-            // تحديث الصورة الرمزية إن كانت غائبة دون تعديل الـ Primary Key id لتجنب أخطاء RLS
-            try {
-              const googleAvatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture;
-              if (googleAvatar && !profile.avatar_url) {
-                await supabase
-                  .from('profiles')
-                  .update({ avatar_url: googleAvatar })
-                  .eq('email', authUser.email);
-              }
-            } catch {}
-          }
-        } catch (err) {
-          console.warn('Profile search by email error:', err);
+      // 2. إذا لم نجد بروفايل بالـ id، نربطه تلقائياً بالبريد الحقيقي أو رقم الهاتف!
+      if (!profile) {
+        if (cleanEmail) {
+          try {
+            const { data: existingByEmail } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('email', cleanEmail)
+              .maybeSingle();
+            if (existingByEmail) profile = existingByEmail;
+          } catch {}
+        }
+        if (!profile && authPhone) {
+          try {
+            const { data: existingByPhone } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('phone', authPhone)
+              .maybeSingle();
+            if (existingByPhone) profile = existingByPhone;
+          } catch {}
         }
       }
 
-      // 3. إذا كان مستخدماً جديداً بـ Google ولم يجد أي حساب سابق
+      // 3. إذا كان الحساب موجوداً برقم الهاتف وكان بريده فارغاً أو وهمياً، ونملك الآن بريد Google حقيقي ⬅️ نربطه بـ Gmail فورياً في Supabase!
+      if (profile && cleanEmail && (!profile.email || profile.email.includes('@souqbaghdad.com'))) {
+        try {
+          await supabase
+            .from('profiles')
+            .update({
+              email: cleanEmail,
+              avatar_url: profile.avatar_url || authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture
+            })
+            .eq('id', profile.id);
+          profile.email = cleanEmail;
+        } catch (err) {
+          console.warn('Failed to link Google email to profile:', err);
+        }
+      }
+
+      // 4. إذا كان مستخدماً جديداً كلياً ولم يجد أي بروفايل في القاعدة
       if (!profile && authUser.id) {
-        const googleName = authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم جديد';
+        const googleName = authUser.user_metadata?.full_name || authUser.user_metadata?.name || (cleanEmail ? cleanEmail.split('@')[0] : 'مستخدم جديد');
         const googleAvatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || null;
-        const role = authUser.email === OWNER_EMAIL ? 'owner' : 'user';
+        const role = cleanEmail === OWNER_EMAIL ? 'owner' : 'user';
 
         const newProfileData = {
           id: authUser.id,
           full_name: googleName,
-          email: authUser.email || '',
-          phone: authUser.user_metadata?.phone || '',
+          email: cleanEmail, // يُترك فارغاً إذا سجل برقم الهاتف فقط لحين إضافة إيميل حقيقي!
+          phone: authPhone,
           role: role,
           avatar_url: googleAvatar,
           city: authUser.user_metadata?.city || 'بغداد',
@@ -1379,14 +1397,13 @@ export default function App() {
         }
       }
 
-      const role = authUser.email === OWNER_EMAIL ? 'owner'
-        : (profile?.role || authUser.user_metadata?.role || 'user');
+      const role = (cleanEmail === OWNER_EMAIL || profile?.role === 'owner') ? 'owner' : (profile?.role || 'user');
       
       const u: User = {
-        id: authUser.id,
-        name: profile?.full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم',
-        email: authUser.email || profile?.email || '',
-        phone: profile?.phone || authUser.user_metadata?.phone || '',
+        id: profile?.id || authUser.id,
+        name: profile?.full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || (cleanEmail ? cleanEmail.split('@')[0] : 'مستخدم'),
+        email: cleanEmail || profile?.email || '',
+        phone: profile?.phone || authPhone || '',
         role,
         avatar: profile?.avatar_url || authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || DEFAULT_AVATAR,
         cover: profile?.cover_url || DEFAULT_COVER,
@@ -1404,20 +1421,21 @@ export default function App() {
       localStorage.setItem('souqUser', JSON.stringify(u));
     } catch (err) {
       console.error('Critical error in loadUserFromSupabase:', err);
-      // Fallback: تسجيل دخول فوري للمستخدم اعتماداً على بيانات authUser
+      const isReal = authUser.email && !authUser.email.includes('@souqbaghdad.com');
+      const cleanEm = isReal ? authUser.email : '';
       const fallbackUser: User = {
         id: authUser.id,
-        name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم',
-        email: authUser.email || '',
-        phone: authUser.user_metadata?.phone || '',
-        role: authUser.email === OWNER_EMAIL ? 'owner' : 'user',
+        name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || (cleanEm ? cleanEm.split('@')[0] : 'مستخدم'),
+        email: cleanEm,
+        phone: authUser.user_metadata?.phone || authUser.phone || '',
+        role: cleanEm === OWNER_EMAIL ? 'owner' : 'user',
         avatar: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || DEFAULT_AVATAR,
         cover: DEFAULT_COVER,
         bio: '',
         location: 'بغداد',
         points: 10,
         rating: 4.8,
-        isVerified: authUser.email === OWNER_EMAIL,
+        isVerified: cleanEm === OWNER_EMAIL,
         joinedDate: 'الآن',
         stats: { ads: 0, favorites: 0, views: 0 },
         sellerStats: { totalAds: 0, sold: 0, responseRate: 100, avgResponseTime: 'دقائق' }
