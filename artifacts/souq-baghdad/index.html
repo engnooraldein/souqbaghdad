@@ -27,14 +27,15 @@
 
       function syncSafariTheme() {
         var dark = document.documentElement.classList.contains('dark');
-        var color = dark ? '#050505' : '#ffffff';
-        var metaTheme = document.querySelector('meta[name="theme-color"]');
-        if (!metaTheme) {
-          metaTheme = document.createElement('meta');
-          metaTheme.name = 'theme-color';
-          document.head.appendChild(metaTheme);
+        var color = dark ? '#030712' : '#ffffff';
+        
+        var metaThemes = document.querySelectorAll('meta[name="theme-color"]');
+        metaThemes.forEach(function(m) { m.setAttribute('content', color); });
+
+        var msMeta = document.querySelector('meta[name="msapplication-navbutton-color"]');
+        if (msMeta) {
+          msMeta.setAttribute('content', color);
         }
-        metaTheme.setAttribute('content', color);
 
         var appleMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
         if (appleMeta) {
