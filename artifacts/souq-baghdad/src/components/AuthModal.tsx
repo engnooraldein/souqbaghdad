@@ -644,35 +644,42 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
             {/* ══ إدخال رقم الهاتف ══ */}
             {!isRecovery && step === 'phone_enter' && (
               <form onSubmit={handlePhoneSubmit} className="space-y-4">
-                {/* حقل مدمج موحد: كود الدولة يسار + رقم الهاتف LTR */}
-                <div className="relative flex items-center bg-gray-800 rounded-xl border border-gray-700 focus-within:border-amber-400 overflow-hidden dir-ltr">
-                  <div className="flex items-center gap-1.5 px-3 py-3.5 bg-gray-850 border-r border-gray-700/80 shrink-0">
-                    <Phone className="w-4 h-4 text-amber-400 shrink-0" />
+                {/* الرقم يمين + كود الدولة يسار */}
+                <div className="flex items-center gap-2">
+                  {/* حقل إدخال الرقم - يمين */}
+                  <div className="relative flex-1">
+                    <Phone className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-400 pointer-events-none" />
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      value={phoneLocal}
+                      onChange={e => setPhoneLocal(normalizeArabicNumerals(e.target.value.replace(/[^\d٠-٩۰-۹\s\-]/g, '')))}
+                      placeholder={countryCode === '+964' ? '07701234567' : 'رقم الهاتف'}
+                      required
+                      autoComplete="tel"
+                      autoFocus
+                      className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3.5 pr-10 pl-3 border border-gray-700 focus:border-amber-400 outline-none text-base font-sans"
+                      dir="ltr"
+                    />
+                  </div>
+
+                  {/* اختيار الدولة - يسار */}
+                  <div className="relative shrink-0">
                     <select
                       value={countryCode}
                       onChange={e => setCountryCode(e.target.value)}
-                      className="bg-transparent text-white outline-none text-sm cursor-pointer font-medium appearance-none pr-5 relative z-10"
+                      className="bg-gray-800 text-white border border-gray-700 focus:border-amber-400 rounded-xl py-3.5 px-3 outline-none text-sm cursor-pointer font-medium appearance-none pr-8"
+                      style={{ minWidth: '115px' }}
                       title="كود الدولة" aria-label="كود الدولة"
                     >
                       {COUNTRY_CODES.map(c => (
                         <option key={c.code} value={c.code} className="bg-gray-900 text-white">
-                          {c.flag} {c.code} ({c.name})
+                          {c.flag} {c.code}
                         </option>
                       ))}
                     </select>
-                    <ChevronDown className="w-3.5 h-3.5 text-gray-400 -ml-4 pointer-events-none" />
+                    <ChevronDown className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
-                  <input
-                    type="tel"
-                    inputMode="numeric"
-                    value={phoneLocal}
-                    onChange={e => setPhoneLocal(normalizeArabicNumerals(e.target.value.replace(/[^\d٠-٩۰-۹\s\-]/g, '')))}
-                    placeholder={countryCode === '+964' ? '0770 123 4567' : 'رقم الهاتف'}
-                    required
-                    autoComplete="tel"
-                    autoFocus
-                    className="flex-1 bg-transparent text-white placeholder-gray-400 py-3.5 px-3 outline-none text-base font-sans dir-ltr"
-                  />
                 </div>
 
                 {/* تلميح */}
@@ -691,10 +698,8 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
             {/* ══ إدخال البريد الإلكتروني ══ */}
             {!isRecovery && step === 'email_enter' && (
               <form onSubmit={handleEmailSubmit} className="space-y-4">
-                <div className="relative flex items-center bg-gray-800 rounded-xl border border-gray-700 focus-within:border-amber-400 overflow-hidden dir-ltr">
-                  <div className="flex items-center pl-3.5 pr-2 py-3.5 shrink-0 text-amber-400">
-                    <Mail className="w-5 h-5" />
-                  </div>
+                <div className="relative">
+                  <Mail className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-400 pointer-events-none" />
                   <input
                     type="email"
                     inputMode="email"
@@ -704,7 +709,8 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
                     required
                     autoComplete="email"
                     autoFocus
-                    className="flex-1 bg-transparent text-white placeholder-gray-400 py-3.5 pr-4 pl-1 outline-none text-base font-sans dir-ltr"
+                    className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3.5 pr-10 pl-4 border border-gray-700 focus:border-amber-400 outline-none text-base font-sans"
+                    dir="ltr"
                   />
                 </div>
                 <button type="submit" className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold rounded-xl text-lg shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-transform">
