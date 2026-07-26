@@ -400,19 +400,26 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
 
   const selectedCountry = COUNTRY_CODES.find(c => c.code === countryCode) || COUNTRY_CODES[0];
 
-  // ─── الواجهة ──────────────────────────────────────────────────────────────
+  // ─── منع التشوه عند ظهور الكيبورد في الهواتف ───────────────────────────
+  useEffect(() => {
+    // Reset scroll on unmount or close to fix shifted viewports on mobile
+    return () => {
+      window.scrollTo(0, 0);
+    };
+  }, []);
+
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
     >
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm"
         onClick={() => { if (step !== 'biometric_prompt') onClose(); }}
       />
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        className="relative bg-gray-900 rounded-3xl p-6 w-full max-w-md border border-gray-700 shadow-2xl z-10"
+        className="relative bg-gray-900 rounded-3xl p-5 sm:p-6 w-full max-w-md border border-gray-700 shadow-2xl z-10 my-auto max-h-[92vh] flex flex-col justify-between overflow-y-auto scrollbar-hide"
       >
         {/* زر الإغلاق */}
         {step !== 'biometric_prompt' && (
@@ -619,7 +626,7 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
                     required
                     autoComplete="tel"
                     autoFocus
-                    className="flex-1 bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3.5 px-4 border border-gray-700 focus:border-amber-400 outline-none text-lg"
+                    className="flex-1 bg-gray-800 text-white placeholder-gray-400 rounded-xl py-3.5 px-4 border border-gray-700 focus:border-amber-400 outline-none text-base font-sans"
                     dir="ltr"
                   />
                 </div>
