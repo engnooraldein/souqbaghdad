@@ -305,7 +305,7 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
           playSound('error'); setLoading(false); return;
         }
 
-        // تسجيل الدخول تلقائياً بعد الإنشاء
+        // تسجيل الدخول تلقائياً بعد الإنشاء (الطريقة التقليدية الفورية)
         const { error: signInErr } = await supabase.auth.signInWithPassword({
           email: signUpEmail, password
         });
@@ -324,8 +324,13 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
             onClose();
           }
         } else {
-          setError('تم إنشاء الحساب بنجاح! يرجى تسجيل الدخول بكلمة المرور.');
+          // إذا كان تأكيد البريد مفعّلاً في سوبابيس، ينقل المستخدم لشاشة تسجيل الدخول المباشر
           setAuthMode('login');
+          if (signInErr.message?.includes('Email not confirmed')) {
+            setError('تم إنشاء حسابك بنجاح! يرجى كتابة كلمة المرور للدخول مباشرة.');
+          } else {
+            setError('تم إنشاء الحساب بنجاح! ادخل كلمة المرور للمتابعة.');
+          }
         }
       }
     } catch (err: any) {
