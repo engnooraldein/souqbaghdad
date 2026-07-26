@@ -1303,85 +1303,128 @@ export default function App() {
     return () => window.removeEventListener('open-share-modal', handleOpenShare);
   }, []);
 
-  // ── دالة تحميل بيانات المستخدم من Supabase ──────────────────────────
+  // ── دالة تحميل بيانات المستخدم من Supabase (ربط تلقائي وفور ي بـ Google) ──
   const loadUserFromSupabase = async (authUser: any) => {
-    let { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', authUser.id)
-      .maybeSingle();
+    try {
+      let profile: any = null;
 
-    // إذا لم يجد بروفايل بالـ id (مثلاً سجل بـ Google)، نتحقق أولاً هل يوجد بروفايل سابق بنفس البريد؟
-    if (!profile && authUser.email) {
-      const { data: existingByEmail } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('email', authUser.email)
-        .maybeSingle();
-
-      if (existingByEmail) {
-        // وجدنا حسابه القديم بنفس البريد! نربطه بالـ ID الجديد أو نستخدم بياناته القديمة
-        profile = existingByEmail;
-        // نحدث رقم الآيدي والرمز إذا لزم الأمر
-        await supabase
+      // 1. البحث عن البروفايل باستخدام authUser.id
+      try {
+        const { data } = await supabase
           .from('profiles')
-          .update({
-            id: authUser.id,
-            avatar_url: profile.avatar_url || authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture
-          })
-          .eq('email', authUser.email);
+          .select('*')
+          .eq('id', authUser.id)
+          .maybeSingle();
+        profile = data;
+      } catch (err) {
+        console.warn('Profile search by id error:', err);
       }
-    }
 
-    // إذا كان دخول بـ Google أو أي OAuth لأول مرة ولم يجد بروفايل في قاعدة البيانات إطلاقاً
-    if (!profile && authUser.id) {
-      const googleName = authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم جديد';
-      const googleAvatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || null;
-      const role = authUser.email === OWNER_EMAIL ? 'owner' : 'user';
+      // 2. إذا لم نجد بروفايل بالـ id ونملك email، نربطه تلقائياً بالبروفايل المكتشف بالبريد الإلكتروني!
+      if (!profile && authUser.email) {
+        try {
+          const { data: existingByEmail } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', authUser.email)
+            .maybeSingle();
 
-      const newProfileData = {
+          if (existingByEmail) {
+            profile = existingByEmail;
+            // تحديث الصورة الرمزية إن كانت غائبة دون تعديل الـ Primary Key id لتجنب أخطاء RLS
+            try {
+              const googleAvatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture;
+              if (googleAvatar && !profile.avatar_url) {
+                await supabase
+                  .from('profiles')
+                  .update({ avatar_url: googleAvatar })
+                  .eq('email', authUser.email);
+              }
+            } catch {}
+          }
+        } catch (err) {
+          console.warn('Profile search by email error:', err);
+        }
+      }
+
+      // 3. إذا كان مستخدماً جديداً بـ Google ولم يجد أي حساب سابق
+      if (!profile && authUser.id) {
+        const googleName = authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم جديد';
+        const googleAvatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || null;
+        const role = authUser.email === OWNER_EMAIL ? 'owner' : 'user';
+
+        const newProfileData = {
+          id: authUser.id,
+          full_name: googleName,
+          email: authUser.email || '',
+          phone: authUser.user_metadata?.phone || '',
+          role: role,
+          avatar_url: googleAvatar,
+          city: authUser.user_metadata?.city || 'بغداد',
+          points: 10
+        };
+
+        try {
+          const { data: createdProfile } = await supabase
+            .from('profiles')
+            .upsert([newProfileData], { onConflict: 'id' })
+            .select()
+            .maybeSingle();
+
+          if (createdProfile) {
+            profile = createdProfile;
+          }
+        } catch (err) {
+          console.warn('Profile creation error:', err);
+        }
+      }
+
+      const role = authUser.email === OWNER_EMAIL ? 'owner'
+        : (profile?.role || authUser.user_metadata?.role || 'user');
+      
+      const u: User = {
         id: authUser.id,
-        full_name: googleName,
-        email: authUser.email || '',
-        phone: authUser.user_metadata?.phone || '',
-        role: role,
-        avatar_url: googleAvatar,
-        city: authUser.user_metadata?.city || 'بغداد',
-        points: 10
+        name: profile?.full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم',
+        email: authUser.email || profile?.email || '',
+        phone: profile?.phone || authUser.user_metadata?.phone || '',
+        role,
+        avatar: profile?.avatar_url || authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || DEFAULT_AVATAR,
+        cover: profile?.cover_url || DEFAULT_COVER,
+        bio: profile?.bio || '',
+        location: profile?.city || authUser.user_metadata?.city || 'بغداد',
+        points: profile?.points || 0,
+        rating: 4.8,
+        isVerified: role !== 'user',
+        joinedDate: profile?.created_at || 'الآن',
+        stats: { ads: profile?.ads_count || 0, favorites: profile?.favorites_count || 0, views: profile?.views_count || 0 },
+        sellerStats: { totalAds: 0, sold: 0, responseRate: 100, avgResponseTime: 'دقائق' }
       };
 
-      const { data: createdProfile } = await supabase
-        .from('profiles')
-        .upsert([newProfileData], { onConflict: 'id' })
-        .select()
-        .maybeSingle();
-
-      if (createdProfile) {
-        profile = createdProfile;
-      }
+      setUser(u);
+      localStorage.setItem('souqUser', JSON.stringify(u));
+    } catch (err) {
+      console.error('Critical error in loadUserFromSupabase:', err);
+      // Fallback: تسجيل دخول فوري للمستخدم اعتماداً على بيانات authUser
+      const fallbackUser: User = {
+        id: authUser.id,
+        name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم',
+        email: authUser.email || '',
+        phone: authUser.user_metadata?.phone || '',
+        role: authUser.email === OWNER_EMAIL ? 'owner' : 'user',
+        avatar: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || DEFAULT_AVATAR,
+        cover: DEFAULT_COVER,
+        bio: '',
+        location: 'بغداد',
+        points: 10,
+        rating: 4.8,
+        isVerified: authUser.email === OWNER_EMAIL,
+        joinedDate: 'الآن',
+        stats: { ads: 0, favorites: 0, views: 0 },
+        sellerStats: { totalAds: 0, sold: 0, responseRate: 100, avgResponseTime: 'دقائق' }
+      };
+      setUser(fallbackUser);
+      localStorage.setItem('souqUser', JSON.stringify(fallbackUser));
     }
-
-    const role = authUser.email === OWNER_EMAIL ? 'owner'
-      : (profile?.role || authUser.user_metadata?.role || 'user');
-    const u: User = {
-      id: authUser.id,
-      name: profile?.full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم',
-      email: authUser.email || profile?.email || '',
-      phone: profile?.phone || authUser.user_metadata?.phone || '',
-      role,
-      avatar: profile?.avatar_url || authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || DEFAULT_AVATAR,
-      cover: profile?.cover_url || DEFAULT_COVER,
-      bio: profile?.bio || '',
-      location: profile?.city || authUser.user_metadata?.city || 'بغداد',
-      points: profile?.points || 0,
-      rating: 4.8,
-      isVerified: role !== 'user',
-      joinedDate: profile?.created_at || 'الآن',
-      stats: { ads: profile?.ads_count || 0, favorites: profile?.favorites_count || 0, views: profile?.views_count || 0 },
-      sellerStats: { totalAds: 0, sold: 0, responseRate: 100, avgResponseTime: 'دقائق' }
-    };
-    setUser(u);
-    localStorage.setItem('souqUser', JSON.stringify(u));
   };
 
   // ── استعادة الجلسة ومراقبة Auth ────────────────────────────────────
