@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Capacitor } from '@capacitor/core';
 import { X, ChevronRight, ChevronLeft, Loader2, Download, Layers, Share2 } from 'lucide-react';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 /* ─────────────────────────────────────────────────────────────
    Fetch an image URL as a same-origin Blob URL so the canvas
@@ -27,7 +29,7 @@ async function buildWatermarkedCanvas(
   itemTitle: string
 ): Promise<{ canvas: HTMLCanvasElement; cleanup: () => void } | null> {
   const blobUrl = await fetchAsBlobUrl(imgSrc);
-  const srcToLoad = blobUrl ?? imgSrc; // fallback to original if fetch fails
+  const srcToLoad = blobUrl ?? imgSrc;
 
   const img = await new Promise<HTMLImageElement | null>((resolve) => {
     const el = new Image();
@@ -99,34 +101,34 @@ async function buildWatermarkedCanvas(
   const logoX  = w - logoSz - mg;
   const logoY  = h + mg;
 
+  // Eagle logo outline (simplified circle)
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 10;
-  ctx.fillStyle = '#061129';
-  ctx.beginPath(); ctx.arc(logoX + logoSz / 2, logoY + logoSz / 2, logoSz / 2, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = Math.max(2, Math.round(logoSz * 0.05)); ctx.stroke();
+  ctx.globalAlpha = 0.9;
+  ctx.strokeStyle = '#f59e0b';
+  ctx.lineWidth = Math.max(2, Math.round(logoSz * 0.05));
+  ctx.beginPath();
+  ctx.arc(logoX + logoSz / 2, logoY + logoSz / 2, logoSz / 2, 0, Math.PI * 2);
+  ctx.stroke();
   ctx.restore();
 
-  const titleFs = Math.max(14, Math.round(bannerH * 0.32));
-  const subFs   = Math.max(10, Math.round(bannerH * 0.22));
-  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-  ctx.font = `bold ${titleFs}px system-ui, sans-serif`; ctx.fillStyle = '#ffffff';
-  ctx.fillText('سوق بغداد', logoX - mg, h + bannerH * 0.35);
-  ctx.font = `${subFs}px system-ui, sans-serif`; ctx.fillStyle = '#f59e0b';
-  ctx.fillText('السوق الرقمي العراقي الأول', logoX - mg, h + bannerH * 0.68);
-
-  ctx.textAlign = 'left';
-  ctx.font = `bold ${subFs}px system-ui, sans-serif`; ctx.fillStyle = '#f8fafc';
-  ctx.fillText(itemTitle.slice(0, 35), mg * 2, h + bannerH * 0.4);
-  ctx.font = `${Math.max(8, Math.round(bannerH * 0.16))}px system-ui, sans-serif`; ctx.fillStyle = '#94a3b8';
-  ctx.fillText('souqbaghdad.store', mg * 2, h + bannerH * 0.7);
+  // Domain text
+  const domFontSize = Math.max(12, Math.round(bannerH * 0.22));
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#f59e0b';
+  ctx.font = `bold ${domFontSize}px system-ui, sans-serif`;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('souqbaghdad.store', logoX - mg, h + bannerH / 2 - domFontSize * 0.3);
+  ctx.font = `${Math.round(domFontSize * 0.75)}px system-ui, sans-serif`;
+  ctx.fillStyle = '#94a3b8';
+  ctx.fillText(itemTitle.slice(0, 40), logoX - mg, h + bannerH / 2 + domFontSize * 0.5);
+  ctx.restore();
 
   return { canvas, cleanup };
 }
 
-/* ─────────────────────────────────────────────────────────────
-   Convert canvas → JPEG Blob (async, never throws)
-───────────────────────────────────────────────────────────── */
-function canvasToBlob(canvas: HTMLCanvasElement, quality = 0.92): Promise<Blob | null> {
+async function canvasToBlob(canvas: HTMLCanvasElement, quality = 0.88): Promise<Blob | null> {
   return new Promise((resolve) => {
     try {
       canvas.toBlob((b) => resolve(b), 'image/jpeg', quality);
@@ -136,51 +138,67 @@ function canvasToBlob(canvas: HTMLCanvasElement, quality = 0.92): Promise<Blob |
   });
 }
 
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Share } from '@capacitor/share';
+/* ─────────────────────────────────────────────────────────────
+   blobToBase64 — helper to convert Blob to base64 data string
+───────────────────────────────────────────────────────────── */
+async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      resolve(result.replace(/^data:image\/\w+;base64,/, ''));
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
 
 /* ─────────────────────────────────────────────────────────────
-   Multi-platform save strategy:
-   0. Capacitor.isNativePlatform() -> Filesystem.writeFile + Share.share({ files: [fileUri] }) Native Android/iOS share sheet (includes Save to Gallery)
-   1. navigator.share({ files })  → iOS Safari / Android Chrome / PWA (saves to Photos)
-   2. URL.createObjectURL + <a>   → Desktop browsers
-   3. window.open fallback        → last resort
+   saveImageBlob — SAVE TO GALLERY (no share sheet on Android)
+   Capacitor Android: writes to Documents/SouqBaghdad/
+   Browser/PWA: <a download> or Web Share API
 ───────────────────────────────────────────────────────────── */
-async function saveImageBlob(blob: Blob, fileName: string, shareTitle: string): Promise<void> {
-  // Path 0 — Native Capacitor Android / iOS App
+async function saveImageBlob(blob: Blob, fileName: string): Promise<'saved' | 'share_sheet' | 'fallback'> {
+  const cleanFileName = fileName.endsWith('.jpg') ? fileName : `${fileName}.jpg`;
+
+  // ── Capacitor Android / iOS ──
   if (Capacitor.isNativePlatform()) {
     try {
-      const base64WithHeader = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-      const base64Data = base64WithHeader.replace(/^data:image\/\w+;base64,/, '');
-
-      const cleanFileName = fileName.endsWith('.jpg') ? fileName : `${fileName}.jpg`;
-      const savedFile = await Filesystem.writeFile({
-        path: cleanFileName,
+      const base64Data = await blobToBase64(blob);
+      // Write directly to Documents/SouqBaghdad — no share sheet, saves silently
+      await Filesystem.writeFile({
+        path: `SouqBaghdad/${cleanFileName}`,
         data: base64Data,
-        directory: Directory.Cache,
+        directory: Directory.Documents,
+        recursive: true,
       });
-
-      await Share.share({
-        title: shareTitle,
-        text: shareTitle,
-        dialogTitle: 'حفظ / مشاركة الصورة 🖼️',
-        files: [savedFile.uri],
-      });
-      return;
+      return 'saved';
     } catch (e: any) {
-      if (e?.name === 'AbortError') return;
-      console.warn('Capacitor native share error', e);
+      console.warn('Direct Filesystem save failed, falling back to share sheet:', e);
+      // Fallback: write to cache and open share sheet
+      try {
+        const base64Data = await blobToBase64(blob);
+        const savedFile = await Filesystem.writeFile({
+          path: cleanFileName,
+          data: base64Data,
+          directory: Directory.Cache,
+        });
+        await Share.share({
+          title: 'سوق بغداد',
+          dialogTitle: 'احفظ الصورة في الاستوديو 🖼️',
+          files: [savedFile.uri],
+        });
+        return 'share_sheet';
+      } catch (e2: any) {
+        if (e2?.name === 'AbortError') return 'share_sheet';
+        console.warn('Share fallback also failed:', e2);
+        return 'fallback';
+      }
     }
   }
 
-  const file = new File([blob], fileName, { type: 'image/jpeg' });
-
-  // Path 1 — Web Share API (works on iOS Safari & Android Chrome including PWA)
+  // ── Web: Web Share API (PWA / Android Chrome) ──
+  const file = new File([blob], cleanFileName, { type: 'image/jpeg' });
   if (
     typeof navigator !== 'undefined' &&
     navigator.share &&
@@ -188,30 +206,70 @@ async function saveImageBlob(blob: Blob, fileName: string, shareTitle: string): 
     navigator.canShare({ files: [file] })
   ) {
     try {
-      await navigator.share({ title: shareTitle, files: [file] });
-      return;
+      await navigator.share({ title: 'سوق بغداد', files: [file] });
+      return 'saved';
     } catch (e: any) {
-      // AbortError = user cancelled share sheet → still succeeded
-      if (e?.name === 'AbortError') return;
-      console.warn('share failed, trying download link', e);
+      if (e?.name === 'AbortError') return 'saved';
     }
   }
 
-  // Path 2 — <a download> with blob URL (desktop Chrome / Firefox / Edge)
+  // ── Web: <a download> (desktop browsers) ──
   const blobUrl = URL.createObjectURL(blob);
   try {
     const a = document.createElement('a');
     a.href     = blobUrl;
-    a.download = fileName;
+    a.download = cleanFileName;
     a.target   = '_blank';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
+    return 'saved';
   } catch {
     URL.revokeObjectURL(blobUrl);
     window.open(URL.createObjectURL(blob), '_blank');
+    return 'fallback';
   }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   shareImageBlob — OPEN SHARE SHEET (sends to WhatsApp, Telegram, etc.)
+───────────────────────────────────────────────────────────── */
+async function shareImageBlob(blob: Blob, fileName: string, shareTitle: string): Promise<void> {
+  const cleanFileName = fileName.endsWith('.jpg') ? fileName : `${fileName}.jpg`;
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const base64Data = await blobToBase64(blob);
+      const savedFile = await Filesystem.writeFile({
+        path: cleanFileName,
+        data: base64Data,
+        directory: Directory.Cache,
+      });
+      await Share.share({
+        title: shareTitle,
+        text: `${shareTitle} | سوق بغداد`,
+        dialogTitle: 'مشاركة الصورة 📤',
+        files: [savedFile.uri],
+      });
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') console.warn('Native share error:', e);
+    }
+    return;
+  }
+
+  // Web fallback
+  const file = new File([blob], cleanFileName, { type: 'image/jpeg' });
+  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ title: shareTitle, files: [file] }); } catch {}
+    return;
+  }
+  // Last resort: download
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl; a.download = cleanFileName;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -230,10 +288,10 @@ export function ImageLightboxModal({
   initialIdx?: number;
   onClose: () => void;
 }) {
-  const [currentIdx, setCurrentIdx]           = useState(initialIdx);
-  const [downloading, setDownloading]         = useState(false);
-  const [downloadAllProgress, setDlProgress]  = useState<number | null>(null);
-  const [statusMsg, setStatusMsg]             = useState<string | null>(null);
+  const [currentIdx, setCurrentIdx]          = useState(initialIdx);
+  const [downloading, setDownloading]        = useState(false);
+  const [downloadAllProgress, setDlProgress] = useState<number | null>(null);
+  const [statusMsg, setStatusMsg]            = useState<string | null>(null);
 
   const galleryList = images && images.length > 0 ? images : [src];
   const activeSrc   = galleryList[currentIdx] || src;
@@ -246,15 +304,37 @@ export function ImageLightboxModal({
     return () => window.removeEventListener('keydown', h);
   }, [onClose]);
 
-  // Clear status after 3 s
+  // Clear status after 4s
   const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   function showStatus(msg: string) {
     setStatusMsg(msg);
     clearTimeout(statusTimer.current ?? undefined);
-    statusTimer.current = setTimeout(() => setStatusMsg(null), 3000);
+    statusTimer.current = setTimeout(() => setStatusMsg(null), 4000);
   }
 
-  /* ── Download current image with watermark ── */
+  /* ── Build blob helper ── */
+  async function buildBlob(imgSrc: string, imgTitle: string, label: string): Promise<{ blob: Blob; fileName: string } | null> {
+    const safeTitle = (label || 'item').replace(/[^\w\d\u0600-\u06FF-]/g, '_').slice(0, 30);
+    const fileName  = `souq-baghdad-${safeTitle}.jpg`;
+    const result = await buildWatermarkedCanvas(imgSrc, imgTitle);
+    if (result) {
+      const { canvas, cleanup } = result;
+      const blob = await canvasToBlob(canvas);
+      cleanup();
+      if (blob) return { blob, fileName };
+    }
+    // Fallback: original image without watermark
+    const blobUrl = await fetchAsBlobUrl(imgSrc);
+    if (blobUrl) {
+      const res  = await fetch(blobUrl);
+      const blob = await res.blob();
+      URL.revokeObjectURL(blobUrl);
+      return { blob, fileName };
+    }
+    return null;
+  }
+
+  /* ── Save current image to device (no share sheet on Android) ── */
   const handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
@@ -262,42 +342,58 @@ export function ImageLightboxModal({
     try {
       const safeTitle = (title || 'item').replace(/[^\w\d\u0600-\u06FF-]/g, '_').slice(0, 30);
       const fileName  = `souq-baghdad-${safeTitle}-${currentIdx + 1}.jpg`;
+      const blobData  = await buildBlob(activeSrc, title, `${safeTitle}-${currentIdx + 1}`);
 
-      const result = await buildWatermarkedCanvas(activeSrc, title);
-      if (result) {
-        const { canvas, cleanup } = result;
-        const blob = await canvasToBlob(canvas);
-        cleanup();
-        if (blob) {
-          await saveImageBlob(blob, fileName, title);
-          showStatus('✅ تم الحفظ بنجاح!');
-          return;
+      if (blobData) {
+        const outcome = await saveImageBlob(blobData.blob, fileName);
+        if (outcome === 'saved') {
+          showStatus(
+            Capacitor.isNativePlatform()
+              ? '✅ تم الحفظ! ابحث في تطبيق الملفات ← Documents ← SouqBaghdad'
+              : '✅ تم الحفظ بنجاح!'
+          );
+        } else if (outcome === 'share_sheet') {
+          showStatus('اختر «حفظ الصورة» من القائمة التي ظهرت');
+        } else {
+          showStatus('✅ تم فتح الصورة — اضغط مطولاً لحفظها');
         }
-      }
-
-      // Fallback: fetch original blob without watermark
-      showStatus('⚠️ لم يمكن إضافة الشعار، جاري حفظ الصورة الأصلية...');
-      const blobUrl = await fetchAsBlobUrl(activeSrc);
-      if (blobUrl) {
-        const res  = await fetch(blobUrl);
-        const blob = await res.blob();
-        URL.revokeObjectURL(blobUrl);
-        await saveImageBlob(blob, fileName, title);
-        showStatus('✅ تم الحفظ!');
       } else {
         window.open(activeSrc, '_blank');
         showStatus('💡 اضغط مطولاً على الصورة واختر حفظ.');
       }
     } catch (err) {
-      console.error('Download error', err);
-      showStatus('❌ فشل التحميل. افتح الصورة وانقر مطولاً للحفظ.');
-      window.open(activeSrc, '_blank');
+      console.error('Save error:', err);
+      showStatus('❌ فشل الحفظ. حاول مطولاً على الصورة.');
     } finally {
       setDownloading(false);
     }
   };
 
-  /* ── Download ALL images ── */
+  /* ── Share current image via Android share sheet ── */
+  const handleShare = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    showStatus('⏳ جاري تجهيز الصورة للمشاركة...');
+    try {
+      const safeTitle = (title || 'item').replace(/[^\w\d\u0600-\u06FF-]/g, '_').slice(0, 30);
+      const fileName  = `souq-baghdad-${safeTitle}-${currentIdx + 1}.jpg`;
+      const blobData  = await buildBlob(activeSrc, title, `${safeTitle}-${currentIdx + 1}`);
+
+      if (blobData) {
+        await shareImageBlob(blobData.blob, fileName, title);
+        showStatus('✅ تمت المشاركة!');
+      } else {
+        showStatus('❌ لم يمكن تجهيز الصورة للمشاركة.');
+      }
+    } catch (err) {
+      console.error('Share error:', err);
+      showStatus('❌ فشلت المشاركة.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  /* ── Save ALL images to device ── */
   const handleDownloadAll = async () => {
     if (downloading) return;
     setDownloading(true);
@@ -305,21 +401,22 @@ export function ImageLightboxModal({
     try {
       for (let i = 0; i < totalCount; i++) {
         setDlProgress(i + 1);
-        showStatus(`⏳ تحميل ${i + 1} من ${totalCount}...`);
+        showStatus(`⏳ حفظ ${i + 1} من ${totalCount}...`);
         const fileName = `souq-baghdad-${safeTitle}-${i + 1}.jpg`;
-        const result   = await buildWatermarkedCanvas(galleryList[i], `${title} - ${i + 1}`);
-        if (result) {
-          const { canvas, cleanup } = result;
-          const blob = await canvasToBlob(canvas);
-          cleanup();
-          if (blob) { await saveImageBlob(blob, fileName, title); }
+        const blobData = await buildBlob(galleryList[i], `${title} - ${i + 1}`, `${safeTitle}-${i + 1}`);
+        if (blobData) {
+          await saveImageBlob(blobData.blob, fileName);
         }
-        await new Promise((r) => setTimeout(r, 400));
+        await new Promise((r) => setTimeout(r, 600));
       }
-      showStatus('✅ تم تحميل جميع الصور!');
+      showStatus(
+        Capacitor.isNativePlatform()
+          ? `✅ تم حفظ ${totalCount} صورة في Documents/SouqBaghdad`
+          : `✅ تم تحميل ${totalCount} صور!`
+      );
     } catch (err) {
-      console.error('Download all error', err);
-      showStatus('❌ حدث خطأ أثناء التحميل.');
+      console.error('Download all error:', err);
+      showStatus('❌ حدث خطأ أثناء الحفظ.');
     } finally {
       setDownloading(false);
       setDlProgress(null);
@@ -328,6 +425,8 @@ export function ImageLightboxModal({
 
   const handleNext = () => setCurrentIdx((i) => (i + 1) % totalCount);
   const handlePrev = () => setCurrentIdx((i) => (i - 1 + totalCount) % totalCount);
+
+  const isNative = Capacitor.isNativePlatform();
 
   /* ── Render ── */
   return (
@@ -370,7 +469,7 @@ export function ImageLightboxModal({
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            className="text-center text-xs font-bold py-1.5 px-4 bg-gray-900/90 text-amber-300 border-b border-gray-800 shrink-0"
+            className="text-center text-xs font-bold py-2 px-4 bg-gray-900/95 text-amber-300 border-b border-gray-800 shrink-0"
           >
             {statusMsg}
           </motion.div>
@@ -446,48 +545,73 @@ export function ImageLightboxModal({
 
       {/* ── Action bar ── */}
       <div
-        className="w-full max-w-xl mx-auto flex flex-col items-center gap-2.5 pt-2 px-3 shrink-0"
-        style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))' }}
+        className="w-full max-w-xl mx-auto flex flex-col items-center gap-2 pt-2 px-3 shrink-0"
+        style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
       >
         {/* Helper tip */}
         <p className="text-gray-500 text-[10px] text-center leading-tight">
-          💡 iOS: اضغط زر التحميل ← ستظهر نافذة المشاركة ← اختر «حفظ الصورة» لحفظها في الاستوديو
+          {isNative
+            ? '💾 الحفظ: يحفظ في الملفات ← Documents/SouqBaghdad   |   📤 المشاركة: يرسل للتطبيقات'
+            : '💡 اضغط حفظ الصورة لتنزيلها أو مشاركة لإرسالها'}
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-2 w-full">
-          {/* Download current */}
+        {/* Row 1: Save + Share */}
+        <div className="flex gap-2 w-full">
+          {/* SAVE button — writes to Files directly, no share sheet */}
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={handleDownload}
             disabled={downloading}
-            className="flex-1 py-3.5 px-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 disabled:opacity-50 text-black font-black rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg border border-amber-400/30 transition-all"
+            className="flex-1 py-3.5 px-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 disabled:opacity-50 text-black font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg border border-amber-400/30 transition-all"
+            title="حفظ الصورة في ملفات الجهاز"
+          >
+            {downloading && downloadAllProgress === null ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4 stroke-[2.5]" />
+            )}
+            <span>حفظ 💾</span>
+          </motion.button>
+
+          {/* SHARE button — opens Android/iOS share sheet */}
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={handleShare}
+            disabled={downloading}
+            className="flex-1 py-3.5 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg border border-blue-500/30 transition-all"
+            title="مشاركة الصورة عبر التطبيقات"
           >
             {downloading && downloadAllProgress === null ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Share2 className="w-4 h-4" />
             )}
-            <span>حفظ الصورة الحالية 🖼️</span>
+            <span>مشاركة 📤</span>
           </motion.button>
+        </div>
 
-          {/* Download all */}
+        {/* Row 2: Save All (if multiple images) + Close */}
+        <div className="flex gap-2 w-full">
           {totalCount > 1 && (
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={handleDownloadAll}
               disabled={downloading}
-              className="flex-1 py-3 px-4 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg border border-gray-700 transition-all"
+              className="flex-1 py-3 px-3 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg border border-gray-700 transition-all"
             >
               {downloading && downloadAllProgress !== null ? (
                 <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
               ) : (
                 <Layers className="w-4 h-4 text-amber-400" />
               )}
-              <span>تحميل الكل ({totalCount}) 📦</span>
+              <span>
+                {downloadAllProgress !== null
+                  ? `حفظ ${downloadAllProgress}/${totalCount}...`
+                  : `حفظ الكل (${totalCount}) 📦`}
+              </span>
             </motion.button>
           )}
 
-          {/* Close */}
           <button
             onClick={onClose}
             className="py-3 px-4 bg-gray-900 hover:bg-gray-800 border border-gray-700/80 text-gray-300 font-bold rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all"
