@@ -246,14 +246,15 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
     try {
       if (authMode === 'login') {
         // ── تسجيل الدخول ──────────────────────────────────────────────────
+        let loginEmail = resolvedEmail || (resolvedPhone ? `${resolvedPhone}@souqbaghdad.com` : '');
         let { error: loginErr } = await supabase.auth.signInWithPassword({
-          email: resolvedEmail, password
+          email: loginEmail, password
         });
 
-        // Fallback لمستخدمي الهاتف: جرب البريد الافتراضي المبني من الرقم
-        if (loginErr?.message?.includes('Invalid login credentials') && resolvedPhone) {
+        // Fallback لمستخدمي الهاتف: جرب البريد الافتراضي المبني من الرقم إذا فشلت المحاولة الأولى
+        if (loginErr && resolvedPhone) {
           const fallbackEmail = `${resolvedPhone}@souqbaghdad.com`;
-          if (fallbackEmail !== resolvedEmail) {
+          if (fallbackEmail !== loginEmail) {
             const { error: fbErr } = await supabase.auth.signInWithPassword({
               email: fallbackEmail, password
             });
@@ -262,13 +263,19 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
         }
 
         if (loginErr) {
-          setError('كلمة المرور غير صحيحة. حاول مرة أخرى.');
+          const msg = loginErr.message?.includes('Invalid login credentials')
+            ? 'رقم الهاتف أو كلمة المرور غير صحيحة.'
+            : (loginErr.message || 'خطأ في بيانات الدخول.');
+          setError(msg);
           playSound('error'); setLoading(false); return;
         }
 
         // حفظ بيانات الدخول السريع
-        localStorage.setItem('souqLastUser', JSON.stringify({ phone: resolvedPhone, email: resolvedEmail }));
-        localStorage.setItem('biometricCreds', JSON.stringify({ phone: resolvedPhone, email: resolvedEmail, password }));
+        try {
+          localStorage.setItem('souqLastUser', JSON.stringify({ phone: resolvedPhone, email: loginEmail }));
+          localStorage.setItem('biometricCreds', JSON.stringify({ phone: resolvedPhone, email: loginEmail, password }));
+        } catch {}
+
         playSound('success');
 
         if (!localStorage.getItem('biometricPromptShown')) {
@@ -280,17 +287,18 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
       } else {
         // ── إنشاء حساب جديد ───────────────────────────────────────────────
         const role = resolvedPhone === '07701109692' ? 'owner' : 'user';
+        const signUpEmail = resolvedEmail || `${resolvedPhone}@souqbaghdad.com`;
 
         const { error: signUpErr } = await supabase.auth.signUp({
-          email: resolvedEmail, password,
+          email: signUpEmail, password,
           options: { data: { full_name: name.trim(), phone: resolvedPhone, city, role } }
         });
 
         if (signUpErr) {
           // الحساب موجود مسبقاً → تسجيل دخول مباشر
-          if (signUpErr.message.includes('already registered') || signUpErr.message === '{}') {
+          if (signUpErr.message?.includes('already registered') || signUpErr.message === '{}') {
             setAuthMode('login');
-            setError('الحساب موجود مسبقاً. يرجى تسجيل الدخول بكلمة المرور الصحيحة.');
+            setError('الحساب موجود مسبقاً. يرجى إدخال كلمة المرور لتسجيل الدخول.');
             playSound('error'); setLoading(false); return;
           }
           setError(signUpErr.message || 'حدث خطأ أثناء إنشاء الحساب');
@@ -299,11 +307,14 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
 
         // تسجيل الدخول تلقائياً بعد الإنشاء
         const { error: signInErr } = await supabase.auth.signInWithPassword({
-          email: resolvedEmail, password
+          email: signUpEmail, password
         });
 
-        localStorage.setItem('souqLastUser', JSON.stringify({ phone: resolvedPhone, email: resolvedEmail }));
-        localStorage.setItem('biometricCreds', JSON.stringify({ phone: resolvedPhone, email: resolvedEmail, password }));
+        try {
+          localStorage.setItem('souqLastUser', JSON.stringify({ phone: resolvedPhone, email: signUpEmail }));
+          localStorage.setItem('biometricCreds', JSON.stringify({ phone: resolvedPhone, email: signUpEmail, password }));
+        } catch {}
+
         playSound('success');
 
         if (!signInErr) {
@@ -313,12 +324,13 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
             onClose();
           }
         } else {
-          setError('تم إنشاء الحساب بنجاح! يرجى تسجيل الدخول.');
+          setError('تم إنشاء الحساب بنجاح! يرجى تسجيل الدخول بكلمة المرور.');
           setAuthMode('login');
         }
       }
-    } catch {
-      setError('حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.');
+    } catch (err: any) {
+      console.error('Auth submit error:', err);
+      setError(err?.message || 'تعذر استكمال العملية. يرجى التأكد من البيانات والمحاولة ثانية.');
       playSound('error');
     } finally {
       setLoading(false);
