@@ -559,13 +559,27 @@ input:focus, textarea:focus, select:focus {
   }
 }
 
-/* PWA Safe Areas & Glassmorphism */
+/* PWA Safe Areas & Glassmorphism for Safari iOS */
 .pwa-header {
   padding-top: env(safe-area-inset-top, 0px);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
 }
 
 .pwa-bottom-nav {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+}
+
+html.dark .pwa-header {
+  background-color: rgba(3, 7, 18, 0.75) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+html.dark .pwa-bottom-nav {
+  background-color: rgba(3, 7, 18, 0.75) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 .pwa-main {

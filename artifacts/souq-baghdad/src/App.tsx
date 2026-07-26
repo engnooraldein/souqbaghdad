@@ -3619,7 +3619,7 @@ export default function App() {
       </footer>
 
       {/* Bottom Navigation Bar - Fixed Mobile First */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[black]/95 backdrop-blur-xl border-t border-[#d4af37]/20 lg:hidden pwa-bottom-nav">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-gray-950/75 backdrop-blur-2xl border-t border-gray-800/60 lg:hidden pwa-bottom-nav">
         <div className="flex items-center justify-around h-16 px-2">
           {/* الملف الشخصي */}
           <button
