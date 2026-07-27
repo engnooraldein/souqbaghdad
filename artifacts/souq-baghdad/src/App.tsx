@@ -1315,14 +1315,18 @@ export default function App() {
         if (rawLocal) savedLocalUser = JSON.parse(rawLocal);
       } catch (e) {}
 
-      const linkingProfileId = localStorage.getItem('linking_profile_id') || (savedLocalUser?.id && savedLocalUser?.phone ? savedLocalUser.id : null);
-      const linkingProfilePhone = localStorage.getItem('linking_profile_phone') || savedLocalUser?.phone || '';
-      localStorage.removeItem('linking_profile_id');
-      localStorage.removeItem('linking_profile_phone');
-
       const realEmail = (authUser.email && !authUser.email.endsWith('@souqbaghdad.com'))
         ? authUser.email.toLowerCase().trim()
         : (savedLocalUser?.email && !savedLocalUser.email.endsWith('@souqbaghdad.com') ? savedLocalUser.email : '');
+
+      const persistentLinkedId = realEmail ? localStorage.getItem('linked_id_' + realEmail) : null;
+      const persistentLinkedPhone = realEmail ? localStorage.getItem('linked_phone_' + realEmail) : null;
+
+      const linkingProfileId = localStorage.getItem('linking_profile_id') || persistentLinkedId || (savedLocalUser?.id && savedLocalUser?.phone ? savedLocalUser.id : null);
+      const linkingProfilePhone = localStorage.getItem('linking_profile_phone') || persistentLinkedPhone || savedLocalUser?.phone || '';
+      localStorage.removeItem('linking_profile_id');
+      localStorage.removeItem('linking_profile_phone');
+
       const userPhone = authUser.user_metadata?.phone || authUser.phone || linkingProfilePhone;
 
       // أولوية 1: البحث بمعرف الحساب القديم المحفوظ أو المطلوب ربطه
@@ -1391,28 +1395,35 @@ export default function App() {
         } catch (err) {}
       }
 
-      // تحديث بيانات البروفايل القديم بـ Gmail الحقيقي وتجاوز خطأ التكرار
+      // تحديث بيانات البروفايل القديم بـ Gmail الحقيقي وتخزين الروابط محلياً
       if (profile) {
-        if (realEmail && profile.email !== realEmail) {
-          try {
-            // تفريغ الإيميل من أي بروفايل فارغ مكرر لمنع تعارض المفتاح الفريد (unique constraint 23505)
-            const { data: dups } = await supabase
-              .from('profiles')
-              .select('id, ads_count, points, phone')
-              .eq('email', realEmail)
-              .neq('id', profile.id);
-            
-            if (dups && dups.length > 0) {
-              for (const d of dups) {
-                if (!d.ads_count && (!d.points || d.points <= 10) && !d.phone) {
-                  await supabase.from('profiles').delete().eq('id', d.id);
+        if (realEmail) {
+          profile.email = realEmail;
+          if (profile.phone) {
+            try { localStorage.setItem('linked_phone_' + realEmail, profile.phone); } catch (e) {}
+          }
+          try { localStorage.setItem('linked_id_' + realEmail, profile.id); } catch (e) {}
+
+          if (profile.email !== realEmail) {
+            try {
+              // تفريغ الإيميل من أي بروفايل فارغ مكرر لمنع تعارض المفتاح الفريد (unique constraint 23505)
+              const { data: dups } = await supabase
+                .from('profiles')
+                .select('id, ads_count, points, phone')
+                .eq('email', realEmail)
+                .neq('id', profile.id);
+              
+              if (dups && dups.length > 0) {
+                for (const d of dups) {
+                  if (!d.ads_count && (!d.points || d.points <= 10) && !d.phone) {
+                    await supabase.from('profiles').delete().eq('id', d.id);
+                  }
                 }
               }
-            }
 
-            await supabase.from('profiles').update({ email: realEmail }).eq('id', profile.id);
-            profile.email = realEmail;
-          } catch (e) {}
+              await supabase.from('profiles').update({ email: realEmail }).eq('id', profile.id);
+            } catch (e) {}
+          }
         } else if (profile.email && profile.email.includes('@souqbaghdad.com')) {
           profile.email = '';
         }
