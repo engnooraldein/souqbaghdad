@@ -1092,13 +1092,26 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                 {!editing&&<button onClick={()=>setEditing(true)} className="text-xs text-amber-400 hover:underline flex items-center gap-1"><Edit2 className="w-3 h-3"/> تعديل</button>}
               </div>
               <div className="space-y-3">
-                {[{label:'الاسم الكامل',field:'name',placeholder:'اسمك الكامل'},{label:'رقم الهاتف',field:'phone',placeholder:'07XXXXXXXXX'},{label:'البريد الإلكتروني',field:'email',placeholder:'example@domain.com'},{label:'نبذة شخصية',field:'bio',placeholder:'اكتب نبذة...',multi:true}].map(({label,field,placeholder,multi})=>(
-                  <div key={field}><label className={`text-xs font-medium mb-1 block ${isDarkMode ? 'text-gray-400' : 'text-slate-500 font-semibold'}`}>{label}</label>
+                {[{label:'الاسم الكامل',field:'name',placeholder:'اسمك الكامل'},{label:'رقم الهاتف',field:'phone',placeholder:'07XXXXXXXXX',verified:!!user.phone},{label:'البريد الإلكتروني',field:'email',placeholder:'example@domain.com',linkedGoogle:user.email && !user.email.endsWith('@souqbaghdad.com')},{label:'نبذة شخصية',field:'bio',placeholder:'اكتب نبذة...',multi:true}].map(({label,field,placeholder,multi,verified,linkedGoogle})=>(
+                  <div key={field}>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className={`text-xs font-medium block ${isDarkMode ? 'text-gray-400' : 'text-slate-500 font-semibold'}`}>{label}</label>
+                      {field === 'phone' && verified && (
+                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
+                          <Check className="w-2.5 h-2.5 text-emerald-400" /> رقم هاتف موثق ✅
+                        </span>
+                      )}
+                      {field === 'email' && linkedGoogle && (
+                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
+                          <Check className="w-2.5 h-2.5 text-emerald-400" /> مربوط بـ Google ✅
+                        </span>
+                      )}
+                    </div>
                     {multi?(
                       <textarea disabled={!editing} value={(ef as any)[field]} onChange={e=>setEf({...ef,[field]:e.target.value})} placeholder={placeholder} rows={2} className={`w-full rounded-xl py-2.5 px-4 border outline-none resize-none text-sm transition-colors ${isDarkMode ? 'bg-gray-700 text-white border-gray-600 focus:border-amber-400 disabled:opacity-70' : 'bg-slate-50 text-slate-900 border-slate-200 focus:border-amber-500 disabled:opacity-75'}`}/>
                     ):(
                       <input 
-                        disabled={!editing} 
+                        disabled={!editing || (field === 'email' && linkedGoogle)} 
                         value={(ef as any)[field]} 
                         onChange={e=>setEf({...ef,[field]:e.target.value})} 
                         placeholder={placeholder} 
@@ -1320,13 +1333,32 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                            return; // Cancelled
                         }
                      }
-                     if (window.confirm('تنبيه: هل أنت متأكد تماماً من رغبتك في حذف الحساب نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.')) {
-                        // The actual delete operation requires Supabase admin privileges or Edge Function,
-                        // For now we simulate deletion and log out.
-                        alert('تم إرسال طلب الحذف إلى الإدارة. سيتم تسجيل خروجك الآن.');
-                        await supabase.auth.signOut();
-                        localStorage.setItem('biometricEnabled', 'false');
-                        window.location.reload();
+                     if (window.confirm('تنبيه هام جداً: هل أنت متأكد تماماً من رغبتك في حذف حسابك وكافة بياناتك وإعلاناتك نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.')) {
+                        try {
+                           if (user?.id) {
+                              // 1. Delete profile row from public.profiles table
+                              await supabase.from('profiles').delete().eq('id', user.id);
+                              
+                              // 2. Delete all ads posted by this user
+                              await supabase.from('ads').delete().eq('postedBy', user.id);
+
+                              // 3. Delete all products posted by this user
+                              await supabase.from('products').delete().eq('postedBy', user.id);
+                           }
+
+                           // 4. Sign out from Supabase Auth
+                           await supabase.auth.signOut();
+
+                           // 5. Clear all local storage and session data
+                           localStorage.clear();
+                           sessionStorage.clear();
+
+                           alert('تم حذف حسابك وكافة إعلاناتك وبياناتك نهائياً بنجاح.');
+                           window.location.href = '/';
+                        } catch (delErr: any) {
+                           console.error('Account deletion error:', delErr);
+                           alert('حدث خطأ أثناء تنفيذ عملية الحذف: ' + (delErr?.message || 'يرجى إعادة المحاولة'));
+                        }
                      }
                   }}
                   className="py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition-colors shadow-lg"
