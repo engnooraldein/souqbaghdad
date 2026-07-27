@@ -1467,8 +1467,8 @@ export default function App() {
         : (profile?.email && !profile.email.endsWith('@souqbaghdad.com') ? profile.email : '');
 
       const u: User = {
-        id: authUser.id,
-        name: profile?.full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم',
+        id: profile?.id || authUser.id,
+        name: profile?.full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.picture || authUser.email?.split('@')[0] || 'مستخدم',
         email: realDisplayEmail,
         phone: profile?.phone || authUser.user_metadata?.phone || '',
         role,
