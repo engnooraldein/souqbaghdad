@@ -1343,7 +1343,7 @@ export default function App() {
         } catch (err) {}
       }
 
-      // أولوية 3: البحث برقم الهاتف في جدول البروفايلات
+      // أولوية 3: البحث برقم الهاتف في جدول البروفايلات والربط بالحساب القديم فوراً
       if (!profile && userPhone) {
         try {
           const { data: byPhone } = await supabase
@@ -1351,7 +1351,15 @@ export default function App() {
             .select('*')
             .eq('phone', userPhone)
             .maybeSingle();
-          if (byPhone) profile = byPhone;
+          if (byPhone) {
+            profile = byPhone;
+            if (realEmail && (!profile.email || profile.email.includes('@souqbaghdad.com') || profile.email !== realEmail)) {
+              try {
+                await supabase.from('profiles').update({ email: realEmail }).eq('id', profile.id);
+                profile.email = realEmail;
+              } catch (upErr) {}
+            }
+          }
         } catch (err) {}
       }
 
