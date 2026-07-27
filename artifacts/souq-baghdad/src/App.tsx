@@ -1314,6 +1314,12 @@ export default function App() {
       localStorage.removeItem('linking_profile_id');
       localStorage.removeItem('linking_profile_phone');
 
+      const realEmail = (authUser.email && !authUser.email.endsWith('@souqbaghdad.com'))
+        ? authUser.email.toLowerCase().trim()
+        : '';
+      const userPhone = authUser.user_metadata?.phone || authUser.phone || linkingProfilePhone;
+
+      // أولوية 1: إذا كانت الجلسة قادمة من ربط حساب يدوي، استخدم الحساب القديم فوراً
       if (linkingProfileId) {
         try {
           const { data: linkTarget } = await supabase
@@ -1321,103 +1327,88 @@ export default function App() {
             .select('*')
             .eq('id', linkingProfileId)
             .maybeSingle();
-          if (linkTarget) {
-            profile = linkTarget;
-          }
+          if (linkTarget) profile = linkTarget;
         } catch (e) {}
       }
 
-      // 1. إذا لم نحدد حساباً مسبقاً، نبحث عن البروفايل بالـ authUser.id
+      // أولوية 2: البحث بالإيميل الحقيقي في جدول البروفايلات (لأن الحساب القديم تم ربطه بهذا الإيميل!)
+      if (!profile && realEmail) {
+        try {
+          const { data: byEmail } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', realEmail)
+            .maybeSingle();
+          if (byEmail) profile = byEmail;
+        } catch (err) {}
+      }
+
+      // أولوية 3: البحث برقم الهاتف في جدول البروفايلات
+      if (!profile && userPhone) {
+        try {
+          const { data: byPhone } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('phone', userPhone)
+            .maybeSingle();
+          if (byPhone) profile = byPhone;
+        } catch (err) {}
+      }
+
+      // أولوية 4: البحث بالـ authUser.id
       if (!profile) {
         try {
-          const { data } = await supabase
+          const { data: byId } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', authUser.id)
             .maybeSingle();
-          profile = data;
-        } catch (err) {
-          console.warn('Profile search by id error:', err);
-        }
+          if (byId) profile = byId;
+        } catch (err) {}
       }
 
-      // 2. إذا كان البروفايل الحالي فارغاً (حساب جديد تنشأ من كوكل) وهناك بروفايل قديم حقيقي بالهاتف/الإيميل
-      if (authUser.email && !authUser.email.endsWith('@souqbaghdad.com')) {
-        const realEmail = authUser.email.toLowerCase().trim();
-        const userPhone = authUser.user_metadata?.phone || linkingProfilePhone;
-
-        const isNewEmptyProfile = profile && (profile.id === authUser.id) &&
-          !profile.ads_count && !profile.favorites_count && (!profile.points || profile.points <= 10) && !profile.avatar_url;
-
-        if (!profile || isNewEmptyProfile || linkingProfileId) {
-          let oldProfile: any = null;
-
-          // 2a. البحث في الحسابات القديمة بالبريد أو رقم الهاتف
-          if (realEmail) {
-            try {
-              const { data: byEmail } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('email', realEmail)
-                .neq('id', authUser.id)
-                .maybeSingle();
-              if (byEmail) oldProfile = byEmail;
-            } catch (err) {}
-          }
-
-          if (!oldProfile && userPhone) {
-            try {
-              const { data: byPhone } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('phone', userPhone)
-                .neq('id', authUser.id)
-                .maybeSingle();
-              if (byPhone) oldProfile = byPhone;
-            } catch (err) {}
-          }
-
-          // إذا وجدنا حساباً قديماً حقيقياً وكان هناك حساب مؤقت فارغ تم إنشاؤه بـ Google:
-          if (oldProfile) {
-            // حذف البروفايل المؤقت الفارغ لتنظيف قاعدة البيانات وإلغاء التكرار!
-            if (isNewEmptyProfile && profile.id !== oldProfile.id) {
-              try {
-                await supabase.from('profiles').delete().eq('id', profile.id);
-              } catch (delErr) {}
+      // تنظيف وإلغاء الحسابات المكررة الفارغة إن وجدت
+      if (profile && realEmail) {
+        // إذا كُتب هذا الإيميل على بروفايل قديم مختلف عن authUser.id، وكان هناك بروفايل مكرر فارغ بنفس authUser.id:
+        if (profile.id !== authUser.id) {
+          try {
+            const { data: duplicateAuthProfile } = await supabase
+              .from('profiles')
+              .select('id, ads_count, favorites_count, points, avatar_url')
+              .eq('id', authUser.id)
+              .maybeSingle();
+            if (duplicateAuthProfile && !duplicateAuthProfile.ads_count && !duplicateAuthProfile.favorites_count && (!duplicateAuthProfile.points || duplicateAuthProfile.points <= 10) && !duplicateAuthProfile.avatar_url) {
+              await supabase.from('profiles').delete().eq('id', authUser.id);
             }
-            profile = oldProfile;
-          }
+          } catch (e) {}
         }
 
-        // 2c. تحديث بيانات البروفايل القديم بـ Gmail وصورته ورقم هاتفه من Google فورا!
-        if (profile) {
-          try {
-            const googleAvatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture;
-            const googlePhone = authUser.user_metadata?.phone || authUser.phone || linkingProfilePhone;
-            const updatePayload: any = {};
+        // تحديث إيميل وصورة وهاتف البروفايل الأصلي ببيانات Google الحقيقية
+        try {
+          const googleAvatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture;
+          const updatePayload: any = {};
 
-            if (realEmail && (!profile.email || profile.email.includes('@souqbaghdad.com') || profile.email !== realEmail)) {
-              updatePayload.email = realEmail;
-            }
-            if (googleAvatar && !profile.avatar_url) {
-              updatePayload.avatar_url = googleAvatar;
-            }
-            if (googlePhone && !profile.phone) {
-              updatePayload.phone = googlePhone;
-            }
-
-            if (Object.keys(updatePayload).length > 0) {
-              await supabase
-                .from('profiles')
-                .update(updatePayload)
-                .eq('id', profile.id);
-              if (updatePayload.email) profile.email = realEmail;
-              if (updatePayload.avatar_url) profile.avatar_url = updatePayload.avatar_url;
-              if (updatePayload.phone) profile.phone = updatePayload.phone;
-            }
-          } catch (updateErr) {
-            console.warn('Failed to auto-update profile Google metadata:', updateErr);
+          if (!profile.email || profile.email.includes('@souqbaghdad.com') || profile.email !== realEmail) {
+            updatePayload.email = realEmail;
           }
+          if (googleAvatar && !profile.avatar_url) {
+            updatePayload.avatar_url = googleAvatar;
+          }
+          if (userPhone && !profile.phone) {
+            updatePayload.phone = userPhone;
+          }
+
+          if (Object.keys(updatePayload).length > 0) {
+            await supabase
+              .from('profiles')
+              .update(updatePayload)
+              .eq('id', profile.id);
+            if (updatePayload.email) profile.email = realEmail;
+            if (updatePayload.avatar_url) profile.avatar_url = updatePayload.avatar_url;
+            if (updatePayload.phone) profile.phone = userPhone;
+          }
+        } catch (updateErr) {
+          console.warn('Failed to auto-update profile Google metadata:', updateErr);
         }
       }
 
