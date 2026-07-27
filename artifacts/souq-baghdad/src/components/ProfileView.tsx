@@ -1180,14 +1180,14 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                     <button
                       onClick={async () => {
                         try {
-                          const { error } = await supabase.auth.signInWithOAuth({
-                            provider: 'google',
-                            options: { redirectTo: `${window.location.origin}/IQ` }
-                          });
                           if (profileUser?.id) {
                             localStorage.setItem('linking_profile_id', profileUser.id);
                             localStorage.setItem('linking_profile_phone', profileUser.phone || '');
                           }
+                          const { error } = await supabase.auth.signInWithOAuth({
+                            provider: 'google',
+                            options: { redirectTo: `${window.location.origin}/IQ` }
+                          });
                           if (error) alert('خطأ في الاتصال بـ Google: ' + error.message);
                         } catch {
                           alert('حدث خطأ أثناء الاتصال بـ Google');

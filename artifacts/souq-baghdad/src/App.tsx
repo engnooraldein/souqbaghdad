@@ -1327,7 +1327,7 @@ export default function App() {
         } catch (e) {}
       }
 
-      // 1. البحث عن البروفايل باستخدام authUser.id
+      // 1. إذا لم نحدد حساباً مسبقاً، نبحث عن البروفايل بالـ authUser.id
       if (!profile) {
         try {
           const { data } = await supabase
@@ -1341,34 +1341,51 @@ export default function App() {
         }
       }
 
-      // 2. إذا كان الحساب المكتشف بالـ authUser.id فارغاً (لا إعلانات ولا نقاط ولا صورة)،
-      // وكان هناك حساب قديم مرتبط بنفس الهاتف أو الإيميل الحقيقي، نرجح الحساب القديم دائماً!
+      // 2. إذا كان البروفايل الحالي فارغاً (حساب جديد تنشأ من كوكل) وهناك بروفايل قديم حقيقي بالهاتف/الإيميل
       if (authUser.email && !authUser.email.endsWith('@souqbaghdad.com')) {
         const realEmail = authUser.email.toLowerCase().trim();
         const userPhone = authUser.user_metadata?.phone || linkingProfilePhone;
 
-        // إذا لم نجد بروفايل أو كان البروفايل الحالي حديثاً فارغاً
-        if (!profile || (!profile.ads_count && !profile.favorites_count && (!profile.points || profile.points <= 10) && !profile.avatar_url)) {
-          // 2a. البحث بـ Email الحقيقي أولاً في الحسابات القديمة
-          try {
-            const { data: existingByEmail } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('email', realEmail)
-              .maybeSingle();
-            if (existingByEmail) profile = existingByEmail;
-          } catch (err) {}
+        const isNewEmptyProfile = profile && (profile.id === authUser.id) &&
+          !profile.ads_count && !profile.favorites_count && (!profile.points || profile.points <= 10) && !profile.avatar_url;
 
-          // 2b. البحث برقم الهاتف المعرف في metadata أو الحساب القديم
-          if (!profile && userPhone) {
+        if (!profile || isNewEmptyProfile || linkingProfileId) {
+          let oldProfile: any = null;
+
+          // 2a. البحث في الحسابات القديمة بالبريد أو رقم الهاتف
+          if (realEmail) {
             try {
-              const { data: existingByPhone } = await supabase
+              const { data: byEmail } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('email', realEmail)
+                .neq('id', authUser.id)
+                .maybeSingle();
+              if (byEmail) oldProfile = byEmail;
+            } catch (err) {}
+          }
+
+          if (!oldProfile && userPhone) {
+            try {
+              const { data: byPhone } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('phone', userPhone)
+                .neq('id', authUser.id)
                 .maybeSingle();
-              if (existingByPhone) profile = existingByPhone;
+              if (byPhone) oldProfile = byPhone;
             } catch (err) {}
+          }
+
+          // إذا وجدنا حساباً قديماً حقيقياً وكان هناك حساب مؤقت فارغ تم إنشاؤه بـ Google:
+          if (oldProfile) {
+            // حذف البروفايل المؤقت الفارغ لتنظيف قاعدة البيانات وإلغاء التكرار!
+            if (isNewEmptyProfile && profile.id !== oldProfile.id) {
+              try {
+                await supabase.from('profiles').delete().eq('id', profile.id);
+              } catch (delErr) {}
+            }
+            profile = oldProfile;
           }
         }
 
