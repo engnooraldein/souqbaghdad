@@ -3069,8 +3069,8 @@ export default function App() {
   const isOwner = user?.role==='owner';
 
   // Dynamic SEO metadata based on current router state
-  let pageTitle = "سوق بغداد (سوك بغداد) | منصة الإعلانات والبيع والشراء الأولى في العراق";
-  let pageDescription = "سوق بغداد (سوك بغداد) - المنصة الرقمية العراقية الأولى للبيع والشراء والإعلانات المباشرة. تصفح آلاف السيارات، العقارات، الموبايلات، الأجهزة، خطوط النقل والمتاجر الموثقة في بغداد وعموم العراق.";
+  let pageTitle = "سوق بغداد الرقمي - السوق الرقمي العراقي | أكبر منصة إعلانات في العراق";
+  let pageDescription = "سوق بغداد الرقمي - أكبر منصة عراقية للبيع والشراء والإعلانات. سيارات، عقارات، هواتف، إلكترونيات، خدمات والمزيد. اكتشف آلاف الإعلانات في أقسام متعددة.";
   let pageImage = "https://www.souqbaghdad.store/logo.jpg";
   let canonicalUrl = "https://www.souqbaghdad.store/";
 
