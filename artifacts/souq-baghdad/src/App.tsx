@@ -1369,19 +1369,33 @@ export default function App() {
 
       // تنظيف وإلغاء الحسابات المكررة الفارغة إن وجدت
       if (profile && realEmail) {
-        // إذا كُتب هذا الإيميل على بروفايل قديم مختلف عن authUser.id، وكان هناك بروفايل مكرر فارغ بنفس authUser.id:
-        if (profile.id !== authUser.id) {
-          try {
-            const { data: duplicateAuthProfile } = await supabase
+        // البحث عن أي بروفايل مكرر فارغ آخر يحمل نفس الإيميل وحذفه
+        try {
+          const { data: duplicates } = await supabase
+            .from('profiles')
+            .select('id, ads_count, favorites_count, points')
+            .eq('email', realEmail)
+            .neq('id', profile.id);
+          
+          if (duplicates && duplicates.length > 0) {
+            for (const dup of duplicates) {
+              if (!dup.ads_count && !dup.favorites_count && (!dup.points || dup.points <= 10)) {
+                await supabase.from('profiles').delete().eq('id', dup.id);
+              }
+            }
+          }
+
+          if (profile.id !== authUser.id) {
+            const { data: dupAuth } = await supabase
               .from('profiles')
-              .select('id, ads_count, favorites_count, points, avatar_url')
+              .select('id, ads_count, favorites_count, points')
               .eq('id', authUser.id)
               .maybeSingle();
-            if (duplicateAuthProfile && !duplicateAuthProfile.ads_count && !duplicateAuthProfile.favorites_count && (!duplicateAuthProfile.points || duplicateAuthProfile.points <= 10) && !duplicateAuthProfile.avatar_url) {
+            if (dupAuth && dupAuth.id !== profile.id && !dupAuth.ads_count && !dupAuth.favorites_count && (!dupAuth.points || dupAuth.points <= 10)) {
               await supabase.from('profiles').delete().eq('id', authUser.id);
             }
-          } catch (e) {}
-        }
+          }
+        } catch (e) {}
 
         // تحديث إيميل وصورة وهاتف البروفايل الأصلي ببيانات Google الحقيقية
         try {
