@@ -1308,24 +1308,48 @@ export default function App() {
     try {
       let profile: any = null;
 
-      // 1. البحث عن البروفايل باستخدام authUser.id
-      try {
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authUser.id)
-          .maybeSingle();
-        profile = data;
-      } catch (err) {
-        console.warn('Profile search by id error:', err);
+      // 0. التحقق مما إذا كانت هناك عملية ربط جارية من حساب قديم (Linking Profile ID)
+      const linkingProfileId = localStorage.getItem('linking_profile_id');
+      const linkingProfilePhone = localStorage.getItem('linking_profile_phone');
+      localStorage.removeItem('linking_profile_id');
+      localStorage.removeItem('linking_profile_phone');
+
+      if (linkingProfileId) {
+        try {
+          const { data: linkTarget } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', linkingProfileId)
+            .maybeSingle();
+          if (linkTarget) {
+            profile = linkTarget;
+          }
+        } catch (e) {}
       }
 
-      // 2. إذا لم نجد بروفايل بالـ id، وكانت الجلسة قادمة من Google وبها email حقيقي
+      // 1. البحث عن البروفايل باستخدام authUser.id
+      if (!profile) {
+        try {
+          const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', authUser.id)
+            .maybeSingle();
+          profile = data;
+        } catch (err) {
+          console.warn('Profile search by id error:', err);
+        }
+      }
+
+      // 2. إذا كان الحساب المكتشف بالـ authUser.id فارغاً (لا إعلانات ولا نقاط ولا صورة)،
+      // وكان هناك حساب قديم مرتبط بنفس الهاتف أو الإيميل الحقيقي، نرجح الحساب القديم دائماً!
       if (authUser.email && !authUser.email.endsWith('@souqbaghdad.com')) {
         const realEmail = authUser.email.toLowerCase().trim();
+        const userPhone = authUser.user_metadata?.phone || linkingProfilePhone;
 
-        // 2a. البحث بـ Email الحقيقي أولاً
-        if (!profile) {
+        // إذا لم نجد بروفايل أو كان البروفايل الحالي حديثاً فارغاً
+        if (!profile || (!profile.ads_count && !profile.favorites_count && (!profile.points || profile.points <= 10) && !profile.avatar_url)) {
+          // 2a. البحث بـ Email الحقيقي أولاً في الحسابات القديمة
           try {
             const { data: existingByEmail } = await supabase
               .from('profiles')
@@ -1334,26 +1358,25 @@ export default function App() {
               .maybeSingle();
             if (existingByEmail) profile = existingByEmail;
           } catch (err) {}
+
+          // 2b. البحث برقم الهاتف المعرف في metadata أو الحساب القديم
+          if (!profile && userPhone) {
+            try {
+              const { data: existingByPhone } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('phone', userPhone)
+                .maybeSingle();
+              if (existingByPhone) profile = existingByPhone;
+            } catch (err) {}
+          }
         }
 
-        // 2b. البحث برقم الهاتف المعرف في metadata إن وجد
-        const userPhone = authUser.user_metadata?.phone;
-        if (!profile && userPhone) {
-          try {
-            const { data: existingByPhone } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('phone', userPhone)
-              .maybeSingle();
-            if (existingByPhone) profile = existingByPhone;
-          } catch (err) {}
-        }
-
-        // 2c. إذا وُجد حساب سابق وكان إيميله وهمياً أو فارغاً، نقوم بتحديث إيميله وصورته ورقم هاتفه من Google فورا!
+        // 2c. تحديث بيانات البروفايل القديم بـ Gmail وصورته ورقم هاتفه من Google فورا!
         if (profile) {
           try {
             const googleAvatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture;
-            const googlePhone = authUser.user_metadata?.phone || authUser.phone;
+            const googlePhone = authUser.user_metadata?.phone || authUser.phone || linkingProfilePhone;
             const updatePayload: any = {};
 
             if (realEmail && (!profile.email || profile.email.includes('@souqbaghdad.com') || profile.email !== realEmail)) {
