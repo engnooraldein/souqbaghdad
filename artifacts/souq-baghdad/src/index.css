@@ -573,12 +573,12 @@ input:focus, textarea:focus, select:focus {
 }
 
 html.dark .pwa-header {
-  background-color: rgba(3, 7, 18, 0.75) !important;
+  background-color: rgba(3, 7, 18, 0.45) !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 html.dark .pwa-bottom-nav {
-  background-color: rgba(3, 7, 18, 0.75) !important;
+  background-color: rgba(3, 7, 18, 0.45) !important;
   border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
@@ -615,9 +615,9 @@ html:not(.dark) .pwa-outer-container {
 
 /* Navigation & Header */
 html:not(.dark) nav.pwa-header {
-  background-color: rgba(255, 255, 255, 0.97) !important;
-  border-bottom: 1.5px solid #cbd5e1 !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.07) !important;
+  background-color: rgba(255, 255, 255, 0.55) !important;
+  border-bottom: 1.5px solid rgba(203, 213, 225, 0.6) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
 }
 
 html:not(.dark) nav.pwa-header span {
@@ -625,9 +625,9 @@ html:not(.dark) nav.pwa-header span {
 }
 
 html:not(.dark) .pwa-bottom-nav {
-  background-color: rgba(255, 255, 255, 0.97) !important;
-  border-top: 1.5px solid #cbd5e1 !important;
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.07) !important;
+  background-color: rgba(255, 255, 255, 0.55) !important;
+  border-top: 1.5px solid rgba(203, 213, 225, 0.6) !important;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.04) !important;
 }
 
 html:not(.dark) .pwa-bottom-nav button p {
