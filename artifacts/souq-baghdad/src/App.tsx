@@ -1349,22 +1349,34 @@ export default function App() {
           } catch (err) {}
         }
 
-        // 2c. إذا وُجد حساب سابق ولكن إيميله كان وهمياً (مثل @souqbaghdad.com) أو فارغاً، نقوم بتحديث إيميله إلى Gmail الحقيقي فورا!
-        if (profile && (!profile.email || profile.email.includes('@souqbaghdad.com') || profile.email !== realEmail)) {
+        // 2c. إذا وُجد حساب سابق وكان إيميله وهمياً أو فارغاً، نقوم بتحديث إيميله وصورته ورقم هاتفه من Google فورا!
+        if (profile) {
           try {
             const googleAvatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture;
-            const updatePayload: any = { email: realEmail };
+            const googlePhone = authUser.user_metadata?.phone || authUser.phone;
+            const updatePayload: any = {};
+
+            if (realEmail && (!profile.email || profile.email.includes('@souqbaghdad.com') || profile.email !== realEmail)) {
+              updatePayload.email = realEmail;
+            }
             if (googleAvatar && !profile.avatar_url) {
               updatePayload.avatar_url = googleAvatar;
             }
-            await supabase
-              .from('profiles')
-              .update(updatePayload)
-              .eq('id', profile.id);
-            profile.email = realEmail;
-            if (updatePayload.avatar_url) profile.avatar_url = updatePayload.avatar_url;
+            if (googlePhone && !profile.phone) {
+              updatePayload.phone = googlePhone;
+            }
+
+            if (Object.keys(updatePayload).length > 0) {
+              await supabase
+                .from('profiles')
+                .update(updatePayload)
+                .eq('id', profile.id);
+              if (updatePayload.email) profile.email = realEmail;
+              if (updatePayload.avatar_url) profile.avatar_url = updatePayload.avatar_url;
+              if (updatePayload.phone) profile.phone = updatePayload.phone;
+            }
           } catch (updateErr) {
-            console.warn('Failed to auto-update profile email:', updateErr);
+            console.warn('Failed to auto-update profile Google metadata:', updateErr);
           }
         }
       }
