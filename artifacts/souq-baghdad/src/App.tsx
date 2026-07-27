@@ -3071,8 +3071,8 @@ export default function App() {
   // Dynamic SEO metadata based on current router state
   let pageTitle = "سوق بغداد | سوك بغداد - السوق الرقمي العراقي الأول للإعلانات";
   let pageDescription = "سوق بغداد (سوك بغداد) - أكبر وأول منصة سوق رقمي عراقي للبيع والشراء والإعلانات المفتوحة في بغداد وجميع المحافظات. تصفح آلاف السيارات، العقارات، الهواتف والخدمات مجاناً.";
-  let pageImage = "https://souqbaghdad.store/logo.jpg";
-  let canonicalUrl = "https://souqbaghdad.store/";
+  let pageImage = "https://www.souqbaghdad.store/logo.jpg";
+  let canonicalUrl = "https://www.souqbaghdad.store/";
 
   if (selectedAd) {
     const slugify = (text: string) => {
