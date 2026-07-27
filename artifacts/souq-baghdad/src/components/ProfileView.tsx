@@ -1182,7 +1182,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                         try {
                           const { error } = await supabase.auth.signInWithOAuth({
                             provider: 'google',
-                            options: { redirectTo: window.location.origin }
+                            options: { redirectTo: `${window.location.origin}/IQ` }
                           });
                           if (error) alert('خطأ في الاتصال بـ Google: ' + error.message);
                         } catch {
