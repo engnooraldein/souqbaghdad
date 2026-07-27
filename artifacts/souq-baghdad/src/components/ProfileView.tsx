@@ -1197,20 +1197,13 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                             localStorage.setItem('linking_profile_id', user.id);
                             localStorage.setItem('linking_profile_phone', user.phone || '');
                           }
-                          let res = await supabase.auth.linkIdentity({
+                          const { error } = await supabase.auth.signInWithOAuth({
                             provider: 'google',
                             options: { redirectTo: `${window.location.origin}/IQ` }
                           });
-                          if (res.error) {
-                            console.warn('linkIdentity fallback to signInWithOAuth:', res.error);
-                            res = await supabase.auth.signInWithOAuth({
-                              provider: 'google',
-                              options: { redirectTo: `${window.location.origin}/IQ` }
-                            });
-                          }
-                          if (res.error) {
-                            console.error('Google link error:', res.error);
-                            alert('خطأ في الاتصال بـ Google: ' + res.error.message);
+                          if (error) {
+                            console.error('Google link error:', error);
+                            alert('خطأ في الاتصال بـ Google: ' + error.message);
                           }
                         } catch (err: any) {
                           console.error('Google link exception:', err);
