@@ -1463,13 +1463,33 @@ export default function App() {
   // استعلام Supabase — مرة واحدة فقط + listener دائم.
   // انتبه: لا تضف State هنا حتى لا يتحول إلى Infinite Loop.
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) loadUserFromSupabase(session.user);
+    // فحص أي أخطاء في الـ URL قادمة من Google OAuth
+    if (typeof window !== 'undefined' && (window.location.hash.includes('error=') || window.location.search.includes('error='))) {
+      try {
+        const hashOrQuery = window.location.search || (window.location.hash ? '?' + window.location.hash.substring(1) : '');
+        const urlParams = new URLSearchParams(hashOrQuery);
+        const errorDesc = urlParams.get('error_description') || urlParams.get('error');
+        if (errorDesc) {
+          console.error('OAuth URL error:', errorDesc);
+          setToast({ msg: `فشل تسجيل الدخول بـ Google: ${errorDesc}`, type: 'error', visible: true });
+        }
+      } catch (e) {}
+    }
+
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (session?.user) {
+        loadUserFromSupabase(session.user);
+      } else if (error) {
+        console.error('Get session error:', error);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         loadUserFromSupabase(session.user);
+        if (event === 'SIGNED_IN') {
+          setToast({ msg: 'تم تسجيل الدخول والربط بنجاح ✨', type: 'success', visible: true });
+        }
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         localStorage.removeItem('souqUser');
