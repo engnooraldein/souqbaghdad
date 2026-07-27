@@ -3099,9 +3099,10 @@ export default function App() {
       <Toast msg={toast.msg} type={toast.type} visible={toast.visible} onClose={()=>setToast(t=>({...t,visible:false}))}/>
 
       {/* Nav */}
-      <nav className={`fixed top-0 left-0 right-0 z-40 backdrop-blur-xl border-b transition-colors duration-300 pwa-header shadow-md ${isDarkMode ? 'bg-[black]/70 border-transparent shadow-[black]/10' : 'bg-white/80 border-slate-200/80 shadow-slate-100'}`}>
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
+      <nav className="fixed top-0 left-0 right-0 z-40 pwa-header">
+        <div className="pwa-header-inner transition-colors duration-300">
+          <div className="container mx-auto px-4">
+            <div className="flex items-center justify-between h-16">
             <button onClick={()=>setView('home')} className="flex items-center gap-2">
               <Logo small/>
               <span className={`font-bold text-sm sm:text-lg transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>سوك بغداد</span>
@@ -3219,6 +3220,7 @@ export default function App() {
             </div>
           </div>
         </div>
+      </div>
       </nav>
 
       {/* Desktop Navigation Sidebar */}
@@ -3637,8 +3639,9 @@ export default function App() {
       </footer>
 
       {/* Bottom Navigation Bar - Fixed Mobile First */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-gray-950/75 backdrop-blur-2xl border-t border-gray-800/60 lg:hidden pwa-bottom-nav">
-        <div className="flex items-center justify-around h-16 px-2">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden pwa-bottom-nav">
+        <div className="pwa-bottom-nav-inner">
+          <div className="flex items-center justify-around h-16 px-2">
           {/* الملف الشخصي */}
           <button
             onClick={() => {
@@ -3708,6 +3711,7 @@ export default function App() {
             <span className="text-[10px] mt-1 font-medium">الرئيسية</span>
           </button>
         </div>
+      </div>
       </nav>
 
       {/* Biometric Reminder Banner */}
