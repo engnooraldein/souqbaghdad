@@ -1337,15 +1337,28 @@ export default function App() {
         } catch (e) {}
       }
 
-      // أولوية 2: البحث بالإيميل الحقيقي في جدول البروفايلات (لأن الحساب القديم تم ربطه بهذا الإيميل!)
+      // أولوية 2: البحث بالإيميل الحقيقي في جدول البروفايلات (الأولوية للحساب القديم)
       if (!profile && realEmail) {
         try {
-          const { data: byEmail } = await supabase
+          const { data: candidates } = await supabase
             .from('profiles')
             .select('*')
             .eq('email', realEmail)
-            .maybeSingle();
-          if (byEmail) profile = byEmail;
+            .order('created_at', { ascending: true });
+          
+          if (candidates && candidates.length > 0) {
+            const oldTarget = candidates.find(c => c.phone || (c.points && c.points > 10) || c.ads_count > 0) || candidates[0];
+            profile = oldTarget;
+
+            // مسح أي حسابات مكررة فارغة تسببت بشغل الإيميل
+            for (const c of candidates) {
+              if (c.id !== profile.id && !c.ads_count && (!c.points || c.points <= 10) && !c.phone) {
+                try {
+                  await supabase.from('profiles').delete().eq('id', c.id);
+                } catch (delErr) {}
+              }
+            }
+          }
         } catch (err) {}
       }
 
@@ -1378,12 +1391,27 @@ export default function App() {
         } catch (err) {}
       }
 
-      // تحديث بيانات البروفايل القديم بـ Gmail الحقيقي وتنظيف الإيميل الوهمي
+      // تحديث بيانات البروفايل القديم بـ Gmail الحقيقي وتجاوز خطأ التكرار
       if (profile) {
-        if (realEmail) {
-          profile.email = realEmail;
+        if (realEmail && profile.email !== realEmail) {
           try {
+            // تفريغ الإيميل من أي بروفايل فارغ مكرر لمنع تعارض المفتاح الفريد (unique constraint 23505)
+            const { data: dups } = await supabase
+              .from('profiles')
+              .select('id, ads_count, points, phone')
+              .eq('email', realEmail)
+              .neq('id', profile.id);
+            
+            if (dups && dups.length > 0) {
+              for (const d of dups) {
+                if (!d.ads_count && (!d.points || d.points <= 10) && !d.phone) {
+                  await supabase.from('profiles').delete().eq('id', d.id);
+                }
+              }
+            }
+
             await supabase.from('profiles').update({ email: realEmail }).eq('id', profile.id);
+            profile.email = realEmail;
           } catch (e) {}
         } else if (profile.email && profile.email.includes('@souqbaghdad.com')) {
           profile.email = '';
