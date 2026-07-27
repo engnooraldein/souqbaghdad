@@ -1303,15 +1303,10 @@ export default function App() {
     return () => window.removeEventListener('open-share-modal', handleOpenShare);
   }, []);
 
-  // ── دالة تحميل بيانات المستخدم من Supabase (ربط تلقائي وفوري بـ Google وبدون إيميل وهمي) ──
+  // ── دالة تحميل بيانات المستخدم من Supabase (ربط تلقائي وفور ي بـ Google) ──
   const loadUserFromSupabase = async (authUser: any) => {
     try {
       let profile: any = null;
-
-      // فلترة البريد الإلكتروني الحقيقي فقط (إهمال أي إيميل وهمي داخلي ينتهي بـ @souqbaghdad.com)
-      const isRealEmail = authUser.email && !authUser.email.includes('@souqbaghdad.com');
-      const cleanEmail = isRealEmail ? authUser.email : '';
-      const authPhone = authUser.user_metadata?.phone || authUser.phone || '';
 
       // 1. البحث عن البروفايل باستخدام authUser.id
       try {
@@ -1325,57 +1320,44 @@ export default function App() {
         console.warn('Profile search by id error:', err);
       }
 
-      // 2. إذا لم نجد بروفايل بالـ id، نربطه تلقائياً بالبريد الحقيقي أو رقم الهاتف!
-      if (!profile) {
-        if (cleanEmail) {
-          try {
-            const { data: existingByEmail } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('email', cleanEmail)
-              .maybeSingle();
-            if (existingByEmail) profile = existingByEmail;
-          } catch {}
-        }
-        if (!profile && authPhone) {
-          try {
-            const { data: existingByPhone } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('phone', authPhone)
-              .maybeSingle();
-            if (existingByPhone) profile = existingByPhone;
-          } catch {}
-        }
-      }
-
-      // 3. إذا كان الحساب موجوداً برقم الهاتف وكان بريده فارغاً أو وهمياً، ونملك الآن بريد Google حقيقي ⬅️ نربطه بـ Gmail فورياً في Supabase!
-      if (profile && cleanEmail && (!profile.email || profile.email.includes('@souqbaghdad.com'))) {
+      // 2. إذا لم نجد بروفايل بالـ id ونملك email، نربطه تلقائياً بالبروفايل المكتشف بالبريد الإلكتروني!
+      if (!profile && authUser.email) {
         try {
-          await supabase
+          const { data: existingByEmail } = await supabase
             .from('profiles')
-            .update({
-              email: cleanEmail,
-              avatar_url: profile.avatar_url || authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture
-            })
-            .eq('id', profile.id);
-          profile.email = cleanEmail;
+            .select('*')
+            .eq('email', authUser.email)
+            .maybeSingle();
+
+          if (existingByEmail) {
+            profile = existingByEmail;
+            // تحديث الصورة الرمزية إن كانت غائبة دون تعديل الـ Primary Key id لتجنب أخطاء RLS
+            try {
+              const googleAvatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture;
+              if (googleAvatar && !profile.avatar_url) {
+                await supabase
+                  .from('profiles')
+                  .update({ avatar_url: googleAvatar })
+                  .eq('email', authUser.email);
+              }
+            } catch {}
+          }
         } catch (err) {
-          console.warn('Failed to link Google email to profile:', err);
+          console.warn('Profile search by email error:', err);
         }
       }
 
-      // 4. إذا كان مستخدماً جديداً كلياً ولم يجد أي بروفايل في القاعدة
+      // 3. إذا كان مستخدماً جديداً بـ Google ولم يجد أي حساب سابق
       if (!profile && authUser.id) {
-        const googleName = authUser.user_metadata?.full_name || authUser.user_metadata?.name || (cleanEmail ? cleanEmail.split('@')[0] : 'مستخدم جديد');
+        const googleName = authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم جديد';
         const googleAvatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || null;
-        const role = cleanEmail === OWNER_EMAIL ? 'owner' : 'user';
+        const role = authUser.email === OWNER_EMAIL ? 'owner' : 'user';
 
         const newProfileData = {
           id: authUser.id,
           full_name: googleName,
-          email: cleanEmail, // يُترك فارغاً إذا سجل برقم الهاتف فقط لحين إضافة إيميل حقيقي!
-          phone: authPhone,
+          email: authUser.email || '',
+          phone: authUser.user_metadata?.phone || '',
           role: role,
           avatar_url: googleAvatar,
           city: authUser.user_metadata?.city || 'بغداد',
@@ -1397,13 +1379,14 @@ export default function App() {
         }
       }
 
-      const role = (cleanEmail === OWNER_EMAIL || profile?.role === 'owner') ? 'owner' : (profile?.role || 'user');
+      const role = authUser.email === OWNER_EMAIL ? 'owner'
+        : (profile?.role || authUser.user_metadata?.role || 'user');
       
       const u: User = {
-        id: profile?.id || authUser.id,
-        name: profile?.full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || (cleanEmail ? cleanEmail.split('@')[0] : 'مستخدم'),
-        email: cleanEmail || profile?.email || '',
-        phone: profile?.phone || authPhone || '',
+        id: authUser.id,
+        name: profile?.full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم',
+        email: authUser.email || profile?.email || '',
+        phone: profile?.phone || authUser.user_metadata?.phone || '',
         role,
         avatar: profile?.avatar_url || authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || DEFAULT_AVATAR,
         cover: profile?.cover_url || DEFAULT_COVER,
@@ -1421,21 +1404,20 @@ export default function App() {
       localStorage.setItem('souqUser', JSON.stringify(u));
     } catch (err) {
       console.error('Critical error in loadUserFromSupabase:', err);
-      const isReal = authUser.email && !authUser.email.includes('@souqbaghdad.com');
-      const cleanEm = isReal ? authUser.email : '';
+      // Fallback: تسجيل دخول فوري للمستخدم اعتماداً على بيانات authUser
       const fallbackUser: User = {
         id: authUser.id,
-        name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || (cleanEm ? cleanEm.split('@')[0] : 'مستخدم'),
-        email: cleanEm,
-        phone: authUser.user_metadata?.phone || authUser.phone || '',
-        role: cleanEm === OWNER_EMAIL ? 'owner' : 'user',
+        name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم',
+        email: authUser.email || '',
+        phone: authUser.user_metadata?.phone || '',
+        role: authUser.email === OWNER_EMAIL ? 'owner' : 'user',
         avatar: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || DEFAULT_AVATAR,
         cover: DEFAULT_COVER,
         bio: '',
         location: 'بغداد',
         points: 10,
         rating: 4.8,
-        isVerified: cleanEm === OWNER_EMAIL,
+        isVerified: authUser.email === OWNER_EMAIL,
         joinedDate: 'الآن',
         stats: { ads: 0, favorites: 0, views: 0 },
         sellerStats: { totalAds: 0, sold: 0, responseRate: 100, avgResponseTime: 'دقائق' }
@@ -3099,10 +3081,9 @@ export default function App() {
       <Toast msg={toast.msg} type={toast.type} visible={toast.visible} onClose={()=>setToast(t=>({...t,visible:false}))}/>
 
       {/* Nav */}
-      <nav className="fixed top-0 left-0 right-0 z-40 pwa-header">
-        <div className="pwa-header-inner transition-colors duration-300">
-          <div className="container mx-auto px-4">
-            <div className="flex items-center justify-between h-16">
+      <nav className={`fixed top-0 left-0 right-0 z-40 backdrop-blur-xl border-b transition-colors duration-300 pwa-header shadow-md ${isDarkMode ? 'bg-[black]/70 border-transparent shadow-[black]/10' : 'bg-white/80 border-slate-200/80 shadow-slate-100'}`}>
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
             <button onClick={()=>setView('home')} className="flex items-center gap-2">
               <Logo small/>
               <span className={`font-bold text-sm sm:text-lg transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>سوك بغداد</span>
@@ -3220,7 +3201,6 @@ export default function App() {
             </div>
           </div>
         </div>
-      </div>
       </nav>
 
       {/* Desktop Navigation Sidebar */}
@@ -3639,9 +3619,8 @@ export default function App() {
       </footer>
 
       {/* Bottom Navigation Bar - Fixed Mobile First */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden pwa-bottom-nav">
-        <div className="pwa-bottom-nav-inner">
-          <div className="flex items-center justify-around h-16 px-2">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-gray-950/75 backdrop-blur-2xl border-t border-gray-800/60 lg:hidden pwa-bottom-nav">
+        <div className="flex items-center justify-around h-16 px-2">
           {/* الملف الشخصي */}
           <button
             onClick={() => {
@@ -3711,7 +3690,6 @@ export default function App() {
             <span className="text-[10px] mt-1 font-medium">الرئيسية</span>
           </button>
         </div>
-      </div>
       </nav>
 
       {/* Biometric Reminder Banner */}
