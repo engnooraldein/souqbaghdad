@@ -183,10 +183,11 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
 
       setResolvedPhone(phoneKey);
       if (data) {
-        setResolvedEmail(data.email || authEmail);
+        const cleanEmail = (data.email && !data.email.endsWith('@souqbaghdad.com')) ? data.email : '';
+        setResolvedEmail(cleanEmail);
         setAuthMode('login');
       } else {
-        setResolvedEmail(authEmail);
+        setResolvedEmail('');
         setAuthMode('signup');
       }
       setStep('password');

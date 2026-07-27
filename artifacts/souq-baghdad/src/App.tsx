@@ -1303,7 +1303,7 @@ export default function App() {
     return () => window.removeEventListener('open-share-modal', handleOpenShare);
   }, []);
 
-  // ── دالة تحميل بيانات المستخدم من Supabase (ربط تلقائي وفور ي بـ Google) ──
+  // ── دالة تحميل بيانات المستخدم من Supabase (ربط تلقائي ورسمي بـ Google Gmail) ──
   const loadUserFromSupabase = async (authUser: any) => {
     try {
       let profile: any = null;
@@ -1320,43 +1320,66 @@ export default function App() {
         console.warn('Profile search by id error:', err);
       }
 
-      // 2. إذا لم نجد بروفايل بالـ id ونملك email، نربطه تلقائياً بالبروفايل المكتشف بالبريد الإلكتروني!
-      if (!profile && authUser.email) {
-        try {
-          const { data: existingByEmail } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('email', authUser.email)
-            .maybeSingle();
+      // 2. إذا لم نجد بروفايل بالـ id، وكانت الجلسة قادمة من Google وبها email حقيقي
+      if (authUser.email && !authUser.email.endsWith('@souqbaghdad.com')) {
+        const realEmail = authUser.email.toLowerCase().trim();
 
-          if (existingByEmail) {
-            profile = existingByEmail;
-            // تحديث الصورة الرمزية إن كانت غائبة دون تعديل الـ Primary Key id لتجنب أخطاء RLS
-            try {
-              const googleAvatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture;
-              if (googleAvatar && !profile.avatar_url) {
-                await supabase
-                  .from('profiles')
-                  .update({ avatar_url: googleAvatar })
-                  .eq('email', authUser.email);
-              }
-            } catch {}
+        // 2a. البحث بـ Email الحقيقي أولاً
+        if (!profile) {
+          try {
+            const { data: existingByEmail } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('email', realEmail)
+              .maybeSingle();
+            if (existingByEmail) profile = existingByEmail;
+          } catch (err) {}
+        }
+
+        // 2b. البحث برقم الهاتف المعرف في metadata إن وجد
+        const userPhone = authUser.user_metadata?.phone;
+        if (!profile && userPhone) {
+          try {
+            const { data: existingByPhone } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('phone', userPhone)
+              .maybeSingle();
+            if (existingByPhone) profile = existingByPhone;
+          } catch (err) {}
+        }
+
+        // 2c. إذا وُجد حساب سابق ولكن إيميله كان وهمياً (مثل @souqbaghdad.com) أو فارغاً، نقوم بتحديث إيميله إلى Gmail الحقيقي فورا!
+        if (profile && (!profile.email || profile.email.includes('@souqbaghdad.com') || profile.email !== realEmail)) {
+          try {
+            const googleAvatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture;
+            const updatePayload: any = { email: realEmail };
+            if (googleAvatar && !profile.avatar_url) {
+              updatePayload.avatar_url = googleAvatar;
+            }
+            await supabase
+              .from('profiles')
+              .update(updatePayload)
+              .eq('id', profile.id);
+            profile.email = realEmail;
+            if (updatePayload.avatar_url) profile.avatar_url = updatePayload.avatar_url;
+          } catch (updateErr) {
+            console.warn('Failed to auto-update profile email:', updateErr);
           }
-        } catch (err) {
-          console.warn('Profile search by email error:', err);
         }
       }
 
-      // 3. إذا كان مستخدماً جديداً بـ Google ولم يجد أي حساب سابق
+      // 3. إذا كان مستخدماً جديداً بـ Google ولم نجد أي حساب سابق إطلاقاً
       if (!profile && authUser.id) {
         const googleName = authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم جديد';
         const googleAvatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || null;
         const role = authUser.email === OWNER_EMAIL ? 'owner' : 'user';
+        const cleanEmail = (authUser.email && !authUser.email.endsWith('@souqbaghdad.com')) ? authUser.email.toLowerCase().trim() : '';
 
         const newProfileData = {
           id: authUser.id,
           full_name: googleName,
-          email: authUser.email || '',
+          email: cleanEmail,
           phone: authUser.user_metadata?.phone || '',
           role: role,
           avatar_url: googleAvatar,
@@ -1382,10 +1405,14 @@ export default function App() {
       const role = authUser.email === OWNER_EMAIL ? 'owner'
         : (profile?.role || authUser.user_metadata?.role || 'user');
       
+      const realDisplayEmail = (authUser.email && !authUser.email.endsWith('@souqbaghdad.com'))
+        ? authUser.email
+        : (profile?.email && !profile.email.endsWith('@souqbaghdad.com') ? profile.email : '');
+
       const u: User = {
         id: authUser.id,
         name: profile?.full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم',
-        email: authUser.email || profile?.email || '',
+        email: realDisplayEmail,
         phone: profile?.phone || authUser.user_metadata?.phone || '',
         role,
         avatar: profile?.avatar_url || authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || DEFAULT_AVATAR,
@@ -1404,11 +1431,11 @@ export default function App() {
       localStorage.setItem('souqUser', JSON.stringify(u));
     } catch (err) {
       console.error('Critical error in loadUserFromSupabase:', err);
-      // Fallback: تسجيل دخول فوري للمستخدم اعتماداً على بيانات authUser
+      const cleanEmail = (authUser.email && !authUser.email.endsWith('@souqbaghdad.com')) ? authUser.email : '';
       const fallbackUser: User = {
         id: authUser.id,
         name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم',
-        email: authUser.email || '',
+        email: cleanEmail,
         phone: authUser.user_metadata?.phone || '',
         role: authUser.email === OWNER_EMAIL ? 'owner' : 'user',
         avatar: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || DEFAULT_AVATAR,
