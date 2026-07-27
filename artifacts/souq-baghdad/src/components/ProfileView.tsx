@@ -1180,17 +1180,21 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                     <button
                       onClick={async () => {
                         try {
-                          if (profileUser?.id) {
-                            localStorage.setItem('linking_profile_id', profileUser.id);
-                            localStorage.setItem('linking_profile_phone', profileUser.phone || '');
+                          if (user?.id) {
+                            localStorage.setItem('linking_profile_id', user.id);
+                            localStorage.setItem('linking_profile_phone', user.phone || '');
                           }
                           const { error } = await supabase.auth.signInWithOAuth({
                             provider: 'google',
                             options: { redirectTo: `${window.location.origin}/IQ` }
                           });
-                          if (error) alert('خطأ في الاتصال بـ Google: ' + error.message);
-                        } catch {
-                          alert('حدث خطأ أثناء الاتصال بـ Google');
+                          if (error) {
+                            console.error('Google link error:', error);
+                            alert('خطأ في الاتصال بـ Google: ' + error.message);
+                          }
+                        } catch (err: any) {
+                          console.error('Google link exception:', err);
+                          alert('حدث خطأ أثناء الاتصال بـ Google: ' + (err?.message || 'يرجى إعادة المحاولة'));
                         }
                       }}
                       className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-black rounded-xl text-xs flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all shrink-0"
