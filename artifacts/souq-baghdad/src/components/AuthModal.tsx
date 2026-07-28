@@ -247,19 +247,25 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
     try {
       if (authMode === 'login') {
         // ── تسجيل الدخول ──────────────────────────────────────────────────
-        let loginEmail = resolvedEmail || (resolvedPhone ? `${resolvedPhone}@souqbaghdad.com` : '');
-        let { error: loginErr } = await supabase.auth.signInWithPassword({
-          email: loginEmail, password
-        });
+        let loginErr: any = null;
+        let activeEmail = resolvedEmail;
+        
+        if (resolvedEmail) {
+          const res = await supabase.auth.signInWithPassword({ email: resolvedEmail, password });
+          loginErr = res.error;
+        } else if (resolvedPhone) {
+          // محاولة الدخول برقم الهاتف المباشر أولاً
+          const resPhone = await supabase.auth.signInWithPassword({ phone: resolvedPhone, password });
+          loginErr = resPhone.error;
 
-        // Fallback لمستخدمي الهاتف: جرب البريد الافتراضي المبني من الرقم إذا فشلت المحاولة الأولى
-        if (loginErr && resolvedPhone) {
-          const fallbackEmail = `${resolvedPhone}@souqbaghdad.com`;
-          if (fallbackEmail !== loginEmail) {
-            const { error: fbErr } = await supabase.auth.signInWithPassword({
-              email: fallbackEmail, password
-            });
-            if (!fbErr) loginErr = null;
+          // Fallback لمستخدمي الهاتف القدامى المسجلين بإيميل افتراضي سابقاً
+          if (loginErr) {
+            const fallbackEmail = `${resolvedPhone}@souqbaghdad.com`;
+            const resEmail = await supabase.auth.signInWithPassword({ email: fallbackEmail, password });
+            if (!resEmail.error) {
+              loginErr = null;
+              activeEmail = fallbackEmail;
+            }
           }
         }
 
@@ -273,8 +279,8 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
 
         // حفظ بيانات الدخول السريع
         try {
-          localStorage.setItem('souqLastUser', JSON.stringify({ phone: resolvedPhone, email: loginEmail }));
-          localStorage.setItem('biometricCreds', JSON.stringify({ phone: resolvedPhone, email: loginEmail, password }));
+          localStorage.setItem('souqLastUser', JSON.stringify({ phone: resolvedPhone, email: activeEmail || '' }));
+          localStorage.setItem('biometricCreds', JSON.stringify({ phone: resolvedPhone, email: activeEmail || '', password }));
         } catch {}
 
         playSound('success');
@@ -288,12 +294,32 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
       } else {
         // ── إنشاء حساب جديد ───────────────────────────────────────────────
         const role = resolvedPhone === '07701109692' ? 'owner' : 'user';
-        const signUpEmail = resolvedEmail || `${resolvedPhone}@souqbaghdad.com`;
+        let signUpErr: any = null;
 
-        const { error: signUpErr } = await supabase.auth.signUp({
-          email: signUpEmail, password,
-          options: { data: { full_name: name.trim(), phone: resolvedPhone, city, role } }
-        });
+        if (resolvedEmail) {
+          const res = await supabase.auth.signUp({
+            email: resolvedEmail, password,
+            options: { data: { full_name: name.trim(), phone: resolvedPhone, city, role } }
+          });
+          signUpErr = res.error;
+        } else if (resolvedPhone) {
+          // إنشاء حساب هاتف مباشر في Supabase Auth دون بريد وهمي (يكون الإيميل فارغاً NULL)
+          const res = await supabase.auth.signUp({
+            phone: resolvedPhone, password,
+            options: { data: { full_name: name.trim(), phone: resolvedPhone, city, role } }
+          });
+          signUpErr = res.error;
+
+          // إذا كانت مصادقة الهاتف تتطلب رمز OTP، جرب الإنشاء بالبريد النظيف
+          if (signUpErr && (signUpErr.message?.includes('Phone') || signUpErr.message?.includes('SMS') || signUpErr.message?.includes('provider'))) {
+            const fallbackEmail = `${resolvedPhone}@souqbaghdad.com`;
+            const fbRes = await supabase.auth.signUp({
+              email: fallbackEmail, password,
+              options: { data: { full_name: name.trim(), phone: resolvedPhone, city, role } }
+            });
+            signUpErr = fbRes.error;
+          }
+        }
 
         if (signUpErr) {
           // الحساب موجود مسبقاً → تسجيل دخول مباشر
@@ -306,14 +332,24 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
           playSound('error'); setLoading(false); return;
         }
 
-        // تسجيل الدخول تلقائياً بعد الإنشاء (الطريقة التقليدية الفورية)
-        const { error: signInErr } = await supabase.auth.signInWithPassword({
-          email: signUpEmail, password
-        });
+        // تسجيل الدخول تلقائياً بعد الإنشاء
+        let signInErr: any = null;
+        if (resolvedEmail) {
+          const res = await supabase.auth.signInWithPassword({ email: resolvedEmail, password });
+          signInErr = res.error;
+        } else if (resolvedPhone) {
+          const res = await supabase.auth.signInWithPassword({ phone: resolvedPhone, password });
+          signInErr = res.error;
+          if (signInErr) {
+            const fallbackEmail = `${resolvedPhone}@souqbaghdad.com`;
+            const fbRes = await supabase.auth.signInWithPassword({ email: fallbackEmail, password });
+            if (!fbRes.error) signInErr = null;
+          }
+        }
 
         try {
-          localStorage.setItem('souqLastUser', JSON.stringify({ phone: resolvedPhone, email: signUpEmail }));
-          localStorage.setItem('biometricCreds', JSON.stringify({ phone: resolvedPhone, email: signUpEmail, password }));
+          localStorage.setItem('souqLastUser', JSON.stringify({ phone: resolvedPhone, email: resolvedEmail || '' }));
+          localStorage.setItem('biometricCreds', JSON.stringify({ phone: resolvedPhone, email: resolvedEmail || '', password }));
         } catch {}
 
         playSound('success');
