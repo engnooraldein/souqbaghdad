@@ -640,8 +640,8 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
                   <div className="flex-1 h-px bg-gray-700" />
                 </div>
 
-                {/* Google OAuth (ويب فقط) */}
-                {!isNative && (
+                {/* Google OAuth */}
+                {
                   <button
                     onClick={handleGoogleLogin}
                     className="w-full py-4 px-5 bg-white hover:bg-gray-100 border-2 border-gray-200 text-gray-800 font-black rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-lg shadow-white/10"
@@ -654,7 +654,7 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
                     </svg>
                     المتابعة مع Google
                   </button>
-                )}
+                }
 
                 {/* Passkey (ويب فقط) */}
                 {!isNative && (
