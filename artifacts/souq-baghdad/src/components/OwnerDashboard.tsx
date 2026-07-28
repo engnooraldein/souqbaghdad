@@ -671,7 +671,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                     {u.role==='vendor'&&<span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[10px] rounded-full flex items-center gap-0.5"><UserCheck className="w-2.5 h-2.5"/>تاجر موثق</span>}
                     {u.role==='pro'&&<span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-[10px] rounded-full flex items-center gap-0.5"><Star className="w-2.5 h-2.5"/>برو</span>}
                   </div>
-                  <p className="text-gray-400 text-xs">{u.email || u.phone}</p>
+                  <p className="text-gray-400 text-xs">{(u.email && !u.email.includes('@souqbaghdad.com') && !u.email.includes('@souqbaghdad.store')) ? u.email : (u.phone || 'بدون رقم')}</p>
                   <p className="text-gray-500 text-[10px] mt-0.5">{u.city} • آخر ظهور: {u.last_seen ? new Date(u.last_seen).toLocaleString('ar-IQ') : 'غير معروف'}</p>
                 </div>
                 
