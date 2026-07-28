@@ -66,6 +66,7 @@ import { Capacitor } from '@capacitor/core';
 // Constants
 // ─────────────────────────────────────────────
 const OWNER_EMAIL = 'nooraldeinsbah@gmail.com';
+let hasShownLoginToast = false;
 export const DEFAULT_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#111111"/><circle cx="50" cy="38" r="18" fill="#555555"/><ellipse cx="50" cy="82" rx="28" ry="20" fill="#555555"/></svg>')}`;
 const DEFAULT_COVER = '/logo-512.webp';
 
@@ -1555,8 +1556,11 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         loadUserFromSupabase(session.user);
-        if (event === 'SIGNED_IN') {
-          setToast({ msg: 'تم تسجيل الدخول والربط بنجاح ✨', type: 'success', visible: true });
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          if (!hasShownLoginToast) {
+            hasShownLoginToast = true;
+            setToast({ msg: 'أهلاً بك في سوق بغداد ✨', type: 'success', visible: true });
+          }
         }
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
