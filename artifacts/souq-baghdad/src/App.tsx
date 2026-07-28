@@ -2893,7 +2893,20 @@ export default function App() {
     const newStatus = status === 'published' ? 'active' : status;
     const dbStatus = newStatus;
 
+    // Fetch existing description to avoid overwriting telegram_msg_id
+    const { data: existingAd } = await supabase
+      .from('ads')
+      .select('description')
+      .eq('id', id)
+      .single();
+
+    let existingDesc = {};
+    if (existingAd && existingAd.description) {
+      try { existingDesc = JSON.parse(existingAd.description); } catch(e) {}
+    }
+
     const descriptionData = JSON.stringify({
+      ...existingDesc,
       shift: ad.shift,
       seats: ad.seats,
       vehicleType: ad.vehicleType,

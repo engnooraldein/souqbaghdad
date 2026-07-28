@@ -1,4 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL") ?? "",
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+);
 
 const BOT_TOKEN = Deno.env.get("BOT_TOKEN") ?? "8886561538:AAGM68k1ljmvNgRF5IafMo6Kip3VI1g1rzg";
 const TRANSPORT_CHANNEL = Deno.env.get("TRANSPORT_CHANNEL") ?? "-1001437356679";
@@ -75,7 +81,20 @@ const sendTelegramMessage = async (chatId: string, text: string) => {
   const data = await response.json();
   if (!data.ok) {
     console.error("Telegram API Error:", data);
+    return null;
   }
+  return data.result?.message_id;
+};
+
+const deleteTelegramMessage = async (chatId: string, messageId: number) => {
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, message_id: messageId })
+  });
+  const data = await response.json();
+  if (!data.ok) console.error("Telegram API Error on delete:", data);
 };
 
 const sendTelegramPhoto = async (chatId: string, photoUrl: string, caption: string) => {
@@ -104,7 +123,13 @@ serve(async (req) => {
     if (payload.type === "INSERT" && payload.record) {
       if (payload.table === "ads") {
         if (payload.record.category === "transport") {
-          await sendTelegramMessage(TRANSPORT_CHANNEL, formatTransportAd(payload.record));
+          const msgId = await sendTelegramMessage(TRANSPORT_CHANNEL, formatTransportAd(payload.record));
+          if (msgId) {
+            let desc: any = {};
+            try { desc = JSON.parse(payload.record.description || '{}'); } catch(e) {}
+            desc.telegram_msg_id = msgId;
+            await supabase.from('ads').update({ description: JSON.stringify(desc) }).eq('id', payload.record.id);
+          }
         } else if (payload.record.category !== "notification") {
           const ad = payload.record;
           const text = formatGeneralAd(ad);
@@ -141,6 +166,20 @@ serve(async (req) => {
                      `💡 للرد على المستخدم عبر الموقع، قم بالرد (Reply) على هذه الرسالة واكتب ردك.\n` +
                      `#id_${msg.id.replace(/-/g, '_')}`; // Telegram hashtags don't support hyphens
         await sendTelegramMessage(ADMIN_CHAT_ID, text);
+      }
+    } else if (payload.type === "UPDATE" && payload.record) {
+      if (payload.table === "ads" && payload.record.category === "transport") {
+        const oldStatus = payload.old_record?.status;
+        const newStatus = payload.record.status;
+        
+        if (newStatus === "matched" && oldStatus !== "matched") {
+          let desc: any = {};
+          try { desc = JSON.parse(payload.record.description || '{}'); } catch(e) {}
+          const msgId = desc.telegram_msg_id;
+          if (msgId) {
+            await deleteTelegramMessage(TRANSPORT_CHANNEL, msgId);
+          }
+        }
       }
     }
 
