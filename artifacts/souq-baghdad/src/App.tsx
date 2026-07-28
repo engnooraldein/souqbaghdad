@@ -2653,20 +2653,41 @@ export default function App() {
     setUser(u);
     localStorage.setItem('souqUser', JSON.stringify(u));
     saveStoredUser(u, allAds.filter(a=>a.postedBy===u.id).length);
+
+    const cleanEmail = (u.email && !u.email.endsWith('@souqbaghdad.com') && !u.email.endsWith('@souqbaghdad.store'))
+      ? u.email.trim().toLowerCase()
+      : null;
+
     if (!quiet) {
       localStorage.removeItem('souq_cached_profiles');
       localStorage.removeItem('souq_cached_profiles_time');
-      await supabase.from('profiles').upsert({
+      const { error: upsertErr } = await supabase.from('profiles').upsert({
         id: u.id,
         full_name: u.name,
-        email: u.email,
-        phone: u.phone,
+        email: cleanEmail,
+        phone: u.phone || null,
         avatar_url: u.avatar,
         cover_url: u.cover,
         bio: u.bio,
         city: u.location,
         role: u.role
       }, { onConflict: 'id' });
+
+      if (upsertErr) {
+        console.error('Profiles DB update error:', upsertErr);
+      }
+
+      try {
+        await supabase.auth.updateUser({
+          user_metadata: {
+            full_name: u.name,
+            phone: u.phone || ''
+          }
+        });
+      } catch (authErr) {
+        console.warn('Auth metadata update notice:', authErr);
+      }
+
       showToast('تم حفظ الملف الشخصي ✅', 'success');
     }
   };
