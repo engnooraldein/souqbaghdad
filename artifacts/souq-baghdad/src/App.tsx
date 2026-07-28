@@ -1485,7 +1485,7 @@ export default function App() {
         role,
         avatar: profile?.avatar_url || authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || DEFAULT_AVATAR,
         cover: profile?.cover_url || DEFAULT_COVER,
-        bio: profile?.bio || '',
+        bio: profile?.bio || savedLocalUser?.bio || '',
         location: profile?.city || authUser.user_metadata?.city || 'بغداد',
         points: profile?.points || 0,
         rating: 4.8,

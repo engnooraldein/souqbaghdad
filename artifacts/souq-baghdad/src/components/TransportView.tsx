@@ -220,6 +220,22 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
               </div>
             </div>
           </div>
+
+          {/* Legal Disclaimer Banner */}
+          <div className="bg-amber-950/40 border border-amber-500/30 rounded-3xl p-4 mb-5 backdrop-blur-sm" dir="rtl">
+            <div className="flex items-start gap-3">
+              <div className="shrink-0 mt-1">
+                <AlertTriangle className="w-5 h-5 text-amber-400" />
+              </div>
+              <div className="text-right flex-1">
+                <h3 className="text-amber-400 font-bold text-sm mb-1">⚠️ إخلاء مسؤولية</h3>
+                <p className="text-gray-300 text-xs leading-relaxed font-medium">
+                  سوك بغداد منصة إلكترونية لعرض إعلانات الخطوط والنقل فقط، ولا يشارك في الاتفاقات أو العمليات المالية، ولا يتحمل أي مسؤولية قانونية عن أي نزاع أو إخلال. 
+                  باستخدامك هذا القسم فإنك تتحمل مسؤولية التأكد من هوية الطرف الآخر والاتفاق بوضوح قبل الدفع.
+                </p>
+              </div>
+            </div>
+          </div>
           
           {/* Smart Search & Filters */}
           <div className="bg-gray-950/40 border border-gray-900/80 backdrop-blur-md rounded-3xl p-5 shadow-2xl space-y-4 mb-5">
