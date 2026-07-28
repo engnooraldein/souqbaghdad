@@ -424,10 +424,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
         }
       }
 
-      // Update in auth if phone changed
-      if (ef.phone.trim() !== (user.phone || '')) {
-        await supabase.auth.updateUser({ phone: ef.phone.trim() }).catch(() => {});
-      }
+
 
       let finalAvatar = avatarPreview;
       if (finalAvatar && finalAvatar.startsWith('data:image/')) {

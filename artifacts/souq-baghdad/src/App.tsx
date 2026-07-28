@@ -1481,7 +1481,7 @@ export default function App() {
         id: profile?.id || authUser.id,
         name: profile?.full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.picture || authUser.email?.split('@')[0] || 'مستخدم',
         email: realDisplayEmail,
-        phone: profile?.phone || authUser.user_metadata?.phone || '',
+        phone: profile?.phone || savedLocalUser?.phone || authUser.user_metadata?.phone || '',
         role,
         avatar: profile?.avatar_url || authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || DEFAULT_AVATAR,
         cover: profile?.cover_url || DEFAULT_COVER,
