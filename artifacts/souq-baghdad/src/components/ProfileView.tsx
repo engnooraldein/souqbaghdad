@@ -1092,7 +1092,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                 {!editing&&<button onClick={()=>setEditing(true)} className="text-xs text-amber-400 hover:underline flex items-center gap-1"><Edit2 className="w-3 h-3"/> تعديل</button>}
               </div>
               <div className="space-y-3">
-                {[{label:'الاسم الكامل',field:'name',placeholder:'اسمك الكامل'},{label:'رقم الهاتف',field:'phone',placeholder:'07XXXXXXXXX',verified:!!user.phone},{label:'البريد الإلكتروني',field:'email',placeholder:'example@domain.com',linkedGoogle:user.email && !user.email.endsWith('@souqbaghdad.com')},{label:'نبذة شخصية',field:'bio',placeholder:'اكتب نبذة...',multi:true}].map(({label,field,placeholder,multi,verified,linkedGoogle})=>(
+                {[{label:'الاسم الكامل',field:'name',placeholder:'اسمك الكامل'},{label:'رقم الهاتف',field:'phone',placeholder:'07XXXXXXXXX',verified:!!user.phone},{label:'البريد الإلكتروني',field:'email',placeholder:'example@domain.com',linkedGoogle:user.email && !user.email.endsWith('@souqbaghdad.store')},{label:'نبذة شخصية',field:'bio',placeholder:'اكتب نبذة...',multi:true}].map(({label,field,placeholder,multi,verified,linkedGoogle})=>(
                   <div key={field}>
                     <div className="flex items-center justify-between mb-1">
                       <label className={`text-xs font-medium block ${isDarkMode ? 'text-gray-400' : 'text-slate-500 font-semibold'}`}>{label}</label>
@@ -1157,7 +1157,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                           <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                         </svg>
                       </div>
-                      {user.email && !user.email.endsWith('@souqbaghdad.com') && (
+                      {user.email && !user.email.endsWith('@souqbaghdad.store') && (
                         <div className="absolute -bottom-1 -left-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center border-2 border-gray-900">
                           <Check className="w-2.5 h-2.5 text-white stroke-[3]" />
                         </div>
@@ -1166,7 +1166,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                     <div>
                       <div className="flex items-center gap-1.5">
                         <h4 className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>حساب Google</h4>
-                        {user.email && !user.email.endsWith('@souqbaghdad.com') ? (
+                        {user.email && !user.email.endsWith('@souqbaghdad.store') ? (
                           <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-black rounded-full border border-emerald-500/30 flex items-center gap-1">
                             <Check className="w-3 h-3 text-emerald-400" /> متصل
                           </span>
@@ -1177,14 +1177,14 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                         )}
                       </div>
                       <p className="text-[11px] text-gray-400 mt-0.5" dir="ltr">
-                        {user.email && !user.email.endsWith('@souqbaghdad.com')
+                        {user.email && !user.email.endsWith('@souqbaghdad.store')
                           ? user.email
                           : 'يمكنك ربط حسابك للدخول السريع بضغطة زر'}
                       </p>
                     </div>
                   </div>
 
-                  {user.email && !user.email.endsWith('@souqbaghdad.com') ? (
+                  {user.email && !user.email.endsWith('@souqbaghdad.store') ? (
                     <div className="flex items-center gap-1 text-emerald-400 text-xs font-bold bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 shrink-0">
                       <CheckCircle className="w-4 h-4" />
                       <span>نشط ✅</span>

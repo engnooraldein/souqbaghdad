@@ -1315,9 +1315,9 @@ export default function App() {
         if (rawLocal) savedLocalUser = JSON.parse(rawLocal);
       } catch (e) {}
 
-      const realEmail = (authUser.email && !authUser.email.endsWith('@souqbaghdad.com'))
+      const realEmail = (authUser.email && !authUser.email.endsWith('@souqbaghdad.store'))
         ? authUser.email.toLowerCase().trim()
-        : (savedLocalUser?.email && !savedLocalUser.email.endsWith('@souqbaghdad.com') ? savedLocalUser.email : '');
+        : (savedLocalUser?.email && !savedLocalUser.email.endsWith('@souqbaghdad.store') ? savedLocalUser.email : '');
 
       const persistentLinkedId = realEmail ? localStorage.getItem('linked_id_' + realEmail) : null;
       const persistentLinkedPhone = realEmail ? localStorage.getItem('linked_phone_' + realEmail) : null;
@@ -1424,7 +1424,7 @@ export default function App() {
               await supabase.from('profiles').update({ email: realEmail }).eq('id', profile.id);
             } catch (e) {}
           }
-        } else if (profile.email && profile.email.includes('@souqbaghdad.com')) {
+        } else if (profile.email && profile.email.includes('@souqbaghdad.store')) {
           profile.email = '';
         }
 
@@ -1442,7 +1442,7 @@ export default function App() {
         const googleName = authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم جديد';
         const googleAvatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || null;
         const role = authUser.email === OWNER_EMAIL ? 'owner' : 'user';
-        const cleanEmail = (authUser.email && !authUser.email.endsWith('@souqbaghdad.com')) ? authUser.email.toLowerCase().trim() : '';
+        const cleanEmail = (authUser.email && !authUser.email.endsWith('@souqbaghdad.store')) ? authUser.email.toLowerCase().trim() : '';
 
         const newProfileData = {
           id: authUser.id,
@@ -1473,9 +1473,9 @@ export default function App() {
       const role = authUser.email === OWNER_EMAIL ? 'owner'
         : (profile?.role || authUser.user_metadata?.role || 'user');
       
-      const realDisplayEmail = (authUser.email && !authUser.email.endsWith('@souqbaghdad.com'))
+      const realDisplayEmail = (authUser.email && !authUser.email.endsWith('@souqbaghdad.store'))
         ? authUser.email
-        : (profile?.email && !profile.email.endsWith('@souqbaghdad.com') ? profile.email : '');
+        : (profile?.email && !profile.email.endsWith('@souqbaghdad.store') ? profile.email : '');
 
       const u: User = {
         id: profile?.id || authUser.id,
@@ -1499,7 +1499,7 @@ export default function App() {
       localStorage.setItem('souqUser', JSON.stringify(u));
     } catch (err) {
       console.error('Critical error in loadUserFromSupabase:', err);
-      const cleanEmail = (authUser.email && !authUser.email.endsWith('@souqbaghdad.com')) ? authUser.email : '';
+      const cleanEmail = (authUser.email && !authUser.email.endsWith('@souqbaghdad.store')) ? authUser.email : '';
       const fallbackUser: User = {
         id: authUser.id,
         name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'مستخدم',

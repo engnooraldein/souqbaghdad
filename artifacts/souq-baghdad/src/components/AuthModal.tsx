@@ -173,7 +173,7 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
     if (validErr) { setError(validErr); return; }
 
     const phoneKey  = buildPhoneKey(countryCode, localNorm);
-    const authEmail = `${phoneKey}@souqbaghdad.com`;
+    const authEmail = `${phoneKey}@souqbaghdad.store`;
 
     setLoading(true);
     playSound('click');
@@ -183,7 +183,7 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
 
       setResolvedPhone(phoneKey);
       if (data) {
-        const cleanEmail = (data.email && !data.email.endsWith('@souqbaghdad.com')) ? data.email : '';
+        const cleanEmail = (data.email && !data.email.endsWith('@souqbaghdad.store')) ? data.email : '';
         setResolvedEmail(cleanEmail);
         setAuthMode('login');
       } else {
@@ -260,7 +260,7 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
 
           // Fallback لمستخدمي الهاتف القدامى المسجلين بإيميل افتراضي سابقاً
           if (loginErr) {
-            const fallbackEmail = `${resolvedPhone}@souqbaghdad.com`;
+            const fallbackEmail = `${resolvedPhone}@souqbaghdad.store`;
             const resEmail = await supabase.auth.signInWithPassword({ email: fallbackEmail, password });
             if (!resEmail.error) {
               loginErr = null;
@@ -312,7 +312,7 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
 
           // إذا كانت مصادقة الهاتف تتطلب رمز OTP، جرب الإنشاء بالبريد النظيف
           if (signUpErr && (signUpErr.message?.includes('Phone') || signUpErr.message?.includes('SMS') || signUpErr.message?.includes('provider'))) {
-            const fallbackEmail = `${resolvedPhone}@souqbaghdad.com`;
+            const fallbackEmail = `${resolvedPhone}@souqbaghdad.store`;
             const fbRes = await supabase.auth.signUp({
               email: fallbackEmail, password,
               options: { data: { full_name: name.trim(), phone: resolvedPhone, city, role } }
@@ -341,7 +341,7 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
           const res = await supabase.auth.signInWithPassword({ phone: resolvedPhone, password });
           signInErr = res.error;
           if (signInErr) {
-            const fallbackEmail = `${resolvedPhone}@souqbaghdad.com`;
+            const fallbackEmail = `${resolvedPhone}@souqbaghdad.store`;
             const fbRes = await supabase.auth.signInWithPassword({ email: fallbackEmail, password });
             if (!fbRes.error) signInErr = null;
           }
