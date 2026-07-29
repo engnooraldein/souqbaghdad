@@ -124,7 +124,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
     const searchUsers = async () => {
       setIsSearchingUsers(true);
       try {
-        let query = supabase.from('profiles').select('id, full_name, email, phone, city, last_seen, points, role, is_banned').order('created_at', { ascending: false }).limit(200);
+        let query = supabase.from('profiles').select('id, full_name, email, phone, city, last_seen, points, role, is_banned, fcm_token').order('created_at', { ascending: false }).limit(200);
         
         if (userSearchQuery) {
           const term = `%${userSearchQuery}%`;
@@ -1418,12 +1418,12 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                   </tr>
                 </thead>
                 <tbody>
-                  {storedUsers.filter(u => (u as any).fcm_token).length === 0 ? (
+                  {dbUsers.filter(u => (u as any).fcm_token).length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="p-8 text-center text-gray-500">لا يوجد أي مستخدم قام بتسجيل الدخول ويملك رمز FCM Token حتى الآن.</td>
+                      <td colSpan={4} className="p-8 text-center text-gray-500">لا يوجد أي مستخدم يملك رمز FCM Token حتى الآن.</td>
                     </tr>
                   ) : (
-                    storedUsers.filter(u => (u as any).fcm_token).map((u, i) => (
+                    dbUsers.filter(u => (u as any).fcm_token).map((u, i) => (
                       <tr key={i} className="border-b border-gray-800 hover:bg-gray-800/50">
                         <td className="p-3 text-white">{u.full_name || 'غير معروف'}</td>
                         <td className="p-3 text-emerald-400">{u.phone}</td>
