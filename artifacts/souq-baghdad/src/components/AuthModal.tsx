@@ -447,9 +447,18 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
     playSound('click');
     setLoading(true);
     try {
+      const { Capacitor } = await import('@capacitor/core');
+      // On Android, use the custom deep link scheme so the app intercepts the callback
+      const redirectTo = Capacitor.isNativePlatform()
+        ? 'souqbaghdad://login-callback'
+        : window.location.origin;
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin }
+        options: {
+          redirectTo,
+          skipBrowserRedirect: false,
+        }
       });
       if (error) {
         setError('تعذر الاتصال بـ Google: ' + error.message);

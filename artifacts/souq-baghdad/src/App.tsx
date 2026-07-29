@@ -1553,6 +1553,40 @@ export default function App() {
       }
     });
 
+    // ── معالجة الـ Deep Link الخاص بـ Google OAuth على الأندرويد ────────────
+    let appListener: any = null;
+    const setupDeepLinkListener = async () => {
+      const { Capacitor } = await import('@capacitor/core');
+      if (!Capacitor.isNativePlatform()) return;
+      try {
+        const { App: CapApp } = await import('@capacitor/app');
+        const { Browser } = await import('@capacitor/browser').catch(() => ({ Browser: null }));
+
+        appListener = await CapApp.addListener('appUrlOpen', async (data: { url: string }) => {
+          if (data.url.startsWith('souqbaghdad://login-callback')) {
+            // إغلاق المتصفح الداخلي إن كان مفتوحاً
+            if (Browser) {
+              try { await Browser.close(); } catch {}
+            }
+            // استخراج الـ tokens من الـ URL
+            const url = new URL(data.url.replace('souqbaghdad://login-callback', 'https://placeholder.com'));
+            const hashParams = new URLSearchParams(url.hash.replace('#', ''));
+            const access_token = hashParams.get('access_token');
+            const refresh_token = hashParams.get('refresh_token');
+            if (access_token && refresh_token) {
+              const { data: sessionData, error } = await supabase.auth.setSession({ access_token, refresh_token });
+              if (!error && sessionData?.user) {
+                loadUserFromSupabase(sessionData.user);
+              }
+            }
+          }
+        });
+      } catch (e) {
+        console.warn('Deep link listener setup failed:', e);
+      }
+    };
+    setupDeepLinkListener();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         loadUserFromSupabase(session.user);
@@ -1568,7 +1602,10 @@ export default function App() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      if (appListener) appListener.remove();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
