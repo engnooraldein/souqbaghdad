@@ -1640,8 +1640,20 @@ export default function App() {
 
         appListener = await CapApp.addListener('appUrlOpen', async (data: { url: string }) => {
           if (data.url.startsWith('souqbaghdad://login-callback')) {
-            // استخراج الـ tokens من الـ URL
             const url = new URL(data.url.replace('souqbaghdad://login-callback', 'https://placeholder.com'));
+            
+            // 1. Check for PKCE 'code' in query params (Supabase v2 default)
+            const code = url.searchParams.get('code');
+            if (code) {
+              const { data: sessionData, error } = await supabase.auth.exchangeCodeForSession(code);
+              if (!error && sessionData?.session?.user) {
+                loadUserFromSupabase(sessionData.session.user);
+                setShowAuth(false);
+              }
+              return;
+            }
+
+            // 2. Fallback to Implicit flow (hash params)
             const hashParams = new URLSearchParams(url.hash.replace('#', ''));
             const access_token = hashParams.get('access_token');
             const refresh_token = hashParams.get('refresh_token');
