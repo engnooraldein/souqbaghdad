@@ -1649,6 +1649,7 @@ export default function App() {
               const { data: sessionData, error } = await supabase.auth.setSession({ access_token, refresh_token });
               if (!error && sessionData?.user) {
                 loadUserFromSupabase(sessionData.user);
+                setShowAuth(false);
               }
             }
           }
@@ -1662,9 +1663,9 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         loadUserFromSupabase(session.user);
-        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
           setShowAuth(false);
-          if (!hasShownLoginToast) {
+          if (!hasShownLoginToast && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
             hasShownLoginToast = true;
             setToast({ msg: 'أهلاً بك في سوق بغداد ✨', type: 'success', visible: true });
           }

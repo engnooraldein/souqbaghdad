@@ -14,5 +14,8 @@
       "(?:'|\"|`)([^']*)(?:'|\"|`)"
     ]
   ],
-  "java.configuration.updateBuildConfiguration": "automatic"
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "java.import.exclusions": [
+    "**/node_modules/**"
+  ]
 }
