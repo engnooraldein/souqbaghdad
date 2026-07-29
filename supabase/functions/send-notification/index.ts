@@ -37,6 +37,18 @@ serve(async (req) => {
       message: {
         token: token,
         notification: { title, body },
+        android: {
+          notification: {
+            sound: 'default'
+          }
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default'
+            }
+          }
+        },
         data: data || {},
       },
     };
