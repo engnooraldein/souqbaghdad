@@ -58,7 +58,11 @@ const StoreShareGuideModal = lazy(() => import('./components/StoreShareGuideModa
 import { InstallOptionsModal } from './components/InstallOptionsModal';
 import LiveVisitorCounter from './components/LiveVisitorCounter';
 import InfiniteScrollTrigger from './components/InfiniteScrollTrigger';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Share } from '@capacitor/share';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { PushNotifications } from '@capacitor/push-notifications';
+import { Keyboard } from '@capacitor/keyboard';
 import { Geolocation } from '@capacitor/geolocation';
 import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
 import { Capacitor } from '@capacitor/core';
@@ -687,6 +691,7 @@ export default function App() {
       if (Capacitor.isNativePlatform()) {
         setTimeout(async () => {
           try {
+            // Local Notifications Setup
             const notifStatus = await LocalNotifications.checkPermissions();
             if (notifStatus.display !== 'granted') {
               await LocalNotifications.requestPermissions();
@@ -701,6 +706,49 @@ export default function App() {
               sound: 'default',
               vibration: true
             });
+
+            // Push Notifications Setup (FCM)
+            let permStatus = await PushNotifications.checkPermissions();
+            if (permStatus.receive === 'prompt') {
+              permStatus = await PushNotifications.requestPermissions();
+            }
+            if (permStatus.receive !== 'granted') {
+              console.warn('User denied push notifications');
+            } else {
+              await PushNotifications.register();
+            }
+
+            PushNotifications.addListener('registration', async (token) => {
+              console.log('Push registration success, token: ' + token.value);
+              localStorage.setItem('fcm_token', token.value);
+              
+              // If user is already logged in, update it in DB
+              const sessionStr = localStorage.getItem('souqUser');
+              if (sessionStr) {
+                try {
+                  const { user } = JSON.parse(sessionStr);
+                  if (user && user.id) {
+                     // Fire and forget updating the token
+                     supabase.from('profiles').update({ fcm_token: token.value }).eq('id', user.id).then();
+                  }
+                } catch(e) {}
+              }
+            });
+
+            PushNotifications.addListener('registrationError', (error: any) => {
+              console.error('Error on registration: ' + JSON.stringify(error));
+            });
+
+            PushNotifications.addListener('pushNotificationReceived', (notification) => {
+              console.log('Push received: ', notification);
+              // Capacitor also shows it in the system tray if background.
+            });
+
+            PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+              console.log('Push action performed: ', notification);
+              // Handle deep link / routing if there is data
+            });
+
           } catch (e) {
             console.warn('Native permissions/channel error:', e);
           }
@@ -1498,6 +1546,12 @@ export default function App() {
 
       setUser(u);
       localStorage.setItem('souqUser', JSON.stringify(u));
+
+      // Upload FCM token if available
+      const fcmToken = localStorage.getItem('fcm_token');
+      if (fcmToken) {
+         supabase.from('profiles').update({ fcm_token: fcmToken }).eq('id', u.id).then();
+      }
     } catch (err) {
       console.error('Critical error in loadUserFromSupabase:', err);
       const cleanEmail = (authUser.email && !authUser.email.endsWith('@souqbaghdad.store')) ? authUser.email : '';
