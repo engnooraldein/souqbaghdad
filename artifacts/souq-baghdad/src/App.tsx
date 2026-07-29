@@ -25,7 +25,6 @@ const ProfileView = lazy(() => import("./components/ProfileView").then(m => ({ d
 const SellerPublicPage = lazy(() => import("./components/SellerPublicPage").then(m => ({ default: m.SellerPublicPage })));
 const AdminPanel = lazy(() => import("./components/AdminPanel").then(m => ({ default: m.AdminPanel })));
 const NotifPanel = lazy(() => import("./components/NotifPanel").then(m => ({ default: m.NotifPanel })));
-const ChatModal = lazy(() => import("./components/ChatModal").then(m => ({ default: m.ChatModal })));
 import { MarketView } from "./components/MarketView";
 const TransportFormModal = lazy(() => import("./components/TransportFormModal").then(m => ({ default: m.TransportFormModal })));
 const TransportView = lazy(() => import("./components/TransportView").then(m => ({ default: m.TransportView })));
@@ -941,8 +940,6 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
-  const [showChat, setShowChat] = useState(false);
-  const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showCreateAd, setShowCreateAd] = useState(false);
   const [showCreateProduct, setShowCreateProduct] = useState(false);
@@ -3407,14 +3404,6 @@ export default function App() {
                       </span>
                     )}
                   </button>
-                  <button onClick={()=>setShowChat(true)} className={`p-2 rounded-xl relative transition-colors ${isDarkMode ? 'bg-gray-800 text-white hover:bg-gray-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`} title="الرسائل" aria-label="الرسائل">
-                    <MessageCircle className="w-5 h-5"/>
-                    {chatUnreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full text-[10px] text-black font-bold flex items-center justify-center">
-                        {chatUnreadCount > 9 ? '9+' : chatUnreadCount}
-                      </span>
-                    )}
-                  </button>
                   <button onClick={() => { setView('profile'); window.location.hash = '#/profile/wallet'; setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-wallet-tab')), 50); }} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border transition-colors ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-white border-gray-700 hover:border-amber-500/50' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 hover:border-amber-500/50'}`} title="محفظتي">
                     <Wallet className="w-4 h-4 text-emerald-400"/>
                     <span className="font-bold font-mono">{user.points || 0}</span>
@@ -3484,16 +3473,6 @@ export default function App() {
                   </span>
                 )}
               </button>
-              {user && (
-                <button onClick={()=>setShowChat(true)} className="p-1.5 rounded-xl bg-gray-800 text-white hover:bg-gray-700 relative" title="الرسائل" aria-label="الرسائل">
-                  <MessageCircle className="w-4 h-4"/>
-                  {chatUnreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 rounded-full text-[9px] text-black font-bold flex items-center justify-center">
-                      {chatUnreadCount > 9 ? '9+' : chatUnreadCount}
-                    </span>
-                  )}
-                </button>
-              )}
               <button onClick={()=>setShowMobileMenu(true)} className="p-1.5 rounded-xl bg-gray-800 text-white" title="القائمة" aria-label="القائمة"><Menu className="w-4.5 h-4.5"/></button>
             </div>
           </div>
@@ -4050,7 +4029,6 @@ export default function App() {
         {showCreateAd&&user&&<Suspense fallback={null}><AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd} cost={adCosts.ad !== undefined ? adCosts.ad : 1} vipCost={adCosts.vip_ad !== undefined ? adCosts.vip_ad : 5} /></Suspense>}
         {showCreateProduct&&user&&<Suspense fallback={null}><ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct} cost={adCosts.product !== undefined ? adCosts.product : 1} vipCost={adCosts.vip_ad !== undefined ? adCosts.vip_ad : 5} /></Suspense>}
         {showNotifs&&<Suspense fallback={null}><NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick} onMarkRead={markNotifAsRead} onArchiveAll={handleArchiveAllNotifications}/></Suspense>}
-        {showChat&&user&&<Suspense fallback={null}><ChatModal currentUserId={user.id} currentUserName={user.name||'مستخدم'} onClose={()=>setShowChat(false)} onUnreadChange={setChatUnreadCount}/></Suspense>}
         {activeDocTab&&<Suspense fallback={null}><InfoDocsModal activeTab={activeDocTab} onClose={()=>setActiveDocTab(null)} user={user}/></Suspense>}
         {activeLightbox&&<ImageLightboxModal src={activeLightbox.src} title={activeLightbox.title} images={(activeLightbox as any).images} initialIdx={(activeLightbox as any).initialIdx} onClose={()=>setActiveLightbox(null)}/>}
         {congratulationsItem && <CongratulationsModal item={congratulationsItem} onClose={() => setCongratulationsItem(null)} />}
