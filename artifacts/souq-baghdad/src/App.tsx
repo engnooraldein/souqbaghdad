@@ -749,6 +749,29 @@ export default function App() {
               // Handle deep link / routing if there is data
             });
 
+            // Welcome push notification when they exit the app for the first time
+            CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
+              if (!isActive) {
+                const token = localStorage.getItem('fcm_token');
+                const welcomeSent = localStorage.getItem('welcome_push_sent');
+                if (token && welcomeSent !== 'true') {
+                  localStorage.setItem('welcome_push_sent', 'true');
+                  try {
+                    await supabase.functions.invoke('send-notification', {
+                      body: {
+                        token: token,
+                        title: 'مرحباً بك في سوق بغداد! 👋',
+                        body: 'تم تفعيل الإشعارات بنجاح. ستصلك أحدث العروض والرسائل هنا.'
+                      }
+                    });
+                  } catch (e) {
+                    console.error('Welcome push failed', e);
+                    localStorage.removeItem('welcome_push_sent');
+                  }
+                }
+              }
+            });
+
           } catch (e) {
             console.warn('Native permissions/channel error:', e);
           }
