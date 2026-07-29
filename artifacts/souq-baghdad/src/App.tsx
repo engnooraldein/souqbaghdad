@@ -1560,14 +1560,9 @@ export default function App() {
       if (!Capacitor.isNativePlatform()) return;
       try {
         const { App: CapApp } = await import('@capacitor/app');
-        const { Browser } = await import('@capacitor/browser').catch(() => ({ Browser: null }));
 
         appListener = await CapApp.addListener('appUrlOpen', async (data: { url: string }) => {
           if (data.url.startsWith('souqbaghdad://login-callback')) {
-            // إغلاق المتصفح الداخلي إن كان مفتوحاً
-            if (Browser) {
-              try { await Browser.close(); } catch {}
-            }
             // استخراج الـ tokens من الـ URL
             const url = new URL(data.url.replace('souqbaghdad://login-callback', 'https://placeholder.com'));
             const hashParams = new URLSearchParams(url.hash.replace('#', ''));
