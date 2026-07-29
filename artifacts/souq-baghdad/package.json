@@ -1,7 +1,7 @@
 {
   "name": "@workspace/souq-baghdad",
-  "version": "1.9.9",
-  "description": "اجمل اصدار",
+  "version": "2.1.0",
+  "description": "تحديث نظام الإشعارات الفورية",
   "private": true,
   "type": "module",
   "scripts": {

@@ -1174,7 +1174,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-white font-bold text-xl">سجل التحديثات والإصدارات (نسخة برو ✨)</h2>
-                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.9.0</span>
+                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v2.1.0</span>
                   </div>
                   <p className="text-gray-400 text-xs mt-1">تتبع التغييرات والتحديثات الزمنية مع كافة التفاصيل والميزات المضافة</p>
                 </div>
@@ -1182,13 +1182,35 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
             </div>
 
             <div className="space-y-6">
-              {/* v1.9.0 */}
+              {/* v2.1.0 */}
               <div className="bg-gradient-to-br from-gray-900 via-gray-900 to-emerald-950/20 border-2 border-emerald-500/40 rounded-2xl p-5 space-y-3 shadow-xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 bg-emerald-500 text-black text-[9px] font-extrabold px-2.5 py-1 rounded-bl-xl uppercase tracking-wider">
                   الإصدار الأخير
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-emerald-400 font-bold text-base">⚡ الإصدار v1.9.0 - أجمل إصدار</span>
+                  <span className="text-emerald-400 font-bold text-base">🚀 الإصدار v2.1.0 - التنبيهات الفورية (Push Notifications)</span>
+                  <span className="text-gray-400 text-xs font-mono">(29/07/2026)</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                  <div className="bg-gray-805/80 border border-gray-700/80 rounded-xl p-3.5">
+                    <h4 className="text-emerald-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">📌 التحديثات والميزات المضافة</h4>
+                    <ul className="text-gray-300 text-xs space-y-1.5 list-disc list-inside pr-1">
+                      <li><strong>الإشعارات الفورية (FCM):</strong> تفعيل إشعارات الدفع (Push Notifications) عبر Firebase لتعمل على الأندرويد، الويب وتطبيق PWA.</li>
+                      <li><strong>نظام ترحيب ذكي:</strong> إرسال إشعار ترحيبي عند أول خروج للمستخدم من التطبيق للتأكد من ربط الإشعارات بنجاح.</li>
+                      <li><strong>تحسين تسجيل الدخول:</strong> التخلص من نافذة "جاري التحميل" المزعجة بعد تسجيل الدخول بواسطة جوجل للحفاظ على سلاسة التجربة (UX).</li>
+                      <li><strong>دعم Edge Functions:</strong> بناء ونشر سيرفر إشعارات مستقل يعمل مع Supabase و Deno.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* v1.9.0 */}
+              <div className="bg-gray-800 border-2 border-gray-700 rounded-2xl p-5 space-y-3 relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-gray-600 text-white text-[9px] font-bold px-2.5 py-1 rounded-bl-xl uppercase tracking-wider">
+                  إصدار سابق
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-300 font-bold text-base">⚡ الإصدار v1.9.0 - أجمل إصدار</span>
                   <span className="text-gray-400 text-xs font-mono">(10/07/2026)</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
