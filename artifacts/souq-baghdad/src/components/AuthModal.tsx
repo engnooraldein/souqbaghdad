@@ -507,6 +507,16 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
     };
   }, []);
 
+  // غلق النافذة تلقائياً عند نجاح تسجيل الدخول (خاصة لـ Google OAuth)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
+        onClose();
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [onClose]);
+
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
