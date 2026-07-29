@@ -1586,6 +1586,7 @@ export default function App() {
       if (session?.user) {
         loadUserFromSupabase(session.user);
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          setShowAuth(false);
           if (!hasShownLoginToast) {
             hasShownLoginToast = true;
             setToast({ msg: 'أهلاً بك في سوق بغداد ✨', type: 'success', visible: true });

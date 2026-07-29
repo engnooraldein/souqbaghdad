@@ -150,6 +150,7 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
   const [resolvedPhone, setResolvedPhone] = useState(''); // phone key for DB
   
   const [loading, setLoading] = useState(false);
+  const [loadingText, setLoadingText] = useState('');
   const [error, setError]     = useState('');
   
   // Recovery
@@ -446,12 +447,20 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
   const handleGoogleLogin = async () => {
     playSound('click');
     setLoading(true);
+    setLoadingText('جاري التحويل إلى حسابات Google...');
     try {
       const { Capacitor } = await import('@capacitor/core');
       // On Android, use the custom deep link scheme so the app intercepts the callback
       const redirectTo = Capacitor.isNativePlatform()
         ? 'souqbaghdad://login-callback'
         : window.location.origin;
+
+      setTimeout(() => {
+        // If still loading after 3 seconds, inform the user
+        if (loading) {
+          setLoadingText('جاري تجهيز حسابك، يرجى الانتظار...');
+        }
+      }, 3000);
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -464,12 +473,14 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
         setError('تعذر الاتصال بـ Google: ' + error.message);
         playSound('error');
         setLoading(false);
+        setLoadingText('');
       }
-      // عند النجاح الصفحة ستُعاد توجيهها تلقائياً
+      // عند النجاح الصفحة ستُعاد توجيهها تلقائياً (أو يغلق المودال من App.tsx)
     } catch {
       setError('حدث خطأ أثناء الاتصال بـ Google');
       playSound('error');
       setLoading(false);
+      setLoadingText('');
     }
   };
 
@@ -562,8 +573,18 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
 
         {loading ? (
           <div className="flex flex-col items-center py-8">
-            <Loader2 className="w-10 h-10 text-amber-400 animate-spin mb-3" />
-            <p className="text-white text-sm">جاري التحميل...</p>
+            <Loader2 className="w-10 h-10 text-amber-400 animate-spin mb-4" />
+            <p className="text-white text-sm text-center mb-5 font-medium leading-relaxed">
+              {loadingText || 'جاري التحميل...'}
+            </p>
+            {loadingText && (
+              <button 
+                onClick={() => { setLoading(false); setLoadingText(''); }} 
+                className="text-gray-400 hover:text-white text-xs underline transition-colors px-4 py-2 rounded-lg hover:bg-gray-800"
+              >
+                إلغاء أو إعادة المحاولة
+              </button>
+            )}
           </div>
         ) : (
           <>
