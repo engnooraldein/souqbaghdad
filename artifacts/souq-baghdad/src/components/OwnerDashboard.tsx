@@ -57,7 +57,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
   onClose:()=>void;
   onDeleteProfile?:(id:string)=>void;
 }) {
-  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'reports'|'logs'|'changelog'|'settings'|'promo_codes'>('overview');
+  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'reports'|'logs'|'changelog'|'settings'|'promo_codes'|'notifications_debug'>('overview');
   const [costs, setCosts] = useState<{ad:number; product:number; transport:number; vip_ad:number}>({ad:1, product:1, transport:1, vip_ad:5});
   const [savingSettings, setSavingSettings] = useState(false);
   const [reports, setReports] = useState<any[]>([]);
@@ -440,7 +440,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
         
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {([['overview','📊 نظرة عامة'],['promo_codes','🎟️ الأكواد الترويجية'],['settings','⚙️ التسعير والنقاط'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['reports','🚩 التقارير والبلاغات'],['broadcast','🔔 إشعار عام'],['logs','📋 سجل العمليات'],['changelog','🚀 نسخة برو (التحديثات)']] as [string,string][]).map(([t,l])=>(
+          {([['overview','📊 نظرة عامة'],['promo_codes','🎟️ الأكواد الترويجية'],['settings','⚙️ التسعير والنقاط'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['reports','🚩 التقارير والبلاغات'],['broadcast','🔔 إشعار عام'],['notifications_debug','📡 فحص الإشعارات'],['logs','📋 سجل العمليات'],['changelog','🚀 نسخة برو (التحديثات)']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`px-4 py-2 rounded-xl text-sm font-bold ${tab===t?'bg-amber-500 text-black':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
           ))}
         </div>
@@ -1387,6 +1387,65 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                 </button>
                 <p className="text-xs text-gray-500 text-center mt-3">يتم تطبيق الأسعار الجديدة فوراً على جميع المستخدمين.</p>
               </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'notifications_debug' && (
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 space-y-6">
+            <h3 className="text-white font-bold mb-4 text-xl flex items-center gap-2">
+              <Bell className="w-6 h-6 text-amber-400" />
+              فحص الإشعارات (FCM Debug)
+            </h3>
+            
+            <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl mb-4">
+              <h4 className="text-amber-400 font-bold flex items-center gap-2 mb-2"><AlertCircle className="w-5 h-5"/> معلومات عن هذه الصفحة</h4>
+              <p className="text-gray-300 text-sm leading-relaxed">
+                هذه الصفحة تعرض المستخدمين الذين قاموا بمنح صلاحية الـ Push Notifications وحصلوا على (FCM Token).
+                <br/>
+                يمكنك الضغط على أي مستخدم لاختبار إرسال إشعار فوري له.
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-sm">
+                <thead>
+                  <tr className="bg-gray-900/50 text-gray-400 border-b border-gray-700">
+                    <th className="p-3">المستخدم</th>
+                    <th className="p-3">رقم الهاتف</th>
+                    <th className="p-3">FCM Token</th>
+                    <th className="p-3 text-center">إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {storedUsers.filter(u => (u as any).fcm_token).length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="p-8 text-center text-gray-500">لا يوجد أي مستخدم قام بتسجيل الدخول ويملك رمز FCM Token حتى الآن.</td>
+                    </tr>
+                  ) : (
+                    storedUsers.filter(u => (u as any).fcm_token).map((u, i) => (
+                      <tr key={i} className="border-b border-gray-800 hover:bg-gray-800/50">
+                        <td className="p-3 text-white">{u.full_name || 'غير معروف'}</td>
+                        <td className="p-3 text-emerald-400">{u.phone}</td>
+                        <td className="p-3 text-gray-500 font-mono text-xs break-all max-w-[200px]">
+                          {(u as any).fcm_token}
+                        </td>
+                        <td className="p-3 text-center">
+                          <button 
+                            onClick={() => {
+                              alert('سيتم إرسال إشعار تجريبي قريباً عبر الـ Edge Function.');
+                              console.log('Test notification to:', (u as any).fcm_token);
+                            }}
+                            className="bg-amber-500 hover:bg-amber-600 text-black px-4 py-2 rounded-xl text-xs font-bold transition-colors"
+                          >
+                            إرسال اختبار
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
