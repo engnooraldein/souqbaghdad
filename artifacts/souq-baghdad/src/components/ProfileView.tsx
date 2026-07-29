@@ -1108,7 +1108,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                       <textarea disabled={!editing} value={(ef as any)[field]} onChange={e=>setEf({...ef,[field]:e.target.value})} placeholder={placeholder} rows={2} className={`w-full rounded-xl py-2.5 px-4 border outline-none resize-none text-sm transition-colors ${isDarkMode ? 'bg-gray-700 text-white border-gray-600 focus:border-amber-400 disabled:opacity-70' : 'bg-slate-50 text-slate-900 border-slate-200 focus:border-amber-500 disabled:opacity-75'}`}/>
                     ):(
                       <input 
-                        disabled={!editing || (field === 'email' && linkedGoogle)} 
+                        disabled={!editing || (field === 'email' && !!linkedGoogle)} 
                         value={(ef as any)[field]} 
                         onChange={e=>setEf({...ef,[field]:e.target.value})} 
                         placeholder={placeholder} 

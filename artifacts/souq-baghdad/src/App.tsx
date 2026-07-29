@@ -2715,7 +2715,7 @@ export default function App() {
 
       try {
         await supabase.auth.updateUser({
-          user_metadata: {
+          data: {
             full_name: u.name,
             phone: u.phone || ''
           }
