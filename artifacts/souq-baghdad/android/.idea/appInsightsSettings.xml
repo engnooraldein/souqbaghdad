@@ -12,6 +12,11 @@
                   <option name="appId" value="store.souqbaghdad.app" />
                 </ConnectionSetting>
               </option>
+              <option name="failureTypes">
+                <list>
+                  <option value="FATAL" />
+                </list>
+              </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
               <option name="timeIntervalDays" value="SEVEN_DAYS" />
               <option name="visibilityType" value="ALL" />
@@ -23,10 +28,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="store.souqbaghdad.app" />
+                  <option name="mobileSdkAppId" value="1:768540672381:android:195ee0e1633e9408100c14" />
+                  <option name="projectId" value="souqbaghdad-7dc4c" />
+                  <option name="projectNumber" value="768540672381" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
