@@ -48,11 +48,10 @@ const {
   FileText, Gamepad2, Copy, Crown, View, Eye: ViewIcon
 } = LucideIcons;
 
-export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom, onViewsUpdated, onStartChat }:{
+export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [], onAuthRequired, onSellerClick, onViewDurationLogged, onImageZoom, onViewsUpdated }:{
   ad:Ad|null; onClose:()=>void; isFav:boolean; onFav:()=>void; user:User|null; storedUsers?:any[]; onAuthRequired:()=>void; onSellerClick?:(sellerId:string)=>void;
   onViewDurationLogged?:(seconds:number)=>void; onImageZoom?:(src:string, title:string, images?:string[], initialIdx?:number)=>void;
   onViewsUpdated?:(id:string|number, views:number)=>void;
-  onStartChat?:(userId:string, adId:string, adTitle:string)=>void;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
@@ -463,21 +462,12 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
               </div>
             )}
           </div>
-          <div className={`grid gap-2.5 mb-2.5 ${onStartChat && user && ad?.postedBy && user.id !== ad.postedBy ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          <div className="grid grid-cols-2 gap-2.5 mb-2.5">
             <motion.a href={getWhatsAppLink(ad.phone, ad.type === 'transport' ? 'transport' : 'product', { id: ad.id, short_id: ad.short_id, title: ad.title, location: ad.location, university: ad.description, time: 'راجع الإعلان' })} target="_blank" rel="noopener noreferrer"
               whileHover={{scale:1.01}} whileTap={{scale:0.99}} className="flex items-center justify-center gap-1.5 py-2.5 bg-green-500 text-white font-bold rounded-xl text-xs sm:text-sm">
               <MessageSquare className="w-4.5 h-4.5"/> واتساب</motion.a>
             <motion.a href={`tel:${ad.phone}`} whileHover={{scale:1.01}} whileTap={{scale:0.99}} className="flex items-center justify-center gap-1.5 py-2.5 bg-gray-800 text-white font-bold rounded-xl text-xs sm:text-sm">
               <PhoneIcon className="w-4.5 h-4.5"/> اتصال</motion.a>
-            {onStartChat && user && ad?.postedBy && user.id !== ad.postedBy && (
-              <motion.button
-                whileHover={{scale:1.01}} whileTap={{scale:0.99}}
-                onClick={() => { onStartChat(ad.postedBy!, String(ad.id), ad.title); onClose(); }}
-                className="flex items-center justify-center gap-1.5 py-2.5 bg-amber-500 text-black font-bold rounded-xl text-xs sm:text-sm"
-              >
-                <MessageCircle className="w-4.5 h-4.5"/> راسل
-              </motion.button>
-            )}
           </div>
           <div className="flex gap-2.5">
             <button onClick={()=>{if(!user){onAuthRequired();return;}onFav();}}
