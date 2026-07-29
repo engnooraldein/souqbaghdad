@@ -1432,9 +1432,20 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                         </td>
                         <td className="p-3 text-center">
                           <button 
-                            onClick={() => {
-                              alert('سيتم إرسال إشعار تجريبي قريباً عبر الـ Edge Function.');
-                              console.log('Test notification to:', (u as any).fcm_token);
+                            onClick={async () => {
+                              try {
+                                const res = await supabase.functions.invoke('send-notification', {
+                                  body: {
+                                    token: (u as any).fcm_token,
+                                    title: 'إشعار تجريبي 🔔',
+                                    body: 'مرحباً! هذا إشعار تجريبي من مدير النظام.'
+                                  }
+                                });
+                                if (res.error) throw res.error;
+                                alert('تم الإرسال بنجاح!');
+                              } catch(err:any) {
+                                alert('فشل الإرسال: ' + err.message);
+                              }
                             }}
                             className="bg-amber-500 hover:bg-amber-600 text-black px-4 py-2 rounded-xl text-xs font-bold transition-colors"
                           >
