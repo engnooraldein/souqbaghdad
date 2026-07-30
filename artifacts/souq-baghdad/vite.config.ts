@@ -48,18 +48,8 @@ export default defineConfig({
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Core React - always needed
-          'react-core': ['react', 'react-dom'],
-          // Animation library - loaded early
-          'framer': ['framer-motion'],
-          // Icons - loaded with main bundle
-          'icons': ['lucide-react'],
-          // Helmet - separate chunk for head management
-          'helmet': ['react-helmet-async'],
-          // Supabase - separate chunk for auth/data
-          'supabase': ['@supabase/supabase-js'],
-        }
+        // No manual chunks - circular imports between App.tsx and components
+        // require letting Rollup handle chunking automatically
       }
     }
   },
