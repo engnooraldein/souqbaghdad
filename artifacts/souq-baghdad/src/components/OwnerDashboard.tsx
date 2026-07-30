@@ -57,7 +57,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
   onClose:()=>void;
   onDeleteProfile?:(id:string)=>void;
 }) {
-  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'reports'|'logs'|'changelog'|'settings'|'promo_codes'|'notifications_debug'>('overview');
+  const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'reports'|'logs'|'changelog'|'settings'|'promo_codes'>('overview');
   const [costs, setCosts] = useState<{ad:number; product:number; transport:number; vip_ad:number}>({ad:1, product:1, transport:1, vip_ad:5});
   const [savingSettings, setSavingSettings] = useState(false);
   const [reports, setReports] = useState<any[]>([]);
@@ -124,7 +124,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
     const searchUsers = async () => {
       setIsSearchingUsers(true);
       try {
-        let query = supabase.from('profiles').select('id, full_name, email, phone, city, last_seen, points, role, is_banned, fcm_token').order('created_at', { ascending: false }).limit(200);
+        let query = supabase.from('profiles').select('id, full_name, email, phone, city, last_seen, points, role, is_banned').order('created_at', { ascending: false }).limit(200);
         
         if (userSearchQuery) {
           const term = `%${userSearchQuery}%`;
@@ -150,22 +150,6 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (tab === 'broadcast') {
-      const fetchHistory = async () => {
-        try {
-          const { data } = await supabase.from('ads')
-            .select('*')
-            .eq('category', 'notification')
-            .order('created_at', { ascending: false })
-            .limit(20);
-          if (data) setBroadcastHistory(data as Ad[]);
-        } catch(e) {}
-      };
-      fetchHistory();
-    }
-  }, [tab, broadcastSent]);
-
 
   
   // Broadcast State
@@ -173,7 +157,6 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
   const [broadcastMsg, setBroadcastMsg] = useState('');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [broadcastSent, setBroadcastSent] = useState(false);
-  const [broadcastHistory, setBroadcastHistory] = useState<Ad[]>([]);
   const [viewersModalItem, setViewersModalItem] = useState<{id:string|number, type:'ad'|'product'|'transport'}|null>(null);
   const onlineStatuses = useOnlineStatuses();
 
@@ -316,30 +299,6 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
     if(!broadcastTitle || !broadcastMsg) return;
     setIsBroadcasting(true);
     try {
-      const currentUserStr = localStorage.getItem('souqUser');
-      const currentUser = currentUserStr ? JSON.parse(currentUserStr) : null;
-      const adminId = currentUser?.id;
-
-      let trackerAdId = '';
-      if (adminId) {
-        try {
-          const { data: trackerAd } = await supabase.from('ads').insert({
-            seller_id: adminId,
-            title: broadcastTitle,
-            description: broadcastMsg,
-            category: 'notification', // Hide from main feed
-            status: 'archived', // So it doesn't show randomly but exists
-            views: 0,
-            is_demo: false,
-            price: 0,
-            governorate: 'الكل'
-          }).select('id').single();
-          if (trackerAd) trackerAdId = String(trackerAd.id);
-        } catch (e) {
-          console.error('Failed to create tracker ad:', e);
-        }
-      }
-
       const userIds = dbUsers.map(u => u.id).filter(id => id);
       if (userIds.length > 0) {
         const notifications = userIds.map(uid => ({
@@ -347,7 +306,6 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
           title: broadcastTitle,
           body: broadcastMsg,
           type: 'system',
-          item_id: trackerAdId || null,
           audience: 'all',
           read: false
         }));
@@ -356,22 +314,6 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
         for (let i = 0; i < notifications.length; i += chunkSize) {
           const chunk = notifications.slice(i, i + chunkSize);
           await supabase.from('user_notifications').insert(chunk);
-        }
-
-        // إرسال إشعارات Push (خارج التطبيق) للمستخدمين الذين لديهم fcm_token
-        const usersWithTokens = dbUsers.filter(u => (u as any).fcm_token);
-        if (usersWithTokens.length > 0) {
-          // Send in parallel batches to avoid blocking
-          const pushPromises = usersWithTokens.map(u => 
-            supabase.functions.invoke('send-notification', {
-              body: {
-                token: (u as any).fcm_token,
-                title: broadcastTitle,
-                body: broadcastMsg
-              }
-            }).catch(e => console.error('Push failed for user', u.id, e))
-          );
-          await Promise.all(pushPromises);
         }
       }
       logSystemAction('إرسال إشعار عام', `عنوان الإشعار: ${broadcastTitle}`, 'جميع المستخدمين');
@@ -498,7 +440,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
         
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {([['overview','📊 نظرة عامة'],['promo_codes','🎟️ الأكواد الترويجية'],['settings','⚙️ التسعير والنقاط'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['reports','🚩 التقارير والبلاغات'],['broadcast','🔔 إشعار عام'],['notifications_debug','📡 فحص الإشعارات'],['logs','📋 سجل العمليات'],['changelog','🚀 نسخة برو (التحديثات)']] as [string,string][]).map(([t,l])=>(
+          {([['overview','📊 نظرة عامة'],['promo_codes','🎟️ الأكواد الترويجية'],['settings','⚙️ التسعير والنقاط'],['visitors','👥 الزوار'],['users','🧑‍💼 المستخدمون'],['guests','🕵️ الزوار (الضيوف)'],['content','📢 المحتوى'],['recovery','🛡️ الاستعادة'],['verification','🪪 التوثيق'],['reports','🚩 التقارير والبلاغات'],['broadcast','🔔 إشعار عام'],['logs','📋 سجل العمليات'],['changelog','🚀 نسخة برو (التحديثات)']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`px-4 py-2 rounded-xl text-sm font-bold ${tab===t?'bg-amber-500 text-black':'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{l}</button>
           ))}
         </div>
@@ -729,7 +671,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                     {u.role==='vendor'&&<span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[10px] rounded-full flex items-center gap-0.5"><UserCheck className="w-2.5 h-2.5"/>تاجر موثق</span>}
                     {u.role==='pro'&&<span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-[10px] rounded-full flex items-center gap-0.5"><Star className="w-2.5 h-2.5"/>برو</span>}
                   </div>
-                  <p className="text-gray-400 text-xs">{(u.email && !u.email.includes('@souqbaghdad.com') && !u.email.includes('@souqbaghdad.store')) ? u.email : (u.phone || 'بدون رقم')}</p>
+                  <p className="text-gray-400 text-xs">{u.email || u.phone}</p>
                   <p className="text-gray-500 text-[10px] mt-0.5">{u.city} • آخر ظهور: {u.last_seen ? new Date(u.last_seen).toLocaleString('ar-IQ') : 'غير معروف'}</p>
                 </div>
                 
@@ -1167,28 +1109,6 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                 </button>
               </form>
             )}
-
-            {broadcastHistory.length > 0 && (
-              <div className="mt-8 border-t border-gray-750 pt-6">
-                <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-amber-500" /> سجل الإشعارات السابقة 📊
-                </h3>
-                <div className="space-y-3">
-                  {broadcastHistory.map(b => (
-                    <div key={b.id} className="bg-gray-900 border border-gray-750 p-4 rounded-xl flex justify-between items-center hover:border-gray-600 transition-colors">
-                      <div className="flex-1 min-w-0 pr-4">
-                        <h4 className="text-gray-200 font-bold text-sm truncate">{b.title}</h4>
-                        <p className="text-gray-500 text-xs mt-1 truncate">{b.description}</p>
-                      </div>
-                      <div className="text-center bg-gray-800 rounded-lg px-4 py-2 border border-gray-700 flex-shrink-0 min-w-[80px]">
-                        <div className="text-amber-500 font-bold text-lg leading-none">{b.views || 0}</div>
-                        <div className="text-gray-400 text-[10px] mt-1">قارئ (شاف الإشعار)</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -1254,7 +1174,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-white font-bold text-xl">سجل التحديثات والإصدارات (نسخة برو ✨)</h2>
-                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v2.1.0</span>
+                    <span className="px-2.5 py-0.5 bg-amber-500 text-black font-extrabold text-xs rounded-full">v1.9.0</span>
                   </div>
                   <p className="text-gray-400 text-xs mt-1">تتبع التغييرات والتحديثات الزمنية مع كافة التفاصيل والميزات المضافة</p>
                 </div>
@@ -1262,35 +1182,13 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
             </div>
 
             <div className="space-y-6">
-              {/* v2.1.0 */}
+              {/* v1.9.0 */}
               <div className="bg-gradient-to-br from-gray-900 via-gray-900 to-emerald-950/20 border-2 border-emerald-500/40 rounded-2xl p-5 space-y-3 shadow-xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 bg-emerald-500 text-black text-[9px] font-extrabold px-2.5 py-1 rounded-bl-xl uppercase tracking-wider">
                   الإصدار الأخير
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-emerald-400 font-bold text-base">🚀 الإصدار v2.1.0 - التنبيهات الفورية (Push Notifications)</span>
-                  <span className="text-gray-400 text-xs font-mono">(29/07/2026)</span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-                  <div className="bg-gray-805/80 border border-gray-700/80 rounded-xl p-3.5">
-                    <h4 className="text-emerald-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">📌 التحديثات والميزات المضافة</h4>
-                    <ul className="text-gray-300 text-xs space-y-1.5 list-disc list-inside pr-1">
-                      <li><strong>الإشعارات الفورية (FCM):</strong> تفعيل إشعارات الدفع (Push Notifications) عبر Firebase لتعمل على الأندرويد، الويب وتطبيق PWA.</li>
-                      <li><strong>نظام ترحيب ذكي:</strong> إرسال إشعار ترحيبي عند أول خروج للمستخدم من التطبيق للتأكد من ربط الإشعارات بنجاح.</li>
-                      <li><strong>تحسين تسجيل الدخول:</strong> التخلص من نافذة "جاري التحميل" المزعجة بعد تسجيل الدخول بواسطة جوجل للحفاظ على سلاسة التجربة (UX).</li>
-                      <li><strong>دعم Edge Functions:</strong> بناء ونشر سيرفر إشعارات مستقل يعمل مع Supabase و Deno.</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* v1.9.0 */}
-              <div className="bg-gray-800 border-2 border-gray-700 rounded-2xl p-5 space-y-3 relative overflow-hidden">
-                <div className="absolute top-0 right-0 bg-gray-600 text-white text-[9px] font-bold px-2.5 py-1 rounded-bl-xl uppercase tracking-wider">
-                  إصدار سابق
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-300 font-bold text-base">⚡ الإصدار v1.9.0 - أجمل إصدار</span>
+                  <span className="text-emerald-400 font-bold text-base">⚡ الإصدار v1.9.0 - أجمل إصدار</span>
                   <span className="text-gray-400 text-xs font-mono">(10/07/2026)</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
@@ -1489,76 +1387,6 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                 </button>
                 <p className="text-xs text-gray-500 text-center mt-3">يتم تطبيق الأسعار الجديدة فوراً على جميع المستخدمين.</p>
               </div>
-            </div>
-          </div>
-        )}
-
-        {tab === 'notifications_debug' && (
-          <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 space-y-6">
-            <h3 className="text-white font-bold mb-4 text-xl flex items-center gap-2">
-              <Bell className="w-6 h-6 text-amber-400" />
-              فحص الإشعارات (FCM Debug)
-            </h3>
-            
-            <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl mb-4">
-              <h4 className="text-amber-400 font-bold flex items-center gap-2 mb-2"><AlertCircle className="w-5 h-5"/> معلومات عن هذه الصفحة</h4>
-              <p className="text-gray-300 text-sm leading-relaxed">
-                هذه الصفحة تعرض المستخدمين الذين قاموا بمنح صلاحية الـ Push Notifications وحصلوا على (FCM Token).
-                <br/>
-                يمكنك الضغط على أي مستخدم لاختبار إرسال إشعار فوري له.
-              </p>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-right text-sm">
-                <thead>
-                  <tr className="bg-gray-900/50 text-gray-400 border-b border-gray-700">
-                    <th className="p-3">المستخدم</th>
-                    <th className="p-3">رقم الهاتف</th>
-                    <th className="p-3">FCM Token</th>
-                    <th className="p-3 text-center">إجراءات</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dbUsers.filter(u => (u as any).fcm_token).length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="p-8 text-center text-gray-500">لا يوجد أي مستخدم يملك رمز FCM Token حتى الآن.</td>
-                    </tr>
-                  ) : (
-                    dbUsers.filter(u => (u as any).fcm_token).map((u, i) => (
-                      <tr key={i} className="border-b border-gray-800 hover:bg-gray-800/50">
-                        <td className="p-3 text-white">{u.full_name || 'غير معروف'}</td>
-                        <td className="p-3 text-emerald-400">{u.phone}</td>
-                        <td className="p-3 text-gray-500 font-mono text-xs break-all max-w-[200px]">
-                          {(u as any).fcm_token}
-                        </td>
-                        <td className="p-3 text-center">
-                          <button 
-                            onClick={async () => {
-                              try {
-                                const res = await supabase.functions.invoke('send-notification', {
-                                  body: {
-                                    token: (u as any).fcm_token,
-                                    title: 'إشعار تجريبي 🔔',
-                                    body: 'مرحباً! هذا إشعار تجريبي من مدير النظام.'
-                                  }
-                                });
-                                if (res.error) throw res.error;
-                                alert('تم الإرسال بنجاح!');
-                              } catch(err:any) {
-                                alert('فشل الإرسال: ' + err.message);
-                              }
-                            }}
-                            className="bg-amber-500 hover:bg-amber-600 text-black px-4 py-2 rounded-xl text-xs font-bold transition-colors"
-                          >
-                            إرسال اختبار
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
             </div>
           </div>
         )}
