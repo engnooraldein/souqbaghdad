@@ -162,7 +162,11 @@ export function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryCli
                 {tab === 'history' ? <Clock className="w-6 h-6 text-gray-500" /> : <Bell className="w-6 h-6 text-gray-500" />}
               </div>
               <h3 className="text-white font-bold mb-2">{tab === 'history' ? 'سجل المشاهدات غير متوفر' : 'قسم المهتمين بي غير متوفر'}</h3>
-            {activeNotifs.map((n, i) => (
+              <p className="text-gray-400 text-xs px-6 leading-relaxed">
+                سوف يعمل قريباً.. قم بترقية حسابك وتوثيقه للحصول على هذه الميزة! 🚀
+              </p>
+            </div>
+            {false && activeNotifs.map((n, i) => (
                 <div key={n.id || i} 
                   onClick={async () => {
                     if (n.id) onMarkRead(n.id, n.sourceTable, n.itemId);
