@@ -68,6 +68,24 @@ export function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryCli
       title: 'إشعار من الإدارة 👑', 
       message: 'مرحباً بك في تحديثات سوك بغداد! نعمل حالياً على تحسين سرعة التطبيق وإضافة ميزات جديدة لتسهيل عملك.',
       time: new Date().toISOString()
+    },
+    {
+      id: 'admin_tip_v1',
+      title: '📢 نصيحة سريعة لإعلانك!',
+      message: 'إضافة صور واضحة تزيد فرصة البيع للضعف! حدّث إعلانك هسه 🚀',
+      time: new Date().toISOString()
+    },
+    {
+      id: 'admin_reminder_v1',
+      title: '⏰ هل نسيت إعلانك؟',
+      message: 'إعلانك بانتظار المشتري! سوّي إعادة نشر وخليه يتصدر 🔄',
+      time: new Date().toISOString()
+    },
+    {
+      id: 'admin_offer_v1',
+      title: '🔥 عرض نهاية الأسبوع!',
+      message: '30% خصم على الإعلانات المميزة ✨ خلي إعلانك يتصدر سوق بغداد 🌟',
+      time: new Date().toISOString()
     }
   ];
 
