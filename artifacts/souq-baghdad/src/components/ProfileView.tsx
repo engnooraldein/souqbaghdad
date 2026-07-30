@@ -128,6 +128,22 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
       });
       if (error) throw error;
       if (data.success) {
+        // Sync points if the backend used auth.uid() instead of p_user_id
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          if (authData?.user && authData.user.id !== user.id) {
+            const { data: authProfile } = await supabase.from('profiles').select('points').eq('id', authData.user.id).single();
+            if (authProfile && authProfile.points > 10) {
+              const { data: mainProfile } = await supabase.from('profiles').select('points').eq('id', user.id).single();
+              const newPoints = (mainProfile?.points || 0) + authProfile.points - 10;
+              await supabase.from('profiles').update({ points: newPoints }).eq('id', user.id);
+              await supabase.from('profiles').update({ points: 10 }).eq('id', authData.user.id);
+            }
+          }
+        } catch(e) {
+          console.warn('Sync points failed', e);
+        }
+
         // Fetch fresh points from database directly to ensure accuracy
         const { data: freshProfile } = await supabase.from('profiles').select('points').eq('id', user.id).single();
         const newPoints = freshProfile?.points ?? (user.points || 0);
