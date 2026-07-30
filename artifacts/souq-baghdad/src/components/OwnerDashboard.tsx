@@ -150,6 +150,22 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (tab === 'broadcast') {
+      const fetchHistory = async () => {
+        try {
+          const { data } = await supabase.from('ads')
+            .select('*')
+            .eq('category', 'notification')
+            .order('created_at', { ascending: false })
+            .limit(20);
+          if (data) setBroadcastHistory(data as Ad[]);
+        } catch(e) {}
+      };
+      fetchHistory();
+    }
+  }, [tab, broadcastSent]);
+
 
   
   // Broadcast State
@@ -157,6 +173,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
   const [broadcastMsg, setBroadcastMsg] = useState('');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [broadcastSent, setBroadcastSent] = useState(false);
+  const [broadcastHistory, setBroadcastHistory] = useState<Ad[]>([]);
   const [viewersModalItem, setViewersModalItem] = useState<{id:string|number, type:'ad'|'product'|'transport'}|null>(null);
   const onlineStatuses = useOnlineStatuses();
 
@@ -299,6 +316,30 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
     if(!broadcastTitle || !broadcastMsg) return;
     setIsBroadcasting(true);
     try {
+      const currentUserStr = localStorage.getItem('souqUser');
+      const currentUser = currentUserStr ? JSON.parse(currentUserStr) : null;
+      const adminId = currentUser?.id;
+
+      let trackerAdId = '';
+      if (adminId) {
+        try {
+          const { data: trackerAd } = await supabase.from('ads').insert({
+            seller_id: adminId,
+            title: broadcastTitle,
+            description: broadcastMsg,
+            category: 'notification', // Hide from main feed
+            status: 'archived', // So it doesn't show randomly but exists
+            views: 0,
+            is_demo: false,
+            price: 0,
+            governorate: 'الكل'
+          }).select('id').single();
+          if (trackerAd) trackerAdId = String(trackerAd.id);
+        } catch (e) {
+          console.error('Failed to create tracker ad:', e);
+        }
+      }
+
       const userIds = dbUsers.map(u => u.id).filter(id => id);
       if (userIds.length > 0) {
         const notifications = userIds.map(uid => ({
@@ -306,6 +347,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
           title: broadcastTitle,
           body: broadcastMsg,
           type: 'system',
+          item_id: trackerAdId || null,
           audience: 'all',
           read: false
         }));
@@ -1124,6 +1166,28 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                   {isBroadcasting ? <Loader2 className="w-5 h-5 animate-spin"/> : <><Mail className="w-5 h-5"/> إرسال الإشعار الآن</>}
                 </button>
               </form>
+            )}
+
+            {broadcastHistory.length > 0 && (
+              <div className="mt-8 border-t border-gray-750 pt-6">
+                <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-amber-500" /> سجل الإشعارات السابقة 📊
+                </h3>
+                <div className="space-y-3">
+                  {broadcastHistory.map(b => (
+                    <div key={b.id} className="bg-gray-900 border border-gray-750 p-4 rounded-xl flex justify-between items-center hover:border-gray-600 transition-colors">
+                      <div className="flex-1 min-w-0 pr-4">
+                        <h4 className="text-gray-200 font-bold text-sm truncate">{b.title}</h4>
+                        <p className="text-gray-500 text-xs mt-1 truncate">{b.description}</p>
+                      </div>
+                      <div className="text-center bg-gray-800 rounded-lg px-4 py-2 border border-gray-700 flex-shrink-0 min-w-[80px]">
+                        <div className="text-amber-500 font-bold text-lg leading-none">{b.views || 0}</div>
+                        <div className="text-gray-400 text-[10px] mt-1">قارئ (شاف الإشعار)</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}

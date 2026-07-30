@@ -50,9 +50,9 @@ export function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryCli
   onClose:()=>void;
   notifs:any[];
   onNotifClick:(senderId:string)=>void;
-  onHistoryClick:(itemId: string | number, itemType: string)=>void;
-  onMarkRead:(id: number | string, sourceTable?: 'ads' | 'user_notifications') => void;
-  onArchiveAll:() => void;
+  onHistoryClick:(id: string | number, type: string) => void;
+  onMarkRead:(id: number | string, sourceTable?: 'ads' | 'user_notifications', targetId?: string) => void;
+  onArchiveAll?: () => void;
 }) {
   const [tab, setTab] = useState<'incoming' | 'history'>('incoming');
   const [selectedNotif, setSelectedNotif] = useState<any>(null);
@@ -162,15 +162,10 @@ export function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryCli
                 {tab === 'history' ? <Clock className="w-6 h-6 text-gray-500" /> : <Bell className="w-6 h-6 text-gray-500" />}
               </div>
               <h3 className="text-white font-bold mb-2">{tab === 'history' ? 'سجل المشاهدات غير متوفر' : 'قسم المهتمين بي غير متوفر'}</h3>
-              <p className="text-gray-400 text-xs px-6 leading-relaxed">
-                سوف يعمل قريباً.. قم بترقية حسابك وتوثيقه للحصول على هذه الميزة! 🚀
-              </p>
-            </div>
-            {false && activeNotifs.map((n, i) => (
+            {activeNotifs.map((n, i) => (
                 <div key={n.id || i} 
                   onClick={async () => {
-                    // Mark as read/archive
-                    if (n.id) onMarkRead(n.id, n.sourceTable);
+                    if (n.id) onMarkRead(n.id, n.sourceTable, n.itemId);
                     
                     if (tab === 'incoming') {
                       if (n.type === 'message' || !n.senderId) {
