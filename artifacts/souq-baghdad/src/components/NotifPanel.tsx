@@ -27,7 +27,6 @@ import {
   FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, 
 } from 'lucide-react';
 import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
-import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage } from '../App';
 import { slugify, getWhatsAppLink, detectDevice, isNewItem, getWhatsAppResetLink, getGlowClass} from '../utils/helpers';
 import { formatPrice } from '../utils/format';
 import { useSound } from '../hooks/useSound';
