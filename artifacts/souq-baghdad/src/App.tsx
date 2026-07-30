@@ -1640,20 +1640,28 @@ export default function App() {
 
         appListener = await CapApp.addListener('appUrlOpen', async (data: { url: string }) => {
           if (data.url.startsWith('souqbaghdad://login-callback')) {
+            // ── أغلق المتصفح الداخلي فوراً ──────────────────────
+            try {
+              const { Browser } = await import('@capacitor/browser');
+              await Browser.close();
+            } catch { /* المتصفح ربما لم يكن مفتوحاً */ }
+
             const url = new URL(data.url.replace('souqbaghdad://login-callback', 'https://placeholder.com'));
-            
-            // 1. Check for PKCE 'code' in query params (Supabase v2 default)
+
+            // 1. PKCE flow: code في الـ query params (Supabase v2 الافتراضي)
             const code = url.searchParams.get('code');
             if (code) {
               const { data: sessionData, error } = await supabase.auth.exchangeCodeForSession(code);
               if (!error && sessionData?.session?.user) {
                 loadUserFromSupabase(sessionData.session.user);
                 setShowAuth(false);
+              } else if (error) {
+                console.error('exchangeCodeForSession error:', error.message);
               }
               return;
             }
 
-            // 2. Fallback to Implicit flow (hash params)
+            // 2. Implicit flow: access_token في الـ hash
             const hashParams = new URLSearchParams(url.hash.replace('#', ''));
             const access_token = hashParams.get('access_token');
             const refresh_token = hashParams.get('refresh_token');

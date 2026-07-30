@@ -450,32 +450,54 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
     setLoadingText('جاري التحويل إلى حسابات Google...');
     try {
       const { Capacitor } = await import('@capacitor/core');
-      // On Android, use the custom deep link scheme so the app intercepts the callback
-      const redirectTo = Capacitor.isNativePlatform()
-        ? 'souqbaghdad://login-callback'
-        : window.location.origin;
+      const isNativeApp = Capacitor.isNativePlatform();
 
-      setTimeout(() => {
-        // If still loading after 3 seconds, inform the user
-        if (loading) {
-          setLoadingText('جاري تجهيز حسابك، يرجى الانتظار...');
-        }
-      }, 3000);
+      if (isNativeApp) {
+        // ── الأندرويد: استخدام @capacitor/browser لمتصفح داخلي ───
+        // skipBrowserRedirect=true يجعل Supabase يعطينا الـ URL بدلاً من فتحه تلقائياً
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: 'souqbaghdad://login-callback',
+            skipBrowserRedirect: true,
+          }
+        });
 
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo,
-          skipBrowserRedirect: false,
+        if (error || !data.url) {
+          setError('تعذر الحصول على رابط Google');
+          playSound('error');
+          setLoading(false);
+          setLoadingText('');
+          return;
         }
-      });
-      if (error) {
-        setError('تعذر الاتصال بـ Google: ' + error.message);
-        playSound('error');
-        setLoading(false);
-        setLoadingText('');
+
+        // افتح المتصفح الداخلي
+        const { Browser } = await import('@capacitor/browser');
+        await Browser.open({ url: data.url, windowName: '_self' });
+
+        // عندما يُغلق المتصفح (مهما كان السبب)، أوقف التحميل
+        const browserFinishedListener = await Browser.addListener('browserFinished', () => {
+          setLoading(false);
+          setLoadingText('');
+          browserFinishedListener.remove();
+        });
+
+      } else {
+        // ── الويب: التوجيه المعتاد ───────────────────────────────
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.origin,
+            skipBrowserRedirect: false,
+          }
+        });
+        if (error) {
+          setError('تعذر الاتصال بـ Google: ' + error.message);
+          playSound('error');
+          setLoading(false);
+          setLoadingText('');
+        }
       }
-      // عند النجاح الصفحة ستُعاد توجيهها تلقائياً (أو يغلق المودال من App.tsx)
     } catch {
       setError('حدث خطأ أثناء الاتصال بـ Google');
       playSound('error');
