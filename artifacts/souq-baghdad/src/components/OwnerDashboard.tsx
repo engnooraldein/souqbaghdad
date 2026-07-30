@@ -315,6 +315,22 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
           const chunk = notifications.slice(i, i + chunkSize);
           await supabase.from('user_notifications').insert(chunk);
         }
+
+        // إرسال إشعارات Push (خارج التطبيق) للمستخدمين الذين لديهم fcm_token
+        const usersWithTokens = dbUsers.filter(u => (u as any).fcm_token);
+        if (usersWithTokens.length > 0) {
+          // Send in parallel batches to avoid blocking
+          const pushPromises = usersWithTokens.map(u => 
+            supabase.functions.invoke('send-notification', {
+              body: {
+                token: (u as any).fcm_token,
+                title: broadcastTitle,
+                body: broadcastMsg
+              }
+            }).catch(e => console.error('Push failed for user', u.id, e))
+          );
+          await Promise.all(pushPromises);
+        }
       }
       logSystemAction('إرسال إشعار عام', `عنوان الإشعار: ${broadcastTitle}`, 'جميع المستخدمين');
       setBroadcastSent(true);

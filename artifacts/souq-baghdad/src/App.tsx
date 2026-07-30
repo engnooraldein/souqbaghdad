@@ -3093,6 +3093,29 @@ export default function App() {
           }));
           
           await supabase.from('user_notifications').insert(notifsToInsert);
+          
+          // Send Push Notifications (خارج التطبيق) for matched alerts
+          try {
+            const usersWithTokens = await supabase.from('profiles').select('id, fcm_token').in('id', matches.map(m => m.user_id)).not('fcm_token', 'is', null);
+            if (usersWithTokens.data && usersWithTokens.data.length > 0) {
+              const pushPromises = usersWithTokens.data.map(u => {
+                const match = notifsToInsert.find(n => n.user_id === u.id);
+                if (match) {
+                  return supabase.functions.invoke('send-notification', {
+                    body: {
+                      token: u.fcm_token,
+                      title: match.title,
+                      body: match.body
+                    }
+                  }).catch(e => console.error('Push failed for user', u.id, e));
+                }
+                return Promise.resolve();
+              });
+              await Promise.all(pushPromises);
+            }
+          } catch(err) {
+            console.error('Failed to send push for alerts:', err);
+          }
         }
       }
     } catch (e) {
