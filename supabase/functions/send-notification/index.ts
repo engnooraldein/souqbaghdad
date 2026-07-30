@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers });
 
   try {
-    const { token, title, body, data, imageUrl } = await req.json();
+    const { token, title, body, data, imageUrl, badge } = await req.json();
 
     if (!token) throw new Error('Missing FCM token');
 
@@ -30,30 +30,31 @@ serve(async (req) => {
     const projectId = serviceAccount.project_id;
     const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
 
+    const badgeCount = typeof badge === 'number' ? badge : 1;
+
     // ── FCM Message payload ─────────────────────────────────────────────────
-    // CRITICAL: يجب وجود مفتاح "notification" في المستوى الأعلى
-    // حتى يُعرض النظام (Android/iOS) الإشعار تلقائياً حتى لو التطبيق مغلق
     const fcmMessage = {
       message: {
         token: token,
 
-        // ── الإشعار الأساسي (يجب أن يكون هنا دائماً) ─────────
+        // ── الإشعار الأساسي ─────────
         notification: {
           title: title || 'سوق بغداد',
           body: body || '',
           ...(imageUrl ? { image: imageUrl } : {}),
         },
 
-        // ── إعدادات Android المتقدمة ────────────────────────────
+        // ── إعدادات Android المتقدمة مع شارة الأيقونة ────────────────
         android: {
-          priority: 'high',                    // أولوية عالية = يصل حتى لو الجهاز في وضع النوم
+          priority: 'high',
           notification: {
-            channel_id: 'souq_baghdad_high_importance',  // يجب أن يطابق channel_id في التطبيق
+            channel_id: 'souq_baghdad_high_importance',
             sound: 'default',
             default_sound: true,
             default_vibrate_timings: true,
             notification_priority: 'PRIORITY_HIGH',
-            visibility: 'PUBLIC',              // يظهر على شاشة القفل
+            visibility: 'PUBLIC',
+            notification_count: badgeCount,
             tag: data?.type || 'general',
             click_action: 'FLUTTER_NOTIFICATION_CLICK',
             ...(imageUrl ? { image: imageUrl } : {}),
@@ -63,10 +64,10 @@ serve(async (req) => {
           },
         },
 
-        // ── إعدادات iOS ──────────────────────────────────────────
+        // ── إعدادات iOS مع شارة الأيقونة ─────────────────────────────
         apns: {
           headers: {
-            'apns-priority': '10',             // أولوية قصوى على iOS
+            'apns-priority': '10',
           },
           payload: {
             aps: {
@@ -75,18 +76,19 @@ serve(async (req) => {
                 body: body || '',
               },
               sound: 'default',
-              badge: 1,
+              badge: badgeCount,
               'content-available': 1,
               'mutable-content': 1,
             },
           },
         },
 
-        // ── البيانات الإضافية (للـ Deep Linking وتحديد نوع الإشعار) ──
+        // ── البيانات الإضافية (للـ Deep Linking والـ Badging) ──
         data: {
           ...(data || {}),
           title: title || '',
           body: body || '',
+          badge: String(badgeCount),
           click_action: data?.click_action || 'home',
         },
       },

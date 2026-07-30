@@ -30,11 +30,23 @@ messaging.onBackgroundMessage((payload) => {
     tag: payload.data?.type || 'general'
   };
 
+  // Update App Icon Badge on home screen
+  if ('setAppBadge' in navigator) {
+    const badgeVal = parseInt(payload.data?.badge || '1', 10);
+    navigator.setAppBadge(isNaN(badgeVal) ? 1 : badgeVal).catch(() => {});
+  }
+
   self.registration.showNotification(title, notificationOptions);
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  // Clear or decrement badge on click
+  if ('clearAppBadge' in navigator) {
+    navigator.clearAppBadge().catch(() => {});
+  }
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {

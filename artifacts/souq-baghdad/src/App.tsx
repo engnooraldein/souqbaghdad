@@ -2678,6 +2678,18 @@ export default function App() {
     prevNotifsLength.current = notifications.length;
   }, [notifications]);
 
+  // ── تحديث شارة الأيقونة الخارجية (App Icon Badge) تلقائياً ────────────
+  useEffect(() => {
+    const count = notifications.length;
+    if (typeof window !== 'undefined' && 'setAppBadge' in navigator) {
+      if (count > 0) {
+        (navigator as any).setAppBadge(count).catch(() => {});
+      } else {
+        (navigator as any).clearAppBadge().catch(() => {});
+      }
+    }
+  }, [notifications.length]);
+
   const handleHistoryClick = (itemId: string | number, itemType: string) => {
     if (itemType === 'ad') {
       const found = allAds.find(a => String(a.id) === String(itemId));
