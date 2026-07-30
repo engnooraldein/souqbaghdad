@@ -99,7 +99,7 @@ export function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryCli
     setDismissedAdmin(updated);
     localStorage.setItem('dismissedAdminNotifs', JSON.stringify(updated));
     if (n.sourceTable) {
-       onMarkRead(n.id, n.sourceTable);
+       onMarkRead(n.id, n.sourceTable, n.itemId);
     }
   };
 
