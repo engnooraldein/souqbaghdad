@@ -166,6 +166,17 @@ export function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryCli
                 سوف يعمل قريباً.. قم بترقية حسابك وتوثيقه للحصول على هذه الميزة! 🚀
               </p>
             </div>
+            {activeNotifs.length > 0 && onArchiveAll && (
+              <button 
+                onClick={() => {
+                  onArchiveAll();
+                  playSound('success');
+                }}
+                className="w-full py-3 bg-gray-800 hover:bg-red-500/20 text-gray-400 hover:text-red-400 font-bold rounded-xl border border-gray-700 hover:border-red-500/50 transition-colors flex items-center justify-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" /> إخفاء وتصفير العداد ({activeNotifs.length})
+              </button>
+            )}
             {false && activeNotifs.map((n, i) => (
                 <div key={n.id || i} 
                   onClick={async () => {
