@@ -136,14 +136,7 @@ export function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryCli
             </button>
           </div>
 
-          {tab === 'incoming' && incomingNotifs.length > 0 && (
-            <button 
-              onClick={onArchiveAll}
-              className="w-full mb-4 py-2 bg-gray-800 hover:bg-gray-750 border border-gray-700 text-gray-300 hover:text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5"
-            >
-              <Check className="w-4 h-4 text-emerald-400" /> أرشفة كل الإشعارات
-            </button>
-          )}
+
 
           <div className="space-y-2">
             <div className="text-center py-10 bg-gray-800/30 rounded-2xl border border-gray-700/50 mt-4">
