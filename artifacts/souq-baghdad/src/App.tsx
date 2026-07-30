@@ -749,25 +749,78 @@ export default function App() {
               // Handle deep link / routing if there is data
             });
 
-            // Welcome push notification when they exit the app for the first time
+            // ── إشعارات التفاعل الذكية عند الخروج من التطبيق ──────────────
+            // ملاحظة مهمة: عند إغلاق التطبيق بالكامل، لا يمكن إرسال Push من الكود
+            // الحل الصحيح = Local Notification مجدولة قبل الإغلاق
+            const RE_ENGAGEMENT_MESSAGES = [
+              {
+                title: '📢 نصيحة سريعة لإعلانك!',
+                body: 'إضافة صور واضحة تزيد فرصة البيع للضعف! حدّث إعلانك هسه 🚀',
+                delay: 600,   // 10 دقائق
+              },
+              {
+                title: '⏰ هل نسيت إعلانك؟',
+                body: 'إعلانك بانتظار المشتري! سوّي إعادة نشر وخليه يتصدر 🔄',
+                delay: 3600,  // ساعة
+              },
+              {
+                title: '🔥 عرض نهاية الأسبوع!',
+                body: '30% خصم على الإعلانات المميزة ✨ خلي إعلانك يتصدر سوق بغداد 🌟',
+                delay: 86400, // 24 ساعة
+              },
+            ];
+
+            let backgroundEnteredAt = 0;
+
             CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
               if (!isActive) {
-                const token = localStorage.getItem('fcm_token');
-                const welcomeSent = localStorage.getItem('welcome_push_sent');
-                if (token && welcomeSent !== 'true') {
-                  localStorage.setItem('welcome_push_sent', 'true');
+                // التطبيق يذهب للخلفية — جدول إشعارات محلية ذكية
+                backgroundEnteredAt = Date.now();
+
+                try {
+                  // ألغِ أي إشعارات معلقة سابقة
+                  await LocalNotifications.cancel({ notifications: [
+                    { id: 1001 }, { id: 1002 }, { id: 1003 }
+                  ]});
+
+                  const sessionStr = localStorage.getItem('souqUser');
+                  const isLoggedIn = !!sessionStr;
+
+                  // اختر رسائل مختلفة حسب حالة المستخدم
+                  const msgs = isLoggedIn
+                    ? RE_ENGAGEMENT_MESSAGES
+                    : [
+                        { title: '👋 مرحباً بك في سوق بغداد!', body: 'سجّل دخولك واستمتع بآلاف الإعلانات 🎉', delay: 300 },
+                        { title: '🏠 آلاف العقارات بانتظارك!', body: 'عقارات متاحة في جميع المحافظات العراقية 🌍', delay: 3600 },
+                      ];
+
+                  // جدول الإشعارات المحلية
+                  const notifications = msgs.map((msg, idx) => ({
+                    id: 1001 + idx,
+                    title: msg.title,
+                    body: msg.body,
+                    channelId: 'souq_baghdad_high_importance',
+                    schedule: { at: new Date(Date.now() + msg.delay * 1000) },
+                    sound: 'default',
+                    smallIcon: 'ic_launcher_foreground',
+                    largeIcon: 'ic_launcher',
+                    extra: { type: 're_engagement' },
+                  }));
+
+                  await LocalNotifications.schedule({ notifications });
+                } catch (e) {
+                  console.warn('Local notification schedule failed:', e);
+                }
+
+              } else {
+                // التطبيق عاد للمقدمة — ألغِ الإشعارات المعلقة
+                if (backgroundEnteredAt > 0) {
                   try {
-                    await supabase.functions.invoke('send-notification', {
-                      body: {
-                        token: token,
-                        title: 'مرحباً بك في سوق بغداد! 👋',
-                        body: 'تم تفعيل الإشعارات بنجاح. ستصلك أحدث العروض والرسائل هنا.'
-                      }
-                    });
-                  } catch (e) {
-                    console.error('Welcome push failed', e);
-                    localStorage.removeItem('welcome_push_sent');
-                  }
+                    await LocalNotifications.cancel({ notifications: [
+                      { id: 1001 }, { id: 1002 }, { id: 1003 }
+                    ]});
+                  } catch { /* ignore */ }
+                  backgroundEnteredAt = 0;
                 }
               }
             });
