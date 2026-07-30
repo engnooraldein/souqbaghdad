@@ -829,10 +829,27 @@ export default function App() {
             console.warn('Native permissions/channel error:', e);
           }
         }, 1500);
+      } else {
+        // Web / PWA Push Notification Service Worker Registration
+        if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+          navigator.serviceWorker.register('/firebase-messaging-sw.js')
+            .then(reg => console.log('FCM Service Worker registered:', reg.scope))
+            .catch(err => console.warn('FCM SW registration error:', err));
+        }
       }
     };
     initPermissions();
   }, []);
+
+  // ── مزامنة الـ FCM Token التلقائية لكل مستخدم ينشئ حساب أو يسجل دخول ──
+  useEffect(() => {
+    if (user?.id) {
+      const token = localStorage.getItem('fcm_token');
+      if (token) {
+        supabase.from('profiles').update({ fcm_token: token }).eq('id', user.id).then();
+      }
+    }
+  }, [user?.id]);
 
 
   useEffect(() => {

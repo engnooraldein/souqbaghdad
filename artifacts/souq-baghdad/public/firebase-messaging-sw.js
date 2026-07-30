@@ -16,11 +16,31 @@ const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
-  const notificationTitle = payload.notification?.title || 'سوق بغداد';
+  const title = payload.notification?.title || payload.data?.title || 'سوق بغداد';
+  const body = payload.notification?.body || payload.data?.body || '';
+  const icon = payload.notification?.image || payload.data?.image || '/logo-512.webp';
+
   const notificationOptions = {
-    body: payload.notification?.body,
-    icon: '/logo-512.webp'
+    body,
+    icon: '/logo-512.webp',
+    badge: '/logo-128.webp',
+    image: icon !== '/logo-512.webp' ? icon : undefined,
+    data: payload.data || {},
+    vibrate: [200, 100, 200],
+    tag: payload.data?.type || 'general'
   };
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  self.registration.showNotification(title, notificationOptions);
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url && 'focus' in client) return client.focus();
+      }
+      if (clients.openWindow) return clients.openWindow('/');
+    })
+  );
 });
