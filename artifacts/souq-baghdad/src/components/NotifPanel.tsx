@@ -27,6 +27,7 @@ import {
   FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, 
 } from 'lucide-react';
 import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
+import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage } from '../App';
 import { slugify, getWhatsAppLink, detectDevice, isNewItem, getWhatsAppResetLink, getGlowClass} from '../utils/helpers';
 import { formatPrice } from '../utils/format';
 import { useSound } from '../hooks/useSound';
@@ -98,7 +99,7 @@ export function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryCli
     setDismissedAdmin(updated);
     localStorage.setItem('dismissedAdminNotifs', JSON.stringify(updated));
     if (n.sourceTable) {
-       onMarkRead(n.id, n.sourceTable, n.itemId);
+       onMarkRead(n.id, n.sourceTable);
     }
   };
 
@@ -165,17 +166,6 @@ export function NotifPanel({ isOpen, onClose, notifs, onNotifClick, onHistoryCli
                 سوف يعمل قريباً.. قم بترقية حسابك وتوثيقه للحصول على هذه الميزة! 🚀
               </p>
             </div>
-            {activeNotifs.length > 0 && onArchiveAll && (
-              <button 
-                onClick={() => {
-                  onArchiveAll();
-                  playSound('success');
-                }}
-                className="w-full py-3 bg-gray-800 hover:bg-red-500/20 text-gray-400 hover:text-red-400 font-bold rounded-xl border border-gray-700 hover:border-red-500/50 transition-colors flex items-center justify-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" /> إخفاء وتصفير العداد ({activeNotifs.length})
-              </button>
-            )}
             {false && activeNotifs.map((n, i) => (
                 <div key={n.id || i} 
                   onClick={async () => {

@@ -2586,7 +2586,6 @@ export default function App() {
         .from('user_notifications')
         .select('*')
         .eq('user_id', user.id)
-        .eq('read', false)
         .order('created_at', { ascending: false })
         .limit(20);
 
