@@ -32,5 +32,28 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "أضف إعلان جديد",
+      "short_name": "إعلان جديد",
+      "description": "انشر إعلانك مجاناً في سوق بغداد",
+      "url": "/#/post-ad",
+      "icons": [{ "src": "/logo-128.webp", "sizes": "128x128" }]
+    },
+    {
+      "name": "المحادثات والرسائل",
+      "short_name": "الرسائل",
+      "description": "تصفح رسائلك ومحادثاتك المباشرة",
+      "url": "/#/chats",
+      "icons": [{ "src": "/logo-128.webp", "sizes": "128x128" }]
+    },
+    {
+      "name": "المتجر الإلكتروني",
+      "short_name": "المتجر",
+      "description": "تصفح المنتجات والعروض",
+      "url": "/#/products",
+      "icons": [{ "src": "/logo-128.webp", "sizes": "128x128" }]
+    }
   ]
 }

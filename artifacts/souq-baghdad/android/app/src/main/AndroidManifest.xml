@@ -25,6 +25,15 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="souqbaghdad" android:host="login-callback" />
             </intent-filter>
+
+            <!-- Universal Deep Links for souqbaghdad.store domain -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="souqbaghdad.store" />
+                <data android:scheme="https" android:host="www.souqbaghdad.store" />
+            </intent-filter>
         </activity>
 
         <!-- FCM Default Notification Channel and Icon for Background/Killed state -->
