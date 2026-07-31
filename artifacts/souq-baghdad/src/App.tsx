@@ -634,7 +634,69 @@ export default function App() {
   const [showBiometricBanner, setShowBiometricBanner] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
   const playNotificationSound = useSound();
+
+  // Fetch unread messages count
+  const fetchUnreadChatCount = useCallback(async () => {
+    if (!user) {
+      setUnreadChatCount(0);
+      return;
+    }
+    try {
+      const { data: userChats } = await supabase
+        .from('chats')
+        .select('id')
+        .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`);
+
+      if (userChats && userChats.length > 0) {
+        const chatIds = userChats.map(c => c.id);
+        const { count } = await supabase
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .in('chat_id', chatIds)
+          .eq('is_read', false)
+          .neq('sender_id', user.id);
+
+        setUnreadChatCount(count || 0);
+      }
+    } catch (e) {
+      console.error('Error fetching unread chat count:', e);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchUnreadChatCount();
+  }, [fetchUnreadChatCount]);
+
+  // Realtime audio alert & badge update for new messages
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('global:messages')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages'
+        },
+        async (payload) => {
+          const newMsg = payload.new as any;
+          if (newMsg.sender_id !== user.id) {
+            // Play notification sound
+            playNotificationSound('info');
+            fetchUnreadChatCount();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, playNotificationSound, fetchUnreadChatCount]);
 
   useEffect(() => {
     const handleOpenChat = (e: any) => {
@@ -3572,6 +3634,14 @@ export default function App() {
                   <LogIn className="w-3.5 h-3.5"/> <span>دخول</span>
                 </button>
               )}
+              <button onClick={() => window.dispatchEvent(new CustomEvent('open-chat', { detail: {} }))} className="p-1.5 rounded-xl bg-gray-800 text-white hover:bg-gray-700 relative" title="المحادثات" aria-label="المحادثات">
+                <MessageSquare className="w-4 h-4"/>
+                {unreadChatCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 rounded-full text-[9px] text-black font-extrabold flex items-center justify-center animate-bounce">
+                    {unreadChatCount > 9 ? '+9' : unreadChatCount}
+                  </span>
+                )}
+              </button>
               <button onClick={()=>setShowNotifs(true)} className="p-1.5 rounded-xl bg-gray-800 text-white hover:bg-gray-700 relative" title="الإشعارات" aria-label="الإشعارات">
                 <Bell className="w-4 h-4"/>
                 {notifications.length > 0 && (
@@ -3647,6 +3717,22 @@ export default function App() {
               <Car className="w-4.5 h-4.5"/>
               <span>خطوط النقل والتوصيل</span>
             </button>
+
+            {user && (
+              <button onClick={() => window.dispatchEvent(new CustomEvent('open-chat', { detail: {} }))} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
+                isDarkMode ? 'text-gray-300 hover:bg-gray-800/60 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <MessageSquare className="w-4.5 h-4.5 text-amber-400"/>
+                  <span>المحادثات والرسائل</span>
+                </div>
+                {unreadChatCount > 0 && (
+                  <span className="px-2 py-0.5 bg-amber-500 text-black text-[10px] font-extrabold rounded-full animate-pulse">
+                    {unreadChatCount} جديد
+                  </span>
+                )}
+              </button>
+            )}
 
             {user && (
               <button onClick={() => { setView('profile'); setBottomNavActive('profile'); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${

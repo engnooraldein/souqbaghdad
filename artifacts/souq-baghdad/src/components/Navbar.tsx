@@ -20,6 +20,7 @@ import { triggerHaptic } from '../utils/haptics';
 interface NavbarProps {
   user: UserType | null;
   unreadCount: number;
+  unreadChatCount?: number;
   view: string;
   onSetView: (view: 'home' | 'products' | 'transport' | 'profile' | 'saved') => void;
   onShowAuth: () => void;
@@ -31,6 +32,7 @@ interface NavbarProps {
 export function Navbar({
   user,
   unreadCount,
+  unreadChatCount = 0,
   view,
   onSetView,
   onShowAuth,
@@ -78,6 +80,11 @@ export function Navbar({
                 aria-label="المحادثات"
               >
                 <MessageSquare className="w-5 h-5" />
+                {unreadChatCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-black text-[10px] font-extrabold flex items-center justify-center rounded-full border border-gray-900 animate-bounce">
+                    {unreadChatCount > 9 ? '+9' : unreadChatCount}
+                  </span>
+                )}
               </button>
 
               <button 
