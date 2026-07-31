@@ -71,6 +71,15 @@ export function Navbar({
           
           {user ? (
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('open-chat', { detail: {} }))}
+                className="relative p-2 text-gray-400 hover:text-white bg-gray-800 rounded-xl transition-colors"
+                title="المحادثات"
+                aria-label="المحادثات"
+              >
+                <MessageSquare className="w-5 h-5" />
+              </button>
+
               <button 
                 onClick={onShowNotifications} 
                 className="relative p-2 text-gray-400 hover:text-white bg-gray-800 rounded-xl transition-colors"

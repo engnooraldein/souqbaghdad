@@ -42,6 +42,7 @@ const ProductsView = lazy(() => import('./components/ProductsView').then(m => ({
 export const ViewersModal = lazy(() => import('./components/ViewersModal').then(m => ({ default: m.ViewersModal })));
 const ShareModal = lazy(() => import('./components/ShareModal').then(m => ({ default: m.ShareModal })));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
+const ChatView = lazy(() => import('./components/ChatView').then(m => ({ default: m.ChatView })));
 import {
   Eye, EyeOff, Mail, Lock, User as UserIcon, Phone, AlertCircle, Check,
   Gamepad2, Heart, Bell, Plus, LogOut, Star, X, Search, MapPin,
@@ -631,7 +632,18 @@ export default function App() {
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
   const [showBiometricBanner, setShowBiometricBanner] = useState(false);
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const playNotificationSound = useSound();
+
+  useEffect(() => {
+    const handleOpenChat = (e: any) => {
+      setActiveChatId(e.detail?.chatId || null);
+      setShowChatModal(true);
+    };
+    window.addEventListener('open-chat', handleOpenChat);
+    return () => window.removeEventListener('open-chat', handleOpenChat);
+  }, []);
 
   const [isBiometricLocked, setIsBiometricLocked] = useState<boolean>(() => {
     return localStorage.getItem('biometricEnabled') === 'true' && localStorage.getItem('souqUser') !== null && sessionStorage.getItem('biometricUnlocked') !== 'true';
@@ -4124,6 +4136,26 @@ export default function App() {
         {showCreateAd&&user&&<Suspense fallback={null}><AdFormModal isOpen={showCreateAd} onClose={()=>{setShowCreateAd(false);setEditingAd(null);}} onSubmit={handleAddOrEditAd} user={user} editAd={editingAd} cost={adCosts.ad !== undefined ? adCosts.ad : 1} vipCost={adCosts.vip_ad !== undefined ? adCosts.vip_ad : 5} /></Suspense>}
         {showCreateProduct&&user&&<Suspense fallback={null}><ProductFormModal isOpen={showCreateProduct} onClose={()=>{setShowCreateProduct(false);setEditingProduct(null);}} onSubmit={handleAddOrEditProduct} user={user} editProduct={editingProduct} cost={adCosts.product !== undefined ? adCosts.product : 1} vipCost={adCosts.vip_ad !== undefined ? adCosts.vip_ad : 5} /></Suspense>}
         {showNotifs&&<Suspense fallback={null}><NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick} onMarkRead={markNotifAsRead} onArchiveAll={handleArchiveAllNotifications}/></Suspense>}
+        {showChatModal && (
+          <Suspense fallback={null}>
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm">
+              <div className="w-full max-w-5xl">
+                <ChatView
+                  currentUser={user}
+                  activeChatId={activeChatId}
+                  onClose={() => {
+                    setShowChatModal(false);
+                    setActiveChatId(null);
+                  }}
+                  onOpenAuth={() => {
+                    setShowChatModal(false);
+                    setShowAuth(true);
+                  }}
+                />
+              </div>
+            </div>
+          </Suspense>
+        )}
         {activeDocTab&&<Suspense fallback={null}><InfoDocsModal activeTab={activeDocTab} onClose={()=>setActiveDocTab(null)} user={user}/></Suspense>}
         {activeLightbox&&<ImageLightboxModal src={activeLightbox.src} title={activeLightbox.title} images={(activeLightbox as any).images} initialIdx={(activeLightbox as any).initialIdx} onClose={()=>setActiveLightbox(null)}/>}
         {congratulationsItem && <CongratulationsModal item={congratulationsItem} onClose={() => setCongratulationsItem(null)} />}

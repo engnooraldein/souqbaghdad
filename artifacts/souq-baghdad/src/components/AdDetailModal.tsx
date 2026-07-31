@@ -462,12 +462,64 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
               </div>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-2.5 mb-2.5">
+          <div className="grid grid-cols-3 gap-2 mb-2.5">
+            <motion.button
+              type="button"
+              onClick={async () => {
+                if (!user) {
+                  onAuthRequired();
+                  return;
+                }
+                if (String(user.id) === String(ad.postedBy)) {
+                  alert('لا يمكنك مراسلة نفسك!');
+                  return;
+                }
+                try {
+                  const { data: existingChat } = await supabase
+                    .from('chats')
+                    .select('id')
+                    .eq('buyer_id', user.id)
+                    .eq('seller_id', ad.postedBy || '')
+                    .eq('ad_id', String(ad.id))
+                    .maybeSingle();
+
+                  if (existingChat) {
+                    window.dispatchEvent(new CustomEvent('open-chat', { detail: { chatId: existingChat.id } }));
+                  } else {
+                    const { data: newChat, error } = await supabase
+                      .from('chats')
+                      .insert({
+                        buyer_id: user.id,
+                        seller_id: ad.postedBy || '',
+                        ad_id: String(ad.id),
+                        ad_title: ad.title
+                      })
+                      .select('id')
+                      .single();
+
+                    if (error) throw error;
+                    if (newChat) {
+                      window.dispatchEvent(new CustomEvent('open-chat', { detail: { chatId: newChat.id } }));
+                    }
+                  }
+                  onClose();
+                } catch (e: any) {
+                  alert('تعذر فتح المحادثة: ' + (e.message || 'خطأ'));
+                }
+              }}
+              whileHover={{scale:1.01}} whileTap={{scale:0.99}} className="flex items-center justify-center gap-1 py-2.5 bg-amber-500 text-black font-extrabold rounded-xl text-xs"
+            >
+              <MessageSquare className="w-4 h-4"/> 💬 مراسلة
+            </motion.button>
+
             <motion.a href={getWhatsAppLink(ad.phone, ad.type === 'transport' ? 'transport' : 'product', { id: ad.id, short_id: ad.short_id, title: ad.title, location: ad.location, university: ad.description, time: 'راجع الإعلان' })} target="_blank" rel="noopener noreferrer"
-              whileHover={{scale:1.01}} whileTap={{scale:0.99}} className="flex items-center justify-center gap-1.5 py-2.5 bg-green-500 text-white font-bold rounded-xl text-xs sm:text-sm">
-              <MessageSquare className="w-4.5 h-4.5"/> واتساب</motion.a>
-            <motion.a href={`tel:${ad.phone}`} whileHover={{scale:1.01}} whileTap={{scale:0.99}} className="flex items-center justify-center gap-1.5 py-2.5 bg-gray-800 text-white font-bold rounded-xl text-xs sm:text-sm">
-              <PhoneIcon className="w-4.5 h-4.5"/> اتصال</motion.a>
+              whileHover={{scale:1.01}} whileTap={{scale:0.99}} className="flex items-center justify-center gap-1 py-2.5 bg-green-500 text-white font-bold rounded-xl text-xs">
+              <MessageCircle className="w-4 h-4"/> واتساب
+            </motion.a>
+
+            <motion.a href={`tel:${ad.phone}`} whileHover={{scale:1.01}} whileTap={{scale:0.99}} className="flex items-center justify-center gap-1 py-2.5 bg-gray-800 text-white font-bold rounded-xl text-xs">
+              <PhoneIcon className="w-4 h-4"/> اتصال
+            </motion.a>
           </div>
           <div className="flex gap-2.5">
             <button onClick={()=>{if(!user){onAuthRequired();return;}onFav();}}
