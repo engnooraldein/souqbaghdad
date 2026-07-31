@@ -761,6 +761,9 @@ export function MarketView({
     return vipAds.slice(start, start + 6);
   }, [vipAds, vipAdsPage]);
 
+  // Session anchor time to ensure total feed stability during user browsing
+  const sessionTimeAnchor = useMemo(() => Date.now(), []);
+
   // Compute "General Ads" Pagination with Smart Algorithm
   const totalGeneralPages = Math.ceil(filterAds.length / 6);
   const paginatedGeneralAds = useMemo(() => {
@@ -784,30 +787,32 @@ export function MarketView({
         if (ad.images.length > 2) score += 50; // إضافي للصور المتعددة
       }
 
-      // 4. حداثة الإعلان (الأحدث يأخذ نقاط أكثر)
+      // 4. حداثة الإعلان ثابتة أثناء الجلسة الحالية لتجنب قفز الإعلانات أثناء وقوف الزبون
       if (ad.createdAtISO) {
-        const ageInHours = (Date.now() - new Date(ad.createdAtISO).getTime()) / (1000 * 60 * 60);
-        // خصم نقاط كلما مر الوقت، بحيث لا يتصدر الإعلان القديم إلا إذا كان موثوقاً جداً أو متفاعلاً جداً
+        const ageInHours = (sessionTimeAnchor - new Date(ad.createdAtISO).getTime()) / (1000 * 60 * 60);
         score -= ageInHours * 1.5;
       }
 
-      // 5. معامل عشوائي ذكي (لضمان تجدد المحتوى وعدم الملل)
-      // يعتمد على اليوم والساعة ليتغير الترتيب كل ساعة للمستخدم
-      const pseudoRandomSeed = (String(ad.id).charCodeAt(0) + String(ad.id).charCodeAt(String(ad.id).length - 1)) % 150;
-      score += pseudoRandomSeed; // إضافة نقاط عشوائية ثابتة لا تتغير مع الوقت لمنع إعادة الترتيب العشوائي
+      // 5. معامل ثبات فريد لكل إعلان ثابت 100% يمنع الخفوق
+      const idNum = String(ad.id).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      score += (idNum % 100);
 
       return { ...ad, _feedScore: score };
     });
 
     // ترتيب تنازلي بناءً على السكور الكلي
-    scoredAds.sort((a, b) => (b._feedScore as number) - (a._feedScore as number));
+    scoredAds.sort((a, b) => {
+      const diff = (b._feedScore as number) - (a._feedScore as number);
+      if (Math.abs(diff) < 0.001) return String(b.id).localeCompare(String(a.id));
+      return diff;
+    });
     
     // إرجاع الإعلانات للواجهة
     return scoredAds.map(a => {
       const { _feedScore, ...cleanAd } = a;
       return cleanAd;
     }).slice(0, visibleGeneralAdsCount);
-  }, [filterAds, visibleGeneralAdsCount, storedUsers]);
+  }, [filterAds, visibleGeneralAdsCount, storedUsers, sessionTimeAnchor]);
 
   // Category specific paginated ads
   const totalCategoryAdsPages = Math.ceil(filterAds.length / 8);
@@ -893,23 +898,20 @@ export function MarketView({
               <span>أول منصة متكاملة للإعلانات والمتاجر في العراق</span>
             </motion.div>
 
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 via-yellow-500/10 to-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-black mb-3 shadow-md backdrop-blur-md animate-pulse">
-              <span>✨ تصفح في سوق بغداد الرقمي</span>
-            </div>
             <motion.h1 
               id="hero-main-title"
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className={`text-3xl sm:text-5xl md:text-6xl font-black tracking-tight leading-tight mb-3 transition-colors duration-500 ${
+              className={`text-3xl sm:text-5xl md:text-6xl font-black tracking-tight leading-tight mb-4 transition-colors duration-500 ${
                 isDarkMode ? 'text-white' : 'text-black'
               }`}
             >
-              أهلاً بك 👋 في <span className={`bg-gradient-to-r bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(212,175,55,0.15)] ${
+              كل ما تحتاجه في <span className={`bg-gradient-to-r bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(212,175,55,0.15)] ${
                 isDarkMode 
                   ? 'from-[#fdf5a6] via-[#d4af37] to-[#b8860b]' 
                   : 'from-[#b8860b] via-[#d4af37] to-black'
-              }`}>سوق بغداد الرقمي</span>
+              }`}>سوق بغداد</span>
             </motion.h1>
 
             {/* Sub-headline */}
@@ -918,11 +920,11 @@ export function MarketView({
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className={`text-xs sm:text-sm md:text-base max-w-xl mx-auto font-bold leading-relaxed transition-colors duration-500 ${
+              className={`text-sm sm:text-base md:text-lg max-w-2xl mx-auto font-medium leading-relaxed transition-colors duration-500 ${
                 isDarkMode ? 'text-gray-300' : 'text-slate-700 font-extrabold'
               }`}
             >
-              نتمنى لك تصفحاً ممتعاً وسريعاً! استكشف أحدث الإعلانات والعروض المباشرة بين البائع والمشتري بدون عمولة 🇮🇶✨
+              تصفّح آلاف الإعلانات والمنتجات الحصرية، وتسوق بكل ثقة وأمان من أفضل الحسابات والمتاجر الموثقة في جميع المحافظات العراقية.
             </motion.p>
           </div>
 
@@ -1776,11 +1778,11 @@ export function MarketView({
                             isDarkMode 
                               ? 'bg-amber-400/10 text-amber-400 border-amber-400/20' 
                               : 'bg-amber-50 text-amber-700 border-amber-200'
-                          }`}>تصفح مثل فيسبوك</span>
+                          }`}>تصفح في سوق بغداد الرقمي ✨</span>
                         </h2>
                         <span className={`text-xs font-bold transition-colors duration-500 ${
                           isDarkMode ? 'text-gray-400' : 'text-slate-500'
-                        }`}>خوارزمية تفاعلية ناجحة</span>
+                        }`}>خوارزمية تفاعلية ثابته</span>
                       </div>
 
                       {filterAds.length === 0 ? (

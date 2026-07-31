@@ -86,6 +86,10 @@ export function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1,
   const isEdit = !!editAd;
   const [tab, setTab] = useState<'form'|'preview'>('form');
   const [fd, setFd] = useState({ title:editAd?.title||'', price:editAd?.price?formatPrice(editAd.price):'', description:editAd?.description||'', category:editAd?.category||'cars', governorate:editAd?.governorate||user?.location||'بغداد', phone:editAd?.phone||user?.phone||'', type:editAd?.type||'sell', is_vip: editAd?.is_vip||false, vip_days: editAd?.vip_days||30 });
+  const [carSearchQuery, setCarSearchQuery] = useState('');
+  const [selectedCarModel, setSelectedCarModel] = useState('');
+  const [selectedCarYear, setSelectedCarYear] = useState('');
+  const [selectedCarTrim, setSelectedCarTrim] = useState('');
   const totalVipCost = fd.is_vip ? Math.ceil((vipCost / 30) * (fd.vip_days || 30)) : 0;
 
   const dynamicPlaceholders = useMemo(() => {
