@@ -893,21 +893,23 @@ export function MarketView({
               <span>أول منصة متكاملة للإعلانات والمتاجر في العراق</span>
             </motion.div>
 
-            {/* Main Headline */}
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 via-yellow-500/10 to-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-black mb-3 shadow-md backdrop-blur-md animate-pulse">
+              <span>✨ تصفح في سوق بغداد الرقمي</span>
+            </div>
             <motion.h1 
               id="hero-main-title"
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className={`text-3xl sm:text-5xl md:text-6xl font-black tracking-tight leading-tight mb-4 transition-colors duration-500 ${
+              className={`text-3xl sm:text-5xl md:text-6xl font-black tracking-tight leading-tight mb-3 transition-colors duration-500 ${
                 isDarkMode ? 'text-white' : 'text-black'
               }`}
             >
-              كل ما تحتاجه في <span className={`bg-gradient-to-r bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(212,175,55,0.15)] ${
+              أهلاً بك 👋 في <span className={`bg-gradient-to-r bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(212,175,55,0.15)] ${
                 isDarkMode 
                   ? 'from-[#fdf5a6] via-[#d4af37] to-[#b8860b]' 
                   : 'from-[#b8860b] via-[#d4af37] to-black'
-              }`}>سوق بغداد</span>
+              }`}>سوق بغداد الرقمي</span>
             </motion.h1>
 
             {/* Sub-headline */}
@@ -916,11 +918,11 @@ export function MarketView({
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className={`text-sm sm:text-base md:text-lg max-w-2xl mx-auto font-medium leading-relaxed transition-colors duration-500 ${
+              className={`text-xs sm:text-sm md:text-base max-w-xl mx-auto font-bold leading-relaxed transition-colors duration-500 ${
                 isDarkMode ? 'text-gray-300' : 'text-slate-700 font-extrabold'
               }`}
             >
-              تصفّح آلاف الإعلانات والمنتجات الحصرية، وتسوق بكل ثقة وأمان من أفضل الحسابات والمتاجر الموثقة في جميع المحافظات العراقية.
+              نتمنى لك تصفحاً ممتعاً وسريعاً! استكشف أحدث الإعلانات والعروض المباشرة بين البائع والمشتري بدون عمولة 🇮🇶✨
             </motion.p>
           </div>
 
