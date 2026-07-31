@@ -41,7 +41,7 @@ import {
 } from 'lucide-react';
 import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
 import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage } from '../App';
-import { slugify, getWhatsAppLink, detectDevice, isNewItem, getWhatsAppResetLink, getGlowClass} from '../utils/helpers';
+import { slugify, getWhatsAppLink, detectDevice, isNewItem, getWhatsAppResetLink, getGlowClass, getAutomaticBadge } from '../utils/helpers';
 import { formatPrice } from '../utils/format';
 import { useSound } from '../hooks/useSound';
 import { supabase } from '../lib/supabase';
@@ -437,6 +437,22 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
                 <VerifiedBadge className="w-3 h-3"/> موثق
               </span>
             )}
+            {(() => {
+              const badge = getAutomaticBadge({
+                rating: effectiveSeller.rating,
+                ratingCount: effectiveSeller.ratingCount,
+                totalViews: sellerAds.reduce((acc, a) => acc + (a.views || 0), 0) + sellerProds.reduce((acc, p) => acc + (p.views || 0), 0),
+                isVerified: effectiveSeller.isVerified,
+                role: effectiveSeller.role
+              });
+              if (!badge) return null;
+              return (
+                <span className={`flex items-center gap-1 px-2.5 py-0.5 border text-xs rounded-full font-extrabold ${badge.color}`}>
+                  <span>{badge.emoji}</span>
+                  <span>{badge.label}</span>
+                </span>
+              );
+            })()}
             {Boolean((user && (String(effectiveSeller.id) === String(user.id) || String(effectiveSeller.phone) === String(user.phone))) || onlineStatuses[effectiveSeller.id] || onlineStatuses[effectiveSeller.phone]) ? (
               <span className={`flex items-center gap-1 px-2.5 py-0.5 border text-xs rounded-full font-bold ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50/70 text-emerald-600 border-emerald-200/60'}`}>
                 <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> متصل الآن

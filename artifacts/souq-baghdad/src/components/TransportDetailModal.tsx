@@ -250,12 +250,66 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
         })()}
 
         {/* Call Actions */}
-        <div className="grid grid-cols-[1fr,1fr,auto] gap-2">
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          <motion.button
+            type="button"
+            onClick={async () => {
+              if (!user) {
+                onAuthRequired();
+                return;
+              }
+              if (String(user.id) === String(ad.postedBy)) {
+                alert('لا يمكنك مراسلة نفسك!');
+                return;
+              }
+              try {
+                const { data: existingChat } = await supabase
+                  .from('chats')
+                  .select('id')
+                  .eq('buyer_id', user.id)
+                  .eq('seller_id', ad.postedBy || '')
+                  .eq('ad_id', String(ad.id))
+                  .maybeSingle();
+
+                if (existingChat) {
+                  window.dispatchEvent(new CustomEvent('open-chat', { detail: { chatId: existingChat.id } }));
+                } else {
+                  const { data: newChat, error } = await supabase
+                    .from('chats')
+                    .insert({
+                      buyer_id: user.id,
+                      seller_id: ad.postedBy || '',
+                      ad_id: String(ad.id),
+                      ad_title: ad.type === 'offer' ? `خط متوفر إلى ${ad.university}` : `طلب خط إلى ${ad.university}`
+                    })
+                    .select('id')
+                    .single();
+
+                  if (error) throw error;
+                  if (newChat) {
+                    window.dispatchEvent(new CustomEvent('open-chat', { detail: { chatId: newChat.id } }));
+                  }
+                }
+                onClose();
+              } catch (e: any) {
+                alert('تعذر فتح المحادثة: ' + (e.message || 'خطأ'));
+              }
+            }}
+            whileHover={{scale:1.02}} whileTap={{scale:0.98}}
+            className="flex items-center justify-center gap-1 py-3 bg-amber-500 text-black font-extrabold rounded-xl text-xs"
+          >
+            <MessageSquare className="w-4 h-4"/> 💬 مراسلة
+          </motion.button>
           <motion.a href={getWhatsAppLink(ad.phone, 'transport', { id: ad.id, title: ad.type==='offer'?'خط متوفر':'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })} target="_blank" rel="noopener noreferrer"
             whileHover={{scale:1.02}} whileTap={{scale:0.98}}
-            className="flex items-center justify-center gap-1.5 py-3 bg-green-500 text-white font-bold rounded-xl text-xs">
-            <MessageSquare className="w-4 h-4"/> واتساب
+            className="flex items-center justify-center gap-1 py-3 bg-green-500 text-white font-bold rounded-xl text-xs">
+            <MessageCircle className="w-4 h-4"/> واتساب
           </motion.a>
+          <motion.a href={`tel:${ad.phone}`} whileHover={{scale:1.02}} whileTap={{scale:0.98}} className="flex items-center justify-center gap-1 py-3 bg-gray-800 text-white font-bold rounded-xl text-xs">
+            <PhoneIcon className="w-4 h-4"/> اتصال
+          </motion.a>
+        </div>
+        <div className="grid grid-cols-[1fr,auto] gap-2">
           <motion.button
             onClick={() => handleUniversalShare({ id: ad.id, short_id: ad.short_id, university: ad.university, type: ad.type, regions: ad.regions, price: ad.price, url: `/transport/card/${ad.short_id || ad.id}` })}
             whileHover={{scale:1.02}} whileTap={{scale:0.98}}

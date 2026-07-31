@@ -82,3 +82,25 @@ export const slugify = (text: string) => {
     .replace(/[^\w\u0621-\u064A0-9-]+/g, '')
     .replace(/--+/g, '-');
 };
+
+export function getAutomaticBadge(seller?: { rating?: number; ratingCount?: number; totalViews?: number; isVerified?: boolean; role?: string }): { label: string; emoji: string; color: string } | null {
+  if (!seller) return null;
+
+  if (seller.isVerified || seller.role === 'owner' || seller.role === 'admin') {
+    return { label: 'حساب موثوق', emoji: '🛡️', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' };
+  }
+
+  const rating = seller.rating || 0;
+  const ratingCount = seller.ratingCount || 0;
+  const views = seller.totalViews || 0;
+
+  if (rating >= 4.8 && ratingCount >= 10) {
+    return { label: 'بائع متميز', emoji: '⭐', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' };
+  }
+
+  if (views >= 100) {
+    return { label: 'بائع نشط', emoji: '⚡', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' };
+  }
+
+  return null;
+}
