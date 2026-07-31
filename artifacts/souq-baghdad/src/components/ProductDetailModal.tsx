@@ -21,6 +21,7 @@ import { InterestTimer } from './InterestTimer';
 import { TimeAgo } from './TimeAgo';
 import { VerifiedBadge } from './VerifiedBadge';
 import { ReadingModeOverlay } from './ReadingModeOverlay';
+import { getProductCategoryPlaceholderImage } from './ProductCard';
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';
