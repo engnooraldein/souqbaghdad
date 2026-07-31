@@ -618,17 +618,23 @@ export function MarketView({
       return true;
     });
 
+    const items = [...filtered];
     if (sort === 'views') {
-      filtered.sort((a, b) => (b.views || 0) - (a.views || 0));
+      items.sort((a, b) => (b.views || 0) - (a.views || 0));
     } else if (sort === 'price-low') {
-      filtered.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+      items.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
     } else if (sort === 'price-high') {
-      filtered.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
+      items.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
     } else {
-      filtered.sort((a, b) => new Date(b.createdAtISO || 0).getTime() - new Date(a.createdAtISO || 0).getTime());
+      items.sort((a, b) => {
+        const timeA = new Date(a.createdAtISO || a.createdAt || 0).getTime();
+        const timeB = new Date(b.createdAtISO || b.createdAt || 0).getTime();
+        if (timeA === timeB) return String(b.id).localeCompare(String(a.id));
+        return timeB - timeA;
+      });
     }
 
-    return filtered;
+    return items;
   }, [allAds, cat, search, gov, priceMin, priceMax, conditionFilter, sort]);
 
   const filterProds = useMemo(() => {
@@ -1189,25 +1195,38 @@ export function MarketView({
                 <>
                   {/* Categories Grid/Horizontal Badges */}
               <div id="hero-categories-tabs" className="flex flex-wrap justify-center gap-2 mb-8 relative z-20 max-w-4xl mx-auto">
-                {CATEGORIES.filter(c => c.id !== 'games').map(c => (
-                  <motion.button 
-                    id={`cat-btn-${c.id}`}
-                    key={c.id} 
-                    whileHover={{ y: -2, scale: 1.03 }} 
-                    whileTap={{ scale: 0.97 }} 
-                    onClick={() => setCat(c.id)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-all duration-300 ${
-                      cat === c.id 
-                        ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black border-amber-400 shadow-[0_4px_15px_rgba(212,175,55,0.25)] font-black' 
-                        : isDarkMode
-                          ? 'bg-black/60 text-gray-300 border-gray-800 backdrop-blur-md hover:border-gray-700 hover:text-white hover:bg-black/85'
-                          : 'bg-white/90 text-slate-700 border-slate-200/80 backdrop-blur-md hover:border-slate-350 hover:text-slate-900 hover:bg-white shadow-sm'
-                    }`}
-                  >
-                    <span className="text-base sm:text-lg">{c.emoji}</span>
-                    <span>{c.name}</span>
-                  </motion.button>
-                ))}
+                {CATEGORIES.filter(c => c.id !== 'games').map(c => {
+                  const isGeneral = c.id === 'general';
+                  const isSelected = cat === c.id;
+                  return (
+                    <motion.button 
+                      id={`cat-btn-${c.id}`}
+                      key={c.id} 
+                      whileHover={{ y: -2, scale: isGeneral ? 1.06 : 1.03 }} 
+                      whileTap={{ scale: 0.97 }} 
+                      onClick={() => setCat(c.id)}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-all duration-300 relative ${
+                        isSelected 
+                          ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black border-amber-400 shadow-[0_4px_20px_rgba(212,175,55,0.4)] font-black scale-105' 
+                          : isGeneral
+                            ? 'bg-gradient-to-r from-amber-500/20 via-yellow-500/25 to-amber-500/20 text-amber-300 border-amber-500/60 shadow-[0_0_20px_rgba(245,158,11,0.3)] animate-pulse hover:border-amber-400 font-extrabold ring-1 ring-amber-500/40'
+                            : isDarkMode
+                              ? 'bg-black/60 text-gray-300 border-gray-800 backdrop-blur-md hover:border-gray-700 hover:text-white hover:bg-black/85'
+                              : 'bg-white/90 text-slate-700 border-slate-200/80 backdrop-blur-md hover:border-slate-350 hover:text-slate-900 hover:bg-white shadow-sm'
+                      }`}
+                    >
+                      {isGeneral && !isSelected && (
+                        <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                        </span>
+                      )}
+                      <span className="text-base sm:text-lg">{c.emoji}</span>
+                      <span className={isGeneral ? 'tracking-wide font-black' : ''}>{c.name}</span>
+                      {isGeneral && <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" />}
+                    </motion.button>
+                  );
+                })}
               </div>
 
               {/* Quick Metrics Cards */}
