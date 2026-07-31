@@ -1214,11 +1214,11 @@ export default function App() {
   useEffect(() => {
     const handleUrlRefresh = async () => {
       try {
-        const path = decodeURIComponent(window.location.pathname);
-        if (!path || path === '/' || path === '/IQ') return;
+        const fullLocation = decodeURIComponent(window.location.pathname + window.location.hash);
+        if (!fullLocation || fullLocation === '/' || fullLocation === '/IQ' || fullLocation === '#/') return;
 
-        if (path.includes('/ad/')) {
-          const cleanPath = path.replace(/[\/#]+$/, '');
+        if (fullLocation.includes('/ad/')) {
+          const cleanPath = fullLocation.replace(/[\/#]+$/, '');
           const parts = cleanPath.split('-');
           const extractedId = parts[parts.length - 1];
 
@@ -1264,8 +1264,8 @@ export default function App() {
             }
           }
         } 
-        else if (path.includes('/product/')) {
-          const cleanPath = path.replace(/[\/#]+$/, '');
+        else if (fullLocation.includes('/product/')) {
+          const cleanPath = fullLocation.replace(/[\/#]+$/, '');
           const parts = cleanPath.split('-');
           const extractedId = parts[parts.length - 1];
 
@@ -1306,8 +1306,8 @@ export default function App() {
             }
           }
         }
-        else if (path.includes('/transport/card/')) {
-          const cleanPath = path.replace(/[\/#]+$/, '');
+        else if (fullLocation.includes('/transport/card/')) {
+          const cleanPath = fullLocation.replace(/[\/#]+$/, '');
           const parts = cleanPath.split('/');
           const extractedId = parts[parts.length - 1];
 
