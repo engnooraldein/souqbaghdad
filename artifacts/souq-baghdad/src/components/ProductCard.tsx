@@ -43,6 +43,8 @@ const {
 
 export function getProductCategoryPlaceholderImage(category?: string): string {
   switch (category) {
+    case 'gym':
+      return 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=700'; // High quality Gym / Bodybuilding
     case 'cars':
       return 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=700'; // Modern luxury car
     case 'real-estate':
@@ -74,6 +76,8 @@ export function getProductCategoryPlaceholderImage(category?: string): string {
 
 export const getCategoryIcon = (categoryId?: string) => {
   switch (categoryId) {
+    case 'gym':
+      return { icon: Activity, label: 'رياضة وجيم', color: 'bg-amber-500/25 text-amber-300 border-amber-500/40' };
     case 'cars':
       return { icon: Car, label: 'سيارات', color: 'bg-gray-800/25 text-blue-300 border-gray-800/40' };
     case 'real-estate':
@@ -140,8 +144,10 @@ export const ProductCard = React.memo(function ProductCard({ product, onSelect, 
         )}
         <button onClick={onFav} className={`absolute top-1.5 right-1.5 w-7 h-7 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'}`} title={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"} aria-label={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}>
           <Heart className={`w-3.5 h-3.5 text-white ${isFav?'fill-current':''}`}/></button>
-        <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 bg-purple-600 rounded-full text-[8px] font-bold text-white flex items-center gap-0.5">
-          <ShoppingBag className="w-2 h-2"/>متجر</div>
+        <div className="absolute bottom-1.5 right-1.5 px-2 py-0.5 bg-black/75 backdrop-blur-md rounded-full text-[9px] font-bold text-amber-300 border border-amber-500/30 flex items-center gap-1">
+          <CategoryIconComponent className="w-2.5 h-2.5 text-amber-400"/>
+          <span>{(product as any).subCategory || catInfo.label}</span>
+        </div>
         {product.status==='sold'&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-[1px]"><span className="bg-red-600 text-white font-bold text-[10px] px-2 py-1 rounded-lg border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
       </div>
       <div className={`flex-1 flex flex-col relative z-20 bg-white dark:bg-gray-900 rounded-t-xl -mt-3 border-t border-gray-200 dark:border-gray-800 shadow-none ${
