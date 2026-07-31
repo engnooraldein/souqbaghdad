@@ -1198,9 +1198,42 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                   </div>
 
                   {user.email && !user.email.endsWith('@souqbaghdad.store') ? (
-                    <div className="flex items-center gap-1 text-emerald-400 text-xs font-bold bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 shrink-0">
-                      <CheckCircle className="w-4 h-4" />
-                      <span>نشط ✅</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-1 text-emerald-400 text-xs font-bold bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>نشط ✅</span>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (window.confirm('هل أنت متأكد من رغبتك بإلغاء ربط حساب Google؟ ستتمكن من الدخول برقم الهاتف فقط بعد ذلك.')) {
+                            try {
+                              const { data: { user: authUser } } = await supabase.auth.getUser();
+                              if (authUser?.identities) {
+                                const googleIdentity = authUser.identities.find(id => id.provider === 'google');
+                                if (googleIdentity) {
+                                  const { error } = await supabase.auth.unlinkIdentity(googleIdentity);
+                                  if (error) throw error;
+                                  
+                                  const dummyEmail = `${user.phone}@souqbaghdad.store`;
+                                  await supabase.from('profiles').update({ email: dummyEmail }).eq('id', user.id);
+                                  
+                                  const updatedUser = { ...user, email: dummyEmail };
+                                  onUpdateUser?.(updatedUser, true);
+                                  localStorage.setItem('souqUser', JSON.stringify(updatedUser));
+                                  alert('تم إلغاء ربط حساب Google بنجاح. ✅');
+                                } else {
+                                  alert('لم يتم العثور على حساب Google متصل بهذه الهوية.');
+                                }
+                              }
+                            } catch (err: any) {
+                              alert('حدث خطأ أثناء إلغاء الربط: ' + err.message);
+                            }
+                          }
+                        }}
+                        className="px-2.5 py-1.5 bg-red-500/10 text-red-500 font-bold rounded-xl text-[10px] hover:bg-red-500/20 transition-all border border-red-500/20"
+                      >
+                        إلغاء الربط
+                      </button>
                     </div>
                   ) : (
                     <button
@@ -1216,7 +1249,11 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                           });
                           if (error) {
                             console.error('Google link error:', error);
-                            alert('خطأ في الاتصال بـ Google: ' + error.message);
+                            if (error.message.includes('already linked') || error.message.includes('already registered') || error.message.includes('different user')) {
+                              alert('يوجد حساب مرتبط مختلف! ❌\n\nحساب Google الذي اخترته مسجل مسبقاً ومربوط بحساب آخر في نظامنا. لا يمكن ربطه بحسابين مختلفين.\nيرجى استخدام إيميل Google آخر غير مستخدم.');
+                            } else {
+                              alert('خطأ في الاتصال بـ Google: ' + error.message);
+                            }
                           }
                         } catch (err: any) {
                           console.error('Google link exception:', err);
