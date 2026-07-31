@@ -669,7 +669,7 @@ export default function App() {
     fetchUnreadChatCount();
   }, [fetchUnreadChatCount]);
 
-  // Realtime audio alert & badge update for new messages
+  // Realtime audio alert & system notification & badge update for new messages
   useEffect(() => {
     if (!user) return;
 
@@ -685,9 +685,30 @@ export default function App() {
         async (payload) => {
           const newMsg = payload.new as any;
           if (newMsg.sender_id !== user.id) {
-            // Play notification sound
+            // Play in-app notification sound
             playNotificationSound('info');
             fetchUnreadChatCount();
+
+            // Trigger system external notification on native mobile devices (Android)
+            if (Capacitor.isNativePlatform()) {
+              try {
+                await LocalNotifications.schedule({
+                  notifications: [
+                    {
+                      title: 'رسالة جديدة 💬',
+                      body: newMsg.content || 'وصلتك رسالة جديدة في سوق بغداد',
+                      id: Math.floor(Math.random() * 100000),
+                      schedule: { at: new Date(Date.now() + 100) },
+                      sound: 'res://platform_default',
+                      actionTypeId: '',
+                      extra: null
+                    }
+                  ]
+                });
+              } catch (err) {
+                console.warn('Failed to trigger LocalNotification:', err);
+              }
+            }
           }
         }
       )

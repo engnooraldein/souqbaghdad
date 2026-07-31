@@ -179,7 +179,13 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
           },
           (payload) => {
             const newMsg = payload.new as Message;
-            setMessages(prev => [...prev, newMsg]);
+            setMessages(prev => {
+              // Avoid duplicate if optimistic message exists
+              if (prev.some(m => m.id === newMsg.id || (m.content === newMsg.content && m.sender_id === newMsg.sender_id && Math.abs(new Date(m.created_at).getTime() - new Date(newMsg.created_at).getTime()) < 5000))) {
+                return prev.map(m => (m.content === newMsg.content && m.sender_id === newMsg.sender_id ? newMsg : m));
+              }
+              return [...prev, newMsg];
+            });
 
             if (currentUser && newMsg.sender_id !== currentUser.id) {
               supabase
@@ -187,6 +193,19 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                 .update({ is_read: true })
                 .eq('id', newMsg.id);
             }
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'messages',
+            filter: `chat_id=eq.${selectedChat.id}`
+          },
+          (payload) => {
+            const updatedMsg = payload.new as Message;
+            setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
           }
         )
         .subscribe();
@@ -202,19 +221,40 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     if (!newMessage.trim() || !selectedChat || !currentUser || sending) return;
 
     const content = newMessage.trim();
+    const tempId = 'temp-' + Date.now();
+    const tempMsg: Message = {
+      id: tempId,
+      chat_id: selectedChat.id,
+      sender_id: currentUser.id,
+      content,
+      is_read: false,
+      created_at: new Date().toISOString()
+    };
+
+    // Optimistic UI update for instant feedback
+    setMessages(prev => [...prev, tempMsg]);
     setNewMessage('');
     setSending(true);
 
     try {
-      const { error } = await supabase.from('messages').insert({
-        chat_id: selectedChat.id,
-        sender_id: currentUser.id,
-        content
-      });
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          chat_id: selectedChat.id,
+          sender_id: currentUser.id,
+          content
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+      if (data) {
+        setMessages(prev => prev.map(m => m.id === tempId ? data : m));
+      }
     } catch (err: any) {
       console.error('Error sending message:', err);
+      // Remove temp message on failure
+      setMessages(prev => prev.filter(m => m.id !== tempId));
       alert('تعذر إرسال الرسالة: ' + (err.message || 'خطأ في الاتصال'));
       setNewMessage(content);
     } finally {
