@@ -241,25 +241,26 @@ export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, o
           )}
         </div>
 
-        {/* Bottom Bar: Subcategory Badge & Verified Badge */}
-        <div className="absolute bottom-1.5 inset-x-1.5 flex items-center justify-between z-10 pointer-events-none">
-          <div className="px-2 py-0.5 bg-black/80 backdrop-blur-md rounded-full text-[9px] font-bold text-amber-300 border border-amber-500/30 flex items-center gap-1 shadow-md pointer-events-auto">
-            <CategoryIconComponent className="w-2.5 h-2.5 text-amber-400 shrink-0"/>
-            <span className="truncate max-w-[110px]">{(ad as any).subCategory || catInfo.label}</span>
-          </div>
-          {ad.seller?.isVerified && (
+        {/* Bottom Bar: Verified Badge only */}
+        {ad.seller?.isVerified && (
+          <div className="absolute bottom-1.5 left-1.5 z-10 pointer-events-none">
             <div className="px-1.5 py-0.5 bg-gray-900/90 backdrop-blur-md rounded-full text-[8px] font-bold text-white flex items-center gap-0.5 border border-gray-700/50 shadow-md pointer-events-auto">
               <VerifiedBadge className="w-2.5 h-2.5 text-emerald-400"/>
               <span>موثق</span>
             </div>
-          )}
-        </div>
+          </div>
+        )}
         {ad.status==='sold'&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20 backdrop-blur-[1px]"><span className="bg-red-600 text-white font-bold text-[10px] px-2 py-1 rounded-lg border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
       </div>
       <div className={`flex-1 flex flex-col relative z-20 bg-white dark:bg-gray-900 rounded-t-xl -mt-3 border-t border-gray-200 dark:border-gray-800 shadow-none ${
         compact ? 'p-2' : 'p-3 sm:p-4'
       }`}>
-        <h3 className={`text-gray-900 dark:text-white font-bold mb-0.5 line-clamp-1 ${compact ? 'text-xs' : 'text-sm'}`}>{ad.title}</h3>
+        <div className="flex items-center justify-between gap-1 mb-1">
+          <h3 className={`text-gray-900 dark:text-white font-bold line-clamp-1 ${compact ? 'text-xs' : 'text-sm'}`}>{ad.title}</h3>
+          <span className="shrink-0 px-2 py-0.5 bg-amber-500/10 dark:bg-amber-400/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-md text-[9px] font-bold">
+            {(ad as any).subCategory || catInfo.label}
+          </span>
+        </div>
         <div className={`flex items-center justify-between ${compact ? 'mt-0 mb-1' : 'mt-1 mb-2'}`}>
           <p className={`font-black text-amber-500 dark:text-amber-400 tracking-tight leading-none ${compact ? 'text-sm' : 'text-lg sm:text-xl'}`}>
             {formatPrice(ad.price)} <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mr-0.5">د.ع</span>
@@ -267,7 +268,7 @@ export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, o
         </div>
         <div className={`flex items-center gap-1 text-gray-500 dark:text-gray-400 text-[10px] flex-1 ${compact ? 'mb-1' : 'mb-2'}`}>
           <MapPin className="w-2.5 h-2.5 flex-shrink-0"/>
-          <span className="line-clamp-1 max-w-[45%]">{ad.location}</span>
+          <span className="line-clamp-1 max-w-[50%]">{ad.location}</span>
           <span className="mx-1 opacity-50">•</span>
           <div className="flex items-center gap-0.5 text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">
             <CategoryIconComponent className="w-2.5 h-2.5"/>
