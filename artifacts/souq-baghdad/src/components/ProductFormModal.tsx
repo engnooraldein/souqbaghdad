@@ -373,6 +373,62 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
             </div>
           </div>
 
+          {/* Sub-categories for Gym in Products */}
+          {fd.category === 'gym' && (
+            <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-2xl space-y-3">
+              <label className="text-purple-300 text-xs font-black flex items-center gap-2">
+                🏋️‍♂️ اختر التصنيف الفرعي لمستلزمات الجيم:
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  { label: '🧪 مكملات غذائية وبروتينات', value: 'مكملات غذائية' },
+                  { label: '👕 ملابس وتجهيزات رياضية', value: 'ملابس جيم' },
+                  { label: '🎒 حقائب وجنط رياضية', value: 'حقائب جيم' },
+                  { label: '🏋️ معدات وأجهزة تمرين', value: 'معدات تمرين' },
+                  { label: '🥤 شيكرات ومطارات ماء', value: 'شيكرات' }
+                ].map(sub => (
+                  <button
+                    key={sub.value}
+                    type="button"
+                    onClick={() => {
+                      if (!fd.description.includes(sub.value)) {
+                        setFd(prev => ({ ...prev, description: `التصنيف الفرعي: ${sub.value}\n${prev.description}` }));
+                      }
+                    }}
+                    className="p-2.5 rounded-xl bg-gray-900/90 border border-purple-500/30 text-purple-200 text-[11px] font-extrabold hover:bg-purple-500/25 transition-all text-center"
+                  >
+                    {sub.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Sub-categories for Electronics in Products */}
+          {fd.category === 'electronics' && (
+            <div className="p-4 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl space-y-3">
+              <label className="text-indigo-300 text-xs font-black flex items-center gap-2">
+                💻 اختر نوع الجهاز الإلكتروني:
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {['لاب توب / كمبيوتر', 'شاشات وتلفزيونات', 'سماعات واكسسوارات', 'كاميرات وتصوير', 'أجهزة منزلية'].map(sub => (
+                  <button
+                    key={sub}
+                    type="button"
+                    onClick={() => {
+                      if (!fd.description.includes(sub)) {
+                        setFd(prev => ({ ...prev, description: `التصنيف الفرعي: ${sub}\n${prev.description}` }));
+                      }
+                    }}
+                    className="p-2.5 rounded-xl bg-gray-900/90 border border-indigo-500/30 text-indigo-200 text-[11px] font-extrabold hover:bg-indigo-500/25 transition-all text-center"
+                  >
+                    {sub}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Sub-categories for Gym & Bodybuilding */}
           {fd.category === 'gym' && (
             <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-3">

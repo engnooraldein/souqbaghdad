@@ -446,6 +446,81 @@ export function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1,
               </div>
             )}
 
+            {/* Sub-categories for Cars */}
+            {fd.category === 'cars' && (
+              <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-2xl space-y-3">
+                <label className="text-blue-400 text-xs font-black flex items-center gap-2">
+                  🚗 حدد ماركة ومواصفات السيارة:
+                </label>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {['تويوتا', 'هيونداي', 'كيا', 'نيسان', 'مرسيدس', 'بي أم دبليو', 'تشارجر', 'شفروليه', 'جيب', 'لكزس', 'فورد', 'أخرى'].map(brand => (
+                    <button
+                      key={brand}
+                      type="button"
+                      onClick={() => {
+                        if (!fd.description.includes(brand)) {
+                          setFd(prev => ({ ...prev, description: `الماركة: ${brand}\n${prev.description}` }));
+                        }
+                      }}
+                      className="p-2 rounded-xl bg-gray-900/90 border border-blue-500/30 text-blue-300 text-[11px] font-extrabold hover:bg-blue-500/25 transition-all text-center"
+                    >
+                      {brand}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Sub-categories for Phones */}
+            {fd.category === 'phones' && (
+              <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-2xl space-y-3">
+                <label className="text-purple-400 text-xs font-black flex items-center gap-2">
+                  📱 حدد نوع وهاتف الموبايل:
+                </label>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {['آيفون iPhone', 'سامسونج Samsung', 'شاومي Xiaomi', 'هواوي Huawei', 'أونر Honor', 'بكسل Pixel', 'أيباد iPad', 'ملحقات وإكسسوارات'].map(brand => (
+                    <button
+                      key={brand}
+                      type="button"
+                      onClick={() => {
+                        if (!fd.description.includes(brand)) {
+                          setFd(prev => ({ ...prev, description: `النوع: ${brand}\n${prev.description}` }));
+                        }
+                      }}
+                      className="p-2 rounded-xl bg-gray-900/90 border border-purple-500/30 text-purple-300 text-[11px] font-extrabold hover:bg-purple-500/25 transition-all text-center"
+                    >
+                      {brand}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Sub-categories for Real Estate */}
+            {fd.category === 'real-estate' && (
+              <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl space-y-3">
+                <label className="text-emerald-400 text-xs font-black flex items-center gap-2">
+                  🏡 حدد نوع العقار المطلوب:
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {['بيت / دار سكني', 'شقة تمليك/إيجار', 'أرض سكنية/تجاري', 'محل / مكتب تجاري', 'مزرعة / فيلا'].map(type => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => {
+                        if (!fd.description.includes(type)) {
+                          setFd(prev => ({ ...prev, description: `نوع العقار: ${type}\n${prev.description}` }));
+                        }
+                      }}
+                      className="p-2 rounded-xl bg-gray-900/90 border border-emerald-500/30 text-emerald-300 text-[11px] font-extrabold hover:bg-emerald-500/25 transition-all text-center"
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-1">
               <label className="text-gray-300 text-xs font-black block">عنوان الإعلان</label>
               <input value={fd.title} onChange={e=>setFd({...fd,title:e.target.value})} maxLength={50} placeholder={dynamicPlaceholders.title} required className="w-full bg-gray-950/40 text-white rounded-2xl py-3.5 px-4 border border-gray-900/80 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10 outline-none transition-all duration-300 placeholder-gray-500 text-sm font-semibold"/>
