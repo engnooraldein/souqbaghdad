@@ -58,6 +58,139 @@ import { TransportFormModal } from './TransportFormModal';
 import { SkeletonCard } from './SkeletonCard';
 import { AdCard } from './AdCard';
 import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
+
+// ── Notification Channels Manager Component (مركز التحكم بإشعارات التطبيق) ──
+function NotificationChannelsCard({ isDarkMode }: { isDarkMode: boolean }) {
+  const [allMaster, setAllMaster] = useState(() => localStorage.getItem('notif_master') !== 'false');
+  const [directMsgs, setDirectMsgs] = useState(() => localStorage.getItem('notif_direct_msgs') !== 'false');
+  const [storeOffers, setStoreOffers] = useState(() => localStorage.getItem('notif_store_offers') !== 'false');
+  const [systemAlerts, setSystemAlerts] = useState(() => localStorage.getItem('notif_system_alerts') !== 'false');
+  const [reEngagement, setReEngagement] = useState(() => localStorage.getItem('notif_reengagement') !== 'false');
+
+  const toggleMaster = () => {
+    const next = !allMaster;
+    setAllMaster(next);
+    setDirectMsgs(next);
+    setStoreOffers(next);
+    setSystemAlerts(next);
+    setReEngagement(next);
+
+    localStorage.setItem('notif_master', String(next));
+    localStorage.setItem('notif_direct_msgs', String(next));
+    localStorage.setItem('notif_store_offers', String(next));
+    localStorage.setItem('notif_system_alerts', String(next));
+    localStorage.setItem('notif_reengagement', String(next));
+  };
+
+  const toggleSub = (key: string, val: boolean, setter: (v: boolean) => void) => {
+    const next = !val;
+    setter(next);
+    localStorage.setItem(key, String(next));
+    if (!next) {
+      setAllMaster(false);
+      localStorage.setItem('notif_master', 'false');
+    }
+  };
+
+  return (
+    <div className={`rounded-2xl p-5 border mt-4 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200 shadow-sm'}`}>
+      <h3 className={`font-black text-base flex items-center gap-2 mb-4 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+        <Bell className="w-4 h-4 text-amber-500"/> مركز التحكم بالإشعارات والإنذارات
+      </h3>
+
+      {/* Master Toggle Banner (عرض الإشعارات الكلية - كارت أزرق بنمط الأندرويد) */}
+      <div className={`p-4 rounded-2xl mb-4 flex items-center justify-between border shadow-inner transition-all ${
+        allMaster 
+          ? (isDarkMode ? 'bg-sky-950/80 border-sky-500/40 text-sky-100' : 'bg-sky-100 border-sky-300 text-sky-950')
+          : (isDarkMode ? 'bg-gray-900 border-gray-700 text-gray-400' : 'bg-slate-100 border-slate-200 text-slate-600')
+      }`}>
+        <div className="flex flex-col gap-0.5">
+          <span className="font-extrabold text-sm sm:text-base">جميع إشعارات "سوق بغداد"</span>
+          <span className="text-[11px] opacity-80 font-bold">تشغيل أو إيقاف جميع التنبيهات بلمسة واحدة</span>
+        </div>
+        <button
+          onClick={toggleMaster}
+          dir="ltr"
+          className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${allMaster ? 'bg-sky-500' : 'bg-gray-400'}`}
+        >
+          <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${allMaster ? 'translate-x-6' : 'translate-x-1'} shadow-md`} />
+        </button>
+      </div>
+
+      <div className="space-y-1">
+        <span className={`text-[11px] font-black uppercase tracking-wider block mb-2 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>التنبيهات الفردية</span>
+
+        {/* 1. Direct Messages */}
+        <div className={`flex items-center justify-between py-3 border-b ${isDarkMode ? 'border-gray-700/70' : 'border-slate-100'}`}>
+          <div className="flex flex-col">
+            <span className={`text-xs sm:text-sm font-bold flex items-center gap-1.5 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+              💬 إشعارات الرسائل الخاصة والمحادثات
+            </span>
+            <span className={`text-[10px] sm:text-xs ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>تنبيه صوتي وفوري عند استلام رسالة زبون</span>
+          </div>
+          <button
+            onClick={() => toggleSub('notif_direct_msgs', directMsgs, setDirectMsgs)}
+            dir="ltr"
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${directMsgs ? 'bg-amber-500' : 'bg-gray-400'}`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${directMsgs ? 'translate-x-6' : 'translate-x-1'} shadow-sm`} />
+          </button>
+        </div>
+
+        {/* 2. Admin Broadcast & Offers */}
+        <div className={`flex items-center justify-between py-3 border-b ${isDarkMode ? 'border-gray-700/70' : 'border-slate-100'}`}>
+          <div className="flex flex-col">
+            <span className={`text-xs sm:text-sm font-bold flex items-center gap-1.5 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+              📢 إشعارات الداشبورد والعروض العامة
+            </span>
+            <span className={`text-[10px] sm:text-xs ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>رسائل التنبيه والخصومات الصادرة من المالك</span>
+          </div>
+          <button
+            onClick={() => toggleSub('notif_store_offers', storeOffers, setStoreOffers)}
+            dir="ltr"
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${storeOffers ? 'bg-amber-500' : 'bg-gray-400'}`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${storeOffers ? 'translate-x-6' : 'translate-x-1'} shadow-sm`} />
+          </button>
+        </div>
+
+        {/* 3. System Security & Updates */}
+        <div className={`flex items-center justify-between py-3 border-b ${isDarkMode ? 'border-gray-700/70' : 'border-slate-100'}`}>
+          <div className="flex flex-col">
+            <span className={`text-xs sm:text-sm font-bold flex items-center gap-1.5 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+              🔔 تنبيهات الأمان وتحديثات الإعلانات
+            </span>
+            <span className={`text-[10px] sm:text-xs ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>تنبيهات حالة الإعلان والمشاهدات اليومية</span>
+          </div>
+          <button
+            onClick={() => toggleSub('notif_system_alerts', systemAlerts, setSystemAlerts)}
+            dir="ltr"
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${systemAlerts ? 'bg-amber-500' : 'bg-gray-400'}`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${systemAlerts ? 'translate-x-6' : 'translate-x-1'} shadow-sm`} />
+          </button>
+        </div>
+
+        {/* 4. Re-engagement reminders */}
+        <div className={`flex items-center justify-between py-3 ${isDarkMode ? 'border-gray-700/70' : 'border-slate-100'}`}>
+          <div className="flex flex-col">
+            <span className={`text-xs sm:text-sm font-bold flex items-center gap-1.5 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+              ⏰ تذكيرات الخروج والعودة للتطبيق
+            </span>
+            <span className={`text-[10px] sm:text-xs ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>تنبيهات خفيفة للتذكير بإعلاناتك عند مغادرة التطبيق</span>
+          </div>
+          <button
+            onClick={() => toggleSub('notif_reengagement', reEngagement, setReEngagement)}
+            dir="ltr"
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${reEngagement ? 'bg-amber-500' : 'bg-gray-400'}`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${reEngagement ? 'translate-x-6' : 'translate-x-1'} shadow-sm`} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 import { Capacitor } from '@capacitor/core';
 import { ProductCard } from './ProductCard';
 import { TransportAdCard } from './TransportAdCard';
@@ -1348,6 +1481,9 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                     </button>
                  </div>
               )}
+
+              {/* Granular Notification Channels Manager (مركز التحكم بالتنبيهات والإشعارات) */}
+              <NotificationChannelsCard isDarkMode={isDarkMode} />
 
               <div className={`mt-4 pt-4 flex justify-between items-center flex-wrap gap-3`}>
                 <button 
