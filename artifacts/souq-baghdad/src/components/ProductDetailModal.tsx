@@ -255,12 +255,20 @@ export function ProductDetailModal({ product, onClose, isFav, onFav, user, store
             onTouchEnd={handleTouchEnd}
             className="aspect-[16/10] sm:aspect-video overflow-hidden bg-gray-800 relative group touch-pan-y"
           >
-            <img src={product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={product.title}
-              decoding="async"
-              fetchPriority="high"
-              onClick={() => onImageZoom?.(product.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700', product.title, product.images, imgIdx)}
-              draggable={false}
-              className="w-full h-full object-cover cursor-zoom-in transition-all duration-300"/>
+            {(() => {
+              const rawSrc = product.images?.[imgIdx];
+              const displaySrc = (!rawSrc || rawSrc.includes('photo-1523275335684') || rawSrc.includes('watch') || rawSrc.includes('photo-1558618666'))
+                ? getProductCategoryPlaceholderImage(product.category)
+                : rawSrc;
+              return (
+                <img src={displaySrc} alt={product.title}
+                  decoding="async"
+                  fetchPriority="high"
+                  onClick={() => onImageZoom?.(displaySrc, product.title, product.images, imgIdx)}
+                  draggable={false}
+                  className="w-full h-full object-cover cursor-zoom-in transition-all duration-300"/>
+              );
+            })()}
           </div>
 
           {totalImgs > 1 && <>

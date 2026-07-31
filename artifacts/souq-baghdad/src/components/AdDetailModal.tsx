@@ -278,12 +278,20 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
             onTouchEnd={handleTouchEnd}
             className="aspect-[16/10] sm:aspect-video overflow-hidden bg-gray-800 relative group touch-pan-y"
           >
-            <img src={ad.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt={ad.title}
-              decoding="async"
-              fetchPriority="high"
-              onClick={() => onImageZoom?.(ad.images?.[imgIdx] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700', ad.title, ad.images, imgIdx)}
-              draggable={false}
-              className="w-full h-full object-cover cursor-zoom-in transition-all duration-300"/>
+            {(() => {
+              const rawSrc = ad.images?.[imgIdx];
+              const displaySrc = (!rawSrc || rawSrc.includes('photo-1523275335684') || rawSrc.includes('watch') || rawSrc.includes('photo-1558618666'))
+                ? getAdCategoryPlaceholderImage(ad.category)
+                : rawSrc;
+              return (
+                <img src={displaySrc} alt={ad.title}
+                  decoding="async"
+                  fetchPriority="high"
+                  onClick={() => onImageZoom?.(displaySrc, ad.title, ad.images, imgIdx)}
+                  draggable={false}
+                  className="w-full h-full object-cover cursor-zoom-in transition-all duration-300"/>
+              );
+            })()}
           </div>
 
           {totalImgs > 1 && <>
