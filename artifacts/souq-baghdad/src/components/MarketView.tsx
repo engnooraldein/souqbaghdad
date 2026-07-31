@@ -761,58 +761,21 @@ export function MarketView({
     return vipAds.slice(start, start + 6);
   }, [vipAds, vipAdsPage]);
 
-  // Session anchor time to ensure total feed stability during user browsing
-  const sessionTimeAnchor = useMemo(() => Date.now(), []);
-
-  // Compute "General Ads" Pagination with Smart Algorithm
+  // Compute "General Ads" (العرض العام): أحدث الإعلانات أولاً مرتبة زمنياً بوضوح وثبات 100%
   const totalGeneralPages = Math.ceil(filterAds.length / 6);
   const paginatedGeneralAds = useMemo(() => {
     if (filterAds.length === 0) return [];
 
-    // الخوارزمية التفاعلية: ترتيب ذكي بناءً على النقاط لتشبه منصات التواصل الاجتماعي
-    const scoredAds = [...filterAds].map(ad => {
-      let score = 0;
-      
-      // 1. التفاعل (المشاهدات تعطيه قوة - بحد أقصى 150 نقطة)
-      score += Math.min((ad.views || 0) * 0.5, 150);
-      
-      // 2. موثوقية الحساب (أولوية عالية جداً)
-      const seller = storedUsers?.find(u => u.id === ad.postedBy);
-      const isVerified = seller?.isVerified || seller?.verified || seller?.role === 'admin' || seller?.role === 'owner' || ad.seller?.isVerified;
-      if (isVerified) score += 250;
-
-      // 3. جودة المحتوى (الصور تعطي جاذبية للإعلان)
-      if (ad.images && ad.images.length > 0) {
-        score += 100;
-        if (ad.images.length > 2) score += 50; // إضافي للصور المتعددة
-      }
-
-      // 4. حداثة الإعلان ثابتة أثناء الجلسة الحالية لتجنب قفز الإعلانات أثناء وقوف الزبون
-      if (ad.createdAtISO) {
-        const ageInHours = (sessionTimeAnchor - new Date(ad.createdAtISO).getTime()) / (1000 * 60 * 60);
-        score -= ageInHours * 1.5;
-      }
-
-      // 5. معامل ثبات فريد لكل إعلان ثابت 100% يمنع الخفوق
-      const idNum = String(ad.id).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      score += (idNum % 100);
-
-      return { ...ad, _feedScore: score };
+    // الترتيب الأبسط والأكثر استقراراً: من الأحدث إلى الأقدم بناءً على تاريخ النشر فقط
+    const sorted = [...filterAds].sort((a, b) => {
+      const timeA = new Date(a.createdAtISO || a.createdAt || 0).getTime();
+      const timeB = new Date(b.createdAtISO || b.createdAt || 0).getTime();
+      if (timeA === timeB) return String(b.id).localeCompare(String(a.id));
+      return timeB - timeA;
     });
 
-    // ترتيب تنازلي بناءً على السكور الكلي
-    scoredAds.sort((a, b) => {
-      const diff = (b._feedScore as number) - (a._feedScore as number);
-      if (Math.abs(diff) < 0.001) return String(b.id).localeCompare(String(a.id));
-      return diff;
-    });
-    
-    // إرجاع الإعلانات للواجهة
-    return scoredAds.map(a => {
-      const { _feedScore, ...cleanAd } = a;
-      return cleanAd;
-    }).slice(0, visibleGeneralAdsCount);
-  }, [filterAds, visibleGeneralAdsCount, storedUsers, sessionTimeAnchor]);
+    return sorted.slice(0, visibleGeneralAdsCount);
+  }, [filterAds, visibleGeneralAdsCount]);
 
   // Category specific paginated ads
   const totalCategoryAdsPages = Math.ceil(filterAds.length / 8);
@@ -1782,7 +1745,7 @@ export function MarketView({
                         </h2>
                         <span className={`text-xs font-bold transition-colors duration-500 ${
                           isDarkMode ? 'text-gray-400' : 'text-slate-500'
-                        }`}>خوارزمية تفاعلية ثابته</span>
+                        }`}>أحدث الإعلانات مرتبة زمنياً</span>
                       </div>
 
                       {filterAds.length === 0 ? (
