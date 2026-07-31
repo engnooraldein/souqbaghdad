@@ -236,6 +236,10 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     setNewMessage('');
     setSending(true);
 
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 50);
+
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -253,12 +257,15 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       }
     } catch (err: any) {
       console.error('Error sending message:', err);
-      // Remove temp message on failure
+      // Only remove if failed
       setMessages(prev => prev.filter(m => m.id !== tempId));
       alert('تعذر إرسال الرسالة: ' + (err.message || 'خطأ في الاتصال'));
       setNewMessage(content);
     } finally {
       setSending(false);
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     }
   };
 
