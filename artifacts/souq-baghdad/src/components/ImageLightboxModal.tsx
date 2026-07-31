@@ -88,41 +88,80 @@ async function buildWatermarkedCanvas(
   ctx.fillText('SOUQ BAGHDAD', cx, cy + bSize * 0.14);
   ctx.restore();
 
-  // ── Bottom banner ──
+  // ── Bottom banner (الشريط السفلي المتقدم والفاخر) ──
   const grad = ctx.createLinearGradient(0, h, w, h + bannerH);
-  grad.addColorStop(0, '#040d21'); grad.addColorStop(0.5, '#081736'); grad.addColorStop(1, '#020712');
+  grad.addColorStop(0, '#020617'); 
+  grad.addColorStop(0.5, '#0f172a'); 
+  grad.addColorStop(1, '#020617');
   ctx.fillStyle = grad;
   ctx.fillRect(0, h, w, bannerH);
-  ctx.fillStyle = '#f59e0b';
-  ctx.fillRect(0, h, w, Math.max(3, Math.round(bannerH * 0.04)));
 
-  const logoSz = Math.round(bannerH * 0.7);
-  const mg     = Math.round(bannerH * 0.15);
-  const logoX  = w - logoSz - mg;
-  const logoY  = h + mg;
+  // Golden top accent line
+  const accentH = Math.max(3, Math.round(bannerH * 0.05));
+  const accentGrad = ctx.createLinearGradient(0, h, w, h);
+  accentGrad.addColorStop(0, '#f59e0b');
+  accentGrad.addColorStop(0.5, '#fbbf24');
+  accentGrad.addColorStop(1, '#f59e0b');
+  ctx.fillStyle = accentGrad;
+  ctx.fillRect(0, h, w, accentH);
 
-  // Eagle logo outline (simplified circle)
+  const logoSz = Math.round(bannerH * 0.65);
+  const paddingX = Math.round(w * 0.03);
+  const logoX = w - paddingX - logoSz;
+  const logoY = h + (bannerH - logoSz) / 2;
+
+  // 1. Draw Full Complete Logo Icon Circle & Crest Text (الشعار الذهبي المكتمل)
   ctx.save();
-  ctx.globalAlpha = 0.9;
+  ctx.shadowColor = 'rgba(245, 158, 11, 0.4)';
+  ctx.shadowBlur = 8;
   ctx.strokeStyle = '#f59e0b';
-  ctx.lineWidth = Math.max(2, Math.round(logoSz * 0.05));
+  ctx.lineWidth = Math.max(2, Math.round(logoSz * 0.06));
   ctx.beginPath();
-  ctx.arc(logoX + logoSz / 2, logoY + logoSz / 2, logoSz / 2, 0, Math.PI * 2);
+  ctx.arc(logoX + logoSz / 2, logoY + logoSz / 2, logoSz / 2 - 2, 0, Math.PI * 2);
   ctx.stroke();
+
+  // Inner logo text inside circle
+  ctx.fillStyle = '#fbbf24';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `black ${Math.round(logoSz * 0.28)}px Cairo, system-ui, sans-serif`;
+  ctx.fillText('سوق', logoX + logoSz / 2, logoY + logoSz * 0.38);
+  ctx.font = `bold ${Math.round(logoSz * 0.22)}px Cairo, system-ui, sans-serif`;
+  ctx.fillText('بغداد', logoX + logoSz / 2, logoY + logoSz * 0.68);
   ctx.restore();
 
-  // Domain text
-  const domFontSize = Math.max(12, Math.round(bannerH * 0.22));
+  // 2. Right Side Text (Domain & Tagline)
+  const mainTextX = logoX - Math.round(w * 0.02);
+  const domFontSize = Math.max(14, Math.round(bannerH * 0.26));
+
   ctx.save();
-  ctx.globalAlpha = 1;
   ctx.fillStyle = '#f59e0b';
-  ctx.font = `bold ${domFontSize}px system-ui, sans-serif`;
+  ctx.font = `black ${domFontSize}px system-ui, sans-serif`;
   ctx.textAlign = 'right';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('souqbaghdad.store', logoX - mg, h + bannerH / 2 - domFontSize * 0.3);
-  ctx.font = `${Math.round(domFontSize * 0.75)}px system-ui, sans-serif`;
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('souqbaghdad.store', mainTextX, h + bannerH * 0.48);
+
+  ctx.font = `bold ${Math.round(domFontSize * 0.75)}px Cairo, system-ui, sans-serif`;
+  ctx.fillStyle = '#e2e8f0';
+  ctx.textBaseline = 'top';
+  ctx.fillText('السوق الرقمي العراقي الأول 🇮🇶', mainTextX, h + bannerH * 0.54);
+  ctx.restore();
+
+  // 3. Left Side Item Title & Details (تفاصيل الإعلان كاملاً على اليسار)
+  ctx.save();
+  const leftTextX = paddingX;
+  ctx.textAlign = 'left';
+  
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold ${Math.round(domFontSize * 0.82)}px Cairo, system-ui, sans-serif`;
+  ctx.textBaseline = 'bottom';
+  const cleanTitle = itemTitle.length > 35 ? itemTitle.slice(0, 35) + '...' : itemTitle;
+  ctx.fillText(cleanTitle, leftTextX, h + bannerH * 0.48);
+
   ctx.fillStyle = '#94a3b8';
-  ctx.fillText(itemTitle.slice(0, 40), logoX - mg, h + bannerH / 2 + domFontSize * 0.5);
+  ctx.font = `600 ${Math.round(domFontSize * 0.68)}px Cairo, system-ui, sans-serif`;
+  ctx.textBaseline = 'top';
+  ctx.fillText('محمية بحقوق النشر • تصفح وحجز مباشر', leftTextX, h + bannerH * 0.54);
   ctx.restore();
 
   return { canvas, cleanup };
