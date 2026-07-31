@@ -145,29 +145,41 @@ export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, o
           className="w-full h-full object-cover" 
         />
         
-        <div className={`absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold text-white shadow-md z-10 ${
-          ad.condition === 'new' ? 'bg-emerald-600 border border-emerald-500/30' : 'bg-amber-600 border border-amber-500/30'
+        {/* Top Right: Condition Badge (New/Used) */}
+        <div className={`absolute top-1.5 right-1.5 px-2 py-0.5 rounded-full text-[9px] font-black text-white shadow-lg backdrop-blur-md z-10 ${
+          ad.condition === 'new' ? 'bg-emerald-600/90 border border-emerald-400/40' : 'bg-amber-600/90 border border-amber-400/40'
         }`}>
           {ad.condition === 'new' ? 'جديد' : 'مستعمل'}
         </div>
-        {isNewItem(ad.createdAtISO) && (
-          <div className={`absolute px-1.5 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[8px] font-extrabold rounded z-10 shadow-lg shadow-red-500/25 border border-red-400/30 animate-pulse ${
-            compact ? 'top-6 left-1.5' : 'top-8 left-2'
-          }`}>
-            حديث ✨
-          </div>
-        )}
-        {ad.type==='rent'&&<div className={`absolute px-1.5 py-0.5 bg-gray-800 rounded text-[8px] font-bold text-white transition-all z-10 ${
-          isNewItem(ad.createdAtISO) ? (compact ? 'top-11 left-1.5' : 'top-14 left-2') : (compact ? 'top-6 left-1.5' : 'top-8 left-2')
-        }`}>للإيجار</div>}
-        <button onClick={(e) => { e.stopPropagation(); triggerHaptic('medium'); onFav(e); }} className={`absolute top-1.5 right-1.5 w-7 h-7 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'} transition-colors`} title={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"} aria-label={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}>
-          <Heart className={`w-3.5 h-3.5 text-white ${isFav?'fill-current':''}`}/></button>
-        <div className="absolute bottom-1.5 right-1.5 px-2 py-0.5 bg-black/75 backdrop-blur-md rounded-full text-[9px] font-bold text-amber-300 border border-amber-500/30 flex items-center gap-1 z-10">
-          <CategoryIconComponent className="w-2.5 h-2.5 text-amber-400"/>
-          <span>{(ad as any).subCategory || catInfo.label}</span>
+
+        {/* Top Left: Badges Stack (New item / For Rent) */}
+        <div className="absolute top-1.5 left-1.5 flex flex-col gap-1 z-10">
+          {isNewItem(ad.createdAtISO) && (
+            <div className="px-2 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[8px] font-black rounded-full shadow-lg border border-red-400/40 animate-pulse backdrop-blur-md">
+              حديث ✨
+            </div>
+          )}
+          {ad.type === 'rent' && (
+            <div className="px-2 py-0.5 bg-sky-600/90 text-white text-[8px] font-black rounded-full shadow-md border border-sky-400/30 backdrop-blur-md">
+              للإيجار
+            </div>
+          )}
         </div>
-        {ad.seller?.isVerified&&<div className={`absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-gray-800 rounded-full text-[8px] font-bold text-white flex items-center gap-0.5 z-10`}><VerifiedBadge className="w-2 h-2"/>موثق</div>}
-        {ad.status==='sold'&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-[1px]"><span className="bg-red-600 text-white font-bold text-[10px] px-2 py-1 rounded-lg border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
+
+        {/* Bottom Bar: Subcategory Badge & Verified Badge */}
+        <div className="absolute bottom-1.5 inset-x-1.5 flex items-center justify-between z-10 pointer-events-none">
+          <div className="px-2 py-0.5 bg-black/80 backdrop-blur-md rounded-full text-[9px] font-bold text-amber-300 border border-amber-500/30 flex items-center gap-1 shadow-md pointer-events-auto">
+            <CategoryIconComponent className="w-2.5 h-2.5 text-amber-400 shrink-0"/>
+            <span className="truncate max-w-[110px]">{(ad as any).subCategory || catInfo.label}</span>
+          </div>
+          {ad.seller?.isVerified && (
+            <div className="px-1.5 py-0.5 bg-gray-900/90 backdrop-blur-md rounded-full text-[8px] font-bold text-white flex items-center gap-0.5 border border-gray-700/50 shadow-md pointer-events-auto">
+              <VerifiedBadge className="w-2.5 h-2.5 text-emerald-400"/>
+              <span>موثق</span>
+            </div>
+          )}
+        </div>
+        {ad.status==='sold'&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20 backdrop-blur-[1px]"><span className="bg-red-600 text-white font-bold text-[10px] px-2 py-1 rounded-lg border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
       </div>
       <div className={`flex-1 flex flex-col relative z-20 bg-white dark:bg-gray-900 rounded-t-xl -mt-3 border-t border-gray-200 dark:border-gray-800 shadow-none ${
         compact ? 'p-2' : 'p-3 sm:p-4'

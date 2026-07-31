@@ -141,22 +141,30 @@ export const ProductCard = React.memo(function ProductCard({ product, onSelect, 
           className="w-full h-full object-cover" 
         />
         
-        <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold text-white shadow-md z-10" style={{background:product.condition==='new'?'#22c55e':'#f59e0b'}}>
-          {product.condition==='new'?'جديد':'مستعمل'}</div>
-        {isNewItem(product.createdAtISO) && (
-          <div className={`absolute px-1.5 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[8px] font-extrabold rounded z-10 shadow-lg shadow-red-500/25 border border-red-400/30 animate-pulse ${
-            compact ? 'top-6 left-1.5' : 'top-8 left-2'
-          }`}>
-            حديث ✨
-          </div>
-        )}
-        <button onClick={onFav} className={`absolute top-1.5 right-1.5 w-7 h-7 rounded-full flex items-center justify-center ${isFav?'bg-red-500':'bg-black/50 hover:bg-black/70'}`} title={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"} aria-label={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}>
-          <Heart className={`w-3.5 h-3.5 text-white ${isFav?'fill-current':''}`}/></button>
-        <div className="absolute bottom-1.5 right-1.5 px-2 py-0.5 bg-black/75 backdrop-blur-md rounded-full text-[9px] font-bold text-amber-300 border border-amber-500/30 flex items-center gap-1">
-          <CategoryIconComponent className="w-2.5 h-2.5 text-amber-400"/>
-          <span>{(product as any).subCategory || catInfo.label}</span>
+        {/* Top Right: Condition Badge (New/Used) */}
+        <div className={`absolute top-1.5 right-1.5 px-2 py-0.5 rounded-full text-[9px] font-black text-white shadow-lg backdrop-blur-md z-10 ${
+          product.condition === 'new' ? 'bg-emerald-600/90 border border-emerald-400/40' : 'bg-amber-600/90 border border-amber-400/40'
+        }`}>
+          {product.condition === 'new' ? 'جديد' : 'مستعمل'}
         </div>
-        {product.status==='sold'&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 backdrop-blur-[1px]"><span className="bg-red-600 text-white font-bold text-[10px] px-2 py-1 rounded-lg border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
+
+        {/* Top Left: Badges Stack (New item) */}
+        <div className="absolute top-1.5 left-1.5 flex flex-col gap-1 z-10">
+          {isNewItem(product.createdAtISO) && (
+            <div className="px-2 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[8px] font-black rounded-full shadow-lg border border-red-400/40 animate-pulse backdrop-blur-md">
+              حديث ✨
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Bar: Subcategory Badge */}
+        <div className="absolute bottom-1.5 right-1.5 z-10 pointer-events-none">
+          <div className="px-2 py-0.5 bg-black/80 backdrop-blur-md rounded-full text-[9px] font-bold text-amber-300 border border-amber-500/30 flex items-center gap-1 shadow-md pointer-events-auto">
+            <CategoryIconComponent className="w-2.5 h-2.5 text-amber-400 shrink-0"/>
+            <span className="truncate max-w-[110px]">{(product as any).subCategory || catInfo.label}</span>
+          </div>
+        </div>
+        {product.status==='sold'&&<div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20 backdrop-blur-[1px]"><span className="bg-red-600 text-white font-bold text-[10px] px-2 py-1 rounded-lg border border-red-500/30 shadow-lg">🚫 تم البيع</span></div>}
       </div>
       <div className={`flex-1 flex flex-col relative z-20 bg-white dark:bg-gray-900 rounded-t-xl -mt-3 border-t border-gray-200 dark:border-gray-800 shadow-none ${
         compact ? 'p-2' : 'p-3 sm:p-4'
