@@ -47,7 +47,28 @@ const {
   FileText, Gamepad2, Copy, Crown, View, Eye: ViewIcon, Shirt, Laptop
 } = LucideIcons;
 
-export function getAdCategoryPlaceholderImage(category?: string): string {
+export function getAdCategoryPlaceholderImage(category?: string, titleText?: string): string {
+  const text = (titleText || '').toLowerCase();
+  
+  if (category === 'cars' || text.includes('سيار') || text.includes('النترا') || text.includes('elantra') || text.includes('كورولا') || text.includes('سبورتاج')) {
+    if (text.includes('النترا') || text.includes('elantra')) {
+      return 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?w=700'; // Modern Hyundai Elantra style sedan
+    }
+    if (text.includes('كورولا') || text.includes('corolla') || text.includes('كامري') || text.includes('camry') || text.includes('تويوتا')) {
+      return 'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=700'; // Toyota Corolla / Camry style
+    }
+    if (text.includes('سبورتاج') || text.includes('sportage') || text.includes('توسان') || text.includes('tucson') || text.includes('كيا')) {
+      return 'https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=700'; // SUV Sportage / Tucson style
+    }
+    if (text.includes('تشارجر') || text.includes('charger') || text.includes('دودج') || text.includes('challenger')) {
+      return 'https://images.unsplash.com/photo-1603584173870-7f23fdae1b7a?w=700'; // Dodge Charger / Muscle car style
+    }
+    if (text.includes('مرسيدس') || text.includes('mercedes') || text.includes('bmw') || text.includes('بي أم')) {
+      return 'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=700'; // BMW / Luxury Sports Sedan
+    }
+    return 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=700'; // Modern luxury car
+  }
+
   switch (category) {
     case 'gym':
       return 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=700'; // High quality Gym / Bodybuilding
@@ -137,8 +158,8 @@ export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, o
       <div className={`relative w-full overflow-hidden flex-shrink-0 rounded-t-xl aspect-[4/3]`}>
         <ImageWithDataSaver 
           src={
-            (!ad.images?.[0] || ad.images[0].includes('photo-1523275335684') || ad.images[0].includes('watch')) 
-              ? getAdCategoryPlaceholderImage(ad.category) 
+            (!ad.images?.[0] || ad.images[0].includes('photo-1523275335684') || ad.images[0].includes('watch') || ad.images[0].includes('photo-1558618666')) 
+              ? getAdCategoryPlaceholderImage(ad.category, `${ad.title} ${(ad as any).subCategory || ''}`) 
               : ad.images[0]
           } 
           alt={ad.title} 

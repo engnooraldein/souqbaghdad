@@ -281,7 +281,7 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
             {(() => {
               const rawSrc = ad.images?.[imgIdx];
               const displaySrc = (!rawSrc || rawSrc.includes('photo-1523275335684') || rawSrc.includes('watch') || rawSrc.includes('photo-1558618666'))
-                ? getAdCategoryPlaceholderImage(ad.category)
+                ? getAdCategoryPlaceholderImage(ad.category, `${ad.title} ${(ad as any).subCategory || ''}`)
                 : rawSrc;
               return (
                 <img src={displaySrc} alt={ad.title}
