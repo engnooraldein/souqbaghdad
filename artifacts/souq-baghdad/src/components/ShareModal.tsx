@@ -71,7 +71,16 @@ export function ShareModal({
 
   const locText = governorate || location || 'العراق';
   const idBadge = short_id ? `#${short_id}` : '';
-  const fullUrl = url.startsWith('http') ? url : `https://www.souqbaghdad.store${url.startsWith('/') ? url : '/' + url}`;
+  const cleanUrl = (raw: string) => {
+    if (!raw) return 'https://www.souqbaghdad.store';
+    let base = raw;
+    if (!base.startsWith('http')) {
+      base = `https://www.souqbaghdad.store${base.startsWith('/') ? base : '/' + base}`;
+    }
+    // Clean trailing slashes or duplicate hashes for Telegram & Social Preview
+    return base.replace(/([^:]\/)\/+/g, "$1");
+  };
+  const fullUrl = cleanUrl(url);
 
   const formatSharePrice = (p?: string) => {
     if (!p) return '';

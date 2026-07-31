@@ -98,6 +98,7 @@ export const CATEGORIES = [
   { id:'real-estate',  name:'العقارات',    emoji:'🏠' },
   { id:'phones',       name:'الهواتف',     emoji:'📱' },
   { id:'electronics',  name:'إلكترونيات', emoji:'💻' },
+  { id:'gym',          name:'رياضة وجيم',  emoji:'🏋️‍♂️' },
   { id:'clothes',      name:'الملابس',     emoji:'👕' },
   { id:'cosmetics',    name:'الكوزمتك',    emoji:'💄' },
   { id:'handmade',     name:'حرف يدوية',   emoji:'🧶' },

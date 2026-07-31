@@ -372,6 +372,46 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
             </div>
           </div>
 
+          {/* Sub-categories for Gym & Bodybuilding */}
+          {fd.category === 'gym' && (
+            <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-3">
+              <label className="text-amber-400 text-xs font-black flex items-center gap-2">
+                <Activity className="w-4 h-4" /> اختر الفئة الفرعية للجم والرياضة:
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  { label: '🧪 مكملات غذائية وبروتينات', value: 'مكملات غذائية' },
+                  { label: '👕 ملابس وتجهيزات رياضية', value: 'ملابس جيم' },
+                  { label: '🎒 حقائب وجنط رياضية', value: 'حقائب جيم' },
+                  { label: '🏋️ معدات وملحقات تمرين', value: 'معدات تمرين' },
+                  { label: '🥤 شيكرات ومطارات ماء', value: 'شيكرات' }
+                ].map(sub => (
+                  <button
+                    key={sub.value}
+                    type="button"
+                    onClick={() => {
+                      if (!fd.description.includes(sub.value)) {
+                        setFd(prev => ({ ...prev, description: `الفئة: ${sub.value}\n${prev.description}` }));
+                      }
+                    }}
+                    className="p-2 rounded-xl bg-gray-900/80 border border-amber-500/20 text-amber-300 text-[11px] font-bold hover:bg-amber-500/20 transition-all text-center"
+                  >
+                    {sub.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Legal Warning Notice */}
+              <div className="p-3 bg-red-950/40 border border-red-500/40 rounded-xl text-red-300 text-[11px] leading-relaxed flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block font-black text-red-400 mb-0.5">⚠️ تنبيه وإخلاء مسؤولية مهم للتاجر:</strong>
+                  يُمنع منعاً باتاً عرض أو بيع المنشطات، الهرمونات، أدوية التنشيف غير المرخّصة أو المواد المحظورة صحياً. يتحمل صاحب الحساب كامل المسؤولية القانونية والصحية أمام الجهات المختصة في العراق.
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Title */}
           <div className="space-y-1">
             <label className="text-gray-300 text-xs font-black block">اسم المنتج وعنوانه</label>

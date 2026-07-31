@@ -374,6 +374,17 @@ export function ProductDetailModal({ product, onClose, isFav, onFav, user, store
                   </button>
                 )}
               </div>
+
+              {/* Health Disclaimer for Gym Products */}
+              {(product.category === 'gym' || (product.description && (product.description.includes('مكمل') || product.description.includes('بروتين') || product.description.includes('جيم')))) && (
+                <div className="mt-3 p-3 bg-amber-950/40 border border-amber-500/30 rounded-xl text-amber-200 text-[11px] leading-relaxed flex items-start gap-2">
+                  <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block font-black text-amber-400 mb-0.5">ℹ️ إخلاء مسؤولية واستشارة طبية:</strong>
+                    المنتجات المعروضة هي للمساعدة الرياضية. يُنصح دائماً باستشارة طبيب أو مدرب مختص قبل استهلاك أي مكمل غذائي. المنصة لا توفر أدوية طبية أو هرمونات حظر صحي.
+                  </div>
+                </div>
+              )}
               
               <AnimatePresence>
                 {showReadingMode && (
