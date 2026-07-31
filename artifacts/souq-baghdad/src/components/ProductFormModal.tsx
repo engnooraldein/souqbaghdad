@@ -317,12 +317,13 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
   const fmt=(v:string)=>v.replace(/[^0-9]/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,',');
   const cats = [
     { id: 'electronics', name: 'أجهزة وإلكترونيات', emoji: '💻' },
+    { id: 'gym', name: 'رياضة وجم', emoji: '🏋️‍♂️' },
     { id: 'fashion', name: 'أزياء وملابس', emoji: '👕' },
     { id: 'home', name: 'المنزل والمطبخ', emoji: '🏠' },
     { id: 'furniture', name: 'أثاث وديكور', emoji: '🛋️' },
     { id: 'beauty', name: 'العناية والجمال', emoji: '✨' },
     { id: 'toys', name: 'ألعاب وأطفال', emoji: '🧸' },
-    { id: 'bikes', name: 'دراجات ورياضة', emoji: '🚲' },
+    { id: 'bikes', name: 'دراجات ومعدات', emoji: '🚲' },
     { id: 'services', name: 'خدمات المتجر', emoji: '🔧' },
     { id: 'other', name: 'أصناف أخرى', emoji: '📦' }
   ];
