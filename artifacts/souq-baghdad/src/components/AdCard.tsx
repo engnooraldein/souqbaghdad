@@ -50,9 +50,10 @@ const {
 export function getAdCategoryPlaceholderImage(category?: string, titleText?: string): string {
   const text = (titleText || '').toLowerCase();
   
+  // 1. Cars Smart Image Matching
   if (category === 'cars' || text.includes('سيار') || text.includes('النترا') || text.includes('elantra') || text.includes('كورولا') || text.includes('سبورتاج')) {
     if (text.includes('النترا') || text.includes('elantra')) {
-      return 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?w=700'; // Modern Hyundai Elantra style sedan
+      return 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?w=700'; // Modern Hyundai Elantra style
     }
     if (text.includes('كورولا') || text.includes('corolla') || text.includes('كامري') || text.includes('camry') || text.includes('تويوتا')) {
       return 'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=700'; // Toyota Corolla / Camry style
@@ -69,29 +70,82 @@ export function getAdCategoryPlaceholderImage(category?: string, titleText?: str
     return 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=700'; // Modern luxury car
   }
 
+  // 2. Phones Smart Image Matching
+  if (category === 'phones' || text.includes('آيفون') || text.includes('iphone') || text.includes('سامسونج') || text.includes('samsung')) {
+    if (text.includes('آيفون') || text.includes('iphone') || text.includes('أبل') || text.includes('apple')) {
+      return 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=700'; // iPhone Pro Max HD
+    }
+    if (text.includes('سامسونج') || text.includes('samsung') || text.includes('جالكسي') || text.includes('galaxy')) {
+      return 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=700'; // Samsung Ultra HD
+    }
+    if (text.includes('شاومي') || text.includes('xiaomi') || text.includes('هواوي') || text.includes('huawei')) {
+      return 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=700'; // Xiaomi / Android flagship
+    }
+    if (text.includes('أيباد') || text.includes('ipad') || text.includes('تابلت') || text.includes('tablet')) {
+      return 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=700'; // iPad Pro / Tablet
+    }
+    return 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=700'; // Sleek smartphone
+  }
+
+  // 3. Gym & Supplements Smart Image Matching
+  if (category === 'gym' || text.includes('بروتين') || text.includes('مكمل') || text.includes('واي') || text.includes('whey')) {
+    if (text.includes('مكمل') || text.includes('بروتين') || text.includes('واي') || text.includes('whey') || text.includes('كرياتين') || text.includes('creatine')) {
+      return 'https://images.unsplash.com/photo-1579722821273-0f6c7d44362f?w=700'; // Whey Protein Powder Tub HD
+    }
+    if (text.includes('ملابس') || text.includes('تجهيز') || text.includes('فانيلة')) {
+      return 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=700'; // Gym Apparel
+    }
+    if (text.includes('معدات') || text.includes('دامبل') || text.includes('dumbbell') || text.includes('وزن')) {
+      return 'https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2?w=700'; // Gym Dumbbells / Barbell
+    }
+    return 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=700';
+  }
+
+  // 4. Real Estate Smart Image Matching
+  if (category === 'real-estate' || text.includes('دار') || text.includes('بيت') || text.includes('شقة') || text.includes('أرض')) {
+    if (text.includes('شقة') || text.includes('apartment')) {
+      return 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=700'; // Modern Luxury Apartment
+    }
+    if (text.includes('أرض') || text.includes('مزرعة') || text.includes('فيلا')) {
+      return 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=700'; // Luxury Villa / Estate
+    }
+    return 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=700'; // Premium Iraqi House
+  }
+
+  // 5. Electronics Smart Image Matching
+  if (category === 'electronics' || text.includes('لاب توب') || text.includes('شاشة') || text.includes('تلفزيون')) {
+    if (text.includes('لاب توب') || text.includes('laptop') || text.includes('ماك') || text.includes('macbook')) {
+      return 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=700'; // Modern Laptop MacBook setup
+    }
+    if (text.includes('شاشة') || text.includes('تلفزيون') || text.includes('tv')) {
+      return 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=700'; // 4K Smart TV Screen
+    }
+    return 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=700';
+  }
+
   switch (category) {
     case 'gym':
-      return 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=700'; // High quality Gym / Bodybuilding
+      return 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=700';
     case 'cars':
-      return 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=700'; // Modern luxury car
+      return 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=700';
     case 'real-estate':
-      return 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=700'; // Modern premium house
+      return 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=700';
     case 'phones':
-      return 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=700'; // Sleek smartphone
+      return 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=700';
     case 'electronics':
-      return 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=700'; // Tech/laptop setup
+      return 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=700';
     case 'clothes':
-      return 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=700'; // Modern fashion/suits
+      return 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=700';
     case 'cosmetics':
-      return 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=700'; // Cosmetics/perfume setup
+      return 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=700';
     case 'handmade':
-      return 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=700'; // Beautiful handmade crafts
+      return 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=700';
     case 'jobs':
-      return 'https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=700'; // Professional interview/workspace
+      return 'https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=700';
     case 'furniture':
-      return 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=700'; // Luxury sofa/furniture
+      return 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=700';
     case 'bikes':
-      return 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=700'; // Modern bicycle
+      return 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=700';
     case 'services':
       return 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=700'; // Professional repair/service
     case 'games':
