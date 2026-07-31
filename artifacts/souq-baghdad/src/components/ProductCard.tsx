@@ -131,7 +131,15 @@ export const ProductCard = React.memo(function ProductCard({ product, onSelect, 
       }`}
     >
       <div className={`relative w-full overflow-hidden flex-shrink-0 rounded-t-xl aspect-[4/3]`}>
-        <ImageWithDataSaver src={product.images?.[0] || getProductCategoryPlaceholderImage(product.category)} alt={product.title} className="w-full h-full object-cover" />
+        <ImageWithDataSaver 
+          src={
+            (!product.images?.[0] || product.images[0].includes('photo-1523275335684') || product.images[0].includes('watch')) 
+              ? getProductCategoryPlaceholderImage(product.category) 
+              : product.images[0]
+          } 
+          alt={product.title} 
+          className="w-full h-full object-cover" 
+        />
         
         <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold text-white shadow-md z-10" style={{background:product.condition==='new'?'#22c55e':'#f59e0b'}}>
           {product.condition==='new'?'جديد':'مستعمل'}</div>

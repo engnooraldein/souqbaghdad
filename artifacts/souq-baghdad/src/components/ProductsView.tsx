@@ -96,13 +96,14 @@ export function ProductsView({
 
   const CATEGORIES = [
     { id: 'all', name: 'الكل', emoji: '🛍️' },
+    { id: 'gym', name: 'رياضة وجيم', emoji: '🏋️‍♂️' },
     { id: 'electronics', name: 'إلكترونيات وأجهزة', emoji: '💻' },
     { id: 'fashion', name: 'أزياء وملابس', emoji: '👕' },
     { id: 'home', name: 'المنزل والمطبخ', emoji: '🏠' },
     { id: 'furniture', name: 'أثاث وديكور', emoji: '🛋️' },
     { id: 'beauty', name: 'العناية والجمال', emoji: '✨' },
     { id: 'toys', name: 'ألعاب وأطفال', emoji: '🧸' },
-    { id: 'bikes', name: 'دراجات ورياضة', emoji: '🚲' },
+    { id: 'bikes', name: 'دراجات ومعدات', emoji: '🚲' },
     { id: 'services', name: 'خدمات المتجر', emoji: '🔧' },
     { id: 'other', name: 'أصناف أخرى', emoji: '📦' }
   ];

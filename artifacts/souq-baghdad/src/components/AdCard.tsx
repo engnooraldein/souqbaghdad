@@ -135,7 +135,15 @@ export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, o
       }`}
     >
       <div className={`relative w-full overflow-hidden flex-shrink-0 rounded-t-xl aspect-[4/3]`}>
-        <ImageWithDataSaver src={ad.images?.[0] || getAdCategoryPlaceholderImage(ad.category)} alt={ad.title} className="w-full h-full object-cover" />
+        <ImageWithDataSaver 
+          src={
+            (!ad.images?.[0] || ad.images[0].includes('photo-1523275335684') || ad.images[0].includes('watch')) 
+              ? getAdCategoryPlaceholderImage(ad.category) 
+              : ad.images[0]
+          } 
+          alt={ad.title} 
+          className="w-full h-full object-cover" 
+        />
         
         <div className={`absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold text-white shadow-md z-10 ${
           ad.condition === 'new' ? 'bg-emerald-600 border border-emerald-500/30' : 'bg-amber-600 border border-amber-500/30'
