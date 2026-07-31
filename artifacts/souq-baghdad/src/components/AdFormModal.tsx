@@ -406,6 +406,166 @@ export function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1,
               </div>
             </div>
 
+            {/* Special Interactive Car Selector Wizard */}
+            {fd.category === 'cars' && (
+              <div className="p-4 bg-gradient-to-br from-blue-950/60 via-gray-900 to-slate-900 border border-blue-500/40 rounded-2xl space-y-4 shadow-xl">
+                <div className="flex items-center justify-between border-b border-blue-500/20 pb-2.5">
+                  <label className="text-blue-400 text-xs font-black flex items-center gap-2">
+                    🏎️ مواصفات السيارة الدقيقة (ابحث، اختر الموديل، الفئة والسنة):
+                  </label>
+                  <span className="text-[10px] font-bold text-gray-400 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">اختيار ذكي وسريع</span>
+                </div>
+
+                {/* Step 1: Search Car Brand & Model */}
+                <div className="space-y-2">
+                  <label className="text-gray-300 text-[11px] font-extrabold block">1. ابحث عن موديل السيارة (مثال: النترا، كورولا، سبورتاج، تشارجر...):</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="ابحث هنا... (اكتب النترا، كامري، اوبتيما...)"
+                      value={carSearchQuery}
+                      onChange={(e) => setCarSearchQuery(e.target.value)}
+                      className="w-full bg-gray-950 text-white rounded-xl py-2.5 px-3 border border-blue-500/30 text-xs focus:border-blue-400 outline-none"
+                    />
+                    {carSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setCarSearchQuery('')}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs font-bold"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Filtered Car Models Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-40 overflow-y-auto pr-1 scrollbar-thin">
+                    {[
+                      { brand: 'هيونداي', model: 'النترا Elantra' },
+                      { brand: 'هيونداي', model: 'سوناتا Sonata' },
+                      { brand: 'هيونداي', model: 'توسان Tucson' },
+                      { brand: 'هيونداي', model: 'سانتافي Santa Fe' },
+                      { brand: 'تويوتا', model: 'كورولا Corolla' },
+                      { brand: 'تويوتا', model: 'كامري Camry' },
+                      { brand: 'تويوتا', model: 'لاندكروزر Land Cruiser' },
+                      { brand: 'تويوتا', model: 'يارس Yaris' },
+                      { brand: 'كيا', model: 'سبورتاج Sportage' },
+                      { brand: 'كيا', model: 'اوبتيما / K5' },
+                      { brand: 'كيا', model: 'سورينتو Sorento' },
+                      { brand: 'كيا', model: 'سيراتو Cerato' },
+                      { brand: 'دودج', model: 'تشارجر Charger' },
+                      { brand: 'دودج', model: 'تحدي Challenger' },
+                      { brand: 'دودج', model: 'دورانجو Durango' },
+                      { brand: 'شفروليه', model: 'تاهو Tahoe' },
+                      { brand: 'شفروليه', model: 'ماليبو Malibu' },
+                      { brand: 'نيسان', model: 'باترول Patrol' },
+                      { brand: 'نيسان', model: 'التيما Altima' },
+                      { brand: 'نيسان', model: 'صني Sunny' },
+                      { brand: 'بي أم دبليو', model: 'الفئة الخامسة 5 Series' },
+                      { brand: 'مرسيدس', model: 'E-Class' },
+                      { brand: 'مرسيدس', model: 'S-Class' },
+                      { brand: 'لكزس', model: 'LX 600 / 570' },
+                      { brand: 'لكزس', model: 'ES 350' },
+                      { brand: 'جيب', model: 'جراند شيروكي' },
+                      { brand: 'فورد', model: 'موستانج Mustang' },
+                      { brand: 'فورد', model: 'إكسبلورر Explorer' }
+                    ]
+                    .filter(c => !carSearchQuery || `${c.brand} ${c.model}`.toLowerCase().includes(carSearchQuery.toLowerCase()))
+                    .map((item, idx) => {
+                      const isSelected = selectedCarModel === `${item.brand} ${item.model}`;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCarModel(`${item.brand} ${item.model}`);
+                            setFd(prev => ({
+                              ...prev,
+                              subCategory: `${item.brand} ${item.model}`,
+                              title: prev.title || `${item.brand} ${item.model} ${selectedCarYear || ''} ${selectedCarTrim || ''}`.trim()
+                            }));
+                          }}
+                          className={`p-2 rounded-xl text-[11px] font-extrabold border transition-all text-right flex flex-col cursor-pointer ${
+                            isSelected
+                              ? 'bg-blue-600 text-white border-blue-300 shadow-md shadow-blue-500/30 scale-102'
+                              : 'bg-gray-950/70 border-gray-800 text-gray-300 hover:bg-blue-900/40 hover:text-white'
+                          }`}
+                        >
+                          <span className="text-[9px] opacity-75">{item.brand}</span>
+                          <span className="font-bold">{item.model}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Step 2: Year Selector */}
+                <div className="space-y-1.5 pt-2 border-t border-blue-500/20">
+                  <label className="text-gray-300 text-[11px] font-extrabold block">2. حدد سنة الموديل:</label>
+                  <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                    {['2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012', '2010', '2008'].map(year => {
+                      const isSelected = selectedCarYear === year;
+                      return (
+                        <button
+                          key={year}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCarYear(year);
+                            setFd(prev => ({
+                              ...prev,
+                              title: `${selectedCarModel || 'سيارة'} ${year} ${selectedCarTrim || ''}`.trim()
+                            }));
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-black border transition-all shrink-0 cursor-pointer ${
+                            isSelected
+                              ? 'bg-amber-500 text-black border-amber-300 shadow-md shadow-amber-500/20'
+                              : 'bg-gray-950 border-gray-800 text-gray-300 hover:bg-gray-800'
+                          }`}
+                        >
+                          {year}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Step 3: Trim / Edition Selector */}
+                <div className="space-y-1.5 pt-2 border-t border-blue-500/20">
+                  <label className="text-gray-300 text-[11px] font-extrabold block">3. حدد الفئة / المواصفات (Trim):</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { label: '🌟 فول مواصفات / Full', value: 'فول مواصفات' },
+                      { label: '✨ فئة SE / نص فول', value: 'فئة SE' },
+                      { label: '🏆 فئة Limited / ليمتد', value: 'Limited' },
+                      { label: '🚗 ستاندر / عادي', value: 'ستاندر' }
+                    ].map(trim => {
+                      const isSelected = selectedCarTrim === trim.value;
+                      return (
+                        <button
+                          key={trim.value}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCarTrim(trim.value);
+                            setFd(prev => ({
+                              ...prev,
+                              title: `${selectedCarModel || 'سيارة'} ${selectedCarYear || ''} ${trim.value}`.trim()
+                            }));
+                          }}
+                          className={`p-2 rounded-xl border text-[10px] font-bold transition-all text-center cursor-pointer ${
+                            isSelected
+                              ? 'bg-emerald-600 text-white border-emerald-300 shadow-md'
+                              : 'bg-gray-950 border-gray-800 text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          {trim.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Dynamic Sub-categories for all categories */}
             {(() => {
               const subCategoryConfig: Record<string, { title: string; color: string; options: { label: string; value: string }[]; warning?: string }> = {
@@ -420,24 +580,6 @@ export function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1,
                     { label: '🥤 شيكرات ومطارات ماء', value: 'شيكرات' }
                   ],
                   warning: '⚠️ تنبيه وإخلاء مسؤولية مهم للتاجر: يُمنع منعاً باتاً عرض أو بيع المنشطات، الهرمونات، أدوية التنشيف غير المرخّصة أو المواد المحظورة صحياً. يتحمل صاحب الحساب كامل المسؤولية القانونية والصحية أمام الجهات المختصة في العراق.'
-                },
-                cars: {
-                  title: '🚗 اختر الماركة والفئة الفرعية للسيارة:',
-                  color: 'blue',
-                  options: [
-                    { label: '🚗 تويوتا Toyota', value: 'تويوتا' },
-                    { label: '🚗 هيونداي Hyundai', value: 'هيونداي' },
-                    { label: '🚗 كيا Kia', value: 'كيا' },
-                    { label: '🚗 نيسان Nissan', value: 'نيسان' },
-                    { label: '🏎️ مرسيدس Mercedes', value: 'مرسيدس' },
-                    { label: '🏎️ BMW بي أم', value: 'بي أم دبليو' },
-                    { label: '🏎️ تشارجر Charger', value: 'تشارجر' },
-                    { label: '🚙 شفروليه Chevrolet', value: 'شفروليه' },
-                    { label: '🚙 جيب Jeep', value: 'جيب' },
-                    { label: '🚙 لكزس Lexus', value: 'لكزس' },
-                    { label: '🛻 فورد Ford', value: 'فورد' },
-                    { label: '🚗 ماركة أخرى', value: 'ماركة أخرى' }
-                  ]
                 },
                 phones: {
                   title: '📱 اختر نوع وهاتف الموبايل:',
