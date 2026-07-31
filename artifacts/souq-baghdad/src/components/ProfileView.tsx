@@ -1210,7 +1210,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                             localStorage.setItem('linking_profile_id', user.id);
                             localStorage.setItem('linking_profile_phone', user.phone || '');
                           }
-                          const { error } = await supabase.auth.signInWithOAuth({
+                          const { error } = await supabase.auth.linkIdentity({
                             provider: 'google',
                             options: { redirectTo: `${window.location.origin}/IQ` }
                           });
