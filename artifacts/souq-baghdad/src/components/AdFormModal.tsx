@@ -406,120 +406,120 @@ export function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1,
               </div>
             </div>
 
-            {/* Sub-categories for Gym & Bodybuilding */}
-            {fd.category === 'gym' && (
-              <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-3">
-                <label className="text-amber-400 text-xs font-black flex items-center gap-2">
-                  <Activity className="w-4 h-4" /> اختر الفئة الفرعية للجم والرياضة:
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {[
+            {/* Dynamic Sub-categories for all categories */}
+            {(() => {
+              const subCategoryConfig: Record<string, { title: string; color: string; options: { label: string; value: string }[]; warning?: string }> = {
+                gym: {
+                  title: '🏋️‍♂️ اختر الفئة الفرعية للجم والرياضة:',
+                  color: 'amber',
+                  options: [
                     { label: '🧪 مكملات غذائية وبروتينات', value: 'مكملات غذائية' },
                     { label: '👕 ملابس وتجهيزات رياضية', value: 'ملابس جيم' },
                     { label: '🎒 حقائب وجنط رياضية', value: 'حقائب جيم' },
                     { label: '🏋️ معدات وأجهزة تمرين', value: 'معدات تمرين' },
                     { label: '🥤 شيكرات ومطارات ماء', value: 'شيكرات' }
-                  ].map(sub => (
-                    <button
-                      key={sub.value}
-                      type="button"
-                      onClick={() => {
-                        if (!fd.description.includes(sub.value)) {
-                          setFd(prev => ({ ...prev, description: `التصنيف الفرعي: ${sub.value}\n${prev.description}` }));
-                        }
-                      }}
-                      className="p-2.5 rounded-xl bg-gray-900/90 border border-amber-500/30 text-amber-300 text-[11px] font-extrabold hover:bg-amber-500/25 transition-all text-center"
-                    >
-                      {sub.label}
-                    </button>
-                  ))}
-                </div>
+                  ],
+                  warning: '⚠️ تنبيه وإخلاء مسؤولية مهم للتاجر: يُمنع منعاً باتاً عرض أو بيع المنشطات، الهرمونات، أدوية التنشيف غير المرخّصة أو المواد المحظورة صحياً. يتحمل صاحب الحساب كامل المسؤولية القانونية والصحية أمام الجهات المختصة في العراق.'
+                },
+                cars: {
+                  title: '🚗 اختر الماركة والفئة الفرعية للسيارة:',
+                  color: 'blue',
+                  options: [
+                    { label: '🚗 تويوتا Toyota', value: 'تويوتا' },
+                    { label: '🚗 هيونداي Hyundai', value: 'هيونداي' },
+                    { label: '🚗 كيا Kia', value: 'كيا' },
+                    { label: '🚗 نيسان Nissan', value: 'نيسان' },
+                    { label: '🏎️ مرسيدس Mercedes', value: 'مرسيدس' },
+                    { label: '🏎️ BMW بي أم', value: 'بي أم دبليو' },
+                    { label: '🏎️ تشارجر Charger', value: 'تشارجر' },
+                    { label: '🚙 شفروليه Chevrolet', value: 'شفروليه' },
+                    { label: '🚙 جيب Jeep', value: 'جيب' },
+                    { label: '🚙 لكزس Lexus', value: 'لكزس' },
+                    { label: '🛻 فورد Ford', value: 'فورد' },
+                    { label: '🚗 ماركة أخرى', value: 'ماركة أخرى' }
+                  ]
+                },
+                phones: {
+                  title: '📱 اختر نوع وهاتف الموبايل:',
+                  color: 'purple',
+                  options: [
+                    { label: '🍎 آيفون iPhone', value: 'آيفون' },
+                    { label: '📱 سامسونج Samsung', value: 'سامسونج' },
+                    { label: '📱 شاومي Xiaomi', value: 'شاومي' },
+                    { label: '📱 هواوي Huawei', value: 'هواوي' },
+                    { label: '📱 أونر Honor', value: 'أونر' },
+                    { label: '📱 بكسل Pixel', value: 'بكسل' },
+                    { label: '📲 أيباد / تابلت iPad', value: 'أيباد وتابلت' },
+                    { label: '🎧 ملحقات وإكسسوارات', value: 'إكسسوارات موبايل' }
+                  ]
+                },
+                'real-estate': {
+                  title: '🏡 اختر نوع العقار:',
+                  color: 'emerald',
+                  options: [
+                    { label: '🏠 بيت / دار سكني', value: 'دار سكني' },
+                    { label: '🏢 شقة تمليك / إيجار', value: 'شقة' },
+                    { label: '🏞️ أرض سكنية / تجاري', value: 'أرض' },
+                    { label: '🏪 محل / مكتب تجاري', value: 'محل تجاري' },
+                    { label: '🏡 مزرعة / فيلا', value: 'مزرعة وفيلا' }
+                  ]
+                },
+                electronics: {
+                  title: '💻 اختر نوع الجهاز الإلكتروني:',
+                  color: 'indigo',
+                  options: [
+                    { label: '💻 لاب توب / كمبيوتر', value: 'لاب توب' },
+                    { label: '📺 شاشات وتلفزيونات', value: 'شاشات' },
+                    { label: '🎧 سماعات واكسسوارات', value: 'سماعات واكسسوارات' },
+                    { label: '📷 كاميرات وتصوير', value: 'كاميرات' },
+                    { label: '🔌 أجهزة منزلية', value: 'أجهزة منزلية' }
+                  ]
+                }
+              };
 
-                {/* Legal Warning Notice */}
-                <div className="p-3 bg-red-950/40 border border-red-500/40 rounded-xl text-red-300 text-[11px] leading-relaxed flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                  <div>
-                    <strong className="block font-black text-red-400 mb-0.5">⚠️ تنبيه وإخلاء مسؤولية مهم للتاجر:</strong>
-                    يُمنع منعاً باتاً عرض أو بيع المنشطات، الهرمونات، أدوية التنشيف غير المرخّصة أو المواد المحظورة صحياً. يتحمل صاحب الحساب كامل المسؤولية القانونية والصحية أمام الجهات المختصة في العراق.
+              const currentConfig = subCategoryConfig[fd.category];
+              if (!currentConfig) return null;
+
+              return (
+                <div className="p-4 bg-gray-900/80 border border-amber-500/30 rounded-2xl space-y-3">
+                  <label className="text-amber-400 text-xs font-black flex items-center gap-2">
+                    {currentConfig.title}
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {currentConfig.options.map(sub => {
+                      const isSelected = (fd as any).subCategory === sub.value;
+                      return (
+                        <button
+                          key={sub.value}
+                          type="button"
+                          onClick={() => {
+                            setFd(prev => ({ ...prev, subCategory: sub.value }));
+                          }}
+                          className={`p-2.5 rounded-xl border text-[11px] font-extrabold transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+                            isSelected
+                              ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black border-amber-400 shadow-md shadow-amber-500/20 scale-102 font-black'
+                              : 'bg-gray-950/60 border-gray-800 text-gray-300 hover:bg-gray-900 hover:text-white'
+                          }`}
+                        >
+                          <span>{sub.label}</span>
+                          {isSelected && <span>✓</span>}
+                        </button>
+                      );
+                    })}
                   </div>
-                </div>
-              </div>
-            )}
 
-            {/* Sub-categories for Cars */}
-            {fd.category === 'cars' && (
-              <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-2xl space-y-3">
-                <label className="text-blue-400 text-xs font-black flex items-center gap-2">
-                  🚗 حدد ماركة ومواصفات السيارة:
-                </label>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                  {['تويوتا', 'هيونداي', 'كيا', 'نيسان', 'مرسيدس', 'بي أم دبليو', 'تشارجر', 'شفروليه', 'جيب', 'لكزس', 'فورد', 'أخرى'].map(brand => (
-                    <button
-                      key={brand}
-                      type="button"
-                      onClick={() => {
-                        if (!fd.description.includes(brand)) {
-                          setFd(prev => ({ ...prev, description: `الماركة: ${brand}\n${prev.description}` }));
-                        }
-                      }}
-                      className="p-2 rounded-xl bg-gray-900/90 border border-blue-500/30 text-blue-300 text-[11px] font-extrabold hover:bg-blue-500/25 transition-all text-center"
-                    >
-                      {brand}
-                    </button>
-                  ))}
+                  {currentConfig.warning && (
+                    <div className="p-3 bg-red-950/40 border border-red-500/40 rounded-xl text-red-300 text-[11px] leading-relaxed flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="block font-black text-red-400 mb-0.5">⚠️ تنبيه وإخلاء مسؤولية مهم للتاجر:</strong>
+                        {currentConfig.warning}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
-
-            {/* Sub-categories for Phones */}
-            {fd.category === 'phones' && (
-              <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-2xl space-y-3">
-                <label className="text-purple-400 text-xs font-black flex items-center gap-2">
-                  📱 حدد نوع وهاتف الموبايل:
-                </label>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                  {['آيفون iPhone', 'سامسونج Samsung', 'شاومي Xiaomi', 'هواوي Huawei', 'أونر Honor', 'بكسل Pixel', 'أيباد iPad', 'ملحقات وإكسسوارات'].map(brand => (
-                    <button
-                      key={brand}
-                      type="button"
-                      onClick={() => {
-                        if (!fd.description.includes(brand)) {
-                          setFd(prev => ({ ...prev, description: `النوع: ${brand}\n${prev.description}` }));
-                        }
-                      }}
-                      className="p-2 rounded-xl bg-gray-900/90 border border-purple-500/30 text-purple-300 text-[11px] font-extrabold hover:bg-purple-500/25 transition-all text-center"
-                    >
-                      {brand}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Sub-categories for Real Estate */}
-            {fd.category === 'real-estate' && (
-              <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl space-y-3">
-                <label className="text-emerald-400 text-xs font-black flex items-center gap-2">
-                  🏡 حدد نوع العقار المطلوب:
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {['بيت / دار سكني', 'شقة تمليك/إيجار', 'أرض سكنية/تجاري', 'محل / مكتب تجاري', 'مزرعة / فيلا'].map(type => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => {
-                        if (!fd.description.includes(type)) {
-                          setFd(prev => ({ ...prev, description: `نوع العقار: ${type}\n${prev.description}` }));
-                        }
-                      }}
-                      className="p-2 rounded-xl bg-gray-900/90 border border-emerald-500/30 text-emerald-300 text-[11px] font-extrabold hover:bg-emerald-500/25 transition-all text-center"
-                    >
-                      {type}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             <div className="space-y-1">
               <label className="text-gray-300 text-xs font-black block">عنوان الإعلان</label>
