@@ -17,8 +17,8 @@ const InfoDocsModal = lazy(() => import("./components/InfoDocsModal").then(m => 
 const AdDetailModal = lazy(() => import("./components/AdDetailModal").then(m => ({ default: m.AdDetailModal })));
 const ProductDetailModal = lazy(() => import("./components/ProductDetailModal").then(m => ({ default: m.ProductDetailModal })));
 const TransportDetailModal = lazy(() => import("./components/TransportDetailModal").then(m => ({ default: m.TransportDetailModal })));
-const AdFormModal = lazy(() => import("./components/AdFormModal").then(m => ({ default: m.AdFormModal })));
-const ProductFormModal = lazy(() => import("./components/ProductFormModal").then(m => ({ default: m.ProductFormModal })));
+import { AdFormModal } from "./components/AdFormModal";
+import { ProductFormModal } from "./components/ProductFormModal";
 const MyLinesTab = lazy(() => import("./components/MyLinesTab").then(m => ({ default: m.MyLinesTab })));
 const PasswordChangeModal = lazy(() => import("./components/PasswordChangeModal").then(m => ({ default: m.PasswordChangeModal })));
 const ProfileView = lazy(() => import("./components/ProfileView").then(m => ({ default: m.ProfileView })));
