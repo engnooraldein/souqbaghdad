@@ -72,8 +72,8 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
   isOpen:boolean; onClose:()=>void; onSubmit:(p:Product)=>void; user:User; editProduct?:Product|null; cost?:number; vipCost?:number;
 }) {
   const isEdit = !!editProduct;
-  type FdType = { title:string; price:string; description:string; category:string; governorate:string; phone:string; condition:'new'|'used'; stock:number; is_vip:boolean; vip_days:number; };
-  const [fd, setFd] = useState<FdType>({ title:editProduct?.title||'', price:editProduct?.price?formatPrice(editProduct.price):'', description:editProduct?.description||'', category:editProduct?.category||'phones', governorate:editProduct?.governorate||user?.location||'بغداد', phone:editProduct?.phone||user?.phone||'', condition:(editProduct?.condition||'new') as 'new'|'used', stock:editProduct?.stock||1, is_vip: editProduct?.is_vip||false, vip_days: editProduct?.vip_days||30 });
+  type FdType = { title:string; price:string; description:string; category:string; subCategory:string; governorate:string; phone:string; condition:'new'|'used'; stock:number; is_vip:boolean; vip_days:number; };
+  const [fd, setFd] = useState<FdType>({ title:editProduct?.title||'', price:editProduct?.price?formatPrice(editProduct.price):'', description:editProduct?.description||'', category:editProduct?.category||'phones', subCategory: (editProduct as any)?.subCategory || '', governorate:editProduct?.governorate||user?.location||'بغداد', phone:editProduct?.phone||user?.phone||'', condition:(editProduct?.condition||'new') as 'new'|'used', stock:editProduct?.stock||1, is_vip: editProduct?.is_vip||false, vip_days: editProduct?.vip_days||30 });
   const totalVipCost = fd.is_vip ? Math.ceil((vipCost / 30) * (fd.vip_days || 30)) : 0;
 
   const dynamicPlaceholders = useMemo(() => {
@@ -386,20 +386,24 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
                   { label: '🎒 حقائب وجنط رياضية', value: 'حقائب جيم' },
                   { label: '🏋️ معدات وملحقات تمرين', value: 'معدات تمرين' },
                   { label: '🥤 شيكرات ومطارات ماء', value: 'شيكرات' }
-                ].map(sub => (
-                  <button
-                    key={sub.value}
-                    type="button"
-                    onClick={() => {
-                      if (!fd.description.includes(sub.value)) {
-                        setFd(prev => ({ ...prev, description: `الفئة: ${sub.value}\n${prev.description}` }));
-                      }
-                    }}
-                    className="p-2 rounded-xl bg-gray-900/80 border border-amber-500/20 text-amber-300 text-[11px] font-bold hover:bg-amber-500/20 transition-all text-center"
-                  >
-                    {sub.label}
-                  </button>
-                ))}
+                ].map(sub => {
+                  const isSelected = fd.subCategory === sub.value;
+                  return (
+                    <button
+                      key={sub.value}
+                      type="button"
+                      onClick={() => setFd(prev => ({ ...prev, subCategory: sub.value }))}
+                      className={`p-2.5 rounded-xl border text-[11px] font-extrabold transition-all text-center flex items-center justify-center gap-1.5 ${
+                        isSelected 
+                          ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black border-amber-300 shadow-md shadow-amber-500/20 scale-102 ring-2 ring-amber-400/50' 
+                          : 'bg-gray-900/90 border-amber-500/30 text-amber-300 hover:bg-amber-500/20'
+                      }`}
+                    >
+                      <span>{sub.label}</span>
+                      {isSelected && <span className="text-black font-black text-xs">✓</span>}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Legal Warning Notice */}
