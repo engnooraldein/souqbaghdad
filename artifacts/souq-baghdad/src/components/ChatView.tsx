@@ -415,10 +415,19 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                         }`}
                       >
                         <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                        <div className={`flex items-center gap-1 text-[10px] mt-1 ${isMe ? 'text-black/70 justify-end' : 'text-gray-400 justify-start'}`}>
+                        <div className={`flex items-center gap-1.5 text-[10px] mt-1 ${isMe ? 'text-black/75 justify-end' : 'text-gray-400 justify-start'}`}>
                           <span>{new Date(msg.created_at).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}</span>
                           {isMe && (
-                            <CheckCheck className={`w-3 h-3 ${msg.is_read ? 'text-blue-900' : 'text-black/50'}`} />
+                            <div className="flex items-center gap-0.5">
+                              {msg.is_read ? (
+                                <>
+                                  <span className="text-[9px] font-extrabold text-blue-900">تمت المشاهدة</span>
+                                  <CheckCheck className="w-3.5 h-3.5 text-blue-900 stroke-[2.5]" />
+                                </>
+                              ) : (
+                                <CheckCheck className="w-3.5 h-3.5 text-black/50" />
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
