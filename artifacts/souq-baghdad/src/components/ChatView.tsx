@@ -108,12 +108,13 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     }
   };
 
-  // 2. Fetch All Chats with Optimized Batch Queries (14x Faster Performance)
+  // 2. Fetch All Chats with Instant Render & Async Background Enrichment (Zero Loading Delays)
   const fetchChats = useCallback(async () => {
     if (!currentUser) return;
-    setLoadingChats(true);
     try {
       const currentUserIdStr = String(currentUser.id);
+      
+      // Step 1: Fetch raw chats list
       const { data, error } = await supabase
         .from('chats')
         .select('*')
@@ -123,7 +124,28 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       if (error) throw error;
 
       if (data && data.length > 0) {
-        // Collect all distinct partner user IDs
+        // Build initial fast raw chats so UI renders IMMEDIATELY (0ms delay!)
+        const rawChats: Chat[] = data.map((chat: Chat) => {
+          const isBuyer = String(chat.buyer_id) === currentUserIdStr;
+          const otherUserId = String(isBuyer ? chat.seller_id : chat.buyer_id);
+          return {
+            ...chat,
+            other_user_id: otherUserId,
+            other_user_name: 'مستخدم سوق بغداد',
+            unread_count: 0
+          };
+        });
+
+        // Set chats immediately and hide spinner RIGHT NOW!
+        setChats(rawChats);
+        setLoadingChats(false);
+
+        if (initialChatId && !selectedChat) {
+          const target = rawChats.find(c => c.id === initialChatId);
+          if (target) setSelectedChat(target);
+        }
+
+        // Step 2: Asynchronously enrich profiles & unread counts in background without blocking spinner!
         const partnerUserIds = Array.from(
           new Set(
             data.map((chat: Chat) =>
@@ -132,40 +154,46 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
           )
         );
 
-        // 1 Batch Query for ALL profiles
         let profilesMap: Record<string, { full_name?: string; avatar_url?: string; phone?: string }> = {};
         if (partnerUserIds.length > 0) {
-          const { data: profilesData } = await supabase
-            .from('profiles')
-            .select('id, full_name, avatar_url, phone')
-            .in('id', partnerUserIds);
+          try {
+            const { data: profilesData } = await supabase
+              .from('profiles')
+              .select('id, full_name, avatar_url, phone')
+              .in('id', partnerUserIds);
 
-          if (profilesData) {
-            profilesData.forEach((p: any) => {
-              profilesMap[String(p.id)] = p;
-            });
+            if (profilesData) {
+              profilesData.forEach((p: any) => {
+                profilesMap[String(p.id)] = p;
+              });
+            }
+          } catch (e) {
+            console.warn('Error fetching profiles in background:', e);
           }
         }
 
-        // 1 Batch Query for ALL unread message counts
         const chatIds = data.map((c: Chat) => c.id);
         let unreadCountsMap: Record<string, number> = {};
         if (chatIds.length > 0) {
-          const { data: unreadData } = await supabase
-            .from('messages')
-            .select('chat_id')
-            .in('chat_id', chatIds)
-            .eq('is_read', false)
-            .neq('sender_id', currentUserIdStr);
+          try {
+            const { data: unreadData } = await supabase
+              .from('messages')
+              .select('chat_id')
+              .in('chat_id', chatIds)
+              .eq('is_read', false)
+              .neq('sender_id', currentUserIdStr);
 
-          if (unreadData) {
-            unreadData.forEach((m: any) => {
-              unreadCountsMap[m.chat_id] = (unreadCountsMap[m.chat_id] || 0) + 1;
-            });
+            if (unreadData) {
+              unreadData.forEach((m: any) => {
+                unreadCountsMap[m.chat_id] = (unreadCountsMap[m.chat_id] || 0) + 1;
+              });
+            }
+          } catch (e) {
+            console.warn('Error fetching unread counts in background:', e);
           }
         }
 
-        const updatedChats: Chat[] = data.map((chat: Chat) => {
+        const enrichedChats: Chat[] = data.map((chat: Chat) => {
           const isBuyer = String(chat.buyer_id) === currentUserIdStr;
           const otherUserId = String(isBuyer ? chat.seller_id : chat.buyer_id);
           const profile = profilesMap[otherUserId];
@@ -180,18 +208,14 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
           };
         });
 
-        setChats(updatedChats);
+        setChats(enrichedChats);
 
-        if (initialChatId && !selectedChat) {
-          const target = updatedChats.find(c => c.id === initialChatId);
-          if (target) setSelectedChat(target);
-        }
       } else {
         setChats([]);
+        setLoadingChats(false);
       }
     } catch (e) {
       console.error('Error fetching chats:', e);
-    } finally {
       setLoadingChats(false);
     }
   }, [currentUser, initialChatId, selectedChat]);
