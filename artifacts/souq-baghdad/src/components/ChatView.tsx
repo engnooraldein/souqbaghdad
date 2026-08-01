@@ -9,6 +9,7 @@ import { getRelative } from '../utils/time';
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { getNumericHash } from '../utils/helpers';
+import { useOnlineStatuses } from '../hooks/useOnlineStatuses';
 
 export interface Chat {
   id: string;
