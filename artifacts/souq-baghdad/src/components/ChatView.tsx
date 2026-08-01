@@ -288,42 +288,47 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     }
   };
 
-  // 4. Realtime Message Channel & Typing Broadcast per Chat
+  // 4. Realtime Message Channel, Web Broadcast & Smart 3s Sync Interval per Chat
   useEffect(() => {
     if (!selectedChat || !currentUser) return;
 
     fetchMessages(selectedChat.id);
 
-    // Messages Realtime Channel
+    const activeChatId = selectedChat.id;
+
+    // Helper to safely append or update message in state
+    const handleIncomingMessage = (newMsg: Message) => {
+      setMessages(prev => {
+        if (prev.some(m => m.id === newMsg.id || (m.content === newMsg.content && m.sender_id === newMsg.sender_id && Math.abs(new Date(m.created_at).getTime() - new Date(newMsg.created_at).getTime()) < 5000))) {
+          return prev.map(m => (m.content === newMsg.content && m.sender_id === newMsg.sender_id ? newMsg : m));
+        }
+        return [...prev, newMsg];
+      });
+
+      // Mark read if receiving
+      if (String(newMsg.sender_id) !== String(currentUser.id)) {
+        supabase
+          .from('messages')
+          .update({ is_read: true })
+          .eq('id', newMsg.id);
+      }
+
+      setTimeout(() => scrollToBottom(), 50);
+    };
+
+    // Messages Realtime Channel (Postgres Changes + Web Broadcast)
     const messageChannel = supabase
-      .channel(`chat_messages:${selectedChat.id}`)
+      .channel(`chat_messages:${activeChatId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `chat_id=eq.${selectedChat.id}`
+          filter: `chat_id=eq.${activeChatId}`
         },
         (payload) => {
-          const newMsg = payload.new as Message;
-          setMessages(prev => {
-            if (prev.some(m => m.id === newMsg.id || (m.content === newMsg.content && m.sender_id === newMsg.sender_id && Math.abs(new Date(m.created_at).getTime() - new Date(newMsg.created_at).getTime()) < 5000))) {
-              return prev.map(m => (m.content === newMsg.content && m.sender_id === newMsg.sender_id ? newMsg : m));
-            }
-            return [...prev, newMsg];
-          });
-
-          // Mark read if receiving
-          if (String(newMsg.sender_id) !== String(currentUser.id)) {
-            supabase
-              .from('messages')
-              .update({ is_read: true })
-              .eq('id', newMsg.id);
-          }
-
-          // Auto-scroll if user near bottom or if current user sent it
-          setTimeout(() => scrollToBottom(), 50);
+          handleIncomingMessage(payload.new as Message);
         }
       )
       .on(
@@ -332,18 +337,23 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
           event: 'UPDATE',
           schema: 'public',
           table: 'messages',
-          filter: `chat_id=eq.${selectedChat.id}`
+          filter: `chat_id=eq.${activeChatId}`
         },
         (payload) => {
           const updatedMsg = payload.new as Message;
           setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
         }
       )
+      .on('broadcast', { event: 'broadcast_new_message' }, (payload) => {
+        if (payload.payload?.message) {
+          handleIncomingMessage(payload.payload.message as Message);
+        }
+      })
       .subscribe();
 
     // Typing Broadcast Channel ("يكتب الآن...")
     const typingChannel = supabase
-      .channel(`chat_typing:${selectedChat.id}`)
+      .channel(`chat_typing:${activeChatId}`)
       .on('broadcast', { event: 'typing' }, (payload) => {
         if (payload.payload?.user_id && String(payload.payload.user_id) !== String(currentUser.id)) {
           setIsPartnerTyping(true);
@@ -355,9 +365,50 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       })
       .subscribe();
 
+    // Smart 3-second active sync interval for Web to guarantee zero refresh needed
+    const smartSyncInterval = setInterval(async () => {
+      try {
+        const { data: latestMsgs } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('chat_id', activeChatId)
+          .order('created_at', { ascending: false })
+          .limit(15);
+
+        if (latestMsgs && latestMsgs.length > 0) {
+          const reversed = latestMsgs.reverse();
+          setMessages(prev => {
+            const existingIds = new Set(prev.map(m => m.id));
+            const newItems = reversed.filter(m => !existingIds.has(m.id));
+            
+            // If no new messages, check if any read status updated
+            if (newItems.length === 0) {
+              const updatedRead = prev.map(m => {
+                const found = reversed.find(r => r.id === m.id);
+                return found && found.is_read !== m.is_read ? { ...m, is_read: found.is_read } : m;
+              });
+              const isChanged = updatedRead.some((m, i) => m.is_read !== prev[i].is_read);
+              return isChanged ? updatedRead : prev;
+            }
+
+            const cleanPrev = prev.filter(m => !m.id.startsWith('temp-'));
+            const merged = [...cleanPrev];
+            for (const item of newItems) {
+              if (!merged.some(m => m.id === item.id)) {
+                merged.push(item);
+              }
+            }
+            setTimeout(() => scrollToBottom(), 50);
+            return merged;
+          });
+        }
+      } catch (e) {}
+    }, 3000);
+
     return () => {
       supabase.removeChannel(messageChannel);
       supabase.removeChannel(typingChannel);
+      clearInterval(smartSyncInterval);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       setIsPartnerTyping(false);
     };
@@ -420,6 +471,12 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
 
       if (data) {
         setMessages(prev => prev.map(m => m.id === tempId ? data : m));
+        // Instant broadcast for Web clients (0-50ms)
+        supabase.channel(`chat_messages:${selectedChat.id}`).send({
+          type: 'broadcast',
+          event: 'broadcast_new_message',
+          payload: { message: data }
+        }).catch(() => {});
       }
 
       // Update Chats Table `last_message`, `last_message_time`, `updated_at` so list updates immediately
