@@ -645,10 +645,11 @@ export default function App() {
       return;
     }
     try {
+      const currentUserIdStr = String(user.id);
       const { data: userChats } = await supabase
         .from('chats')
         .select('id')
-        .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`);
+        .or(`buyer_id.eq.${currentUserIdStr},seller_id.eq.${currentUserIdStr}`);
 
       if (userChats && userChats.length > 0) {
         const chatIds = userChats.map(c => c.id);
@@ -657,9 +658,11 @@ export default function App() {
           .select('*', { count: 'exact', head: true })
           .in('chat_id', chatIds)
           .eq('is_read', false)
-          .neq('sender_id', user.id);
+          .neq('sender_id', currentUserIdStr);
 
         setUnreadChatCount(count || 0);
+      } else {
+        setUnreadChatCount(0);
       }
     } catch (e) {
       console.error('Error fetching unread chat count:', e);
@@ -673,6 +676,7 @@ export default function App() {
   // Realtime audio alert & system notification & badge update for new messages
   useEffect(() => {
     if (!user) return;
+    const currentUserIdStr = String(user.id);
 
     const channel = supabase
       .channel('global:messages')
@@ -685,29 +689,38 @@ export default function App() {
         },
         async (payload) => {
           const newMsg = payload.new as any;
-          if (newMsg.sender_id !== user.id) {
-            // Play in-app notification sound
-            playNotificationSound('info');
-            fetchUnreadChatCount();
+          if (String(newMsg.sender_id) !== currentUserIdStr) {
+            // Verify if chat belongs to active user
+            const { data: isMyChat } = await supabase
+              .from('chats')
+              .select('id')
+              .eq('id', newMsg.chat_id)
+              .or(`buyer_id.eq.${currentUserIdStr},seller_id.eq.${currentUserIdStr}`)
+              .maybeSingle();
 
-            // Trigger system external notification on native mobile devices (Android)
-            if (Capacitor.isNativePlatform()) {
-              try {
-                await LocalNotifications.schedule({
-                  notifications: [
-                    {
-                      title: 'رسالة جديدة 💬',
-                      body: newMsg.content || 'وصلتك رسالة جديدة في سوق بغداد',
-                      id: Math.floor(Math.random() * 100000),
-                      schedule: { at: new Date(Date.now() + 100) },
-                      sound: 'res://platform_default',
-                      actionTypeId: '',
-                      extra: null
-                    }
-                  ]
-                });
-              } catch (err) {
-                console.warn('Failed to trigger LocalNotification:', err);
+            if (isMyChat) {
+              playNotificationSound('info');
+              fetchUnreadChatCount();
+
+              // Trigger system external notification on native mobile devices (Android)
+              if (Capacitor.isNativePlatform()) {
+                try {
+                  await LocalNotifications.schedule({
+                    notifications: [
+                      {
+                        title: 'رسالة جديدة 💬',
+                        body: newMsg.content || 'وصلتك رسالة جديدة في سوق بغداد',
+                        id: Math.floor(Math.random() * 100000),
+                        schedule: { at: new Date(Date.now() + 100) },
+                        sound: 'res://platform_default',
+                        actionTypeId: '',
+                        extra: null
+                      }
+                    ]
+                  });
+                } catch (err) {
+                  console.warn('Failed to trigger LocalNotification:', err);
+                }
               }
             }
           }
@@ -4246,7 +4259,10 @@ export default function App() {
         {showNotifs&&<Suspense fallback={null}><NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick} onMarkRead={markNotifAsRead} onArchiveAll={handleArchiveAllNotifications}/></Suspense>}
         {showChatModal && (
           <Suspense fallback={null}>
-            <div className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm">
+            <div 
+              onTouchMove={e => e.stopPropagation()}
+              className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm overscroll-none touch-none"
+            >
               <div className="w-full max-w-5xl">
                 <ChatView
                   currentUser={user}

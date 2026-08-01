@@ -467,11 +467,12 @@ export function ProductDetailModal({ product, onClose, isFav, onFav, user, store
                   return;
                 }
                 try {
+                  const uid = String(user.id);
+                  const sId = String(product.postedBy || '');
                   const { data: existingChat } = await supabase
                     .from('chats')
                     .select('id')
-                    .eq('buyer_id', user.id)
-                    .eq('seller_id', product.postedBy || '')
+                    .or(`and(buyer_id.eq.${uid},seller_id.eq.${sId}),and(buyer_id.eq.${sId},seller_id.eq.${uid})`)
                     .eq('ad_id', String(product.id))
                     .maybeSingle();
 
