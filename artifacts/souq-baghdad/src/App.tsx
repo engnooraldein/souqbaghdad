@@ -4335,8 +4335,10 @@ export default function App() {
         {showChatModal && (
           <Suspense fallback={null}>
             <div 
-              onTouchMove={e => e.stopPropagation()}
-              className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm overscroll-none touch-none"
+              onTouchMove={e => {
+                if (e.target === e.currentTarget) e.preventDefault();
+              }}
+              className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm overscroll-none"
             >
               <div className="w-full max-w-5xl">
                 <ChatView

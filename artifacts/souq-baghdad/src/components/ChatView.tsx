@@ -572,11 +572,11 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       </div>
 
       {/* ── Main Active Chat Area ── */}
-      <div className={`flex-1 flex flex-col bg-gray-900 ${!selectedChat ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`flex-1 min-h-0 min-w-0 flex flex-col bg-gray-900 ${!selectedChat ? 'hidden md:flex' : 'flex'}`}>
         {selectedChat ? (
           <>
             {/* Header */}
-            <div className="p-3.5 border-b border-gray-800 flex items-center justify-between bg-gray-950/80 shadow-md backdrop-blur-md">
+            <div className="p-3.5 border-b border-gray-800 flex items-center justify-between bg-gray-950/80 shadow-md backdrop-blur-md shrink-0">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setSelectedChat(null)}
@@ -631,7 +631,8 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
             <div 
               ref={messagesContainerRef}
               onScroll={handleScroll}
-              className="flex-1 overflow-y-auto p-4 space-y-3 overscroll-contain touch-pan-y relative bg-gradient-to-b from-gray-900 to-gray-950"
+              className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 overscroll-contain touch-pan-y relative bg-gradient-to-b from-gray-900 to-gray-950"
+              style={{ WebkitOverflowScrolling: 'touch' }}
             >
               {/* Pagination Loader */}
               {loadingOlder && (
@@ -710,7 +711,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
             )}
 
             {/* Input Footer */}
-            <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-800 bg-gray-950 flex items-center gap-2 shadow-inner">
+            <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-800 bg-gray-950 flex items-center gap-2 shadow-inner shrink-0">
               <input
                 type="text"
                 value={newMessage}
