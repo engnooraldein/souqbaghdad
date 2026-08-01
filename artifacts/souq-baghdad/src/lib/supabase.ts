@@ -22,10 +22,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       passkey: true
     }
   },
-  // Disable realtime to prevent WebSocket connection errors (not used in this app)
   realtime: {
     params: {
-      eventsPerSecond: -1,
+      apikey: supabaseAnonKey,
     },
   },
   global: {
