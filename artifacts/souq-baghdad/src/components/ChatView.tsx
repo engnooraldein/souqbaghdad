@@ -210,6 +210,15 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
 
         setChats(enrichedChats);
 
+        // Keep selectedChat enriched with real name & avatar
+        if (selectedChat) {
+          const enrichedSel = enrichedChats.find(c => c.id === selectedChat.id);
+          if (enrichedSel) setSelectedChat(enrichedSel);
+        } else if (initialChatId) {
+          const target = enrichedChats.find(c => c.id === initialChatId);
+          if (target) setSelectedChat(target);
+        }
+
       } else {
         setChats([]);
         setLoadingChats(false);
@@ -703,9 +712,11 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setSelectedChat(null)}
-                  className="md:hidden text-gray-400 hover:text-white p-1 rounded-lg"
+                  className="md:hidden text-amber-400 hover:text-amber-300 p-1.5 rounded-xl bg-gray-850 hover:bg-gray-800 transition-colors flex items-center gap-1 font-bold text-xs shadow-sm"
+                  title="الرجوع للقائمة"
                 >
-                  <ArrowRight className="w-5 h-5" />
+                  <ArrowRight className="w-4 h-4" />
+                  <span className="hidden sm:inline">القائمة</span>
                 </button>
                 
                 <div className="relative shrink-0">
@@ -748,6 +759,18 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                   )}
                 </div>
               </div>
+
+              {/* Close Modal Button */}
+              {onClose && (
+                <button 
+                  onClick={onClose} 
+                  className="text-gray-400 hover:text-white p-2 rounded-xl bg-gray-800/80 hover:bg-gray-800 transition-colors flex items-center gap-1.5 text-xs font-bold shadow-sm"
+                  title="إغلاق المحادثة"
+                >
+                  <span className="hidden sm:inline">إغلاق</span>
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
             {/* Messages Body */}
