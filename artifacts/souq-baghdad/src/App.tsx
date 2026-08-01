@@ -653,8 +653,11 @@ export default function App() {
 
   // Deep Link Listener for Notifications (Push & Local)
   useEffect(() => {
+    let localSub: any;
+    let pushSub: any;
+
     if (Capacitor.isNativePlatform()) {
-      const subLocal = LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
+      LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
         const extra = action.notification.extra;
         if (extra && (extra.chatId || extra.chat_id)) {
           const targetChatId = extra.chatId || extra.chat_id;
@@ -663,9 +666,9 @@ export default function App() {
           const notifId = getNumericHash(targetChatId);
           LocalNotifications.cancel({ notifications: [{ id: notifId }] }).catch(() => {});
         }
-      });
+      }).then(handle => { localSub = handle; });
 
-      const subPush = PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+      PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
         const data = action.notification.data;
         if (data && (data.chatId || data.chat_id)) {
           const targetChatId = data.chatId || data.chat_id;
@@ -674,11 +677,11 @@ export default function App() {
           const notifId = getNumericHash(targetChatId);
           LocalNotifications.cancel({ notifications: [{ id: notifId }] }).catch(() => {});
         }
-      });
+      }).then(handle => { pushSub = handle; });
 
       return () => {
-        subLocal.remove();
-        subPush.remove();
+        if (localSub) localSub.remove();
+        if (pushSub) pushSub.remove();
       };
     }
   }, []);
@@ -811,7 +814,7 @@ export default function App() {
                           sound: 'res://platform_default',
                           actionTypeId: '',
                           extra: { chatId: newMsg.chat_id, type: 'chat' }
-                        }
+                        } as any
                       ]
                     });
                   } catch (err) {
