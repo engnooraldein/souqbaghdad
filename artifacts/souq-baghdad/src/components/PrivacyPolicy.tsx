@@ -134,7 +134,9 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
           </div>
           <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
             وفقاً لسياسة Google Play، يمكنك في أي وقت طلب حذف حسابك الشخصي وجميع بياناتك المترتبة بشكل نهائي من داخل إعدادات الحساب بالتطبيق أو بمراسلة الدعم الفني على:
-            <span className="block mt-1 text-emerald-400 font-mono font-bold dir-ltr text-right">support@souqbaghdad.store</span>
+            <a href="mailto:info@souqbaghdad.store" className="inline-block mt-1 text-emerald-400 font-mono font-bold dir-ltr text-right hover:underline">
+              info@souqbaghdad.store
+            </a>
           </p>
         </motion.div>
 

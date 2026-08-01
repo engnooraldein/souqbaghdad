@@ -241,6 +241,13 @@ export function InfoDocsModal({ activeTab, onClose, user }: { activeTab: string;
                     </a>
                     
                     <a 
+                      href="mailto:info@souqbaghdad.store" 
+                      className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 font-bold rounded-2xl border border-amber-500/20 transition-all text-xs"
+                    >
+                      <Mail className="w-4 h-4" />
+                      <span>info@souqbaghdad.store</span>
+                    </a>
+                    <a 
                       href="https://wa.me/9647700028170" 
                       target="_blank" 
                       rel="noopener noreferrer" 
