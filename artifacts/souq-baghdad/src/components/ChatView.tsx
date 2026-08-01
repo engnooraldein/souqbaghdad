@@ -571,12 +571,12 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
   const isPartnerOnline = selectedChat?.other_user_id ? onlineStatuses[selectedChat.other_user_id] : false;
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row h-[85vh] max-h-[700px] max-w-5xl mx-auto my-auto text-right select-none" dir="rtl">
+    <div className="bg-gray-900 border border-gray-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row w-full h-full min-h-0 max-h-full mx-auto my-auto text-right select-none" dir="rtl">
       
       {/* ── Sidebar: Conversations List ── */}
-      <div className={`w-full md:w-80 border-b md:border-b-0 md:border-l border-gray-800 flex flex-col bg-gray-950 ${selectedChat ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`w-full md:w-80 border-b md:border-b-0 md:border-l border-gray-800 flex flex-col bg-gray-950 h-full min-h-0 flex-1 md:flex-none ${selectedChat ? 'hidden md:flex' : 'flex'}`}>
         {/* Top Header */}
-        <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+        <div className="p-4 border-b border-gray-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-amber-400" />
             <h2 className="text-white font-black text-lg">المحادثات 💬</h2>
@@ -589,7 +589,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
         </div>
 
         {/* Search Bar */}
-        <div className="p-3 border-b border-gray-800/60 bg-gray-900/50">
+        <div className="p-3 border-b border-gray-800/60 bg-gray-900/50 shrink-0">
           <div className="relative">
             <Search className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2" />
             <input
@@ -603,7 +603,10 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
         </div>
 
         {/* Chats List Body */}
-        <div className="flex-1 overflow-y-auto divide-y divide-gray-800/40 overscroll-contain">
+        <div 
+          className="flex-1 min-h-0 overflow-y-auto divide-y divide-gray-800/40 overscroll-contain touch-pan-y"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {loadingChats ? (
             <div className="p-8 text-center text-gray-400 flex flex-col items-center gap-2">
               <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
