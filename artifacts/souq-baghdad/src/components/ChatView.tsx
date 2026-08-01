@@ -6,7 +6,9 @@ import {
 } from 'lucide-react';
 import { StoredUser, User } from '../types';
 import { getRelative } from '../utils/time';
-import { useOnlineStatuses } from '../hooks/useOnlineStatuses';
+import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { getNumericHash } from '../utils/helpers';
 
 export interface Chat {
   id: string;
@@ -218,6 +220,14 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
           .eq('chat_id', chatId)
           .neq('sender_id', String(currentUser.id))
           .eq('is_read', false);
+
+        // Cancel tray notification for this chat
+        if (Capacitor.isNativePlatform()) {
+          try {
+            const notifId = getNumericHash(chatId);
+            LocalNotifications.cancel({ notifications: [{ id: notifId }] }).catch(() => {});
+          } catch (e) {}
+        }
 
         // Update local chat unread count
         setChats(prev => prev.map(c => c.id === chatId ? { ...c, unread_count: 0 } : c));

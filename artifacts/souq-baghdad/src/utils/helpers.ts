@@ -24,6 +24,17 @@ export const getGlowClass = (role?: string): string => {
   return '';
 };
 
+export const getNumericHash = (str: string): number => {
+  if (!str) return 100000;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0;
+  }
+  return Math.abs(hash) % 2147483647;
+};
+
 export const getWhatsAppResetLink = (phone: string): string => {
   if (!phone) return '#';
   let clean = phone.replace(/[^0-9]/g, '');

@@ -67,6 +67,7 @@ import { Keyboard } from '@capacitor/keyboard';
 import { Geolocation } from '@capacitor/geolocation';
 import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
 import { Capacitor } from '@capacitor/core';
+import { getNumericHash } from './utils/helpers';
 // ─────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────
@@ -638,6 +639,49 @@ export default function App() {
   const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
   const playNotificationSound = useSound();
 
+  const activeChatIdRef = useRef(activeChatId);
+  const showChatModalRef = useRef(showChatModal);
+
+  useEffect(() => {
+    activeChatIdRef.current = activeChatId;
+  }, [activeChatId]);
+
+  useEffect(() => {
+    showChatModalRef.current = showChatModal;
+  }, [showChatModal]);
+
+  // Deep Link Listener for Notifications (Push & Local)
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      const subLocal = LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
+        const extra = action.notification.extra;
+        if (extra && (extra.chatId || extra.chat_id)) {
+          const targetChatId = extra.chatId || extra.chat_id;
+          setActiveChatId(targetChatId);
+          setShowChatModal(true);
+          const notifId = getNumericHash(targetChatId);
+          LocalNotifications.cancel({ notifications: [{ id: notifId }] }).catch(() => {});
+        }
+      });
+
+      const subPush = PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+        const data = action.notification.data;
+        if (data && (data.chatId || data.chat_id)) {
+          const targetChatId = data.chatId || data.chat_id;
+          setActiveChatId(targetChatId);
+          setShowChatModal(true);
+          const notifId = getNumericHash(targetChatId);
+          LocalNotifications.cancel({ notifications: [{ id: notifId }] }).catch(() => {});
+        }
+      });
+
+      return () => {
+        subLocal.remove();
+        subPush.remove();
+      };
+    }
+  }, []);
+
   // Fetch unread messages count
   const fetchUnreadChatCount = useCallback(async () => {
     if (!user) {
@@ -691,35 +735,66 @@ export default function App() {
           const newMsg = payload.new as any;
           if (String(newMsg.sender_id) !== currentUserIdStr) {
             // Verify if chat belongs to active user
-            const { data: isMyChat } = await supabase
+            const { data: chatRow } = await supabase
               .from('chats')
-              .select('id')
+              .select('id, buyer_id, seller_id, ad_title')
               .eq('id', newMsg.chat_id)
               .or(`buyer_id.eq.${currentUserIdStr},seller_id.eq.${currentUserIdStr}`)
               .maybeSingle();
 
-            if (isMyChat) {
-              playNotificationSound('info');
+            if (chatRow) {
               fetchUnreadChatCount();
 
-              // Trigger system external notification on native mobile devices (Android)
-              if (Capacitor.isNativePlatform()) {
-                try {
-                  await LocalNotifications.schedule({
-                    notifications: [
-                      {
-                        title: 'رسالة جديدة 💬',
-                        body: newMsg.content || 'وصلتك رسالة جديدة في سوق بغداد',
-                        id: Math.floor(Math.random() * 100000),
-                        schedule: { at: new Date(Date.now() + 100) },
-                        sound: 'res://platform_default',
-                        actionTypeId: '',
-                        extra: null
-                      }
-                    ]
-                  });
-                } catch (err) {
-                  console.warn('Failed to trigger LocalNotification:', err);
+              const isCurrentlyInThisChat = showChatModalRef.current && String(activeChatIdRef.current) === String(newMsg.chat_id);
+
+              if (isCurrentlyInThisChat) {
+                // Active Chat is open -> Silence system tray notification, just play in-app sound
+                playNotificationSound('info');
+              } else {
+                playNotificationSound('info');
+
+                if (Capacitor.isNativePlatform()) {
+                  try {
+                    const isBuyer = String(chatRow.buyer_id) === currentUserIdStr;
+                    const otherUserId = isBuyer ? chatRow.seller_id : chatRow.buyer_id;
+
+                    const { data: senderProfile } = await supabase
+                      .from('profiles')
+                      .select('full_name')
+                      .eq('id', otherUserId)
+                      .maybeSingle();
+
+                    const senderName = senderProfile?.full_name || 'سوق بغداد';
+
+                    const { count: unreadCount } = await supabase
+                      .from('messages')
+                      .select('*', { count: 'exact', head: true })
+                      .eq('chat_id', newMsg.chat_id)
+                      .eq('is_read', false)
+                      .neq('sender_id', currentUserIdStr);
+
+                    const totalUnread = unreadCount || 1;
+                    const notifId = getNumericHash(newMsg.chat_id);
+
+                    await LocalNotifications.schedule({
+                      notifications: [
+                        {
+                          title: senderName,
+                          body: totalUnread > 1 
+                            ? `💬 ${totalUnread} رسائل جديدة: ${newMsg.content}` 
+                            : `💬 ${newMsg.content}`,
+                          id: notifId,
+                          channelId: 'souq_baghdad_high_importance',
+                          schedule: { at: new Date(Date.now() + 100) },
+                          sound: 'res://platform_default',
+                          actionTypeId: '',
+                          extra: { chatId: newMsg.chat_id, type: 'chat' }
+                        }
+                      ]
+                    });
+                  } catch (err) {
+                    console.warn('Failed to trigger LocalNotification:', err);
+                  }
                 }
               }
             }
