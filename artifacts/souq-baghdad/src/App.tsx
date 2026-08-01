@@ -67,6 +67,7 @@ import { Keyboard } from '@capacitor/keyboard';
 import { Geolocation } from '@capacitor/geolocation';
 import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
 import { Capacitor } from '@capacitor/core';
+import { Badge } from '@capawesome/capacitor-badge';
 import { getNumericHash } from './utils/helpers';
 // ─────────────────────────────────────────────
 // Constants
@@ -686,6 +687,9 @@ export default function App() {
   const fetchUnreadChatCount = useCallback(async () => {
     if (!user) {
       setUnreadChatCount(0);
+      if (Capacitor.isNativePlatform()) {
+        Badge.clear().catch(() => {});
+      }
       return;
     }
     try {
@@ -704,9 +708,26 @@ export default function App() {
           .eq('is_read', false)
           .neq('sender_id', currentUserIdStr);
 
-        setUnreadChatCount(count || 0);
+        const totalUnread = count || 0;
+        setUnreadChatCount(totalUnread);
+
+        // Update Native Launcher Icon Badge
+        if (Capacitor.isNativePlatform()) {
+          try {
+            if (totalUnread > 0) {
+              await Badge.set({ count: totalUnread });
+            } else {
+              await Badge.clear();
+            }
+          } catch (e) {
+            console.warn('Failed to update native app badge:', e);
+          }
+        }
       } else {
         setUnreadChatCount(0);
+        if (Capacitor.isNativePlatform()) {
+          Badge.clear().catch(() => {});
+        }
       }
     } catch (e) {
       console.error('Error fetching unread chat count:', e);
@@ -784,6 +805,7 @@ export default function App() {
                             ? `💬 ${totalUnread} رسائل جديدة: ${newMsg.content}` 
                             : `💬 ${newMsg.content}`,
                           id: notifId,
+                          badge: totalUnread,
                           channelId: 'souq_baghdad_high_importance',
                           schedule: { at: new Date(Date.now() + 100) },
                           sound: 'res://platform_default',

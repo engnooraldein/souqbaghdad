@@ -8,6 +8,7 @@ import { StoredUser, User } from '../types';
 import { getRelative } from '../utils/time';
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { Badge } from '@capawesome/capacitor-badge';
 import { getNumericHash } from '../utils/helpers';
 import { useOnlineStatuses } from '../hooks/useOnlineStatuses';
 
@@ -222,11 +223,18 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
           .neq('sender_id', String(currentUser.id))
           .eq('is_read', false);
 
-        // Cancel tray notification for this chat
+        // Cancel tray notification & update native badge icon for this chat
         if (Capacitor.isNativePlatform()) {
           try {
             const notifId = getNumericHash(chatId);
             LocalNotifications.cancel({ notifications: [{ id: notifId }] }).catch(() => {});
+
+            const { count } = await Badge.get();
+            if (count && count > 0) {
+              await Badge.decrease();
+            } else {
+              await Badge.clear();
+            }
           } catch (e) {}
         }
 
