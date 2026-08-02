@@ -4381,7 +4381,10 @@ export default function App() {
               }}
               className="fixed inset-0 z-[110] flex items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm overscroll-none"
             >
-              <div className="w-full max-w-5xl h-full sm:h-[88vh] sm:max-h-[750px] flex flex-col min-h-0">
+              <div
+                style={{ height: '100dvh' }}
+                className="w-full max-w-5xl flex flex-col min-h-0 sm:!h-[88vh] sm:max-h-[750px]"
+              >
                 <ChatView
                   currentUser={user}
                   activeChatId={activeChatId}

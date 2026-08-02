@@ -365,8 +365,11 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       setMessages(reversed);
       setHasMoreMessages((count || 0) > PAGE_SIZE);
 
-      // Auto scroll to bottom instantly
-      setTimeout(() => scrollToBottom(true), 50);
+      // Auto scroll to bottom after render
+      requestAnimationFrame(() => scrollToBottom(true));
+      setTimeout(() => scrollToBottom(true), 80);
+      setTimeout(() => scrollToBottom(true), 250);
+      setTimeout(() => scrollToBottom(true), 600);
 
       // Mark unread messages as read
       if (currentUser) {
@@ -999,7 +1002,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
   const isPartnerOnline = selectedChat?.other_user_id ? onlineStatuses[selectedChat.other_user_id] : false;
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row w-full h-full min-h-0 max-h-full mx-auto my-auto text-right select-none" dir="rtl">
+    <div className="bg-gray-900 border border-gray-800 rounded-3xl shadow-2xl flex flex-col md:flex-row w-full h-full min-h-0 text-right select-none overflow-hidden" dir="rtl">
       
       {/* ── Sidebar: Conversations List ── */}
       <div className={`w-full md:w-80 border-b md:border-b-0 md:border-l border-gray-800 flex flex-col bg-gray-950 h-full min-h-0 flex-1 md:flex-none ${selectedChat ? 'hidden md:flex' : 'flex'}`}>
@@ -1144,8 +1147,8 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       <div className={`flex-1 min-h-0 min-w-0 flex flex-col bg-gray-900 ${!selectedChat ? 'hidden md:flex' : 'flex'}`}>
         {selectedChat ? (
           <>
-            {/* Header (100% Fixed Sticky Header) */}
-            <div className="p-3.5 border-b border-gray-800 flex items-center justify-between bg-gray-950 shadow-md shrink-0 sticky top-0 z-30">
+            {/* Header - sticky at top */}
+            <div className="p-3.5 border-b border-gray-800 flex items-center justify-between bg-gray-950 shadow-md shrink-0 z-30">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setSelectedChat(null)}
@@ -1252,12 +1255,12 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
               </div>
             </div>
 
-            {/* Messages Body */}
+            {/* Messages Body - takes all remaining space */}
             <div 
               ref={messagesContainerRef}
               onScroll={handleScroll}
-              className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 overscroll-contain touch-pan-y relative bg-gradient-to-b from-gray-900 to-gray-950"
-              style={{ WebkitOverflowScrolling: 'touch' }}
+              className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 overscroll-contain relative bg-gradient-to-b from-gray-900 to-gray-950"
+              style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
             >
               {/* Load Older Messages Button */}
               {hasMoreMessages && !loadingOlder && !loadingMessages && (
@@ -1473,8 +1476,8 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
               </div>
             )}
 
-            {/* Input Footer (100% Fixed Sticky Footer) */}
-            <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-800 bg-gray-950 flex items-center gap-2 shadow-inner shrink-0 sticky bottom-0 z-30">
+            {/* Input Footer - sticky at bottom */}
+            <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-800 bg-gray-950 flex items-center gap-2 shadow-inner shrink-0 z-30">
               <input
                 ref={inputRef}
                 type="text"
