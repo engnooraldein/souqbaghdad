@@ -67,12 +67,15 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
 
-  // New Modern Chat States
+  // New Modern Chat States & Long-Press Menu (Instagram Style)
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingChat, setDeletingChat] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [activeMessageMenu, setActiveMessageMenu] = useState<Message | null>(null);
+
+  const longPressTimerRef = useRef<any>(null);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -564,6 +567,32 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     }
   };
 
+  // Long Press & Context Menu Handlers (Instagram Style)
+  const handleTouchStartMessage = (msg: Message) => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = setTimeout(() => {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try { navigator.vibrate(30); } catch (e) {}
+      }
+      setActiveMessageMenu(msg);
+    }, 450);
+  };
+
+  const handleTouchEndMessage = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleContextMenuMessage = (e: React.MouseEvent, msg: Message) => {
+    e.preventDefault();
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      try { navigator.vibrate(20); } catch (err) {}
+    }
+    setActiveMessageMenu(msg);
+  };
+
   // Start Edit Message
   const handleStartEditMessage = (msg: Message) => {
     setEditingMessage(msg);
@@ -1014,10 +1043,15 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                   return (
                     <div
                       key={msg.id}
-                      className={`flex ${isMe ? 'justify-start' : 'justify-end'} transition-all group`}
+                      className={`flex ${isMe ? 'justify-start' : 'justify-end'} transition-all`}
                     >
                       <div
-                        className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-2.5 text-sm shadow-md transition-transform relative ${
+                        onTouchStart={() => handleTouchStartMessage(msg)}
+                        onTouchEnd={handleTouchEndMessage}
+                        onTouchMove={handleTouchEndMessage}
+                        onContextMenu={e => handleContextMenuMessage(e, msg)}
+                        onClick={() => setActiveMessageMenu(msg)}
+                        className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-2.5 text-sm shadow-md transition-transform relative cursor-pointer select-none active:scale-[0.98] ${
                           isMe
                             ? 'bg-amber-500 text-black font-semibold rounded-tr-none'
                             : 'bg-gray-800 text-white rounded-tl-none border border-gray-700/60'
@@ -1046,35 +1080,6 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                               )}
                             </div>
                           )}
-
-                          {/* Quick Message Actions: Copy / Edit / Delete */}
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 mr-1">
-                            <button
-                              onClick={() => handleCopyMessage(msg.content, msg.id)}
-                              className="p-1 rounded hover:bg-black/10 transition-colors"
-                              title="نسخ النص"
-                            >
-                              {copiedMessageId === msg.id ? <Check className="w-3 h-3 text-emerald-900" /> : <Copy className="w-3 h-3" />}
-                            </button>
-                            {isMe && !isTemp && (
-                              <>
-                                <button
-                                  onClick={() => handleStartEditMessage(msg)}
-                                  className="p-1 rounded hover:bg-black/10 transition-colors"
-                                  title="تعديل الرسالة"
-                                >
-                                  <Pencil className="w-3 h-3" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteSingleMessage(msg.id)}
-                                  className="p-1 rounded hover:bg-black/10 text-red-900 transition-colors"
-                                  title="حذف الرسالة"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </>
-                            )}
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -1138,6 +1143,102 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
           <div className="flex-1 flex flex-col items-center justify-center text-gray-500 p-8 text-center">
             <MessageSquare className="w-14 h-14 text-gray-700 mb-3" />
             <p className="text-sm font-bold text-gray-400">اختر محادثة من القائمة للبدء بالمراسلة 💬</p>
+          </div>
+        )}
+
+        {/* 🌟 Instagram/Telegram Style Long-Press Context Menu Popover */}
+        {activeMessageMenu && (
+          <div 
+            onClick={() => setActiveMessageMenu(null)}
+            className="fixed inset-0 z-[200] flex flex-col items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-150"
+          >
+            <div 
+              onClick={e => e.stopPropagation()} 
+              className="w-full max-w-xs flex flex-col items-center gap-3 animate-in fade-in zoom-in-95 duration-150 select-none"
+            >
+              {/* 1. Emoji Quick Reaction Bar (Instagram Style) */}
+              <div className="bg-gray-900/95 border border-gray-700/80 rounded-full px-4 py-2.5 shadow-2xl flex items-center gap-3 text-2xl backdrop-blur-xl">
+                {['❤️', '😂', '😮', '😢', '😡', '👍', '👏'].map(emoji => (
+                  <button
+                    key={emoji}
+                    onClick={() => {
+                      handleCopyMessage(`${emoji} ${activeMessageMenu.content}`, activeMessageMenu.id);
+                      setActiveMessageMenu(null);
+                    }}
+                    className="hover:scale-130 active:scale-95 transition-transform cursor-pointer"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+
+              {/* 2. Highlighted Active Message Preview Bubble */}
+              <div 
+                className={`w-full rounded-2xl px-4 py-3 text-sm shadow-2xl border ${
+                  String(activeMessageMenu.sender_id) === String(currentUser.id)
+                    ? 'bg-amber-500 text-black font-semibold border-amber-400'
+                    : 'bg-gray-800 text-white border-gray-700'
+                }`}
+              >
+                <p className="whitespace-pre-wrap break-words text-xs sm:text-sm leading-relaxed">
+                  {activeMessageMenu.content}
+                </p>
+                <div className={`text-[10px] mt-1 text-left ${String(activeMessageMenu.sender_id) === String(currentUser.id) ? 'text-black/70' : 'text-gray-400'}`}>
+                  {new Date(activeMessageMenu.created_at).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+
+              {/* 3. Instagram-Style Action List Card */}
+              <div className="w-full bg-gray-900/95 border border-gray-800 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-xl divide-y divide-gray-800/80">
+                <button
+                  onClick={() => {
+                    handleCopyMessage(activeMessageMenu.content, activeMessageMenu.id);
+                    setActiveMessageMenu(null);
+                  }}
+                  className="w-full px-4 py-3.5 text-right text-xs font-extrabold text-gray-200 hover:bg-gray-800 flex items-center justify-between transition-colors"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Copy className="w-4 h-4 text-amber-400" />
+                    <span>نسخ النص</span>
+                  </span>
+                  <span className="text-[10px] text-gray-500 font-normal">Copy</span>
+                </button>
+
+                {String(activeMessageMenu.sender_id) === String(currentUser.id) && !activeMessageMenu.id.startsWith('temp-') && (
+                  <button
+                    onClick={() => {
+                      const msg = activeMessageMenu;
+                      setActiveMessageMenu(null);
+                      handleStartEditMessage(msg);
+                    }}
+                    className="w-full px-4 py-3.5 text-right text-xs font-extrabold text-gray-200 hover:bg-gray-800 flex items-center justify-between transition-colors"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <Pencil className="w-4 h-4 text-amber-400" />
+                      <span>تعديل الرسالة</span>
+                    </span>
+                    <span className="text-[10px] text-gray-500 font-normal">Edit</span>
+                  </button>
+                )}
+
+                {String(activeMessageMenu.sender_id) === String(currentUser.id) && !activeMessageMenu.id.startsWith('temp-') && (
+                  <button
+                    onClick={() => {
+                      const id = activeMessageMenu.id;
+                      setActiveMessageMenu(null);
+                      handleDeleteSingleMessage(id);
+                    }}
+                    className="w-full px-4 py-3.5 text-right text-xs font-extrabold text-red-400 hover:bg-red-950/40 flex items-center justify-between transition-colors"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <Trash2 className="w-4 h-4 text-red-400" />
+                      <span>حذف الرسالة</span>
+                    </span>
+                    <span className="text-[10px] text-red-500/70 font-normal">Delete</span>
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
