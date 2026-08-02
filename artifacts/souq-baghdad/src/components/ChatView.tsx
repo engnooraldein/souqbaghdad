@@ -1018,8 +1018,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
 
   return (
     <div
-      className="bg-gray-900 flex flex-col md:flex-row w-full h-full min-h-0 text-right select-none overflow-hidden rounded-none border-0"
-      style={{ paddingBottom: keyboardHeight > 0 ? keyboardHeight : undefined }}
+      className="bg-gray-900 flex flex-col md:flex-row w-full h-full min-h-0 text-right select-none overflow-hidden rounded-none border-0 relative"
       dir="rtl"
     >
       
@@ -1274,13 +1273,14 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
               </div>
             </div>
 
-            {/* Messages Body - takes all remaining space */}
+            {/* Messages Body - WhatsApp Style Bottom-aligned Messages Container */}
             <div 
               ref={messagesContainerRef}
               onScroll={handleScroll}
-              className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 overscroll-contain relative bg-gradient-to-b from-gray-900 to-gray-950"
+              className="flex-1 min-h-0 overflow-y-auto p-4 overscroll-contain relative bg-gradient-to-b from-gray-900 to-gray-950"
               style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
             >
+              <div className="min-h-full flex flex-col justify-end space-y-3">
               {/* Load Older Messages Button */}
               {hasMoreMessages && !loadingOlder && !loadingMessages && (
                 <div className="flex justify-center py-2">
@@ -1438,6 +1438,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                     );
                   })
               )}
+              </div>
               <div ref={messagesEndRef} />
             </div>
 
