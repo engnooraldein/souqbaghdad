@@ -1,6 +1,6 @@
 {
   "name": "@workspace/souq-baghdad",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "تحديث نظام الإشعارات الفورية",
   "private": true,
   "type": "module",
