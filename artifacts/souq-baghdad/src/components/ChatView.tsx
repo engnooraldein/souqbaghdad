@@ -1018,7 +1018,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
 
   return (
     <div
-      className="bg-gray-900 border border-gray-800 rounded-3xl shadow-2xl flex flex-col md:flex-row w-full h-full min-h-0 text-right select-none overflow-hidden"
+      className="bg-gray-900 flex flex-col md:flex-row w-full h-full min-h-0 text-right select-none overflow-hidden rounded-none border-0"
       style={{ paddingBottom: keyboardHeight > 0 ? keyboardHeight : undefined }}
       dir="rtl"
     >

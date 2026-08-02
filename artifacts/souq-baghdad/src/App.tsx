@@ -4379,29 +4379,25 @@ export default function App() {
               onTouchMove={e => {
                 if (e.target === e.currentTarget) e.preventDefault();
               }}
-              className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm overscroll-none sm:p-4"
+              className="fixed inset-0 z-[110] flex flex-col bg-gray-950 overscroll-none w-full h-full"
+              style={{ height: '100dvh', width: '100vw' }}
             >
-              <div
-                style={{ height: '100dvh' }}
-                className="w-full max-w-5xl flex flex-col min-h-0 sm:!h-[88vh] sm:max-h-[750px]"
-              >
-                <ChatView
-                  currentUser={user}
-                  activeChatId={activeChatId}
-                  onClose={() => {
-                    setShowChatModal(false);
-                    setActiveChatId(null);
-                  }}
-                  onOpenAuth={() => {
-                    setShowChatModal(false);
-                    setShowAuth(true);
-                  }}
-                  onOpenSellerProfile={(userId) => {
-                    setShowChatModal(false);
-                    setSelectedSellerId(userId);
-                  }}
-                />
-              </div>
+              <ChatView
+                currentUser={user}
+                activeChatId={activeChatId}
+                onClose={() => {
+                  setShowChatModal(false);
+                  setActiveChatId(null);
+                }}
+                onOpenAuth={() => {
+                  setShowChatModal(false);
+                  setShowAuth(true);
+                }}
+                onOpenSellerProfile={(userId) => {
+                  setShowChatModal(false);
+                  setSelectedSellerId(userId);
+                }}
+              />
             </div>
           </Suspense>
         )}
