@@ -4379,7 +4379,7 @@ export default function App() {
               onTouchMove={e => {
                 if (e.target === e.currentTarget) e.preventDefault();
               }}
-              className="fixed inset-0 z-[110] flex items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm overscroll-none"
+              className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm overscroll-none sm:p-4"
             >
               <div
                 style={{ height: '100dvh' }}

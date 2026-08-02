@@ -118,6 +118,9 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
 
   const longPressTimerRef = useRef<any>(null);
 
+  // 📱 Visual Viewport (keyboard height tracker for mobile web)
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
   // Load reactions from local storage on chat switch
   useEffect(() => {
     if (selectedChat?.id) {
@@ -143,16 +146,28 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
   const typingTimeoutRef = useRef<any>(null);
   const onlineStatuses = useOnlineStatuses();
 
-  // 1. Lock Body Scroll completely when Chat is open (منع تحرك الصفحة الخلفية)
+  // 1. Lock Body Scroll + track keyboard height via Visual Viewport API
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
     const originalTouchAction = document.body.style.touchAction;
     document.body.style.overflow = 'hidden';
     document.body.style.touchAction = 'none';
 
+    const onViewportResize = () => {
+      if (window.visualViewport) {
+        const kbHeight = window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop;
+        setKeyboardHeight(Math.max(0, kbHeight));
+      }
+    };
+
+    window.visualViewport?.addEventListener('resize', onViewportResize);
+    window.visualViewport?.addEventListener('scroll', onViewportResize);
+
     return () => {
       document.body.style.overflow = originalOverflow;
       document.body.style.touchAction = originalTouchAction;
+      window.visualViewport?.removeEventListener('resize', onViewportResize);
+      window.visualViewport?.removeEventListener('scroll', onViewportResize);
     };
   }, []);
 
@@ -1002,7 +1017,11 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
   const isPartnerOnline = selectedChat?.other_user_id ? onlineStatuses[selectedChat.other_user_id] : false;
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-3xl shadow-2xl flex flex-col md:flex-row w-full h-full min-h-0 text-right select-none overflow-hidden" dir="rtl">
+    <div
+      className="bg-gray-900 border border-gray-800 rounded-3xl shadow-2xl flex flex-col md:flex-row w-full h-full min-h-0 text-right select-none overflow-hidden"
+      style={{ paddingBottom: keyboardHeight > 0 ? keyboardHeight : undefined }}
+      dir="rtl"
+    >
       
       {/* ── Sidebar: Conversations List ── */}
       <div className={`w-full md:w-80 border-b md:border-b-0 md:border-l border-gray-800 flex flex-col bg-gray-950 h-full min-h-0 flex-1 md:flex-none ${selectedChat ? 'hidden md:flex' : 'flex'}`}>
