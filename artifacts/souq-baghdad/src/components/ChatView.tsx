@@ -118,9 +118,6 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
 
   const longPressTimerRef = useRef<any>(null);
 
-  // 📱 Visual Viewport (keyboard height tracker for mobile web)
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-
   // Load reactions from local storage on chat switch
   useEffect(() => {
     if (selectedChat?.id) {
@@ -146,69 +143,44 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
   const typingTimeoutRef = useRef<any>(null);
   const onlineStatuses = useOnlineStatuses();
 
-  // Multi-stage Instant Auto-scroll helper
+  // Scroll to bottom - uses scrollIntoView which works best on iOS Safari
   const scrollToBottom = useCallback((instant = false) => {
-    if (!messagesContainerRef.current) return;
-    const performScroll = () => {
-      if (messagesContainerRef.current) {
-        messagesContainerRef.current.scrollTo({
-          top: messagesContainerRef.current.scrollHeight + 10000,
-          behavior: instant ? 'auto' : 'smooth'
-        });
-      }
-    };
-    performScroll();
-    requestAnimationFrame(performScroll);
-    setTimeout(performScroll, 50);
-    setTimeout(performScroll, 180);
-    setTimeout(performScroll, 350);
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({
+        behavior: instant ? 'auto' : 'smooth',
+        block: 'end',
+      });
+    } else if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
   }, []);
 
-  // 1. Lock Body Scroll + lock outer window scroll on mobile keyboard open
+  // Lock body scroll when chat is open
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
-    const originalTouchAction = document.body.style.touchAction;
     document.body.style.overflow = 'hidden';
-    document.body.style.touchAction = 'none';
 
-    const lockWindowScroll = () => {
-      if (window.scrollY !== 0 || window.scrollX !== 0) {
-        window.scrollTo(0, 0);
-      }
-      if (document.body.scrollTop !== 0) {
-        document.body.scrollTop = 0;
-      }
+    // After keyboard opens on iOS, give it time to settle then scroll to bottom
+    const onVpResize = () => {
+      setTimeout(() => scrollToBottom(true), 350);
     };
-
-    const onViewportResize = () => {
-      lockWindowScroll();
-      requestAnimationFrame(() => scrollToBottom(true));
-      setTimeout(() => scrollToBottom(true), 60);
-      setTimeout(() => scrollToBottom(true), 180);
-    };
-
-    window.addEventListener('scroll', lockWindowScroll, { passive: true });
-    window.visualViewport?.addEventListener('resize', onViewportResize);
-    window.visualViewport?.addEventListener('scroll', onViewportResize);
+    window.visualViewport?.addEventListener('resize', onVpResize);
 
     return () => {
       document.body.style.overflow = originalOverflow;
-      document.body.style.touchAction = originalTouchAction;
-      window.removeEventListener('scroll', lockWindowScroll);
-      window.visualViewport?.removeEventListener('resize', onViewportResize);
-      window.visualViewport?.removeEventListener('scroll', onViewportResize);
+      window.visualViewport?.removeEventListener('resize', onVpResize);
     };
   }, [scrollToBottom]);
 
-  // Auto-scroll when new message is added or sent
+
+  // Auto-scroll when new message arrives
   const lastMsgId = messages.length > 0 ? messages[messages.length - 1].id : null;
   useEffect(() => {
     if (lastMsgId) {
       requestAnimationFrame(() => scrollToBottom(true));
-      setTimeout(() => scrollToBottom(true), 60);
-      setTimeout(() => scrollToBottom(true), 200);
+      setTimeout(() => scrollToBottom(true), 120);
     }
-  }, [messages.length, lastMsgId, scrollToBottom]);
+  }, [lastMsgId, scrollToBottom]);
 
   // Monitor Scroll Position for "Scroll to Bottom" button and Pagination
   const handleScroll = () => {
@@ -393,8 +365,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
 
       // Auto scroll to bottom after render
       requestAnimationFrame(() => scrollToBottom(true));
-      setTimeout(() => scrollToBottom(true), 80);
-      setTimeout(() => scrollToBottom(true), 250);
+      setTimeout(() => scrollToBottom(true), 200);
       setTimeout(() => scrollToBottom(true), 600);
 
       // Mark unread messages as read
@@ -1284,11 +1255,11 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
               </div>
             </div>
 
-            {/* Messages Body - WhatsApp Style Bottom-aligned Messages Container */}
+            {/* Messages Body - scrollable area */}
             <div 
               ref={messagesContainerRef}
               onScroll={handleScroll}
-              className="flex-1 min-h-0 overflow-y-auto p-4 overscroll-contain relative bg-gradient-to-b from-gray-900 to-gray-950"
+              className="flex-1 min-h-0 overflow-y-auto p-4 pb-2 overscroll-contain relative bg-gradient-to-b from-gray-900 to-gray-950"
               style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
             >
               <div className="min-h-full flex flex-col justify-end space-y-3">
@@ -1450,7 +1421,8 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                   })
               )}
               </div>
-              <div ref={messagesEndRef} />
+              {/* Scroll anchor - MUST be inside the scroll container */}
+              <div ref={messagesEndRef} style={{ height: 1, flexShrink: 0 }} />
             </div>
 
             {/* Jump to Bottom Floating Action Button */}
@@ -1515,10 +1487,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                 value={newMessage}
                 onChange={e => handleTypingInput(e.target.value)}
                 onFocus={() => {
-                  if (typeof window !== 'undefined') window.scrollTo(0, 0);
-                  requestAnimationFrame(() => scrollToBottom(true));
-                  setTimeout(() => scrollToBottom(true), 60);
-                  setTimeout(() => scrollToBottom(true), 180);
+                  setTimeout(() => scrollToBottom(true), 350);
                 }}
                 placeholder={editingMessage ? "تعديل نص الرسالة..." : replyingTo ? "اكتب ردك هنا..." : "اكتب رسالتك هنا..."}
                 className="flex-1 bg-gray-900 text-white border border-gray-700/80 rounded-2xl px-4 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-400 transition-colors shadow-inner"
