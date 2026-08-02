@@ -162,17 +162,27 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     const performScroll = () => {
       if (messagesContainerRef.current) {
         messagesContainerRef.current.scrollTo({
-          top: messagesContainerRef.current.scrollHeight + 1000,
+          top: messagesContainerRef.current.scrollHeight + 10000,
           behavior: instant ? 'auto' : 'smooth'
         });
       }
     };
     performScroll();
     requestAnimationFrame(performScroll);
-    setTimeout(performScroll, 60);
-    setTimeout(performScroll, 200);
-    setTimeout(performScroll, 450);
+    setTimeout(performScroll, 50);
+    setTimeout(performScroll, 180);
+    setTimeout(performScroll, 350);
   }, []);
+
+  // Auto-scroll when new message is added or sent
+  const lastMsgId = messages.length > 0 ? messages[messages.length - 1].id : null;
+  useEffect(() => {
+    if (lastMsgId) {
+      requestAnimationFrame(() => scrollToBottom(true));
+      setTimeout(() => scrollToBottom(true), 60);
+      setTimeout(() => scrollToBottom(true), 200);
+    }
+  }, [messages.length, lastMsgId, scrollToBottom]);
 
   // Monitor Scroll Position for "Scroll to Bottom" button and Pagination
   const handleScroll = () => {
@@ -895,9 +905,9 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     setNewMessage('');
     setSending(true);
 
-    // 📱 KEEP VIRTUAL KEYBOARD OPEN! Focus input immediately
+    // 📱 KEEP VIRTUAL KEYBOARD OPEN! Focus input immediately without page jump
     requestAnimationFrame(() => {
-      inputRef.current?.focus();
+      inputRef.current?.focus({ preventScroll: true });
     });
 
     // Auto-scroll to latest message
@@ -949,9 +959,9 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       setNewMessage(rawContent);
     } finally {
       setSending(false);
-      // 📱 KEEP VIRTUAL KEYBOARD OPEN! Focus input immediately
+      // 📱 KEEP VIRTUAL KEYBOARD OPEN! Focus input immediately without page jump
       requestAnimationFrame(() => {
-        inputRef.current?.focus();
+        inputRef.current?.focus({ preventScroll: true });
       });
       scrollToBottom();
     }
@@ -1134,8 +1144,8 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       <div className={`flex-1 min-h-0 min-w-0 flex flex-col bg-gray-900 ${!selectedChat ? 'hidden md:flex' : 'flex'}`}>
         {selectedChat ? (
           <>
-            {/* Header */}
-            <div className="p-3.5 border-b border-gray-800 flex items-center justify-between bg-gray-950/80 shadow-md backdrop-blur-md shrink-0 relative z-30">
+            {/* Header (100% Fixed Sticky Header) */}
+            <div className="p-3.5 border-b border-gray-800 flex items-center justify-between bg-gray-950 shadow-md shrink-0 sticky top-0 z-30">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setSelectedChat(null)}
@@ -1463,8 +1473,8 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
               </div>
             )}
 
-            {/* Input Footer */}
-            <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-800 bg-gray-950 flex items-center gap-2 shadow-inner shrink-0">
+            {/* Input Footer (100% Fixed Sticky Footer) */}
+            <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-800 bg-gray-950 flex items-center gap-2 shadow-inner shrink-0 sticky bottom-0 z-30">
               <input
                 ref={inputRef}
                 type="text"

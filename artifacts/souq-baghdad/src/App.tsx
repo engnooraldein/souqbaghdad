@@ -4379,9 +4379,9 @@ export default function App() {
               onTouchMove={e => {
                 if (e.target === e.currentTarget) e.preventDefault();
               }}
-              className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm overscroll-none"
+              className="fixed inset-0 z-[110] flex items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm overscroll-none"
             >
-              <div className="w-full max-w-5xl h-[88vh] max-h-[750px] flex flex-col min-h-0">
+              <div className="w-full max-w-5xl h-full sm:h-[88vh] sm:max-h-[750px] flex flex-col min-h-0">
                 <ChatView
                   currentUser={user}
                   activeChatId={activeChatId}
