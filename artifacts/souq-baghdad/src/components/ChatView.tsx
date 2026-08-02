@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 import { 
   MessageSquare, Send, ArrowRight, User as UserIcon, Loader2, Package, 
   CheckCheck, Check, Search, ChevronDown, Circle, Volume2, Sparkles, RefreshCw, X,
-  MoreVertical, Trash2, Edit2, Copy, UserCheck, AlertTriangle, Pencil, CornerDownLeft
+  MoreVertical, Trash2, Edit2, Copy, UserCheck, AlertTriangle, Pencil, CornerDownLeft,
+  Reply, RotateCcw, Flag, Plus
 } from 'lucide-react';
 import { StoredUser, User } from '../types';
 import { getRelative } from '../utils/time';
@@ -40,6 +41,18 @@ export interface Message {
   is_edited?: boolean;
 }
 
+export interface MessageMenuTarget {
+  message: Message;
+  rect: {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+    width: number;
+    height: number;
+  };
+}
+
 interface ChatViewProps {
   currentUser: User | StoredUser | null;
   activeChatId?: string | null;
@@ -69,11 +82,21 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
 
   // New Modern Chat States & Long-Press Menu (Instagram Style)
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingChat, setDeletingChat] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-  const [activeMessageMenu, setActiveMessageMenu] = useState<Message | null>(null);
+  const [activeMessageMenu, setActiveMessageMenu] = useState<MessageMenuTarget | null>(null);
+  const [hiddenMessageIds, setHiddenMessageIds] = useState<Set<string>>(() => {
+    if (currentUser?.id) {
+      try {
+        const key = `hidden_msgs_${currentUser.id}`;
+        return new Set<string>(JSON.parse(localStorage.getItem(key) || '[]'));
+      } catch (e) {}
+    }
+    return new Set<string>();
+  });
 
   const longPressTimerRef = useRef<any>(null);
 
@@ -548,14 +571,47 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     }
   };
 
-  // Delete Single Message Handler
-  const handleDeleteSingleMessage = async (messageId: string) => {
+  // 🗑️ Delete for Me (Removes locally and persists in storage for current user)
+  const handleDeleteForMe = (messageId: string) => {
+    if (!currentUser) return;
+    setHiddenMessageIds(prev => {
+      const next = new Set(prev);
+      next.add(messageId);
+      try {
+        const key = `hidden_msgs_${currentUser.id}`;
+        localStorage.setItem(key, JSON.stringify(Array.from(next)));
+      } catch (e) {}
+      return next;
+    });
+    setMessages(prev => prev.filter(m => m.id !== messageId));
+  };
+
+  // 🔄 Unsend / Delete for Everyone (Removes from DB for both sender and recipient)
+  const handleUnsendForEveryone = async (messageId: string) => {
+    if (!messageId || messageId.startsWith('temp-')) return;
+    setMessages(prev => prev.filter(m => m.id !== messageId));
     try {
-      setMessages(prev => prev.filter(m => m.id !== messageId));
-      await supabase.from('messages').delete().eq('id', messageId);
+      await supabase
+        .from('messages')
+        .delete()
+        .eq('id', messageId);
     } catch (err) {
-      console.error('Error deleting message:', err);
+      console.error('Error unsending message:', err);
     }
+  };
+
+  // 🚩 Report Message
+  const handleReportMessage = (msg: Message) => {
+    alert('تم استلام إبلاغك وسيقوم فريق الإشراف بالتحقق من الرسالة واتخاذ الإجراء اللازم فوراً.');
+  };
+
+  // 😍 Quick Emoji Reaction
+  const handleReactEmoji = async (emoji: string, msg: Message) => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      try { navigator.vibrate(20); } catch (e) {}
+    }
+    setNewMessage(prev => (prev ? `${prev} ${emoji}` : emoji));
+    requestAnimationFrame(() => inputRef.current?.focus());
   };
 
   // Copy Message Text Handler
@@ -567,15 +623,46 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     }
   };
 
+  // Touch Position tracking ref for long-press cancellation on scroll
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+
   // Long Press & Context Menu Handlers (Instagram Style)
-  const handleTouchStartMessage = (msg: Message) => {
+  const handleTouchStartMessage = (e: React.TouchEvent<HTMLDivElement>, msg: Message) => {
+    const touch = e.touches[0];
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+    const target = e.currentTarget;
+
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     longPressTimerRef.current = setTimeout(() => {
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        try { navigator.vibrate(30); } catch (e) {}
+        try { navigator.vibrate(35); } catch (err) {}
       }
-      setActiveMessageMenu(msg);
-    }, 450);
+      const rect = target.getBoundingClientRect();
+      setActiveMessageMenu({
+        message: msg,
+        rect: {
+          top: rect.top,
+          bottom: rect.bottom,
+          left: rect.left,
+          right: rect.right,
+          width: rect.width,
+          height: rect.height,
+        }
+      });
+    }, 400);
+  };
+
+  const handleTouchMoveMessage = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!touchStartPosRef.current) return;
+    const touch = e.touches[0];
+    const dx = Math.abs(touch.clientX - touchStartPosRef.current.x);
+    const dy = Math.abs(touch.clientY - (touchStartPosRef.current?.y || 0));
+    if (dx > 8 || dy > 8) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    }
   };
 
   const handleTouchEndMessage = () => {
@@ -583,14 +670,26 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
+    touchStartPosRef.current = null;
   };
 
-  const handleContextMenuMessage = (e: React.MouseEvent, msg: Message) => {
+  const handleContextMenuMessage = (e: React.MouseEvent<HTMLDivElement>, msg: Message) => {
     e.preventDefault();
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      try { navigator.vibrate(20); } catch (err) {}
+      try { navigator.vibrate(25); } catch (err) {}
     }
-    setActiveMessageMenu(msg);
+    const rect = e.currentTarget.getBoundingClientRect();
+    setActiveMessageMenu({
+      message: msg,
+      rect: {
+        top: rect.top,
+        bottom: rect.bottom,
+        left: rect.left,
+        right: rect.right,
+        width: rect.width,
+        height: rect.height,
+      }
+    });
   };
 
   // Start Edit Message
@@ -607,7 +706,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
 
     // Tactile vibration feedback
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      try { navigator.vibrate(15); } catch (e) {}
+      try { navigator.vibrate(15); } catch (err) {}
     }
 
     // ✏️ Handle Edit Mode Submit
@@ -633,14 +732,21 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       return;
     }
 
-    const content = newMessage.trim();
+    const rawContent = newMessage.trim();
+    let finalContent = rawContent;
+    if (replyingTo) {
+      const snippet = replyingTo.content.length > 35 ? replyingTo.content.slice(0, 35) + '...' : replyingTo.content;
+      finalContent = `↩️ رداً على: "${snippet}"\n${rawContent}`;
+      setReplyingTo(null);
+    }
+
     const currentUserIdStr = String(currentUser.id);
     const tempId = 'temp-' + Date.now();
     const tempMsg: Message = {
       id: tempId,
       chat_id: selectedChat.id,
       sender_id: currentUserIdStr,
-      content,
+      content: finalContent,
       is_read: false,
       created_at: new Date().toISOString()
     };
@@ -1030,61 +1136,82 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                 <div className="flex justify-center items-center h-full">
                   <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
                 </div>
-              ) : messages.length === 0 ? (
+              ) : messages.filter(m => !hiddenMessageIds.has(m.id)).length === 0 ? (
                 <div className="text-center text-gray-500 text-xs py-16 flex flex-col items-center gap-2">
                   <Sparkles className="w-8 h-8 text-amber-400 opacity-60" />
                   <span>ابدأ المحادثة الآن بإرسال رسالة 💬</span>
                 </div>
               ) : (
-                messages.map(msg => {
-                  const isMe = String(msg.sender_id) === String(currentUser.id);
-                  const isTemp = msg.id.startsWith('temp-');
+                messages
+                  .filter(m => !hiddenMessageIds.has(m.id))
+                  .map(msg => {
+                    const isMe = String(msg.sender_id) === String(currentUser.id);
+                    const isTemp = msg.id.startsWith('temp-');
 
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`flex ${isMe ? 'justify-start' : 'justify-end'} transition-all`}
-                    >
-                      <div
-                        onTouchStart={() => handleTouchStartMessage(msg)}
-                        onTouchEnd={handleTouchEndMessage}
-                        onTouchMove={handleTouchEndMessage}
-                        onContextMenu={e => handleContextMenuMessage(e, msg)}
-                        onClick={() => setActiveMessageMenu(msg)}
-                        className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-2.5 text-sm shadow-md transition-transform relative cursor-pointer select-none active:scale-[0.98] ${
-                          isMe
-                            ? 'bg-amber-500 text-black font-semibold rounded-tr-none'
-                            : 'bg-gray-800 text-white rounded-tl-none border border-gray-700/60'
-                        }`}
-                      >
-                        <p className="whitespace-pre-wrap break-words text-xs sm:text-sm leading-relaxed">{msg.content}</p>
-                        
-                        <div className={`flex items-center gap-1.5 text-[10px] mt-1 ${isMe ? 'text-black/80 justify-end' : 'text-gray-400 justify-start'}`}>
-                          {msg.is_edited && (
-                            <span className="text-[9px] font-bold opacity-80">(معدّلة)</span>
-                          )}
-                          <span>{new Date(msg.created_at).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}</span>
-                          
-                          {/* Receipt Status Indicators */}
-                          {isMe && (
-                            <div className="flex items-center gap-0.5">
-                              {isTemp ? (
-                                <span className="text-[9px] opacity-75 animate-pulse">جاري الإرسال...</span>
-                              ) : msg.is_read ? (
-                                <div className="flex items-center gap-0.5 text-blue-950 font-black">
-                                  <span className="text-[9px]">تمت المشاهدة</span>
-                                  <CheckCheck className="w-3.5 h-3.5 stroke-[2.5]" />
-                                </div>
-                              ) : (
-                                <CheckCheck className="w-3.5 h-3.5 text-black/60" />
-                              )}
+                    // Helper to render reply prefix nicely
+                    const renderContent = (content: string) => {
+                      if (content.startsWith('↩️ رداً على: "')) {
+                        const firstLineEnd = content.indexOf('\n');
+                        if (firstLineEnd !== -1) {
+                          const quote = content.slice(0, firstLineEnd);
+                          const body = content.slice(firstLineEnd + 1);
+                          return (
+                            <div className="space-y-1">
+                              <div className={`text-[10px] px-2 py-0.5 rounded-lg border-r-2 ${isMe ? 'border-black/50 bg-black/10 text-black/90' : 'border-amber-400 bg-black/25 text-amber-300'} opacity-90 truncate max-w-full font-medium`}>
+                                {quote}
+                              </div>
+                              <p className="whitespace-pre-wrap break-words leading-relaxed">{body}</p>
                             </div>
-                          )}
+                          );
+                        }
+                      }
+                      return <p className="whitespace-pre-wrap break-words text-xs sm:text-sm leading-relaxed">{content}</p>;
+                    };
+
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex ${isMe ? 'justify-start' : 'justify-end'} transition-all`}
+                      >
+                        <div
+                          onTouchStart={e => handleTouchStartMessage(e, msg)}
+                          onTouchEnd={handleTouchEndMessage}
+                          onTouchMove={handleTouchMoveMessage}
+                          onContextMenu={e => handleContextMenuMessage(e, msg)}
+                          className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-2.5 text-sm shadow-md transition-transform relative cursor-pointer select-none active:scale-[0.98] ${
+                            isMe
+                              ? 'bg-amber-500 text-black font-semibold rounded-tr-none'
+                              : 'bg-gray-800 text-white rounded-tl-none border border-gray-700/60'
+                          }`}
+                        >
+                          {renderContent(msg.content)}
+                          
+                          <div className={`flex items-center gap-1.5 text-[10px] mt-1 ${isMe ? 'text-black/80 justify-end' : 'text-gray-400 justify-start'}`}>
+                            {msg.is_edited && (
+                              <span className="text-[9px] font-bold opacity-80">(معدّلة)</span>
+                            )}
+                            <span>{new Date(msg.created_at).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}</span>
+                            
+                            {/* Receipt Status Indicators */}
+                            {isMe && (
+                              <div className="flex items-center gap-0.5">
+                                {isTemp ? (
+                                  <span className="text-[9px] opacity-75 animate-pulse">جاري الإرسال...</span>
+                                ) : msg.is_read ? (
+                                  <div className="flex items-center gap-0.5 text-blue-950 font-black">
+                                    <span className="text-[9px]">تمت المشاهدة</span>
+                                    <CheckCheck className="w-3.5 h-3.5 stroke-[2.5]" />
+                                  </div>
+                                ) : (
+                                  <CheckCheck className="w-3.5 h-3.5 text-black/60" />
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })
+                    );
+                  })
               )}
               <div ref={messagesEndRef} />
             </div>
@@ -1098,6 +1225,29 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                 <ChevronDown className="w-4 h-4 stroke-[3]" />
                 <span className="hidden sm:inline">الأحدث</span>
               </button>
+            )}
+
+            {/* ↩️ Active Reply Banner */}
+            {replyingTo && (
+              <div className="px-4 py-2 bg-gray-900 border-t border-gray-800 text-xs flex items-center justify-between shrink-0 animate-in slide-in-from-bottom duration-150">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-1 h-7 bg-amber-400 rounded-full shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold text-amber-400 flex items-center gap-1">
+                      <Reply className="w-3 h-3" />
+                      <span>الرد على {String(replyingTo.sender_id) === String(currentUser.id) ? 'نفسك' : selectedChat?.other_user_name || 'رسالة'}</span>
+                    </p>
+                    <p className="text-[11px] text-gray-400 truncate max-w-xs">{replyingTo.content}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setReplyingTo(null)}
+                  className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 transition-colors"
+                  title="إلغاء الرد"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             )}
 
             {/* ✏️ Active Message Edit Banner */}
@@ -1127,7 +1277,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                 type="text"
                 value={newMessage}
                 onChange={e => handleTypingInput(e.target.value)}
-                placeholder={editingMessage ? "تعديل نص الرسالة..." : "اكتب رسالتك هنا..."}
+                placeholder={editingMessage ? "تعديل نص الرسالة..." : replyingTo ? "اكتب ردك هنا..." : "اكتب رسالتك هنا..."}
                 className="flex-1 bg-gray-900 text-white border border-gray-700/80 rounded-2xl px-4 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-400 transition-colors shadow-inner"
               />
               <button
@@ -1146,101 +1296,205 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
           </div>
         )}
 
-        {/* 🌟 Instagram/Telegram Style Long-Press Context Menu Popover */}
-        {activeMessageMenu && (
-          <div 
-            onClick={() => setActiveMessageMenu(null)}
-            className="fixed inset-0 z-[200] flex flex-col items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-150"
-          >
+        {/* 🌟 100% Instagram-Style Positioned Long-Press Context Menu Popover */}
+        {activeMessageMenu && (() => {
+          const windowHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+          const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 380;
+          const isMe = String(activeMessageMenu.message.sender_id) === String(currentUser.id);
+          const rect = activeMessageMenu.rect;
+
+          // Height required below for context menu card
+          const menuHeight = isMe ? 230 : 190;
+          const spaceBelow = windowHeight - rect.bottom;
+          const requiredSpaceBelow = menuHeight + 24;
+
+          let shiftY = 0;
+          if (spaceBelow < requiredSpaceBelow) {
+            shiftY = requiredSpaceBelow - spaceBelow;
+          }
+
+          // Make sure top doesn't clip top edge (room for reactions bar ~60px)
+          const targetTop = rect.top - shiftY;
+          if (targetTop < 75) {
+            shiftY = rect.top - 75;
+          }
+
+          const adjustedTop = Math.max(70, rect.top - shiftY);
+
+          // Calculate horizontal alignment
+          const rightOffset = Math.max(12, windowWidth - rect.right);
+          const leftOffset = Math.max(12, rect.left);
+
+          return (
             <div 
-              onClick={e => e.stopPropagation()} 
-              className="w-full max-w-xs flex flex-col items-center gap-3 animate-in fade-in zoom-in-95 duration-150 select-none"
+              onClick={() => setActiveMessageMenu(null)}
+              className="fixed inset-0 z-[200] bg-black/35 backdrop-blur-[5px] animate-in fade-in duration-150 select-none overflow-hidden"
             >
-              {/* 1. Emoji Quick Reaction Bar (Instagram Style) */}
-              <div className="bg-gray-900/95 border border-gray-700/80 rounded-full px-4 py-2.5 shadow-2xl flex items-center gap-3 text-2xl backdrop-blur-xl">
-                {['❤️', '😂', '😮', '😢', '😡', '👍', '👏'].map(emoji => (
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: `${adjustedTop}px`,
+                  ...(isMe ? { right: `${rightOffset}px` } : { left: `${leftOffset}px` }),
+                  width: `${Math.min(rect.width, windowWidth - 28)}px`,
+                }}
+                className="relative flex flex-col z-[210] animate-in fade-in zoom-in-95 duration-150"
+                onClick={e => e.stopPropagation()}
+              >
+                {/* 1. Emoji Reactions Bar (Floating Directly Above Bubble) */}
+                <div 
+                  style={{
+                    position: 'absolute',
+                    bottom: 'calc(100% + 10px)',
+                    ...(isMe ? { right: 0 } : { left: 0 }),
+                  }}
+                  className="bg-white text-gray-900 shadow-2xl rounded-full px-3.5 py-1.5 flex items-center gap-3 text-2xl border border-white/50 whitespace-nowrap backdrop-blur-md z-30"
+                >
+                  {['❤️', '😂', '😮', '😢', '😡', '👍'].map(emoji => (
+                    <button
+                      key={emoji}
+                      onClick={() => {
+                        handleReactEmoji(emoji, activeMessageMenu.message);
+                        setActiveMessageMenu(null);
+                      }}
+                      className="hover:scale-130 active:scale-95 transition-transform cursor-pointer"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
                   <button
-                    key={emoji}
                     onClick={() => {
-                      handleCopyMessage(`${emoji} ${activeMessageMenu.content}`, activeMessageMenu.id);
+                      handleReactEmoji('✨', activeMessageMenu.message);
                       setActiveMessageMenu(null);
                     }}
-                    className="hover:scale-130 active:scale-95 transition-transform cursor-pointer"
+                    className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 hover:text-black transition-colors"
+                    title="المزيد"
                   >
-                    {emoji}
+                    <Plus className="w-4 h-4" />
                   </button>
-                ))}
-              </div>
+                </div>
 
-              {/* 2. Highlighted Active Message Preview Bubble */}
-              <div 
-                className={`w-full rounded-2xl px-4 py-3 text-sm shadow-2xl border ${
-                  String(activeMessageMenu.sender_id) === String(currentUser.id)
-                    ? 'bg-amber-500 text-black font-semibold border-amber-400'
-                    : 'bg-gray-800 text-white border-gray-700'
-                }`}
-              >
-                <p className="whitespace-pre-wrap break-words text-xs sm:text-sm leading-relaxed">
-                  {activeMessageMenu.content}
-                </p>
-                <div className={`text-[10px] mt-1 text-left ${String(activeMessageMenu.sender_id) === String(currentUser.id) ? 'text-black/70' : 'text-gray-400'}`}>
-                  {new Date(activeMessageMenu.created_at).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}
+                {/* 2. Highlighted Message Bubble (Exact copy in exact position) */}
+                <div 
+                  className={`rounded-2xl px-4 py-2.5 text-sm shadow-2xl transition-all ${
+                    isMe
+                      ? 'bg-amber-500 text-black font-semibold rounded-tr-none ring-2 ring-amber-300'
+                      : 'bg-gray-800 text-white rounded-tl-none border border-gray-700 ring-2 ring-gray-600'
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap break-words text-xs sm:text-sm leading-relaxed">
+                    {activeMessageMenu.message.content}
+                  </p>
+                  <div className={`flex items-center gap-1.5 text-[10px] mt-1 ${isMe ? 'text-black/80 justify-end' : 'text-gray-400 justify-start'}`}>
+                    {activeMessageMenu.message.is_edited && <span className="text-[9px] font-bold opacity-80">(معدّلة)</span>}
+                    <span>{new Date(activeMessageMenu.message.created_at).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                </div>
+
+                {/* 3. Instagram Action Menu Card (Floating Directly Below Bubble) */}
+                <div 
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 10px)',
+                    ...(isMe ? { right: 0 } : { left: 0 }),
+                  }}
+                  className="w-56 bg-[#f4f3ef] dark:bg-[#252528] text-gray-900 dark:text-gray-100 rounded-[22px] shadow-2xl border border-gray-200/80 dark:border-gray-700/80 overflow-hidden backdrop-blur-2xl p-1.5 space-y-0.5 z-30"
+                >
+                  {/* Reply */}
+                  <button
+                    onClick={() => {
+                      setReplyingTo(activeMessageMenu.message);
+                      setActiveMessageMenu(null);
+                      requestAnimationFrame(() => inputRef.current?.focus());
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl text-right text-xs font-bold hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-between transition-colors"
+                  >
+                    <span className="flex items-center gap-3">
+                      <Reply className="w-4 h-4 text-gray-700 dark:text-gray-300" />
+                      <span>رد (Reply)</span>
+                    </span>
+                  </button>
+
+                  {/* Edit (if isMe) */}
+                  {isMe && !activeMessageMenu.message.id.startsWith('temp-') && (
+                    <button
+                      onClick={() => {
+                        const msg = activeMessageMenu.message;
+                        setActiveMessageMenu(null);
+                        handleStartEditMessage(msg);
+                      }}
+                      className="w-full px-3.5 py-2.5 rounded-xl text-right text-xs font-bold hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-between transition-colors"
+                    >
+                      <span className="flex items-center gap-3">
+                        <Pencil className="w-4 h-4 text-gray-700 dark:text-gray-300" />
+                        <span>تعديل (Edit)</span>
+                      </span>
+                    </button>
+                  )}
+
+                  {/* Copy */}
+                  <button
+                    onClick={() => {
+                      handleCopyMessage(activeMessageMenu.message.content, activeMessageMenu.message.id);
+                      setActiveMessageMenu(null);
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl text-right text-xs font-bold hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-between transition-colors"
+                  >
+                    <span className="flex items-center gap-3">
+                      <Copy className="w-4 h-4 text-gray-700 dark:text-gray-300" />
+                      <span>نسخ النص (Copy)</span>
+                    </span>
+                  </button>
+
+                  {/* Delete for Me */}
+                  <button
+                    onClick={() => {
+                      handleDeleteForMe(activeMessageMenu.message.id);
+                      setActiveMessageMenu(null);
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl text-right text-xs font-bold hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-between transition-colors"
+                  >
+                    <span className="flex items-center gap-3">
+                      <Trash2 className="w-4 h-4 text-gray-700 dark:text-gray-300" />
+                      <span>حذف لديّ فقط (Delete for you)</span>
+                    </span>
+                  </button>
+
+                  {/* Unsend / Delete for Everyone (if isMe) */}
+                  {isMe && !activeMessageMenu.message.id.startsWith('temp-') && (
+                    <button
+                      onClick={() => {
+                        handleUnsendForEveryone(activeMessageMenu.message.id);
+                        setActiveMessageMenu(null);
+                      }}
+                      className="w-full px-3.5 py-2.5 rounded-xl text-right text-xs font-extrabold text-red-600 dark:text-red-400 hover:bg-red-500/10 flex items-center justify-between transition-colors"
+                    >
+                      <span className="flex items-center gap-3">
+                        <RotateCcw className="w-4 h-4 text-red-600 dark:text-red-400" />
+                        <span>تراجع عن الإرسال (Unsend)</span>
+                      </span>
+                    </button>
+                  )}
+
+                  {/* Report (if !isMe) */}
+                  {!isMe && (
+                    <button
+                      onClick={() => {
+                        handleReportMessage(activeMessageMenu.message);
+                        setActiveMessageMenu(null);
+                      }}
+                      className="w-full px-3.5 py-2.5 rounded-xl text-right text-xs font-extrabold text-red-600 dark:text-red-400 hover:bg-red-500/10 flex items-center justify-between transition-colors"
+                    >
+                      <span className="flex items-center gap-3">
+                        <Flag className="w-4 h-4 text-red-600 dark:text-red-400" />
+                        <span>إبلاغ (Report)</span>
+                      </span>
+                    </button>
+                  )}
                 </div>
               </div>
-
-              {/* 3. Instagram-Style Action List Card */}
-              <div className="w-full bg-gray-900/95 border border-gray-800 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-xl divide-y divide-gray-800/80">
-                <button
-                  onClick={() => {
-                    handleCopyMessage(activeMessageMenu.content, activeMessageMenu.id);
-                    setActiveMessageMenu(null);
-                  }}
-                  className="w-full px-4 py-3.5 text-right text-xs font-extrabold text-gray-200 hover:bg-gray-800 flex items-center justify-between transition-colors"
-                >
-                  <span className="flex items-center gap-2.5">
-                    <Copy className="w-4 h-4 text-amber-400" />
-                    <span>نسخ النص</span>
-                  </span>
-                  <span className="text-[10px] text-gray-500 font-normal">Copy</span>
-                </button>
-
-                {String(activeMessageMenu.sender_id) === String(currentUser.id) && !activeMessageMenu.id.startsWith('temp-') && (
-                  <button
-                    onClick={() => {
-                      const msg = activeMessageMenu;
-                      setActiveMessageMenu(null);
-                      handleStartEditMessage(msg);
-                    }}
-                    className="w-full px-4 py-3.5 text-right text-xs font-extrabold text-gray-200 hover:bg-gray-800 flex items-center justify-between transition-colors"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <Pencil className="w-4 h-4 text-amber-400" />
-                      <span>تعديل الرسالة</span>
-                    </span>
-                    <span className="text-[10px] text-gray-500 font-normal">Edit</span>
-                  </button>
-                )}
-
-                {String(activeMessageMenu.sender_id) === String(currentUser.id) && !activeMessageMenu.id.startsWith('temp-') && (
-                  <button
-                    onClick={() => {
-                      const id = activeMessageMenu.id;
-                      setActiveMessageMenu(null);
-                      handleDeleteSingleMessage(id);
-                    }}
-                    className="w-full px-4 py-3.5 text-right text-xs font-extrabold text-red-400 hover:bg-red-950/40 flex items-center justify-between transition-colors"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <Trash2 className="w-4 h-4 text-red-400" />
-                      <span>حذف الرسالة</span>
-                    </span>
-                    <span className="text-[10px] text-red-500/70 font-normal">Delete</span>
-                  </button>
-                )}
-              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Delete Conversation Confirmation Modal */}
         {showDeleteConfirm && (
