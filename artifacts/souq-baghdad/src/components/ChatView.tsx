@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { 
   MessageSquare, Send, ArrowRight, User as UserIcon, Loader2, Package, 
-  CheckCheck, Check, Search, ChevronDown, Circle, Volume2, Sparkles, RefreshCw
+  CheckCheck, Check, Search, ChevronDown, Circle, Volume2, Sparkles, RefreshCw, X
 } from 'lucide-react';
 import { StoredUser, User } from '../types';
 import { getRelative } from '../utils/time';
