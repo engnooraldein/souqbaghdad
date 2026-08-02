@@ -57,6 +57,9 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [chatLimit, setChatLimit] = useState(20);
+  const [hasMoreChats, setHasMoreChats] = useState(false);
+  const [loadingMoreChats, setLoadingMoreChats] = useState(false);
   const [sending, setSending] = useState(false);
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
@@ -108,19 +111,22 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     }
   };
 
-  // 2. Fetch All Chats with Ultra-Fast Parallel Queries & Single State Update (Zero Flickering)
+  // 2. Fetch Chats with Priority Unread-First Sorting & Paginated Batching
   const fetchChats = useCallback(async () => {
     if (!currentUser) return;
     try {
       const currentUserIdStr = String(currentUser.id);
       
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('chats')
-        .select('*')
+        .select('*', { count: 'exact' })
         .or(`buyer_id.eq.${currentUserIdStr},seller_id.eq.${currentUserIdStr}`)
-        .order('updated_at', { ascending: false });
+        .order('updated_at', { ascending: false })
+        .range(0, chatLimit - 1);
 
       if (error) throw error;
+
+      setHasMoreChats((count || 0) > chatLimit);
 
       if (data && data.length > 0) {
         const partnerUserIds = Array.from(
@@ -172,18 +178,24 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
           };
         });
 
+        // 🌟 PRIORITY SORTING: Unread conversations ALWAYS at the top!
+        const unreadList = enrichedChats.filter(c => (c.unread_count || 0) > 0);
+        const readList = enrichedChats.filter(c => (c.unread_count || 0) === 0);
+        const sortedChats = [...unreadList, ...readList];
+
         // Update chats list ONCE with fully enriched profiles!
-        setChats(enrichedChats);
+        setChats(sortedChats);
         setLoadingChats(false);
+        setLoadingMoreChats(false);
 
         // Maintain or set selectedChat using functional updater to avoid dependency loops
         setSelectedChat(prevSelected => {
           if (prevSelected) {
-            const updated = enrichedChats.find(c => c.id === prevSelected.id);
+            const updated = sortedChats.find(c => c.id === prevSelected.id);
             return updated ? { ...prevSelected, ...updated } : prevSelected;
           }
           if (initialChatId) {
-            return enrichedChats.find(c => c.id === initialChatId) || null;
+            return sortedChats.find(c => c.id === initialChatId) || null;
           }
           return null;
         });
@@ -191,12 +203,20 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       } else {
         setChats([]);
         setLoadingChats(false);
+        setLoadingMoreChats(false);
       }
     } catch (e) {
       console.error('Error fetching chats:', e);
       setLoadingChats(false);
+      setLoadingMoreChats(false);
     }
-  }, [currentUser, initialChatId]);
+  }, [currentUser, initialChatId, chatLimit]);
+
+  const handleLoadMoreChats = () => {
+    if (loadingMoreChats || !hasMoreChats) return;
+    setLoadingMoreChats(true);
+    setChatLimit(prev => prev + 20);
+  };
 
   useEffect(() => {
     fetchChats();
@@ -619,55 +639,97 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
               {searchQuery ? 'لا توجد نتائج تطابق بحثك.' : 'لا توجد لديك محادثات حالياً.'}
             </div>
           ) : (
-            filteredChats.map(chat => {
-              const isSelected = selectedChat?.id === chat.id;
-              const isOnline = chat.other_user_id ? onlineStatuses[chat.other_user_id] : false;
-              return (
-                <button
-                  key={chat.id}
-                  onClick={() => setSelectedChat(chat)}
-                  className={`w-full p-3.5 flex items-center gap-3 transition-colors hover:bg-gray-900/90 text-right ${
-                    isSelected ? 'bg-gray-850 border-r-4 border-amber-400' : ''
-                  }`}
-                >
-                  {/* Avatar & Online Dot */}
-                  <div className="relative shrink-0">
-                    {chat.other_user_avatar ? (
-                      <img src={chat.other_user_avatar} alt="" className="w-12 h-12 rounded-full object-cover border border-gray-700 shadow-md" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 border border-gray-700">
-                        <UserIcon className="w-6 h-6" />
-                      </div>
-                    )}
-                    {isOnline && (
-                      <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-gray-950 shadow-sm" />
-                    )}
-                    {chat.unread_count && chat.unread_count > 0 ? (
-                      <span className="absolute -top-1 -right-1 bg-amber-500 text-black font-black text-[10px] w-5 h-5 rounded-full flex items-center justify-center shadow-lg border border-black/30">
-                        {chat.unread_count > 9 ? '+9' : chat.unread_count}
-                      </span>
-                    ) : null}
-                  </div>
+            <>
+              {filteredChats.map(chat => {
+                const isSelected = selectedChat?.id === chat.id;
+                const isOnline = chat.other_user_id ? onlineStatuses[chat.other_user_id] : false;
+                const isUnread = (chat.unread_count || 0) > 0;
 
-                  {/* Content Details */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="text-white font-bold text-xs sm:text-sm truncate">{chat.other_user_name}</h4>
-                      {chat.last_message_time && (
-                        <span className="text-[10px] text-gray-500 shrink-0 font-medium">{getRelative(chat.last_message_time)}</span>
+                return (
+                  <button
+                    key={chat.id}
+                    onClick={() => setSelectedChat(chat)}
+                    className={`w-full p-3.5 flex items-center gap-3 transition-colors text-right relative ${
+                      isSelected
+                        ? 'bg-gray-850 border-r-4 border-amber-400'
+                        : isUnread
+                        ? 'bg-blue-950/25 border-r-4 border-blue-500 hover:bg-blue-900/35'
+                        : 'hover:bg-gray-900/90'
+                    }`}
+                  >
+                    {/* Avatar & Online Dot & Unread Badge */}
+                    <div className="relative shrink-0">
+                      {chat.other_user_avatar ? (
+                        <img src={chat.other_user_avatar} alt="" className="w-12 h-12 rounded-full object-cover border border-gray-700 shadow-md" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 border border-gray-700">
+                          <UserIcon className="w-6 h-6" />
+                        </div>
+                      )}
+                      {isOnline && (
+                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-gray-950 shadow-sm" />
+                      )}
+                      {isUnread && (
+                        <span className="absolute -top-1 -right-1 bg-blue-600 text-white font-black text-[10px] w-5 h-5 rounded-full flex items-center justify-center shadow-lg border border-black/30 animate-pulse">
+                          {chat.unread_count && chat.unread_count > 9 ? '+9' : chat.unread_count}
+                        </span>
                       )}
                     </div>
-                    {chat.ad_title && (
-                      <div className="text-[11px] text-amber-400/90 truncate mb-0.5 flex items-center gap-1 font-semibold">
-                        <Package className="w-3 h-3 shrink-0" />
-                        <span className="truncate">{chat.ad_title}</span>
+
+                    {/* Content Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {/* 🔵 Blue Dot for Unread Messages (●) */}
+                          {isUnread && (
+                            <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-ping shrink-0 shadow-sm shadow-blue-500/80" title="رسالة جديدة غير مقروءة" />
+                          )}
+                          <h4 className={`text-xs sm:text-sm truncate ${isUnread ? 'text-white font-black' : 'text-gray-200 font-bold'}`}>
+                            {chat.other_user_name}
+                          </h4>
+                        </div>
+                        {chat.last_message_time && (
+                          <span className={`text-[10px] shrink-0 font-medium ${isUnread ? 'text-blue-400 font-bold' : 'text-gray-500'}`}>
+                            {getRelative(chat.last_message_time)}
+                          </span>
+                        )}
                       </div>
+
+                      {chat.ad_title && (
+                        <div className="text-[11px] text-amber-400/90 truncate mb-0.5 flex items-center gap-1 font-semibold">
+                          <Package className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{chat.ad_title}</span>
+                        </div>
+                      )}
+
+                      <p className={`text-xs truncate ${isUnread ? 'text-blue-200 font-semibold' : 'text-gray-400'}`}>
+                        {chat.last_message || 'محادثة جديدة'}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+
+              {/* Load More Conversations Button */}
+              {hasMoreChats && (
+                <div className="p-3 text-center bg-gray-950/80 border-t border-gray-800">
+                  <button
+                    onClick={handleLoadMoreChats}
+                    disabled={loadingMoreChats}
+                    className="w-full py-2 px-4 bg-gray-900 hover:bg-gray-850 text-amber-400 text-xs font-bold rounded-xl border border-gray-700 flex items-center justify-center gap-2 transition-all"
+                  >
+                    {loadingMoreChats ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                        <span>جاري تحميل المحادثات السابقة...</span>
+                      </>
+                    ) : (
+                      <span>تحميل 20 محادثة إضافية 👇</span>
                     )}
-                    <p className="text-xs text-gray-400 truncate">{chat.last_message || 'محادثة جديدة'}</p>
-                  </div>
-                </button>
-              );
-            })
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
