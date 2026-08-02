@@ -638,7 +638,30 @@ export default function App() {
   const [showChatModal, setShowChatModal] = useState(false);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
+  const [chatViewport, setChatViewport] = useState({ top: 0, left: 0, width: window.innerWidth, height: window.innerHeight });
   const playNotificationSound = useSound();
+
+  // Track visual viewport to handle mobile browser chrome (address bar)
+  useEffect(() => {
+    if (!showChatModal) return;
+    const update = () => {
+      if (window.visualViewport) {
+        setChatViewport({
+          top: window.visualViewport.offsetTop,
+          left: window.visualViewport.offsetLeft,
+          width: window.visualViewport.width,
+          height: window.visualViewport.height,
+        });
+      }
+    };
+    update();
+    window.visualViewport?.addEventListener('resize', update);
+    window.visualViewport?.addEventListener('scroll', update);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', update);
+      window.visualViewport?.removeEventListener('scroll', update);
+    };
+  }, [showChatModal]);
 
   const activeChatIdRef = useRef(activeChatId);
   const showChatModalRef = useRef(showChatModal);
@@ -4376,11 +4399,13 @@ export default function App() {
         {showChatModal && (
           <Suspense fallback={null}>
             <div 
-              onTouchMove={e => {
-                if (e.target === e.currentTarget) e.preventDefault();
+              className="fixed z-[110] flex flex-col bg-gray-950 overscroll-none overflow-hidden"
+              style={{
+                top: chatViewport.top,
+                left: chatViewport.left,
+                width: chatViewport.width,
+                height: chatViewport.height,
               }}
-              className="fixed inset-0 z-[110] flex flex-col bg-gray-950 overscroll-none w-full h-full"
-              style={{ height: '100dvh', width: '100vw' }}
             >
               <ChatView
                 currentUser={user}
