@@ -146,6 +146,24 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
   const typingTimeoutRef = useRef<any>(null);
   const onlineStatuses = useOnlineStatuses();
 
+  // Multi-stage Instant Auto-scroll helper
+  const scrollToBottom = useCallback((instant = false) => {
+    if (!messagesContainerRef.current) return;
+    const performScroll = () => {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTo({
+          top: messagesContainerRef.current.scrollHeight + 10000,
+          behavior: instant ? 'auto' : 'smooth'
+        });
+      }
+    };
+    performScroll();
+    requestAnimationFrame(performScroll);
+    setTimeout(performScroll, 50);
+    setTimeout(performScroll, 180);
+    setTimeout(performScroll, 350);
+  }, []);
+
   // 1. Lock Body Scroll + lock outer window scroll on mobile keyboard open
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
@@ -181,24 +199,6 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       window.visualViewport?.removeEventListener('scroll', onViewportResize);
     };
   }, [scrollToBottom]);
-
-  // Multi-stage Instant Auto-scroll helper
-  const scrollToBottom = useCallback((instant = false) => {
-    if (!messagesContainerRef.current) return;
-    const performScroll = () => {
-      if (messagesContainerRef.current) {
-        messagesContainerRef.current.scrollTo({
-          top: messagesContainerRef.current.scrollHeight + 10000,
-          behavior: instant ? 'auto' : 'smooth'
-        });
-      }
-    };
-    performScroll();
-    requestAnimationFrame(performScroll);
-    setTimeout(performScroll, 50);
-    setTimeout(performScroll, 180);
-    setTimeout(performScroll, 350);
-  }, []);
 
   // Auto-scroll when new message is added or sent
   const lastMsgId = messages.length > 0 ? messages[messages.length - 1].id : null;
