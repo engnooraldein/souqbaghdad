@@ -4398,8 +4398,11 @@ export default function App() {
         {showNotifs&&<Suspense fallback={null}><NotifPanel isOpen={showNotifs} onClose={()=>setShowNotifs(false)} notifs={notifications} onNotifClick={handleSellerClick} onHistoryClick={handleHistoryClick} onMarkRead={markNotifAsRead} onArchiveAll={handleArchiveAllNotifications}/></Suspense>}
         {showChatModal && (
           <Suspense fallback={null}>
+            {/* Full-screen solid background - prevents iOS Safari page bleed-through */}
+            <div className="fixed inset-0 z-[110] bg-gray-950" />
+            {/* Chat content - positioned exactly to visual viewport */}
             <div 
-              className="fixed z-[110] flex flex-col bg-gray-950 overscroll-none overflow-hidden"
+              className="fixed z-[111] flex flex-col bg-gray-950 overflow-hidden"
               style={{
                 top: chatViewport.top,
                 left: chatViewport.left,
@@ -4426,6 +4429,7 @@ export default function App() {
             </div>
           </Suspense>
         )}
+
         {activeDocTab&&<Suspense fallback={null}><InfoDocsModal activeTab={activeDocTab} onClose={()=>setActiveDocTab(null)} user={user}/></Suspense>}
         {activeLightbox&&<ImageLightboxModal src={activeLightbox.src} title={activeLightbox.title} images={(activeLightbox as any).images} initialIdx={(activeLightbox as any).initialIdx} onClose={()=>setActiveLightbox(null)}/>}
         {congratulationsItem && <CongratulationsModal item={congratulationsItem} onClose={() => setCongratulationsItem(null)} />}
