@@ -23,6 +23,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     }
   },
   realtime: {
+    headers: {
+      apikey: supabaseAnonKey,
+      Authorization: `Bearer ${supabaseAnonKey}`,
+    },
     params: {
       apikey: supabaseAnonKey,
     },
