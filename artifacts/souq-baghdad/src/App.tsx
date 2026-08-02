@@ -4393,6 +4393,10 @@ export default function App() {
                     setShowChatModal(false);
                     setShowAuth(true);
                   }}
+                  onOpenSellerProfile={(userId) => {
+                    setShowChatModal(false);
+                    setSelectedSellerId(userId);
+                  }}
                 />
               </div>
             </div>

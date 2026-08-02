@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { 
   MessageSquare, Send, ArrowRight, User as UserIcon, Loader2, Package, 
-  CheckCheck, Check, Search, ChevronDown, Circle, Volume2, Sparkles, RefreshCw, X
+  CheckCheck, Check, Search, ChevronDown, Circle, Volume2, Sparkles, RefreshCw, X,
+  MoreVertical, Trash2, Edit2, Copy, UserCheck, AlertTriangle, Pencil, CornerDownLeft
 } from 'lucide-react';
 import { StoredUser, User } from '../types';
 import { getRelative } from '../utils/time';
@@ -36,6 +37,7 @@ export interface Message {
   content: string;
   is_read: boolean;
   created_at: string;
+  is_edited?: boolean;
 }
 
 interface ChatViewProps {
@@ -43,11 +45,12 @@ interface ChatViewProps {
   activeChatId?: string | null;
   onClose?: () => void;
   onOpenAuth?: () => void;
+  onOpenSellerProfile?: (userId: string) => void;
 }
 
 const PAGE_SIZE = 15;
 
-export function ChatView({ currentUser, activeChatId: initialChatId, onClose, onOpenAuth }: ChatViewProps) {
+export function ChatView({ currentUser, activeChatId: initialChatId, onClose, onOpenAuth, onOpenSellerProfile }: ChatViewProps) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -64,8 +67,16 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
 
+  // New Modern Chat States
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingChat, setDeletingChat] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const lastTypingSentRef = useRef<number>(0);
   const typingTimeoutRef = useRef<any>(null);
   const onlineStatuses = useOnlineStatuses();
@@ -83,17 +94,22 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     };
   }, []);
 
-  // Smooth & Instant Auto-scroll helper
+  // Multi-stage Instant Auto-scroll helper
   const scrollToBottom = useCallback((instant = false) => {
     if (!messagesContainerRef.current) return;
-    requestAnimationFrame(() => {
+    const performScroll = () => {
       if (messagesContainerRef.current) {
         messagesContainerRef.current.scrollTo({
-          top: messagesContainerRef.current.scrollHeight,
+          top: messagesContainerRef.current.scrollHeight + 1000,
           behavior: instant ? 'auto' : 'smooth'
         });
       }
-    });
+    };
+    performScroll();
+    requestAnimationFrame(performScroll);
+    setTimeout(performScroll, 60);
+    setTimeout(performScroll, 200);
+    setTimeout(performScroll, 450);
   }, []);
 
   // Monitor Scroll Position for "Scroll to Bottom" button and Pagination
@@ -435,10 +451,87 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     }
   };
 
-  // 5. Send Message Handler with Instant Optimistic UI & Chat Timestamp Update
+  // Delete Entire Conversation Handler
+  const handleDeleteChat = async () => {
+    if (!selectedChat || deletingChat) return;
+    setDeletingChat(true);
+    try {
+      const chatIdToDelete = selectedChat.id;
+      // Delete messages first, then chat
+      await supabase.from('messages').delete().eq('chat_id', chatIdToDelete);
+      await supabase.from('chats').delete().eq('id', chatIdToDelete);
+
+      // Remove from local state
+      setChats(prev => prev.filter(c => c.id !== chatIdToDelete));
+      setSelectedChat(null);
+      setShowDeleteConfirm(false);
+      setShowHeaderMenu(false);
+    } catch (err) {
+      console.error('Error deleting chat:', err);
+      alert('تعذر حذف المحادثة، يرجى المحاولة لاحقاً');
+    } finally {
+      setDeletingChat(false);
+    }
+  };
+
+  // Delete Single Message Handler
+  const handleDeleteSingleMessage = async (messageId: string) => {
+    try {
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+      await supabase.from('messages').delete().eq('id', messageId);
+    } catch (err) {
+      console.error('Error deleting message:', err);
+    }
+  };
+
+  // Copy Message Text Handler
+  const handleCopyMessage = (text: string, id: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedMessageId(id);
+      setTimeout(() => setCopiedMessageId(null), 2000);
+    }
+  };
+
+  // Start Edit Message
+  const handleStartEditMessage = (msg: Message) => {
+    setEditingMessage(msg);
+    setNewMessage(msg.content);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
+  // 5. Send & Edit Message Handler (Keep Virtual Keyboard Open + Multi-stage Scroll)
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!newMessage.trim() || !selectedChat || !currentUser || sending) return;
+
+    // Tactile vibration feedback
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      try { navigator.vibrate(15); } catch (e) {}
+    }
+
+    // ✏️ Handle Edit Mode Submit
+    if (editingMessage) {
+      const updatedContent = newMessage.trim();
+      const editingId = editingMessage.id;
+      setEditingMessage(null);
+      setNewMessage('');
+
+      // Optimistic update in UI
+      setMessages(prev => prev.map(m => m.id === editingId ? { ...m, content: updatedContent, is_edited: true } : m));
+
+      try {
+        await supabase
+          .from('messages')
+          .update({ content: updatedContent, is_edited: true })
+          .eq('id', editingId);
+
+        requestAnimationFrame(() => inputRef.current?.focus());
+      } catch (err) {
+        console.error('Error editing message:', err);
+      }
+      return;
+    }
 
     const content = newMessage.trim();
     const currentUserIdStr = String(currentUser.id);
@@ -457,11 +550,15 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     setNewMessage('');
     setSending(true);
 
-    // Instant auto-scroll
-    setTimeout(() => scrollToBottom(), 30);
+    // 📱 KEEP VIRTUAL KEYBOARD OPEN! Focus input immediately
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+
+    // Auto-scroll to latest message
+    scrollToBottom(true);
 
     try {
-      // Insert message into DB
       const { data, error } = await supabase
         .from('messages')
         .insert({
@@ -476,7 +573,6 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
 
       if (data) {
         setMessages(prev => prev.map(m => m.id === tempId ? data : m));
-        // Instant broadcast for Web clients (0-50ms)
         supabase.channel(`chat_messages:${selectedChat.id}`).send({
           type: 'broadcast',
           event: 'broadcast_new_message',
@@ -484,7 +580,6 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
         }).catch(() => {});
       }
 
-      // Update Chats Table `last_message`, `last_message_time`, `updated_at` so list updates immediately
       const nowIso = new Date().toISOString();
       await supabase
         .from('chats')
@@ -495,7 +590,6 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
         })
         .eq('id', selectedChat.id);
 
-      // Update local sidebar chat preview
       setChats(prev => prev.map(c => c.id === selectedChat.id ? {
         ...c,
         last_message: content,
@@ -510,7 +604,11 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       setNewMessage(content);
     } finally {
       setSending(false);
-      setTimeout(() => scrollToBottom(), 50);
+      // 📱 KEEP VIRTUAL KEYBOARD OPEN! Focus input immediately
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
+      scrollToBottom();
     }
   };
 
@@ -692,7 +790,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
         {selectedChat ? (
           <>
             {/* Header */}
-            <div className="p-3.5 border-b border-gray-800 flex items-center justify-between bg-gray-950/80 shadow-md backdrop-blur-md shrink-0">
+            <div className="p-3.5 border-b border-gray-800 flex items-center justify-between bg-gray-950/80 shadow-md backdrop-blur-md shrink-0 relative z-30">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setSelectedChat(null)}
@@ -703,7 +801,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                   <span className="hidden sm:inline">القائمة</span>
                 </button>
                 
-                <div className="relative shrink-0">
+                <div className="relative shrink-0 cursor-pointer" onClick={() => selectedChat.other_user_id && onOpenSellerProfile && onOpenSellerProfile(selectedChat.other_user_id)}>
                   {selectedChat.other_user_avatar ? (
                     <img src={selectedChat.other_user_avatar} alt="" className="w-10 h-10 rounded-full object-cover border border-gray-700 shadow-sm" />
                   ) : (
@@ -716,8 +814,8 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                   )}
                 </div>
 
-                <div>
-                  <h3 className="text-white font-extrabold text-sm flex items-center gap-2">
+                <div className="cursor-pointer" onClick={() => selectedChat.other_user_id && onOpenSellerProfile && onOpenSellerProfile(selectedChat.other_user_id)}>
+                  <h3 className="text-white font-extrabold text-sm flex items-center gap-2 hover:text-amber-400 transition-colors">
                     {selectedChat.other_user_name}
                   </h3>
                   
@@ -744,17 +842,59 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                 </div>
               </div>
 
-              {/* Close Modal Button */}
-              {onClose && (
-                <button 
-                  onClick={onClose} 
-                  className="text-gray-400 hover:text-white p-2 rounded-xl bg-gray-800/80 hover:bg-gray-800 transition-colors flex items-center gap-1.5 text-xs font-bold shadow-sm"
-                  title="إغلاق المحادثة"
-                >
-                  <span className="hidden sm:inline">إغلاق</span>
-                  <X className="w-4 h-4" />
-                </button>
-              )}
+              {/* Action Buttons: 3-Dots Options Menu + Close */}
+              <div className="flex items-center gap-2">
+                {/* 3-Dots Options Menu */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowHeaderMenu(prev => !prev)}
+                    className="text-gray-400 hover:text-white p-2 rounded-xl bg-gray-850 hover:bg-gray-800 transition-colors flex items-center justify-center shadow-sm"
+                    title="خيارات المحادثة"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+
+                  {showHeaderMenu && (
+                    <div className="absolute left-0 mt-2 w-48 bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-100">
+                      {selectedChat.other_user_id && onOpenSellerProfile && (
+                        <button
+                          onClick={() => {
+                            setShowHeaderMenu(false);
+                            onOpenSellerProfile(selectedChat.other_user_id!);
+                          }}
+                          className="w-full px-4 py-3 text-right text-xs font-bold text-gray-200 hover:bg-gray-800 flex items-center gap-2.5 transition-colors border-b border-gray-800/60"
+                        >
+                          <UserCheck className="w-4 h-4 text-amber-400" />
+                          <span>الملف الشخصي للبائع</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          setShowHeaderMenu(false);
+                          setShowDeleteConfirm(true);
+                        }}
+                        className="w-full px-4 py-3 text-right text-xs font-bold text-red-400 hover:bg-red-950/30 flex items-center gap-2.5 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-400" />
+                        <span>حذف المحادثة بالكامل</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Close Modal Button */}
+                {onClose && (
+                  <button 
+                    onClick={onClose} 
+                    className="text-gray-400 hover:text-white p-2 rounded-xl bg-gray-800/80 hover:bg-gray-800 transition-colors flex items-center gap-1.5 text-xs font-bold shadow-sm"
+                    title="إغلاق المحادثة"
+                  >
+                    <span className="hidden sm:inline">إغلاق</span>
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Messages Body */}
@@ -803,10 +943,10 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                   return (
                     <div
                       key={msg.id}
-                      className={`flex ${isMe ? 'justify-start' : 'justify-end'} transition-all`}
+                      className={`flex ${isMe ? 'justify-start' : 'justify-end'} transition-all group`}
                     >
                       <div
-                        className={`max-w-[82%] sm:max-w-[75%] rounded-2xl px-4 py-2.5 text-sm shadow-md transition-transform ${
+                        className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-2.5 text-sm shadow-md transition-transform relative ${
                           isMe
                             ? 'bg-amber-500 text-black font-semibold rounded-tr-none'
                             : 'bg-gray-800 text-white rounded-tl-none border border-gray-700/60'
@@ -815,6 +955,9 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                         <p className="whitespace-pre-wrap break-words text-xs sm:text-sm leading-relaxed">{msg.content}</p>
                         
                         <div className={`flex items-center gap-1.5 text-[10px] mt-1 ${isMe ? 'text-black/80 justify-end' : 'text-gray-400 justify-start'}`}>
+                          {msg.is_edited && (
+                            <span className="text-[9px] font-bold opacity-80">(معدّلة)</span>
+                          )}
                           <span>{new Date(msg.created_at).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}</span>
                           
                           {/* Receipt Status Indicators */}
@@ -832,6 +975,35 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                               )}
                             </div>
                           )}
+
+                          {/* Quick Message Actions: Copy / Edit / Delete */}
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 mr-1">
+                            <button
+                              onClick={() => handleCopyMessage(msg.content, msg.id)}
+                              className="p-1 rounded hover:bg-black/10 transition-colors"
+                              title="نسخ النص"
+                            >
+                              {copiedMessageId === msg.id ? <Check className="w-3 h-3 text-emerald-900" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                            {isMe && !isTemp && (
+                              <>
+                                <button
+                                  onClick={() => handleStartEditMessage(msg)}
+                                  className="p-1 rounded hover:bg-black/10 transition-colors"
+                                  title="تعديل الرسالة"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteSingleMessage(msg.id)}
+                                  className="p-1 rounded hover:bg-black/10 text-red-900 transition-colors"
+                                  title="حذف الرسالة"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -844,7 +1016,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
             {/* Jump to Bottom Floating Action Button */}
             {showScrollBottomBtn && (
               <button
-                onClick={() => scrollToBottom()}
+                onClick={() => scrollToBottom(true)}
                 className="absolute bottom-20 left-6 z-20 p-2.5 bg-amber-500 text-black rounded-full shadow-2xl hover:bg-amber-400 transition-all hover:scale-110 active:scale-95 border border-black/20 flex items-center gap-1 text-xs font-bold"
               >
                 <ChevronDown className="w-4 h-4 stroke-[3]" />
@@ -852,13 +1024,34 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
               </button>
             )}
 
+            {/* ✏️ Active Message Edit Banner */}
+            {editingMessage && (
+              <div className="px-4 py-2 bg-amber-500/10 border-t border-amber-500/30 text-amber-400 text-xs flex items-center justify-between font-bold shrink-0">
+                <span className="flex items-center gap-1.5">
+                  <Pencil className="w-3.5 h-3.5 animate-bounce" />
+                  <span>جاري تعديل الرسالة...</span>
+                </span>
+                <button
+                  onClick={() => {
+                    setEditingMessage(null);
+                    setNewMessage('');
+                  }}
+                  className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 transition-colors"
+                  title="إلغاء التعديل"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             {/* Input Footer */}
             <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-800 bg-gray-950 flex items-center gap-2 shadow-inner shrink-0">
               <input
+                ref={inputRef}
                 type="text"
                 value={newMessage}
                 onChange={e => handleTypingInput(e.target.value)}
-                placeholder="اكتب رسالتك هنا..."
+                placeholder={editingMessage ? "تعديل نص الرسالة..." : "اكتب رسالتك هنا..."}
                 className="flex-1 bg-gray-900 text-white border border-gray-700/80 rounded-2xl px-4 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-400 transition-colors shadow-inner"
               />
               <button
@@ -866,7 +1059,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                 disabled={!newMessage.trim() || sending}
                 className="bg-amber-500 text-black p-3 rounded-2xl hover:bg-amber-400 transition-all active:scale-95 disabled:opacity-50 shrink-0 shadow-lg flex items-center justify-center"
               >
-                {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 rotate-180" />}
+                {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : editingMessage ? <Check className="w-5 h-5 stroke-[3]" /> : <Send className="w-5 h-5 rotate-180" />}
               </button>
             </form>
           </>
@@ -874,6 +1067,38 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
           <div className="flex-1 flex flex-col items-center justify-center text-gray-500 p-8 text-center">
             <MessageSquare className="w-14 h-14 text-gray-700 mb-3" />
             <p className="text-sm font-bold text-gray-400">اختر محادثة من القائمة للبدء بالمراسلة 💬</p>
+          </div>
+        )}
+
+        {/* Delete Conversation Confirmation Modal */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
+            <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-500/10 text-red-400 flex items-center justify-center mx-auto border border-red-500/20">
+                <AlertTriangle className="w-6 h-6 animate-bounce" />
+              </div>
+              <div>
+                <h3 className="text-white font-extrabold text-base mb-1">حذف المحادثة؟</h3>
+                <p className="text-gray-400 text-xs leading-relaxed">
+                  هل أنت تأكد من رغبتك في حذف هذه المحادثة وجميع الرسائل داخلها؟ لا يمكن التراجع عن هذا الإجراء.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-750 text-gray-300 font-bold rounded-2xl text-xs transition-all"
+                >
+                  إلغاء
+                </button>
+                <button
+                  onClick={handleDeleteChat}
+                  disabled={deletingChat}
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white font-black rounded-2xl text-xs shadow-lg transition-all flex items-center justify-center gap-1.5"
+                >
+                  {deletingChat ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>حذف الآن</span>}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
