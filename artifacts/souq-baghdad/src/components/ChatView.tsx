@@ -63,6 +63,13 @@ interface ChatViewProps {
 
 const PAGE_SIZE = 15;
 
+const EXTRA_EMOJIS = [
+  '❤️', '🔥', '😂', '😍', '👏', '🎉', 
+  '😮', '😢', '😡', '👍', '👎', '🙏', 
+  '💯', '🥳', '🚀', '💎', '🤩', '🤝', 
+  '🖤', '🌹', '✨', '⚡', '☕', '💪'
+];
+
 export function ChatView({ currentUser, activeChatId: initialChatId, onClose, onOpenAuth, onOpenSellerProfile }: ChatViewProps) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
@@ -88,6 +95,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
   const [deletingChat, setDeletingChat] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [activeMessageMenu, setActiveMessageMenu] = useState<MessageMenuTarget | null>(null);
+  const [showAllEmojis, setShowAllEmojis] = useState(false);
   const [hiddenMessageIds, setHiddenMessageIds] = useState<Set<string>>(() => {
     if (currentUser?.id) {
       try {
@@ -98,7 +106,35 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     return new Set<string>();
   });
 
+  // Reactions & Double-tap Heart state
+  const [messageReactions, setMessageReactions] = useState<Record<string, { emoji: string; userId: string }[]>>({});
+  const [heartBurstId, setHeartBurstId] = useState<string | null>(null);
+  const lastTapRef = useRef<{ messageId: string; time: number } | null>(null);
+
+  // Swipe to Reply States
+  const [swipingMsgId, setSwipingMsgId] = useState<string | null>(null);
+  const [swipeDistance, setSwipeDistance] = useState<number>(0);
+  const swipeTriggeredVibrateRef = useRef<boolean>(false);
+
   const longPressTimerRef = useRef<any>(null);
+
+  // Load reactions from local storage on chat switch
+  useEffect(() => {
+    if (selectedChat?.id) {
+      try {
+        const stored = localStorage.getItem(`reactions_${selectedChat.id}`);
+        if (stored) {
+          setMessageReactions(JSON.parse(stored));
+        } else {
+          setMessageReactions({});
+        }
+      } catch (e) {
+        setMessageReactions({});
+      }
+    } else {
+      setMessageReactions({});
+    }
+  }, [selectedChat?.id]);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -458,6 +494,25 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
           handleIncomingMessage(payload.payload.message as Message);
         }
       })
+      .on('broadcast', { event: 'broadcast_reaction' }, (payload) => {
+        if (payload.payload?.messageId && payload.payload?.emoji && payload.payload?.userId) {
+          const { messageId, emoji, userId } = payload.payload;
+          setMessageReactions(prev => {
+            const existing = prev[messageId] || [];
+            let updated: { emoji: string; userId: string }[];
+            if (existing.some(r => r.userId === userId && r.emoji === emoji)) {
+              updated = existing.filter(r => !(r.userId === userId && r.emoji === emoji));
+            } else {
+              updated = [...existing.filter(r => r.userId !== userId), { emoji, userId }];
+            }
+            const next = { ...prev, [messageId]: updated };
+            try {
+              localStorage.setItem(`reactions_${currentChatId}`, JSON.stringify(next));
+            } catch (e) {}
+            return next;
+          });
+        }
+      })
       .subscribe();
 
     // 🔄 Fail-safe silent polling every 3 seconds for active chat (Zero-Flicker & Perfect Timestamp Sort)
@@ -605,13 +660,56 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     alert('تم استلام إبلاغك وسيقوم فريق الإشراف بالتحقق من الرسالة واتخاذ الإجراء اللازم فوراً.');
   };
 
-  // 😍 Quick Emoji Reaction
-  const handleReactEmoji = async (emoji: string, msg: Message) => {
+  // 😍 Add / Toggle Emoji Reaction on a message (Instagram style attached to bottom edge)
+  const handleAddReaction = (messageId: string, emoji: string) => {
+    if (!selectedChat || !currentUser) return;
+
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      try { navigator.vibrate(20); } catch (e) {}
+      try { navigator.vibrate(25); } catch (e) {}
     }
-    setNewMessage(prev => (prev ? `${prev} ${emoji}` : emoji));
-    requestAnimationFrame(() => inputRef.current?.focus());
+
+    setMessageReactions(prev => {
+      const existing = prev[messageId] || [];
+      const userId = String(currentUser.id);
+      let updated: { emoji: string; userId: string }[];
+
+      if (existing.some(r => r.userId === userId && r.emoji === emoji)) {
+        updated = existing.filter(r => !(r.userId === userId && r.emoji === emoji));
+      } else {
+        updated = [...existing.filter(r => r.userId !== userId), { emoji, userId }];
+      }
+
+      const next = { ...prev, [messageId]: updated };
+      try {
+        localStorage.setItem(`reactions_${selectedChat.id}`, JSON.stringify(next));
+      } catch (e) {}
+
+      return next;
+    });
+
+    // Broadcast to other participant
+    supabase.channel(`chat_messages:${selectedChat.id}`).send({
+      type: 'broadcast',
+      event: 'broadcast_reaction',
+      payload: { messageId, emoji, userId: String(currentUser.id) }
+    }).catch(() => {});
+  };
+
+  // ❤️ Double-tap detector for automatic heart reaction
+  const handleDoubleTapMessage = (msg: Message) => {
+    const now = Date.now();
+    if (lastTapRef.current && lastTapRef.current.messageId === msg.id && (now - lastTapRef.current.time < 320)) {
+      lastTapRef.current = null;
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try { navigator.vibrate(35); } catch (e) {}
+      }
+      setHeartBurstId(msg.id);
+      setTimeout(() => setHeartBurstId(null), 700);
+      handleAddReaction(msg.id, '❤️');
+      return true;
+    }
+    lastTapRef.current = { messageId: msg.id, time: now };
+    return false;
   };
 
   // Copy Message Text Handler
@@ -623,15 +721,18 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     }
   };
 
-  // Touch Position tracking ref for long-press cancellation on scroll
+  // Touch Position tracking ref for long-press and swipe gestures
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Long Press & Context Menu Handlers (Instagram Style)
+  // Long Press & Context Menu & Swipe-to-Reply Handlers
   const handleTouchStartMessage = (e: React.TouchEvent<HTMLDivElement>, msg: Message) => {
     const touch = e.touches[0];
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
-    const target = e.currentTarget;
+    swipeTriggeredVibrateRef.current = false;
+    setSwipingMsgId(msg.id);
+    setSwipeDistance(0);
 
+    const target = e.currentTarget;
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     longPressTimerRef.current = setTimeout(() => {
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -649,27 +750,64 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
           height: rect.height,
         }
       });
-    }, 400);
+      setShowAllEmojis(false);
+      setSwipingMsgId(null);
+      setSwipeDistance(0);
+    }, 420);
   };
 
-  const handleTouchMoveMessage = (e: React.TouchEvent<HTMLDivElement>) => {
+  const handleTouchMoveMessage = (e: React.TouchEvent<HTMLDivElement>, msg: Message) => {
     if (!touchStartPosRef.current) return;
     const touch = e.touches[0];
-    const dx = Math.abs(touch.clientX - touchStartPosRef.current.x);
-    const dy = Math.abs(touch.clientY - (touchStartPosRef.current?.y || 0));
-    if (dx > 8 || dy > 8) {
+    const dx = touch.clientX - touchStartPosRef.current.x;
+    const dy = touch.clientY - (touchStartPosRef.current?.y || 0);
+
+    // Cancel on vertical scrolling
+    if (Math.abs(dy) > 12) {
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current);
         longPressTimerRef.current = null;
       }
+      setSwipingMsgId(null);
+      setSwipeDistance(0);
+      return;
+    }
+
+    // Swipe left-to-right (dx > 8)
+    if (dx > 8) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+      const dist = Math.min(75, Math.max(0, dx * 0.75));
+      setSwipingMsgId(msg.id);
+      setSwipeDistance(dist);
+
+      if (dist >= 45 && !swipeTriggeredVibrateRef.current) {
+        swipeTriggeredVibrateRef.current = true;
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          try { navigator.vibrate(25); } catch (e) {}
+        }
+      }
     }
   };
 
-  const handleTouchEndMessage = () => {
+  const handleTouchEndMessage = (msg: Message) => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
+
+    if (swipingMsgId === msg.id && swipeDistance >= 45) {
+      setReplyingTo(msg);
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try { navigator.vibrate(25); } catch (e) {}
+      }
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+
+    setSwipingMsgId(null);
+    setSwipeDistance(0);
     touchStartPosRef.current = null;
   };
 
@@ -690,6 +828,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
         height: rect.height,
       }
     });
+    setShowAllEmojis(false);
   };
 
   // Start Edit Message
@@ -770,7 +909,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
         .insert({
           chat_id: selectedChat.id,
           sender_id: currentUserIdStr,
-          content
+          content: finalContent
         })
         .select()
         .single();
@@ -790,7 +929,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       await supabase
         .from('chats')
         .update({
-          last_message: content,
+          last_message: finalContent,
           last_message_time: nowIso,
           updated_at: nowIso
         })
@@ -798,7 +937,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
 
       setChats(prev => prev.map(c => c.id === selectedChat.id ? {
         ...c,
-        last_message: content,
+        last_message: finalContent,
         last_message_time: nowIso,
         updated_at: nowIso
       } : c));
@@ -807,7 +946,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       console.error('Error sending message:', err);
       setMessages(prev => prev.filter(m => m.id !== tempId));
       alert('تعذر إرسال الرسالة: ' + (err.message || 'خطأ في الاتصال'));
-      setNewMessage(content);
+      setNewMessage(rawContent);
     } finally {
       setSending(false);
       // 📱 KEEP VIRTUAL KEYBOARD OPEN! Focus input immediately
@@ -1168,22 +1307,54 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                       return <p className="whitespace-pre-wrap break-words text-xs sm:text-sm leading-relaxed">{content}</p>;
                     };
 
+                    const reactions = messageReactions[msg.id] || [];
+                    const reactionCounts: Record<string, number> = {};
+                    reactions.forEach(r => {
+                      reactionCounts[r.emoji] = (reactionCounts[r.emoji] || 0) + 1;
+                    });
+                    const isSwipingThis = swipingMsgId === msg.id;
+
                     return (
                       <div
                         key={msg.id}
-                        className={`flex ${isMe ? 'justify-start' : 'justify-end'} transition-all`}
+                        className={`flex ${isMe ? 'justify-start' : 'justify-end'} transition-all relative my-1`}
                       >
+                        {/* ↩️ Swipe to Reply Indicator */}
+                        {isSwipingThis && swipeDistance > 5 && (
+                          <div 
+                            style={{
+                              opacity: Math.min(1, swipeDistance / 35),
+                              transform: `scale(${Math.min(1.2, 0.6 + swipeDistance / 60)})`,
+                            }}
+                            className="absolute left-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-amber-500/25 border border-amber-500/60 flex items-center justify-center text-amber-400 z-0 pointer-events-none transition-opacity"
+                          >
+                            <Reply className="w-4 h-4" />
+                          </div>
+                        )}
+
                         <div
+                          onClick={() => handleDoubleTapMessage(msg)}
                           onTouchStart={e => handleTouchStartMessage(e, msg)}
-                          onTouchEnd={handleTouchEndMessage}
-                          onTouchMove={handleTouchMoveMessage}
+                          onTouchEnd={() => handleTouchEndMessage(msg)}
+                          onTouchMove={e => handleTouchMoveMessage(e, msg)}
                           onContextMenu={e => handleContextMenuMessage(e, msg)}
-                          className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-2.5 text-sm shadow-md transition-transform relative cursor-pointer select-none active:scale-[0.98] ${
+                          style={{
+                            transform: isSwipingThis ? `translateX(${swipeDistance}px)` : 'none',
+                            transition: isSwipingThis ? 'none' : 'transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1)',
+                          }}
+                          className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-2.5 text-sm shadow-md relative cursor-pointer select-none active:scale-[0.98] ${
                             isMe
                               ? 'bg-amber-500 text-black font-semibold rounded-tr-none'
                               : 'bg-gray-800 text-white rounded-tl-none border border-gray-700/60'
                           }`}
                         >
+                          {/* ❤️ Double-tap Heart Pop Animation */}
+                          {heartBurstId === msg.id && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                              <span className="text-4xl animate-ping duration-500 select-none drop-shadow-2xl">❤️</span>
+                            </div>
+                          )}
+
                           {renderContent(msg.content)}
                           
                           <div className={`flex items-center gap-1.5 text-[10px] mt-1 ${isMe ? 'text-black/80 justify-end' : 'text-gray-400 justify-start'}`}>
@@ -1208,6 +1379,28 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                               </div>
                             )}
                           </div>
+
+                          {/* 😍 Floating Instagram Reaction Badge at bottom edge of bubble */}
+                          {reactions.length > 0 && (
+                            <div 
+                              className={`absolute -bottom-2.5 ${isMe ? 'right-2' : 'left-2'} z-10 flex items-center gap-1 bg-gray-900 border border-gray-700 rounded-full px-2 py-0.5 shadow-md text-[11px] select-none hover:scale-110 active:scale-95 transition-transform`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const userReaction = reactions.find(r => r.userId === String(currentUser?.id));
+                                if (userReaction) {
+                                  handleAddReaction(msg.id, userReaction.emoji);
+                                }
+                              }}
+                              title="انقر لإلغاء تفاعلك"
+                            >
+                              {Object.entries(reactionCounts).map(([emoji, count]) => (
+                                <span key={emoji} className="flex items-center gap-0.5">
+                                  <span>{emoji}</span>
+                                  {count > 1 && <span className="text-[10px] text-gray-300 font-bold">{count}</span>}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -1353,8 +1546,9 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                     <button
                       key={emoji}
                       onClick={() => {
-                        handleReactEmoji(emoji, activeMessageMenu.message);
+                        handleAddReaction(activeMessageMenu.message.id, emoji);
                         setActiveMessageMenu(null);
+                        setShowAllEmojis(false);
                       }}
                       className="hover:scale-130 active:scale-95 transition-transform cursor-pointer"
                     >
@@ -1362,16 +1556,40 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                     </button>
                   ))}
                   <button
-                    onClick={() => {
-                      handleReactEmoji('✨', activeMessageMenu.message);
-                      setActiveMessageMenu(null);
-                    }}
-                    className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 hover:text-black transition-colors"
-                    title="المزيد"
+                    onClick={() => setShowAllEmojis(prev => !prev)}
+                    className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 hover:text-black transition-all hover:scale-110 active:scale-95"
+                    title="المزيد من التفاعلات"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
+
+                {/* 🌟 Extra Emojis Picker Grid (When clicking +) */}
+                {showAllEmojis && (
+                  <div 
+                    style={{
+                      position: 'absolute',
+                      bottom: 'calc(100% + 60px)',
+                      ...(isMe ? { right: 0 } : { left: 0 }),
+                    }}
+                    className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700/90 rounded-3xl p-3 shadow-2xl z-40 grid grid-cols-6 gap-2 text-2xl animate-in zoom-in-90 duration-150 backdrop-blur-xl"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    {EXTRA_EMOJIS.map(emoji => (
+                      <button
+                        key={emoji}
+                        onClick={() => {
+                          handleAddReaction(activeMessageMenu.message.id, emoji);
+                          setActiveMessageMenu(null);
+                          setShowAllEmojis(false);
+                        }}
+                        className="w-9 h-9 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center hover:scale-125 active:scale-95 transition-transform cursor-pointer"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* 2. Highlighted Message Bubble (Exact copy in exact position) */}
                 <div 
