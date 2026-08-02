@@ -2890,7 +2890,8 @@ export default function App() {
 
   // ── تحديث شارة الأيقونة الخارجية (App Icon Badge) تلقائياً ────────────
   useEffect(() => {
-    const totalUnread = (unreadChatCount || 0) + (unreadNotifCount || 0);
+    const unreadNotifCount = (notifications || []).filter((n: any) => !n.isRead && !n.read).length;
+    const totalUnread = (unreadChatCount || 0) + unreadNotifCount;
 
     if (Capacitor.isNativePlatform()) {
       try {
@@ -2913,7 +2914,7 @@ export default function App() {
         }
       } catch (e) {}
     }
-  }, [unreadChatCount, unreadNotifCount]);
+  }, [unreadChatCount, notifications]);
 
   const handleHistoryClick = (itemId: string | number, itemType: string) => {
     if (itemType === 'ad') {
