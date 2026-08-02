@@ -183,6 +183,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
           const isBuyer = String(chat.buyer_id) === currentUserIdStr;
           const otherUserId = String(isBuyer ? chat.seller_id : chat.buyer_id);
           const profile = profilesMap[otherUserId];
+          const isActiveChat = selectedChat?.id === chat.id;
 
           return {
             ...chat,
@@ -190,7 +191,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
             other_user_name: profile?.full_name || 'مستخدم سوق بغداد',
             other_user_avatar: profile?.avatar_url,
             other_user_phone: profile?.phone,
-            unread_count: unreadCountsMap[chat.id] || 0
+            unread_count: isActiveChat ? 0 : (unreadCountsMap[chat.id] || 0)
           };
         });
 
@@ -211,7 +212,10 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
             return updated ? { ...prevSelected, ...updated } : prevSelected;
           }
           if (initialChatId) {
-            return sortedChats.find(c => c.id === initialChatId) || null;
+            return sortedChats.find(c => c.id === initialChatId) || sortedChats[0] || null;
+          }
+          if (typeof window !== 'undefined' && window.innerWidth >= 768 && sortedChats.length > 0) {
+            return sortedChats[0];
           }
           return null;
         });
@@ -430,23 +434,50 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       })
       .subscribe();
 
-    // 🔄 Fail-safe silent polling every 3 seconds for active chat (Zero-Flicker)
+    // 🔄 Fail-safe silent polling every 3 seconds for active chat (Zero-Flicker & Perfect Timestamp Sort)
     const messagesPollInterval = setInterval(async () => {
       try {
         const { data } = await supabase
           .from('messages')
           .select('*')
           .eq('chat_id', currentChatId)
-          .order('created_at', { ascending: true });
+          .order('created_at', { ascending: false })
+          .limit(40);
 
         if (data && data.length > 0) {
+          const fetchedAscending = data.reverse();
           setMessages(prev => {
-            const existingIds = new Set(prev.map(m => m.id));
-            const newItems = data.filter(m => !existingIds.has(m.id) && !prev.some(p => p.id.startsWith('temp-') && p.content === m.content));
-            if (newItems.length === 0) return prev;
-            
-            setTimeout(() => scrollToBottom(), 50);
-            return [...prev, ...newItems];
+            if (prev.length === 0) return fetchedAscending;
+
+            const msgMap = new Map<string, Message>();
+            // Keep all existing messages (including older paginated ones)
+            prev.forEach(m => msgMap.set(m.id, m));
+
+            let hasNewIncoming = false;
+            fetchedAscending.forEach(m => {
+              if (!msgMap.has(m.id)) {
+                hasNewIncoming = true;
+              }
+              // Clean up corresponding temp message
+              if (String(m.sender_id) === String(currentUser.id)) {
+                for (const [key, val] of msgMap.entries()) {
+                  if (key.startsWith('temp-') && val.content === m.content) {
+                    msgMap.delete(key);
+                  }
+                }
+              }
+              msgMap.set(m.id, m);
+            });
+
+            // Sort strictly chronological
+            const sorted = Array.from(msgMap.values()).sort((a, b) => 
+              new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
+
+            if (hasNewIncoming) {
+              setTimeout(() => scrollToBottom(), 60);
+            }
+            return sorted;
           });
         }
       } catch (e) {}
