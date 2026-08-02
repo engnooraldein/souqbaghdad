@@ -238,9 +238,11 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     fetchChats();
   }, [fetchChats]);
 
-  // Realtime subscription for Chats list updates
+  // Realtime subscription + 4s silent poll for Chats list updates (Guaranteed Zero-Flicker Live Updates)
   useEffect(() => {
     if (!currentUser) return;
+
+    fetchChats();
 
     const chatChannel = supabase
       .channel('public:chats_list')
@@ -257,8 +259,14 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       )
       .subscribe();
 
+    // 🔄 Fail-safe silent polling every 4s for conversations list
+    const chatsInterval = setInterval(() => {
+      fetchChats();
+    }, 4000);
+
     return () => {
       supabase.removeChannel(chatChannel);
+      clearInterval(chatsInterval);
     };
   }, [currentUser, fetchChats]);
 
@@ -351,23 +359,32 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     }
   };
 
-  // 4. Realtime Message Channel & Web Broadcast (Zero-Flicker)
+  // 4. Realtime Message Channel & Web Broadcast & 3s Fail-Safe Silent Sync
   const currentChatId = selectedChat?.id;
   useEffect(() => {
     if (!currentChatId || !currentUser) return;
 
     fetchMessages(currentChatId, true);
 
-    // Helper to safely append or update message in state
+    // Helper to safely append or update message in state without dropping identical consecutive text
     const handleIncomingMessage = (newMsg: Message) => {
       setMessages(prev => {
-        if (prev.some(m => m.id === newMsg.id || (m.content === newMsg.content && m.sender_id === newMsg.sender_id && Math.abs(new Date(m.created_at).getTime() - new Date(newMsg.created_at).getTime()) < 5000))) {
-          return prev.map(m => (m.content === newMsg.content && m.sender_id === newMsg.sender_id ? newMsg : m));
+        // 1. If message with exact real ID already exists, update it
+        if (prev.some(m => m.id === newMsg.id)) {
+          return prev.map(m => m.id === newMsg.id ? { ...m, ...newMsg } : m);
         }
+        // 2. If there is an optimistic temp message from me with matching content, replace temp message
+        const tempIndex = prev.findIndex(m => m.id.startsWith('temp-') && String(m.sender_id) === String(newMsg.sender_id) && m.content === newMsg.content);
+        if (tempIndex !== -1) {
+          const copy = [...prev];
+          copy[tempIndex] = newMsg;
+          return copy;
+        }
+        // 3. Otherwise append new message
         return [...prev, newMsg];
       });
 
-      // Mark read if receiving
+      // Mark read if receiving from partner
       if (String(newMsg.sender_id) !== String(currentUser.id)) {
         supabase
           .from('messages')
@@ -413,6 +430,28 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       })
       .subscribe();
 
+    // 🔄 Fail-safe silent polling every 3 seconds for active chat (Zero-Flicker)
+    const messagesPollInterval = setInterval(async () => {
+      try {
+        const { data } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('chat_id', currentChatId)
+          .order('created_at', { ascending: true });
+
+        if (data && data.length > 0) {
+          setMessages(prev => {
+            const existingIds = new Set(prev.map(m => m.id));
+            const newItems = data.filter(m => !existingIds.has(m.id) && !prev.some(p => p.id.startsWith('temp-') && p.content === m.content));
+            if (newItems.length === 0) return prev;
+            
+            setTimeout(() => scrollToBottom(), 50);
+            return [...prev, ...newItems];
+          });
+        }
+      } catch (e) {}
+    }, 3000);
+
     // Typing Broadcast Channel ("يكتب الآن...")
     const typingChannel = supabase
       .channel(`chat_typing:${currentChatId}`)
@@ -430,6 +469,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     return () => {
       supabase.removeChannel(messageChannel);
       supabase.removeChannel(typingChannel);
+      clearInterval(messagesPollInterval);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       setIsPartnerTyping(false);
     };
