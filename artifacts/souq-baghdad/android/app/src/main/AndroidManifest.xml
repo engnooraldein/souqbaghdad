@@ -42,7 +42,7 @@
             android:value="souq_baghdad_high_importance" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@mipmap/ic_launcher" />
+            android:resource="@drawable/ic_stat_icon" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
