@@ -246,9 +246,11 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     };
   }, [currentUser, fetchChats]);
 
-  // 3. Fetch Initial Messages for Selected Chat (Paginated)
-  const fetchMessages = async (chatId: string) => {
-    setLoadingMessages(true);
+  // 3. Fetch Initial Messages for Selected Chat (Paginated & Silent Refetch)
+  const fetchMessages = async (chatId: string, isInitial = true) => {
+    if (isInitial) {
+      setLoadingMessages(true);
+    }
     try {
       const { data, error, count } = await supabase
         .from('messages')
@@ -280,13 +282,6 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
           try {
             const notifId = getNumericHash(chatId);
             LocalNotifications.cancel({ notifications: [{ id: notifId }] }).catch(() => {});
-
-            const { count } = await Badge.get();
-            if (count && count > 0) {
-              await Badge.decrease();
-            } else {
-              await Badge.clear();
-            }
           } catch (e) {}
         }
 
@@ -340,13 +335,12 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
     }
   };
 
-  // 4. Realtime Message Channel, Web Broadcast & Smart 3s Sync Interval per Chat
+  // 4. Realtime Message Channel & Web Broadcast (Zero-Flicker)
+  const currentChatId = selectedChat?.id;
   useEffect(() => {
-    if (!selectedChat || !currentUser) return;
+    if (!currentChatId || !currentUser) return;
 
-    fetchMessages(selectedChat.id);
-
-    const activeChatId = selectedChat.id;
+    fetchMessages(currentChatId, true);
 
     // Helper to safely append or update message in state
     const handleIncomingMessage = (newMsg: Message) => {
@@ -370,14 +364,14 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
 
     // Messages Realtime Channel (Postgres Changes + Web Broadcast)
     const messageChannel = supabase
-      .channel(`chat_messages:${activeChatId}`)
+      .channel(`chat_messages:${currentChatId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `chat_id=eq.${activeChatId}`
+          filter: `chat_id=eq.${currentChatId}`
         },
         (payload) => {
           handleIncomingMessage(payload.new as Message);
@@ -389,7 +383,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
           event: 'UPDATE',
           schema: 'public',
           table: 'messages',
-          filter: `chat_id=eq.${activeChatId}`
+          filter: `chat_id=eq.${currentChatId}`
         },
         (payload) => {
           const updatedMsg = payload.new as Message;
@@ -405,7 +399,7 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
 
     // Typing Broadcast Channel ("يكتب الآن...")
     const typingChannel = supabase
-      .channel(`chat_typing:${activeChatId}`)
+      .channel(`chat_typing:${currentChatId}`)
       .on('broadcast', { event: 'typing' }, (payload) => {
         if (payload.payload?.user_id && String(payload.payload.user_id) !== String(currentUser.id)) {
           setIsPartnerTyping(true);
@@ -417,54 +411,13 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       })
       .subscribe();
 
-    // Smart 3-second active sync interval for Web to guarantee zero refresh needed
-    const smartSyncInterval = setInterval(async () => {
-      try {
-        const { data: latestMsgs } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('chat_id', activeChatId)
-          .order('created_at', { ascending: false })
-          .limit(15);
-
-        if (latestMsgs && latestMsgs.length > 0) {
-          const reversed = latestMsgs.reverse();
-          setMessages(prev => {
-            const existingIds = new Set(prev.map(m => m.id));
-            const newItems = reversed.filter(m => !existingIds.has(m.id));
-            
-            // If no new messages, check if any read status updated
-            if (newItems.length === 0) {
-              const updatedRead = prev.map(m => {
-                const found = reversed.find(r => r.id === m.id);
-                return found && found.is_read !== m.is_read ? { ...m, is_read: found.is_read } : m;
-              });
-              const isChanged = updatedRead.some((m, i) => m.is_read !== prev[i].is_read);
-              return isChanged ? updatedRead : prev;
-            }
-
-            const cleanPrev = prev.filter(m => !m.id.startsWith('temp-'));
-            const merged = [...cleanPrev];
-            for (const item of newItems) {
-              if (!merged.some(m => m.id === item.id)) {
-                merged.push(item);
-              }
-            }
-            setTimeout(() => scrollToBottom(), 50);
-            return merged;
-          });
-        }
-      } catch (e) {}
-    }, 3000);
-
     return () => {
       supabase.removeChannel(messageChannel);
       supabase.removeChannel(typingChannel);
-      clearInterval(smartSyncInterval);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       setIsPartnerTyping(false);
     };
-  }, [selectedChat, currentUser, scrollToBottom]);
+  }, [currentChatId, currentUser, scrollToBottom]);
 
   // Handle Typing Indicator Broadcast
   const handleTypingInput = (val: string) => {
