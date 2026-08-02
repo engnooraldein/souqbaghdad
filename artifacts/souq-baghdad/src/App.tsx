@@ -2890,15 +2890,30 @@ export default function App() {
 
   // ── تحديث شارة الأيقونة الخارجية (App Icon Badge) تلقائياً ────────────
   useEffect(() => {
-    const count = notifications.length;
-    if (typeof window !== 'undefined' && 'setAppBadge' in navigator) {
-      if (count > 0) {
-        (navigator as any).setAppBadge(count).catch(() => {});
-      } else {
-        (navigator as any).clearAppBadge().catch(() => {});
+    const totalUnread = (unreadChatCount || 0) + (unreadNotifCount || 0);
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        if (totalUnread > 0) {
+          Badge.set({ count: totalUnread }).catch(() => {});
+        } else {
+          Badge.clear().catch(() => {});
+        }
+      } catch (e) {
+        console.warn('Error updating native badge:', e);
       }
     }
-  }, [notifications.length]);
+
+    if (typeof window !== 'undefined' && 'setAppBadge' in navigator) {
+      try {
+        if (totalUnread > 0) {
+          (navigator as any).setAppBadge(totalUnread).catch(() => {});
+        } else {
+          (navigator as any).clearAppBadge().catch(() => {});
+        }
+      } catch (e) {}
+    }
+  }, [unreadChatCount, unreadNotifCount]);
 
   const handleHistoryClick = (itemId: string | number, itemType: string) => {
     if (itemType === 'ad') {
