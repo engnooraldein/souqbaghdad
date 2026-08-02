@@ -146,30 +146,41 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
   const typingTimeoutRef = useRef<any>(null);
   const onlineStatuses = useOnlineStatuses();
 
-  // 1. Lock Body Scroll + track keyboard height via Visual Viewport API
+  // 1. Lock Body Scroll + lock outer window scroll on mobile keyboard open
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
     const originalTouchAction = document.body.style.touchAction;
     document.body.style.overflow = 'hidden';
     document.body.style.touchAction = 'none';
 
-    const onViewportResize = () => {
-      if (window.visualViewport) {
-        const kbHeight = window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop;
-        setKeyboardHeight(Math.max(0, kbHeight));
+    const lockWindowScroll = () => {
+      if (window.scrollY !== 0 || window.scrollX !== 0) {
+        window.scrollTo(0, 0);
+      }
+      if (document.body.scrollTop !== 0) {
+        document.body.scrollTop = 0;
       }
     };
 
+    const onViewportResize = () => {
+      lockWindowScroll();
+      requestAnimationFrame(() => scrollToBottom(true));
+      setTimeout(() => scrollToBottom(true), 60);
+      setTimeout(() => scrollToBottom(true), 180);
+    };
+
+    window.addEventListener('scroll', lockWindowScroll, { passive: true });
     window.visualViewport?.addEventListener('resize', onViewportResize);
     window.visualViewport?.addEventListener('scroll', onViewportResize);
 
     return () => {
       document.body.style.overflow = originalOverflow;
       document.body.style.touchAction = originalTouchAction;
+      window.removeEventListener('scroll', lockWindowScroll);
       window.visualViewport?.removeEventListener('resize', onViewportResize);
       window.visualViewport?.removeEventListener('scroll', onViewportResize);
     };
-  }, []);
+  }, [scrollToBottom]);
 
   // Multi-stage Instant Auto-scroll helper
   const scrollToBottom = useCallback((instant = false) => {
@@ -1503,6 +1514,12 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                 type="text"
                 value={newMessage}
                 onChange={e => handleTypingInput(e.target.value)}
+                onFocus={() => {
+                  if (typeof window !== 'undefined') window.scrollTo(0, 0);
+                  requestAnimationFrame(() => scrollToBottom(true));
+                  setTimeout(() => scrollToBottom(true), 60);
+                  setTimeout(() => scrollToBottom(true), 180);
+                }}
                 placeholder={editingMessage ? "تعديل نص الرسالة..." : replyingTo ? "اكتب ردك هنا..." : "اكتب رسالتك هنا..."}
                 className="flex-1 bg-gray-900 text-white border border-gray-700/80 rounded-2xl px-4 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-400 transition-colors shadow-inner"
               />
