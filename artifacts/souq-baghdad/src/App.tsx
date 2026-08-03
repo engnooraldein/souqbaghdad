@@ -664,6 +664,22 @@ export default function App() {
     };
   }, [showChatModal]);
 
+  // Handle hardware / browser back button for Chat Modal in PWA / mobile mode
+  useEffect(() => {
+    if (!showChatModal) return;
+    const handlePopState = () => {
+      setShowChatModal(false);
+      setActiveChatId(null);
+    };
+    try {
+      window.history.pushState({ modal: 'chat' }, '');
+    } catch (_) {}
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [showChatModal]);
+
   const activeChatIdRef = useRef(activeChatId);
   const showChatModalRef = useRef(showChatModal);
 

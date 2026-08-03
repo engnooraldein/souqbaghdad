@@ -1007,14 +1007,19 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
       {/* ── Sidebar: Conversations List ── */}
       <div className={`w-full md:w-80 border-b md:border-b-0 md:border-l border-gray-800 flex flex-col bg-gray-950 h-full min-h-0 flex-1 md:flex-none ${selectedChat ? 'hidden md:flex' : 'flex'}`}>
         {/* Top Header */}
-        <div className="p-4 border-b border-gray-800 flex items-center justify-between shrink-0">
+        <div className="p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] border-b border-gray-800 flex items-center justify-between shrink-0 bg-gray-950">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-amber-400" />
             <h2 className="text-white font-black text-lg">المحادثات 💬</h2>
           </div>
           {onClose && (
-            <button onClick={onClose} className="text-gray-400 hover:text-white p-1.5 rounded-xl hover:bg-gray-800 transition-colors">
-              ✕
+            <button 
+              onClick={onClose} 
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-bold text-xs transition-all shadow-sm active:scale-95 cursor-pointer"
+              title="خروج من المحادثات"
+            >
+              <span>خروج</span>
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -1148,15 +1153,15 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
         {selectedChat ? (
           <>
             {/* Header - sticky at top */}
-            <div className="p-3.5 border-b border-gray-800 flex items-center justify-between bg-gray-950 shadow-md shrink-0 z-30">
-              <div className="flex items-center gap-3">
+            <div className="p-3.5 pt-[calc(0.875rem+env(safe-area-inset-top,0px))] border-b border-gray-800 flex items-center justify-between bg-gray-950 shadow-md shrink-0 z-30">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <button
                   onClick={() => setSelectedChat(null)}
-                  className="md:hidden text-amber-400 hover:text-amber-300 p-1.5 rounded-xl bg-gray-850 hover:bg-gray-800 transition-colors flex items-center gap-1 font-bold text-xs shadow-sm"
+                  className="md:hidden text-amber-400 hover:text-amber-300 p-2 rounded-xl bg-gray-850 hover:bg-gray-800 transition-colors flex items-center gap-1 font-bold text-xs shadow-sm cursor-pointer"
                   title="الرجوع للقائمة"
                 >
                   <ArrowRight className="w-4 h-4" />
-                  <span className="hidden sm:inline">القائمة</span>
+                  <span>المحادثات</span>
                 </button>
                 
                 <div className="relative shrink-0 cursor-pointer" onClick={() => selectedChat.other_user_id && onOpenSellerProfile && onOpenSellerProfile(selectedChat.other_user_id)}>
@@ -1245,10 +1250,10 @@ export function ChatView({ currentUser, activeChatId: initialChatId, onClose, on
                 {onClose && (
                   <button 
                     onClick={onClose} 
-                    className="text-gray-400 hover:text-white p-2 rounded-xl bg-gray-800/80 hover:bg-gray-800 transition-colors flex items-center gap-1.5 text-xs font-bold shadow-sm"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-bold text-xs transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
                     title="إغلاق المحادثة"
                   >
-                    <span className="hidden sm:inline">إغلاق</span>
+                    <span>إغلاق</span>
                     <X className="w-4 h-4" />
                   </button>
                 )}
