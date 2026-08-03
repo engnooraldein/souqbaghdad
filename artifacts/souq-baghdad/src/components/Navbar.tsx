@@ -16,6 +16,7 @@ import {
 import { User as UserType } from '../types';
 import LiveVisitorCounter from './LiveVisitorCounter';
 import { triggerHaptic } from '../utils/haptics';
+import { DEFAULT_AVATAR } from '../App';
 
 interface NavbarProps {
   user: UserType | null;
@@ -106,7 +107,7 @@ export function Navbar({
                 className="w-10 h-10 rounded-xl bg-gray-800 border border-gray-700 overflow-hidden cursor-pointer flex items-center justify-center"
               >
                 {user.avatar ? (
-                  <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                  <img src={user.avatar} onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }} alt={user.name} className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-amber-500 font-bold text-lg">{user.name.charAt(0)}</span>
                 )}

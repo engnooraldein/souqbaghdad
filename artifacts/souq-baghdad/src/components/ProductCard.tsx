@@ -26,6 +26,7 @@ import { isNewItem, getGlowClass } from '../utils/helpers';
 import { formatPrice } from '../utils/format';
 import { supabase } from '../lib/supabase';
 import { ImageWithDataSaver } from './ImageWithDataSaver';
+import { DEFAULT_AVATAR } from '../App';
 
 // Map all lucide icons to global scope to avoid missing imports
 const {
@@ -137,6 +138,7 @@ export const ProductCard = React.memo(function ProductCard({ product, onSelect, 
               ? getProductCategoryPlaceholderImage(product.category) 
               : product.images[0]
           } 
+          fallback={getProductCategoryPlaceholderImage(product.category)}
           alt={product.title} 
           className="w-full h-full object-cover" 
         />
@@ -185,7 +187,7 @@ export const ProductCard = React.memo(function ProductCard({ product, onSelect, 
         </div>
         <div className="flex items-center justify-between mt-auto pt-1 border-t border-gray-150 dark:border-gray-800/40">
           <button onClick={e=>{e.stopPropagation();onSellerClick?.(product.postedBy||'');}} className="flex items-center gap-1 hover:opacity-85 transition-opacity relative">
-            <img src={product.seller?.avatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" loading="lazy" decoding="async" className={`w-4 h-4 rounded-full object-cover ${getGlowClass(sellerRole)}`}/>
+            <img src={product.seller?.avatar || DEFAULT_AVATAR} onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }} alt="" loading="lazy" decoding="async" className={`w-4 h-4 rounded-full object-cover ${getGlowClass(sellerRole)}`}/>
             {onlineStatuses[product.postedBy||''] && <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-green-500 rounded-full border border-gray-800" title="متصل الآن"></div>}
             <span className="text-gray-500 dark:text-gray-400 text-[9px] truncate max-w-[65px]">{product.seller?.name || 'مستخدم'}</span>
           </button>
