@@ -1235,15 +1235,27 @@ export default function App() {
       fmAnimate(mainDragX, -W, { duration: 0.22, ease: [0.4, 0, 0.2, 1] });
       fmAnimate(peekDragX, 0, { duration: 0.22, ease: [0.4, 0, 0.2, 1] }).then(() => {
         const next = peekView as typeof view;
+        // Move main FAR off screen so AnimatePresence exit runs invisibly
+        mainDragX.set(-W - 2000);
         setView(next); setBottomNavActive(next); setSwipeDir(-1);
-        mainDragX.set(0); peekDragX.set(W); setPeekView(null);
+        // Wait for React to render new view, then snap main to 0 and remove peek
+        requestAnimationFrame(() => {
+          mainDragX.set(0);
+          peekDragX.set(W + 2000);
+          setTimeout(() => setPeekView(null), 30);
+        });
       });
     } else if ((dist > threshold || vel > 400) && peekView && peekSide === 'left') {
       fmAnimate(mainDragX, W, { duration: 0.22, ease: [0.4, 0, 0.2, 1] });
       fmAnimate(peekDragX, 0, { duration: 0.22, ease: [0.4, 0, 0.2, 1] }).then(() => {
         const prev = peekView as typeof view;
+        mainDragX.set(W + 2000);
         setView(prev); setBottomNavActive(prev); setSwipeDir(1);
-        mainDragX.set(0); peekDragX.set(-W); setPeekView(null);
+        requestAnimationFrame(() => {
+          mainDragX.set(0);
+          peekDragX.set(-W - 2000);
+          setTimeout(() => setPeekView(null), 30);
+        });
       });
     } else {
       fmAnimate(mainDragX, 0, { duration: 0.3, ease: [0.4, 0, 0.2, 1] });
@@ -4252,6 +4264,8 @@ export default function App() {
               top: 0, left: 0, right: 0, bottom: 0,
               zIndex: 1,
               willChange: 'transform',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
             }}
           >
             <Suspense fallback={<div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`} />}>
@@ -4265,126 +4279,130 @@ export default function App() {
 
         {/* Current view - slides with finger */}
         <motion.div
-          style={{ x: mainDragX, position: 'relative', zIndex: 2, willChange: 'transform' }}
+          style={{
+            x: mainDragX,
+            position: 'relative',
+            zIndex: 2,
+            willChange: 'transform',
+            backfaceVisibility: 'hidden',
+            WebkitBackfaceVisibility: 'hidden',
+          }}
           onPan={onSwipePan}
           onPanEnd={onSwipePanEnd}
         >
-          <AnimatePresence mode="wait" custom={swipeDir}>
-            {view==='home'&&<motion.div key="home" initial={{opacity:1}} animate={{opacity:1}} exit={{opacity:0, transition:{duration:0.1}}}>
-              <Suspense fallback={<LoadingScreen isLoading={true} />}>
-                <MarketView 
-                  user={user} 
-                  allAds={allAds} 
-                  allProducts={allProducts} 
-                  favorites={favorites} 
-                  storedUsers={storedUsers} 
-                  onSelectAd={setSelectedAd} 
-                  onSelectProduct={setSelectedProduct} 
-                  onToggleFav={handleToggleFav} 
-                  onRequireAuth={requireAuth} 
-                  onSellerClick={handleSellerClick} 
-                  onTransportClick={()=>{setView('transport');setBottomNavActive('transport');}} 
-                  isStandalone={isStandalone}
-                  onInstallClick={handleInstallClick}
-                  onSelectTransportAd={setSelectedTransportAd} 
-                  transportLines={allTransportAds}
-                  search={search}
-                  setSearch={setSearch}
-                  cat={cat}
-                  setCat={setCat}
-                  gov={gov}
-                  setGov={setGov}
-                  sort={sort}
-                  setSort={setSort}
-                  priceMin={priceMin}
-                  setPriceMin={setPriceMin}
-                  priceMax={priceMax}
-                  setPriceMax={setPriceMax}
-                  hasMoreAds={hasMoreAds}
-                  hasMoreProducts={hasMoreProducts}
-                  onLoadMoreAds={() => fetchAds(false)}
-                  onLoadMoreProducts={() => fetchProducts(false)}
-                  totalAdsCount={totalAdsCount}
-                  totalProductsCount={totalProductsCount}
-                  loadingMoreAds={loadingMoreAds}
-                  loadingMoreProducts={loadingMoreProducts}
-                  isInitialLoading={isInitialLoading}
-                  isDarkMode={isDarkMode}
-                  onRefresh={handleHomeRefresh}
-                />
-              </Suspense>
-            </motion.div>}
-            {view==='privacy'&&<motion.div key="privacy"
-              initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-              <Suspense fallback={<LoadingScreen isLoading={true} />}>
-                <PrivacyPolicy onBack={() => setView('home')} />
-              </Suspense>
-            </motion.div>}
-            {view==='products'&&<motion.div key="products" initial={{opacity:1}} animate={{opacity:1}} exit={{opacity:0, transition:{duration:0.1}}}>
-              <Suspense fallback={<LoadingScreen isLoading={true} />}>
-                <ProductsView 
-                  user={user} 
-                  onBack={()=>setView('home')} 
-                  onCreateProduct={()=>{if(!user){requireAuth();return;}setShowCreateProduct(true);}} 
-                  onSelectProduct={setSelectedProduct} 
-                  products={allProducts} 
-                  onActionMenu={setActionMenuTarget} 
-                  hasMoreProducts={hasMoreProducts} 
-                  onLoadMoreProducts={() => fetchProducts(false)}
-                  totalProductsCount={totalProductsCount}
-                  loadingMoreProducts={loadingMoreProducts}
-                  isInitialLoading={isInitialLoading}
-                  search={search}
-                  setSearch={setSearch}
-                  cat={cat}
-                  setCat={setCat}
-                  gov={gov}
-                  setGov={setGov}
-                  sort={sort}
-                  setSort={setSort}
-                  priceMin={priceMin}
-                  setPriceMin={setPriceMin}
-                  priceMax={priceMax}
-                  setPriceMax={setPriceMax}
-                  conditionFilter={conditionFilter}
-                  setConditionFilter={setConditionFilter}
-                />
-              </Suspense>
-            </motion.div>}
-            {view==='profile'&&user&&<motion.div key="profile" initial={{opacity:1}} animate={{opacity:1}} exit={{opacity:0, transition:{duration:0.1}}}>
-              <Suspense fallback={<LoadingScreen isLoading={true} />}>
-                <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold} favorites={favorites} allAds={allAds} allProducts={allProducts} onAdSelect={setSelectedAd} onProductSelect={setSelectedProduct} onFav={handleToggleFav} onStoreGuideClick={() => setShowStoreGuide(true)} isDarkMode={isDarkMode} />
-              </Suspense>
-            </motion.div>}
-            {view==='seller'&&selectedSellerId&&<motion.div key="seller" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-              <Suspense fallback={<LoadingScreen isLoading={true} />}>
-                <SellerPublicPage sellerId={selectedSellerId} allAds={allAds} allProducts={allProducts} allTransportAds={allTransportAds} storedUsers={storedUsers} onBack={() => {
-                  setView('home');
-                  if (previousSellerSource === 'accounts') {
-                    if (typeof window !== 'undefined') window.location.hash = '#/accounts';
-                    setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-profiles-tab')), 50);
-                  } else {
-                    if (typeof window !== 'undefined') window.location.hash = '#/';
-                  }
-                }} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} onSelectTransport={setSelectedTransportAd} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile} onActionMenu={setActionMenuTarget} isDarkMode={isDarkMode}/>
-              </Suspense>
-            </motion.div>}
-            {view==='transport'&&<motion.div key="transport" initial={{opacity:1}} animate={{opacity:1}} exit={{opacity:0, transition:{duration:0.1}}}>
-              <Suspense fallback={<LoadingScreen isLoading={true} />}>
-                <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd} onActionMenu={setActionMenuTarget} isInitialLoading={isInitialLoading || (loadingTransport && allTransportAds.length === 0)} storedUsers={storedUsers} onLoadMore={() => fetchTransportAds(false)} hasMore={hasMoreTransport} totalCount={totalTransportCount} adCosts={adCosts}/>
-              </Suspense>
-            </motion.div>}
-            {view==='admin'&&isAdmin&&!isOwner&&<motion.div key="admin" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-              <Suspense fallback={<LoadingScreen isLoading={true} />}>
-                <AdminPanel ads={allAds} onDeleteAd={handleDeleteAd} onClose={()=>setView('home')}/>
-              </Suspense>
-            </motion.div>}
-            {view==='owner'&&isOwner&&<motion.div key="owner" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-              <Suspense fallback={<LoadingScreen isLoading={true} />}>
-                <OwnerDashboard ads={allAds} products={allProducts} transportAds={allTransportAds} onDeleteAd={handleDeleteAd} onDeleteProduct={handleDeleteProduct} onDeleteTransportAd={handleDeleteTransportAd} onClose={()=>setView('home')} onDeleteProfile={handleDeleteProfile}/>
-              </Suspense>
-            </motion.div>}
-          </AnimatePresence>
+          {view==='home'&&<div key="home">
+            <Suspense fallback={<LoadingScreen isLoading={true} />}>
+              <MarketView 
+                user={user} 
+                allAds={allAds} 
+                allProducts={allProducts} 
+                favorites={favorites} 
+                storedUsers={storedUsers} 
+                onSelectAd={setSelectedAd} 
+                onSelectProduct={setSelectedProduct} 
+                onToggleFav={handleToggleFav} 
+                onRequireAuth={requireAuth} 
+                onSellerClick={handleSellerClick} 
+                onTransportClick={()=>{setView('transport');setBottomNavActive('transport');}} 
+                isStandalone={isStandalone}
+                onInstallClick={handleInstallClick}
+                onSelectTransportAd={setSelectedTransportAd} 
+                transportLines={allTransportAds}
+                search={search}
+                setSearch={setSearch}
+                cat={cat}
+                setCat={setCat}
+                gov={gov}
+                setGov={setGov}
+                sort={sort}
+                setSort={setSort}
+                priceMin={priceMin}
+                setPriceMin={setPriceMin}
+                priceMax={priceMax}
+                setPriceMax={setPriceMax}
+                hasMoreAds={hasMoreAds}
+                hasMoreProducts={hasMoreProducts}
+                onLoadMoreAds={() => fetchAds(false)}
+                onLoadMoreProducts={() => fetchProducts(false)}
+                totalAdsCount={totalAdsCount}
+                totalProductsCount={totalProductsCount}
+                loadingMoreAds={loadingMoreAds}
+                loadingMoreProducts={loadingMoreProducts}
+                isInitialLoading={isInitialLoading}
+                isDarkMode={isDarkMode}
+                onRefresh={handleHomeRefresh}
+              />
+            </Suspense>
+          </div>}
+          {view==='privacy'&&<div key="privacy">
+            <Suspense fallback={<LoadingScreen isLoading={true} />}>
+              <PrivacyPolicy onBack={() => setView('home')} />
+            </Suspense>
+          </div>}
+          {view==='products'&&<div key="products">
+            <Suspense fallback={<LoadingScreen isLoading={true} />}>
+              <ProductsView 
+                user={user} 
+                onBack={()=>setView('home')} 
+                onCreateProduct={()=>{if(!user){requireAuth();return;}setShowCreateProduct(true);}} 
+                onSelectProduct={setSelectedProduct} 
+                products={allProducts} 
+                onActionMenu={setActionMenuTarget} 
+                hasMoreProducts={hasMoreProducts} 
+                onLoadMoreProducts={() => fetchProducts(false)}
+                totalProductsCount={totalProductsCount}
+                loadingMoreProducts={loadingMoreProducts}
+                isInitialLoading={isInitialLoading}
+                search={search}
+                setSearch={setSearch}
+                cat={cat}
+                setCat={setCat}
+                gov={gov}
+                setGov={setGov}
+                sort={sort}
+                setSort={setSort}
+                priceMin={priceMin}
+                setPriceMin={setPriceMin}
+                priceMax={priceMax}
+                setPriceMax={setPriceMax}
+                conditionFilter={conditionFilter}
+                setConditionFilter={setConditionFilter}
+              />
+            </Suspense>
+          </div>}
+          {view==='profile'&&user&&<div key="profile">
+            <Suspense fallback={<LoadingScreen isLoading={true} />}>
+              <ProfileView user={user} myAds={myAds} myProducts={myProducts} onDeleteAd={handleDeleteAd} onEditAd={ad=>{setEditingAd(ad);setShowCreateAd(true);}} onDeleteProduct={handleDeleteProduct} onEditProduct={p=>{setEditingProduct(p);setShowCreateProduct(true);}} onUpdateUser={handleUpdateUser} onAddAd={()=>{setEditingAd(null);setShowCreateAd(true);}} onAddProduct={()=>{setEditingProduct(null);setShowCreateProduct(true);}} transportLines={allTransportAds} onUpdateTransportStatus={handleUpdateTransportStatus} onDeleteTransportAd={handleDeleteTransportAd} onMarkAdSold={handleMarkAdSold} onMarkProductSold={handleMarkProductSold} favorites={favorites} allAds={allAds} allProducts={allProducts} onAdSelect={setSelectedAd} onProductSelect={setSelectedProduct} onFav={handleToggleFav} onStoreGuideClick={() => setShowStoreGuide(true)} isDarkMode={isDarkMode} />
+            </Suspense>
+          </div>}
+          {view==='seller'&&selectedSellerId&&<div key="seller">
+            <Suspense fallback={<LoadingScreen isLoading={true} />}>
+              <SellerPublicPage sellerId={selectedSellerId} allAds={allAds} allProducts={allProducts} allTransportAds={allTransportAds} storedUsers={storedUsers} onBack={() => {
+                setView('home');
+                if (previousSellerSource === 'accounts') {
+                  if (typeof window !== 'undefined') window.location.hash = '#/accounts';
+                  setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-profiles-tab')), 50);
+                } else {
+                  if (typeof window !== 'undefined') window.location.hash = '#/';
+                }
+              }} onSelectAd={setSelectedAd} onSelectProduct={setSelectedProduct} onSelectTransport={setSelectedTransportAd} favorites={favorites} onToggleFav={handleToggleFav} user={user} onAuthRequired={requireAuth} onDeleteProfile={handleDeleteProfile} onActionMenu={setActionMenuTarget} isDarkMode={isDarkMode}/>
+            </Suspense>
+          </div>}
+          {view==='transport'&&<div key="transport">
+            <Suspense fallback={<LoadingScreen isLoading={true} />}>
+              <TransportView user={user} onBack={()=>setView('home')} onCreateAd={()=>{if(!user){requireAuth();return;}setShowCreateTransport(true);}} onGoToMyLines={()=>{setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={setSelectedTransportAd} lines={allTransportAds} onPost={handlePostTransportAd} onUpdateStatus={handleUpdateTransportStatus} onDeleteAd={handleDeleteTransportAd} onActionMenu={setActionMenuTarget} isInitialLoading={isInitialLoading || (loadingTransport && allTransportAds.length === 0)} storedUsers={storedUsers} onLoadMore={() => fetchTransportAds(false)} hasMore={hasMoreTransport} totalCount={totalTransportCount} adCosts={adCosts}/>
+            </Suspense>
+          </div>}
+          {view==='admin'&&isAdmin&&!isOwner&&<div key="admin">
+            <Suspense fallback={<LoadingScreen isLoading={true} />}>
+              <AdminPanel ads={allAds} onDeleteAd={handleDeleteAd} onClose={()=>setView('home')}/>
+            </Suspense>
+          </div>}
+          {view==='owner'&&isOwner&&<div key="owner">
+            <Suspense fallback={<LoadingScreen isLoading={true} />}>
+              <OwnerDashboard ads={allAds} products={allProducts} transportAds={allTransportAds} onDeleteAd={handleDeleteAd} onDeleteProduct={handleDeleteProduct} onDeleteTransportAd={handleDeleteTransportAd} onClose={()=>setView('home')} onDeleteProfile={handleDeleteProfile}/>
+            </Suspense>
+          </div>}
         </motion.div>
       </main>
 
