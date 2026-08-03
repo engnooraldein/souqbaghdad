@@ -50,6 +50,9 @@ export function ImageWithDataSaver({ src, fallback, className, alt, ...props }: 
       alt={alt} 
       className={className} 
       loading={props.loading || "lazy"}
+      decoding={props.decoding || "async"}
+      fetchPriority={(props as any).fetchPriority || "low"}
+      style={{ contentVisibility: 'auto', ...((props as any).style || {}) }}
       onError={(e) => {
         if (fallback) {
           (e.target as HTMLImageElement).src = fallback;

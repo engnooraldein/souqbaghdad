@@ -163,6 +163,36 @@
   .dark ::-webkit-scrollbar-thumb:hover {
     background: rgba(245, 158, 11, 0.8);
   }
+
+  /* ── Performance: GPU-accelerate all scrollable containers ── */
+  * {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+
+  /* Momentum / inertia scrolling on iOS */
+  [data-scroll], .overflow-y-auto, .overflow-y-scroll, .overflow-auto, .overflow-scroll {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    overscroll-behavior-y: contain;
+  }
+
+  /* Prevent overscroll bounce on the root which causes jank */
+  html, body {
+    overscroll-behavior: none;
+  }
+
+  /* Promote scrollable views to their own compositor layer */
+  .pwa-main {
+    transform: translateZ(0);
+    will-change: scroll-position;
+  }
+
+  /* Images: prevent layout shifts with aspect-ratio and GPU decode */
+  img {
+    content-visibility: auto;
+    decoding: async;
+  }
 }
 
 @layer utilities {

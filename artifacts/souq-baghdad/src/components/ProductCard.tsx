@@ -120,14 +120,15 @@ export const ProductCard = React.memo(function ProductCard({ product, onSelect, 
 
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 15 }}
+      initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-20px" }}
-      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ y: -3 }} 
+      viewport={{ once: true, margin: "-10px", amount: 0.1 }}
+      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ y: -2 }} 
       onClick={onSelect} 
       onContextMenu={onActionMenu}
-      className={`bg-white dark:bg-gray-900 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 cursor-pointer transition-all flex flex-col h-full shadow-md hover:shadow-lg ${
+      style={{ contain: 'layout style paint', willChange: 'transform' }}
+      className={`bg-white dark:bg-gray-900 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 cursor-pointer transition-colors flex flex-col h-full shadow-md hover:shadow-lg ${
         compact ? 'bg-white dark:bg-gray-950/20 border-gray-150 dark:border-gray-900/60' : ''
       }`}
     >
@@ -140,7 +141,9 @@ export const ProductCard = React.memo(function ProductCard({ product, onSelect, 
           } 
           fallback={getProductCategoryPlaceholderImage(product.category)}
           alt={product.title} 
-          className="w-full h-full object-cover" 
+          className="w-full h-full object-cover"
+          loading="lazy"
+          decoding="async"
         />
         
         {/* Top Right: Condition Badge (New/Used) */}

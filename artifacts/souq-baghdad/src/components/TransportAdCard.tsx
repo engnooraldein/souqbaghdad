@@ -92,10 +92,11 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
   const isNew = new Date().getTime() - new Date(ad.createdAt).getTime() < 24 * 60 * 60 * 1000;
 
   return (
-    <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}}
+    <motion.div initial={{opacity:0,y:12}} whileInView={{opacity:1,y:0}} viewport={{once:true,margin:"-10px",amount:0.1}} transition={{duration:0.3}}
       onClick={onSelect}
       onContextMenu={onActionMenu}
-      className={`bg-white dark:bg-gray-800 rounded-2xl border transition-all overflow-hidden relative cursor-pointer p-3.5 sm:p-5 ${
+      style={{ contain: 'layout style paint', willChange: 'transform' }}
+      className={`bg-white dark:bg-gray-800 rounded-2xl border transition-colors overflow-hidden relative cursor-pointer p-3.5 sm:p-5 ${
         isEmployee 
           ? 'border-indigo-500/50 hover:border-indigo-400 shadow-lg shadow-indigo-950/40' 
           : ad.type === 'offer' ? 'border-gray-200 dark:border-emerald-500/30 hover:border-emerald-500/60' : 'border-gray-200 dark:border-amber-500/30 hover:border-amber-500/60'
