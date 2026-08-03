@@ -73,6 +73,45 @@ import { LionOutline } from '../assets/svg/logo/lion-outline';
 import { BackgroundGrid } from '../assets/svg/background/background-grid';
 import { GoldParticles } from '../assets/svg/effects/gold-particles';
 
+function getAdTimestamp(a: any): number {
+  if (!a) return 0;
+  if (a.createdAtISO) {
+    const t = new Date(a.createdAtISO).getTime();
+    if (!isNaN(t) && t > 0) return t;
+  }
+  if (a.created_at) {
+    if (typeof a.created_at === 'number' && !isNaN(a.created_at) && a.created_at > 0) {
+      return a.created_at > 1e11 ? a.created_at : a.created_at * 1000;
+    }
+    const t = new Date(a.created_at).getTime();
+    if (!isNaN(t) && t > 0) return t;
+  }
+  if (a.createdAt) {
+    if (typeof a.createdAt === 'number' && !isNaN(a.createdAt) && a.createdAt > 0) {
+      return a.createdAt > 1e11 ? a.createdAt : a.createdAt * 1000;
+    }
+    if (typeof a.createdAt === 'string') {
+      const t = new Date(a.createdAt).getTime();
+      if (!isNaN(t) && t > 0) return t;
+    }
+  }
+  if (a.timestamp) {
+    if (typeof a.timestamp === 'number' && !isNaN(a.timestamp) && a.timestamp > 0) {
+      return a.timestamp > 1e11 ? a.timestamp : a.timestamp * 1000;
+    }
+    const t = new Date(a.timestamp).getTime();
+    if (!isNaN(t) && t > 0) return t;
+  }
+  if (typeof a.id === 'number' && a.id > 1000000000) {
+    return a.id;
+  }
+  if (typeof a.id === 'string' && /^\d{10,13}$/.test(a.id)) {
+    const num = Number(a.id);
+    if (!isNaN(num) && num > 1000000000) return num;
+  }
+  return 0;
+}
+
 function PaginationDots({ 
   total, 
   current, 
@@ -249,7 +288,8 @@ export function MarketView({
   hasMoreAds, hasMoreProducts, onLoadMoreAds, onLoadMoreProducts,
   totalAdsCount, totalProductsCount,
   loadingMoreAds, loadingMoreProducts, isInitialLoading,
-  isDarkMode = true
+  isDarkMode = true,
+  onRefresh
 }:{
   user:User|null; allAds:Ad[]; allProducts:Product[]; favorites:number[]; storedUsers?: any[];
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void;
@@ -272,6 +312,7 @@ export function MarketView({
   loadingMoreAds?: boolean; loadingMoreProducts?: boolean;
   isInitialLoading?: boolean;
   isDarkMode?: boolean;
+  onRefresh?: () => Promise<void> | void;
 }) {
   const playSound = useSound();
   const [viewMode, setViewMode] = useState<'grid'|'list'>('grid');
@@ -280,6 +321,77 @@ export function MarketView({
   const [conditionFilter, setConditionFilter] = useState<'all'|'new'|'used'>('all');
   const [latestAdsPage, setLatestAdsPage] = useState(0);
   const [vipAdsPage, setVipAdsPage] = useState(0);
+
+  // ── Pull To Refresh state ───────────────────
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const touchStartYRef = useRef(0);
+  const isPullingRef = useRef(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (typeof window !== 'undefined' && window.scrollY <= 15) {
+      touchStartYRef.current = e.touches[0].clientY;
+      isPullingRef.current = true;
+    } else {
+      isPullingRef.current = false;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPullingRef.current || isRefreshing) return;
+    if (typeof window !== 'undefined' && window.scrollY > 15) {
+      isPullingRef.current = false;
+      setPullDistance(0);
+      return;
+    }
+    const currentY = e.touches[0].clientY;
+    const dy = currentY - touchStartYRef.current;
+    if (dy > 0) {
+      const distance = Math.min(90, Math.pow(dy, 0.75) * 2.2);
+      setPullDistance(distance);
+    } else {
+      setPullDistance(0);
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (!isPullingRef.current) return;
+    isPullingRef.current = false;
+    if (pullDistance > 55 && !isRefreshing) {
+      setIsRefreshing(true);
+      setPullDistance(60);
+      try { playSound('pop'); } catch {}
+      if (onRefresh) {
+        try {
+          await onRefresh();
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      setTimeout(() => {
+        setIsRefreshing(false);
+        setPullDistance(0);
+      }, 500);
+    } else {
+      setPullDistance(0);
+    }
+  };
+
+  const triggerManualRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try { playSound('pop'); } catch {}
+    if (onRefresh) {
+      try {
+        await onRefresh();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 500);
+  };
 
   const [visibleGeneralAdsCount, setVisibleGeneralAdsCount] = useState(6);
   const [categoryAdsPage, setCategoryAdsPage] = useState(0);
@@ -627,10 +739,10 @@ export function MarketView({
       items.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
     } else {
       items.sort((a, b) => {
-        const timeA = new Date(a.createdAtISO || a.createdAt || 0).getTime();
-        const timeB = new Date(b.createdAtISO || b.createdAt || 0).getTime();
-        if (timeA === timeB) return String(b.id).localeCompare(String(a.id));
-        return timeB - timeA;
+        const timeA = getAdTimestamp(a);
+        const timeB = getAdTimestamp(b);
+        if (timeA !== timeB) return timeB - timeA;
+        return String(b.id || '').localeCompare(String(a.id || ''));
       });
     }
 
@@ -675,7 +787,12 @@ export function MarketView({
     } else if (sort === 'price-high') {
       filtered.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
     } else {
-      filtered.sort((a, b) => new Date(b.createdAtISO || 0).getTime() - new Date(a.createdAtISO || 0).getTime());
+      filtered.sort((a, b) => {
+        const timeA = getAdTimestamp(a);
+        const timeB = getAdTimestamp(b);
+        if (timeA !== timeB) return timeB - timeA;
+        return String(b.id || '').localeCompare(String(a.id || ''));
+      });
     }
 
     return filtered;
@@ -710,14 +827,15 @@ export function MarketView({
     const limit = 24 * 60 * 60 * 1000; // 24 ساعة
     return filterAds
       .filter(a => {
-        if (!a.createdAtISO) return false;
-        const diff = now - new Date(a.createdAtISO).getTime();
+        const time = getAdTimestamp(a);
+        if (time <= 0) return false;
+        const diff = now - time;
         if (diff < 0 || diff > limit) return false;
         
         // استبعاد الإعلانات المدفوعة VIP
         return !a.is_vip;
       })
-      .sort((a, b) => new Date(b.createdAtISO!).getTime() - new Date(a.createdAtISO!).getTime());
+      .sort((a, b) => getAdTimestamp(b) - getAdTimestamp(a));
   }, [filterAds]);
 
   const latestProducts = useMemo(() => {
@@ -725,15 +843,16 @@ export function MarketView({
     const limit = 24 * 60 * 60 * 1000; // 24 ساعة
     return filterProds
       .filter(p => {
-        if (!p.createdAtISO) return false;
-        const diff = now - new Date(p.createdAtISO).getTime();
+        const time = getAdTimestamp(p);
+        if (time <= 0) return false;
+        const diff = now - time;
         const isInTime = diff > 0 && diff <= limit;
         if (!isInTime) return false;
 
         // استبعاد المنتجات المدفوعة VIP
         return !p.is_vip;
       })
-      .sort((a, b) => new Date(b.createdAtISO!).getTime() - new Date(a.createdAtISO!).getTime());
+      .sort((a, b) => getAdTimestamp(b) - getAdTimestamp(a));
   }, [filterProds]);
 
   const totalLatestPages = Math.ceil(latestAds.length / 6);
@@ -746,8 +865,9 @@ export function MarketView({
   const vipAds = useMemo(() => {
     const now = Date.now();
     return filterAds.filter(a => {
-      if (!a.createdAtISO) return false;
-      const diff = now - new Date(a.createdAtISO).getTime();
+      const time = getAdTimestamp(a);
+      if (time <= 0) return false;
+      const diff = now - time;
       const limit = (a.vip_days || 30) * 24 * 60 * 60 * 1000;
       if (diff < 0 || diff > limit) return false;
 
@@ -766,12 +886,12 @@ export function MarketView({
   const paginatedGeneralAds = useMemo(() => {
     if (filterAds.length === 0) return [];
 
-    // الترتيب الأبسط والأكثر استقراراً: من الأحدث إلى الأقدم بناءً على تاريخ النشر فقط
+    // الترتيب الأولوية للأحدث زمنياً أولاً مع إبراز الإعلانات المتميزة
     const sorted = [...filterAds].sort((a, b) => {
-      const timeA = new Date(a.createdAtISO || a.createdAt || 0).getTime();
-      const timeB = new Date(b.createdAtISO || b.createdAt || 0).getTime();
-      if (timeA === timeB) return String(b.id).localeCompare(String(a.id));
-      return timeB - timeA;
+      const timeA = getAdTimestamp(a);
+      const timeB = getAdTimestamp(b);
+      if (timeA !== timeB) return timeB - timeA;
+      return String(b.id || '').localeCompare(String(a.id || ''));
     });
 
     return sorted.slice(0, visibleGeneralAdsCount);
@@ -795,8 +915,36 @@ export function MarketView({
 
   const canViewFullDirectory = user?.role === 'admin' || user?.role === 'owner' || user?.isVerified;
   return (
-    <div>
-      {/* Hero */}
+    <div onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+      {/* Pull To Refresh Indicator Banner */}
+      <AnimatePresence>
+        {(pullDistance > 0 || isRefreshing) && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: isRefreshing ? 52 : pullDistance, opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+            className="overflow-hidden flex items-center justify-center py-2 sticky top-0 z-50 pointer-events-none"
+          >
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black shadow-xl border backdrop-blur-md transition-all ${
+              isDarkMode 
+                ? 'bg-amber-500/25 text-amber-300 border-amber-500/40 shadow-amber-500/10' 
+                : 'bg-amber-100 text-amber-900 border-amber-300 shadow-amber-500/10'
+            }`}>
+              <RefreshCw className={`w-4 h-4 text-amber-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>
+                {isRefreshing 
+                  ? 'جاري البحث عن إعلانات جديدة...' 
+                  : pullDistance > 55 
+                    ? 'اترك السحب الآن للتحديث ✨' 
+                    : 'اسحب لأسفل لتحديث الإعلانات'}
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Hero (Only shown in search/category mode, hidden in General Feed mode) */}
+      {cat !== 'general' && (
       <section 
         id="hero-landing-section" 
         className={`py-14 sm:py-20 relative overflow-hidden border-b transition-all duration-500 ${
@@ -1142,26 +1290,10 @@ export function MarketView({
               exit={{ opacity: 0, y: -10 }}
               className="flex flex-col"
             >
-              {cat === 'general' ? (
-                <div className="flex flex-col items-center justify-center py-4 mb-4 relative z-20">
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setCat('all')}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm shadow-sm transition-all duration-300 ${
-                      isDarkMode 
-                        ? 'bg-gray-800 text-white hover:bg-gray-700 border border-gray-700' 
-                        : 'bg-white text-slate-800 hover:bg-slate-50 border border-slate-200'
-                    }`}
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                    العودة للرئيسية والأقسام
-                  </motion.button>
-                </div>
-              ) : (
+              {cat === 'general' ? null : (
                 <>
                   {/* Categories Grid/Horizontal Badges */}
-              <div id="hero-categories-tabs" className="flex flex-wrap justify-center gap-2 mb-8 relative z-20 max-w-4xl mx-auto">
+              <div id="hero-categories-tabs" className="flex overflow-x-auto scrollbar-hide gap-2.5 mb-8 py-1.5 px-2 relative z-20 max-w-4xl mx-auto touch-pan-x flex-nowrap justify-start sm:justify-center">
                 {CATEGORIES.filter(c => c.id !== 'games').map(c => {
                   const isGeneral = c.id === 'general';
                   const isSelected = cat === c.id;
@@ -1172,7 +1304,7 @@ export function MarketView({
                       whileHover={{ y: -2, scale: isGeneral ? 1.06 : 1.03 }} 
                       whileTap={{ scale: 0.97 }} 
                       onClick={() => setCat(c.id)}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-all duration-300 relative ${
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-all duration-300 relative shrink-0 ${
                         isSelected 
                           ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black border-amber-400 shadow-[0_4px_20px_rgba(212,175,55,0.4)] font-black scale-105' 
                           : isGeneral
@@ -1301,6 +1433,7 @@ export function MarketView({
           <CityOutline className="w-full h-full" />
         </div>
       </section>
+      )}
 
       {/* Content */}
       <section className="py-8">
@@ -1727,25 +1860,30 @@ export function MarketView({
                   {/* CASE 2: GENERAL FEED (العرض العام - تصفح مثل فيسبوك) */}
                   {cat === 'general' && (
                     <div className="space-y-6 max-w-2xl mx-auto" dir="rtl">
-                      {/* Feed Header */}
-                      <div className={`border rounded-3xl p-4 flex items-center justify-between shadow-xl transition-all duration-500 ${
+                      {/* Feed Header - Thin Strip with Subtitle Explanation */}
+                      <div className={`border rounded-2xl py-2.5 px-4 flex items-center justify-between shadow-md transition-all duration-300 ${
                         isDarkMode 
-                          ? 'bg-black border-gray-800/80' 
-                          : 'bg-white border-slate-200/80 shadow-slate-100/50'
+                          ? 'bg-gray-900/90 border-gray-800/80' 
+                          : 'bg-white border-slate-200/80 shadow-slate-100'
                       }`}>
-                        <h2 className={`text-lg font-black flex items-center gap-2 transition-colors duration-500 ${
-                          isDarkMode ? 'text-white' : 'text-black'
-                        }`}>
-                          <span>👥</span>
-                          العرض العام <span className={`text-xs px-2.5 py-1 rounded-full border font-bold transition-all duration-500 ${
-                            isDarkMode 
-                              ? 'bg-amber-400/10 text-amber-400 border-amber-400/20' 
-                              : 'bg-amber-50 text-amber-700 border-amber-200'
-                          }`}>تصفح في سوق بغداد الرقمي ✨</span>
-                        </h2>
-                        <span className={`text-xs font-bold transition-colors duration-500 ${
-                          isDarkMode ? 'text-gray-400' : 'text-slate-500'
-                        }`}>أحدث الإعلانات مرتبة زمنياً</span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">📢</span>
+                            <h2 className={`text-sm sm:text-base font-black transition-colors ${
+                              isDarkMode ? 'text-white' : 'text-slate-900'
+                            }`}>
+                              العرض العام
+                            </h2>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${
+                              isDarkMode 
+                                ? 'bg-amber-400/10 text-amber-400 border-amber-400/20' 
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}>الصفحة الرئيسية</span>
+                          </div>
+                          <p className={`text-[11px] font-medium mt-1 pr-6 transition-colors ${
+                            isDarkMode ? 'text-gray-400' : 'text-slate-500'
+                          }`}>تصفح جميع المنشورات والإعلانات الرقمية في سوق بغداد مباشرة</p>
+                        </div>
                       </div>
 
                       {filterAds.length === 0 ? (
@@ -1760,6 +1898,8 @@ export function MarketView({
                             const seller = storedUsers?.find(u => u.id === ad.postedBy);
                             const isFav = favorites.includes(ad.id);
                             const isOnline = ad.postedBy ? !!onlineStatuses[ad.postedBy] : false;
+                            const adTime = getAdTimestamp(ad);
+                            const isRecent = adTime > 0 && (Date.now() - adTime) <= 24 * 60 * 60 * 1000;
                             return (
                               <motion.div 
                                 key={`fb-feed-${ad.id}`}
@@ -1783,7 +1923,7 @@ export function MarketView({
                                       <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-gray-900 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} />
                                     </div>
                                     <div>
-                                      <div className="flex items-center gap-1.5">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
                                         <span 
                                           onClick={() => ad.postedBy && onSellerClick(ad.postedBy)}
                                           className={`text-sm font-bold transition-colors cursor-pointer ${

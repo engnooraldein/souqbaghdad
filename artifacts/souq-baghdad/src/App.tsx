@@ -1318,7 +1318,7 @@ export default function App() {
   const [totalTransportCount, setTotalTransportCount] = useState(0);
   
   const [search, setSearch] = useState('');
-  const [cat, setCat] = useState('all');
+  const [cat, setCat] = useState('general');
   const [gov, setGov] = useState('الكل');
   const [sort, setSort] = useState<'recent'|'views'|'price-low'|'price-high'>('recent');
   const [priceMin, setPriceMin] = useState('');
@@ -2025,20 +2025,45 @@ export default function App() {
       window.history.replaceState(null, '', path + window.location.search);
     }
 
-    if (!path || path === '/' || path === '/IQ') {
+    const decodedPath = decodeURIComponent(path);
+    const cleanPath = decodedPath.replace(/^\//, '');
+    let parts = cleanPath.split('/').filter(Boolean);
+
+    // Strip leading 'IQ' prefix if present
+    if (parts.length > 0 && parts[0] === 'IQ') {
+      parts.shift();
+    }
+
+    if (parts.length === 0) {
       setView('home');
+      setCat('general');
       setSelectedAd(null);
       setSelectedProduct(null);
       setSelectedSellerId(null);
       return;
     }
     
-    // Normalize path: remove leading '/'
-    const cleanPath = path.replace(/^\//, '');
-    const parts = cleanPath.split('/').filter(Boolean);
-    // parts[0] is route type ('ad', 'product', 'accounts', 'seller', 'profile', 'transport', 'admin', 'owner')
+    // parts[0] is route type ('search', 'بحث', 'category', 'ad', 'product', 'accounts', 'seller', 'profile', 'transport', 'admin', 'owner')
     const type = parts[0];
     const targetId = parts[parts.length - 1]; // Get last segment as ID or slug
+
+    if (type === 'search' || type === 'بحث') {
+      setView('home');
+      setCat('all');
+      setSelectedAd(null);
+      setSelectedProduct(null);
+      setSelectedSellerId(null);
+      return;
+    }
+
+    if (type === 'category' && parts[1]) {
+      setView('home');
+      setCat(parts[1]);
+      setSelectedAd(null);
+      setSelectedProduct(null);
+      setSelectedSellerId(null);
+      return;
+    }
     
     if (type === 'ad' && targetId) {
       let actualId = targetId;
@@ -2307,11 +2332,6 @@ export default function App() {
   // ✅ آمن: يتم تنظيف جميع Event Listeners في الـ cleanup.
   useEffect(() => {
     if (typeof window === 'undefined') return () => {};
-    
-    // Normalize old /IQ paths to clean root path
-    if (window.location.pathname === '/IQ') {
-      window.history.replaceState(null, '', '/');
-    }
 
     // Check standalone mode
     const checkStandalone = () => {
@@ -2429,7 +2449,13 @@ export default function App() {
     } else if (view === 'owner') {
       newPath = `/owner`;
     } else {
-      newPath = `/IQ`;
+      if (cat === 'all') {
+        newPath = `/IQ/search`;
+      } else if (cat && cat !== 'general') {
+        newPath = `/IQ/category/${cat}`;
+      } else {
+        newPath = `/IQ`;
+      }
     }
     
     const currentPath = window.location.pathname + window.location.search;
@@ -2438,7 +2464,7 @@ export default function App() {
     } else if (!newPath && currentPath !== '/IQ') {
       window.history.pushState(null, '', '/IQ');
     }
-  }, [view, selectedAd, selectedProduct, selectedSellerId, selectedTransportAd, initialHashParsed, loadingRoute]);
+  }, [view, cat, selectedAd, selectedProduct, selectedSellerId, selectedTransportAd, initialHashParsed, loadingRoute]);
   // ------------------------------------
 
   // ── Rate Limit Helper ─────────────────────────
@@ -2583,7 +2609,7 @@ export default function App() {
       }
 
       if (cat === 'general') {
-        query = query.order('views', { ascending: false }).order('created_at', { ascending: false });
+        query = query.order('created_at', { ascending: false });
       } else {
         if (sort === 'views') {
           query = query.order('views', { ascending: false });
@@ -2807,6 +2833,22 @@ export default function App() {
       setLoadingMoreProducts(false);
     }
   }, [productsPage, search, cat, gov, sort, priceMin, priceMax]);
+
+  const handleHomeRefresh = useCallback(async () => {
+    setView('home');
+    setCat('general');
+    setBottomNavActive('home');
+    setSearch('');
+    setGov('الكل');
+    setSort('recent');
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+    try { playNotificationSound('pop'); } catch {}
+    await Promise.all([
+      fetchAds(true),
+      fetchProducts(true),
+      fetchTransportAds(true)
+    ]);
+  }, [fetchAds, fetchProducts, fetchTransportAds, playNotificationSound]);
 
 
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -3704,14 +3746,25 @@ export default function App() {
       <nav className={`fixed top-0 left-0 right-0 z-40 backdrop-blur-xl border-b transition-colors duration-300 pwa-header shadow-md ${isDarkMode ? 'bg-[black]/70 border-transparent shadow-[black]/10' : 'bg-white/80 border-slate-200/80 shadow-slate-100'}`}>
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            <button onClick={()=>setView('home')} className="flex items-center gap-2">
+            <button onClick={()=>{ setView('home'); setCat('general'); window.scrollTo(0,0); }} className="flex items-center gap-2">
               <Logo small/>
               <span className={`font-bold text-sm sm:text-lg transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>سوك بغداد</span>
             </button>
-            <div className="hidden md:flex flex-1 max-w-sm mx-6">
-              <div className="relative w-full">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                <input placeholder="ابحث في سوك بغداد..." onClick={()=>setView('home')} readOnly className={`w-full rounded-xl py-2 pr-9 pl-4 border outline-none text-sm cursor-pointer transition-colors ${isDarkMode ? 'bg-gray-800 text-white placeholder-gray-400 border-gray-700' : 'bg-slate-100 text-slate-800 placeholder-slate-400 border-slate-200'}`}/>
+            <div className="hidden lg:flex flex-1 max-w-sm mx-6 items-center">
+              <div 
+                className="relative w-full cursor-pointer group" 
+                onClick={()=>{ setView('home'); setCat('all'); window.scrollTo(0,0); }}
+              >
+                <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500 transition-transform group-hover:scale-110"/>
+                <input 
+                  placeholder="ابحث في الإعلانات والأقسام..." 
+                  readOnly 
+                  className={`w-full rounded-2xl py-2 pr-10 pl-4 border outline-none text-xs cursor-pointer transition-all shadow-sm ${
+                    isDarkMode 
+                      ? 'bg-gray-800/90 text-white placeholder-gray-400 border-gray-700 hover:border-amber-500/50' 
+                      : 'bg-slate-100/90 text-slate-800 placeholder-slate-400 border-slate-200 hover:border-amber-500/50'
+                  }`}
+                />
               </div>
             </div>
             <div className="hidden lg:flex items-center gap-2">
@@ -3769,6 +3822,14 @@ export default function App() {
               )}
             </div>
             <div className="flex items-center gap-1.5 lg:hidden">
+              <button 
+                onClick={()=>{ setView('home'); setCat('all'); window.scrollTo(0,0); }}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-black font-extrabold rounded-xl text-xs hover:brightness-110 shrink-0 cursor-pointer shadow-md shadow-amber-500/20 active:scale-95 transition-all"
+                title="فتح البحث والأقسام"
+              >
+                <Search className="w-3.5 h-3.5"/>
+                <span>بحث</span>
+              </button>
               <div className="relative">
                 <button 
                   onClick={() => setShowThemeMenu(!showThemeMenu)} 
@@ -3866,13 +3927,22 @@ export default function App() {
           <div className="space-y-1">
             <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider pr-3 mb-2">القائمة الرئيسية</p>
             
-            <button onClick={() => { setView('home'); setBottomNavActive('home'); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
-              view === 'home' 
-                ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/10' 
+            <button onClick={handleHomeRefresh} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
+              view === 'home' && cat === 'general'
+                ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/10 font-black' 
                 : (isDarkMode ? 'text-gray-300 hover:bg-gray-800/60 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')
             }`}>
               <Home className="w-4.5 h-4.5"/>
-              <span>سوق بغداد الرئيسية</span>
+              <span>الرئيسية (العرض العام)</span>
+            </button>
+
+            <button onClick={() => { setView('home'); setCat('all'); setBottomNavActive('home'); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
+              view === 'home' && cat === 'all'
+                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 font-black' 
+                : (isDarkMode ? 'text-gray-300 hover:bg-gray-800/60 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')
+            }`}>
+              <Search className="w-4.5 h-4.5 text-amber-400"/>
+              <span>البحث والأقسام</span>
             </button>
 
             <button onClick={() => { setView('products'); setBottomNavActive('products'); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
@@ -4047,8 +4117,11 @@ export default function App() {
                 </div>
 
                 <div className="space-y-1">
-                  <button onClick={() => { setView('home'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800/10 text-sm font-bold">
-                    <Home className="w-5 h-5" /> الرئيسية
+                  <button onClick={() => { handleHomeRefresh(); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800/10 text-sm font-bold">
+                    <Home className="w-5 h-5 text-amber-500" /> الرئيسية (العرض العام)
+                  </button>
+                  <button onClick={() => { setView('home'); setCat('all'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800/10 text-sm font-bold">
+                    <Search className="w-5 h-5 text-amber-400" /> البحث والأقسام
                   </button>
                   <button onClick={() => { setView('products'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800/10 text-sm font-bold">
                     <ShoppingBag className="w-5 h-5" /> المنتجات
@@ -4159,6 +4232,7 @@ export default function App() {
                 loadingMoreProducts={loadingMoreProducts}
                 isInitialLoading={isInitialLoading}
                 isDarkMode={isDarkMode}
+                onRefresh={handleHomeRefresh}
               />
             </Suspense>
           </motion.div>}
@@ -4323,12 +4397,12 @@ export default function App() {
             <span className="text-[10px] mt-1 font-medium">الخطوط</span>
           </button>
 
-          {/* الرئيسية */}
+          {/* الرئيسية (العرض العام) */}
           <button
-            onClick={() => { setBottomNavActive('home'); setView('home'); }}
-            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'home' ? 'text-amber-400' : 'text-gray-400'}`}
+            onClick={handleHomeRefresh}
+            className={`flex flex-col items-center justify-center flex-1 py-2 transition-all ${bottomNavActive === 'home' && cat === 'general' ? 'text-amber-400' : 'text-gray-400'}`}
           >
-            <div className={`p-2 rounded-xl ${bottomNavActive === 'home' ? 'bg-amber-500/20' : ''}`}>
+            <div className={`p-2 rounded-xl ${bottomNavActive === 'home' && cat === 'general' ? 'bg-amber-500/20' : ''}`}>
               <Home className="w-6 h-6" />
             </div>
             <span className="text-[10px] mt-1 font-medium">الرئيسية</span>

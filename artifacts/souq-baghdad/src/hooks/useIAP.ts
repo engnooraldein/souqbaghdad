@@ -89,7 +89,16 @@ export const useIAP = (userId?: string) => {
       setIsReady(true);
     });
 
-    store.initialize([store.GOOGLE_PLAY]);
+    // منع الإضافة من إظهار رسائل خطأ مزعجة للمستخدم (مثل رسالة غياب Google Play)
+    store.error((e: any) => {
+      console.warn("IAP Store Error (suppressed):", e);
+    });
+
+    try {
+      store.initialize([store.GOOGLE_PLAY]);
+    } catch (e) {
+      console.warn("Error initializing store:", e);
+    }
     
   }, [userId]);
 
