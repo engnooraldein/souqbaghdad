@@ -1230,13 +1230,18 @@ export default function App() {
     const W = window.innerWidth;
     const dx = info.offset.x;
     const idx = MAIN_VIEWS.indexOf(view);
+    const len = MAIN_VIEWS.length;
     mainDragX.set(dx);
-    if (dx < -5 && idx < MAIN_VIEWS.length - 1) {
-      const next = MAIN_VIEWS[idx + 1];
+    // Circular: going right (dx<0) → next (or wrap to first)
+    if (dx < -5) {
+      const nextIdx = (idx + 1) % len;
+      const next = MAIN_VIEWS[nextIdx];
       if (peekView !== next) { setPeekView(next); setPeekSide('right'); }
       peekDragX.set(dx + W);
-    } else if (dx > 5 && idx > 0) {
-      const prev = MAIN_VIEWS[idx - 1];
+    // Circular: going left (dx>0) → prev (or wrap to last)
+    } else if (dx > 5) {
+      const prevIdx = (idx - 1 + len) % len;
+      const prev = MAIN_VIEWS[prevIdx];
       if (peekView !== prev) { setPeekView(prev); setPeekSide('left'); }
       peekDragX.set(dx - W);
     }
@@ -1247,14 +1252,14 @@ export default function App() {
     const threshold = W * 0.28;
     const vel = info.velocity.x;
     const dist = info.offset.x;
+    const idx = MAIN_VIEWS.indexOf(view);
+    const len = MAIN_VIEWS.length;
     if ((dist < -threshold || vel < -400) && peekView && peekSide === 'right') {
       fmAnimate(mainDragX, -W, { duration: 0.22, ease: [0.4, 0, 0.2, 1] });
       fmAnimate(peekDragX, 0, { duration: 0.22, ease: [0.4, 0, 0.2, 1] }).then(() => {
         const next = peekView as typeof view;
-        // Move main FAR off screen so AnimatePresence exit runs invisibly
         mainDragX.set(-W - 2000);
         setView(next); setBottomNavActive(next); setSwipeDir(-1);
-        // Wait for React to render new view, then snap main to 0 and remove peek
         requestAnimationFrame(() => {
           mainDragX.set(0);
           peekDragX.set(W + 2000);
@@ -4270,7 +4275,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main */}
-      <main className="pwa-main lg:pr-64 relative overflow-x-hidden">
+      <main className="pwa-main lg:pr-64 relative overflow-x-hidden pt-[calc(64px+env(safe-area-inset-top,0px))] pb-[calc(70px+env(safe-area-inset-bottom,0px))] lg:pb-0">
         {/* Peek view - adjacent page visible during swipe */}
         {peekView && (
           <motion.div

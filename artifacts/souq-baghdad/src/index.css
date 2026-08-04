@@ -173,8 +173,8 @@
   /* Momentum / inertia scrolling on iOS */
   [data-scroll], .overflow-y-auto, .overflow-y-scroll, .overflow-auto, .overflow-scroll {
     -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
     overscroll-behavior-y: contain;
+    touch-action: pan-y; /* Optimize touch scrolling */
   }
 
   /* Prevent overscroll bounce on the root which causes jank */
@@ -186,6 +186,7 @@
   .pwa-main {
     transform: translateZ(0);
     will-change: scroll-position;
+    touch-action: pan-y; /* Prevent horizontal gesture interference */
   }
 
   /* Images: prevent layout shifts with aspect-ratio and GPU decode */

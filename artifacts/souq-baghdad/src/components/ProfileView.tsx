@@ -519,7 +519,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
     };
   }, []);
 
-  const handleSave = async () => {
+  const handleSave = async (overrideAvatar?: string, overrideCover?: string) => {
     if (!ef.name.trim()) { alert('الرجاء إدخال الاسم الكامل'); return; }
     if (!ef.phone.trim()) { alert('الرجاء إدخال رقم الهاتف'); return; }
     if (!ef.email.trim()) { alert('الرجاء إدخال البريد الإلكتروني'); return; }
@@ -575,13 +575,13 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
 
 
 
-      let finalAvatar = avatarPreview;
+      let finalAvatar = overrideAvatar || avatarPreview;
       if (finalAvatar && finalAvatar.startsWith('data:image/')) {
         finalAvatar = await uploadImageToStorage(finalAvatar, 'ad-images', 1200, 0.8, false);
         setAvatarPreview(finalAvatar);
       }
       
-      let finalCover = coverPreview;
+      let finalCover = overrideCover || coverPreview;
       if (finalCover && finalCover.startsWith('data:image/')) {
         finalCover = await uploadImageToStorage(finalCover, 'ad-images', 1200, 0.9, false);
         setCoverPreview(finalCover);
@@ -607,6 +607,8 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
   const handleCropSave = (b64:string) => {
     if(cropType==='avatar') setAvatarPreview(b64); else setCoverPreview(b64);
     setCropSrc(null);
+    // Auto-save the profile immediately with the cropped image
+    handleSave(cropType === 'avatar' ? b64 : undefined, cropType === 'cover' ? b64 : undefined);
   };
 
   // Drag and drop handlers for effortless upload (سهولة الرفع)
@@ -730,7 +732,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
             <div className="flex flex-wrap gap-1.5 sm:gap-2 pb-2 justify-end max-w-[200px] sm:max-w-none">
               {editing?(
                 <>
-                  <button onClick={handleSave} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-green-50 text-white rounded-xl text-sm font-bold shadow-lg shadow-green-500/20 hover:bg-green-600"><Save className="w-4 h-4"/>حفظ</button>
+                  <button onClick={() => handleSave()} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-green-50 text-white rounded-xl text-sm font-bold shadow-lg shadow-green-500/20 hover:bg-green-600"><Save className="w-4 h-4"/>حفظ</button>
                   <button onClick={()=>{setEditing(false);setAvatarPreview(user.avatar||DEFAULT_AVATAR);setCoverPreview(user.cover||DEFAULT_COVER);}} className={`px-3 py-2 sm:px-4 sm:py-2 border rounded-xl text-sm transition-colors ${isDarkMode ? 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 shadow-sm'}`}>إلغاء</button>
                 </>
               ):(
@@ -1271,7 +1273,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                   <select disabled={!editing} value={ef.location} onChange={e=>setEf({...ef,location:e.target.value})} className={`w-full rounded-xl py-2.5 px-4 border outline-none text-sm transition-colors ${isDarkMode ? 'bg-gray-700 text-white border-gray-600 focus:border-amber-400' : 'bg-slate-50 text-slate-900 border-slate-200 focus:border-amber-500'}`} title="المحافظة" aria-label="المحافظة">
                     {IRAQI_GOVERNORATES.filter(g=>g!=='الكل').map(g=><option key={g}>{g}</option>)}</select></div>
                 {editing&&<div className="flex gap-3 pt-2">
-                  <button onClick={handleSave} disabled={isSaving} className="flex-1 py-3 bg-green-500 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <button onClick={() => handleSave()} disabled={isSaving} className="flex-1 py-3 bg-green-500 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                     {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4"/>}
                     حفظ التغييرات
                   </button>

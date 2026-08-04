@@ -44,7 +44,8 @@ import { IraqiEagle } from './Icons';
 export function ImageCropModal({ src, aspectRatio=1, title='قص الصورة', onSave, onClose }:{
   src:string; aspectRatio?:number; title?:string; onSave:(b64:string)=>void; onClose:()=>void;
 }) {
-  const PREV_W = 300, PREV_H = Math.round(300/aspectRatio);
+  const PREV_W = Math.min(300, typeof window !== 'undefined' ? window.innerWidth - 64 : 300);
+  const PREV_H = Math.round(PREV_W/aspectRatio);
   const [zoom, setZoom] = useState(1);
   const [pos, setPos]   = useState({ x:0, y:0 });
   const [dragging, setDragging] = useState(false);
@@ -126,7 +127,7 @@ export function ImageCropModal({ src, aspectRatio=1, title='قص الصورة', 
           onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onMouseUp}>
           <img ref={imgRef} src={src} alt=""
             onLoad={onImgLoad}
-            className="absolute pointer-events-none select-none"
+            className="absolute pointer-events-none select-none max-w-none"
             style={imgStyle}
             onContextMenu={e => e.preventDefault()}
             draggable={false}/>
@@ -144,7 +145,7 @@ export function ImageCropModal({ src, aspectRatio=1, title='قص الصورة', 
         <p className="text-gray-500 text-xs text-center mt-2">اسحب الصورة لتحريكها</p>
         <div className="flex gap-3 mt-4">
           <button onClick={onClose} className="flex-1 py-2.5 bg-gray-800 text-gray-300 rounded-xl text-sm font-medium">إلغاء</button>
-          <button onClick={handleSave} className="flex-1 py-2.5 bg-amber-500 text-black rounded-xl text-sm font-bold flex items-center justify-center gap-2"><Check className="w-4 h-4"/> حفظ</button>
+          <button onClick={handleSave} className="flex-1 py-2.5 bg-amber-500 text-black rounded-xl text-sm font-bold flex items-center justify-center gap-2"><Check className="w-4 h-4"/> تأكيد القص</button>
         </div>
       </motion.div>
     </motion.div>
