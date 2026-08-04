@@ -9,6 +9,7 @@
 // نعم.
 // ===========================================
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Heart, Share2, MapPin, Phone, Car, Home, Smartphone, Watch, 
@@ -112,7 +113,7 @@ export function ImageCropModal({ src, aspectRatio=1, title='قص الصورة', 
     onSave(c.toDataURL('image/jpeg', 0.92));
   };
 
-  return (
+  return createPortal(
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-[150] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose}/>
       <motion.div initial={{scale:0.9}} animate={{scale:1}} className="relative bg-gray-900 rounded-2xl p-5 w-full max-w-sm border border-gray-700 shadow-2xl z-10">
@@ -148,6 +149,7 @@ export function ImageCropModal({ src, aspectRatio=1, title='قص الصورة', 
           <button onClick={handleSave} className="flex-1 py-2.5 bg-amber-500 text-black rounded-xl text-sm font-bold flex items-center justify-center gap-2"><Check className="w-4 h-4"/> تأكيد القص</button>
         </div>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 }
