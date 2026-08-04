@@ -679,8 +679,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
           onDrop={(e) => editing && ['pro','vendor','admin','owner'].includes(user.role) && handleDropImage(e, 'cover')}
           className={`w-full aspect-[3/1] md:aspect-[4/1] ${isDarkMode ? 'bg-gray-900' : 'bg-slate-200'} relative overflow-hidden flex items-center justify-center transition-all duration-300 ${isDraggingCover ? 'ring-4 ring-amber-500 ring-inset opacity-80' : ''}`}
         >
-          <img src={coverPreview} alt="" className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110 transform-gpu backface-hidden select-none pointer-events-none no-screenshot" style={{ willChange: 'transform', WebkitBackfaceVisibility: 'hidden' }} onContextMenu={e => e.preventDefault()} draggable={false}/>
-          <img src={coverPreview} alt="Cover" className="relative w-full h-full object-cover z-0 transform-gpu backface-hidden select-none pointer-events-none no-screenshot" style={{ willChange: 'transform', WebkitBackfaceVisibility: 'hidden' }} onContextMenu={e => e.preventDefault()} draggable={false}/>
+          <img src={coverPreview} alt="Cover" className="relative w-full h-full object-cover z-0 select-none pointer-events-none no-screenshot" onContextMenu={e => e.preventDefault()} draggable={false}/>
           
           {/* Watermark security grid overlay */}
           <div className="absolute inset-0 z-10 secure-watermark opacity-25 pointer-events-none select-none" />

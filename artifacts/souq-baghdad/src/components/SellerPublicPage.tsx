@@ -358,12 +358,11 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
       <div className={`min-h-screen pt-16 pb-10 transition-colors duration-300 ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-800'}`}>
       {/* Cover */}
       <div className={`w-full aspect-[3/1] md:aspect-[4/1] ${isDarkMode ? 'bg-gray-900' : 'bg-slate-200'} relative overflow-hidden flex items-center justify-center`}>
-        <img src={effectiveSeller?.cover || DEFAULT_COVER} alt="" className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110 transform-gpu backface-hidden" style={{ willChange: 'transform', WebkitBackfaceVisibility: 'hidden' }}/>
         <img 
           src={effectiveSeller?.cover || DEFAULT_COVER} 
           alt="Cover" 
-          className="relative w-full h-full object-cover z-0 transform-gpu backface-hidden"
-          style={{ willChange: 'transform', WebkitBackfaceVisibility: 'hidden' }}
+          className="relative w-full h-full object-cover z-0 select-none pointer-events-none no-screenshot"
+          onContextMenu={e => e.preventDefault()} draggable={false}
         />
         {/* Watermark */}
         <div className="absolute top-4 left-4 z-10 flex items-center gap-2 opacity-60 select-none pointer-events-none drop-shadow-xl">
