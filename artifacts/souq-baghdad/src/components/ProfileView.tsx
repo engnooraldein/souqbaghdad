@@ -739,9 +739,9 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                 <>
                   <button onClick={()=>{
                     onStoreGuideClick?.();
-                  }} className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-sm font-bold shadow-lg transition-colors border ${isDarkMode ? 'bg-gradient-to-r from-gray-800 to-gray-900 text-white border-transparent hover:from-gray-700 hover:to-gray-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`} title="نسخ رابط المتجر للبايو">
+                  }} className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-sm font-bold shadow-lg transition-colors border ${isDarkMode ? 'bg-gradient-to-r from-indigo-900 to-purple-900 text-white border-transparent hover:from-indigo-800 hover:to-purple-800' : 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'}`} title="نسخ رابط المتجر للبايو">
                     <Copy className="w-4 h-4"/>
-                    <span className="hidden sm:inline">رابط المتجر</span>
+                    <span>رابط متجرك</span>
                   </button>
                   <button onClick={()=>{
                     window.location.hash = '#/accounts';
@@ -761,7 +761,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                     });
                   }} className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 border rounded-xl text-sm font-bold shadow-lg transition-colors ${isDarkMode ? 'bg-gray-800 text-white border-gray-700 hover:bg-gray-700' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
                     <Share2 className="w-4 h-4"/>
-                    <span className="hidden sm:inline">مشاركة</span>
+                    <span>مشاركة</span>
                   </button>
                   <button onClick={()=>{setEditing(true);setEf({name:user.name,phone:user.phone,location:user.location,bio:user.bio||'',email:user.email||''});}} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-amber-500 text-black rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20 hover:bg-amber-600">
                     <Edit2 className="w-4 h-4"/>تعديل

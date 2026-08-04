@@ -402,9 +402,9 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
                 url: '/seller/' + effectiveSeller.id,
                 image: effectiveSeller.avatar || DEFAULT_AVATAR
               });
-            }} className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-sm font-bold shadow-lg border transition-colors ${isDarkMode ? 'bg-gray-800 text-white border-gray-700 hover:bg-gray-700' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`} title="مشاركة الملف">
+            }} className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-sm font-bold shadow-lg border transition-colors ${isDarkMode ? 'bg-gradient-to-r from-indigo-900 to-purple-900 text-white border-transparent hover:from-indigo-800 hover:to-purple-800' : 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'}`} title="مشاركة المتجر">
               <Share2 className="w-4 h-4"/>
-              <span className="hidden sm:inline">مشاركة</span>
+              <span>مشاركة المتجر</span>
             </button>
             {user && String(effectiveSeller.id) !== String(user.id) && (
               <>
