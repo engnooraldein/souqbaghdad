@@ -375,7 +375,7 @@ export function useAppInit({
 
     if (type === 'search' || type === 'بحث') {
       setView('home');
-      setCat('all');
+      setCat('general');  // Always show general feed, not search bar
       setSelectedAd(null);
       setSelectedProduct(null);
       setSelectedSellerId(null);
