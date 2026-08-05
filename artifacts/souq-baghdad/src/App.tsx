@@ -361,6 +361,19 @@ export default function App() {
   const [priceMax, setPriceMax] = useState('');
   const [conditionFilter, setConditionFilter] = useState<'all'|'new'|'used'>('all');
 
+  // Reset to general feed when user returns to app from background (PWA)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Only reset if we're on the home view
+        setCat(prev => prev !== 'general' ? 'general' : prev);
+        setSearch('');
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   const {
     allAds, setAllAds, allProducts, setAllProducts, fetchAds, fetchProducts,
     loadingMoreAds, loadingMoreProducts, isInitialLoading, hasMoreAds, hasMoreProducts,

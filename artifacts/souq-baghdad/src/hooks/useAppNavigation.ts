@@ -45,10 +45,29 @@ export function useAppNavigation() {
   const [peekView, setPeekView] = useState<string|null>(null);
   const [peekSide, setPeekSide] = useState<'right'|'left'>('right');
 
-  const onSwipePan = (_: any, info: any) => {
+  const onSwipePan = (event: any, info: any) => {
     if (!MAIN_VIEWS.includes(view)) return;
     const W = window.innerWidth;
     const dx = info.offset.x;
+    const dy = info.offset.y;
+
+    // Ignore if vertical movement is dominant (user is scrolling up/down)
+    if (Math.abs(dy) > Math.abs(dx) * 0.6) return;
+
+    // Ignore if the touch started inside a horizontally scrollable element (like VIP carousel)
+    const target = event?.target as HTMLElement | null;
+    if (target) {
+      let el: HTMLElement | null = target;
+      while (el && el !== document.body) {
+        const style = window.getComputedStyle(el);
+        const overflowX = style.overflowX;
+        if ((overflowX === 'auto' || overflowX === 'scroll') && el.scrollWidth > el.clientWidth) {
+          return; // inside a scrollable carousel, don't navigate
+        }
+        el = el.parentElement;
+      }
+    }
+
     const idx = MAIN_VIEWS.indexOf(view);
     const len = MAIN_VIEWS.length;
     mainDragX.set(dx);
