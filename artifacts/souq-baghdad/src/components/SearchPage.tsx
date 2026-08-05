@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, X, ArrowRight, SlidersHorizontal, MapPin, 
-  Tag, Clock, Sparkles, ChevronDown, ChevronUp
+  Tag, Clock, Sparkles, ChevronDown, ChevronUp,
+  Car, Home, Smartphone, Laptop, Sofa, Shirt, Briefcase, Wrench, PawPrint, Coffee, Activity, Package
 } from 'lucide-react';
 import { Ad, Product } from '../types';
 import { AdCard, getAdCategoryPlaceholderImage } from './AdCard';
@@ -15,19 +16,19 @@ const IRAQI_GOVERNORATES = [
 ];
 
 const CATEGORIES = [
-  { id: 'all', name: 'الكل', emoji: '🔍' },
-  { id: 'cars', name: 'سيارات', emoji: '🚗' },
-  { id: 'real-estate', name: 'عقارات', emoji: '🏠' },
-  { id: 'phones', name: 'هواتف', emoji: '📱' },
-  { id: 'electronics', name: 'إلكترونيات', emoji: '💻' },
-  { id: 'furniture', name: 'أثاث', emoji: '🛋️' },
-  { id: 'clothes', name: 'ملابس', emoji: '👗' },
-  { id: 'jobs', name: 'وظائف', emoji: '💼' },
-  { id: 'services', name: 'خدمات', emoji: '🔧' },
-  { id: 'animals', name: 'حيوانات', emoji: '🐾' },
-  { id: 'food', name: 'طعام', emoji: '🍔' },
-  { id: 'sports', name: 'رياضة', emoji: '⚽' },
-  { id: 'other', name: 'أخرى', emoji: '📦' },
+  { id: 'all', name: 'الكل', icon: Search },
+  { id: 'cars', name: 'سيارات', icon: Car },
+  { id: 'real-estate', name: 'عقارات', icon: Home },
+  { id: 'phones', name: 'هواتف', icon: Smartphone },
+  { id: 'electronics', name: 'إلكترونيات', icon: Laptop },
+  { id: 'furniture', name: 'أثاث', icon: Sofa },
+  { id: 'clothes', name: 'ملابس', icon: Shirt },
+  { id: 'jobs', name: 'وظائف', icon: Briefcase },
+  { id: 'services', name: 'خدمات', icon: Wrench },
+  { id: 'animals', name: 'حيوانات', icon: PawPrint },
+  { id: 'food', name: 'طعام', icon: Coffee },
+  { id: 'sports', name: 'رياضة', icon: Activity },
+  { id: 'other', name: 'أخرى', icon: Package },
 ];
 
 interface SearchPageProps {
@@ -272,14 +273,14 @@ export function SearchPage({
                 <button
                   key={c.id}
                   onClick={() => setSelectedCat(c.id)}
-                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-                    selectedCat === c.id
-                      ? isDarkMode ? 'bg-white text-black' : 'bg-black text-white'
-                      : isDarkMode ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-500 hover:text-black hover:bg-black/5'
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shrink-0 border shadow-sm ${
+                    selectedCat === c.id 
+                      ? 'bg-amber-500 text-black border-amber-500 shadow-amber-500/20' 
+                      : (isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-300' : 'bg-white border-slate-200 text-slate-700')
                   }`}
                 >
-                  <span>{c.emoji}</span>
-                  <span>{c.name}</span>
+                  <c.icon className="w-4 h-4" />
+                  {c.name}
                 </button>
               ))}
             </div>
@@ -333,7 +334,11 @@ export function SearchPage({
                             : isDarkMode ? 'bg-gray-900/80 border-gray-800/60 text-gray-300 hover:bg-gray-800' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
                         }`}
                       >
-                        <span className="text-2xl">{c.emoji}</span>
+                        <c.icon className={`w-8 h-8 mb-2 ${
+                          selectedCat === c.id 
+                            ? 'text-white' 
+                            : (isDarkMode ? 'text-gray-400' : 'text-slate-600')
+                        }`} />
                         <span className="text-xs font-bold">{c.name}</span>
                       </button>
                     ))}

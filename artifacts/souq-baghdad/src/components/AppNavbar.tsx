@@ -131,14 +131,7 @@ export const AppNavbar: React.FC<AppNavbarProps> = ({
             )}
           </div>
           <div className="flex items-center gap-1.5 lg:hidden">
-            <button 
-              onClick={()=>{ setShowSearchPage?.(true); }}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-black font-extrabold rounded-xl text-xs hover:brightness-110 shrink-0 cursor-pointer shadow-md shadow-amber-500/20 active:scale-95 transition-all"
-              title="فتح البحث والأقسام"
-            >
-              <Search className="w-3.5 h-3.5"/>
-              <span>بحث</span>
-            </button>
+
             <div className="relative">
               <button 
                 onClick={() => setShowThemeMenu(!showThemeMenu)} 
