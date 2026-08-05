@@ -1,4 +1,4 @@
-import { getAdCategoryPlaceholderImage } from '../utils/image';
+import { getAdCategoryPlaceholderImage } from './AdCard';
 // ===========================================
 // مسؤولية هذا الملف:
 // يعرض نافذة تفاصيل الإعلان الكاملة (Ad Detail Modal).
