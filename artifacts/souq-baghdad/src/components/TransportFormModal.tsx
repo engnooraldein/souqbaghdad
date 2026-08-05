@@ -120,9 +120,9 @@ export function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd
   return ReactDOM.createPortal(
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
       className="fixed inset-0 z-[9999] flex items-end justify-center">
-      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose}/>
+      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose} style={{touchAction:'none'}}/>
       <motion.div initial={{y:'100%',opacity:0}} animate={{y:0,opacity:1}} transition={{type:'spring',damping:30,stiffness:300}}
-        className="relative bg-gradient-to-b from-[#051c14] via-[#03110d] to-[#010a08] rounded-t-3xl w-full max-w-lg border border-emerald-900/30 border-b-0 z-10 overflow-hidden h-[95vh] flex flex-col shadow-2xl">
+        className="relative bg-gradient-to-b from-[#051c14] via-[#03110d] to-[#010a08] rounded-t-3xl w-full max-w-lg border border-emerald-900/30 border-b-0 z-10 h-[92vh] flex flex-col shadow-2xl">
         
         <div className="bg-gray-950/25 border-b border-emerald-950/40 p-5 flex items-center justify-between sticky top-0 z-20 backdrop-blur-md">
           <div className="flex items-center gap-3">
@@ -151,7 +151,10 @@ export function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4" dir="rtl">
+        <form onSubmit={handleSubmit} dir="rtl"
+          className="flex-1 overflow-y-auto overscroll-contain"
+          style={{touchAction:'pan-y', WebkitOverflowScrolling:'touch'}}>
+          <div className="p-5 space-y-4 pb-8">
           
           <div className="space-y-1">
             <label className="text-gray-300 text-xs font-black block">نوع الإعلان</label>
@@ -272,6 +275,7 @@ export function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd
               </span>
             )}
           </motion.button>
+          </div>
         </form>
       </motion.div>
     </motion.div>,
