@@ -48,7 +48,8 @@ export const AppNavbar: React.FC<AppNavbarProps> = ({
   handleLogout,
   setShowAuth,
   unreadChatCount,
-  setShowMobileMenu
+  setShowMobileMenu,
+  setShowSearchPage
 }) => {
   return (
     <nav className={`fixed top-0 left-0 right-0 z-40 backdrop-blur-xl border-b transition-colors duration-300 pwa-header shadow-md ${isDarkMode ? 'bg-[black]/70 border-transparent shadow-[black]/10' : 'bg-white/80 border-slate-200/80 shadow-slate-100'}`}>
