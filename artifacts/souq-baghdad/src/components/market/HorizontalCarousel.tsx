@@ -24,18 +24,9 @@ export function HorizontalCarousel({
   const handleScroll = () => {
     if (!containerRef.current) return;
     const { scrollLeft, clientWidth, scrollWidth } = containerRef.current;
-    const maxScroll = scrollWidth - clientWidth;
     
-    if (maxScroll <= 5) return;
-
-    const currentScroll = Math.abs(scrollLeft);
-    const index = Math.min(
-      visibleCount - 1,
-      Math.max(0, Math.round((currentScroll / scrollWidth) * visibleCount))
-    );
-    setActiveIndex(index);
-
     if (lazyLoad && visibleCount < items.length) {
+      const currentScroll = Math.abs(scrollLeft);
       if (currentScroll + clientWidth >= scrollWidth - 100) {
         if (!isLoadingMore) {
           setIsLoadingMore(true);
@@ -52,16 +43,30 @@ export function HorizontalCarousel({
     const el = containerRef.current;
     if (!el) return;
 
-    const timer = setTimeout(() => {
+    // Use a throttled or debounced scroll listener for active index to prevent lag
+    let scrollTimeout: any;
+    const onScroll = () => {
       handleScroll();
-    }, 150);
-
-    el.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      el.removeEventListener('scroll', handleScroll);
-      clearTimeout(timer);
+      
+      // Update active index less frequently
+      if (scrollTimeout) clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        if (!el) return;
+        const currentScroll = Math.abs(el.scrollLeft);
+        const index = Math.min(
+          visibleCount - 1,
+          Math.max(0, Math.round((currentScroll / el.scrollWidth) * visibleCount))
+        );
+        setActiveIndex(index);
+      }, 100);
     };
-  }, [items]);
+
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      if (scrollTimeout) clearTimeout(scrollTimeout);
+    };
+  }, [items, visibleCount, isLoadingMore, lazyLoad]);
 
   const scrollToItem = (idx: number) => {
     if (!containerRef.current) return;
@@ -80,11 +85,11 @@ export function HorizontalCarousel({
     <div className="relative w-full overflow-hidden" dir="rtl">
       <div 
         ref={containerRef}
-        className="flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory scrollbar-none py-2 px-0"
+        className="flex gap-4 overflow-x-auto scrollbar-none py-2 px-4 sm:px-0"
         style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
       >
         {visibleItems.map((item, idx) => (
-          <div key={idx} className="snap-start shrink-0 first:mr-0 last:ml-0">
+          <div key={idx} className="shrink-0 first:mr-0 last:ml-0">
             {renderItem(item, idx)}
           </div>
         ))}

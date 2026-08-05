@@ -777,7 +777,7 @@ export function MarketView({
                     renderItem={(ad) => (
                       <div 
                         onClick={() => onSelectAd(ad)}
-                        className="relative group w-[320px] sm:w-[450px] md:w-[600px] aspect-[21/9] shrink-0 rounded-3xl overflow-hidden cursor-pointer shadow-[0_10px_30px_rgba(0,0,0,0.12)] hover:shadow-[0_15px_40px_rgba(0,0,0,0.2)] transition-all duration-700 mx-2"
+                        className="relative group w-[320px] sm:w-[450px] md:w-[600px] aspect-[21/9] shrink-0 rounded-3xl overflow-hidden cursor-pointer shadow-[0_10px_30px_rgba(0,0,0,0.12)] hover:shadow-[0_15px_40px_rgba(0,0,0,0.2)] transition-all duration-700"
                       >
                         {/* Soft Hover Overlay */}
                         <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent z-20 transition-colors duration-700 pointer-events-none" />
