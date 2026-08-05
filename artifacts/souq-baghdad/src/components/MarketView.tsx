@@ -318,9 +318,9 @@ export function MarketView({
       targetHash = cat !== 'all' ? `#/ads/${cat}` : '#/ads';
     } else if (contentTab === 'all') {
       if (cat === 'general') {
-        targetHash = '/iq/';
-      } else if (cat === 'all') {
         targetHash = '/';
+      } else if (cat === 'all') {
+        targetHash = '/categories';
       } else {
         targetHash = `/category/${cat}`;
       }
