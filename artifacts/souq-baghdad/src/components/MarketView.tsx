@@ -25,7 +25,8 @@
 // آمن للتعديل:
 // نعم، لكن تأكد من عدم تغيير Props المستقبَلة أو أسماء الـ functions المُمرَّرة.
 // ===========================================
-import { DEFAULT_AVATAR } from '../App';
+import {  } from '../App';
+import { DEFAULT_AVATAR } from '../hooks/useAuth';
 
 import LiveVisitorCounter from './LiveVisitorCounter';
 import InfiniteScrollTrigger from './InfiniteScrollTrigger';
@@ -73,210 +74,9 @@ import { LionOutline } from '../assets/svg/logo/lion-outline';
 import { BackgroundGrid } from '../assets/svg/background/background-grid';
 import { GoldParticles } from '../assets/svg/effects/gold-particles';
 
-function getAdTimestamp(a: any): number {
-  if (!a) return 0;
-  if (a.createdAtISO) {
-    const t = new Date(a.createdAtISO).getTime();
-    if (!isNaN(t) && t > 0) return t;
-  }
-  if (a.created_at) {
-    if (typeof a.created_at === 'number' && !isNaN(a.created_at) && a.created_at > 0) {
-      return a.created_at > 1e11 ? a.created_at : a.created_at * 1000;
-    }
-    const t = new Date(a.created_at).getTime();
-    if (!isNaN(t) && t > 0) return t;
-  }
-  if (a.createdAt) {
-    if (typeof a.createdAt === 'number' && !isNaN(a.createdAt) && a.createdAt > 0) {
-      return a.createdAt > 1e11 ? a.createdAt : a.createdAt * 1000;
-    }
-    if (typeof a.createdAt === 'string') {
-      const t = new Date(a.createdAt).getTime();
-      if (!isNaN(t) && t > 0) return t;
-    }
-  }
-  if (a.timestamp) {
-    if (typeof a.timestamp === 'number' && !isNaN(a.timestamp) && a.timestamp > 0) {
-      return a.timestamp > 1e11 ? a.timestamp : a.timestamp * 1000;
-    }
-    const t = new Date(a.timestamp).getTime();
-    if (!isNaN(t) && t > 0) return t;
-  }
-  if (typeof a.id === 'number' && a.id > 1000000000) {
-    return a.id;
-  }
-  if (typeof a.id === 'string' && /^\d{10,13}$/.test(a.id)) {
-    const num = Number(a.id);
-    if (!isNaN(num) && num > 1000000000) return num;
-  }
-  return 0;
-}
-
-function PaginationDots({ 
-  total, 
-  current, 
-  onChange,
-  hasMore,
-  onLoadMore,
-  loadingMore
-}: { 
-  total: number; 
-  current: number; 
-  onChange: (page: number) => void; 
-  hasMore?: boolean;
-  onLoadMore?: () => void;
-  loadingMore?: boolean;
-}) {
-  if (total <= 1 && !hasMore) return null;
-  return (
-    <div className="flex items-center justify-center gap-2 mt-6 mb-8" dir="rtl">
-      {Array.from({ length: total }).map((_, idx) => {
-        const isActive = idx === current;
-        return (
-          <motion.button
-            key={idx}
-            onClick={() => onChange(idx)}
-            className={`transition-all duration-300 rounded-full h-3 ${
-              isActive 
-                ? 'bg-[#fbbf24] w-9 shadow-[0_0_15px_rgba(251,191,36,0.6)]' 
-                : 'bg-white/20 hover:bg-white/40 w-3'
-            }`}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-            title={`الصفحة ${idx + 1}`}
-            aria-label={`الصفحة ${idx + 1}`}
-          />
-        );
-      })}
-      
-      {hasMore && (
-        <button
-          onClick={() => {
-            if (onLoadMore) onLoadMore();
-          }}
-          disabled={loadingMore}
-          className="mr-2 px-4 py-1.5 bg-gray-800/80 hover:bg-gray-700/90 rounded-full text-xs font-bold text-amber-400 border border-amber-500/30 hover:border-amber-500/60 transition-all shadow-md shadow-black/20 whitespace-nowrap"
-        >
-          {loadingMore ? 'جاري التحميل...' : 'المزيد من النتائج +'}
-        </button>
-      )}
-    </div>
-  );
-}
-
-function HorizontalCarousel({ 
-  items, 
-  renderItem,
-  lazyLoad = false,
-  initialVisibleCount = 8
-}: { 
-  items: any[]; 
-  renderItem: (item: any, idx: number) => React.ReactNode;
-  lazyLoad?: boolean;
-  initialVisibleCount?: number;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [visibleCount, setVisibleCount] = useState(lazyLoad ? initialVisibleCount : items.length);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-
-  useEffect(() => {
-    setVisibleCount(lazyLoad ? initialVisibleCount : items.length);
-  }, [items.length, lazyLoad, initialVisibleCount]);
-
-  const handleScroll = () => {
-    if (!containerRef.current) return;
-    const { scrollLeft, clientWidth, scrollWidth } = containerRef.current;
-    const maxScroll = scrollWidth - clientWidth;
-    
-    if (maxScroll <= 5) return;
-
-    const currentScroll = Math.abs(scrollLeft);
-    const index = Math.min(
-      visibleCount - 1,
-      Math.max(0, Math.round((currentScroll / scrollWidth) * visibleCount))
-    );
-    setActiveIndex(index);
-
-    if (lazyLoad && visibleCount < items.length) {
-      if (currentScroll + clientWidth >= scrollWidth - 100) {
-        if (!isLoadingMore) {
-          setIsLoadingMore(true);
-          setTimeout(() => {
-            setVisibleCount(prev => Math.min(items.length, prev + 8));
-            setIsLoadingMore(false);
-          }, 600);
-        }
-      }
-    }
-  };
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const timer = setTimeout(() => {
-      handleScroll();
-    }, 150);
-
-    el.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      el.removeEventListener('scroll', handleScroll);
-      clearTimeout(timer);
-    };
-  }, [items]);
-
-  const scrollToItem = (idx: number) => {
-    if (!containerRef.current) return;
-    const el = containerRef.current;
-    const cardWidth = el.scrollWidth / items.length;
-    // Scroll RTL-aware
-    const isRtl = document.dir === 'rtl' || true;
-    const targetScroll = isRtl ? - (cardWidth * idx) : (cardWidth * idx);
-    el.scrollTo({ left: targetScroll, behavior: 'smooth' });
-    setActiveIndex(idx);
-  };
-
-  const visibleItems = items.slice(0, visibleCount);
-
-  return (
-    <div className="relative w-full overflow-hidden" dir="rtl">
-      <div 
-        ref={containerRef}
-        className="flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory scrollbar-none py-2 px-0"
-        style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
-      >
-        {visibleItems.map((item, idx) => (
-          <div key={idx} className="flex-none w-[46%] sm:w-[30%] md:w-[23%] lg:w-[18%] snap-start">
-            {renderItem(item, idx)}
-          </div>
-        ))}
-        {isLoadingMore && (
-          <div className="flex-none w-[46%] sm:w-[30%] md:w-[23%] lg:w-[18%] snap-start flex items-center justify-center min-h-[150px]">
-            <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
-          </div>
-        )}
-      </div>
-      {/* Dots Indicator */}
-      {visibleItems.length > 1 && visibleItems.length <= 15 && (
-        <div className="flex justify-center gap-1 mt-1.5 flex-wrap px-4">
-          {visibleItems.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => scrollToItem(idx)}
-              className={`w-1.5 h-1.5 rounded-full transition-all duration-350 ${
-                activeIndex === idx 
-                  ? 'bg-[#fbbf24] w-4 shadow-[0_0_10px_rgba(251,191,36,0.5)]' 
-                  : 'bg-white/20 hover:bg-white/40'
-              }`}
-              aria-label={`Go to slide ${idx + 1}`}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+import { PaginationDots } from './market/PaginationDots';
+import { HorizontalCarousel } from './market/HorizontalCarousel';
+import { getAdTimestamp } from './market/marketHelpers';
 
 export function MarketView({ 
   user, allAds, allProducts, favorites, storedUsers: propStoredUsers, 
@@ -360,7 +160,7 @@ export function MarketView({
     if (pullDistance > 55 && !isRefreshing) {
       setIsRefreshing(true);
       setPullDistance(60);
-      try { playSound('pop'); } catch {}
+      try { playSound('delete' as any); } catch {}
       if (onRefresh) {
         try {
           await onRefresh();
@@ -380,7 +180,7 @@ export function MarketView({
   const triggerManualRefresh = async () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
-    try { playSound('pop'); } catch {}
+    try { playSound('delete' as any); } catch {}
     if (onRefresh) {
       try {
         await onRefresh();

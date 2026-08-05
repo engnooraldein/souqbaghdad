@@ -26,7 +26,8 @@ import { isNewItem, getGlowClass } from '../utils/helpers';
 import { formatPrice } from '../utils/format';
 import { supabase } from '../lib/supabase';
 import { ImageWithDataSaver } from './ImageWithDataSaver';
-import { DEFAULT_AVATAR } from '../App';
+import {  } from '../App';
+import { DEFAULT_AVATAR } from '../hooks/useAuth';
 
 // Map all lucide icons to global scope to avoid missing imports
 const {

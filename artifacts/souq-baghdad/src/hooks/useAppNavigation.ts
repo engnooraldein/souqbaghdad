@@ -1,0 +1,151 @@
+import { useState, useEffect } from 'react';
+import { useMotionValue, animate as fmAnimate } from 'framer-motion';
+import { supabase } from '../lib/supabase';
+
+type AppView = 'home'|'profile'|'admin'|'owner'|'seller'|'transport'|'products'|'ad-detail'|'product-detail'|'transport-detail' | string;
+
+const MAIN_VIEWS = ['home', 'transport', 'products', 'profile'];
+
+export function useAppNavigation() {
+  const getInitialRouteInfo = () => {
+    if (typeof window === 'undefined') return { hash: '', path: '' };
+    let hash = window.location.hash;
+    const path = window.location.pathname;
+    
+    if ((!hash || hash === '#/') && path !== '/') {
+      hash = '#' + path;
+    }
+    return { hash, path };
+  };
+
+  const [view, setView] = useState<AppView>(() => {
+    const { hash } = getInitialRouteInfo();
+    if (hash.startsWith('#/privacy')) return 'privacy';
+    if (hash.startsWith('#/transport')) return 'transport';
+    if (hash.startsWith('#/products')) return 'products';
+    if (hash.startsWith('#/seller') || hash.startsWith('#/profile/')) return 'seller';
+    if (hash === '#/profile' || hash.startsWith('#/profile')) return 'profile';
+    if (hash.startsWith('#/admin')) return 'admin';
+    if (hash.startsWith('#/owner')) return 'owner';
+    return 'home';
+  });
+
+  const [bottomNavActive, setBottomNavActive] = useState(() => {
+    const { hash } = getInitialRouteInfo();
+    if (hash.startsWith('#/transport')) return 'transport';
+    if (hash.startsWith('#/products')) return 'products';
+    if (hash.startsWith('#/seller') || hash.startsWith('#/profile')) return 'profile';
+    return 'home';
+  });
+
+  // ---- Swipe Navigation ----
+  const [swipeDir, setSwipeDir] = useState<1|-1>(1);
+  const mainDragX = useMotionValue(0);
+  const peekDragX = useMotionValue(typeof window !== 'undefined' ? window.innerWidth : 390);
+  const [peekView, setPeekView] = useState<string|null>(null);
+  const [peekSide, setPeekSide] = useState<'right'|'left'>('right');
+
+  const onSwipePan = (_: any, info: any) => {
+    if (!MAIN_VIEWS.includes(view)) return;
+    const W = window.innerWidth;
+    const dx = info.offset.x;
+    const idx = MAIN_VIEWS.indexOf(view);
+    const len = MAIN_VIEWS.length;
+    mainDragX.set(dx);
+    if (dx < -5) {
+      const nextIdx = (idx + 1) % len;
+      const next = MAIN_VIEWS[nextIdx];
+      if (peekView !== next) { setPeekView(next); setPeekSide('right'); }
+      peekDragX.set(dx + W);
+    } else if (dx > 5) {
+      const prevIdx = (idx - 1 + len) % len;
+      const prev = MAIN_VIEWS[prevIdx];
+      if (peekView !== prev) { setPeekView(prev); setPeekSide('left'); }
+      peekDragX.set(dx - W);
+    }
+  };
+
+  const onSwipePanEnd = (_: any, info: any) => {
+    const W = window.innerWidth;
+    const threshold = W * 0.28;
+    const vel = info.velocity.x;
+    const dist = info.offset.x;
+    
+    if ((dist < -threshold || vel < -400) && peekView && peekSide === 'right') {
+      fmAnimate(mainDragX, -W, { duration: 0.22, ease: [0.4, 0, 0.2, 1] });
+      fmAnimate(peekDragX, 0, { duration: 0.22, ease: [0.4, 0, 0.2, 1] }).then(() => {
+        const next = peekView;
+        mainDragX.set(-W - 2000);
+        setView(next); setBottomNavActive(next); setSwipeDir(-1);
+        requestAnimationFrame(() => {
+          mainDragX.set(0);
+          peekDragX.set(W + 2000);
+          setTimeout(() => setPeekView(null), 30);
+        });
+      });
+    } else if ((dist > threshold || vel > 400) && peekView && peekSide === 'left') {
+      fmAnimate(mainDragX, W, { duration: 0.22, ease: [0.4, 0, 0.2, 1] });
+      fmAnimate(peekDragX, 0, { duration: 0.22, ease: [0.4, 0, 0.2, 1] }).then(() => {
+        const prev = peekView;
+        mainDragX.set(W + 2000);
+        setView(prev); setBottomNavActive(prev); setSwipeDir(1);
+        requestAnimationFrame(() => {
+          mainDragX.set(0);
+          peekDragX.set(-W - 2000);
+          setTimeout(() => setPeekView(null), 30);
+        });
+      });
+    } else {
+      fmAnimate(mainDragX, 0, { duration: 0.3, ease: [0.4, 0, 0.2, 1] });
+      fmAnimate(peekDragX, peekSide === 'right' ? W : -W, { duration: 0.3, ease: [0.4, 0, 0.2, 1] });
+      setTimeout(() => setPeekView(null), 330);
+    }
+  };
+
+  useEffect(() => {
+    if (view === 'transport') setBottomNavActive('transport');
+    else if (view === 'products') setBottomNavActive('products');
+    else if (view === 'profile' || view === 'seller') setBottomNavActive('profile');
+    else if (view === 'home') setBottomNavActive('home');
+  }, [view]);
+
+  const [selectedSellerId, setSelectedSellerId] = useState<string|null>(() => {
+    const { hash } = getInitialRouteInfo();
+    const sellerMatch = hash.match(/^#\/(seller|profile)\/([0-9a-f-]{36})/i);
+    if (sellerMatch) return sellerMatch[2];
+    const parts = hash.split('/').filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(last)) return last;
+    return null;
+  });
+
+  const [selectedSellerPhone, setSelectedSellerPhone] = useState<string|null>(() => {
+    const { hash } = getInitialRouteInfo();
+    if (hash.startsWith('#/seller/')) return hash.split('/')[2] || null;
+    if (hash.startsWith('#/profile/')) return hash.split('/')[2] || null;
+    return null;
+  });
+
+  useEffect(() => {
+    if (view === 'profile' && selectedSellerPhone) {
+      if (selectedSellerPhone.includes('-')) {
+        setSelectedSellerId(selectedSellerPhone);
+      } else {
+        supabase.from('profiles').select('id').eq('phone', selectedSellerPhone).maybeSingle().then(({data}) => {
+          if (data) setSelectedSellerId(data.id);
+        });
+      }
+    }
+  }, [view, selectedSellerPhone]);
+
+  return {
+    view, setView,
+    bottomNavActive, setBottomNavActive,
+    swipeDir, setSwipeDir,
+    mainDragX, peekDragX,
+    peekView, peekSide,
+    onSwipePan, onSwipePanEnd,
+    selectedSellerId, setSelectedSellerId,
+    selectedSellerPhone, setSelectedSellerPhone
+  };
+}

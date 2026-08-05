@@ -20,7 +20,8 @@
 // نعم، لكن تأكد من عدم إضافة useEffect بدون dependency صحيحة.
 // ===========================================
 
-import { DEFAULT_AVATAR } from '../App';
+import {  } from '../App';
+import { DEFAULT_AVATAR } from '../hooks/useAuth';
 import { DEFAULT_COVER, getCoverImage } from '../constants';
 import { VerifiedBadge } from './VerifiedBadge';
 import { MyLinesTab } from './MyLinesTab';

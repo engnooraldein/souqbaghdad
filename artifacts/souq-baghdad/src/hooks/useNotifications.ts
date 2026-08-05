@@ -1,28 +1,15 @@
-// ===========================================
-// مسؤولية هذا الملف:
-// Hook لجلب إشعارات المستخدم من Supabase.
-//
-// استعلام Supabase:
-// يجلب من جداول 'ads' و 'user_notifications'.
-//
-// 🔥 استهلاك Supabase:
-// تحقق من مدة Polling إذا كان هذا الـ Hook مفعّلاً.
-// يُفضَّل Polling كل 45+ ثانية.
-//
-// آمن للتعديل:
-// نعم.
-// ===========================================
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { User } from '../types';
+import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { Badge } from '@capawesome/capacitor-badge';
 
-export function useNotifications(user: User | null) {
+export function useNotifications(user: any, unreadChatCount: number, playSound: (sound: 'ding' | 'pop' | 'admin' | 'error') => void) {
   const [notifications, setNotifications] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const prevNotifsLength = useRef(0);
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
-    setLoading(true);
     try {
       const { data: userNotifs, error: userNotifsError } = await supabase
         .from('user_notifications')
@@ -30,11 +17,15 @@ export function useNotifications(user: User | null) {
         .eq('user_id', user.id)
         .eq('read', false)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(20);
 
       let combined: any[] = [];
       if (!userNotifsError && userNotifs) {
         userNotifs.forEach((row: any) => {
+          if (row.type === 'view' || row.type === 'interest' || (row.title && row.title.includes('مشاهدة'))) {
+            return;
+          }
+          
           combined.push({
             id: row.id,
             type: row.type || 'system',
@@ -46,7 +37,7 @@ export function useNotifications(user: User | null) {
             senderPhone: '',
             itemTitle: '',
             itemType: 'ad',
-            itemId: '',
+            itemId: row.item_id || '',
             duration: 0,
             targetType: 'owner',
             sourceTable: 'user_notifications'
@@ -58,42 +49,94 @@ export function useNotifications(user: User | null) {
       setNotifications(combined);
     } catch (e) {
       console.error('Error fetching notifications:', e);
-    } finally {
-      setLoading(false);
     }
   }, [user]);
 
+  // Polling Effect
   useEffect(() => {
     if (!user) {
       setNotifications([]);
       return;
     }
-
-    // Initial fetch
     fetchNotifications();
-
-    // Setup Supabase Realtime Subscription (Replaces the 10-second polling interval)
-    const channel = supabase
-      .channel('user-notifications-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'user_notifications',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          // Refetch notifications on any relevant change
-          fetchNotifications();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    const pollInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchNotifications();
+      }
+    }, 90000);
+    return () => clearInterval(pollInterval);
   }, [user, fetchNotifications]);
 
-  return { notifications, fetchNotifications, loading };
+  // Sound & Local Notification Effect
+  useEffect(() => {
+    if (notifications.length > prevNotifsLength.current) {
+      if (prevNotifsLength.current > 0) {
+        const hasNewIncoming = notifications.some(n => n.targetType === 'owner' || !n.targetType);
+        if (hasNewIncoming) {
+          playSound('admin');
+          if (Capacitor.isNativePlatform()) {
+            const newest = notifications[0];
+            LocalNotifications.schedule({
+              notifications: [
+                {
+                  title: newest?.title || 'سوق بغداد',
+                  body: newest?.message || 'لديك إشعار جديد!',
+                  id: new Date().getTime(),
+                  sound: 'default',
+                  channelId: 'souq_baghdad_high_importance'
+                }
+              ]
+            }).catch(console.warn);
+          }
+        }
+      }
+    }
+    prevNotifsLength.current = notifications.length;
+  }, [notifications, playSound]);
+
+  // App Icon Badge Effect
+  useEffect(() => {
+    const unreadNotifCount = (notifications || []).filter((n: any) => !n.isRead && !n.read).length;
+    const totalUnread = (unreadChatCount || 0) + unreadNotifCount;
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        if (totalUnread > 0) {
+          Badge.set({ count: totalUnread }).catch(() => {});
+        } else {
+          Badge.clear().catch(() => {});
+        }
+      } catch (e) {}
+    }
+  }, [notifications, unreadChatCount]);
+
+  const handleDeleteNotification = async (notifId: string, sourceTable?: string) => {
+    try {
+      if (sourceTable === 'user_notifications') {
+        await supabase.from('user_notifications').delete().eq('id', notifId);
+        setNotifications(prev => prev.filter(n => n.id !== notifId));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleClearAllNotifications = async () => {
+    try {
+      if (user) {
+        await supabase.from('user_notifications').delete().eq('user_id', user.id);
+      }
+      setNotifications([]);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  return {
+    notifications,
+    setNotifications,
+    fetchNotifications,
+    handleDeleteNotification,
+    handleClearAllNotifications
+  };
 }

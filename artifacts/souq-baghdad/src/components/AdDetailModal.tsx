@@ -1,3 +1,4 @@
+import { getAdCategoryPlaceholderImage } from '../utils/image';
 // ===========================================
 // مسؤولية هذا الملف:
 // يعرض نافذة تفاصيل الإعلان الكاملة (Ad Detail Modal).
@@ -27,7 +28,8 @@ import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } fr
 import { motion, AnimatePresence } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';
 import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
-import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage, DEFAULT_AVATAR } from '../App';
+import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage } from '../App';
+import { DEFAULT_AVATAR } from '../hooks/useAuth';
 import { ReportModal } from './ReportModal';
 import { slugify, getWhatsAppLink, detectDevice, isNewItem, getWhatsAppResetLink, getGlowClass } from '../utils/helpers';
 import { formatPrice } from '../utils/format';

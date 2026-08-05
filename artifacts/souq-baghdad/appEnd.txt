@@ -1,0 +1,608 @@
+export default function App() {
+  const { user, setUser, session, handleLogout: authHandleLogout } = useAuth();
+  const playNotificationSound = useSound();
+  const { themeMode, isDarkMode, showThemeMenu, setShowThemeMenu, changeThemeMode, toggleDarkMode } = useAppTheme();
+  const { isBiometricLocked, showBiometricBanner, setShowBiometricBanner, setIsBiometricLocked } = useBiometric(user, playNotificationSound);
+  const { showChatModal, setShowChatModal, activeChatId, setActiveChatId, unreadChatCount, chatViewport } = useChatPolling(user, playNotificationSound);
+  
+  useNativeNotifications(user);
+
+  const [showScrollButtons, setShowScrollButtons] = useState(true);
+
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+    let scrollTimeout: NodeJS.Timeout | null = null;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      // Disappear when scrolling down
+      if (currentScrollY > lastScrollY && currentScrollY > 10) {
+        setShowScrollButtons(false);
+      }
+
+      lastScrollY = currentScrollY;
+
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout);
+      }
+      scrollTimeout = setTimeout(() => {
+        setShowScrollButtons(true);
+      }, 2000);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout);
+      }
+    };
+  }, []);
+  const [adCosts, setAdCosts] = useState<{ad:number; product:number; transport:number; vip_ad:number}>({ ad: 1, product: 1, transport: 1, vip_ad: 5 });
+
+  // هذا useEffect يعمل مرة واحدة عند فتح التطبيق.
+  // يجلب إعدادات النظام (تكلفة الإعلانات) من Supabase.
+  // استعلام Supabase — عدد مرات التنفيذ المتوقع: مرة واحدة فقط.
+  // إذا تكرر فهناك مشكلة في تغيير State خارج هذا الـ Effect.
+  useEffect(() => {
+    supabase.from('system_settings').select('*').then(({ data, error }) => {
+      if (!error && data) {
+        const costs: any = { ad: 1, product: 1, transport: 1, vip_ad: 5 };
+        data.forEach(r => { costs[r.category] = r.cost; });
+        setAdCosts(costs);
+      }
+    });
+  }, []);
+
+  const {
+    view, setView, bottomNavActive, setBottomNavActive, swipeDir, setSwipeDir,
+    mainDragX, peekDragX, peekView, peekSide, onSwipePan, onSwipePanEnd,
+    selectedSellerId, setSelectedSellerId, selectedSellerPhone, setSelectedSellerPhone
+  } = useAppNavigation();
+
+
+
+
+
+  const {
+    showOnboarding, setShowOnboarding, showNotifs, setShowNotifs, showMobileMenu, setShowMobileMenu,
+    showCreateAd, setShowCreateAd, showCreateProduct, setShowCreateProduct, showCreateTransport, setShowCreateTransport,
+    showStoreGuide, setShowStoreGuide, editingAd, setEditingAd, editingProduct, setEditingProduct,
+    editingTransportAd, setEditingTransportAd, selectedAd, setSelectedAd, selectedProduct, setSelectedProduct,
+    selectedTransportAd, setSelectedTransportAd, actionMenuTarget, setActionMenuTarget, toast, setToast,
+    activeDocTab, setActiveDocTab, activeLightbox, setActiveLightbox, shareModalData, setShareModalData,
+    congratulationsItem, setCongratulationsItem
+  } = useAppModals();
+
+  const [favorites, setFavorites] = useState<number[]>(()=>{
+    try{return JSON.parse(localStorage.getItem('souqFavs')||'[]');}catch{return[];}
+  });
+  const [initialHashParsed, setInitialHashParsed] = useState(false);
+  const [loadingRoute, setLoadingRoute] = useState(false);
+    
+
+  const {
+    deferredPrompt, setDeferredPrompt, isStandalone, setIsStandalone,
+    showInstallGuide, setShowInstallGuide, showInstallOptions, setShowInstallOptions
+  } = usePWA();
+
+  
+  // Pagination & Filtering state
+                    
+  const [search, setSearch] = useState('');
+  const [cat, setCat] = useState('general');
+  const [gov, setGov] = useState('الكل');
+  const [sort, setSort] = useState<'recent'|'views'|'price-low'|'price-high'>('recent');
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
+
+  const {
+    allAds, setAllAds,
+    allProducts, setAllProducts,
+    fetchAds, fetchProducts,
+    loadingMoreAds, loadingMoreProducts, isInitialLoading,
+    hasMoreAds, hasMoreProducts,
+    totalAdsCount, totalProductsCount
+  } = useAds({ search, cat, gov, sort, priceMin, priceMax });
+
+  const {
+    allTransportAds, setAllTransportAds,
+    loadingTransport, setLoadingTransport,
+    hasMoreTransport, totalTransportCount,
+    fetchTransportAds
+  } = useTransportAds();
+
+  const {
+    notifications,
+    setNotifications,
+    fetchNotifications,
+    handleDeleteNotification,
+    handleClearAllNotifications
+  } = useNotifications(user, unreadChatCount, playSound);
+
+  const {
+    handleToggleFav,
+    handleAddOrEditAd,
+    handleMarkAdSold,
+    handleDeleteAd
+  } = useAdActions({
+    user, setUser, adCosts, checkPostRateLimit, showToast, playSound,
+    triggerOnlineStatusesSync, fetchAds, setAllAds,
+    editingAd, setEditingAd, setFavorites, setCongratulationsItem
+  });
+
+  const {
+    handleAddOrEditProduct,
+    handleMarkProductSold,
+    handleDeleteProduct
+  } = useProductActions({
+    user, setUser, adCosts, checkPostRateLimit, showToast, playSound,
+    fetchProducts, setAllProducts,
+    editingProduct, setEditingProduct, setCongratulationsItem
+  });
+
+  const {
+    handlePostTransportAd,
+    handleUpdateTransportStatus,
+    handleDeleteTransportAd
+  } = useTransportActions({
+    user, setUser, adCosts, checkPostRateLimit, showToast,
+    fetchTransportAds, allTransportAds
+  });
+
+
+
+  const [conditionFilter, setConditionFilter] = useState<'all'|'new'|'used'>('all');
+
+          
+  const playSound = useSound();
+  useAppInit({
+    user, view, setView, setCat, setSelectedAd, setSelectedProduct, setSelectedTransportAd, setSelectedSellerId,
+    allAds, allProducts, setStoredUsers, fetchAds, fetchProducts, fetchTransportAds,
+    search, cat, gov, sort, priceMin, priceMax
+  });
+
+  const { pageTitle, pageDescription, pageImage, canonicalUrl } = useAppSEO({
+    selectedAd, selectedProduct, view, selectedSellerId, selectedSellerPhone
+  });
+
+
+
+
+
+
+
+
+  
+  const {
+    checkPostRateLimit,
+    handleHomeRefresh,
+    handleHistoryClick,
+    markNotifAsRead,
+    handleArchiveAllNotifications
+  } = useAppGlobalState({
+    user,
+    setView,
+    setCat,
+    setBottomNavActive,
+    setSearch,
+    setGov,
+    setSort,
+    fetchAds,
+    fetchProducts,
+    fetchTransportAds,
+    playNotificationSound,
+    unreadChatCount,
+    notifications,
+    setNotifications,
+    allAds,
+    allProducts,
+    allTransportAds,
+    setSelectedAd,
+    setSelectedProduct,
+    setSelectedTransportAd,
+    setShareModalData,
+    showToast
+  });
+  const handleViewDurationLogged = async (itemId: number | string, itemTitle: string, ownerId: string, itemType: string, seconds: number) => {
+    // Disabled to stop heavy DB bandwidth usage and save egress costs
+    return;
+  };
+
+
+  // هذا useEffect يعمل عند كل تغيير في قائمة المفضلة.
+  // يحفظ المفضلة في LocalStorage فوراً. لا يستهلك Supabase.
+  // هذا useEffect يعمل عند كل تغيير في قائمة المفضلة.
+  // يحفظ المفضلة في LocalStorage. لا يستهلك Supabase.
+  useEffect(()=>{localStorage.setItem('souqFavs',JSON.stringify(favorites));},[favorites]);
+
+
+
+
+  // هذا useEffect يعمل عند تغيير بيانات المستخدم.
+  // يحفظ بيانات المستخدم مع عدد إعلاناته في LocalStorage. لا يستهلك Supabase.
+  useEffect(()=>{
+    if(user){const mc=allAds.filter(a=>a.postedBy===user.id).length+allProducts.filter(p=>p.postedBy===user.id).length;saveStoredUser(user,mc);}
+  },[user]);
+
+
+
+  const showToast = useCallback((msg:string,type:string)=>{
+    setToast({msg,type,visible:true});
+    if (type === 'success') {
+      playSound('success');
+    } else if (type === 'delete') {
+      playSound('delete');
+    } else if (type === 'admin') {
+      playSound('admin');
+    } else {
+      playSound('info');
+    }
+    setTimeout(()=>setToast(t=>({...t,visible:false})),4000);
+  },[]);
+
+  const handleLogin = (u:User)=>{
+    setUser(u); setShowAuth(false); showToast(`مرحباً ${u.name}! 🎉`,'success');
+    if(!localStorage.getItem('souqOnboarded'))setShowOnboarding(true);
+    recordVisit(u);
+  };
+  const handleLogout = async ()=>{
+    await authHandleLogout();
+    setView('home');
+  };
+  const handleUpdateUser = async (u:User, quiet: boolean = false)=>{
+    setUser(u);
+    localStorage.setItem('souqUser', JSON.stringify(u));
+    saveStoredUser(u, allAds.filter(a=>a.postedBy===u.id).length);
+
+    const cleanEmail = (u.email && !u.email.endsWith('@souqbaghdad.com') && !u.email.endsWith('@souqbaghdad.store'))
+      ? u.email.trim().toLowerCase()
+      : null;
+
+    if (!quiet) {
+      localStorage.removeItem('souq_cached_profiles');
+      localStorage.removeItem('souq_cached_profiles_time');
+      const { error: upsertErr } = await supabase.from('profiles').upsert({
+        id: u.id,
+        full_name: u.name,
+        email: cleanEmail,
+        phone: u.phone || null,
+        avatar_url: u.avatar,
+        cover_url: u.cover,
+        bio: u.bio,
+        city: u.location,
+        role: u.role
+      }, { onConflict: 'id' });
+
+      if (upsertErr) {
+        console.error('Profiles DB update error:', upsertErr);
+      }
+
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            full_name: u.name,
+            phone: u.phone || ''
+          }
+        });
+      } catch (authErr) {
+        console.warn('Auth metadata update notice:', authErr);
+      }
+
+      showToast('تم حفظ الملف الشخصي ✅', 'success');
+    }
+  };
+    const requireAuth = ()=>setShowAuth(true);
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  const [previousSellerSource, setPreviousSellerSource] = useState<'home'|'accounts'>('home');
+  const handleSellerClick = (sellerId:string, source: 'home'|'accounts' = 'home') => {
+    if(sellerId) {
+      setPreviousSellerSource(source);
+      setSelectedSellerId(sellerId);
+      setView('seller');
+      if (typeof window !== 'undefined') window.location.hash = `#/seller/${sellerId}`;
+    }
+  };
+
+  const myAds = allAds.filter(a=>a.postedBy===user?.id);
+  const handlePwaInstall = () => {
+    if (typeof window === 'undefined') return;
+    const ua = navigator.userAgent;
+    const isIOS = /iPad|iPhone|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/i.test(ua);
+    const isSafari = isIOS && /Safari/i.test(ua) && !/CriOS|FxiOS|OPiOS|EdgiOS|mercury/i.test(ua);
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+
+    if (standalone) {
+      alert("التطبيق مثبت بالفعل ويعمل حالياً.");
+      return;
+    }
+
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult: any) => {
+        if (choiceResult.outcome === 'accepted') {
+          setDeferredPrompt(null);
+        }
+      });
+    } else if (isIOS) {
+      if (isSafari) {
+        setShowInstallGuide('safari');
+      } else {
+        setShowInstallGuide('ios-other');
+      }
+    } else {
+      setShowInstallGuide('android-fallback');
+    }
+  };
+
+  const handleInstallClick = () => {
+    setShowInstallOptions(true);
+  };
+
+  const myProducts = allProducts.filter(p=>p.postedBy===user?.id);
+
+
+
+
+  if (isBiometricLocked) {
+    return (
+      <div className={`min-h-screen flex flex-col items-center justify-center p-4 transition-colors duration-300 ${isDarkMode ? 'dark bg-[#0a0a0a] text-white' : 'bg-slate-50 text-slate-900'}`}>
+        <Helmet>
+          <title>قفل التطبيق | سوك بغداد</title>
+        </Helmet>
+        <div className="w-24 h-24 bg-[#0052ff]/10 rounded-full flex items-center justify-center mb-6">
+           {/* Add a Fingerprint icon or Lock icon (Lock imported above) */}
+           <Lock className="w-12 h-12 text-[#0052ff] animate-pulse" />
+        </div>
+        <h2 className="text-2xl font-bold mb-2">تسجيل الدخول بالبصمة</h2>
+        <p className={`text-sm mb-8 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>يرجى تأكيد هويتك للوصول إلى التطبيق</p>
+        <button 
+          onClick={async () => {
+             if (Capacitor.isNativePlatform()) {
+                try {
+                  const { isAvailable } = await BiometricAuth.checkBiometry();
+                  if (isAvailable) {
+                    await BiometricAuth.authenticate({
+                      reason: "يرجى تأكيد هويتك للوصول إلى التطبيق",
+                      androidTitle: "المصادقة بالبصمة",
+                    });
+                    setIsBiometricLocked(false);
+                    sessionStorage.setItem('biometricUnlocked', 'true');
+                  } else {
+                    setIsBiometricLocked(false);
+                  }
+                } catch (e) {
+                  // user cancelled or failed
+                }
+             } else {
+                setIsBiometricLocked(false);
+             }
+          }}
+          className="px-8 py-3 bg-[#0052ff] text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-colors flex items-center gap-2 mb-4"
+        >
+           <Lock className="w-5 h-5" /> المحاولة مرة أخرى
+        </button>
+        <button 
+          onClick={async () => {
+             if (window.confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+                await supabase.auth.signOut();
+                localStorage.setItem('biometricEnabled', 'false');
+                window.location.reload();
+             }
+          }}
+          className="text-red-500 text-sm font-semibold hover:underline"
+        >
+          تسجيل الخروج
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`min-h-screen pwa-outer-container transition-colors duration-300 ${isDarkMode ? 'dark bg-[black] text-white' : 'bg-slate-50 text-slate-900'}`}>
+      <LoadingScreen isLoading={isInitialLoading} />
+      <Helmet>
+        <title>{pageTitle}</title>
+        <meta name="description" content={pageDescription} />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={pageDescription} />
+        <meta property="og:image" content={pageImage} />
+        <meta property="og:image:secure_url" content={pageImage} />
+        <meta property="og:url" content={canonicalUrl} />
+        <meta name="twitter:title" content={pageTitle} />
+        <meta name="twitter:description" content={pageDescription} />
+        <meta name="twitter:image" content={pageImage} />
+        <link rel="canonical" href={canonicalUrl} />
+      </Helmet>
+      <Toast msg={toast.msg} type={toast.type} visible={toast.visible} onClose={()=>setToast(t=>({...t,visible:false}))}/>
+
+      {/* Nav */}
+      <AppNavbar 
+        isDarkMode={isDarkMode} 
+        view={view} 
+        setView={setView} 
+        cat={cat} 
+        setCat={setCat} 
+        showThemeMenu={showThemeMenu} 
+        setShowThemeMenu={setShowThemeMenu} 
+        themeMode={themeMode} 
+        changeThemeMode={changeThemeMode} 
+        user={user} 
+        setShowNotifs={setShowNotifs} 
+        notifications={notifications} 
+        isOwner={isOwner} 
+        isAdmin={isAdmin} 
+        setShowCreateProduct={setShowCreateProduct} 
+        setEditingProduct={setEditingProduct} 
+        handleLogout={handleLogout} 
+        setShowAuth={setShowAuth} 
+        unreadChatCount={unreadChatCount} 
+        setShowMobileMenu={setShowMobileMenu} 
+      />
+
+      {/* Desktop Navigation Sidebar */}
+      <AppSidebar 
+        isDarkMode={isDarkMode} 
+        user={user} 
+        isOwner={isOwner} 
+        isAdmin={isAdmin} 
+        view={view} 
+        setView={setView} 
+        cat={cat} 
+        setCat={setCat} 
+        setBottomNavActive={setBottomNavActive} 
+        unreadChatCount={unreadChatCount} 
+        activeDocTab={activeDocTab} 
+        setActiveDocTab={setActiveDocTab} 
+        toggleDarkMode={toggleDarkMode} 
+        setShowAuth={setShowAuth} 
+        handleHomeRefresh={handleHomeRefresh} 
+      />
+
+      {/* Mobile Menu Drawer */}
+      <AppMobileMenu 
+        showMobileMenu={showMobileMenu} 
+        setShowMobileMenu={setShowMobileMenu} 
+        isDarkMode={isDarkMode} 
+        toggleDarkMode={toggleDarkMode} 
+        user={user} 
+        isOwner={isOwner} 
+        isAdmin={isAdmin} 
+        handleHomeRefresh={handleHomeRefresh} 
+        setView={setView} 
+        setCat={setCat} 
+        setShowCreateAd={setShowCreateAd} 
+        setEditingAd={setEditingAd} 
+        setShowCreateProduct={setShowCreateProduct} 
+        setEditingProduct={setEditingProduct} 
+        handleLogout={handleLogout} 
+        setShowAuth={setShowAuth} 
+        setActiveDocTab={setActiveDocTab} 
+      />
+
+      {/* Main */}
+      <AppRouter 
+        peekView={peekView}
+        peekDragX={peekDragX}
+        mainDragX={mainDragX}
+        onSwipePan={onSwipePan}
+        onSwipePanEnd={onSwipePanEnd}
+        view={view}
+        setView={setView}
+        user={user}
+        allAds={allAds}
+        allProducts={allProducts}
+        allTransportAds={allTransportAds}
+        favorites={favorites}
+        storedUsers={storedUsers}
+        setSelectedAd={setSelectedAd}
+        setSelectedProduct={setSelectedProduct}
+        setSelectedTransportAd={setSelectedTransportAd}
+        handleToggleFav={handleToggleFav}
+        requireAuth={requireAuth}
+        handleSellerClick={handleSellerClick}
+        setBottomNavActive={setBottomNavActive}
+        isStandalone={isStandalone}
+        handleInstallClick={handleInstallClick}
+        search={search}
+        setSearch={setSearch}
+        cat={cat}
+        setCat={setCat}
+        gov={gov}
+        setGov={setGov}
+        sort={sort}
+        setSort={setSort}
+        priceMin={priceMin}
+        setPriceMin={setPriceMin}
+        priceMax={priceMax}
+        setPriceMax={setPriceMax}
+        conditionFilter={conditionFilter}
+        setConditionFilter={setConditionFilter}
+        hasMoreAds={hasMoreAds}
+        hasMoreProducts={hasMoreProducts}
+        hasMoreTransport={hasMoreTransport}
+        fetchAds={fetchAds}
+        fetchProducts={fetchProducts}
+        fetchTransportAds={fetchTransportAds}
+        totalAdsCount={totalAdsCount}
+        totalProductsCount={totalProductsCount}
+        totalTransportCount={totalTransportCount}
+        loadingMoreAds={loadingMoreAds}
+        loadingMoreProducts={loadingMoreProducts}
+        loadingTransport={loadingTransport}
+        isInitialLoading={isInitialLoading}
+        isDarkMode={isDarkMode}
+        handleHomeRefresh={handleHomeRefresh}
+        setShowCreateProduct={setShowCreateProduct}
+        setShowCreateTransport={setShowCreateTransport}
+        setShowCreateAd={setShowCreateAd}
+        setEditingProduct={setEditingProduct}
+        setEditingAd={setEditingAd}
+        setActionMenuTarget={setActionMenuTarget}
+        handlePostTransportAd={handlePostTransportAd}
+        handleUpdateTransportStatus={handleUpdateTransportStatus}
+        handleDeleteTransportAd={handleDeleteTransportAd}
+        handleDeleteAd={handleDeleteAd}
+        handleDeleteProduct={handleDeleteProduct}
+        handleDeleteProfile={handleDeleteProfile}
+        handleUpdateUser={handleUpdateUser}
+        handleMarkAdSold={handleMarkAdSold}
+        handleMarkProductSold={handleMarkProductSold}
+        adCosts={adCosts}
+        myAds={myAds}
+        myProducts={myProducts}
+        selectedSellerId={selectedSellerId}
+        selectedSellerPhone={selectedSellerPhone}
+        previousSellerSource={previousSellerSource}
+        isAdmin={isAdmin}
+        isOwner={isOwner}
+        setShowStoreGuide={setShowStoreGuide}
+      />
+
+      {/* Footer */}
+      <AppFooter setActiveDocTab={setActiveDocTab} setView={setView} />
+
+      {/* Bottom Navigation Bar - Fixed Mobile First */}
+      <AppBottomNav 
+        user={user} 
+        bottomNavActive={bottomNavActive} 
+        setBottomNavActive={setBottomNavActive} 
+        setView={setView} 
+        requireAuth={requireAuth} 
+        setShowCreateAd={setShowCreateAd} 
+        handleHomeRefresh={handleHomeRefresh} 
+        cat={cat} 
+      />
+
+      {/* Biometric Reminder Banner */}
+      <AppBiometricBanner 
+        showBiometricBanner={showBiometricBanner} 
+        setShowBiometricBanner={setShowBiometricBanner} 
+        playNotificationSound={playNotificationSound} 
+      />
+
+            <GlobalModals showOnboarding={showOnboarding} setShowOnboarding={setShowOnboarding} showAuth={showAuth} setShowAuth={setShowAuth} handleLogin={handleLogin} selectedAd={selectedAd} setSelectedAd={setSelectedAd} favorites={favorites} handleToggleFav={handleToggleFav} user={user} storedUsers={storedUsers} requireAuth={requireAuth} handleSellerClick={handleSellerClick} handleViewDurationLogged={handleViewDurationLogged} setActiveLightbox={setActiveLightbox} setAllAds={setAllAds} selectedProduct={selectedProduct} setSelectedProduct={setSelectedProduct} setAllProducts={setAllProducts} selectedTransportAd={selectedTransportAd} setSelectedTransportAd={setSelectedTransportAd} showCreateAd={showCreateAd} setShowCreateAd={setShowCreateAd} setEditingAd={setEditingAd} handleAddOrEditAd={handleAddOrEditAd} editingAd={editingAd} adCosts={adCosts} showCreateProduct={showCreateProduct} setShowCreateProduct={setShowCreateProduct} setEditingProduct={setEditingProduct} handleAddOrEditProduct={handleAddOrEditProduct} editingProduct={editingProduct} showNotifs={showNotifs} setShowNotifs={setShowNotifs} notifications={notifications} handleHistoryClick={handleHistoryClick} markNotifAsRead={markNotifAsRead} handleArchiveAllNotifications={handleArchiveAllNotifications} showChatModal={showChatModal} setShowChatModal={setShowChatModal} chatViewport={chatViewport} activeChatId={activeChatId} setActiveChatId={setActiveChatId} setSelectedSellerId={setSelectedSellerId} activeDocTab={activeDocTab} setActiveDocTab={setActiveDocTab} activeLightbox={activeLightbox} congratulationsItem={congratulationsItem} setCongratulationsItem={setCongratulationsItem} shareModalData={shareModalData} setShareModalData={setShareModalData} showInstallGuide={showInstallGuide} setShowInstallGuide={setShowInstallGuide} showInstallOptions={showInstallOptions} setShowInstallOptions={setShowInstallOptions} handlePwaInstall={handlePwaInstall} showStoreGuide={showStoreGuide} setShowStoreGuide={setShowStoreGuide} />
+    </div>
+  );
+}
+
+
+export { handleUniversalShare } from './hooks/useAppInteractions';
+
+
+export * from './constants';
+export * from './utils/image';
+export * from './utils/analytics';
+export { getWhatsAppLink } from './utils/helpers';

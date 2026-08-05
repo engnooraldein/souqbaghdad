@@ -27,7 +27,8 @@ import {
   FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, 
 } from 'lucide-react';
 import { User, TransportAd } from '../types';
-import { handleUniversalShare, ViewersModal, DEFAULT_AVATAR, recordItemView } from '../App';
+import { handleUniversalShare, ViewersModal, recordItemView } from '../App';
+import { DEFAULT_AVATAR } from '../hooks/useAuth';
 import { ReportModal } from './ReportModal';
 import { slugify, getWhatsAppLink, detectDevice, isNewItem, getWhatsAppResetLink, getGlowClass} from '../utils/helpers';
 import { formatPrice } from '../utils/format';

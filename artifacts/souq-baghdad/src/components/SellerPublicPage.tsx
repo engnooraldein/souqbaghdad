@@ -19,7 +19,8 @@
 // نعم.
 // ===========================================
 
-import { DEFAULT_AVATAR } from '../App';
+import {  } from '../App';
+import { DEFAULT_AVATAR } from '../hooks/useAuth';
 import InfiniteScrollTrigger from './InfiniteScrollTrigger';
 import { DEFAULT_COVER, getCoverImage } from '../constants';
 import { useOnlineStatuses } from '../hooks/useOnlineStatuses';
