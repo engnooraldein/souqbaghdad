@@ -745,10 +745,10 @@ export function MarketView({
       {cat !== 'general' && (
       <section 
         id="hero-landing-section" 
-        className={`py-14 sm:py-20 relative overflow-hidden border-b transition-all duration-500 ${
+        className={`pt-10 sm:pt-16 pb-6 relative overflow-hidden transition-all duration-500 ${
           isDarkMode 
-            ? 'bg-black border-gray-800/40' 
-            : 'bg-white border-slate-200/60 shadow-sm'
+            ? 'bg-[#000000]' 
+            : 'bg-[#fbfbfd]'
         }`}
       >
         {/* Background Image for LCP Optimization */}
@@ -775,28 +775,27 @@ export function MarketView({
           <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-white/20 to-white/60 backdrop-blur-[2px]" />
         )}
 
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="text-center max-w-3xl mx-auto mb-10">
+        <div className="container mx-auto px-0 sm:px-6 relative z-10">
+          <div className="text-center w-full max-w-6xl mx-auto mb-10">
             <div className="mb-8">
-              {/* Top Interactive Badge */}
+              {/* Giant clean typography (Apple Style) */}
               <motion.div 
-                id="hero-badge"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5 }}
-                className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-500 mb-6 cursor-default ${
-                  isDarkMode 
-                    ? 'bg-gradient-to-r from-amber-500/15 to-yellow-500/5 border border-amber-500/25 text-amber-400 shadow-[0_0_15px_rgba(212,175,55,0.06)]' 
-                    : 'bg-amber-500/10 border border-amber-500/20 text-amber-700 shadow-sm'
-                }`}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                className="mb-10 px-4 sm:px-0"
               >
-                <Sparkles className="w-3.5 h-3.5 animate-pulse text-amber-500" />
-                <span>أول منصة متكاملة للإعلانات والمتاجر في العراق</span>
+                <h1 className={`text-4xl sm:text-6xl font-black tracking-tight leading-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                  سوق بغداد.
+                </h1>
+                <p className={`text-lg sm:text-2xl mt-3 font-medium tracking-tight ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                  المتجر الأكبر، الأسرع، والأكثر فخامة.
+                </p>
               </motion.div>
 
-              {/* VIP Ads Banners Slider (Replaces old hero text) */}
+              {/* VIP Ads Banners Slider (Apple TV+ Style) */}
               {vipAds.length > 0 && (
-                <div className="w-full mx-auto" dir="rtl">
+                <div className="w-full" dir="rtl">
                   <HorizontalCarousel 
                     items={vipAds}
                     lazyLoad={true}
@@ -804,10 +803,10 @@ export function MarketView({
                     renderItem={(ad) => (
                       <div 
                         onClick={() => onSelectAd(ad)}
-                        className="relative group w-[280px] sm:w-[360px] aspect-[21/9] shrink-0 rounded-2xl overflow-hidden cursor-pointer shadow-lg hover:shadow-xl transition-all"
+                        className="relative group w-[340px] sm:w-[500px] md:w-[700px] aspect-[16/9] sm:aspect-[21/9] shrink-0 rounded-[32px] overflow-hidden cursor-pointer shadow-[0_20px_50px_rgba(0,0,0,0.12)] hover:shadow-[0_30px_60px_rgba(0,0,0,0.2)] transition-all duration-700 mx-2"
                       >
-                        {/* Golden VIP Border on Hover */}
-                        <div className="absolute inset-0 border-2 border-transparent group-hover:border-amber-400/80 rounded-2xl z-20 pointer-events-none transition-colors" />
+                        {/* Soft Hover Overlay */}
+                        <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent z-20 transition-colors duration-700 pointer-events-none" />
                         
                         <ImageWithDataSaver 
                           src={
@@ -817,20 +816,20 @@ export function MarketView({
                           } 
                           fallback={getAdCategoryPlaceholderImage(ad.category, `${ad.title}`)}
                           alt={ad.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)]"
                           loading="lazy"
                         />
                         
-                        {/* VIP Badge */}
-                        <div className="absolute top-2 right-2 z-20 bg-gradient-to-r from-amber-500 to-yellow-400 text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg shadow-amber-500/20 flex items-center gap-1">
-                          <Crown className="w-3 h-3" />
+                        {/* Minimal VIP Badge */}
+                        <div className="absolute top-4 right-4 z-20 backdrop-blur-xl bg-white/20 border border-white/30 text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+                          <Crown className="w-3.5 h-3.5" />
                           <span>VIP</span>
                         </div>
                         
-                        {/* Title Overlay */}
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-3 pt-10 z-10 text-right">
-                          <h3 className="text-white text-sm sm:text-base font-bold truncate">{ad.title}</h3>
-                          <p className="text-amber-400 text-xs sm:text-sm font-black mt-0.5">{formatPrice(ad.price)}</p>
+                        {/* Premium Text Overlay */}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-6 sm:p-8 pt-20 z-10 text-right">
+                          <h3 className="text-white text-lg sm:text-2xl md:text-3xl font-black tracking-tight truncate drop-shadow-md">{ad.title}</h3>
+                          <p className="text-white/90 text-sm sm:text-lg font-bold mt-1.5 drop-shadow">{formatPrice(ad.price)}</p>
                         </div>
                       </div>
                     )}
@@ -1106,12 +1105,10 @@ export function MarketView({
                       onClick={() => setCat(c.id)}
                       className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all duration-300 relative shrink-0 ${
                         isSelected 
-                          ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/30' 
+                          ? (isDarkMode ? 'bg-white text-black' : 'bg-black text-white')
                           : isGeneral
-                            ? 'bg-white/10 text-amber-500 border border-amber-500/30 hover:bg-amber-500/10'
-                            : isDarkMode
-                              ? 'bg-gray-900/60 text-gray-300 hover:bg-gray-800/80 hover:text-white border border-gray-800'
-                              : 'bg-white/80 text-slate-600 hover:bg-white hover:text-slate-900 shadow-sm border border-slate-100'
+                            ? 'text-amber-500'
+                            : (isDarkMode ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-500 hover:text-black hover:bg-black/5')
                       }`}
                     >
                       <span className="text-lg">{c.emoji}</span>
@@ -1127,12 +1124,12 @@ export function MarketView({
                 {/* Transport Section card */}
                 <motion.button 
                   id="hero-transport-card-btn"
-                  whileHover={{ y: -3, scale: 1.01 }}
+                  whileHover={{ y: -2 }}
                   onClick={() => onTransportClick?.()}
-                  className={`w-full flex items-center justify-between px-5 py-4 border rounded-2xl transition-all group text-right ${
+                  className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all group text-right ${
                     isDarkMode 
-                      ? 'bg-emerald-500/10 hover:bg-emerald-500/15 border-emerald-500/35' 
-                      : 'bg-white hover:bg-emerald-50/50 border-emerald-500/25 shadow-sm'
+                      ? 'bg-gray-900/50 hover:bg-gray-800/80 shadow-md' 
+                      : 'bg-white hover:bg-gray-50/80 shadow-[0_4px_20px_rgba(0,0,0,0.04)]'
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -1151,12 +1148,12 @@ export function MarketView({
                 {!isStandalone && onInstallClick ? (
                   <motion.button 
                     id="hero-install-card-btn"
-                    whileHover={{ y: -3, scale: 1.01 }}
+                    whileHover={{ y: -2 }}
                     onClick={onInstallClick}
-                    className={`w-full flex items-center justify-between px-5 py-4 border rounded-2xl transition-all group text-right ${
+                    className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all group text-right ${
                       isDarkMode 
-                        ? 'bg-amber-500/10 hover:bg-amber-500/15 border-amber-500/25' 
-                        : 'bg-white hover:bg-amber-50/50 border-amber-500/20 shadow-sm'
+                        ? 'bg-gray-900/50 hover:bg-gray-800/80 shadow-md' 
+                        : 'bg-white hover:bg-gray-50/80 shadow-[0_4px_20px_rgba(0,0,0,0.04)]'
                     }`}
                   >
                     <div className="flex items-center gap-3">
