@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, X, ArrowRight, SlidersHorizontal, MapPin, 
-  Tag, Clock, Sparkles, ChevronDown, ChevronUp,
-  Car, Home, Smartphone, Laptop, Sofa, Shirt, Briefcase, Wrench, PawPrint, Coffee, Activity, Package
+  Tag, Clock, Sparkles, ChevronDown, ChevronUp
 } from 'lucide-react';
+import { 
+  Category, Discovery, Home, Call, Video, Bookmark, Bag, Work, Setting, Heart, TicketStar, Game, Document
+} from 'react-iconly';
 import { Ad, Product } from '../types';
 import { AdCard, getAdCategoryPlaceholderImage } from './AdCard';
 import { ProductCard } from './ProductCard';
@@ -16,19 +18,19 @@ const IRAQI_GOVERNORATES = [
 ];
 
 const CATEGORIES = [
-  { id: 'all', name: 'الكل', icon: Search },
-  { id: 'cars', name: 'سيارات', icon: Car },
+  { id: 'all', name: 'الكل', icon: Category },
+  { id: 'cars', name: 'سيارات', icon: Discovery },
   { id: 'real-estate', name: 'عقارات', icon: Home },
-  { id: 'phones', name: 'هواتف', icon: Smartphone },
-  { id: 'electronics', name: 'إلكترونيات', icon: Laptop },
-  { id: 'furniture', name: 'أثاث', icon: Sofa },
-  { id: 'clothes', name: 'ملابس', icon: Shirt },
-  { id: 'jobs', name: 'وظائف', icon: Briefcase },
-  { id: 'services', name: 'خدمات', icon: Wrench },
-  { id: 'animals', name: 'حيوانات', icon: PawPrint },
-  { id: 'food', name: 'طعام', icon: Coffee },
-  { id: 'sports', name: 'رياضة', icon: Activity },
-  { id: 'other', name: 'أخرى', icon: Package },
+  { id: 'phones', name: 'هواتف', icon: Call },
+  { id: 'electronics', name: 'إلكترونيات', icon: Video },
+  { id: 'furniture', name: 'أثاث', icon: Bookmark },
+  { id: 'clothes', name: 'ملابس', icon: Bag },
+  { id: 'jobs', name: 'وظائف', icon: Work },
+  { id: 'services', name: 'خدمات', icon: Setting },
+  { id: 'animals', name: 'حيوانات', icon: Heart },
+  { id: 'food', name: 'طعام', icon: TicketStar },
+  { id: 'sports', name: 'رياضة', icon: Game },
+  { id: 'other', name: 'أخرى', icon: Document },
 ];
 
 interface SearchPageProps {
@@ -279,7 +281,7 @@ export function SearchPage({
                       : (isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-300' : 'bg-white border-slate-200 text-slate-700')
                   }`}
                 >
-                  <c.icon className="w-4 h-4" />
+                  <c.icon set="bulk" primaryColor={selectedCat === c.id ? "#000" : (isDarkMode ? "#cbd5e1" : "#475569")} size="small" />
                   {c.name}
                 </button>
               ))}
@@ -334,11 +336,9 @@ export function SearchPage({
                             : isDarkMode ? 'bg-gray-900/80 border-gray-800/60 text-gray-300 hover:bg-gray-800' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
                         }`}
                       >
-                        <c.icon className={`w-8 h-8 mb-2 ${
-                          selectedCat === c.id 
-                            ? 'text-white' 
-                            : (isDarkMode ? 'text-gray-400' : 'text-slate-600')
-                        }`} />
+                        <div className="mb-2">
+                          <c.icon set="bulk" primaryColor={selectedCat === c.id ? "#fff" : (isDarkMode ? "#94a3b8" : "#475569")} size="large" />
+                        </div>
                         <span className="text-xs font-bold">{c.name}</span>
                       </button>
                     ))}

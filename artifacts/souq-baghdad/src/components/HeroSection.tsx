@@ -13,12 +13,33 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Search, Car, ChevronLeft, Smartphone, Sparkles } from 'lucide-react';
+import { 
+  Category, Discovery, Home, Call, Video, Bookmark, Bag, Work, Setting, Heart, TicketStar, Game, Document, Star
+} from 'react-iconly';
 import { CATEGORIES } from '../App';
 import LiveVisitorCounter from './LiveVisitorCounter';
 import { CityOutline } from '../assets/svg/logo/city-outline';
 import { LionOutline } from '../assets/svg/logo/lion-outline';
 import { BackgroundGrid } from '../assets/svg/background/background-grid';
 import { GoldParticles } from '../assets/svg/effects/gold-particles';
+
+const CATEGORY_ICONS: Record<string, React.ComponentType<any>> = {
+  all: Category,
+  general: Star,
+  cars: Discovery,
+  'real-estate': Home,
+  phones: Call,
+  electronics: Video,
+  gym: Game,
+  clothes: Bag,
+  cosmetics: Heart,
+  handmade: Bookmark,
+  jobs: Work,
+  furniture: Document,
+  bikes: Discovery,
+  services: Setting,
+  games: Game,
+};
 
 interface HeroSectionProps {
   search: string;
@@ -121,23 +142,33 @@ export function HeroSection({
 
         {/* Categories Grid/Horizontal Badges */}
         <div id="hero-categories-tabs" className="flex flex-wrap justify-center gap-2 mb-8 relative z-20 max-w-4xl mx-auto">
-          {CATEGORIES.filter(c => c.id !== 'games').map(c => (
-            <motion.button 
-              id={`cat-btn-${c.id}`}
-              key={c.id} 
-              whileHover={{ y: -2, scale: 1.03 }} 
-              whileTap={{ scale: 0.97 }} 
-              onClick={() => setCat(c.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-all duration-300 ${
-                cat === c.id 
-                  ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black border-amber-400 shadow-[0_4px_15px_rgba(212,175,55,0.25)] font-black' 
-                  : 'bg-gray-900/60 text-gray-300 border-gray-800 backdrop-blur-md hover:border-gray-700 hover:text-white hover:bg-gray-900/85'
-              }`}
-            >
-              <span className="text-base sm:text-lg">{c.emoji}</span>
-              <span>{c.name}</span>
-            </motion.button>
-          ))}
+          {CATEGORIES.filter(c => c.id !== 'games').map(c => {
+            const IconComp = CATEGORY_ICONS[c.id];
+            const isSelected = cat === c.id;
+            return (
+              <motion.button 
+                id={`cat-btn-${c.id}`}
+                key={c.id} 
+                whileHover={{ y: -2, scale: 1.03 }} 
+                whileTap={{ scale: 0.97 }} 
+                onClick={() => setCat(c.id)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-all duration-300 ${
+                  isSelected 
+                    ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black border-amber-400 shadow-[0_4px_15px_rgba(212,175,55,0.25)] font-black' 
+                    : 'bg-gray-900/60 text-gray-300 border-gray-800 backdrop-blur-md hover:border-gray-700 hover:text-white hover:bg-gray-900/85'
+                }`}
+              >
+                {IconComp ? (
+                  <IconComp 
+                    set="bulk" 
+                    primaryColor={isSelected ? '#000' : '#94a3b8'} 
+                    size="small" 
+                  />
+                ) : null}
+                <span>{c.name}</span>
+              </motion.button>
+            );
+          })}
         </div>
 
         {/* Quick Metrics Cards */}

@@ -309,6 +309,9 @@ importers:
       react-helmet-async:
         specifier: ^3.0.0
         version: 3.0.0(react@19.1.0)
+      react-iconly:
+        specifier: ^2.2.10
+        version: 2.2.10(react@19.1.0)
     devDependencies:
       '@capacitor/cli':
         specifier: ^8.4.1
@@ -3991,6 +3994,12 @@ packages:
     engines: {node: '>=18.0.0'}
     peerDependencies:
       react: ^16.8.0 || ^17 || ^18 || ^19
+
+  react-iconly@2.2.10:
+    resolution: {integrity: sha512-AZYJRzXMj7yw+KIFUkom3cWhvfbrdlbOLbBDuFnPJrbrgynmNCcJhX8dIQ/JGKq5XDo1P9j8Gico0xZnV/bXWA==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      react: '>=16.8.0'
 
   react-is@16.13.1:
     resolution: {integrity: sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==}
@@ -8093,6 +8102,10 @@ snapshots:
       shallowequal: 1.1.0
 
   react-hook-form@7.75.0(react@19.1.0):
+    dependencies:
+      react: 19.1.0
+
+  react-iconly@2.2.10(react@19.1.0):
     dependencies:
       react: 19.1.0
 

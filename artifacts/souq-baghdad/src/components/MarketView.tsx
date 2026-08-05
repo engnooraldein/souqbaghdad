@@ -51,6 +51,30 @@ import {
 } from 'lucide-react';
 import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
 import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage } from '../App';
+import { 
+  Category as IcCategory, Discovery as IcDiscovery, Home as IcHome, Call as IcCall, 
+  Video as IcVideo, Bookmark as IcBookmark, Bag as IcBag, Work as IcWork, 
+  Setting as IcSetting, Heart as IcHeart, TicketStar as IcTicketStar, Game as IcGame, 
+  Document as IcDocument, Star as IcStar
+} from 'react-iconly';
+
+const CATEGORY_ICONS: Record<string, React.ComponentType<any>> = {
+  all: IcCategory,
+  general: IcStar,
+  cars: IcDiscovery,
+  'real-estate': IcHome,
+  phones: IcCall,
+  electronics: IcVideo,
+  gym: IcGame,
+  clothes: IcBag,
+  cosmetics: IcHeart,
+  handmade: IcBookmark,
+  jobs: IcWork,
+  furniture: IcDocument,
+  bikes: IcDiscovery,
+  services: IcSetting,
+  games: IcGame,
+};
 import { slugify, getWhatsAppLink, detectDevice, isNewItem, getWhatsAppResetLink, getGlowClass} from '../utils/helpers';
 import { formatPrice } from '../utils/format';
 import { useSound } from '../hooks/useSound';
@@ -1003,6 +1027,7 @@ export function MarketView({
                 <>
               <div id="hero-categories-tabs" className="flex overflow-x-auto scrollbar-hide gap-3 mb-8 py-2 px-4 relative z-20 max-w-4xl mx-auto touch-pan-x flex-nowrap justify-start sm:justify-center">
                 {CATEGORIES.filter(c => c.id !== 'games').map(c => {
+                  const IconComp = CATEGORY_ICONS[c.id];
                   const isGeneral = c.id === 'general';
                   const isSelected = cat === c.id;
                   return (
@@ -1020,7 +1045,17 @@ export function MarketView({
                             : (isDarkMode ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-500 hover:text-black hover:bg-black/5')
                       }`}
                     >
-                      <span className="text-lg">{c.emoji}</span>
+                      {IconComp ? (
+                        <IconComp 
+                          set="bulk" 
+                          primaryColor={
+                            isSelected 
+                              ? (isDarkMode ? '#000' : '#fff') 
+                              : isGeneral ? '#f59e0b' : (isDarkMode ? '#9ca3af' : '#6b7280')
+                          } 
+                          size="small" 
+                        />
+                      ) : null}
                       <span>{c.name}</span>
                     </motion.button>
                   );
