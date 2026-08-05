@@ -47,3 +47,18 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+.replit
+.replit-artifact/
+replit.md
+.replitignore
+
+# Scratch/temp files
+scratch/
+scratch_*.cjs
+
+# Java crash logs
+hs_err_pid*
+
+# Environment
+.env
+!.env.example

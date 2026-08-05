@@ -781,96 +781,76 @@ export default function App() {
     fetchUnreadChatCount();
   }, [fetchUnreadChatCount]);
 
-  // Realtime audio alert & system notification & badge update for new messages
+  // Polling for new messages (replacing Realtime to avoid 200 connection limit)
   useEffect(() => {
     if (!user) return;
     const currentUserIdStr = String(user.id);
+    let lastChecked = new Date().toISOString();
 
-    const channel = supabase
-      .channel('global:messages')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages'
-        },
-        async (payload) => {
-          const newMsg = payload.new as any;
-          if (String(newMsg.sender_id) !== currentUserIdStr) {
-            // Verify if chat belongs to active user
-            const { data: chatRow } = await supabase
-              .from('chats')
-              .select('id, buyer_id, seller_id, ad_title')
-              .eq('id', newMsg.chat_id)
-              .or(`buyer_id.eq.${currentUserIdStr},seller_id.eq.${currentUserIdStr}`)
-              .maybeSingle();
+    const pollNewMessages = async () => {
+      try {
+        const { data: newMsgs } = await supabase
+          .from('messages')
+          .select('*, chats!inner(id, buyer_id, seller_id)')
+          .gt('created_at', lastChecked)
+          .neq('sender_id', currentUserIdStr)
+          .eq('is_read', false)
+          .or(`buyer_id.eq.${currentUserIdStr},seller_id.eq.${currentUserIdStr}`, { referencedTable: 'chats' })
+          .order('created_at', { ascending: false })
+          .limit(1);
 
-            if (chatRow) {
-              fetchUnreadChatCount();
+        if (newMsgs && newMsgs.length > 0) {
+          const newMsg = newMsgs[0];
+          lastChecked = new Date().toISOString();
+          
+          fetchUnreadChatCount();
+          const isCurrentlyInThisChat = showChatModalRef.current && String(activeChatIdRef.current) === String(newMsg.chat_id);
+          
+          if (!isCurrentlyInThisChat) {
+            playNotificationSound('info');
+            
+            if (Capacitor.isNativePlatform()) {
+              try {
+                const isBuyer = String(newMsg.chats.buyer_id) === currentUserIdStr;
+                const otherUserId = isBuyer ? newMsg.chats.seller_id : newMsg.chats.buyer_id;
 
-              const isCurrentlyInThisChat = showChatModalRef.current && String(activeChatIdRef.current) === String(newMsg.chat_id);
+                const { data: senderProfile } = await supabase
+                  .from('profiles')
+                  .select('full_name')
+                  .eq('id', otherUserId)
+                  .maybeSingle();
 
-              if (isCurrentlyInThisChat) {
-                // Active Chat is open -> Silence system tray notification, just play in-app sound
-                playNotificationSound('info');
-              } else {
-                playNotificationSound('info');
+                const senderName = senderProfile?.full_name || 'سوق بغداد';
+                const notifId = getNumericHash(newMsg.chat_id);
 
-                if (Capacitor.isNativePlatform()) {
-                  try {
-                    const isBuyer = String(chatRow.buyer_id) === currentUserIdStr;
-                    const otherUserId = isBuyer ? chatRow.seller_id : chatRow.buyer_id;
-
-                    const { data: senderProfile } = await supabase
-                      .from('profiles')
-                      .select('full_name')
-                      .eq('id', otherUserId)
-                      .maybeSingle();
-
-                    const senderName = senderProfile?.full_name || 'سوق بغداد';
-
-                    const { count: unreadCount } = await supabase
-                      .from('messages')
-                      .select('*', { count: 'exact', head: true })
-                      .eq('chat_id', newMsg.chat_id)
-                      .eq('is_read', false)
-                      .neq('sender_id', currentUserIdStr);
-
-                    const totalUnread = unreadCount || 1;
-                    const notifId = getNumericHash(newMsg.chat_id);
-
-                    await LocalNotifications.schedule({
-                      notifications: [
-                        {
-                          title: senderName,
-                          body: totalUnread > 1 
-                            ? `💬 ${totalUnread} رسائل جديدة: ${newMsg.content}` 
-                            : `💬 ${newMsg.content}`,
-                          id: notifId,
-                          badge: totalUnread,
-                          channelId: 'souq_baghdad_high_importance',
-                          schedule: { at: new Date(Date.now() + 100) },
-                          sound: 'res://platform_default',
-                          actionTypeId: '',
-                          extra: { chatId: newMsg.chat_id, type: 'chat' }
-                        } as any
-                      ]
-                    });
-                  } catch (err) {
-                    console.warn('Failed to trigger LocalNotification:', err);
-                  }
-                }
+                await LocalNotifications.schedule({
+                  notifications: [
+                    {
+                      title: senderName,
+                      body: `💬 ${newMsg.content}`,
+                      id: notifId,
+                      badge: 1,
+                      channelId: 'souq_baghdad_high_importance',
+                      schedule: { at: new Date(Date.now() + 100) },
+                      sound: 'res://platform_default',
+                      actionTypeId: '',
+                      extra: { chatId: newMsg.chat_id, type: 'chat' }
+                    } as any
+                  ]
+                });
+              } catch (err) {
+                console.warn('Failed to trigger LocalNotification:', err);
               }
             }
           }
         }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
+      } catch (e) {
+        console.error('Polling error:', e);
+      }
     };
+
+    const interval = setInterval(pollNewMessages, 30000); // 30 seconds
+    return () => clearInterval(interval);
   }, [user, playNotificationSound, fetchUnreadChatCount]);
 
   useEffect(() => {
@@ -4737,3 +4717,4 @@ export default function App() {
     </div>
   );
 }
+

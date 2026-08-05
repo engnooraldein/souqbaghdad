@@ -14,8 +14,11 @@
       "(?:'|\"|`)([^']*)(?:'|\"|`)"
     ]
   ],
-  "java.configuration.updateBuildConfiguration": "automatic",
+  "java.configuration.updateBuildConfiguration": "disabled",
   "java.import.exclusions": [
     "**/node_modules/**"
-  ]
+  ],
+  "java.server.launchMode": "LightWeight",
+  "java.autobuild.enabled": false,
+  "gradle.autoDetect": "off"
 }
