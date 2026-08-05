@@ -745,54 +745,28 @@ export function MarketView({
       {cat !== 'general' && (
       <section 
         id="hero-landing-section" 
-        className={`pt-10 sm:pt-16 pb-6 relative overflow-hidden transition-all duration-500 ${
+        className={`pt-4 sm:pt-6 pb-2 relative overflow-hidden transition-all duration-700 ${
           isDarkMode 
-            ? 'bg-[#000000]' 
-            : 'bg-[#fbfbfd]'
+            ? 'bg-black' 
+            : 'bg-[#F5F5F7]'
         }`}
       >
-        {/* Background Image for LCP Optimization */}
-        <img 
-           src={isDarkMode ? '/baghdad_night.png' : 'https://www-file.honor.com/content/dam/honor/common/tech/honor-ai/ar/imgs/section-kv/aisubject-kv-bg2.jpg'}
-           alt="سوك بغداد - واجهة المستخدم"
-           fetchPriority="high"
-           loading="eager"
-           decoding="sync"
-           className="absolute inset-0 w-full h-full object-cover z-0 opacity-100"
-        />
-
-        {/* Dark overlay for text readability in dark mode */}
-        {isDarkMode && (
-          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/50 to-black/90 pointer-events-none z-0" />
-        )}
-        {/* Ambient Radial Glow */}
+        {/* Subtle Apple-style Ambient Mesh Gradient Background */}
         {isDarkMode ? (
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-0 right-10 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 left-10 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
+          <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center opacity-40">
+            <div className="absolute w-[800px] h-[800px] bg-indigo-600/20 rounded-full blur-[120px] mix-blend-screen -top-[200px] -left-[200px]" />
+            <div className="absolute w-[600px] h-[600px] bg-amber-500/10 rounded-full blur-[100px] mix-blend-screen top-[100px] right-[0px]" />
           </div>
         ) : (
-          <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-white/20 to-white/60 backdrop-blur-[2px]" />
+          <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center opacity-60">
+            <div className="absolute w-[800px] h-[800px] bg-blue-400/10 rounded-full blur-[120px] mix-blend-multiply -top-[200px] -left-[200px]" />
+            <div className="absolute w-[600px] h-[600px] bg-rose-400/10 rounded-full blur-[100px] mix-blend-multiply top-[100px] right-[0px]" />
+          </div>
         )}
 
         <div className="container mx-auto px-0 sm:px-6 relative z-10">
-          <div className="text-center w-full max-w-6xl mx-auto mb-10">
-            <div className="mb-8">
-              {/* Giant clean typography (Apple Style) */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                className="mb-10 px-4 sm:px-0"
-              >
-                <h1 className={`text-4xl sm:text-6xl font-black tracking-tight leading-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                  سوق بغداد.
-                </h1>
-                <p className={`text-lg sm:text-2xl mt-3 font-medium tracking-tight ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>
-                  المتجر الأكبر، الأسرع، والأكثر فخامة.
-                </p>
-              </motion.div>
-
+          <div className="text-center w-full max-w-6xl mx-auto mb-2">
+            <div className="mb-4">
               {/* VIP Ads Banners Slider (Apple TV+ Style) */}
               {vipAds.length > 0 && (
                 <div className="w-full" dir="rtl">
@@ -803,7 +777,7 @@ export function MarketView({
                     renderItem={(ad) => (
                       <div 
                         onClick={() => onSelectAd(ad)}
-                        className="relative group w-[340px] sm:w-[500px] md:w-[700px] aspect-[16/9] sm:aspect-[21/9] shrink-0 rounded-[32px] overflow-hidden cursor-pointer shadow-[0_20px_50px_rgba(0,0,0,0.12)] hover:shadow-[0_30px_60px_rgba(0,0,0,0.2)] transition-all duration-700 mx-2"
+                        className="relative group w-[320px] sm:w-[450px] md:w-[600px] aspect-[21/9] shrink-0 rounded-3xl overflow-hidden cursor-pointer shadow-[0_10px_30px_rgba(0,0,0,0.12)] hover:shadow-[0_15px_40px_rgba(0,0,0,0.2)] transition-all duration-700 mx-2"
                       >
                         {/* Soft Hover Overlay */}
                         <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent z-20 transition-colors duration-700 pointer-events-none" />
@@ -840,16 +814,15 @@ export function MarketView({
           </div>
 
           {/* Search Bar Container */}
-          <div id="hero-search-wrapper" className="max-w-3xl mx-auto mb-10 relative z-30 group" dir="rtl">
-            <div className="absolute -inset-2 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition duration-700 pointer-events-none" />
-            <div className={`relative rounded-full border shadow-2xl flex flex-col sm:flex-row items-stretch sm:items-center p-2 gap-2 sm:gap-0 transition-all duration-500 backdrop-blur-2xl ${
+          <div id="hero-search-wrapper" className="max-w-3xl mx-auto mb-4 relative z-30 px-4 sm:px-0" dir="rtl">
+            <div className={`relative rounded-2xl sm:rounded-full border flex flex-col sm:flex-row items-stretch sm:items-center p-1.5 sm:p-2 gap-2 sm:gap-0 transition-all duration-500 backdrop-blur-2xl ${
               isDarkMode 
-                ? 'bg-black/60 border-gray-700/50 shadow-[0_8px_32px_rgba(0,0,0,0.5)] hover:border-gray-600/60' 
-                : 'bg-white/70 border-white/80 shadow-[0_8px_32px_rgba(0,0,0,0.08)] hover:border-white'
+                ? 'bg-[#1c1c1e]/80 border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.4)]' 
+                : 'bg-white/90 border-black/5 shadow-[0_8px_30px_rgba(0,0,0,0.06)]'
             }`}>
               {/* Input section */}
               <div className="flex-1 relative flex items-center">
-                <Search className="absolute right-5 w-5 h-5 text-amber-500" />
+                <Search className={`absolute right-4 w-5 h-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-400'}`} />
                 <input 
                   id="hero-search-input"
                   value={localSearch} 
@@ -861,22 +834,44 @@ export function MarketView({
                       setShowSuggestions(false);
                     }
                   }}
-                  placeholder="ابحث عن سيارة، هاتف، عقار، أو أي شيء في العراق..."
-                  className={`w-full bg-transparent rounded-full py-3.5 sm:py-4 pr-14 pl-4 outline-none text-base sm:text-lg font-bold transition-colors duration-500 ${
-                    isDarkMode ? 'text-white placeholder-gray-400' : 'text-slate-900 placeholder-slate-500'
+                  placeholder="ابحث عن سيارة، هاتف، عقار..."
+                  className={`w-full bg-transparent rounded-full py-3 sm:py-3.5 pr-12 pl-4 outline-none text-base sm:text-lg font-medium transition-colors duration-500 ${
+                    isDarkMode ? 'text-white placeholder-gray-500' : 'text-slate-900 placeholder-slate-400'
                   }`}
                 />
                 {localSearch && (
                   <button 
                     id="hero-search-clear-btn"
                     onClick={() => { setLocalSearch(''); setSuggestions([]); }} 
-                    className={`absolute left-3 px-2.5 py-1 rounded-lg text-xs transition-colors ${
-                      isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900'
+                    className={`absolute left-3 p-1.5 rounded-full transition-colors ${
+                      isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-600'
                     }`}
                   >
-                    مسح
+                    <X className="w-4 h-4" />
                   </button>
                 )}
+              </div>
+              
+              {/* Vertical divider on desktop */}
+              <div className={`hidden sm:block h-8 w-[1px] mx-2 self-center shrink-0 ${isDarkMode ? 'bg-white/10' : 'bg-black/10'}`} />
+
+              {/* Action Buttons Section */}
+              <div className="flex items-center gap-2 px-1 pb-1 sm:pb-0" dir="rtl">
+                {/* Search Button */}
+                <button
+                  onClick={() => {
+                    saveRecentSearch(localSearch);
+                    setShowSuggestions(false);
+                  }}
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 sm:py-3.5 rounded-xl sm:rounded-full font-bold text-sm sm:text-base transition-all ${
+                    isDarkMode
+                      ? 'bg-white text-black hover:bg-gray-200'
+                      : 'bg-black text-white hover:bg-gray-800'
+                  }`}
+                >
+                  بحث
+                </button>
+              </div>
 
                 {/* Autocomplete Suggestions Dropdown */}
                 {showSuggestions && (localSearch.trim() || recentSearches.length > 0 || CATEGORIES.filter(c => c.id !== 'all' && c.id !== 'general').length > 0) && (
@@ -985,104 +980,8 @@ export function MarketView({
                     </div>
                   </>
                 )}
-              </div>
-
-              {/* Vertical divider on desktop */}
-              <div className={`hidden sm:block h-8 w-[1px] mx-2 self-center shrink-0 ${isDarkMode ? 'bg-gray-800/80' : 'bg-slate-200'}`} />
-
-              {/* Sorting Dropdown container */}
-              <div className="relative shrink-0 flex items-center px-2 sm:px-1" dir="rtl">
-                <motion.button
-                  id="hero-search-sort-dropdown-trigger"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setIsSortOpen(!isSortOpen)}
-                  className={`w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2 px-3.5 py-2 sm:py-2.5 rounded-xl border text-xs md:text-sm font-bold transition-all duration-500 ${
-                    isDarkMode 
-                      ? 'bg-gray-800/60 hover:bg-gray-800 border-gray-750/50 text-gray-300 hover:text-white' 
-                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900'
-                  }`}
-                >
-                  <span className="flex items-center gap-1.5">
-                    <SlidersHorizontal className="w-3.5 h-3.5 text-amber-500" />
-                    <span className="whitespace-nowrap">
-                      {sort === 'price-low' ? 'السعر: من الأقل إلى الأعلى' : 
-                       sort === 'price-high' ? 'السعر: من الأعلى إلى الأقل' :
-                       sort === 'views' ? 'الأكثر مشاهدة' : 'الأحدث'}
-                    </span>
-                  </span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${isSortOpen ? 'rotate-180' : ''}`} />
-                </motion.button>
-
-                <AnimatePresence>
-                  {isSortOpen && (
-                    <>
-                      {/* Backdrop overlay to close dropdown */}
-                      <div className="fixed inset-0 z-35" onClick={() => setIsSortOpen(false)} />
-                      
-                      <motion.div
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        transition={{ duration: 0.12 }}
-                        className={`absolute left-0 right-0 sm:right-auto sm:left-0 mt-2 sm:w-56 border rounded-xl shadow-2xl z-40 overflow-hidden ${
-                          isDarkMode ? 'bg-black/95 border-gray-800' : 'bg-white border-slate-200'
-                        }`}
-                      >
-                        <div className="py-1 text-right" dir="rtl">
-                          <button
-                            onClick={() => { setSort('recent'); setIsSortOpen(false); }}
-                            className={`w-full text-right px-4 py-2.5 text-xs md:text-sm transition-colors flex items-center justify-between ${
-                              sort === 'recent' 
-                                ? 'bg-amber-500/10 text-amber-500 font-extrabold' 
-                                : isDarkMode ? 'text-gray-300 hover:bg-gray-800' : 'text-slate-700 hover:bg-slate-50'
-                            }`}
-                          >
-                            <span>الأحدث</span>
-                            {sort === 'recent' && <span className="text-amber-500 font-bold">✓</span>}
-                          </button>
-                          <button
-                            onClick={() => { setSort('views'); setIsSortOpen(false); }}
-                            className={`w-full text-right px-4 py-2.5 text-xs md:text-sm transition-colors flex items-center justify-between ${
-                              sort === 'views' 
-                                ? 'bg-amber-500/10 text-amber-500 font-extrabold' 
-                                : isDarkMode ? 'text-gray-300 hover:bg-gray-800' : 'text-slate-700 hover:bg-slate-50'
-                            }`}
-                          >
-                            <span>الأكثر مشاهدة</span>
-                            {sort === 'views' && <span className="text-amber-500 font-bold">✓</span>}
-                          </button>
-                          <button
-                            onClick={() => { setSort('price-low'); setIsSortOpen(false); }}
-                            className={`w-full text-right px-4 py-2.5 text-xs md:text-sm transition-colors flex items-center justify-between ${
-                              sort === 'price-low' 
-                                ? 'bg-amber-500/10 text-amber-500 font-extrabold' 
-                                : isDarkMode ? 'text-gray-300 hover:bg-gray-800' : 'text-slate-700 hover:bg-slate-50'
-                            }`}
-                          >
-                            <span>السعر: من الأقل إلى الأعلى</span>
-                            {sort === 'price-low' && <span className="text-amber-500 font-bold">✓</span>}
-                          </button>
-                          <button
-                            onClick={() => { setSort('price-high'); setIsSortOpen(false); }}
-                            className={`w-full text-right px-4 py-2.5 text-xs md:text-sm transition-colors flex items-center justify-between ${
-                              sort === 'price-high' 
-                                ? 'bg-amber-500/10 text-amber-500 font-extrabold' 
-                                : isDarkMode ? 'text-gray-300 hover:bg-gray-800' : 'text-slate-700 hover:bg-slate-50'
-                            }`}
-                          >
-                            <span>السعر: من الأعلى إلى الأقل</span>
-                            {sort === 'price-high' && <span className="text-amber-500 font-bold">✓</span>}
-                          </button>
-                        </div>
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
-              </div>
             </div>
           </div>
-
           {!search ? (
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
