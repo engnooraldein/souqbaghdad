@@ -357,7 +357,7 @@ export function useAppInit({
     const cleanPath = decodedPath.replace(/^\//, '');
     let parts = cleanPath.split('/').filter(Boolean);
 
-    if (parts.length > 0 && parts[0] === 'IQ') {
+    if (parts.length > 0 && parts[0].toLowerCase() === 'iq') {
       parts.shift();
     }
 

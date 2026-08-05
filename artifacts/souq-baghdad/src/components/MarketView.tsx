@@ -317,10 +317,17 @@ export function MarketView({
     } else if (contentTab === 'ads') {
       targetHash = cat !== 'all' ? `#/ads/${cat}` : '#/ads';
     } else if (contentTab === 'all') {
-      targetHash = cat !== 'all' ? `#/category/${cat}` : '#/';
+      if (cat === 'general') {
+        targetHash = '/iq/';
+      } else if (cat === 'all') {
+        targetHash = '/';
+      } else {
+        targetHash = `/category/${cat}`;
+      }
     }
 
-    if (window.location.hash !== targetHash && !window.location.hash.includes('/ad/') && !window.location.hash.includes('/seller/')) {
+    const currentUrl = window.location.hash || window.location.pathname;
+    if (currentUrl !== targetHash && !window.location.hash.includes('/ad/') && !window.location.hash.includes('/seller/')) {
       window.history.pushState(null, '', targetHash);
     }
   }, [cat, contentTab]);

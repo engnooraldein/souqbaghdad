@@ -24,6 +24,7 @@ interface AppMobileMenuProps {
   handleLogout: () => void;
   setShowAuth: (s: boolean) => void;
   setActiveDocTab: (t: string) => void;
+  setShowSearchPage?: (s: boolean) => void;
 }
 
 export const AppMobileMenu: React.FC<AppMobileMenuProps> = ({
@@ -77,7 +78,7 @@ export const AppMobileMenu: React.FC<AppMobileMenuProps> = ({
                 <button onClick={() => { handleHomeRefresh(); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800/10 text-sm font-bold">
                   <Home className="w-5 h-5 text-amber-500" /> الرئيسية (العرض العام)
                 </button>
-                <button onClick={() => { setView('home'); setCat('all'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800/10 text-sm font-bold">
+                <button onClick={() => { setShowSearchPage?.(true); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800/10 text-sm font-bold">
                   <Search className="w-5 h-5 text-amber-400" /> البحث والأقسام
                 </button>
                 <button onClick={() => { setView('products'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800/10 text-sm font-bold">

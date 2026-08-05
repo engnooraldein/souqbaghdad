@@ -18,6 +18,7 @@ interface AppSidebarProps {
   setActiveDocTab: (t: string) => void;
   toggleDarkMode: () => void;
   setShowAuth: (s: boolean) => void;
+  setShowSearchPage?: (s: boolean) => void;
   handleHomeRefresh: () => void;
 }
 
@@ -36,6 +37,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   setActiveDocTab,
   toggleDarkMode,
   setShowAuth,
+  setShowSearchPage,
   handleHomeRefresh
 }) => {
   return (
@@ -82,8 +84,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
             <span>الرئيسية (العرض العام)</span>
           </button>
 
-          <button onClick={() => { setView('home'); setCat('all'); setBottomNavActive('home'); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
-            view === 'home' && cat === 'all'
+          <button onClick={() => { setShowSearchPage?.(true); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
+            cat === 'all'
               ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 font-black' 
               : (isDarkMode ? 'text-gray-300 hover:bg-gray-800/60 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')
           }`}>

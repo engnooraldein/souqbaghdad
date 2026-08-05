@@ -25,6 +25,7 @@ interface AppNavbarProps {
   setShowAuth: (s: boolean) => void;
   unreadChatCount: number;
   setShowMobileMenu: (s: boolean) => void;
+  setShowSearchPage?: (s: boolean) => void;
 }
 
 export const AppNavbar: React.FC<AppNavbarProps> = ({
@@ -60,7 +61,7 @@ export const AppNavbar: React.FC<AppNavbarProps> = ({
           <div className="hidden lg:flex flex-1 max-w-sm mx-6 items-center">
             <div 
               className="relative w-full cursor-pointer group" 
-              onClick={()=>{ setView('home'); setCat('all'); window.scrollTo(0,0); }}
+              onClick={()=>{ setShowSearchPage?.(true); }}
             >
               <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500 transition-transform group-hover:scale-110"/>
               <input 
@@ -130,7 +131,7 @@ export const AppNavbar: React.FC<AppNavbarProps> = ({
           </div>
           <div className="flex items-center gap-1.5 lg:hidden">
             <button 
-              onClick={()=>{ setView('home'); setCat('all'); window.scrollTo(0,0); }}
+              onClick={()=>{ setShowSearchPage?.(true); }}
               className="flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-black font-extrabold rounded-xl text-xs hover:brightness-110 shrink-0 cursor-pointer shadow-md shadow-amber-500/20 active:scale-95 transition-all"
               title="فتح البحث والأقسام"
             >

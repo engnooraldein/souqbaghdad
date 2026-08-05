@@ -40,6 +40,7 @@ import { AppBottomNav } from './components/AppBottomNav';
 import { AppBiometricBanner } from './components/AppBiometricBanner';
 import { GlobalModals } from './components/GlobalModals';
 import { BiometricLockScreen } from './components/BiometricLockScreen';
+import { SearchPage } from './components/SearchPage';
 import { Lock } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Badge } from '@capawesome/capacitor-badge';
@@ -360,6 +361,7 @@ export default function App() {
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
   const [conditionFilter, setConditionFilter] = useState<'all'|'new'|'used'>('all');
+  const [showSearchPage, setShowSearchPage] = useState(false);
 
   // Reset to general feed when user returns to app from background (PWA)
   useEffect(() => {
@@ -563,6 +565,7 @@ export default function App() {
         toggleDarkMode={toggleDarkMode} 
         setShowAuth={setShowAuth} 
         handleHomeRefresh={handleHomeRefresh} 
+        setShowSearchPage={setShowSearchPage}
       />
 
       {/* Mobile Menu Drawer */}
@@ -586,6 +589,7 @@ export default function App() {
         handleLogout={handleLogout} 
         setShowAuth={setShowAuth} 
         setActiveDocTab={setActiveDocTab} 
+        setShowSearchPage={setShowSearchPage}
       />
 
       {/* Main */}
@@ -693,6 +697,23 @@ export default function App() {
       />
 
             <GlobalModals showOnboarding={showOnboarding} setShowOnboarding={setShowOnboarding} showAuth={showAuth} setShowAuth={setShowAuth} handleLogin={handleLogin} selectedAd={selectedAd} setSelectedAd={setSelectedAd} favorites={favorites} handleToggleFav={handleToggleFav} user={user} storedUsers={storedUsers} requireAuth={requireAuth} handleSellerClick={handleSellerClick} handleViewDurationLogged={handleViewDurationLogged} setActiveLightbox={setActiveLightbox} setAllAds={setAllAds} selectedProduct={selectedProduct} setSelectedProduct={setSelectedProduct} setAllProducts={setAllProducts} selectedTransportAd={selectedTransportAd} setSelectedTransportAd={setSelectedTransportAd} showCreateAd={showCreateAd} setShowCreateAd={setShowCreateAd} setEditingAd={setEditingAd} handleAddOrEditAd={handleAddOrEditAd} editingAd={editingAd} adCosts={adCosts} showCreateProduct={showCreateProduct} setShowCreateProduct={setShowCreateProduct} setEditingProduct={setEditingProduct} handleAddOrEditProduct={handleAddOrEditProduct} editingProduct={editingProduct} showNotifs={showNotifs} setShowNotifs={setShowNotifs} notifications={notifications} handleHistoryClick={handleHistoryClick} markNotifAsRead={markNotifAsRead} handleArchiveAllNotifications={handleArchiveAllNotifications} showChatModal={showChatModal} setShowChatModal={setShowChatModal} chatViewport={chatViewport} activeChatId={activeChatId} setActiveChatId={setActiveChatId} setSelectedSellerId={setSelectedSellerId} activeDocTab={activeDocTab} setActiveDocTab={setActiveDocTab} activeLightbox={activeLightbox} congratulationsItem={congratulationsItem} setCongratulationsItem={setCongratulationsItem} shareModalData={shareModalData} setShareModalData={setShareModalData} showInstallGuide={showInstallGuide} setShowInstallGuide={setShowInstallGuide} showInstallOptions={showInstallOptions} setShowInstallOptions={setShowInstallOptions} handleInstallClick={() => setShowInstallGuide('safari')} showStoreGuide={showStoreGuide} setShowStoreGuide={setShowStoreGuide} />
+
+      {/* ── Professional Search Page Overlay ── */}
+      <SearchPage
+        isOpen={showSearchPage}
+        onClose={() => setShowSearchPage(false)}
+        isDarkMode={isDarkMode}
+        allAds={allAds}
+        allProducts={allProducts}
+        onSelectAd={ad => { setSelectedAd(ad); setShowSearchPage(false); }}
+        onSelectProduct={p => { setSelectedProduct(p); setShowSearchPage(false); }}
+        storedUsers={storedUsers}
+        user={user}
+        onToggleFav={handleToggleFav}
+        favorites={favorites}
+        onRequireAuth={requireAuth}
+        onSellerClick={id => { handleSellerClick(id); setShowSearchPage(false); }}
+      />
     </div>
   );
 }
