@@ -64,15 +64,13 @@ import { LoadingScreen } from './LoadingScreen';
 import { SkeletonCard } from './SkeletonCard';
 import { VerifiedBadge } from './VerifiedBadge';
 import { TransportFormModal } from './TransportFormModal';
-import { AdCard } from './AdCard';
+import { AdCard, getAdCategoryPlaceholderImage } from './AdCard';
 import { ProductCard } from './ProductCard';
+import { ImageWithDataSaver } from './ImageWithDataSaver';
 import { TransportAdCard } from './TransportAdCard';
 import { InterestTimer } from './InterestTimer';
 import { IraqiEagle } from './Icons';
 import { CityOutline } from '../assets/svg/logo/city-outline';
-import { LionOutline } from '../assets/svg/logo/lion-outline';
-import { BackgroundGrid } from '../assets/svg/background/background-grid';
-import { GoldParticles } from '../assets/svg/effects/gold-particles';
 
 import { PaginationDots } from './market/PaginationDots';
 import { HorizontalCarousel } from './market/HorizontalCarousel';
@@ -767,89 +765,92 @@ export function MarketView({
         {isDarkMode && (
           <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/50 to-black/90 pointer-events-none z-0" />
         )}
-        
-        {/* Background Grid & Particles Decoration */}
-        <BackgroundGrid className={`absolute inset-0 w-full h-full object-cover pointer-events-none transition-opacity duration-500 ${
-          isDarkMode ? 'opacity-[0.12] mix-blend-color-dodge' : 'opacity-[0.05] mix-blend-overlay'
-        }`} />
-        <GoldParticles className={`absolute inset-0 pointer-events-none w-full h-full transition-opacity duration-500 ${
-          isDarkMode ? 'opacity-30' : 'opacity-10'
-        }`} />
-        
         {/* Ambient Radial Glow */}
-        {isDarkMode && (
+        {isDarkMode ? (
           <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-10 right-10 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl" />
-            <div className="absolute bottom-10 left-10 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl" />
+            <div className="absolute top-0 right-10 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 left-10 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
           </div>
+        ) : (
+          <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-white/20 to-white/60 backdrop-blur-[2px]" />
         )}
-
-        {/* Floating Majestic Babylonian Lion (Backdrop Corner decoration) */}
-        <div className={`absolute -top-16 -right-16 w-80 h-80 pointer-events-none select-none transition-all duration-500 ${
-          isDarkMode ? 'opacity-[0.08] text-amber-400' : 'opacity-[0.04] text-amber-600'
-        }`}>
-          <LionOutline className="w-full h-full" />
-        </div>
 
         <div className="container mx-auto px-4 relative z-10">
           <div className="text-center max-w-3xl mx-auto mb-10">
-            {/* Top Interactive Badge */}
-            <motion.div 
-              id="hero-badge"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5 }}
-              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-500 mb-6 cursor-default ${
-                isDarkMode 
-                  ? 'bg-gradient-to-r from-amber-500/15 to-yellow-500/5 border border-amber-500/25 text-amber-400 shadow-[0_0_15px_rgba(212,175,55,0.06)]' 
-                  : 'bg-amber-500/10 border border-amber-500/20 text-amber-700 shadow-sm'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5 animate-pulse text-amber-500" />
-              <span>أول منصة متكاملة للإعلانات والمتاجر في العراق</span>
-            </motion.div>
+            <div className="mb-8">
+              {/* Top Interactive Badge */}
+              <motion.div 
+                id="hero-badge"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5 }}
+                className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-500 mb-6 cursor-default ${
+                  isDarkMode 
+                    ? 'bg-gradient-to-r from-amber-500/15 to-yellow-500/5 border border-amber-500/25 text-amber-400 shadow-[0_0_15px_rgba(212,175,55,0.06)]' 
+                    : 'bg-amber-500/10 border border-amber-500/20 text-amber-700 shadow-sm'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5 animate-pulse text-amber-500" />
+                <span>أول منصة متكاملة للإعلانات والمتاجر في العراق</span>
+              </motion.div>
 
-            <motion.h1 
-              id="hero-main-title"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className={`text-3xl sm:text-5xl md:text-6xl font-black tracking-tight leading-tight mb-4 transition-colors duration-500 ${
-                isDarkMode ? 'text-white' : 'text-black'
-              }`}
-            >
-              كل ما تحتاجه في <span className={`bg-gradient-to-r bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(212,175,55,0.15)] ${
-                isDarkMode 
-                  ? 'from-[#fdf5a6] via-[#d4af37] to-[#b8860b]' 
-                  : 'from-[#b8860b] via-[#d4af37] to-black'
-              }`}>سوق بغداد</span>
-            </motion.h1>
-
-            {/* Sub-headline */}
-            <motion.p 
-              id="hero-sub-title"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className={`text-sm sm:text-base md:text-lg max-w-2xl mx-auto font-medium leading-relaxed transition-colors duration-500 ${
-                isDarkMode ? 'text-gray-300' : 'text-slate-700 font-extrabold'
-              }`}
-            >
-              تصفّح آلاف الإعلانات والمنتجات الحصرية، وتسوق بكل ثقة وأمان من أفضل الحسابات والمتاجر الموثقة في جميع المحافظات العراقية.
-            </motion.p>
+              {/* VIP Ads Banners Slider (Replaces old hero text) */}
+              {vipAds.length > 0 && (
+                <div className="w-full mx-auto" dir="rtl">
+                  <HorizontalCarousel 
+                    items={vipAds}
+                    lazyLoad={true}
+                    initialVisibleCount={5}
+                    renderItem={(ad) => (
+                      <div 
+                        onClick={() => onSelectAd(ad)}
+                        className="relative group w-[280px] sm:w-[360px] aspect-[21/9] shrink-0 rounded-2xl overflow-hidden cursor-pointer shadow-lg hover:shadow-xl transition-all"
+                      >
+                        {/* Golden VIP Border on Hover */}
+                        <div className="absolute inset-0 border-2 border-transparent group-hover:border-amber-400/80 rounded-2xl z-20 pointer-events-none transition-colors" />
+                        
+                        <ImageWithDataSaver 
+                          src={
+                            (!ad.images?.[0] || ad.images[0].includes('photo-1523275335684') || ad.images[0].includes('watch') || ad.images[0].includes('photo-1558618666')) 
+                              ? getAdCategoryPlaceholderImage(ad.category, `${ad.title}`) 
+                              : ad.images[0]
+                          } 
+                          fallback={getAdCategoryPlaceholderImage(ad.category, `${ad.title}`)}
+                          alt={ad.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                          loading="lazy"
+                        />
+                        
+                        {/* VIP Badge */}
+                        <div className="absolute top-2 right-2 z-20 bg-gradient-to-r from-amber-500 to-yellow-400 text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg shadow-amber-500/20 flex items-center gap-1">
+                          <Crown className="w-3 h-3" />
+                          <span>VIP</span>
+                        </div>
+                        
+                        {/* Title Overlay */}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-3 pt-10 z-10 text-right">
+                          <h3 className="text-white text-sm sm:text-base font-bold truncate">{ad.title}</h3>
+                          <p className="text-amber-400 text-xs sm:text-sm font-black mt-0.5">{formatPrice(ad.price)}</p>
+                        </div>
+                      </div>
+                    )}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Search Bar Container */}
-          <div id="hero-search-wrapper" className="max-w-2xl mx-auto mb-8 relative z-30 group" dir="rtl">
-            <div className="absolute -inset-1 bg-gradient-to-r from-amber-500/30 to-yellow-600/30 rounded-[22px] blur-md opacity-25 group-hover:opacity-40 transition duration-300 pointer-events-none" />
-            <div className={`relative rounded-2xl border backdrop-blur-xl shadow-2xl flex flex-col sm:flex-row items-stretch sm:items-center p-1.5 gap-2 sm:gap-0 transition-all duration-500 ${
+          <div id="hero-search-wrapper" className="max-w-3xl mx-auto mb-10 relative z-30 group" dir="rtl">
+            <div className="absolute -inset-2 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition duration-700 pointer-events-none" />
+            <div className={`relative rounded-full border shadow-2xl flex flex-col sm:flex-row items-stretch sm:items-center p-2 gap-2 sm:gap-0 transition-all duration-500 backdrop-blur-2xl ${
               isDarkMode 
-                ? 'bg-black/80 border-gray-700/60 shadow-2xl' 
-                : 'bg-white/95 border-slate-200 shadow-slate-100'
+                ? 'bg-black/60 border-gray-700/50 shadow-[0_8px_32px_rgba(0,0,0,0.5)] hover:border-gray-600/60' 
+                : 'bg-white/70 border-white/80 shadow-[0_8px_32px_rgba(0,0,0,0.08)] hover:border-white'
             }`}>
               {/* Input section */}
               <div className="flex-1 relative flex items-center">
-                <Search className="absolute right-4 w-5 h-5 text-amber-500" />
+                <Search className="absolute right-5 w-5 h-5 text-amber-500" />
                 <input 
                   id="hero-search-input"
                   value={localSearch} 
@@ -861,8 +862,8 @@ export function MarketView({
                       setShowSuggestions(false);
                     }
                   }}
-                  placeholder="ابحث عن سيارة، هاتف، عقار، منتج في العراق..."
-                  className={`w-full bg-transparent rounded-xl py-3 sm:py-3.5 pr-12 pl-4 outline-none text-base font-medium transition-colors duration-500 ${
+                  placeholder="ابحث عن سيارة، هاتف، عقار، أو أي شيء في العراق..."
+                  className={`w-full bg-transparent rounded-full py-3.5 sm:py-4 pr-14 pl-4 outline-none text-base sm:text-lg font-bold transition-colors duration-500 ${
                     isDarkMode ? 'text-white placeholder-gray-400' : 'text-slate-900 placeholder-slate-500'
                   }`}
                 />
@@ -1092,8 +1093,7 @@ export function MarketView({
             >
               {cat === 'general' ? null : (
                 <>
-                  {/* Categories Grid/Horizontal Badges */}
-              <div id="hero-categories-tabs" className="flex overflow-x-auto scrollbar-hide gap-2.5 mb-8 py-1.5 px-2 relative z-20 max-w-4xl mx-auto touch-pan-x flex-nowrap justify-start sm:justify-center">
+              <div id="hero-categories-tabs" className="flex overflow-x-auto scrollbar-hide gap-3 mb-8 py-2 px-4 relative z-20 max-w-4xl mx-auto touch-pan-x flex-nowrap justify-start sm:justify-center">
                 {CATEGORIES.filter(c => c.id !== 'games').map(c => {
                   const isGeneral = c.id === 'general';
                   const isSelected = cat === c.id;
@@ -1101,59 +1101,26 @@ export function MarketView({
                     <motion.button 
                       id={`cat-btn-${c.id}`}
                       key={c.id} 
-                      whileHover={{ y: -2, scale: isGeneral ? 1.06 : 1.03 }} 
-                      whileTap={{ scale: 0.97 }} 
+                      whileHover={{ scale: 1.05 }} 
+                      whileTap={{ scale: 0.95 }} 
                       onClick={() => setCat(c.id)}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-all duration-300 relative shrink-0 ${
+                      className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all duration-300 relative shrink-0 ${
                         isSelected 
-                          ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black border-amber-400 shadow-[0_4px_20px_rgba(212,175,55,0.4)] font-black scale-105' 
+                          ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/30' 
                           : isGeneral
-                            ? 'bg-gradient-to-r from-amber-500/20 via-yellow-500/25 to-amber-500/20 text-amber-300 border-amber-500/60 shadow-[0_0_20px_rgba(245,158,11,0.3)] animate-pulse hover:border-amber-400 font-extrabold ring-1 ring-amber-500/40'
+                            ? 'bg-white/10 text-amber-500 border border-amber-500/30 hover:bg-amber-500/10'
                             : isDarkMode
-                              ? 'bg-black/60 text-gray-300 border-gray-800 backdrop-blur-md hover:border-gray-700 hover:text-white hover:bg-black/85'
-                              : 'bg-white/90 text-slate-700 border-slate-200/80 backdrop-blur-md hover:border-slate-350 hover:text-slate-900 hover:bg-white shadow-sm'
+                              ? 'bg-gray-900/60 text-gray-300 hover:bg-gray-800/80 hover:text-white border border-gray-800'
+                              : 'bg-white/80 text-slate-600 hover:bg-white hover:text-slate-900 shadow-sm border border-slate-100'
                       }`}
                     >
-                      {isGeneral && !isSelected && (
-                        <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-                        </span>
-                      )}
-                      <span className="text-base sm:text-lg">{c.emoji}</span>
-                      <span className={isGeneral ? 'tracking-wide font-black' : ''}>{c.name}</span>
-                      {isGeneral && <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" />}
+                      <span className="text-lg">{c.emoji}</span>
+                      <span>{c.name}</span>
                     </motion.button>
                   );
                 })}
               </div>
 
-              {/* Quick Metrics Cards */}
-              <div id="hero-metrics-grid" className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-3xl mx-auto mb-8 relative z-20">
-                <div className={`backdrop-blur-sm border rounded-xl p-3.5 text-center flex flex-col justify-center transition-all duration-500 ${
-                  isDarkMode ? 'bg-black/50 border-gray-800/60' : 'bg-white/80 border-slate-200 shadow-sm'
-                }`}>
-                  <p className={`text-xl sm:text-2xl font-black font-mono ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>18</p>
-                  <p className={`text-[11px] font-bold mt-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>محافظة عراقية مغطاة</p>
-                </div>
-                <div className={`backdrop-blur-sm border rounded-xl p-3.5 text-center flex flex-col justify-center transition-all duration-500 ${
-                  isDarkMode ? 'bg-black/50 border-gray-800/60' : 'bg-white/80 border-slate-200 shadow-sm'
-                }`}>
-                  <p className={`text-xl sm:text-2xl font-black font-mono ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{totalAdsCount || 2040}+</p>
-                  <p className={`text-[11px] font-bold mt-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>إعلان معروض حالياً</p>
-                </div>
-                <div className={`backdrop-blur-sm border rounded-xl p-3.5 text-center col-span-2 md:col-span-1 flex flex-col justify-center transition-all duration-500 ${
-                  isDarkMode ? 'bg-black/50 border-gray-800/60' : 'bg-white/80 border-slate-200 shadow-sm'
-                }`}>
-                  <p className={`text-xl sm:text-2xl font-black font-mono ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>24/7</p>
-                  <p className={`text-[11px] font-bold mt-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>خدمة ومتابعة مباشرة</p>
-                </div>
-              </div>
-
-              {/* Live Visitor Counter */}
-              <div className="mb-6 relative z-20">
-                <LiveVisitorCounter />
-              </div>
 
               {/* Action Row: Transport & Install App */}
               <div id="hero-action-cards" className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto relative z-20">
@@ -1240,93 +1207,91 @@ export function MarketView({
         <div className="container mx-auto px-4">
           {/* Filter bar */}
           {(cat !== 'general' && (cat !== 'all' || contentTab === 'profiles' || contentTab === 'transport')) && (
-            <div className="bg-black/40 border border-gray-800/80 backdrop-blur-md rounded-3xl p-4 mb-6 shadow-xl">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              {/* Content type tabs - ONLY show on homepage 'all' */}
-              {cat === 'all' ? (
-                <div className="flex bg-black/60 border border-gray-850 rounded-2xl p-1 gap-1 overflow-x-auto scrollbar-hide max-w-full">
-                  {([['all','الكل'],['ads','📢 إعلانات'],['products','🛍️ منتجات'],['profiles','👤 حسابات'],['transport','🚌 الخطوط']] as [string,string][]).map(([t,l])=>(
+            <div className="mb-8">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                {/* Content type tabs - ONLY show on homepage 'all' */}
+                {cat === 'all' ? (
+                  <div className="flex bg-gray-100 dark:bg-gray-900 rounded-full p-1 gap-1 overflow-x-auto scrollbar-hide max-w-full">
+                    {([['all','الكل'],['ads','📢 إعلانات'],['products','🛍️ منتجات'],['profiles','👤 حسابات'],['transport','🚌 الخطوط']] as [string,string][]).map(([t,l])=>(
+                      <button 
+                        key={t} 
+                        onClick={()=>setContentTab(t as any)} 
+                        className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 ${
+                          contentTab===t
+                            ? 'bg-amber-500 text-black shadow-md'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white'
+                        }`}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2" dir="rtl">
+                    <span className="w-2 h-2 bg-amber-500 rounded-full" />
+                    <span className="text-gray-500 dark:text-gray-400 text-sm font-bold">تصفح النتائج</span>
+                  </div>
+                )}
+
+                {/* Selectors and Action Buttons */}
+                <div className="flex flex-wrap gap-2 items-center justify-start md:justify-end">
+                  {/* Governorate Select */}
+                  <select 
+                    value={gov} 
+                    onChange={e=>setGov(e.target.value)} 
+                    className="bg-white dark:bg-gray-900 text-slate-800 dark:text-white font-bold rounded-full px-4 py-2 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 text-xs outline-none transition-all duration-300 cursor-pointer min-w-[110px] shadow-sm" 
+                    title="المحافظة" 
+                    aria-label="المحافظة"
+                  >
+                    {IRAQI_GOVERNORATES.map(g=><option key={g} className="bg-white dark:bg-black text-slate-800 dark:text-white">{g}</option>)}
+                  </select>
+
+                  {/* Sort Select */}
+                  <select 
+                    value={sort} 
+                    onChange={e=>setSort(e.target.value as any)} 
+                    className="bg-white dark:bg-gray-900 text-slate-800 dark:text-white font-bold rounded-full px-4 py-2 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 text-xs outline-none transition-all duration-300 cursor-pointer min-w-[120px] shadow-sm" 
+                    title="الترتيب" 
+                    aria-label="الترتيب"
+                  >
+                    <option value="recent" className="bg-white dark:bg-black text-slate-800 dark:text-white">الأحدث</option>
+                    <option value="views" className="bg-white dark:bg-black text-slate-800 dark:text-white">الأكثر مشاهدة</option>
+                    <option value="price-low" className="bg-white dark:bg-black text-slate-800 dark:text-white">السعر: من الأقل</option>
+                    <option value="price-high" className="bg-white dark:bg-black text-slate-800 dark:text-white">السعر: من الأعلى</option>
+                  </select>
+
+                  {/* Advanced Filters Button */}
+                  <button 
+                    onClick={()=>setShowFilters(!showFilters)} 
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold border transition-all duration-300 shadow-sm ${
+                      showFilters
+                        ? 'bg-amber-500 text-black border-amber-500 shadow-amber-500/20'
+                        : 'bg-white dark:bg-gray-900 text-slate-700 dark:text-gray-300 border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
+                    }`}
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5"/>
+                    <span>فلاتر</span>
+                  </button>
+
+                  {/* View Mode Toggle */}
+                  <div className="flex bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-full p-1">
                     <button 
-                      key={t} 
-                      onClick={()=>setContentTab(t as any)} 
-                      className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-black transition-all duration-300 ${
-                        contentTab===t
-                          ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black shadow-lg shadow-amber-500/10'
-                          : 'text-gray-400 hover:text-white'
-                      }`}
+                      onClick={()=>setViewMode('grid')} 
+                      className={`p-1.5 rounded-full transition-all duration-300 ${viewMode==='grid'?'bg-white dark:bg-gray-700 text-black dark:text-white shadow-sm':'text-gray-500 hover:text-black dark:hover:text-white'}`} 
+                      title="عرض شبكي" 
                     >
-                      {l}
+                      <Grid className="w-4 h-4"/>
                     </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center gap-2" dir="rtl">
-                  <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse" />
-                  <span className="text-gray-300 text-xs font-black">خيارات التصفية الذكية والترتيب</span>
-                </div>
-              )}
-
-              {/* Selectors and Action Buttons */}
-              <div className="flex flex-wrap gap-2 items-center justify-start md:justify-end">
-                {/* Governorate Select */}
-                <select 
-                  value={gov} 
-                  onChange={e=>setGov(e.target.value)} 
-                  className="bg-black/60 hover:bg-black/80 text-white font-bold rounded-xl px-3.5 py-2 border border-gray-800 hover:border-amber-500/30 text-xs outline-none transition-all duration-300 cursor-pointer min-w-[110px]" 
-                  title="المحافظة" 
-                  aria-label="المحافظة"
-                >
-                  {IRAQI_GOVERNORATES.map(g=><option key={g} className="bg-black text-white">{g}</option>)}
-                </select>
-
-                {/* Sort Select */}
-                <select 
-                  value={sort} 
-                  onChange={e=>setSort(e.target.value as any)} 
-                  className="bg-black/60 hover:bg-black/80 text-white font-bold rounded-xl px-3.5 py-2 border border-gray-800 hover:border-amber-500/30 text-xs outline-none transition-all duration-300 cursor-pointer min-w-[120px]" 
-                  title="الترتيب" 
-                  aria-label="الترتيب"
-                >
-                  <option value="recent" className="bg-black text-white">الأحدث</option>
-                  <option value="views" className="bg-black text-white">الأكثر مشاهدة</option>
-                  <option value="price-low" className="bg-black text-white">السعر: من الأقل</option>
-                  <option value="price-high" className="bg-black text-white">السعر: من الأعلى</option>
-                </select>
-
-                {/* Advanced Filters Button */}
-                <button 
-                  onClick={()=>setShowFilters(!showFilters)} 
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black border transition-all duration-300 ${
-                    showFilters
-                      ? 'bg-amber-500 text-black border-amber-500 shadow-lg shadow-amber-500/10'
-                      : 'bg-black/60 hover:bg-black/80 text-gray-300 border-gray-800 hover:border-gray-700'
-                  }`}
-                >
-                  <SlidersHorizontal className="w-3.5 h-3.5"/>
-                  <span>فلاتر</span>
-                </button>
-
-                {/* View Mode Toggle */}
-                <div className="flex bg-black/60 border border-gray-850 rounded-xl p-0.5">
-                  <button 
-                    onClick={()=>setViewMode('grid')} 
-                    className={`p-1.5 rounded-lg transition-all duration-300 ${viewMode==='grid'?'bg-amber-500 text-black shadow-sm shadow-amber-500/5':'text-gray-500 hover:text-white'}`} 
-                    title="عرض شبكي" 
-                    aria-label="عرض شبكي"
-                  >
-                    <Grid className="w-4 h-4"/>
-                  </button>
-                  <button 
-                    onClick={()=>setViewMode('list')} 
-                    className={`p-1.5 rounded-lg transition-all duration-300 ${viewMode==='list'?'bg-amber-500 text-black shadow-sm shadow-amber-500/5':'text-gray-500 hover:text-white'}`} 
-                    title="عرض قائمة" 
-                    aria-label="عرض قائمة"
-                  >
-                    <List className="w-4 h-4"/>
-                  </button>
+                    <button 
+                      onClick={()=>setViewMode('list')} 
+                      className={`p-1.5 rounded-full transition-all duration-300 ${viewMode==='list'?'bg-white dark:bg-gray-700 text-black dark:text-white shadow-sm':'text-gray-500 hover:text-black dark:hover:text-white'}`} 
+                      title="عرض قائمة" 
+                    >
+                      <List className="w-4 h-4"/>
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
             <AnimatePresence>
               {showFilters && (
                 <motion.div 
@@ -1602,58 +1567,7 @@ export function MarketView({
                         </div>
                       )}
 
-                      {/* 2. VIP Ads (إعلانات VIP المميزة) Section */}
-                      {vipAds.length > 0 && (
-                        <div className={`border-y border-x-0 sm:border rounded-none sm:rounded-3xl py-5 px-0 sm:p-5 md:p-6 backdrop-blur-sm shadow-xl relative overflow-hidden -mx-4 sm:mx-0 transition-all duration-500 ${
-                          isDarkMode 
-                            ? 'bg-gradient-to-br from-amber-500/5 via-gray-900/40 to-amber-900/5 border-amber-500/20 shadow-black/20' 
-                            : 'bg-gradient-to-br from-amber-500/5 via-white to-amber-500/[0.02] border-amber-500/15 shadow-slate-100/50'
-                        }`}>
-                          <div className="absolute -top-10 -left-10 w-40 h-40 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
-                          
-                          <div className={`flex items-center justify-between mb-5 border-b pb-3 px-4 sm:px-0 transition-all duration-500 ${
-                            isDarkMode ? 'border-amber-500/10' : 'border-amber-100'
-                          }`} dir="rtl">
-                            <h2 className={`text-lg font-black flex items-center gap-2 transition-colors duration-500 ${
-                              isDarkMode ? 'text-white' : 'text-black'
-                            }`}>
-                              <span className="text-amber-500">👑</span>
-                              إعلانات VIP <span className={`text-xs px-2.5 py-1 rounded-full border font-bold transition-all duration-500 ${
-                                isDarkMode 
-                                  ? 'bg-amber-400/10 text-amber-400 border-amber-400/20' 
-                                  : 'bg-amber-50 text-amber-700 border-amber-200'
-                              }`}>الحسابات الموثقة خلال 30 يوم</span>
-                            </h2>
-                            <span className={`text-xs font-bold transition-colors duration-500 ${
-                              isDarkMode ? 'text-gray-500' : 'text-slate-500'
-                            }`}>أولوية العرض</span>
-                          </div>
 
-                          <HorizontalCarousel 
-                            items={vipAds}
-                            lazyLoad={true}
-                            initialVisibleCount={8}
-                            renderItem={(ad) => {
-                              const seller = storedUsers?.find(u => u.id === ad.postedBy);
-                              return (
-                                <div className="relative group">
-                                  <div className="absolute -inset-[1px] bg-gradient-to-r from-amber-500/20 to-yellow-500/20 rounded-2xl blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                                  <AdCard 
-                                    ad={ad} 
-                                    onSelect={() => onSelectAd(ad)} 
-                                    isFav={favorites.includes(ad.id)}
-                                    onFav={e => { e.stopPropagation(); if (!user) { onRequireAuth(); return; } onToggleFav(ad.id); }}
-                                    onSellerClick={(id) => { if (id) onSellerClick(id); }}
-                                    onActionMenu={e => { e.preventDefault(); if (user && (user.id === ad.postedBy || user.role === "admin" || user.role === "owner")) onActionMenu?.({ type: "ad", item: ad }); }}
-                                    sellerRole={seller?.role || 'vendor'}
-                                    compact={true}
-                                  />
-                                </div>
-                              );
-                            }}
-                          />
-                        </div>
-                      )}
                     </div>
                   )}
 
