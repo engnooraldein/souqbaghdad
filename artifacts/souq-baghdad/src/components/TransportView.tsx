@@ -52,7 +52,7 @@ import { TransportAdCard, VisualRoutePath } from './TransportAdCard';
 import { InterestTimer } from './InterestTimer';
 import { IraqiEagle } from './Icons';
 
-export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, lines, onPost, onUpdateStatus, onDeleteAd, onActionMenu, isInitialLoading, storedUsers, onLoadMore, hasMore, totalCount, adCosts }: {
+export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelectAd, lines, onPost, onUpdateStatus, onDeleteAd, onActionMenu, isInitialLoading, storedUsers, onLoadMore, hasMore, totalCount, adCosts, showCreateTransport, setShowCreateTransport }: {
   user: { id: string; name: string; avatar: string; phone: string; role?: string } | null;
   onBack: () => void;
   onCreateAd: () => void;
@@ -69,12 +69,16 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
   hasMore?: boolean;
   totalCount?: number;
   adCosts?: Record<string, number>;
+  showCreateTransport?: boolean;
+  setShowCreateTransport?: (s: boolean) => void;
 }) {
   const [mainCategoryFilter, setMainCategoryFilter] = useState<'student'|'employee'|'all'>('student');
   const [filterUniversity, setFilterUniversity] = useState('الكل');
   const [filterType, setFilterType] = useState('الكل');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showForm, setShowForm] = useState(false);
+  const [internalShowForm, setInternalShowForm] = useState(false);
+  const showForm = showCreateTransport !== undefined ? showCreateTransport : internalShowForm;
+  const setShowForm = setShowCreateTransport || setInternalShowForm;
   const [visibleCount, setVisibleCount] = useState(4);
   const [loadingMore, setLoadingMore] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);

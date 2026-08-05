@@ -16,6 +16,8 @@ interface AppMobileMenuProps {
   setView: (v: string) => void;
   setCat: (c: string) => void;
   setShowCreateAd: (s: boolean) => void;
+  setShowCreateTransport?: (s: boolean) => void;
+  view?: string;
   setEditingAd: (a: any) => void;
   setShowCreateProduct: (s: boolean) => void;
   setEditingProduct: (p: any) => void;
@@ -36,6 +38,8 @@ export const AppMobileMenu: React.FC<AppMobileMenuProps> = ({
   setView,
   setCat,
   setShowCreateAd,
+  setShowCreateTransport,
+  view,
   setEditingAd,
   setShowCreateProduct,
   setEditingProduct,
@@ -88,8 +92,20 @@ export const AppMobileMenu: React.FC<AppMobileMenuProps> = ({
 
               {user ? (
                 <div className="space-y-1">
-                  <button onClick={() => { setShowCreateAd(true); setEditingAd(null); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl bg-amber-500 text-black font-bold text-sm">
-                    <Plus className="w-5 h-5" /> رفع إعلان
+                  <button onClick={() => { 
+                      if (view === 'transport' && setShowCreateTransport) {
+                        setShowCreateTransport(true);
+                      } else {
+                        setShowCreateAd(true);
+                        setEditingAd(null);
+                      }
+                      setShowMobileMenu(false); 
+                    }} 
+                    className={`w-full flex items-center justify-between p-3 rounded-xl font-bold text-sm ${view === 'transport' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-black'}`}>
+                    <div className="flex items-center gap-3">
+                      <Plus className="w-5 h-5" /> {view === 'transport' ? 'نشر خط نقل' : 'رفع إعلان'}
+                    </div>
+                    {view === 'transport' && <span className="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">مجاناً</span>}
                   </button>
                   <button onClick={() => { setShowCreateProduct(true); setEditingProduct(null); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl bg-purple-600 text-white font-bold text-sm">
                     <ShoppingBag className="w-5 h-5" /> إضافة منتج

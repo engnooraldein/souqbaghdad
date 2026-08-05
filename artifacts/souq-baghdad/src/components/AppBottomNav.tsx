@@ -9,6 +9,8 @@ interface AppBottomNavProps {
   setView: (view: string) => void;
   requireAuth: () => void;
   setShowCreateAd: (show: boolean) => void;
+  setShowCreateTransport?: (show: boolean) => void;
+  view?: string;
   handleHomeRefresh: () => void;
   cat: string;
 }
@@ -20,6 +22,8 @@ export const AppBottomNav: React.FC<AppBottomNavProps> = ({
   setView,
   requireAuth,
   setShowCreateAd,
+  setShowCreateTransport,
+  view,
   handleHomeRefresh,
   cat,
 }) => {
@@ -55,22 +59,32 @@ export const AppBottomNav: React.FC<AppBottomNavProps> = ({
           <span className="text-[10px] mt-1 font-medium">المنتجات</span>
         </button>
 
-        {/* Create Ad */}
+        {/* Create Ad / Transport */}
         <button
           onClick={() => {
             if (!user) {
               requireAuth();
             } else {
-              setBottomNavActive('create-ad');
-              setShowCreateAd(true);
+              if (view === 'transport' && setShowCreateTransport) {
+                setBottomNavActive('create-transport');
+                setShowCreateTransport(true);
+              } else {
+                setBottomNavActive('create-ad');
+                setShowCreateAd(true);
+              }
             }
           }}
-          className="flex flex-col items-center justify-center flex-1 py-2"
+          className="flex flex-col items-center justify-center flex-1 py-2 relative"
         >
-          <div className="p-3 bg-gradient-to-r from-amber-500 to-yellow-500 rounded-full -mt-6 shadow-lg shadow-amber-500/30">
+          <div className={`p-3 rounded-full -mt-6 shadow-lg transition-all ${view === 'transport' ? 'bg-gradient-to-r from-emerald-500 to-green-500 shadow-emerald-500/30' : 'bg-gradient-to-r from-amber-500 to-yellow-500 shadow-amber-500/30'}`}>
             <Plus className="w-6 h-6 text-black" />
           </div>
-          <span className="text-[10px] mt-1 font-medium text-amber-400">إعلان</span>
+          <span className={`text-[10px] mt-1 font-medium ${view === 'transport' ? 'text-emerald-400' : 'text-amber-400'}`}>
+            {view === 'transport' ? 'نشر خط' : 'إعلان'}
+          </span>
+          {view === 'transport' && (
+            <span className="absolute -top-7 right-1 bg-rose-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse border border-white/20 whitespace-nowrap">مجاناً</span>
+          )}
         </button>
 
         {/* Transport */}

@@ -565,6 +565,8 @@ export default function App() {
         setView={setView} 
         setCat={setCat} 
         setShowCreateAd={setShowCreateAd} 
+        setShowCreateTransport={setShowCreateTransport}
+        view={view}
         setEditingAd={setEditingAd} 
         setShowCreateProduct={setShowCreateProduct} 
         setEditingProduct={setEditingProduct} 
@@ -627,6 +629,7 @@ export default function App() {
         isDarkMode={isDarkMode}
         handleHomeRefresh={handleHomeRefresh}
         setShowCreateProduct={setShowCreateProduct}
+        showCreateTransport={showCreateTransport}
         setShowCreateTransport={setShowCreateTransport}
         setShowCreateAd={setShowCreateAd}
         setEditingProduct={setEditingProduct}
@@ -663,6 +666,8 @@ export default function App() {
         setView={setView} 
         requireAuth={requireAuth} 
         setShowCreateAd={setShowCreateAd} 
+        setShowCreateTransport={setShowCreateTransport}
+        view={view}
         handleHomeRefresh={handleHomeRefresh} 
         cat={cat} 
       />

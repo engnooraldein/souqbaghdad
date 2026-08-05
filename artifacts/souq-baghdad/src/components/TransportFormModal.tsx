@@ -13,6 +13,7 @@
 // ===========================================
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactDOM from 'react-dom';
 import { 
   X, Heart, Share2, MapPin, Phone, Car, Home, Smartphone, Watch, 
   Bike, ShoppingBag, Wrench, Video, Store, Mail, ChevronRight, 
@@ -116,12 +117,12 @@ export function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd
     onClose();
   };
 
-  return (
+  return ReactDOM.createPortal(
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+      className="fixed inset-0 z-[9999] flex items-end justify-center">
       <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose}/>
-      <motion.div initial={{y:100,opacity:0}} animate={{y:0,opacity:1}}
-        className="relative bg-gradient-to-b from-[#051c14] via-[#03110d] to-[#010a08] rounded-3xl w-full max-w-md border border-emerald-900/30 z-10 overflow-hidden max-h-[90vh] overflow-y-auto shadow-2xl scrollbar-hide">
+      <motion.div initial={{y:'100%',opacity:0}} animate={{y:0,opacity:1}} transition={{type:'spring',damping:30,stiffness:300}}
+        className="relative bg-gradient-to-b from-[#051c14] via-[#03110d] to-[#010a08] rounded-t-3xl w-full max-w-lg border border-emerald-900/30 border-b-0 z-10 overflow-hidden h-[95vh] flex flex-col shadow-2xl">
         
         <div className="bg-gray-950/25 border-b border-emerald-950/40 p-5 flex items-center justify-between sticky top-0 z-20 backdrop-blur-md">
           <div className="flex items-center gap-3">
@@ -273,6 +274,8 @@ export function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd
           </motion.button>
         </form>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 }
+
