@@ -498,7 +498,8 @@ export function MarketView({
         if (a.category !== cat) return false;
       }
       
-      if (search.trim()) {
+      // Only apply search filter when NOT in general feed mode
+      if (cat !== 'general' && search.trim()) {
         const text = `${a.title} ${a.description || ''} ${a.category || ''}`.toLowerCase();
         const term = search.toLowerCase();
         if (!text.includes(term)) return false;
