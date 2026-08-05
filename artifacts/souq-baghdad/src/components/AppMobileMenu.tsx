@@ -46,7 +46,8 @@ export const AppMobileMenu: React.FC<AppMobileMenuProps> = ({
   setEditingProduct,
   handleLogout,
   setShowAuth,
-  setActiveDocTab
+  setActiveDocTab,
+  setShowSearchPage
 }) => {
   return (
     <AnimatePresence>
