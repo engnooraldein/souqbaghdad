@@ -237,6 +237,39 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
             </div>
           </div>
           
+          {/* HUGE CALL TO ACTION: Post Transport Ad */}
+          <div className="mb-6 flex gap-3 relative z-10" dir="rtl">
+            <motion.button 
+              whileHover={{scale:1.02}} 
+              whileTap={{scale:0.95}} 
+              onClick={()=>{ if(!user){onCreateAd();return;} setShowForm(true); }}
+              className="flex-1 py-4 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 bg-[length:200%_auto] animate-gradient text-black font-black rounded-3xl flex items-center justify-center gap-3 shadow-xl shadow-emerald-500/25 border-2 border-emerald-300 relative overflow-hidden group"
+            >
+              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out" />
+              <div className="w-8 h-8 bg-black/10 rounded-full flex items-center justify-center shrink-0">
+                <Plus className="w-6 h-6 text-black" strokeWidth={3} />
+              </div>
+              <span className="text-base sm:text-lg">رفع إعلان خط جديد مجاناً 🚌</span>
+              {/* Pulsing notification dot to attract eye */}
+              <span className="absolute top-2 right-2 flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+              </span>
+            </motion.button>
+            
+            {user && onGoToMyLines && (
+              <motion.button 
+                whileHover={{scale:1.05}} 
+                whileTap={{scale:0.95}} 
+                onClick={onGoToMyLines}
+                className="w-16 h-16 bg-gray-950/80 text-emerald-400 font-black rounded-3xl flex flex-col items-center justify-center border border-emerald-500/20 shadow-xl hover:bg-gray-900 transition-all shrink-0"
+              >
+                <Car className="w-6 h-6 mb-1" />
+                <span className="text-[10px]">خطوطي</span>
+              </motion.button>
+            )}
+          </div>
+          
           {/* Smart Search & Filters */}
           <div className="bg-gray-950/40 border border-gray-900/80 backdrop-blur-md rounded-3xl p-5 shadow-2xl space-y-4 mb-5">
             
@@ -313,19 +346,7 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
             </div>
           </div>
 
-          {/* Post Button & My Lines Button */}
-          <div className="flex gap-3">
-            <motion.button whileHover={{scale:1.02}} whileTap={{scale:0.98}} onClick={()=>{ if(!user){onCreateAd();return;} setShowForm(true); }}
-              className="flex-1 py-3.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-black font-black rounded-2xl flex items-center justify-center gap-2 shadow-xl shadow-amber-500/15 border border-amber-400/20 hover:from-amber-400 hover:to-yellow-300 transition-all text-xs sm:text-sm">
-              <Plus className="w-5 h-5"/> إضافة إعلان خط جديد
-            </motion.button>
-            {user && onGoToMyLines && (
-              <motion.button whileHover={{scale:1.02}} whileTap={{scale:0.98}} onClick={onGoToMyLines}
-                className="px-5 py-3 bg-gray-950/60 text-white font-black rounded-2xl flex items-center justify-center gap-2 border border-gray-850 shadow-xl hover:bg-gray-900 transition-all text-xs sm:text-sm">
-                🚌 خطوطي
-              </motion.button>
-            )}
-          </div>
+
 
           {/* Telegram Channel & Group Buttons (Below Publish Button) */}
           <div className="grid grid-cols-2 gap-2.5 mt-3" dir="rtl">
