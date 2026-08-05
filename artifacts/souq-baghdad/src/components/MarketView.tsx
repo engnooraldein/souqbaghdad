@@ -292,7 +292,7 @@ export function MarketView({
         if (parts[2]) setCat(parts[2]);
       } else if (h === '#/' || h === '') {
         setContentTab('all');
-        setCat('all');
+        // Do not force cat='all' here since useAppInit handles the default routing to 'general'.
       }
     };
     window.addEventListener('switch-to-profiles-tab', handleSwitch);

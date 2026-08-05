@@ -382,6 +382,15 @@ export function useAppInit({
       return;
     }
 
+    if (type === 'categories' || type === 'الأقسام') {
+      setView('home');
+      setCat('all');
+      setSelectedAd(null);
+      setSelectedProduct(null);
+      setSelectedSellerId(null);
+      return;
+    }
+
     if (type === 'category' && parts[1]) {
       setView('home');
       setCat(parts[1]);
