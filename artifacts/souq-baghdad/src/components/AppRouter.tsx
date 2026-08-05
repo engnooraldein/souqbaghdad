@@ -10,6 +10,7 @@ const ProfileView = React.lazy(() => import('../components/ProfileView').then(m 
 const SellerPublicPage = React.lazy(() => import('../components/SellerPublicPage').then(m => ({ default: m.SellerPublicPage })));
 const AdminPanel = React.lazy(() => import('../components/AdminPanel').then(m => ({ default: m.AdminPanel })));
 const TransportView = React.lazy(() => import('../components/TransportView').then(m => ({ default: m.TransportView })));
+const WalletView = React.lazy(() => import('../components/WalletView').then(m => ({ default: m.WalletView })));
 const OwnerDashboard = React.lazy(() => import('../components/OwnerDashboard').then(m => ({ default: m.OwnerDashboard })));
 const ProductsView = React.lazy(() => import('../components/ProductsView').then(m => ({ default: m.ProductsView })));
 
@@ -213,6 +214,16 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
         {props.view === 'profile' && props.user && <div key="profile">
           <Suspense fallback={<LoadingScreen isLoading={true} />}>
             <ProfileView user={props.user} myAds={props.myAds} myProducts={props.myProducts} onDeleteAd={props.handleDeleteAd} onEditAd={ad=>{props.setEditingAd(ad);props.setShowCreateAd(true);}} onDeleteProduct={props.handleDeleteProduct} onEditProduct={p=>{props.setEditingProduct(p);props.setShowCreateProduct(true);}} onUpdateUser={props.handleUpdateUser} onAddAd={()=>{props.setEditingAd(null);props.setShowCreateAd(true);}} onAddProduct={()=>{props.setEditingProduct(null);props.setShowCreateProduct(true);}} transportLines={props.allTransportAds} onUpdateTransportStatus={props.handleUpdateTransportStatus} onDeleteTransportAd={props.handleDeleteTransportAd} onMarkAdSold={props.handleMarkAdSold} onMarkProductSold={props.handleMarkProductSold} favorites={props.favorites} allAds={props.allAds} allProducts={props.allProducts} onAdSelect={props.setSelectedAd} onProductSelect={props.setSelectedProduct} onFav={props.handleToggleFav} onStoreGuideClick={() => props.setShowStoreGuide(true)} isDarkMode={props.isDarkMode} />
+          </Suspense>
+        </div>}
+        {props.view === 'wallet' && props.user && <div key="wallet">
+          <Suspense fallback={<LoadingScreen isLoading={true} />}>
+            <WalletView 
+              user={props.user} 
+              onBack={() => props.setView('profile')} 
+              isDarkMode={props.isDarkMode} 
+              onUpdateUser={props.handleUpdateUser} 
+            />
           </Suspense>
         </div>}
         {props.view === 'seller' && props.selectedSellerId && <div key="seller">

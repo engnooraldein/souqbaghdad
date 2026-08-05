@@ -108,7 +108,7 @@ export const AppNavbar: React.FC<AppNavbarProps> = ({
                     </span>
                   )}
                 </button>
-                <button onClick={() => { setView('profile'); window.location.hash = '#/profile/wallet'; setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-wallet-tab')), 50); }} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border transition-colors ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-white border-gray-700 hover:border-amber-500/50' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 hover:border-amber-500/50'}`} title="محفظتي">
+                <button onClick={() => setView('wallet')} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border transition-colors ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-white border-gray-700 hover:border-amber-500/50' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 hover:border-amber-500/50'}`} title="محفظتي">
                   <Wallet className="w-4 h-4 text-emerald-400"/>
                   <span className="font-bold font-mono">{user.points || 0}</span>
                 </button>
@@ -163,7 +163,7 @@ export const AppNavbar: React.FC<AppNavbarProps> = ({
             {/* Dark mode toggle mobile */}
             {user ? (
               <>
-                <button onClick={() => { setView('profile'); window.location.hash = '#/profile/wallet'; setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-wallet-tab')), 50); }} className="flex items-center gap-1 px-2 py-1.5 bg-gray-800 text-white rounded-xl text-xs border border-gray-700" title="محفظتي">
+                <button onClick={() => setView('wallet')} className="flex items-center gap-1 px-2 py-1.5 bg-gray-800 text-white rounded-xl text-xs border border-gray-700" title="محفظتي">
                   <Wallet className="w-3 h-3 text-emerald-400"/>
                   <span className="font-bold font-mono">{user.points || 0}</span>
                 </button>

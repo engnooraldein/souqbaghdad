@@ -20,8 +20,7 @@
 // نعم، لكن تأكد من عدم إضافة useEffect بدون dependency صحيحة.
 // ===========================================
 
-import {  } from '../App';
-import { DEFAULT_AVATAR } from '../hooks/useAuth';
+import { DEFAULT_AVATAR } from '../App';
 import { DEFAULT_COVER, getCoverImage } from '../constants';
 import { VerifiedBadge } from './VerifiedBadge';
 import { MyLinesTab } from './MyLinesTab';
@@ -198,7 +197,7 @@ import { TransportAdCard } from './TransportAdCard';
 import { InterestTimer } from './InterestTimer';
 import { IraqiEagle } from './Icons';
 import { useIAP } from '../hooks/useIAP';
-export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeleteProduct, onEditProduct, onUpdateUser, onAddAd, onAddProduct, transportLines, onUpdateTransportStatus, onDeleteTransportAd, onMarkAdSold, onMarkProductSold, favorites = [], allAds = [], allProducts = [], onAdSelect, onProductSelect, onFav, onStoreGuideClick, isDarkMode = true }:{
+export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onDeleteProduct, onEditProduct, onUpdateUser, onAddAd, onAddProduct, transportLines, onUpdateTransportStatus, onDeleteTransportAd, onMarkAdSold, onMarkProductSold, favorites = [], allAds = [], allProducts = [], onAdSelect, onProductSelect, onFav, onStoreGuideClick, isDarkMode = true, initialTab }:{
   user:User; myAds:Ad[]; myProducts:Product[]; onDeleteAd:(id:number)=>void; onEditAd:(ad:Ad)=>void;
   onDeleteProduct:(id:number)=>void; onEditProduct:(p:Product)=>void; onUpdateUser:(u:User, quiet?:boolean)=>void;
   onAddAd:()=>void; onAddProduct:()=>void;
@@ -215,8 +214,10 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
   onFav?: (id: number) => void;
   onStoreGuideClick?: () => void;
   isDarkMode?: boolean;
+  initialTab?: 'ads'|'store'|'favs'|'archive'|'lines'|'account'|'wallet';
 }) {
   const [tab, setTab] = useState<'ads'|'store'|'favs'|'archive'|'lines'|'account'|'wallet'>(() => {
+    if (initialTab) return initialTab;
     if (typeof window !== 'undefined') {
       const path = window.location.pathname;
       const hash = window.location.hash;
@@ -828,7 +829,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
 
         {/* Top Priority Tabs */}
         <div className={`flex gap-2 mb-2 p-2 rounded-2xl border overflow-x-auto scrollbar-hide shadow-lg ${isDarkMode ? 'bg-gray-950/60 border-gray-900' : 'bg-white border-slate-200/80 shadow-slate-100'}`} dir="rtl">
-          {([['wallet', '💳 المحفظة'],['lines', '🚌 خطوطي'],['favs', `❤️ المفضلة (${favAds.length + favProducts.length})`],['account','⚙️ الإعدادات']] as [string,string][]).map(([t,l])=>(
+          {([['lines', '🚌 خطوطي'],['favs', `❤️ المفضلة (${favAds.length + favProducts.length})`],['account','⚙️ الإعدادات']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`flex-1 whitespace-nowrap px-3.5 sm:px-4.5 py-3 rounded-xl text-xs sm:text-base font-black transition-all duration-300 ${tab===t?'bg-gradient-to-r from-red-500 to-amber-500 text-white shadow-lg shadow-red-500/20':(isDarkMode ? 'text-gray-300 hover:text-white bg-gray-900 hover:bg-gray-800' : 'text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200')}`}>{l}</button>
           ))}
         </div>

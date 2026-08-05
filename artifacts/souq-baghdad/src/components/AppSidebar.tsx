@@ -55,7 +55,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                   <p className="font-bold text-sm truncate text-white">{user.name}</p>
                   {isOwner && <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0"/>}
                 </div>
-                <button onClick={() => { setView('profile'); window.location.hash = '#/profile/wallet'; setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-wallet-tab')), 50); }} className="text-[10px] text-emerald-400 hover:text-emerald-300 font-black flex items-center gap-1 mt-0.5 transition-colors cursor-pointer">
+                <button onClick={() => setView('wallet')} className="text-[10px] text-emerald-400 hover:text-emerald-300 font-black flex items-center gap-1 mt-0.5 transition-colors cursor-pointer">
                   <Wallet className="w-3.5 h-3.5 text-emerald-400" />
                   <span>{user.points || 0} نقطة (محفظتي)</span>
                 </button>
@@ -137,7 +137,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           )}
 
           {user && (
-            <button onClick={() => { setBottomNavActive('profile'); setView('profile'); window.location.hash = '#/profile/wallet'; setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-wallet-tab')), 50); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
+            <button onClick={() => { setBottomNavActive('profile'); setView('wallet'); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
               view === 'profile' && window.location.hash.includes('/wallet')
                 ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400' 
                 : (isDarkMode ? 'text-gray-300 hover:bg-gray-800/60 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')
