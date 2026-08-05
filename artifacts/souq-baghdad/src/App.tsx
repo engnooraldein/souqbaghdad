@@ -546,6 +546,7 @@ export default function App() {
         setShowAuth={setShowAuth} 
         unreadChatCount={unreadChatCount} 
         setShowMobileMenu={setShowMobileMenu} 
+        setShowSearchPage={setShowSearchPage}
       />
 
       {/* Desktop Navigation Sidebar */}
@@ -618,6 +619,7 @@ export default function App() {
         handleInstallClick={() => setShowInstallGuide('safari')}
         search={search}
         setSearch={setSearch}
+        setShowSearchPage={setShowSearchPage}
         cat={cat}
         setCat={setCat}
         gov={gov}

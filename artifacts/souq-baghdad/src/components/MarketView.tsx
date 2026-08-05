@@ -87,7 +87,8 @@ export function MarketView({
   totalAdsCount, totalProductsCount,
   loadingMoreAds, loadingMoreProducts, isInitialLoading,
   isDarkMode = true,
-  onRefresh
+  onRefresh,
+  setShowSearchPage
 }:{
   user:User|null; allAds:Ad[]; allProducts:Product[]; favorites:number[]; storedUsers?: any[];
   onSelectAd:(ad:Ad)=>void; onSelectProduct:(p:Product)=>void;
@@ -111,6 +112,7 @@ export function MarketView({
   isInitialLoading?: boolean;
   isDarkMode?: boolean;
   onRefresh?: () => Promise<void> | void;
+  setShowSearchPage?: (s: boolean) => void;
 }) {
   const playSound = useSound();
   const [viewMode, setViewMode] = useState<'grid'|'list'>('grid');
@@ -1502,6 +1504,13 @@ export function MarketView({
                             isDarkMode ? 'text-gray-400' : 'text-slate-500'
                           }`}>تصفح جميع المنشورات والإعلانات الرقمية في سوق بغداد مباشرة</p>
                         </div>
+                        <button 
+                          onClick={() => setShowSearchPage?.(true)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-black font-extrabold rounded-full text-xs shadow-md shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all shrink-0"
+                        >
+                          <Search className="w-3.5 h-3.5" />
+                          <span>بحث</span>
+                        </button>
                       </div>
 
                       {filterAds.length === 0 ? (

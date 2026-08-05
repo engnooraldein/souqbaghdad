@@ -91,6 +91,7 @@ export interface AppRouterProps {
   isAdmin: boolean;
   isOwner: boolean;
   setShowStoreGuide: (s: boolean) => void;
+  setShowSearchPage?: (s: boolean) => void;
 }
 
 export const AppRouter: React.FC<AppRouterProps> = (props) => {
@@ -172,6 +173,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
               isInitialLoading={props.isInitialLoading}
               isDarkMode={props.isDarkMode}
               onRefresh={props.handleHomeRefresh}
+              setShowSearchPage={props.setShowSearchPage}
             />
           </Suspense>
         </div>}
