@@ -3,7 +3,10 @@ import { createRoot } from 'react-dom/client'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import './index.css'
 import App from './App.tsx'
+import { initAppCheck } from './lib/firebase.ts'
 
+// Initialize Firebase App Check (Play Integrity on Android)
+initAppCheck();
 // ===========================================
 // المسؤولية:
 // نقطة البداية (Entry Point) للتطبيق بأكمله.

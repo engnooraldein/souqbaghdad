@@ -31,3 +31,6 @@ project(':capacitor-share').projectDir = new File('../../../node_modules/.pnpm/@
 
 include ':capawesome-capacitor-badge'
 project(':capawesome-capacitor-badge').projectDir = new File('../../../node_modules/.pnpm/@capawesome+capacitor-badge@8.0.2_@capacitor+core@8.4.1/node_modules/@capawesome/capacitor-badge/android')
+
+include ':capacitor-firebase-app-check'
+project(':capacitor-firebase-app-check').projectDir = new File('../../../node_modules/.pnpm/@capacitor-firebase+app-check@8.3.0_@capacitor+core@8.4.1_firebase@12.16.0/node_modules/@capacitor-firebase/app-check/android')

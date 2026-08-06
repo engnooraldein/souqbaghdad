@@ -19,6 +19,7 @@ dependencies {
     implementation project(':capacitor-push-notifications')
     implementation project(':capacitor-share')
     implementation project(':capawesome-capacitor-badge')
+    implementation project(':capacitor-firebase-app-check')
     implementation "com.android.billingclient:billing:9.0.0"
     implementation "androidx.core:core:1.9.0"
 }
