@@ -2,11 +2,10 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, X, ArrowRight, SlidersHorizontal, MapPin, 
-  Tag, Clock, Sparkles, ChevronDown, ChevronUp
+  Tag, Clock, Sparkles, ChevronDown, ChevronUp,
+  Home, Car, Smartphone, Monitor, Sofa, Shirt, Briefcase, Wrench, Heart, 
+  Gamepad2, Package, Bike, Dumbbell, Scissors, ShoppingBag, Megaphone
 } from 'lucide-react';
-import { 
-  Category, Discovery, Home, Call, Video, Bookmark, Bag, Work, Setting, Heart, TicketStar, Game, Document
-} from 'react-iconly';
 import { Ad, Product } from '../types';
 import { AdCard, getAdCategoryPlaceholderImage } from './AdCard';
 import { ProductCard } from './ProductCard';
@@ -17,20 +16,43 @@ const IRAQI_GOVERNORATES = [
   'كركوك','السليمانية','دهوك'
 ];
 
+const getCatIcon = (id: string, size: 'sm' | 'lg' = 'sm') => {
+  const cls = size === 'lg' ? 'w-8 h-8' : 'w-4 h-4';
+  const map: Record<string, React.ReactNode> = {
+    all: <ShoppingBag className={cls} />,
+    general: <Megaphone className={cls} />,
+    cars: <Car className={cls} />,
+    'real-estate': <Home className={cls} />,
+    phones: <Smartphone className={cls} />,
+    electronics: <Monitor className={cls} />,
+    gym: <Dumbbell className={cls} />,
+    clothes: <Shirt className={cls} />,
+    cosmetics: <Sparkles className={cls} />,
+    handmade: <Scissors className={cls} />,
+    jobs: <Briefcase className={cls} />,
+    furniture: <Sofa className={cls} />,
+    bikes: <Bike className={cls} />,
+    services: <Wrench className={cls} />,
+    games: <Gamepad2 className={cls} />,
+    animals: <Heart className={cls} />,
+    other: <Package className={cls} />,
+  };
+  return map[id] ?? <ShoppingBag className={cls} />;
+};
+
 const CATEGORIES = [
-  { id: 'all', name: 'الكل', icon: Category },
-  { id: 'cars', name: 'سيارات', icon: Discovery },
-  { id: 'real-estate', name: 'عقارات', icon: Home },
-  { id: 'phones', name: 'هواتف', icon: Call },
-  { id: 'electronics', name: 'إلكترونيات', icon: Video },
-  { id: 'furniture', name: 'أثاث', icon: Bookmark },
-  { id: 'clothes', name: 'ملابس', icon: Bag },
-  { id: 'jobs', name: 'وظائف', icon: Work },
-  { id: 'services', name: 'خدمات', icon: Setting },
-  { id: 'animals', name: 'حيوانات', icon: Heart },
-  { id: 'food', name: 'طعام', icon: TicketStar },
-  { id: 'sports', name: 'رياضة', icon: Game },
-  { id: 'other', name: 'أخرى', icon: Document },
+  { id: 'all', name: 'الكل' },
+  { id: 'cars', name: 'سيارات' },
+  { id: 'real-estate', name: 'عقارات' },
+  { id: 'phones', name: 'هواتف' },
+  { id: 'electronics', name: 'إلكترونيات' },
+  { id: 'furniture', name: 'أثاث' },
+  { id: 'clothes', name: 'ملابس' },
+  { id: 'jobs', name: 'وظائف' },
+  { id: 'services', name: 'خدمات' },
+  { id: 'gym', name: 'رياضة' },
+  { id: 'bikes', name: 'دراجات' },
+  { id: 'other', name: 'أخرى' },
 ];
 
 interface SearchPageProps {
@@ -281,7 +303,9 @@ export function SearchPage({
                       : (isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-300' : 'bg-white border-slate-200 text-slate-700')
                   }`}
                 >
-                  <c.icon set="bulk" primaryColor={selectedCat === c.id ? "#000" : (isDarkMode ? "#cbd5e1" : "#475569")} size="small" />
+                  <span className={selectedCat === c.id ? 'text-black' : (isDarkMode ? 'text-slate-300' : 'text-slate-500')}>
+                    {getCatIcon(c.id, 'sm')}
+                  </span>
                   {c.name}
                 </button>
               ))}
@@ -336,8 +360,8 @@ export function SearchPage({
                             : isDarkMode ? 'bg-gray-900/80 border-gray-800/60 text-gray-300 hover:bg-gray-800' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
                         }`}
                       >
-                        <div className="mb-2">
-                          <c.icon set="bulk" primaryColor={selectedCat === c.id ? "#fff" : (isDarkMode ? "#94a3b8" : "#475569")} size="large" />
+                        <div className={`mb-1 ${selectedCat === c.id ? (isDarkMode ? 'text-white' : 'text-black') : (isDarkMode ? 'text-slate-400' : 'text-slate-500')}`}>
+                          {getCatIcon(c.id, 'lg')}
                         </div>
                         <span className="text-xs font-bold">{c.name}</span>
                       </button>

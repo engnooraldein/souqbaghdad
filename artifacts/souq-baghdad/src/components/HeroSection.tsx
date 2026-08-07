@@ -12,10 +12,11 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Search, Car, ChevronLeft, Smartphone, Sparkles } from 'lucide-react';
 import { 
-  Category, Discovery, Home, Call, Video, Bookmark, Bag, Work, Setting, Heart, TicketStar, Game, Document, Star
-} from 'react-iconly';
+  Search, Car, ChevronLeft, Smartphone, Sparkles,
+  Home, Bike, ShoppingBag, Wrench, Gamepad2, Monitor,
+  Dumbbell, Shirt, Scissors, Briefcase, Sofa, Megaphone, Package
+} from 'lucide-react';
 import { CATEGORIES } from '../App';
 import LiveVisitorCounter from './LiveVisitorCounter';
 import { CityOutline } from '../assets/svg/logo/city-outline';
@@ -23,22 +24,26 @@ import { LionOutline } from '../assets/svg/logo/lion-outline';
 import { BackgroundGrid } from '../assets/svg/background/background-grid';
 import { GoldParticles } from '../assets/svg/effects/gold-particles';
 
-const CATEGORY_ICONS: Record<string, React.ComponentType<any>> = {
-  all: Category,
-  general: Star,
-  cars: Discovery,
-  'real-estate': Home,
-  phones: Call,
-  electronics: Video,
-  gym: Game,
-  clothes: Bag,
-  cosmetics: Heart,
-  handmade: Bookmark,
-  jobs: Work,
-  furniture: Document,
-  bikes: Discovery,
-  services: Setting,
-  games: Game,
+const getCatIcon = (id: string, cls = 'w-4 h-4'): React.ReactNode => {
+  const map: Record<string, React.ReactNode> = {
+    all: <ShoppingBag className={cls} />,
+    general: <Megaphone className={cls} />,
+    cars: <Car className={cls} />,
+    'real-estate': <Home className={cls} />,
+    phones: <Smartphone className={cls} />,
+    electronics: <Monitor className={cls} />,
+    gym: <Dumbbell className={cls} />,
+    clothes: <Shirt className={cls} />,
+    cosmetics: <Sparkles className={cls} />,
+    handmade: <Scissors className={cls} />,
+    jobs: <Briefcase className={cls} />,
+    furniture: <Sofa className={cls} />,
+    bikes: <Bike className={cls} />,
+    services: <Wrench className={cls} />,
+    games: <Gamepad2 className={cls} />,
+    other: <Package className={cls} />,
+  };
+  return map[id] ?? <ShoppingBag className={cls} />;
 };
 
 interface HeroSectionProps {
@@ -143,7 +148,6 @@ export function HeroSection({
         {/* Categories Grid/Horizontal Badges */}
         <div id="hero-categories-tabs" className="flex flex-wrap justify-center gap-2 mb-8 relative z-20 max-w-4xl mx-auto">
           {CATEGORIES.filter(c => c.id !== 'games').map(c => {
-            const IconComp = CATEGORY_ICONS[c.id];
             const isSelected = cat === c.id;
             return (
               <motion.button 
@@ -152,19 +156,15 @@ export function HeroSection({
                 whileHover={{ y: -2, scale: 1.03 }} 
                 whileTap={{ scale: 0.97 }} 
                 onClick={() => setCat(c.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-all duration-300 ${
-                  isSelected 
-                    ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black border-amber-400 shadow-[0_4px_15px_rgba(212,175,55,0.25)] font-black' 
-                    : 'bg-gray-900/60 text-gray-300 border-gray-800 backdrop-blur-md hover:border-gray-700 hover:text-white hover:bg-gray-900/85'
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all duration-300 relative shrink-0 ${
+                  isSelected
+                    ? 'bg-white text-black shadow-md'
+                    : 'bg-white/10 text-slate-300 border border-white/10 hover:bg-white/20 hover:text-white'
                 }`}
               >
-                {IconComp ? (
-                  <IconComp 
-                    set="bulk" 
-                    primaryColor={isSelected ? '#000' : '#94a3b8'} 
-                    size="small" 
-                  />
-                ) : null}
+                <span className={isSelected ? 'text-black' : 'text-slate-400'}>
+                  {getCatIcon(c.id, 'w-4 h-4')}
+                </span>
                 <span>{c.name}</span>
               </motion.button>
             );
