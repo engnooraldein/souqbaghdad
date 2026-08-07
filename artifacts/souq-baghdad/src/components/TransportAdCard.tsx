@@ -46,7 +46,7 @@ export function VisualRoutePath({ regions, university, type }: { regions: string
   }, [regions, university]);
 
   return (
-    <div className="my-3.5 bg-gray-900/80 border border-gray-800/80 rounded-2xl p-3.5" dir="rtl">
+    <div className="my-3.5 bg-gray-50/80 dark:bg-gray-950/50 border border-gray-100 dark:border-gray-800/50 rounded-2xl p-3.5" dir="rtl">
       <div className="flex flex-wrap items-center gap-2">
         {points.map((pt, idx) => {
           let badgeBg = 'bg-gray-800 text-gray-300 border-gray-700';
@@ -54,16 +54,16 @@ export function VisualRoutePath({ regions, university, type }: { regions: string
 
           if (pt.type === 'start') {
             badgeBg = type === 'offer' 
-              ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 font-extrabold' 
-              : 'bg-amber-500/15 text-amber-400 border-amber-500/30 font-extrabold';
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30 font-extrabold' 
+              : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/30 font-extrabold';
             icon = '🚏 الانطلاق:';
           } else if (pt.type === 'destination') {
-            badgeBg = 'bg-rose-500/15 text-rose-400 border-rose-500/30 font-extrabold';
-            icon = '🎓 الوصول:';
+            badgeBg = 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/30 font-extrabold';
+            icon = '🎓 الوجهة:';
           } else {
             badgeBg = type === 'offer'
-              ? 'bg-teal-500/10 text-teal-300 border-teal-500/20 font-bold'
-              : 'bg-yellow-500/10 text-yellow-300 border-yellow-500/20 font-bold';
+              ? 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:border-teal-500/20 font-bold'
+              : 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/20 font-bold';
             icon = '➔';
           }
 
@@ -96,10 +96,10 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
       onClick={onSelect}
       onContextMenu={onActionMenu}
       style={{ contain: 'layout style paint', willChange: 'transform' }}
-      className={`bg-white dark:bg-gray-800 rounded-2xl border transition-colors overflow-hidden relative cursor-pointer p-3.5 sm:p-5 ${
+      className={`bg-white dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl border transition-colors overflow-hidden relative cursor-pointer p-4 sm:p-5 shadow-sm hover:shadow-md dark:shadow-none ${
         isEmployee 
-          ? 'border-indigo-500/50 hover:border-indigo-400 shadow-lg shadow-indigo-950/40' 
-          : ad.type === 'offer' ? 'border-gray-200 dark:border-emerald-500/30 hover:border-emerald-500/60' : 'border-gray-200 dark:border-amber-500/30 hover:border-amber-500/60'
+          ? 'border-indigo-100 dark:border-indigo-500/40 hover:border-indigo-300 dark:hover:border-indigo-400 shadow-indigo-100 dark:shadow-indigo-950/40' 
+          : ad.type === 'offer' ? 'border-gray-100 dark:border-emerald-500/30 hover:border-emerald-200 dark:hover:border-emerald-500/60' : 'border-gray-100 dark:border-amber-500/30 hover:border-amber-200 dark:hover:border-amber-500/60'
       }`}>
       
       {/* Matched / Archived overlays */}
@@ -121,14 +121,14 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
       {/* 1. DESKTOP LAYOUT */}
       <div className="hidden sm:block">
         {/* Type & Category Badges */}
-        <div className="absolute top-0 right-0 flex items-center gap-1 z-10">
+        <div className="absolute top-0 right-0 flex items-center z-10 overflow-hidden rounded-bl-xl shadow-sm">
           {isEmployee && (
-            <div className="px-2.5 py-1 rounded-bl-xl text-[10px] font-bold bg-indigo-600 text-white shadow-sm flex items-center gap-1">
+            <div className="px-3 py-1.5 text-[10px] sm:text-xs font-black bg-gradient-to-l from-indigo-600 to-indigo-500 text-white flex items-center gap-1.5 border-r border-white/20">
               <span>👔</span>
               <span>خط موظفين</span>
             </div>
           )}
-          <div className={`px-3 py-1 text-[10px] font-bold ${!isEmployee ? 'rounded-bl-xl' : 'rounded-b-xl'} ${ad.type === 'offer' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-black'}`}>
+          <div className={`px-3 py-1.5 text-[10px] sm:text-xs font-black text-white ${ad.type === 'offer' ? 'bg-gradient-to-l from-emerald-600 to-emerald-500' : 'bg-gradient-to-l from-amber-500 to-amber-400 text-amber-950'}`}>
             {ad.type === 'offer' ? 'متوفر خط' : 'أبحث عن خط'}
           </div>
         </div>
@@ -157,24 +157,24 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-            <div className="bg-gray-50 dark:bg-gray-900 border border-gray-150 dark:border-transparent rounded-xl p-2 text-center">
-              <p className="text-gray-500 dark:text-gray-400 text-[10px]">الدوام</p>
-              <p className="text-gray-800 dark:text-white font-bold text-xs">{ad.shift}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
+            <div className="bg-gray-50/80 dark:bg-gray-800/40 backdrop-blur-sm border border-gray-100 dark:border-gray-700/30 rounded-xl p-2.5 text-center transition-all hover:bg-gray-100 dark:hover:bg-gray-800/60">
+              <p className="text-gray-500 dark:text-gray-400 text-[10px] font-bold mb-0.5">الدوام</p>
+              <p className="text-gray-900 dark:text-white font-black text-xs sm:text-sm">{ad.shift}</p>
             </div>
             {ad.type === 'offer' && (
-              <div className="bg-gray-50 dark:bg-gray-900 border border-gray-150 dark:border-transparent rounded-xl p-2 text-center">
-                <p className="text-gray-500 dark:text-gray-400 text-[10px]">المقاعد</p>
-                <p className="text-emerald-600 dark:text-emerald-400 font-bold text-xs">{ad.seats} <span className="text-gray-400 font-normal">متاح</span></p>
+              <div className="bg-emerald-50/80 dark:bg-emerald-950/20 backdrop-blur-sm border border-emerald-100 dark:border-emerald-800/30 rounded-xl p-2.5 text-center transition-all hover:bg-emerald-100 dark:hover:bg-emerald-900/30">
+                <p className="text-emerald-600 dark:text-emerald-500 text-[10px] font-bold mb-0.5">المقاعد</p>
+                <p className="text-emerald-700 dark:text-emerald-400 font-black text-xs sm:text-sm">{ad.seats} <span className="text-emerald-600/70 dark:text-emerald-500/70 font-semibold text-[10px]">متاح</span></p>
               </div>
             )}
-            <div className="bg-gray-50 dark:bg-gray-900 border border-gray-150 dark:border-transparent rounded-xl p-2 text-center">
-              <p className="text-gray-500 dark:text-gray-400 text-[10px]">الفئة</p>
-              <p className="text-gray-800 dark:text-white font-bold text-xs">{ad.targetAudience}</p>
+            <div className="bg-gray-50/80 dark:bg-gray-800/40 backdrop-blur-sm border border-gray-100 dark:border-gray-700/30 rounded-xl p-2.5 text-center transition-all hover:bg-gray-100 dark:hover:bg-gray-800/60">
+              <p className="text-gray-500 dark:text-gray-400 text-[10px] font-bold mb-0.5">الفئة</p>
+              <p className="text-gray-900 dark:text-white font-black text-xs sm:text-sm">{ad.targetAudience}</p>
             </div>
-            <div className="bg-gray-50 dark:bg-gray-900 border border-gray-150 dark:border-transparent rounded-xl p-2 text-center">
-              <p className="text-gray-500 dark:text-gray-400 text-[10px]">المركبة</p>
-              <p className="text-gray-800 dark:text-white font-bold text-xs">{ad.vehicleType}</p>
+            <div className="bg-gray-50/80 dark:bg-gray-800/40 backdrop-blur-sm border border-gray-100 dark:border-gray-700/30 rounded-xl p-2.5 text-center transition-all hover:bg-gray-100 dark:hover:bg-gray-800/60">
+              <p className="text-gray-500 dark:text-gray-400 text-[10px] font-bold mb-0.5">المركبة</p>
+              <p className="text-gray-900 dark:text-white font-black text-xs sm:text-sm">{ad.vehicleType}</p>
             </div>
           </div>
 
@@ -223,17 +223,17 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
         <div className="flex items-center justify-between gap-1.5 mb-2">
           <div className="flex items-center gap-1">
             {isEmployee && (
-              <span className="px-1.5 py-0.5 rounded bg-indigo-600 text-white text-[9px] font-bold flex items-center gap-0.5">
-                👔 خط موظفين
+              <span className="px-2 py-0.5 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-500 text-white text-[9px] font-bold flex items-center gap-0.5 shadow-sm">
+                👔 موظفين
               </span>
             )}
-            <span className={`px-2 py-0.5 rounded text-[9px] font-black ${
-              ad.type === 'offer' ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white'
+            <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black shadow-sm ${
+              ad.type === 'offer' ? 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white' : 'bg-gradient-to-r from-amber-500 to-amber-400 text-amber-950'
             }`}>
-              {ad.type === 'offer' ? 'متوفر خط' : 'طلب خط'}
+              {ad.type === 'offer' ? 'متوفر خط' : 'أبحث عن خط'}
             </span>
             {isNew && (
-              <span className="px-1.5 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[8px] font-bold rounded animate-pulse">
+              <span className="px-1.5 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[8px] font-bold rounded-lg animate-pulse shadow-sm shadow-red-500/20">
                 جديد ✨
               </span>
             )}
@@ -249,11 +249,11 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
         {/* Body Info */}
         <div className="mb-2">
           <h3 className="text-base font-black text-gray-900 dark:text-white leading-tight flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0"></span>
+            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0 shadow-sm shadow-emerald-500/50"></span>
             {ad.university}
           </h3>
           
-          <p className="text-gray-700 dark:text-gray-300 text-xs sm:text-sm flex items-center gap-2 mt-2 bg-gray-50 dark:bg-gray-900/40 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 leading-normal">
+          <p className="text-gray-700 dark:text-gray-300 text-xs sm:text-sm flex items-center gap-2 mt-2 bg-gray-50/80 dark:bg-gray-800/40 backdrop-blur-sm px-3 py-2.5 rounded-xl border border-gray-100 dark:border-gray-700/30 leading-normal">
             <MapPin className="w-4 h-4 text-emerald-500 shrink-0" />
             <span className="leading-normal py-0.5">
               <span className="text-gray-500 dark:text-gray-400 text-xs font-semibold">المناطق:</span> <span className="font-bold text-gray-900 dark:text-white">{ad.regions}</span>
@@ -263,18 +263,18 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
 
         {/* Compact Specs Row */}
         <div className="flex flex-wrap gap-1.5 mb-2">
-          <span className="bg-gray-50 dark:bg-gray-900/60 border border-gray-150 dark:border-gray-850/30 text-gray-700 dark:text-gray-300 text-[9px] font-bold px-2 py-0.5 rounded-lg">
+          <span className="bg-gray-50/80 dark:bg-gray-800/40 backdrop-blur-sm border border-gray-100 dark:border-gray-700/30 text-gray-800 dark:text-gray-200 text-[10px] font-black px-2 py-1 rounded-lg">
             🕒 {ad.shift}
           </span>
           {ad.type === 'offer' && (
-            <span className="bg-gray-50 dark:bg-gray-900/60 border border-gray-150 dark:border-gray-850/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-bold px-2 py-0.5 rounded-lg">
+            <span className="bg-emerald-50/80 dark:bg-emerald-950/30 backdrop-blur-sm border border-emerald-100 dark:border-emerald-800/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-black px-2 py-1 rounded-lg">
               🪑 {ad.seats} متاح
             </span>
           )}
-          <span className="bg-gray-50 dark:bg-gray-900/60 border border-gray-150 dark:border-gray-850/30 text-gray-700 dark:text-gray-300 text-[9px] font-bold px-2 py-0.5 rounded-lg">
+          <span className="bg-gray-50/80 dark:bg-gray-800/40 backdrop-blur-sm border border-gray-100 dark:border-gray-700/30 text-gray-800 dark:text-gray-200 text-[10px] font-black px-2 py-1 rounded-lg">
             👥 {ad.targetAudience}
           </span>
-          <span className="bg-gray-50 dark:bg-gray-900/60 border border-gray-150 dark:border-gray-850/30 text-gray-700 dark:text-gray-300 text-[9px] font-bold px-2 py-0.5 rounded-lg">
+          <span className="bg-gray-50/80 dark:bg-gray-800/40 backdrop-blur-sm border border-gray-100 dark:border-gray-700/30 text-gray-800 dark:text-gray-200 text-[10px] font-black px-2 py-1 rounded-lg">
             🚗 {ad.vehicleType}
           </span>
         </div>

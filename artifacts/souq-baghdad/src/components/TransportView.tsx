@@ -45,6 +45,7 @@ import { ImageCropModal } from './ImageCropModal';
 import { PasswordChangeModal } from './PasswordChangeModal';
 import { LoadingScreen } from './LoadingScreen';
 import { TransportFormModal } from './TransportFormModal';
+import { TransportAlertModal } from './TransportAlertModal';
 import { SkeletonCard } from './SkeletonCard';
 import { AdCard } from './AdCard';
 import { ProductCard } from './ProductCard';
@@ -79,6 +80,8 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
   const [internalShowForm, setInternalShowForm] = useState(false);
   const showForm = showCreateTransport !== undefined ? showCreateTransport : internalShowForm;
   const setShowForm = setShowCreateTransport || setInternalShowForm;
+  const [showTransportAlert, setShowTransportAlert] = useState(false);
+
   const [visibleCount, setVisibleCount] = useState(4);
   const [loadingMore, setLoadingMore] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -258,6 +261,20 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
               <span className="absolute top-2 right-2 flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+              </span>
+            </motion.button>
+            
+            <motion.button 
+              whileHover={{scale:1.05}} 
+              whileTap={{scale:0.95}} 
+              onClick={() => setShowTransportAlert(true)}
+              className="w-16 h-16 bg-gray-950/80 text-amber-400 font-black rounded-3xl flex flex-col items-center justify-center border border-amber-500/30 shadow-xl hover:bg-gray-900 transition-all shrink-0 relative"
+            >
+              <Bell className="w-6 h-6 mb-1" />
+              <span className="text-[10px]">نبهني</span>
+              <span className="absolute top-0 right-0 flex h-3 w-3 -mt-1 -mr-1">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
               </span>
             </motion.button>
             
@@ -712,6 +729,10 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
       <AnimatePresence>
         {showForm && user && (
           <TransportFormModal user={user} onClose={()=>setShowForm(false)} onSubmit={handlePost} lines={lines} cost={adCosts?.transport !== undefined ? adCosts.transport : 1} />
+        )}
+
+        {showTransportAlert && (
+          <TransportAlertModal onClose={() => setShowTransportAlert(false)} user={user} />
         )}
       </AnimatePresence>
     </div>

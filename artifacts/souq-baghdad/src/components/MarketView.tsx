@@ -47,33 +47,33 @@ import {
   Loader2, Wallet, EyeOff, ZoomOut, ZoomIn, CheckCircle, Key, Tag, Package, ImagePlus, Edit2, Phone as PhoneIcon, 
   RefreshCw, TrendingDown, Clock, HelpCircle, Archive, ShoppingCart, Target, 
   Globe, Search as SearchIcon, ArrowLeft, MoreHorizontal, LayoutGrid,
-  FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, 
+  FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, BadgeCheck, FileBox, Layers,
+  Monitor, Dumbbell, Shirt, Scissors, Briefcase, Sofa, Megaphone
 } from 'lucide-react';
 import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
 import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage } from '../App';
-import { 
-  Category as IcCategory, Discovery as IcDiscovery, Home as IcHome, Call as IcCall, 
-  Video as IcVideo, Bookmark as IcBookmark, Bag as IcBag, Work as IcWork, 
-  Setting as IcSetting, Heart as IcHeart, TicketStar as IcTicketStar, Game as IcGame, 
-  Document as IcDocument, Star as IcStar
-} from 'react-iconly';
 
-const CATEGORY_ICONS: Record<string, React.ComponentType<any>> = {
-  all: IcCategory,
-  general: IcStar,
-  cars: IcDiscovery,
-  'real-estate': IcHome,
-  phones: IcCall,
-  electronics: IcVideo,
-  gym: IcGame,
-  clothes: IcBag,
-  cosmetics: IcHeart,
-  handmade: IcBookmark,
-  jobs: IcWork,
-  furniture: IcDocument,
-  bikes: IcDiscovery,
-  services: IcSetting,
-  games: IcGame,
+const CATEGORY_ICONS: Record<string, React.ComponentType<any>> = {};
+
+const getCategoryIcon = (id: string, className = 'w-5 h-5'): React.ReactNode => {
+  const map: Record<string, React.ReactNode> = {
+    all: <Home className={className} />,
+    general: <Megaphone className={className} />,
+    cars: <Car className={className} />,
+    'real-estate': <Home className={className} />,
+    phones: <Smartphone className={className} />,
+    electronics: <Monitor className={className} />,
+    gym: <Dumbbell className={className} />,
+    clothes: <Shirt className={className} />,
+    cosmetics: <Sparkles className={className} />,
+    handmade: <Scissors className={className} />,
+    jobs: <Briefcase className={className} />,
+    furniture: <Sofa className={className} />,
+    bikes: <Bike className={className} />,
+    services: <Wrench className={className} />,
+    games: <Gamepad2 className={className} />,
+  };
+  return map[id] ?? <ShoppingBag className={className} />;
 };
 import { slugify, getWhatsAppLink, detectDevice, isNewItem, getWhatsAppResetLink, getGlowClass} from '../utils/helpers';
 import { formatPrice } from '../utils/format';
@@ -969,7 +969,26 @@ export function MarketView({
                                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-amber-500/10 hover:text-amber-600 hover:border-amber-500/20'
                                 }`}
                               >
-                                <span>{c.emoji}</span>
+                                {(()=>{
+                                  const catIcons: Record<string, React.ReactNode> = {
+                                    'all': <Home className="w-5 h-5" />,
+                                    'general': <Megaphone className="w-5 h-5" />,
+                                    'cars': <Car className="w-5 h-5" />,
+                                    'real-estate': <Home className="w-5 h-5" />,
+                                    'phones': <Smartphone className="w-5 h-5" />,
+                                    'electronics': <Monitor className="w-5 h-5" />,
+                                    'gym': <Dumbbell className="w-5 h-5" />,
+                                    'clothes': <Shirt className="w-5 h-5" />,
+                                    'cosmetics': <Sparkles className="w-5 h-5" />,
+                                    'handmade': <Scissors className="w-5 h-5" />,
+                                    'jobs': <Briefcase className="w-5 h-5" />,
+                                    'furniture': <Sofa className="w-5 h-5" />,
+                                    'bikes': <Bike className="w-5 h-5" />,
+                                    'services': <Wrench className="w-5 h-5" />,
+                                    'games': <Gamepad2 className="w-5 h-5" />
+                                  };
+                                  return catIcons[c.id] ? catIcons[c.id] : <span>{c.emoji}</span>;
+                                })()}
                                 <span>{c.name}</span>
                               </button>
                             ))}
@@ -1027,9 +1046,11 @@ export function MarketView({
                 <>
               <div id="hero-categories-tabs" className="flex overflow-x-auto scrollbar-hide gap-3 mb-8 py-2 px-4 relative z-20 max-w-4xl mx-auto touch-pan-x flex-nowrap justify-start sm:justify-center">
                 {CATEGORIES.filter(c => c.id !== 'games').map(c => {
-                  const IconComp = CATEGORY_ICONS[c.id];
                   const isGeneral = c.id === 'general';
                   const isSelected = cat === c.id;
+                  const iconColor = isSelected
+                    ? (isDarkMode ? '#000' : '#fff')
+                    : isGeneral ? '#f59e0b' : (isDarkMode ? '#9ca3af' : '#6b7280');
                   return (
                     <motion.button 
                       id={`cat-btn-${c.id}`}
@@ -1045,17 +1066,9 @@ export function MarketView({
                             : (isDarkMode ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-500 hover:text-black hover:bg-black/5')
                       }`}
                     >
-                      {IconComp ? (
-                        <IconComp 
-                          set="bulk" 
-                          primaryColor={
-                            isSelected 
-                              ? (isDarkMode ? '#000' : '#fff') 
-                              : isGeneral ? '#f59e0b' : (isDarkMode ? '#9ca3af' : '#6b7280')
-                          } 
-                          size="small" 
-                        />
-                      ) : null}
+                      <span style={{ color: iconColor }}>
+                        {getCategoryIcon(c.id, 'w-4 h-4')}
+                      </span>
                       <span>{c.name}</span>
                     </motion.button>
                   );

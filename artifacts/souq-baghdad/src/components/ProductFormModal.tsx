@@ -24,7 +24,7 @@ import {
   Shield, ShieldCheck, Activity, TrendingUp, Users, LogIn, 
   MessageSquare, ExternalLink, ThumbsUp, MoreVertical, Eye, Lock, Unlock, Zap, Sparkles, UserPlus, 
   Loader2, Wallet, EyeOff, ZoomOut, ZoomIn, CheckCircle, Key, Tag, Package, ImagePlus, Edit2, Phone as PhoneIcon,
-  FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, 
+  FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, Monitor, Dumbbell, Shirt, Sofa
 } from 'lucide-react';
 import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
 import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage } from '../App';
@@ -364,12 +364,25 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
           <div className="space-y-1">
             <label className="text-gray-300 text-xs font-black block">تصنيف المنتج</label>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
-              {cats.map(c=>(
-                <button key={c.id} type="button" onClick={()=>setFd({...fd,category:c.id})} className={`p-3 rounded-2xl flex flex-col items-center justify-center gap-1.5 text-xs font-bold border transition-all duration-300 ${fd.category===c.id?'bg-gradient-to-r from-purple-500 to-indigo-500 text-white border-transparent shadow-lg shadow-purple-500/10 scale-102':'bg-gray-950/30 text-gray-400 border-gray-900/60 hover:bg-gray-900/40 hover:text-white'}`}>
-                  <span className="text-lg">{c.emoji}</span>
+              {cats.map(c=>{
+                  const catIcons: Record<string, React.ReactNode> = {
+                    'electronics': <Monitor className="w-6 h-6 text-teal-400" />,
+                    'gym': <Dumbbell className="w-6 h-6 text-red-400" />,
+                    'fashion': <Shirt className="w-6 h-6 text-pink-400" />,
+                    'home': <Home className="w-6 h-6 text-emerald-400" />,
+                    'furniture': <Sofa className="w-6 h-6 text-amber-600" />,
+                    'beauty': <Sparkles className="w-6 h-6 text-rose-400" />,
+                    'toys': <Gamepad2 className="w-6 h-6 text-indigo-400" />,
+                    'bikes': <Bike className="w-6 h-6 text-green-500" />,
+                    'services': <Wrench className="w-6 h-6 text-gray-400" />,
+                    'other': <Package className="w-6 h-6 text-gray-300" />
+                  };
+                  return (
+                <button key={c.id} type="button" onClick={()=>setFd({...fd,category:c.id})} className={`p-3 rounded-2xl flex flex-col items-center justify-center gap-2 text-xs font-bold border transition-all duration-300 ${fd.category===c.id?'bg-gradient-to-r from-purple-500 to-indigo-500 text-white border-transparent shadow-lg shadow-purple-500/10 scale-102 [&>svg]:text-white':'bg-gray-950/30 text-gray-400 border-gray-900/60 hover:bg-gray-900/40 hover:text-white'}`}>
+                  {catIcons[c.id] || <span className="text-2xl">{c.emoji}</span>}
                   <span className="text-[10px] tracking-tight text-center line-clamp-1">{c.name}</span>
                 </button>
-              ))}
+              )})}
             </div>
           </div>
 

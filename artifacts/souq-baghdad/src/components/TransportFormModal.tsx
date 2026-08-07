@@ -27,7 +27,7 @@ import {
   FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, 
 } from 'lucide-react';
 import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
-import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage } from '../App';
+import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, PUBLIC_UNIVERSITIES, PRIVATE_UNIVERSITIES, BAGHDAD_REGIONS, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage } from '../App';
 import { slugify, getWhatsAppLink, detectDevice, isNewItem, getWhatsAppResetLink, getGlowClass} from '../utils/helpers';
 import { formatPrice } from '../utils/format';
 import { useSound } from '../hooks/useSound';
@@ -81,6 +81,7 @@ export function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd
   const [university, setUniversity] = useState(isCustomUniv ? 'أخرى' : initialUniv);
   const [customUniversity, setCustomUniversity] = useState(isCustomUniv ? editAd.university : '');
   const [regions, setRegions] = useState(editAd?.regions || '');
+  const [regionInput, setRegionInput] = useState('');
   const [price, setPrice] = useState(editAd?.price ? editAd.price : '');
   const [seats, setSeats] = useState(editAd?.seats?.toString() || '4');
   const [shift, setShift] = useState(editAd?.shift || 'صباحي');
@@ -184,20 +185,99 @@ export function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd
 
           <div className="space-y-1">
             <label className="text-gray-300 text-xs font-black block">{categoryType==='employee'?'مكان العمل (دوائر / شركات)':categoryType==='emergency'?'الوجهة المطلوبة':'الجامعة / الكلية'}</label>
-            <select value={university} onChange={e=>setUniversity(e.target.value)} title="الجامعة" aria-label="الجامعة"
-              className="w-full bg-gray-950/40 text-white rounded-2xl py-3 px-3 border border-gray-900/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 outline-none text-sm mb-2 font-bold transition-all duration-300">
-              {finalFormUniversities.map(c=><option key={c} value={c} className="bg-gray-950 text-white">{c}</option>)}
-            </select>
-            {university === 'أخرى' && (
-              <input value={customUniversity} onChange={e=>setCustomUniversity(e.target.value)} placeholder={categoryType==='employee'?'اكتب اسم الدائرة أو مكان العمل هنا':'اكتب اسم الجامعة أو الكلية هنا'} required
-                className="w-full bg-gray-950/40 text-white placeholder-gray-500 rounded-2xl py-3 px-3 border border-gray-900/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 outline-none text-sm font-semibold transition-all duration-300"/>
-            )}
+            <input 
+              list="univ-list"
+              value={university} 
+              onChange={e=>setUniversity(e.target.value)} 
+              title="الجامعة" aria-label="الجامعة"
+              placeholder={categoryType==='employee'?'اكتب أو اختر اسم الدائرة / مكان العمل':'اكتب أو اختر اسم الجامعة / الكلية'}
+              className="w-full bg-gray-950/40 text-white rounded-2xl py-3 px-3 border border-gray-900/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 outline-none text-sm mb-2 font-bold transition-all duration-300"
+            />
+            <datalist id="univ-list">
+              {categoryType === 'student' ? (
+                <>
+                  {PUBLIC_UNIVERSITIES.map(c => <option key={`pub-${c}`} value={c} />)}
+                  {PRIVATE_UNIVERSITIES.map(c => <option key={`priv-${c}`} value={c} />)}
+                </>
+              ) : (
+                finalFormUniversities.filter(c => c !== 'الكل' && c !== 'أخرى').map(c => <option key={c} value={c} />)
+              )}
+            </datalist>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-gray-300 text-xs font-black block">مناطق المرور ومسار الخط</label>
-            <input value={regions} onChange={e=>setRegions(e.target.value)} placeholder="مثال: السيدية، المنصور، الكرادة" required
-              className="w-full bg-gray-950/40 text-white placeholder-gray-500 rounded-2xl py-3 px-3 border border-gray-900/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 outline-none text-sm font-semibold transition-all duration-300"/>
+          <div className="space-y-2">
+            <label className="text-gray-300 text-xs font-black block">
+              {type === 'offer' ? 'مناطق المرور (يمكنك اختيار أكثر من منطقة)' : 'منطقة الانطلاق'}
+            </label>
+            <div className="flex gap-2">
+              <input 
+                list="form-regions-list" 
+                value={type === 'offer' ? regionInput : regions} 
+                onChange={e => {
+                  const val = e.target.value;
+                  if (type === 'offer') {
+                    if (BAGHDAD_REGIONS.includes(val)) {
+                      const current = regions ? regions.split('،').map(r=>r.trim()).filter(Boolean) : [];
+                      if (!current.includes(val)) {
+                        setRegions([...current, val].join('، '));
+                      }
+                      setRegionInput('');
+                    } else {
+                      setRegionInput(val);
+                    }
+                  } else {
+                    setRegions(val);
+                  }
+                }} 
+                onKeyDown={e => {
+                  if (type === 'offer' && e.key === 'Enter') {
+                    e.preventDefault();
+                    if (regionInput.trim()) {
+                      const current = regions ? regions.split('،').map(r=>r.trim()).filter(Boolean) : [];
+                      if(!current.includes(regionInput.trim())) setRegions([...current, regionInput.trim()].join('، '));
+                      setRegionInput('');
+                    }
+                  }
+                }}
+                placeholder={type === 'offer' ? 'اكتب المنطقة واضغط Enter أو اختر من القائمة' : 'مثال: السيدية، المنصور'}
+                className="w-full bg-gray-950/40 text-white placeholder-gray-500 rounded-2xl py-3 px-3 border border-gray-900/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 outline-none text-sm font-semibold transition-all duration-300"
+                required={type === 'request' || !regions}
+              />
+              {type === 'offer' && (
+                <button type="button" 
+                  onClick={() => {
+                    if (regionInput.trim()) {
+                      const current = regions ? regions.split('،').map(r=>r.trim()).filter(Boolean) : [];
+                      if(!current.includes(regionInput.trim())) setRegions([...current, regionInput.trim()].join('، '));
+                      setRegionInput('');
+                    }
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 rounded-2xl font-bold transition-colors">
+                  إضافة
+                </button>
+              )}
+            </div>
+            
+            {type === 'offer' && regions && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {regions.split('،').map(r=>r.trim()).filter(Boolean).map(r => (
+                  <span key={r} className="bg-emerald-500/15 text-emerald-400 text-xs font-bold px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 border border-emerald-500/30 shadow-sm">
+                    {r}
+                    <button type="button" 
+                      onClick={() => {
+                        const current = regions.split('،').map(x=>x.trim()).filter(Boolean);
+                        setRegions(current.filter(x => x !== r).join('، '));
+                      }}
+                      className="hover:bg-emerald-500/30 rounded-full p-0.5 transition-colors">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <datalist id="form-regions-list">
+              {BAGHDAD_REGIONS.map(r => <option key={`form-r-${r}`} value={r} />)}
+            </datalist>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

@@ -10,8 +10,16 @@
 // ===========================================
 import { useState } from 'react';
 import { 
-  ChevronLeft, Search, Plus, Tag, MapPin, 
-  ShoppingBag, Shield, Star, Info, MessageSquare, Share2, Sparkles, SlidersHorizontal
+  X, Heart, Share2, MapPin, Phone, Car, Home, Smartphone, Watch, 
+  Bike, ShoppingBag, Wrench, Video, Store, Mail, ChevronRight, 
+  ChevronLeft, Search, SlidersHorizontal, Grid, List, Check, 
+  AlertCircle, AlertTriangle, Info, Bell, Settings, LogOut, 
+  User as UserIcon, Plus, Camera, Trash2, Edit, Save, Upload, 
+  MessageCircle, Star, Image as ImageIcon, Map, Calendar, 
+  Shield, ShieldCheck, Activity, TrendingUp, Users, LogIn, 
+  MessageSquare, ExternalLink, ThumbsUp, MoreVertical, Eye, Lock, Unlock, Zap, Sparkles, UserPlus, 
+  Loader2, Wallet, EyeOff, ZoomOut, ZoomIn, CheckCircle, Key, Tag, Package, ImagePlus, Edit2, Phone as PhoneIcon,
+  FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, Monitor, Dumbbell, Shirt, Sofa
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SkeletonCard } from './SkeletonCard';
@@ -297,7 +305,22 @@ export function ProductsView({
                   : 'bg-gray-950/60 text-gray-400 border-gray-900 hover:border-gray-800 hover:text-white'
               }`}
             >
-              <span className="text-sm">{c.emoji}</span>
+              {(()=>{
+                const catIcons: Record<string, React.ReactNode> = {
+                  'all': <ShoppingBag className="w-5 h-5" />,
+                  'electronics': <Monitor className="w-5 h-5" />,
+                  'gym': <Dumbbell className="w-5 h-5" />,
+                  'fashion': <Shirt className="w-5 h-5" />,
+                  'home': <Home className="w-5 h-5" />,
+                  'furniture': <Sofa className="w-5 h-5" />,
+                  'beauty': <Sparkles className="w-5 h-5" />,
+                  'toys': <Gamepad2 className="w-5 h-5" />,
+                  'bikes': <Bike className="w-5 h-5" />,
+                  'services': <Wrench className="w-5 h-5" />,
+                  'other': <Package className="w-5 h-5" />
+                };
+                return catIcons[c.id] ? catIcons[c.id] : <span className="text-sm">{c.emoji}</span>;
+              })()}
               <span>{c.name}</span>
             </button>
           ))}
