@@ -1,7 +1,6 @@
 import React, { Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { User } from '../types';
-import { LoadingScreen } from './LoadingScreen';
 
 // Lazy loading views
 const MarketView = React.lazy(() => import('../components/MarketView').then(m => ({ default: m.MarketView })));
@@ -133,7 +132,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
         onPanEnd={props.onSwipePanEnd}
       >
         {props.view === 'home' && <div key="home">
-          <Suspense fallback={<LoadingScreen isLoading={true} />}>
+          <Suspense fallback={<div className={`min-h-screen ${props.isDarkMode ? 'bg-gray-950' : 'bg-white'}`} />}>
             <MarketView 
               user={props.user} 
               allAds={props.allAds} 
@@ -178,12 +177,12 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
           </Suspense>
         </div>}
         {props.view === 'privacy' && <div key="privacy">
-          <Suspense fallback={<LoadingScreen isLoading={true} />}>
+          <Suspense fallback={<div className={`min-h-screen ${props.isDarkMode ? 'bg-gray-950' : 'bg-white'}`} />}>
             <PrivacyPolicy onBack={() => props.setView('home')} />
           </Suspense>
         </div>}
         {props.view === 'products' && <div key="products">
-          <Suspense fallback={<LoadingScreen isLoading={true} />}>
+          <Suspense fallback={<div className={`min-h-screen ${props.isDarkMode ? 'bg-gray-950' : 'bg-white'}`} />}>
             <ProductsView 
               user={props.user} 
               onBack={()=>props.setView('home')} 
@@ -214,12 +213,12 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
           </Suspense>
         </div>}
         {props.view === 'profile' && props.user && <div key="profile">
-          <Suspense fallback={<LoadingScreen isLoading={true} />}>
+          <Suspense fallback={<div className={`min-h-screen ${props.isDarkMode ? 'bg-gray-950' : 'bg-white'}`} />}>
             <ProfileView user={props.user} myAds={props.myAds} myProducts={props.myProducts} onDeleteAd={props.handleDeleteAd} onEditAd={ad=>{props.setEditingAd(ad);props.setShowCreateAd(true);}} onDeleteProduct={props.handleDeleteProduct} onEditProduct={p=>{props.setEditingProduct(p);props.setShowCreateProduct(true);}} onUpdateUser={props.handleUpdateUser} onAddAd={()=>{props.setEditingAd(null);props.setShowCreateAd(true);}} onAddProduct={()=>{props.setEditingProduct(null);props.setShowCreateProduct(true);}} transportLines={props.allTransportAds} onUpdateTransportStatus={props.handleUpdateTransportStatus} onDeleteTransportAd={props.handleDeleteTransportAd} onMarkAdSold={props.handleMarkAdSold} onMarkProductSold={props.handleMarkProductSold} favorites={props.favorites} allAds={props.allAds} allProducts={props.allProducts} onAdSelect={props.setSelectedAd} onProductSelect={props.setSelectedProduct} onFav={props.handleToggleFav} onStoreGuideClick={() => props.setShowStoreGuide(true)} isDarkMode={props.isDarkMode} />
           </Suspense>
         </div>}
         {props.view === 'wallet' && props.user && <div key="wallet">
-          <Suspense fallback={<LoadingScreen isLoading={true} />}>
+          <Suspense fallback={<div className={`min-h-screen ${props.isDarkMode ? 'bg-gray-950' : 'bg-white'}`} />}>
             <WalletView 
               user={props.user} 
               onBack={() => props.setView('profile')} 
@@ -229,7 +228,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
           </Suspense>
         </div>}
         {props.view === 'seller' && props.selectedSellerId && <div key="seller">
-          <Suspense fallback={<LoadingScreen isLoading={true} />}>
+          <Suspense fallback={<div className={`min-h-screen ${props.isDarkMode ? 'bg-gray-950' : 'bg-white'}`} />}>
             <SellerPublicPage sellerId={props.selectedSellerId} allAds={props.allAds} allProducts={props.allProducts} allTransportAds={props.allTransportAds} storedUsers={props.storedUsers} onBack={() => {
               props.setView('home');
               if (props.previousSellerSource === 'accounts') {
@@ -242,17 +241,17 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
           </Suspense>
         </div>}
         {props.view === 'transport' && <div key="transport">
-          <Suspense fallback={<LoadingScreen isLoading={true} />}>
+          <Suspense fallback={<div className={`min-h-screen ${props.isDarkMode ? 'bg-gray-950' : 'bg-white'}`} />}>
             <TransportView user={props.user} onBack={()=>props.setView('home')} onCreateAd={()=>{if(!props.user){props.requireAuth();return;}props.setShowCreateTransport(true);}} onGoToMyLines={()=>{props.setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={props.setSelectedTransportAd} lines={props.allTransportAds} onPost={props.handlePostTransportAd} onUpdateStatus={props.handleUpdateTransportStatus} onDeleteAd={props.handleDeleteTransportAd} onActionMenu={props.setActionMenuTarget} isInitialLoading={props.isInitialLoading || (props.loadingTransport && props.allTransportAds.length === 0)} storedUsers={props.storedUsers} onLoadMore={() => props.fetchTransportAds(false)} hasMore={props.hasMoreTransport} totalCount={props.totalTransportCount} adCosts={props.adCosts} showCreateTransport={props.showCreateTransport} setShowCreateTransport={props.setShowCreateTransport}/>
           </Suspense>
         </div>}
         {props.view === 'admin' && props.isAdmin && !props.isOwner && <div key="admin">
-          <Suspense fallback={<LoadingScreen isLoading={true} />}>
+          <Suspense fallback={<div className={`min-h-screen ${props.isDarkMode ? 'bg-gray-950' : 'bg-white'}`} />}>
             <AdminPanel ads={props.allAds} onDeleteAd={props.handleDeleteAd} onClose={()=>props.setView('home')}/>
           </Suspense>
         </div>}
         {props.view === 'owner' && props.isOwner && <div key="owner">
-          <Suspense fallback={<LoadingScreen isLoading={true} />}>
+          <Suspense fallback={<div className={`min-h-screen ${props.isDarkMode ? 'bg-gray-950' : 'bg-white'}`} />}>
             <OwnerDashboard ads={props.allAds} products={props.allProducts} transportAds={props.allTransportAds} onDeleteAd={props.handleDeleteAd} onDeleteProduct={props.handleDeleteProduct} onDeleteTransportAd={props.handleDeleteTransportAd} onClose={()=>props.setView('home')} onDeleteProfile={props.handleDeleteProfile}/>
           </Suspense>
         </div>}

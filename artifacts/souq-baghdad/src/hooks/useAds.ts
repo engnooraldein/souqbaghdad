@@ -21,7 +21,7 @@ export function useAds({ search, cat, gov, sort, priceMin, priceMax }: UseAdsPro
   
   const [loadingMoreAds, setLoadingMoreAds] = useState(false);
   const [loadingMoreProducts, setLoadingMoreProducts] = useState(false);
-  const [isInitialLoading, setIsInitialLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true); // ابدأ بـ true لمنع الصفحة الفارغة عند أول تحميل
   
   const [adsPage, setAdsPage] = useState(0);
   const [productsPage, setProductsPage] = useState(0);
