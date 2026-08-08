@@ -101,7 +101,7 @@ export function TransportAlertModal({ onClose, user }: { onClose: () => void; us
       }, 2000);
     } catch (err: any) {
       console.error(err);
-      alert("حدث خطأ أثناء حفظ التنبيه. يرجى المحاولة لاحقاً.");
+      alert("رسالة الخطأ من قاعدة البيانات: " + (err.message || "حدث خطأ غير معروف"));
     } finally {
       setIsLoading(false);
     }
