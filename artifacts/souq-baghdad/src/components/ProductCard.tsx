@@ -141,7 +141,8 @@ export const ProductCard = React.memo(function ProductCard({ product, onSelect, 
               : product.images[0]
           } 
           fallback={getProductCategoryPlaceholderImage(product.category)}
-          alt={product.title} 
+          alt={`${product.title} - ${product.governorate || 'العراق'} - سوق بغداد الرقمي`} 
+          title={`${product.title} - ${product.governorate || 'العراق'}`}
           className="w-full h-full object-cover"
           loading="lazy"
           decoding="async"

@@ -219,7 +219,8 @@ export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, o
               : ad.images[0]
           } 
           fallback={getAdCategoryPlaceholderImage(ad.category, `${ad.title} ${(ad as any).subCategory || ''}`)}
-          alt={`${ad.title} | سوق بغداد الرقمي - ${ad.governorate || 'العراق'}`} 
+          alt={`${ad.title} - ${ad.governorate || 'العراق'} - سوق بغداد الرقمي`} 
+          title={`${ad.title} - ${ad.governorate || 'العراق'}`}
           className="w-full h-full object-cover"
           loading="lazy"
           decoding="async"

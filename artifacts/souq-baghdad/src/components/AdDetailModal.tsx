@@ -286,7 +286,9 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
                 ? getAdCategoryPlaceholderImage(ad.category, `${ad.title} ${(ad as any).subCategory || ''}`)
                 : rawSrc;
               return (
-                <img src={displaySrc} alt={ad.title}
+                <img src={displaySrc} 
+                  alt={`${ad.title} - ${ad.governorate || 'العراق'} - سوق بغداد الرقمي`}
+                  title={`${ad.title} - ${ad.governorate || 'العراق'}`}
                   decoding="async"
                   fetchPriority="high"
                   onClick={() => onImageZoom?.(displaySrc, ad.title, ad.images, imgIdx)}

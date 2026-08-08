@@ -263,7 +263,9 @@ export function ProductDetailModal({ product, onClose, isFav, onFav, user, store
                 ? getProductCategoryPlaceholderImage(product.category)
                 : rawSrc;
               return (
-                <img src={displaySrc} alt={product.title}
+                <img src={displaySrc} 
+                  alt={`${product.title} - ${product.governorate || 'العراق'} - سوق بغداد الرقمي`}
+                  title={`${product.title} - ${product.governorate || 'العراق'}`}
                   decoding="async"
                   fetchPriority="high"
                   onClick={() => onImageZoom?.(displaySrc, product.title, product.images, imgIdx)}
