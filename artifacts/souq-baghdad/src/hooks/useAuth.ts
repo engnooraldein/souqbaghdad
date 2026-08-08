@@ -274,11 +274,27 @@ export function useAuth(setToast: (toast: any) => void) {
       } catch (e) {}
     }
 
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (session?.user) {
-        loadUserFromSupabase(session.user);
+    // ─── Session Recovery on App Load ─────────────────────────────────────
+    // أول شيء عند تحميل التطبيق: تحقق من الجلسة
+    // إذا انتهت صلاحية الـ access_token، حاول تجديده بالـ refresh_token
+    // هذا يمنع تسجيل الخروج التلقائي عند كل تحديث
+    (async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (session?.user) {
+          loadUserFromSupabase(session.user);
+        } else {
+          // لا توجد جلسة نشطة — جرب تجديدها من الـ refresh_token
+          const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession();
+          if (refreshed?.session?.user) {
+            loadUserFromSupabase(refreshed.session.user);
+          }
+          // إذا فشل التجديد، المستخدم يبقى كما هو (من localStorage إذا موجود)
+        }
+      } catch (e) {
+        // صمت — المستخدم يبقى مسجلاً من localStorage
       }
-    });
+    })();
 
     // Deep Linking
     let appListener: any = null;
