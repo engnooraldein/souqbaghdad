@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { X, Bell, MapPin, Plus, GraduationCap, Briefcase, Ambulance } from 'lucide-react';
@@ -17,6 +17,16 @@ export function TransportAlertModal({ onClose, user }: { onClose: () => void; us
   
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  useEffect(() => {
+    // Lock background scrolling when modal is open
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    };
+  }, []);
 
   const dynamicFormUniversities = categoryType === 'employee' 
     ? [...EMPLOYEE_WORKPLACES, 'أخرى'] 
@@ -204,7 +214,7 @@ export function TransportAlertModal({ onClose, user }: { onClose: () => void; us
                   onChange={e => setRegionInput(e.target.value)}
                   onKeyDown={handleRegionKeyDown}
                   placeholder={selectedRegions.length === 0 ? "اكتب اسم المنطقة ثم Enter أو اختر من القائمة..." : "أضف منطقة أخرى..."}
-                  className="flex-1 min-w-[140px] bg-transparent text-white placeholder-gray-500 text-sm font-semibold outline-none"
+                  className="flex-1 min-w-[140px] bg-transparent text-white placeholder-gray-500 text-base sm:text-sm font-semibold outline-none"
                 />
               </div>
 
@@ -265,7 +275,7 @@ export function TransportAlertModal({ onClose, user }: { onClose: () => void; us
                 onChange={e=>setUniversity(e.target.value)} 
                 placeholder={categoryType==='employee'?'اكتب أو اختر اسم الدائرة / مكان العمل':'اكتب أو اختر اسم الجامعة / الكلية'}
                 required
-                className="w-full bg-gray-950/40 text-white placeholder-gray-500 rounded-2xl py-3 px-3 border border-gray-900/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 outline-none text-sm font-semibold transition-all duration-300"
+                className="w-full bg-gray-950/40 text-white placeholder-gray-500 rounded-2xl py-3 px-3 border border-gray-900/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 outline-none text-base sm:text-sm font-semibold transition-all duration-300"
               />
               <datalist id="alert-univ-list">
                 {categoryType === 'student' ? (
