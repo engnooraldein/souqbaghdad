@@ -130,19 +130,19 @@ export function useAppNavigation() {
   }, [view]);
 
   const [selectedSellerId, setSelectedSellerId] = useState<string|null>(() => {
-    const { hash } = getInitialRouteInfo();
-    const sellerMatch = hash.match(/^#\/(seller|profile)\/([0-9a-f-]{36})/i);
+    const { path } = getInitialRouteInfo();
+    const sellerMatch = path.match(/^\/(seller|profile)\/([0-9a-f-]{36})/i);
     if (sellerMatch) return sellerMatch[2];
-    const parts = hash.split('/').filter(Boolean);
+    const parts = path.split('/').filter(Boolean);
     const last = parts[parts.length - 1];
     if (last && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(last)) return last;
     return null;
   });
 
   const [selectedSellerPhone, setSelectedSellerPhone] = useState<string|null>(() => {
-    const { hash } = getInitialRouteInfo();
-    if (hash.startsWith('#/seller/')) return hash.split('/')[2] || null;
-    if (hash.startsWith('#/profile/')) return hash.split('/')[2] || null;
+    const { path } = getInitialRouteInfo();
+    if (path.startsWith('/seller/')) return path.split('/')[2] || null;
+    if (path.startsWith('/profile/')) return path.split('/')[2] || null;
     return null;
   });
 
