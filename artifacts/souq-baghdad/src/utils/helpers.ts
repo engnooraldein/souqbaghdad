@@ -115,3 +115,4 @@ export function getAutomaticBadge(seller?: { rating?: number; ratingCount?: numb
 
   return null;
 }
+export const navigate = (path: string) => { window.history.pushState(null, '', path); window.dispatchEvent(new Event('popstate')); };

@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { User } from '../types';
+import { navigate } from '../utils/helpers';
 import { SectionLoadingFallback } from './SectionLoadingFallback';
 
 // Lazy loading views
@@ -233,17 +234,16 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             <SellerPublicPage sellerId={props.selectedSellerId} allAds={props.allAds} allProducts={props.allProducts} allTransportAds={props.allTransportAds} storedUsers={props.storedUsers} onBack={() => {
               props.setView('home');
               if (props.previousSellerSource === 'accounts') {
-                if (typeof window !== 'undefined') window.location.hash = '#/accounts';
-                setTimeout(() => window.dispatchEvent(new CustomEvent('switch-to-profiles-tab')), 50);
+                navigate('/accounts');
               } else {
-                if (typeof window !== 'undefined') window.location.hash = '#/';
+                navigate('/');
               }
             }} onSelectAd={props.setSelectedAd} onSelectProduct={props.setSelectedProduct} onSelectTransport={props.setSelectedTransportAd} favorites={props.favorites} onToggleFav={props.handleToggleFav} user={props.user} onAuthRequired={props.requireAuth} onDeleteProfile={props.handleDeleteProfile} onActionMenu={props.setActionMenuTarget} isDarkMode={props.isDarkMode}/>
           </Suspense>
         </div>}
         {props.view === 'transport' && <div key="transport">
           <Suspense fallback={<SectionLoadingFallback isDarkMode={props.isDarkMode} />}>
-            <TransportView user={props.user} onBack={()=>props.setView('home')} onCreateAd={()=>{if(!props.user){props.requireAuth();return;}props.setShowCreateTransport(true);}} onGoToMyLines={()=>{props.setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={props.setSelectedTransportAd} lines={props.allTransportAds} onPost={props.handlePostTransportAd} onUpdateStatus={props.handleUpdateTransportStatus} onDeleteAd={props.handleDeleteTransportAd} onActionMenu={props.setActionMenuTarget} isInitialLoading={props.isInitialLoading || (props.loadingTransport && props.allTransportAds.length === 0)} storedUsers={props.storedUsers} onLoadMore={() => props.fetchTransportAds(false)} hasMore={props.hasMoreTransport} totalCount={props.totalTransportCount} adCosts={props.adCosts} showCreateTransport={props.showCreateTransport} setShowCreateTransport={props.setShowCreateTransport}/>
+            <TransportView user={props.user} onBack={()=>props.setView('home')} onCreateAd={()=>{if(!props.user){props.requireAuth();return;}props.setShowCreateTransport(true);}} onGoToMyLines={()=>{props.setView('profile'); setTimeout(()=>window.dispatchEvent(new CustomEvent('switch-to-lines-tab')), 100);}} onSelectAd={props.setSelectedTransportAd} lines={props.allTransportAds} onPost={props.handlePostTransportAd} onUpdateStatus={props.handleUpdateStatus} onDeleteAd={props.handleDeleteTransportAd} onActionMenu={props.setActionMenuTarget} isInitialLoading={props.isInitialLoading || (props.loadingTransport && props.allTransportAds.length === 0)} storedUsers={props.storedUsers} onLoadMore={() => props.fetchTransportAds(false)} hasMore={props.hasMoreTransport} totalCount={props.totalTransportCount} adCosts={props.adCosts} showCreateTransport={props.showCreateTransport} setShowCreateTransport={props.setShowCreateTransport}/>
           </Suspense>
         </div>}
         {props.view === 'admin' && props.isAdmin && !props.isOwner && <div key="admin">

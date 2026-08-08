@@ -2,7 +2,7 @@ import React from 'react';
 import { Search, Sun, Moon, Monitor, Bell, Wallet, Crown, Settings, ShoppingBag, LogOut, LogIn, MessageSquare, Menu } from 'lucide-react';
 import { Logo } from './Logo';
 import { User } from '../types';
-import { getGlowClass } from '../utils/helpers';
+import { getGlowClass, navigate } from '../utils/helpers';
 
 interface AppNavbarProps {
   isDarkMode: boolean;
@@ -119,7 +119,7 @@ export const AppNavbar: React.FC<AppNavbarProps> = ({
                 <button onClick={()=>{setShowCreateProduct(true);setEditingProduct(null);}}
                   className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-bold rounded-xl text-sm hover:bg-purple-700">
                   <ShoppingBag className="w-4 h-4"/> منتج</button>
-                <button onClick={() => window.location.hash = '#/profile'} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm border transition-colors ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':(isDarkMode ? 'bg-gray-800 border-gray-700 text-white hover:bg-gray-700' : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200')}`}>
+                <button onClick={() => navigate('/profile')} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm border transition-colors ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':(isDarkMode ? 'bg-gray-800 border-gray-700 text-white hover:bg-gray-700' : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200')}`}>
                   <img src={user.avatar} alt="" className={`w-6 h-6 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border border-gray-600'}`}/>
                   <span className="max-w-20 truncate">{user.name}</span>{isOwner&&<Crown className="w-3 h-3 text-amber-400"/>}</button>
                 <button onClick={handleLogout} className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20" title="تسجيل الخروج" aria-label="تسجيل الخروج"><LogOut className="w-5 h-5"/></button>
@@ -162,7 +162,7 @@ export const AppNavbar: React.FC<AppNavbarProps> = ({
                   <Wallet className="w-3 h-3 text-emerald-400"/>
                   <span className="font-bold font-mono">{user.points || 0}</span>
                 </button>
-                <button onClick={() => window.location.hash = '#/profile'} className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white'}`}>
+                <button onClick={() => navigate('/profile')} className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs border ${view==='profile'?'bg-amber-500/20 border-amber-500/40 text-amber-400':'bg-gray-800 border-gray-700 text-white'}`}>
                   <img src={user.avatar} alt="" className={`w-5.5 h-5.5 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border border-gray-650'}`}/>
                   <span className="max-w-16 truncate hidden sm:block">{user.name}</span>
                 </button>

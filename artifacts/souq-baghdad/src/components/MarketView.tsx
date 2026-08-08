@@ -227,8 +227,8 @@ export function MarketView({
   const [visibleTopSellers, setVisibleTopSellers] = useState(5);
   const [contentTab, setContentTab] = useState<'ads'|'products'|'profiles'|'transport'|'all'>(() => {
     if (typeof window === 'undefined') return 'all';
-    const h = window.location.hash;
-    if (h === '#/accounts' || h === '#/sellers') return 'profiles';
+    const h = window.location.pathname;
+    if (h === '/accounts' || h === '/sellers') return 'profiles';
     if (h === '#/transport') return 'transport';
     if (h.startsWith('#/products')) return 'products';
     if (h.startsWith('#/ads')) return 'ads';
@@ -300,61 +300,61 @@ export function MarketView({
   useEffect(() => {
     const handleSwitch = () => setContentTab('profiles');
     const handleHash = () => {
-      const h = window.location.hash;
-      if (h === '#/accounts' || h === '#/sellers') {
+      const h = window.location.pathname;
+      if (h === '/accounts' || h === '/sellers') {
         setContentTab('profiles');
-      } else if (h === '#/transport') {
+      } else if (h === '/transport') {
         setContentTab('transport');
-      } else if (h.startsWith('#/products')) {
+      } else if (h.startsWith('/products')) {
         setContentTab('products');
         const parts = h.split('/');
         if (parts[2]) setCat(parts[2]);
-      } else if (h.startsWith('#/ads')) {
+      } else if (h.startsWith('/ads')) {
         setContentTab('ads');
         const parts = h.split('/');
         if (parts[2]) setCat(parts[2]);
-      } else if (h.startsWith('#/category/')) {
+      } else if (h.startsWith('/category/')) {
         const parts = h.split('/');
         if (parts[2]) setCat(parts[2]);
-      } else if (h === '#/' || h === '') {
+      } else if (h === '/' || h === '') {
         setContentTab('all');
-        // Do not force cat='all' here since useAppInit handles the default routing to 'general'.
       }
     };
+    window.addEventListener('popstate', handleHash);
     window.addEventListener('switch-to-profiles-tab', handleSwitch);
-    window.addEventListener('hashchange', handleHash);
-    handleHash();
+
     return () => {
+      window.removeEventListener('popstate', handleHash);
       window.removeEventListener('switch-to-profiles-tab', handleSwitch);
-      window.removeEventListener('hashchange', handleHash);
     };
   }, []);
 
-  // Push updated hash when user clicks category or content tab
+  // Push updated pathname when user clicks category or content tab
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    let targetHash = '#/';
+    
+    let targetPath = '/';
     if (contentTab === 'profiles') {
-      targetHash = '#/accounts';
+      targetPath = '/accounts';
     } else if (contentTab === 'transport') {
-      targetHash = '#/transport';
+      targetPath = '/transport';
     } else if (contentTab === 'products') {
-      targetHash = cat !== 'all' ? `#/products/${cat}` : '#/products';
+      targetPath = cat !== 'all' ? `/products/${cat}` : '/products';
     } else if (contentTab === 'ads') {
-      targetHash = cat !== 'all' ? `#/ads/${cat}` : '#/ads';
+      targetPath = cat !== 'all' ? `/ads/${cat}` : '/ads';
     } else if (contentTab === 'all') {
       if (cat === 'general') {
-        targetHash = '/';
+        targetPath = '/';
       } else if (cat === 'all') {
-        targetHash = '/categories';
+        targetPath = '/categories';
       } else {
-        targetHash = `/category/${cat}`;
+        targetPath = `/category/${cat}`;
       }
     }
 
-    const currentUrl = window.location.hash || window.location.pathname;
-    if (currentUrl !== targetHash && !window.location.hash.includes('/ad/') && !window.location.hash.includes('/seller/')) {
-      window.history.pushState(null, '', targetHash);
+    const currentUrl = window.location.pathname;
+    if (currentUrl !== targetPath && !currentUrl.includes('/ad/') && !currentUrl.includes('/seller/')) {
+      window.history.pushState(null, '', targetPath);
     }
   }, [cat, contentTab]);
   const [showFilters, setShowFilters] = useState(false);

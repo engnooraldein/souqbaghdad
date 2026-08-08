@@ -25,15 +25,7 @@
         document.documentElement.classList.remove('dark');
       }
 
-      // ⚡ Handle Telegram & Social Media Direct Links Redirect (/ad/xxx -> /#/ad/xxx)
-      try {
-        var path = window.location.pathname;
-        if (path && (path.indexOf('/ad/') !== -1 || path.indexOf('/product/') !== -1 || path.indexOf('/transport/') !== -1)) {
-          if (window.location.hash.indexOf('/ad/') === -1 && window.location.hash.indexOf('/product/') === -1) {
-            window.location.replace('/#' + path + window.location.search);
-          }
-        }
-      } catch(e) {}
+      // ⚡ URL paths are now managed via History API natively
 
       var color = isDark ? '#030712' : '#ffffff';
       

@@ -9,32 +9,33 @@ const MAIN_VIEWS = ['home', 'transport', 'products', 'profile'];
 export function useAppNavigation() {
   const getInitialRouteInfo = () => {
     if (typeof window === 'undefined') return { hash: '', path: '' };
-    let hash = window.location.hash;
-    const path = window.location.pathname;
+    let path = window.location.pathname;
     
-    if ((!hash || hash === '#/') && path !== '/') {
-      hash = '#' + path;
+    // Backwards compatibility for old hash links
+    if (window.location.hash && window.location.hash.startsWith('#/')) {
+      path = window.location.hash.substring(1);
     }
-    return { hash, path };
+    
+    return { path };
   };
 
   const [view, setView] = useState<AppView>(() => {
-    const { hash } = getInitialRouteInfo();
-    if (hash.startsWith('#/privacy')) return 'privacy';
-    if (hash.startsWith('#/transport')) return 'transport';
-    if (hash.startsWith('#/products')) return 'products';
-    if (hash.startsWith('#/seller') || hash.startsWith('#/profile/')) return 'seller';
-    if (hash === '#/profile' || hash.startsWith('#/profile')) return 'profile';
-    if (hash.startsWith('#/admin')) return 'admin';
-    if (hash.startsWith('#/owner')) return 'owner';
+    const { path } = getInitialRouteInfo();
+    if (path.startsWith('/privacy')) return 'privacy';
+    if (path.startsWith('/transport')) return 'transport';
+    if (path.startsWith('/products')) return 'products';
+    if (path.startsWith('/seller') || path.startsWith('/profile/')) return 'seller';
+    if (path === '/profile' || path.startsWith('/profile')) return 'profile';
+    if (path.startsWith('/admin')) return 'admin';
+    if (path.startsWith('/owner')) return 'owner';
     return 'home';
   });
 
   const [bottomNavActive, setBottomNavActive] = useState(() => {
-    const { hash } = getInitialRouteInfo();
-    if (hash.startsWith('#/transport')) return 'transport';
-    if (hash.startsWith('#/products')) return 'products';
-    if (hash.startsWith('#/seller') || hash.startsWith('#/profile')) return 'profile';
+    const { path } = getInitialRouteInfo();
+    if (path.startsWith('/transport')) return 'transport';
+    if (path.startsWith('/products')) return 'products';
+    if (path.startsWith('/seller') || path.startsWith('/profile')) return 'profile';
     return 'home';
   });
 

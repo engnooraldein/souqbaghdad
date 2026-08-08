@@ -44,7 +44,7 @@ import {
 } from 'lucide-react';
 import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
 import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage  } from '../App';
-import { slugify, getWhatsAppLink, detectDevice, isNewItem, getWhatsAppResetLink, getGlowClass} from '../utils/helpers';
+import { slugify, getWhatsAppLink, detectDevice, isNewItem, getWhatsAppResetLink, getGlowClass, navigate } from '../utils/helpers';
 import { formatPrice } from '../utils/format';
 import { useSound } from '../hooks/useSound';
 import { supabase } from '../lib/supabase';
@@ -745,7 +745,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                     <span>رابط متجرك</span>
                   </button>
                   <button onClick={()=>{
-                    window.location.hash = '#/accounts';
+                    navigate('/accounts');
                     window.dispatchEvent(new CustomEvent('switch-to-profiles-tab'));
                   }} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl text-sm font-bold shadow-lg hover:bg-gray-800" title="دليل الحسابات والمتاجر">
                     <Users className="w-4 h-4"/>

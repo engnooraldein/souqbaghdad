@@ -51,8 +51,8 @@ export function useAppInit({
   useEffect(() => {
     const handleUrlRefresh = async () => {
       try {
-        const fullLocation = decodeURIComponent(window.location.pathname + window.location.hash);
-        if (!fullLocation || fullLocation === '/' || fullLocation === '/IQ' || fullLocation === '#/') return;
+        const fullLocation = decodeURIComponent(window.location.pathname + window.location.search);
+        if (!fullLocation || fullLocation === '/' || fullLocation === '/IQ') return;
 
         if (fullLocation.includes('/ad/')) {
           const cleanPath = fullLocation.replace(/[\/#]+$/, '');
@@ -343,14 +343,13 @@ export function useAppInit({
   // 3. syncStateFromPath
   const syncStateFromPath = () => {
     let path = window.location.pathname;
-    let hasHash = false;
+    
+    // Backwards compatibility for old hash links
     if (window.location.hash && window.location.hash.startsWith('#/')) {
       path = window.location.hash.substring(1);
-      hasHash = true;
-    }
-
-    if (hasHash && typeof window !== 'undefined') {
-      window.history.replaceState(null, '', path + window.location.search);
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, '', path + window.location.search);
+      }
     }
 
     const decodedPath = decodeURIComponent(path);
@@ -513,10 +512,8 @@ export function useAppInit({
   useEffect(() => {
     const handlePopState = () => syncStateFromPath();
     window.addEventListener('popstate', handlePopState);
-    window.addEventListener('hashchange', handlePopState);
     return () => {
       window.removeEventListener('popstate', handlePopState);
-      window.removeEventListener('hashchange', handlePopState);
     };
   }, [allAds, allProducts]);
 
