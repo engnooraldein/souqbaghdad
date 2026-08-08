@@ -33,7 +33,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       if (hasTriggeredRef.current) return;
       hasTriggeredRef.current = true;
       setIsFadingOut(true); 
-      setTimeout(() => setShow(false), 200); // Reduced transition time
+      setTimeout(() => setShow(false), 120); // سريع
     };
 
     // 1. If data finishes loading, we wait the remaining time to reach minDuration
@@ -72,8 +72,8 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
   return (
     <div 
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 transition-all duration-[800ms] ease-[cubic-bezier(0.87,0,0.13,1)] ${
-        isFadingOut ? 'opacity-0 pointer-events-none scale-110 bg-transparent blur-sm' : 'opacity-100 scale-100'
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 transition-all duration-[300ms] ease-out ${
+        isFadingOut ? 'opacity-0 pointer-events-none scale-105' : 'opacity-100 scale-100'
       }`}
       style={{
         background: 'radial-gradient(circle at center, #1b498f 0%, #0c2b5e 100%)',
