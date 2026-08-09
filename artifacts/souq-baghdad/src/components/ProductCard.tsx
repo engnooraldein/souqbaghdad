@@ -129,7 +129,11 @@ export const ProductCard = React.memo(function ProductCard({ product, onSelect, 
       onClick={onSelect} 
       onContextMenu={onActionMenu}
       style={{ contain: 'layout style paint', willChange: 'transform' }}
-      className={`bg-white dark:bg-gray-900 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 cursor-pointer transition-colors flex flex-col h-full shadow-md hover:shadow-lg ${
+      className={`bg-white dark:bg-gray-900 rounded-xl overflow-hidden border ${
+        (product as any).is_vip 
+          ? 'border-amber-400/60 dark:border-amber-500/50 shadow-md shadow-amber-500/10' 
+          : 'border-gray-200 dark:border-gray-800'
+      } hover:border-amber-500/50 cursor-pointer transition-colors flex flex-col h-full shadow-md hover:shadow-lg ${
         compact ? 'bg-white dark:bg-gray-950/20 border-gray-150 dark:border-gray-900/60' : ''
       }`}
     >
@@ -155,8 +159,14 @@ export const ProductCard = React.memo(function ProductCard({ product, onSelect, 
           {product.condition === 'new' ? 'جديد' : 'مستعمل'}
         </div>
 
-        {/* Top Left: Badges Stack (New item) */}
+        {/* Top Left: Badges Stack (VIP / New item) */}
         <div className="absolute top-1.5 left-1.5 flex flex-col gap-1 z-10">
+          {(product as any).is_vip && (
+            <div className="px-2 py-0.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-black text-[8px] sm:text-[9px] font-black rounded-full shadow-md border border-amber-300/60 flex items-center gap-0.5 backdrop-blur-md">
+              <Crown className="w-2.5 h-2.5 fill-black shrink-0" />
+              <span>VIP</span>
+            </div>
+          )}
           {isNewItem(product.createdAtISO) && (
             <div className="px-2 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[8px] font-black rounded-full shadow-lg border border-red-400/40 animate-pulse backdrop-blur-md">
               حديث ✨

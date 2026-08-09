@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
-import { X, Bell, MapPin, Plus, GraduationCap, Briefcase, Ambulance } from 'lucide-react';
+import { X, Bell, MapPin, Plus, GraduationCap, Briefcase, Ambulance, Check, ShieldCheck } from 'lucide-react';
 import { UNIVERSITIES, PUBLIC_UNIVERSITIES, PRIVATE_UNIVERSITIES, EMPLOYEE_WORKPLACES, BAGHDAD_REGIONS } from '../App';
 import { supabase } from '../lib/supabase';
 
@@ -14,17 +14,20 @@ export function TransportAlertModal({ onClose, user }: { onClose: () => void; us
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [regionInput, setRegionInput] = useState('');
   const regionInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Terms & Legal Compliance State ──────────────────────────────
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [dbError, setDbError] = useState('');
 
   useEffect(() => {
-    // Lock background scrolling when modal is open
+    // Lock background scrolling when modal is open safely without touchAction lock
     document.body.style.overflow = 'hidden';
-    document.body.style.touchAction = 'none';
     return () => {
       document.body.style.overflow = '';
-      document.body.style.touchAction = '';
     };
   }, []);
 
@@ -101,46 +104,48 @@ export function TransportAlertModal({ onClose, user }: { onClose: () => void; us
       }, 2000);
     } catch (err: any) {
       console.error(err);
-      alert("رسالة الخطأ من قاعدة البيانات: " + (err.message || "حدث خطأ غير معروف"));
+      const errorText = typeof err === 'object' ? JSON.stringify(err) : String(err);
+      setDbError(`تفاصيل الخطأ: ${errorText} | الرسالة: ${err.message || 'غير معروف'}`);
     } finally {
       setIsLoading(false);
     }
   };
 
   const modalContent = (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
       <motion.div 
         initial={{ opacity: 0 }} 
         animate={{ opacity: 1 }} 
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        className="fixed inset-0 bg-gray-950/80 backdrop-blur-md"
       />
       <motion.div 
-        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+        initial={{ scale: 0.95, opacity: 0, y: 15 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0, y: 20 }}
-        className="relative bg-gray-950/90 border border-emerald-500/30 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+        exit={{ scale: 0.95, opacity: 0, y: 15 }}
+        transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+        className="relative bg-gray-950/95 border border-emerald-500/30 rounded-3xl w-full max-w-md sm:max-w-lg my-auto overflow-hidden shadow-2xl flex flex-col max-h-[85dvh] sm:max-h-[85vh] z-10"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-white/10 shrink-0">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
               <Bell className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
-              <h2 className="text-xl font-black text-white">تفعيل التنبيهات</h2>
+              <h2 className="text-lg sm:text-xl font-black text-white">تفعيل التنبيهات الذكية 🔔</h2>
               <p className="text-xs text-gray-400 font-semibold">سنخبرك فور توفر الخط المطلوب</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
-            <X className="w-5 h-5 text-gray-400" />
+          <button onClick={onClose} className="p-2.5 bg-gray-900/60 border border-gray-800 hover:border-gray-700 rounded-xl text-gray-400 hover:text-white transition-colors" title="إغلاق" aria-label="إغلاق">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {isSuccess ? (
           <div className="p-8 flex flex-col items-center justify-center text-center space-y-4">
-            <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center">
+            <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center border border-emerald-500/30">
               <Bell className="w-10 h-10 text-emerald-400 animate-bounce" />
             </div>
             <h3 className="text-xl font-black text-white">تم تفعيل التنبيه بنجاح!</h3>
@@ -149,31 +154,31 @@ export function TransportAlertModal({ onClose, user }: { onClose: () => void; us
             </p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} dir="rtl" className="flex-1 overflow-y-auto p-5 space-y-5">
+          <form onSubmit={handleSubmit} dir="rtl" className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 sm:space-y-5 overscroll-contain">
 
             {/* نوع التنبيه */}
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="text-gray-300 text-xs font-black block">نوع التنبيه (ماذا تحتاج؟)</label>
-              <div className="flex bg-gray-950/40 p-1.5 rounded-2xl border border-gray-900/60 gap-2">
+              <div className="flex bg-gray-950/60 p-1.5 rounded-2xl border border-gray-900/80 gap-2">
                 <button type="button" onClick={()=>setType('request')} className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all duration-300 ${type==='request'?'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/15':'text-gray-400 hover:text-white'}`}>أبحث عن خط (راكب)</button>
                 <button type="button" onClick={()=>setType('offer')} className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all duration-300 ${type==='offer'?'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/15':'text-gray-400 hover:text-white'}`}>صاحب خط (أوفر مقاعد)</button>
               </div>
             </div>
 
             {/* الفئة */}
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="text-gray-300 text-xs font-black block">الفئة المستهدفة</label>
               <div className="grid grid-cols-3 gap-2">
                 <button type="button" onClick={() => handleCategoryChange('student')}
-                  className={`py-2.5 px-1 rounded-2xl font-black text-[11px] flex items-center justify-center gap-1 transition-all duration-300 ${categoryType==='student'?'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20':'bg-gray-950/30 text-gray-400 border border-gray-900/60'}`}>
+                  className={`py-2.5 px-1 rounded-2xl font-black text-[11px] flex items-center justify-center gap-1 transition-all duration-300 ${categoryType==='student'?'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20':'bg-gray-900/40 text-gray-400 border border-gray-900/80'}`}>
                   <GraduationCap className="w-4 h-4" /> طلاب
                 </button>
                 <button type="button" onClick={() => handleCategoryChange('employee')}
-                  className={`py-2.5 px-1 rounded-2xl font-black text-[11px] flex items-center justify-center gap-1 transition-all duration-300 ${categoryType==='employee'?'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20':'bg-gray-950/30 text-gray-400 border border-gray-900/60'}`}>
+                  className={`py-2.5 px-1 rounded-2xl font-black text-[11px] flex items-center justify-center gap-1 transition-all duration-300 ${categoryType==='employee'?'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20':'bg-gray-900/40 text-gray-400 border border-gray-900/80'}`}>
                   <Briefcase className="w-4 h-4" /> موظفين
                 </button>
                 <button type="button" onClick={() => handleCategoryChange('emergency')}
-                  className={`py-2.5 px-1 rounded-2xl font-black text-[11px] flex items-center justify-center gap-1 transition-all duration-300 ${categoryType==='emergency'?'bg-rose-600 text-white shadow-lg shadow-rose-600/20':'bg-gray-950/30 text-gray-400 border border-gray-900/60'}`}>
+                  className={`py-2.5 px-1 rounded-2xl font-black text-[11px] flex items-center justify-center gap-1 transition-all duration-300 ${categoryType==='emergency'?'bg-rose-600 text-white shadow-lg shadow-rose-600/20':'bg-gray-900/40 text-gray-400 border border-gray-900/80'}`}>
                   <Ambulance className="w-4 h-4" /> طوارئ
                 </button>
               </div>
@@ -181,21 +186,23 @@ export function TransportAlertModal({ onClose, user }: { onClose: () => void; us
 
             {/* ── المناطق متعددة الاختيار ─────────────────────────── */}
             <div className="space-y-2">
-              <label className="text-gray-300 text-xs font-black block flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-                مناطق الانطلاق
+              <label className="text-gray-300 text-xs font-black block flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                  مناطق الانطلاق
+                </span>
                 <span className="text-emerald-400 font-black text-[10px] bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">اختر أكثر من منطقة</span>
               </label>
 
               {/* Chips Box */}
               <div
-                className="min-h-[52px] w-full bg-gray-950/40 rounded-2xl border border-gray-900/80 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all duration-300 px-3 py-2 flex flex-wrap gap-2 cursor-text"
+                className="min-h-[52px] w-full bg-gray-950/60 rounded-2xl border border-gray-900/80 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all duration-300 px-3 py-2 flex flex-wrap gap-2 cursor-text"
                 onClick={() => regionInputRef.current?.focus()}
               >
                 {selectedRegions.map(r => (
                   <span
                     key={r}
-                    className="flex items-center gap-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-xl px-3 py-1 text-xs font-black"
+                    className="flex items-center gap-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-xl px-2.5 py-1 text-xs font-black"
                   >
                     {r}
                     <button
@@ -215,6 +222,7 @@ export function TransportAlertModal({ onClose, user }: { onClose: () => void; us
                   onKeyDown={handleRegionKeyDown}
                   placeholder={selectedRegions.length === 0 ? "اكتب اسم المنطقة ثم Enter أو اختر من القائمة..." : "أضف منطقة أخرى..."}
                   className="flex-1 min-w-[140px] bg-transparent text-white placeholder-gray-500 text-base sm:text-sm font-semibold outline-none"
+                  style={{ fontSize: '16px' }}
                 />
               </div>
 
@@ -251,7 +259,7 @@ export function TransportAlertModal({ onClose, user }: { onClose: () => void; us
                       key={r}
                       type="button"
                       onClick={() => addRegion(r)}
-                      className="px-3 py-1 rounded-xl bg-gray-900/60 border border-gray-800 text-gray-400 hover:border-emerald-500/30 hover:text-emerald-300 text-[11px] font-bold transition-all"
+                      className="px-2.5 py-1 rounded-xl bg-gray-900/60 border border-gray-800 text-gray-400 hover:border-emerald-500/30 hover:text-emerald-300 text-[11px] font-bold transition-all"
                     >
                       + {r}
                     </button>
@@ -265,7 +273,7 @@ export function TransportAlertModal({ onClose, user }: { onClose: () => void; us
             </div>
 
             {/* الجامعة / الوجهة */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="text-gray-300 text-xs font-black block">
                 {categoryType==='employee'?'مكان العمل (الوجهة)':categoryType==='emergency'?'الوجهة المطلوبة':'الجامعة / الكلية (الوجهة)'}
               </label>
@@ -275,7 +283,8 @@ export function TransportAlertModal({ onClose, user }: { onClose: () => void; us
                 onChange={e=>setUniversity(e.target.value)} 
                 placeholder={categoryType==='employee'?'اكتب أو اختر اسم الدائرة / مكان العمل':'اكتب أو اختر اسم الجامعة / الكلية'}
                 required
-                className="w-full bg-gray-950/40 text-white placeholder-gray-500 rounded-2xl py-3 px-3 border border-gray-900/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 outline-none text-base sm:text-sm font-semibold transition-all duration-300"
+                className="w-full bg-gray-950/60 text-white placeholder-gray-500 rounded-2xl py-3 px-3.5 border border-gray-900/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 outline-none text-base sm:text-sm font-semibold transition-all duration-300"
+                style={{ fontSize: '16px' }}
               />
               <datalist id="alert-univ-list">
                 {categoryType === 'student' ? (
@@ -289,18 +298,73 @@ export function TransportAlertModal({ onClose, user }: { onClose: () => void; us
               </datalist>
             </div>
 
-            <div className="pt-4 pb-2">
+            {dbError && (
+              <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-bold leading-relaxed break-words">
+                {dbError}
+              </div>
+            )}
+
+            {/* 🛡️ مربع الموافقة على الشروط والتعهد القانوني */}
+            <div className="p-3.5 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 space-y-2">
+              <label className="flex items-start gap-3 cursor-pointer select-none group">
+                <div className="relative mt-0.5 shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={acceptedTerms}
+                    onChange={e => setAcceptedTerms(e.target.checked)}
+                    className="sr-only"
+                    required
+                  />
+                  <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all duration-200 ${acceptedTerms ? 'bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-500/30' : 'bg-gray-900 border-gray-700 group-hover:border-emerald-500/50'}`}>
+                    {acceptedTerms && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                  </div>
+                </div>
+                <div className="flex-1 text-xs font-bold text-gray-200 leading-snug">
+                  <span>أوافق على </span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); setShowTermsModal(!showTermsModal); }}
+                    className="text-emerald-400 hover:text-emerald-300 underline font-black underline-offset-2 ml-0.5"
+                  >
+                    الشروط والأحكام والتعهد القانوني 🛡️
+                  </button>
+                  <p className="text-[10px] text-gray-400 font-semibold mt-0.5">
+                    موافقتك تعني الالتزام بشرعية البيانات وتنزيه المنصة من أي مسألة.
+                  </p>
+                </div>
+              </label>
+
+              {/* التفاصيل القانونية الموسعة عند الضغط */}
+              <AnimatePresence>
+                {showTermsModal && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="pt-2 border-t border-emerald-500/20 text-[11px] text-gray-300 font-medium space-y-1.5 leading-relaxed bg-black/30 p-3 rounded-xl mt-1"
+                  >
+                    <p className="font-bold text-emerald-400 flex items-center gap-1">
+                      <ShieldCheck className="w-4 h-4" /> التعهد والتزامات استخدام الخدمة:
+                    </p>
+                    <p>1️⃣ <strong>إخلاء مسؤولية المنصة</strong>: منصة (سوق بغداد الرقمي) وسيط تقني لعرض الإشعار والتنبيهات، ولا تتحمل أي مسؤولية قانونية أو مالية عن التعامل المباشر.</p>
+                    <p>2️⃣ <strong>الالتزام بالسلامة والقوانين</strong>: التزام كامل بالآداب والسلامة العامة والتعليمات القانونية النافذة.</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <div className="pt-2 pb-2">
               <button 
                 type="submit" 
-                disabled={isLoading || selectedRegions.length === 0}
-                className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!acceptedTerms || isLoading || selectedRegions.length === 0}
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black py-3.5 sm:py-4 rounded-2xl shadow-xl shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
               >
                 {isLoading ? <span className="animate-pulse">جاري الحفظ...</span> : (
                   <>
                     <Bell className="w-5 h-5" />
                     <span>تفعيل التنبيه الذكي</span>
                     {selectedRegions.length > 0 && (
-                      <span className="bg-white/20 text-white text-[11px] font-black px-2 py-0.5 rounded-full">
+                      <span className="bg-white/20 text-white text-[11px] font-black px-2 py-0.5 rounded-full ml-1">
                         {selectedRegions.length} منطقة
                       </span>
                     )}

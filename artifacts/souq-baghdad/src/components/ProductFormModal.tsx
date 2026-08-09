@@ -75,6 +75,8 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
   type FdType = { title:string; price:string; description:string; category:string; subCategory:string; governorate:string; phone:string; condition:'new'|'used'; stock:number; is_vip:boolean; vip_days:number; };
   const [fd, setFd] = useState<FdType>({ title:editProduct?.title||'', price:editProduct?.price?formatPrice(editProduct.price):'', description:editProduct?.description||'', category:editProduct?.category||'phones', subCategory: (editProduct as any)?.subCategory || '', governorate:editProduct?.governorate||user?.location||'بغداد', phone:editProduct?.phone||user?.phone||'', condition:(editProduct?.condition||'new') as 'new'|'used', stock:editProduct?.stock||1, is_vip: editProduct?.is_vip||false, vip_days: editProduct?.vip_days||30 });
   const totalVipCost = fd.is_vip ? Math.ceil((vipCost / 30) * (fd.vip_days || 30)) : 0;
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   const dynamicPlaceholders = useMemo(() => {
     switch (fd.category) {
@@ -589,8 +591,58 @@ export function ProductFormModal({ isOpen, onClose, onSubmit, user, editProduct,
             )}
           </div>
 
+          {/* 🛡️ مربع الموافقة على الشروط والتعهد القانوني للمنتج */}
+          <div className="p-3.5 rounded-2xl bg-purple-500/5 border border-purple-500/20 space-y-2">
+            <label className="flex items-start gap-3 cursor-pointer select-none group">
+              <div className="relative mt-0.5 shrink-0">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={e => setAcceptedTerms(e.target.checked)}
+                  className="sr-only"
+                  required
+                />
+                <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all duration-200 ${acceptedTerms ? 'bg-purple-600 border-purple-600 text-white shadow-md shadow-purple-500/30' : 'bg-gray-900 border-gray-700 group-hover:border-purple-500/50'}`}>
+                  {acceptedTerms && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                </div>
+              </div>
+              <div className="flex-1 text-xs font-bold text-gray-200 leading-snug">
+                <span>أوافق على </span>
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); setShowTermsModal(!showTermsModal); }}
+                  className="text-purple-400 hover:text-purple-300 underline font-black underline-offset-2 ml-0.5"
+                >
+                  الشروط والأحكام والتعهد القانوني للمنتج 🛡️
+                </button>
+                <p className="text-[10px] text-gray-400 font-semibold mt-0.5">
+                  يتعهد البائع/الناشر بصحة وسند المنتج وتحمل المسؤولية القانونية وتنزيه المنصة.
+                </p>
+              </div>
+            </label>
+
+            {/* التفاصيل القانونية الموسعة عند الضغط */}
+            <AnimatePresence>
+              {showTermsModal && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="pt-2 border-t border-purple-500/20 text-[11px] text-gray-300 font-medium space-y-1.5 leading-relaxed bg-black/30 p-3 rounded-xl mt-1"
+                >
+                  <p className="font-bold text-purple-400 flex items-center gap-1">
+                    <ShieldCheck className="w-4 h-4" /> التعهد والمسؤولية القانونية للمتجر والمنتجات:
+                  </p>
+                  <p>1️⃣ <strong>حماية المشتري والزبون</strong>: التزام التام بسلامة المنتج، الأصالة، التسليم المطابق، وضمان الخلو من العيوب أو الأضرار الخفية.</p>
+                  <p>2️⃣ <strong>إخلاء مسؤولية المنصة</strong>: منصة (سوق بغداد الرقمي) وسيط عرض وتواصل ولا تتحمل أي مسؤولية قانونية أو مالية أو تعويضات عن البيع المباشر أو المعاملات التجارية.</p>
+                  <p>3️⃣ <strong>مسؤولية النشر والملكية</strong>: يتحمل صاحب المنتج كافة المساءلة القانونية أمام الجهات الرسمية والتجارية في حال بيع مواد مقلدة، مسروقة، أو غير مرخصة.</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           {/* Submit Button */}
-          <motion.button type="submit" whileHover={{scale:1.02}} whileTap={{scale:0.98}} disabled={uploading || (!isEdit && (cost + totalVipCost) > 0 && (user.points || 0) < (cost + totalVipCost) && user.role !== 'admin' && user.role !== 'owner')}
+          <motion.button type="submit" whileHover={{scale:1.02}} whileTap={{scale:0.98}} disabled={!acceptedTerms || uploading || (!isEdit && (cost + totalVipCost) > 0 && (user.points || 0) < (cost + totalVipCost) && user.role !== 'admin' && user.role !== 'owner')}
             className="w-full py-4 bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-black rounded-2xl text-xs sm:text-sm flex flex-col items-center justify-center gap-0.5 shadow-lg shadow-purple-500/10 disabled:opacity-50">
             <div className="flex items-center gap-2">
               {uploading ? (

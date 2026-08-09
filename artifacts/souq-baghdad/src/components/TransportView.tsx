@@ -213,96 +213,77 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
           {[...Array(8)].map((_,i)=><div key={i} className="absolute border border-white/20 rounded-full" style={{width:`${(i+1)*90}px`,height:`${(i+1)*90}px`,top:'50%',left:'50%',transform:'translate(-50%,-50%)'}}/>)}
         </div>
         <div className="container mx-auto max-w-2xl relative">
-          <div className="flex items-center justify-between gap-3 mb-6">
-            <div className="flex items-center gap-3.5">
-              <button onClick={onBack} className="p-3 always-dark-bg rounded-2xl text-white always-white transition-all shadow-md" title="رجوع" aria-label="رجوع">
-                <ChevronLeft className="w-5 h-5 always-white"/>
+          {/* Compact Refined Hero Header */}
+          <div className="flex items-center justify-between gap-3 mb-4" dir="rtl">
+            <div className="flex items-center gap-3">
+              <button onClick={onBack} title="رجوع" className="w-9 h-9 rounded-xl bg-gray-900/90 border border-gray-700 flex items-center justify-center text-white always-white hover:bg-gray-800 transition-all shrink-0">
+                <ArrowLeft className="w-4 h-4 rotate-180 text-white always-white" />
               </button>
               <div>
-                <h1 className="text-white always-white font-black text-2xl flex items-center gap-2" dir="rtl">
-                  <span className="always-white">🚌</span>
-                  <span className="always-white">قسم الخطوط والنقل اليومي</span>
+                <h1 className="text-white always-white font-black text-lg sm:text-xl flex items-center gap-2">
+                  <span className="text-amber-400">🚌</span>
+                  <span className="text-white always-white">قسم الخطوط والنقل اليومي</span>
                 </h1>
-                <p className="text-gray-300 always-white opacity-90 text-xs mt-1 font-semibold" dir="rtl">أسرع وأأمن طريق لدوامك اليومي (طلاب وموظفين)</p>
+                <p className="text-amber-400 always-white font-extrabold text-xs sm:text-sm mt-0.5">أسرع وأسهل خدمة لتوصيل الطلاب والموظفين في بغداد ⭐️</p>
               </div>
             </div>
           </div>
 
-          {/* Legal Disclaimer Banner */}
-          <div className="bg-amber-950/40 border border-amber-500/30 rounded-3xl p-4 mb-5 backdrop-blur-sm" dir="rtl">
-            <div className="flex items-start gap-3">
-              <div className="shrink-0 mt-1">
-                <AlertTriangle className="w-5 h-5 text-amber-400" />
-              </div>
-              <div className="text-right flex-1">
-                <h3 className="text-amber-400 font-bold text-sm mb-1">⚠️ إخلاء مسؤولية</h3>
-                <p className="text-gray-300 text-xs leading-relaxed font-medium">
-                  سوك بغداد منصة إلكترونية لعرض إعلانات الخطوط والنقل فقط، ولا يشارك في الاتفاقات أو العمليات المالية، ولا يتحمل أي مسؤولية قانونية عن أي نزاع أو إخلال. 
-                  باستخدامك هذا القسم فإنك تتحمل مسؤولية التأكد من هوية الطرف الآخر والاتفاق بوضوح قبل الدفع.
-                </p>
-              </div>
-            </div>
+          {/* Micro Legal Disclaimer Bar */}
+          <div className="bg-amber-500/15 border border-amber-500/40 rounded-2xl p-2.5 mb-4 text-right flex items-center gap-2.5 shadow-sm" dir="rtl">
+            <AlertTriangle className="w-4.5 h-4.5 text-amber-400 shrink-0" />
+            <p className="text-amber-300 always-white text-xs font-black leading-relaxed">
+              <strong className="text-amber-400 always-white underline font-black">إخلاء مسؤولية:</strong> المنصة وسيط إلكتروني لعرض الإعلانات فقط ولا نتحمل أي مسؤولية عن التعامل المباشر.
+            </p>
           </div>
           
-          {/* HUGE CALL TO ACTION: Post Transport Ad */}
-          <div className="mb-6 flex gap-3 relative z-10" dir="rtl">
+          {/* Refined Compact CTA Bar: Post / Alert / My Lines */}
+          <div className="mb-4 flex items-center gap-2 relative z-10" dir="rtl">
             <motion.button 
-              whileHover={{scale:1.02}} 
-              whileTap={{scale:0.95}} 
+              whileHover={{scale:1.01}} 
+              whileTap={{scale:0.97}} 
               onClick={()=>{ if(!user){onCreateAd();return;} setShowForm(true); }}
-              className="flex-1 py-4 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 bg-[length:200%_auto] animate-gradient text-black font-black rounded-3xl flex items-center justify-center gap-3 shadow-xl shadow-emerald-500/25 border-2 border-emerald-300 relative overflow-hidden group"
+              className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 border border-emerald-400/40 text-xs sm:text-sm"
             >
-              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out" />
-              <div className="w-8 h-8 bg-black/10 rounded-full flex items-center justify-center shrink-0">
-                <Plus className="w-6 h-6 text-black" strokeWidth={3} />
-              </div>
-              <span className="text-base sm:text-lg">رفع إعلان خط جديد مجاناً 🚌</span>
-              {/* Pulsing notification dot to attract eye */}
-              <span className="absolute top-2 right-2 flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
-              </span>
+              <Plus className="w-4.5 h-4.5" strokeWidth={3} />
+              <span>رفع إعلان خط جديد مجاناً 🚌</span>
             </motion.button>
             
             <motion.button 
-              whileHover={{scale:1.05}} 
-              whileTap={{scale:0.95}} 
+              whileHover={{scale:1.02}} 
+              whileTap={{scale:0.97}} 
               onClick={() => setShowTransportAlert(true)}
-              className="w-16 h-16 bg-gray-950/80 text-amber-400 font-black rounded-3xl flex flex-col items-center justify-center border border-amber-500/30 shadow-xl hover:bg-gray-900 transition-all shrink-0 relative"
+              className="px-3 py-3 bg-gray-900 text-amber-300 font-black rounded-2xl flex items-center gap-1.5 border border-amber-500/40 shadow-md hover:bg-gray-800 transition-all text-xs shrink-0"
             >
-              <Bell className="w-6 h-6 mb-1" />
-              <span className="text-[10px]">نبهني</span>
-              <span className="absolute top-0 right-0 flex h-3 w-3 -mt-1 -mr-1">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-              </span>
+              <Bell className="w-4 h-4 text-amber-400" />
+              <span>نبهني</span>
             </motion.button>
             
             {user && onGoToMyLines && (
               <motion.button 
-                whileHover={{scale:1.05}} 
-                whileTap={{scale:0.95}} 
+                whileHover={{scale:1.02}} 
+                whileTap={{scale:0.97}} 
                 onClick={onGoToMyLines}
-                className="w-16 h-16 bg-gray-950/80 text-emerald-400 font-black rounded-3xl flex flex-col items-center justify-center border border-emerald-500/20 shadow-xl hover:bg-gray-900 transition-all shrink-0"
+                className="px-3 py-3 bg-gray-900 text-emerald-300 font-black rounded-2xl flex items-center gap-1.5 border border-emerald-500/30 shadow-md hover:bg-gray-800 transition-all text-xs shrink-0"
               >
-                <Car className="w-6 h-6 mb-1" />
-                <span className="text-[10px]">خطوطي</span>
+                <Car className="w-4 h-4 text-emerald-400" />
+                <span>خطوطي</span>
               </motion.button>
             )}
           </div>
           
-          {/* Smart Search & Filters */}
-          <div className="bg-gray-950/40 border border-gray-900/80 backdrop-blur-md rounded-3xl p-5 shadow-2xl space-y-4 mb-5">
+          {/* Smart Search & Compact Filter Card */}
+          <div className="bg-gray-950/80 border border-gray-800 backdrop-blur-md rounded-2xl p-3.5 shadow-xl space-y-3 mb-4">
             
             {/* Tab switch between Monthly and Daily rides */}
-            <div className="bg-gray-950/80 p-1 rounded-2xl border border-gray-900 flex gap-1 shadow-inner">
+            <div className="bg-gray-900 p-1 rounded-xl border border-gray-800 flex gap-1 shadow-inner">
               <button 
                 type="button"
                 onClick={() => { setRideTypeTab('monthly'); setMainCategoryFilter('student'); setFilterUniversity('الكل'); }}
-                className={`flex-1 py-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all duration-300 ${
+                className={`flex-1 py-2 rounded-lg font-black text-xs flex items-center justify-center gap-1.5 transition-all duration-200 ${
                   rideTypeTab === 'monthly' 
-                    ? 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-lg shadow-emerald-500/25' 
-                    : 'text-gray-400 hover:text-white hover:bg-gray-900/40'
+                    ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30' 
+                    : 'text-gray-200 hover:text-white hover:bg-gray-800/60'
                 }`}
               >
                 📅 العقود والخطوط الشهرية
@@ -310,74 +291,72 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
               <button 
                 type="button"
                 onClick={() => { setRideTypeTab('emergency'); setMainCategoryFilter('all'); setFilterUniversity('الكل'); }}
-                className={`flex-1 py-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all duration-300 ${
+                className={`flex-1 py-2 rounded-lg font-black text-xs flex items-center justify-center gap-1.5 transition-all duration-200 ${
                   rideTypeTab === 'emergency' 
-                    ? 'bg-gradient-to-r from-rose-600 to-rose-500 text-white shadow-lg shadow-rose-500/25' 
-                    : 'text-gray-400 hover:text-white hover:bg-gray-900/40'
+                    ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30' 
+                    : 'text-gray-200 hover:text-white hover:bg-gray-800/60'
                 }`}
               >
-                🚗 خطوط الطوارئ اليومية
+                ⚡ خطوط الطوارئ اليومية
               </button>
             </div>
 
-            {/* Main Category Tabs (Student vs Employee) - Only shown for Monthly */}
+            {/* Main Category Tabs (Student vs Employee) */}
             {rideTypeTab === 'monthly' && (
-              <div className="bg-gray-950/60 p-1.5 rounded-2xl border border-gray-900/80 flex gap-1.5 shadow-inner">
+              <div className="bg-gray-900 p-1 rounded-xl border border-gray-800 flex gap-1 shadow-inner">
                 <button onClick={() => { setMainCategoryFilter('student'); setFilterUniversity('الكل'); }}
-                  className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all duration-300 ${mainCategoryFilter === 'student' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/20' : 'text-gray-400 hover:text-white'}`}>
-                  🎓 خطوط الطلاب
+                  className={`flex-1 py-2 rounded-lg font-black text-xs flex items-center justify-center gap-1 transition-all duration-200 ${mainCategoryFilter === 'student' ? 'bg-teal-500 text-white shadow-md' : 'text-gray-200 hover:text-white'}`}>
+                  🎓 طلاب
                 </button>
                 <button onClick={() => { setMainCategoryFilter('employee'); setFilterUniversity('الكل'); }}
-                  className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all duration-300 ${mainCategoryFilter === 'employee' ? 'bg-gradient-to-r from-indigo-600 to-gray-600 text-white shadow-lg shadow-indigo-500/20' : 'text-gray-400 hover:text-white'}`}>
-                  👔 خطوط الموظفين
+                  className={`flex-1 py-2 rounded-lg font-black text-xs flex items-center justify-center gap-1 transition-all duration-200 ${mainCategoryFilter === 'employee' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-200 hover:text-white'}`}>
+                  👔 موظفين
                 </button>
                 <button onClick={() => { setMainCategoryFilter('all'); setFilterUniversity('الكل'); }}
-                  className={`px-4 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1 transition-all duration-300 ${mainCategoryFilter === 'all' ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black shadow-lg shadow-amber-500/15' : 'text-gray-400 hover:text-white'}`}>
-                  ⚡ الكل
+                  className={`px-3 py-2 rounded-lg font-black text-xs flex items-center justify-center gap-1 transition-all duration-200 ${mainCategoryFilter === 'all' ? 'bg-amber-400 text-black shadow-md' : 'text-gray-200 hover:text-white'}`}>
+                  الكل
                 </button>
               </div>
             )}
 
             <div className="relative">
-              <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-500"/>
+              <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400"/>
               <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} 
                 placeholder={rideTypeTab === 'emergency' ? "ابحث عن وجهة، منطقة، كراج..." : mainCategoryFilter === 'employee' ? "ابحث عن شركة، دائرة، منطقة..." : "ابحث عن جامعة، منطقة، مقصد..."}
-                className="w-full bg-gray-950/60 backdrop-blur-md text-white placeholder-emerald-200/40 rounded-2xl py-3.5 pr-11 pl-4 border border-gray-800 focus:border-emerald-500/50 outline-none text-base sm:text-sm shadow-inner transition-all duration-300"/>
+                className="w-full bg-gray-900 text-white placeholder-gray-300 rounded-xl py-2.5 pr-10 pl-3 border border-gray-700 focus:border-emerald-400 outline-none text-xs sm:text-sm font-bold shadow-inner transition-all duration-200"/>
             </div>
             
-            <div className="grid grid-cols-2 gap-3" dir="rtl">
+            <div className="grid grid-cols-2 gap-2.5" dir="rtl">
               <div>
-                <label className="text-gray-400 text-[11px] font-black mr-1 mb-1 block">
-                  {rideTypeTab === 'emergency' ? 'الوجهة المطلوبة' : mainCategoryFilter === 'employee' ? 'مكان العمل (دوائر / شركات)' : 'الوجهة / الجامعة'}
+                <label className="text-amber-400 text-xs font-black mr-1 mb-1 block">
+                  {rideTypeTab === 'emergency' ? 'الوجهة المطلوبة' : mainCategoryFilter === 'employee' ? 'مكان العمل' : 'الوجهة / الجامعة'}
                 </label>
                 <select value={filterUniversity} onChange={e=>setFilterUniversity(e.target.value)} title="تصفية بالوجهة" aria-label="تصفية بالوجهة"
-                  className="w-full bg-gray-900/80 text-white font-bold rounded-xl py-2.5 px-3.5 border border-gray-800 focus:border-emerald-500/50 outline-none text-base sm:text-sm transition-all duration-300 cursor-pointer [color-scheme:dark]">
-                  {dynamicUniversities.map(c=><option key={c} value={c} className="bg-gray-900 text-white">{c}</option>)}
+                  className="w-full bg-gray-900 text-white font-bold rounded-xl py-2.5 px-3 border border-gray-700 focus:border-emerald-400 outline-none text-xs sm:text-sm transition-all cursor-pointer [color-scheme:dark]">
+                  {dynamicUniversities.map(c=><option key={c} value={c} className="bg-gray-900 text-white font-bold">{c}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-gray-400 text-[11px] font-black mr-1 mb-1 block">نوع الإعلان</label>
+                <label className="text-amber-400 text-xs font-black mr-1 mb-1 block">نوع الإعلان</label>
                 <select value={filterType} onChange={e=>setFilterType(e.target.value)} title="تصفية بنوع الإعلان" aria-label="تصفية بنوع الإعلان"
-                  className="w-full bg-gray-900/80 text-white font-bold rounded-xl py-2.5 px-3.5 border border-gray-800 focus:border-emerald-500/50 outline-none text-base sm:text-sm transition-all duration-300 cursor-pointer [color-scheme:dark]">
-                  <option className="bg-gray-900 text-white">الكل</option>
-                  <option className="bg-gray-900 text-white">صاحب الخط</option>
-                  <option className="bg-gray-900 text-white">ابحث عن خط</option>
+                  className="w-full bg-gray-900 text-white font-bold rounded-xl py-2.5 px-3 border border-gray-700 focus:border-emerald-400 outline-none text-xs sm:text-sm transition-all cursor-pointer [color-scheme:dark]">
+                  <option className="bg-gray-900 text-white font-bold" value="الكل">الكل</option>
+                  <option className="bg-gray-900 text-white font-bold" value="صاحب الخط">صاحب الخط</option>
+                  <option className="bg-gray-900 text-white font-bold" value="ابحث عن خط">ابحث عن خط</option>
                 </select>
               </div>
             </div>
           </div>
 
-
-
-          {/* Telegram Channel & Group Buttons (Below Publish Button) */}
-          <div className="grid grid-cols-2 gap-2.5 mt-3" dir="rtl">
+          {/* Telegram Channel & Group Buttons */}
+          <div className="grid grid-cols-2 gap-2.5 mb-4" dir="rtl">
             <a 
               href="https://t.me/RUC_1" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 py-2.5 px-3 bg-gradient-to-r from-sky-500/15 to-blue-500/10 hover:from-sky-500/25 hover:to-blue-500/20 border border-sky-500/30 rounded-xl text-sky-400 hover:text-sky-300 transition-all duration-300 text-xs font-bold shadow-md shadow-sky-500/5 group"
+              className="flex items-center justify-center gap-1.5 py-2 px-3 bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 rounded-xl text-sky-300 hover:text-white transition-all text-xs font-black"
             >
-              <Send className="w-4 h-4 text-sky-400 group-hover:scale-110 transition-transform shrink-0" />
+              <Send className="w-4 h-4 text-sky-300 shrink-0" />
               <span className="truncate">قناة الخطوط 📢</span>
             </a>
             <a 

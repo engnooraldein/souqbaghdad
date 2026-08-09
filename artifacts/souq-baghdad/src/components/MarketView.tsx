@@ -563,20 +563,25 @@ export function MarketView({
     });
 
     const items = [...filtered];
-    if (sort === 'views') {
-      items.sort((a, b) => (b.views || 0) - (a.views || 0));
-    } else if (sort === 'price-low') {
-      items.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
-    } else if (sort === 'price-high') {
-      items.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
-    } else {
-      items.sort((a, b) => {
+    items.sort((a, b) => {
+      // 👑 VIP Ads always prioritized first at the top of general feed display
+      const isVipA = (a as any).is_vip ? 1 : 0;
+      const isVipB = (b as any).is_vip ? 1 : 0;
+      if (isVipA !== isVipB) return isVipB - isVipA;
+
+      if (sort === 'views') {
+        return (b.views || 0) - (a.views || 0);
+      } else if (sort === 'price-low') {
+        return (Number(a.price) || 0) - (Number(b.price) || 0);
+      } else if (sort === 'price-high') {
+        return (Number(b.price) || 0) - (Number(a.price) || 0);
+      } else {
         const timeA = getAdTimestamp(a);
         const timeB = getAdTimestamp(b);
         if (timeA !== timeB) return timeB - timeA;
         return String(b.id || '').localeCompare(String(a.id || ''));
-      });
-    }
+      }
+    });
 
     return items;
   }, [allAds, cat, search, gov, priceMin, priceMax, conditionFilter, sort]);
@@ -612,22 +617,28 @@ export function MarketView({
       return true;
     });
 
-    if (sort === 'views') {
-      filtered.sort((a, b) => (b.views || 0) - (a.views || 0));
-    } else if (sort === 'price-low') {
-      filtered.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
-    } else if (sort === 'price-high') {
-      filtered.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
-    } else {
-      filtered.sort((a, b) => {
+    const items = [...filtered];
+    items.sort((a, b) => {
+      // 👑 VIP Products always prioritized first at the top of general feed display
+      const isVipA = (a as any).is_vip ? 1 : 0;
+      const isVipB = (b as any).is_vip ? 1 : 0;
+      if (isVipA !== isVipB) return isVipB - isVipA;
+
+      if (sort === 'views') {
+        return (b.views || 0) - (a.views || 0);
+      } else if (sort === 'price-low') {
+        return (Number(a.price) || 0) - (Number(b.price) || 0);
+      } else if (sort === 'price-high') {
+        return (Number(b.price) || 0) - (Number(a.price) || 0);
+      } else {
         const timeA = getAdTimestamp(a);
         const timeB = getAdTimestamp(b);
         if (timeA !== timeB) return timeB - timeA;
         return String(b.id || '').localeCompare(String(a.id || ''));
-      });
-    }
+      }
+    });
 
-    return filtered;
+    return items;
   }, [allProducts, cat, search, gov, priceMin, priceMax, conditionFilter, sort]);
 
   // Auto-reset page numbers back to 0 when query/filters update to prevent out-of-bounds pages
@@ -718,8 +729,12 @@ export function MarketView({
   const paginatedGeneralAds = useMemo(() => {
     if (filterAds.length === 0) return [];
 
-    // الترتيب الأولوية للأحدث زمنياً أولاً مع إبراز الإعلانات المتميزة
+    // 👑 الترتيب بالأولوية للإعلانات المتميزة VIP أولاً ثم الأحدث زمنياً
     const sorted = [...filterAds].sort((a, b) => {
+      const isVipA = (a as any).is_vip ? 1 : 0;
+      const isVipB = (b as any).is_vip ? 1 : 0;
+      if (isVipA !== isVipB) return isVipB - isVipA;
+
       const timeA = getAdTimestamp(a);
       const timeB = getAdTimestamp(b);
       if (timeA !== timeB) return timeB - timeA;
@@ -1581,9 +1596,11 @@ export function MarketView({
                                 initial={{ opacity: 0, y: 15 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 className={`rounded-3xl shadow-2xl p-4 sm:p-5 flex flex-col gap-4 relative overflow-hidden group transition-all duration-500 ${
-                                  isDarkMode 
-                                    ? 'bg-black/60 border border-gray-800/80 backdrop-blur-sm' 
-                                    : 'bg-white border border-slate-200/80 shadow-slate-100/50'
+                                  (ad as any).is_vip
+                                    ? 'border-2 border-amber-400/80 dark:border-amber-500/70 shadow-xl shadow-amber-500/15 bg-gradient-to-b from-amber-500/[0.04] to-transparent'
+                                    : isDarkMode 
+                                      ? 'bg-black/60 border border-gray-800/80 backdrop-blur-sm' 
+                                      : 'bg-white border border-slate-200/80 shadow-slate-100/50'
                                 }`}
                               >
                                 {/* Header block */}
@@ -1607,6 +1624,12 @@ export function MarketView({
                                         >
                                           {seller?.name || ad.seller?.name || 'مستخدم'}
                                         </span>
+                                        {(ad as any).is_vip && (
+                                          <span className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-black px-2.5 py-0.5 rounded-full text-[10px] font-black shadow-md border border-amber-300/60 flex items-center gap-1">
+                                            <Crown className="w-3 h-3 fill-black shrink-0" />
+                                            <span>إعلان مميز VIP</span>
+                                          </span>
+                                        )}
                                         {seller?.isVerified && (
                                           <span className="text-gray-400 bg-gray-800/10 px-1.5 py-0.5 rounded-md border border-gray-800/20 text-[9px] font-bold flex items-center gap-0.5">
                                             <VerifiedBadge className="w-2.5 h-2.5" /> موثوق

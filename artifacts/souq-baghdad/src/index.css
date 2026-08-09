@@ -884,6 +884,24 @@ html:not(.dark) footer .text-white {
   background-color: rgba(15, 23, 42, 0.9) !important;
 }
 
+/* ── Disable All Touch & Double-Tap Zooming Globally ── */
+html, body {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* ── Global Mobile Input Auto-Zoom Guard ── */
+@media screen and (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+    touch-action: manipulation;
+  }
+}
+
+
 
 
 

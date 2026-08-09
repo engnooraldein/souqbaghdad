@@ -91,6 +91,8 @@ export function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1,
   const [selectedCarYear, setSelectedCarYear] = useState('');
   const [selectedCarTrim, setSelectedCarTrim] = useState('');
   const totalVipCost = fd.is_vip ? Math.ceil((vipCost / 30) * (fd.vip_days || 30)) : 0;
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   const dynamicPlaceholders = useMemo(() => {
     switch (fd.category) {
@@ -830,11 +832,61 @@ export function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1,
               )}
             </div>
 
+            {/* 🛡️ مربع الموافقة على الشروط والتعهد القانوني */}
+            <div className="p-3.5 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-2">
+              <label className="flex items-start gap-3 cursor-pointer select-none group">
+                <div className="relative mt-0.5 shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={acceptedTerms}
+                    onChange={e => setAcceptedTerms(e.target.checked)}
+                    className="sr-only"
+                    required
+                  />
+                  <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all duration-200 ${acceptedTerms ? 'bg-amber-500 border-amber-500 text-black shadow-md shadow-amber-500/30' : 'bg-gray-900 border-gray-700 group-hover:border-amber-500/50'}`}>
+                    {acceptedTerms && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                  </div>
+                </div>
+                <div className="flex-1 text-xs font-bold text-gray-200 leading-snug">
+                  <span>أوافق على </span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); setShowTermsModal(!showTermsModal); }}
+                    className="text-amber-400 hover:text-amber-300 underline font-black underline-offset-2 ml-0.5"
+                  >
+                    الشروط والأحكام والتعهد القانوني 🛡️
+                  </button>
+                  <p className="text-[10px] text-gray-400 font-semibold mt-0.5">
+                    يتعهد الناشر بصحة البيانات وتحمل كافة المسؤولية القانونية وتنزيه المنصة من أي مسألة.
+                  </p>
+                </div>
+              </label>
+
+              {/* التفاصيل القانونية الموسعة عند الضغط */}
+              <AnimatePresence>
+                {showTermsModal && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="pt-2 border-t border-amber-500/20 text-[11px] text-gray-300 font-medium space-y-1.5 leading-relaxed bg-black/30 p-3 rounded-xl mt-1"
+                  >
+                    <p className="font-bold text-amber-400 flex items-center gap-1">
+                      <ShieldCheck className="w-4 h-4" /> التعهد والمسؤولية القانونية للإعلان:
+                    </p>
+                    <p>1️⃣ <strong>حماية الزبون والمشتري</strong>: يتعهد الناشر بمصداقية الإعلان، مطابقة المعروضات للمواصفات المعلنة، والامتناع عن التدليس.</p>
+                    <p>2️⃣ <strong>إخلاء مسؤولية المنصة</strong>: منصة (سوق بغداد الرقمي) وسيط إعلاني تقني فقط، ولا تتحمل أي مسؤولية قانونية أو مالية ناتجة عن البيع أو الشراء بين الأفراد.</p>
+                    <p>3️⃣ <strong>مسؤولية الناشر القانونية</strong>: يتحمل المعلن كافة المساءلة والمسؤولية التامة أمام الجهات الرسمية في حال عرض مواد محظورة أو مسروقة أو غير مرخصة.</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             <div className="flex gap-4 pt-4 border-t border-gray-900/60">
               <button type="button" onClick={()=>setTab('preview')} className="flex-1 py-3.5 bg-gray-950/40 text-amber-400 font-black rounded-2xl text-xs sm:text-sm border border-amber-500/20 hover:bg-gray-900/30 transition-all duration-300 shadow-md">
                 👁️ معاينة العرض
               </button>
-              <motion.button type="submit" whileHover={{scale:1.02}} whileTap={{scale:0.98}} disabled={uploading || (!isEdit && cost > 0 && (user.points || 0) < cost && user.role !== 'admin' && user.role !== 'owner')}
+              <motion.button type="submit" whileHover={{scale:1.02}} whileTap={{scale:0.98}} disabled={!acceptedTerms || uploading || (!isEdit && cost > 0 && (user.points || 0) < cost && user.role !== 'admin' && user.role !== 'owner')}
                 className="flex-1 py-3.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-black font-black rounded-2xl text-xs sm:text-sm flex flex-col items-center justify-center gap-0.5 disabled:opacity-50 disabled:from-gray-800 disabled:to-gray-900 disabled:text-gray-500 shadow-lg shadow-amber-500/10">
                 <div className="flex items-center gap-2">
                   {uploading ? (

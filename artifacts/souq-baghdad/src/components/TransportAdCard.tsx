@@ -46,35 +46,35 @@ export function VisualRoutePath({ regions, university, type }: { regions: string
   }, [regions, university]);
 
   return (
-    <div className="my-3.5 bg-gray-50/80 dark:bg-gray-950/50 border border-gray-100 dark:border-gray-800/50 rounded-2xl p-3.5" dir="rtl">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="my-2.5 bg-gray-950/40 border border-gray-800/60 rounded-xl p-2.5" dir="rtl">
+      <div className="flex flex-wrap items-center gap-1.5">
         {points.map((pt, idx) => {
           let badgeBg = 'bg-gray-800 text-gray-300 border-gray-700';
           let icon = '📍';
 
           if (pt.type === 'start') {
             badgeBg = type === 'offer' 
-              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30 font-extrabold' 
-              : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/30 font-extrabold';
+              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 font-bold' 
+              : 'bg-amber-500/10 text-amber-400 border-amber-500/30 font-bold';
             icon = '🚏 الانطلاق:';
           } else if (pt.type === 'destination') {
-            badgeBg = 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/30 font-extrabold';
+            badgeBg = 'bg-rose-500/10 text-rose-400 border-rose-500/30 font-bold';
             icon = '🎓 الوجهة:';
           } else {
             badgeBg = type === 'offer'
-              ? 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:border-teal-500/20 font-bold'
-              : 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/20 font-bold';
+              ? 'bg-teal-500/10 text-teal-300 border-teal-500/20 font-medium'
+              : 'bg-yellow-500/10 text-yellow-300 border-yellow-500/20 font-medium';
             icon = '➔';
           }
 
           return (
             <React.Fragment key={idx}>
-              <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs sm:text-sm whitespace-normal shadow-sm ${badgeBg}`}>
-                <span className="text-[11px] opacity-80">{icon}</span>
+              <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] whitespace-normal shadow-sm ${badgeBg}`}>
+                <span className="text-[10px] opacity-80">{icon}</span>
                 <span>{pt.name}</span>
               </div>
               {idx < points.length - 1 && (
-                <span className="text-gray-600 text-xs font-black select-none">←</span>
+                <span className="text-gray-600 text-[10px] font-bold select-none">←</span>
               )}
             </React.Fragment>
           );
@@ -97,9 +97,11 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
       onContextMenu={onActionMenu}
       style={{ contain: 'layout style paint', willChange: 'transform' }}
       className={`bg-white dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl border transition-colors overflow-hidden relative cursor-pointer p-4 sm:p-5 shadow-sm hover:shadow-md dark:shadow-none ${
-        isEmployee 
-          ? 'border-indigo-100 dark:border-indigo-500/40 hover:border-indigo-300 dark:hover:border-indigo-400 shadow-indigo-100 dark:shadow-indigo-950/40' 
-          : ad.type === 'offer' ? 'border-gray-100 dark:border-emerald-500/30 hover:border-emerald-200 dark:hover:border-emerald-500/60' : 'border-gray-100 dark:border-amber-500/30 hover:border-amber-200 dark:hover:border-amber-500/60'
+        (ad as any).is_vip
+          ? 'border-amber-400/60 dark:border-amber-500/50 shadow-md shadow-amber-500/10'
+          : isEmployee 
+            ? 'border-indigo-100 dark:border-indigo-500/40 hover:border-indigo-300 dark:hover:border-indigo-400 shadow-indigo-100 dark:shadow-indigo-950/40' 
+            : ad.type === 'offer' ? 'border-gray-100 dark:border-emerald-500/30 hover:border-emerald-200 dark:hover:border-emerald-500/60' : 'border-gray-100 dark:border-amber-500/30 hover:border-amber-200 dark:hover:border-amber-500/60'
       }`}>
       
       {/* Matched / Archived overlays */}
@@ -133,22 +135,27 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
           </div>
         </div>
 
-        {isNew && (
+        {(ad as any).is_vip ? (
+          <div className="absolute top-2 left-2 px-2 py-0.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-black text-[9px] font-black rounded-lg z-10 shadow-lg border border-amber-300/40 flex items-center gap-0.5 backdrop-blur-md">
+            <Crown className="w-2.5 h-2.5 fill-black shrink-0" />
+            <span>VIP</span>
+          </div>
+        ) : isNew ? (
           <div className="absolute top-2 left-2 px-2 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[9px] font-extrabold rounded-lg z-10 shadow-lg shadow-red-500/25 border border-red-400/30 animate-pulse">
             حديث ✨
           </div>
-        )}
+        ) : null}
 
-        <div className="pt-4">
-          <div className="flex justify-between items-start mb-3">
+        <div className="pt-3">
+          <div className="flex justify-between items-start mb-2">
             <div className="w-full">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
+              <h3 className="text-base sm:text-lg font-black text-white mb-1 flex items-center gap-1.5">
                 {ad.university}
               </h3>
-              <p className="text-gray-700 dark:text-gray-300 text-xs sm:text-sm flex items-center gap-2 mt-2 bg-gray-50 dark:bg-gray-900/40 px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 leading-normal mb-3">
-                <MapPin className="w-4 h-4 text-emerald-500 shrink-0"/> 
-                <span className="leading-normal py-0.5">
-                  <span className="text-gray-500 dark:text-gray-400 font-semibold text-xs">المناطق:</span> <span className="text-gray-900 dark:text-white font-bold">{ad.regions}</span>
+              <p className="text-white text-xs sm:text-sm flex items-center gap-1.5 mt-1.5 bg-gray-900/90 px-3 py-2 rounded-xl border border-gray-700/80 leading-normal mb-2 shadow-sm">
+                <MapPin className="w-4 h-4 text-emerald-400 shrink-0"/> 
+                <span className="leading-normal">
+                  <span className="text-amber-400 font-black text-xs">المناطق:</span> <span className="text-white font-black">{ad.regions}</span>
                 </span>
               </p>
               
@@ -157,57 +164,57 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
-            <div className="bg-gray-50/80 dark:bg-gray-800/40 backdrop-blur-sm border border-gray-100 dark:border-gray-700/30 rounded-xl p-2.5 text-center transition-all hover:bg-gray-100 dark:hover:bg-gray-800/60">
-              <p className="text-gray-500 dark:text-gray-400 text-[10px] font-bold mb-0.5">الدوام</p>
-              <p className="text-gray-900 dark:text-white font-black text-xs sm:text-sm">{ad.shift}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+            <div className="bg-gray-900/80 border border-gray-700/80 rounded-xl p-2 text-center shadow-sm">
+              <p className="text-amber-400 text-xs font-bold mb-0.5">الدوام</p>
+              <p className="text-white font-black text-xs sm:text-sm">{ad.shift}</p>
             </div>
             {ad.type === 'offer' && (
-              <div className="bg-emerald-50/80 dark:bg-emerald-950/20 backdrop-blur-sm border border-emerald-100 dark:border-emerald-800/30 rounded-xl p-2.5 text-center transition-all hover:bg-emerald-100 dark:hover:bg-emerald-900/30">
-                <p className="text-emerald-600 dark:text-emerald-500 text-[10px] font-bold mb-0.5">المقاعد</p>
-                <p className="text-emerald-700 dark:text-emerald-400 font-black text-xs sm:text-sm">{ad.seats} <span className="text-emerald-600/70 dark:text-emerald-500/70 font-semibold text-[10px]">متاح</span></p>
+              <div className="bg-emerald-500/20 border border-emerald-500/40 rounded-xl p-2 text-center shadow-sm">
+                <p className="text-emerald-300 text-xs font-bold mb-0.5">المقاعد</p>
+                <p className="text-emerald-300 font-black text-xs sm:text-sm">{ad.seats} <span className="text-emerald-400 font-bold text-[10px]">متاح</span></p>
               </div>
             )}
-            <div className="bg-gray-50/80 dark:bg-gray-800/40 backdrop-blur-sm border border-gray-100 dark:border-gray-700/30 rounded-xl p-2.5 text-center transition-all hover:bg-gray-100 dark:hover:bg-gray-800/60">
-              <p className="text-gray-500 dark:text-gray-400 text-[10px] font-bold mb-0.5">الفئة</p>
-              <p className="text-gray-900 dark:text-white font-black text-xs sm:text-sm">{ad.targetAudience}</p>
+            <div className="bg-gray-900/80 border border-gray-700/80 rounded-xl p-2 text-center shadow-sm">
+              <p className="text-amber-400 text-xs font-bold mb-0.5">الفئة</p>
+              <p className="text-white font-black text-xs sm:text-sm">{ad.targetAudience}</p>
             </div>
-            <div className="bg-gray-50/80 dark:bg-gray-800/40 backdrop-blur-sm border border-gray-100 dark:border-gray-700/30 rounded-xl p-2.5 text-center transition-all hover:bg-gray-100 dark:hover:bg-gray-800/60">
-              <p className="text-gray-500 dark:text-gray-400 text-[10px] font-bold mb-0.5">المركبة</p>
-              <p className="text-gray-900 dark:text-white font-black text-xs sm:text-sm">{ad.vehicleType}</p>
+            <div className="bg-gray-900/80 border border-gray-700/80 rounded-xl p-2 text-center shadow-sm">
+              <p className="text-amber-400 text-xs font-bold mb-0.5">المركبة</p>
+              <p className="text-white font-black text-xs sm:text-sm">{ad.vehicleType}</p>
             </div>
           </div>
 
           {ad.price && (
-            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-sm font-black mb-3 bg-amber-500/10 px-3 py-2 rounded-lg inline-flex">
+            <div className="flex items-center gap-1.5 text-amber-300 text-xs font-black mb-2.5 bg-amber-500/15 px-3 py-1.5 rounded-xl inline-flex border border-amber-500/30 shadow-sm">
               <Tag className="w-4 h-4"/>
-              <span>السعر المفضل: {formatPrice(ad.price)} د.ع</span>
+              <span>السعر: {formatPrice(ad.price)} د.ع</span>
             </div>
           )}
 
-          {ad.note&&<p className="text-gray-700 dark:text-gray-300 text-xs mb-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl p-3 border border-gray-200 dark:border-gray-700/50">{ad.note}</p>}
+          {ad.note&&<p className="text-gray-100 text-xs sm:text-sm mb-3 bg-gray-900/90 rounded-xl p-3 border border-gray-700/80 leading-relaxed font-bold shadow-sm">{ad.note}</p>}
           
-          <div className="flex items-center justify-between pt-3 border-t border-gray-150 dark:border-gray-700/50">
+          <div className="flex items-center justify-between pt-2.5 border-t border-gray-800">
             <div className="flex items-center gap-2">
-              <img src={ad.sellerAvatar||'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" loading="lazy" decoding="async" className={`w-8 h-8 rounded-full object-cover ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-200 dark:border-gray-600'}`}/>
+              <img src={ad.sellerAvatar||'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" loading="lazy" decoding="async" className={`w-8 h-8 rounded-full object-cover ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-600'}`}/>
               <div>
-                <span className="text-gray-700 dark:text-gray-300 text-xs block font-semibold">{ad.sellerName}</span>
+                <span className="text-white text-xs block font-bold">{ad.sellerName}</span>
               </div>
             </div>
             
-            <div className="flex gap-2">
+            <div className="flex gap-1.5">
               <motion.a href={getWhatsAppLink(ad.phone, 'transport', { id: ad.id, title: ad.type==='offer'?'خط متوفر':'طلب خط', location: ad.regions, university: ad.university, time: ad.shift })} target="_blank" rel="noopener noreferrer"
-                whileHover={{scale:1.05}} whileTap={{scale:0.95}}
+                whileHover={{scale:1.03}} whileTap={{scale:0.97}}
                 onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-1.5 px-4 py-2 bg-green-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-green-500/20">
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl text-xs shadow-md shadow-emerald-500/20">
                 <MessageSquare className="w-3.5 h-3.5"/> واتساب
               </motion.a>
               {onShare && (
                 <motion.button
                   onClick={(e) => { e.stopPropagation(); onShare(); }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/20 text-amber-500 border border-amber-500/30 font-bold rounded-xl text-xs hover:bg-amber-500/30"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold rounded-xl text-xs hover:bg-amber-500/30"
                 >
                   <Share2 className="w-3.5 h-3.5" /> مشاركة
                 </motion.button>
@@ -223,24 +230,24 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
         <div className="flex items-center justify-between gap-1.5 mb-2">
           <div className="flex items-center gap-1">
             {isEmployee && (
-              <span className="px-2 py-0.5 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-500 text-white text-[9px] font-bold flex items-center gap-0.5 shadow-sm">
+              <span className="px-2 py-0.5 rounded-lg bg-indigo-600 text-white text-[10px] font-bold flex items-center gap-0.5 shadow-sm">
                 👔 موظفين
               </span>
             )}
-            <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black shadow-sm ${
-              ad.type === 'offer' ? 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white' : 'bg-gradient-to-r from-amber-500 to-amber-400 text-amber-950'
+            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black shadow-sm ${
+              ad.type === 'offer' ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-black'
             }`}>
               {ad.type === 'offer' ? 'متوفر خط' : 'أبحث عن خط'}
             </span>
             {isNew && (
-              <span className="px-1.5 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[8px] font-bold rounded-lg animate-pulse shadow-sm shadow-red-500/20">
+              <span className="px-2 py-0.5 bg-rose-500 text-white text-[9px] font-black rounded-lg animate-pulse shadow-sm">
                 جديد ✨
               </span>
             )}
           </div>
 
           {ad.price && (
-            <span className="text-amber-600 dark:text-amber-400 text-xs font-black bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg">
+            <span className="text-amber-300 text-xs font-black bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 rounded-lg">
               {formatPrice(ad.price)} د.ع
             </span>
           )}
@@ -248,49 +255,49 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
 
         {/* Body Info */}
         <div className="mb-2">
-          <h3 className="text-base font-black text-gray-900 dark:text-white leading-tight flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0 shadow-sm shadow-emerald-500/50"></span>
+          <h3 className="text-sm sm:text-base font-black text-white leading-tight flex items-center gap-1.5">
+            <span className="w-2 h-2 bg-emerald-400 rounded-full shrink-0"></span>
             {ad.university}
           </h3>
           
-          <p className="text-gray-700 dark:text-gray-300 text-xs sm:text-sm flex items-center gap-2 mt-2 bg-gray-50/80 dark:bg-gray-800/40 backdrop-blur-sm px-3 py-2.5 rounded-xl border border-gray-100 dark:border-gray-700/30 leading-normal">
-            <MapPin className="w-4 h-4 text-emerald-500 shrink-0" />
-            <span className="leading-normal py-0.5">
-              <span className="text-gray-500 dark:text-gray-400 text-xs font-semibold">المناطق:</span> <span className="font-bold text-gray-900 dark:text-white">{ad.regions}</span>
+          <p className="text-white text-xs flex items-center gap-1.5 mt-1.5 bg-gray-900/90 backdrop-blur-sm px-3 py-2 rounded-xl border border-gray-700/80 leading-normal">
+            <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className="leading-normal">
+              <span className="text-amber-400 text-xs font-black">المناطق:</span> <span className="font-black text-white text-xs">{ad.regions}</span>
             </span>
           </p>
         </div>
 
         {/* Compact Specs Row */}
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          <span className="bg-gray-50/80 dark:bg-gray-800/40 backdrop-blur-sm border border-gray-100 dark:border-gray-700/30 text-gray-800 dark:text-gray-200 text-[10px] font-black px-2 py-1 rounded-lg">
+        <div className="flex flex-wrap gap-1 mb-2">
+          <span className="bg-gray-900/90 border border-gray-700 text-white text-xs font-bold px-2 py-1 rounded-lg">
             🕒 {ad.shift}
           </span>
           {ad.type === 'offer' && (
-            <span className="bg-emerald-50/80 dark:bg-emerald-950/30 backdrop-blur-sm border border-emerald-100 dark:border-emerald-800/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-black px-2 py-1 rounded-lg">
+            <span className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold px-2 py-1 rounded-lg">
               🪑 {ad.seats} متاح
             </span>
           )}
-          <span className="bg-gray-50/80 dark:bg-gray-800/40 backdrop-blur-sm border border-gray-100 dark:border-gray-700/30 text-gray-800 dark:text-gray-200 text-[10px] font-black px-2 py-1 rounded-lg">
+          <span className="bg-gray-900/90 border border-gray-700 text-white text-xs font-bold px-2 py-1 rounded-lg">
             👥 {ad.targetAudience}
           </span>
-          <span className="bg-gray-50/80 dark:bg-gray-800/40 backdrop-blur-sm border border-gray-100 dark:border-gray-700/30 text-gray-800 dark:text-gray-200 text-[10px] font-black px-2 py-1 rounded-lg">
+          <span className="bg-gray-900/90 border border-gray-700 text-white text-xs font-bold px-2 py-1 rounded-lg">
             🚗 {ad.vehicleType}
           </span>
         </div>
 
         {ad.note && (
-          <p className="text-gray-500 dark:text-gray-400 text-[10px] line-clamp-1 mb-2 italic">
+          <p className="text-gray-100 text-xs font-medium bg-gray-900/80 border border-gray-800 p-2 rounded-lg leading-relaxed mb-2">
             {ad.note}
           </p>
         )}
 
         {/* Bottom Row - Seller & Quick Actions */}
-        <div className="flex items-center justify-between pt-2 border-t border-gray-150 dark:border-gray-700/50">
+        <div className="flex items-center justify-between pt-2 border-t border-gray-800">
           <div className="flex items-center gap-2">
-            <img src={ad.sellerAvatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" loading="lazy" decoding="async" className={`w-6 h-6 rounded-full object-cover shrink-0 ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-200 dark:border-gray-800'}`} />
+            <img src={ad.sellerAvatar || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100'} alt="" loading="lazy" decoding="async" className={`w-7 h-7 rounded-full object-cover shrink-0 ${seller?.role && seller.role !== 'user' ? getGlowClass(seller.role) : 'border border-gray-700'}`} />
             <div className="leading-tight">
-              <span className="text-gray-700 dark:text-gray-300 text-[10px] block font-bold max-w-[70px] truncate">{ad.sellerName}</span>
+              <span className="text-white text-xs block font-bold max-w-[80px] truncate">{ad.sellerName}</span>
             </div>
           </div>
 
