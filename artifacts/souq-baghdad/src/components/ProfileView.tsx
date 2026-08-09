@@ -828,9 +828,25 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
 
       <div className="container mx-auto px-4 max-w-3xl relative z-10">
 
+        {/* Dedicated Store Settings Bar (for Pro/Business users) */}
+        {user.role !== 'user' && (
+          <div className="mb-2 w-full" dir="rtl">
+            <button 
+              onClick={() => setTab('store_settings')} 
+              className={`w-full flex items-center justify-center gap-2 px-4 py-3.5 sm:py-4 rounded-2xl text-sm sm:text-base font-black transition-all duration-300 shadow-lg border ${
+                tab === 'store_settings' 
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-black border-amber-400 shadow-amber-500/20' 
+                  : isDarkMode ? 'bg-gray-950/80 border-gray-800 text-amber-400 hover:bg-gray-900' : 'bg-white border-amber-200 text-amber-600 hover:bg-amber-50 shadow-amber-100/50'
+              }`}
+            >
+              <Store className="w-5 h-5" /> إعدادات متجري الاحترافي 🌟
+            </button>
+          </div>
+        )}
+
         {/* Top Priority Tabs */}
         <div className={`flex gap-2 mb-2 p-2 rounded-2xl border overflow-x-auto scrollbar-hide shadow-lg ${isDarkMode ? 'bg-gray-950/60 border-gray-900' : 'bg-white border-slate-200/80 shadow-slate-100'}`} dir="rtl">
-          {((user.role !== 'user' ? [['store_settings', '🌟 متجري الاحترافي']] : []).concat([['lines', '🚌 خطوطي'],['favs', `❤️ المفضلة (${favAds.length + favProducts.length})`],['account','⚙️ الإعدادات']]) as [string,string][]).map(([t,l])=>(
+          {([['lines', '🚌 خطوطي'],['favs', `❤️ المفضلة (${favAds.length + favProducts.length})`],['account','⚙️ الإعدادات']] as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`flex-1 whitespace-nowrap px-3.5 sm:px-4.5 py-3 rounded-xl text-xs sm:text-base font-black transition-all duration-300 ${tab===t?'bg-gradient-to-r from-red-500 to-amber-500 text-white shadow-lg shadow-red-500/20':(isDarkMode ? 'text-gray-300 hover:text-white bg-gray-900 hover:bg-gray-800' : 'text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200')}`}>{l}</button>
           ))}
         </div>
