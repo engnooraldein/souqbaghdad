@@ -228,7 +228,7 @@ export function useAuth(setToast: (toast: any) => void) {
         stats: { ads: profile?.ads_count || 0, favorites: profile?.favorites_count || 0, views: profile?.views_count || 0 },
         sellerStats: { totalAds: 0, sold: 0, responseRate: 100, avgResponseTime: 'دقائق' },
         // Professional Store Fields
-        username: profile?.store_metadata?.username || undefined,
+        username: profile?.username || profile?.store_metadata?.username || undefined,
         store_name: profile?.store_metadata?.store_name || undefined,
         specialty: profile?.store_metadata?.specialty || undefined,
         specialty_detail: profile?.store_metadata?.specialty_detail || undefined,

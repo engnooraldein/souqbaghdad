@@ -493,7 +493,8 @@ export default function App() {
         cover_url: u.cover, 
         bio: u.bio, 
         city: u.location, 
-        role: u.role, 
+        role: u.role,
+        username: u.username,
         store_metadata: finalMetadata 
       }, { onConflict: 'id' });
 
