@@ -39,7 +39,7 @@ import {
   Loader2, Wallet, EyeOff, ZoomOut, ZoomIn, CheckCircle, Key, Tag, Package, ImagePlus, Edit2, Phone as PhoneIcon, 
   RefreshCw, TrendingDown, Clock, HelpCircle, Archive, ShoppingCart, Target, 
   Globe, Search as SearchIcon, ArrowLeft, MoreHorizontal, LayoutGrid,
-  FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, 
+  FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, Instagram, Facebook, Truck
 } from 'lucide-react';
 import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
 import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage } from '../App';

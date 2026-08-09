@@ -239,23 +239,26 @@ export const StoreSettingsWizard: React.FC<StoreSettingsWizardProps> = ({ ef, se
           </div>
 
           {/* Dynamic Extra Fields Based on Specialty */}
-          {specialty === 'طبيب' && (
+          {['طبيب', 'صيدلي', 'مهندس', 'محامي'].includes(specialty) && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-gray-700/50">
-              <div>
-                <label className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>الدرجة العلمية</label>
-                <select 
-                  disabled={!editing}
-                  value={meta?.medical_degree || ''}
-                  onChange={e => setMeta('medical_degree', e.target.value)}
-                  className={`w-full px-3 py-2.5 rounded-lg border text-sm font-semibold ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-slate-200'}`}
-                >
-                  <option value="">اختر الدرجة...</option>
-                  <option value="مقيم دوري">مقيم دوري</option>
-                  <option value="مقيم أقدم">مقيم أقدم</option>
-                  <option value="أخصائي">أخصائي</option>
-                  <option value="استشاري">استشاري</option>
-                </select>
-              </div>
+              {['طبيب', 'صيدلي'].includes(specialty) && (
+                <div>
+                  <label className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>الدرجة العلمية</label>
+                  <select 
+                    disabled={!editing}
+                    value={meta?.medical_degree || ''}
+                    onChange={e => setMeta('medical_degree', e.target.value)}
+                    className={`w-full px-3 py-2.5 rounded-lg border text-sm font-semibold ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-slate-200'}`}
+                  >
+                    <option value="">اختر الدرجة...</option>
+                    <option value="ممارس عام">ممارس عام</option>
+                    <option value="مقيم دوري">مقيم دوري</option>
+                    <option value="مقيم أقدم">مقيم أقدم</option>
+                    <option value="أخصائي">أخصائي</option>
+                    <option value="استشاري">استشاري</option>
+                  </select>
+                </div>
+              )}
               <div>
                 <label className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>الجامعة المتخرج منها</label>
                 <div className="relative">
@@ -269,7 +272,7 @@ export const StoreSettingsWizard: React.FC<StoreSettingsWizardProps> = ({ ef, se
                   />
                 </div>
               </div>
-              <div className="md:col-span-2 mt-2">
+              <div>
                 <label className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>سنوات الخبرة</label>
                 <input 
                   type="number"
@@ -280,8 +283,75 @@ export const StoreSettingsWizard: React.FC<StoreSettingsWizardProps> = ({ ef, se
                   className={`w-full px-4 py-2.5 rounded-lg border text-sm font-semibold ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white focus:border-amber-500' : 'bg-white border-slate-200 focus:border-amber-500'}`}
                 />
               </div>
+              <div>
+                <label className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>رقم الانتماء للنقابة / الإجازة (اختياري)</label>
+                <input 
+                  type="text"
+                  disabled={!editing}
+                  value={meta?.license_number || ''}
+                  onChange={e => setMeta('license_number', e.target.value)}
+                  placeholder="رقم النقابة أو الإجازة"
+                  className={`w-full px-4 py-2.5 rounded-lg border text-sm font-semibold ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white focus:border-amber-500' : 'bg-white border-slate-200 focus:border-amber-500'}`}
+                />
+              </div>
             </div>
           )}
+
+          {/* Store Operations (Hours & Delivery) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-gray-700/50">
+            <div>
+              <label className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>ساعات العمل</label>
+              <input 
+                type="text"
+                disabled={!editing}
+                value={meta?.working_hours || ''}
+                onChange={e => setMeta('working_hours', e.target.value)}
+                placeholder="مثال: 9 صباحاً - 5 مساءً"
+                className={`w-full px-4 py-2.5 rounded-lg border text-sm font-semibold ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white focus:border-amber-500' : 'bg-white border-slate-200 focus:border-amber-500'}`}
+              />
+            </div>
+            <div>
+              <label className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>خدمة التوصيل</label>
+              <select 
+                disabled={!editing}
+                value={meta?.delivery_available || ''}
+                onChange={e => setMeta('delivery_available', e.target.value)}
+                className={`w-full px-4 py-2.5 rounded-lg border text-sm font-semibold ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white focus:border-amber-500' : 'bg-white border-slate-200 focus:border-amber-500'}`}
+              >
+                <option value="">غير محدد</option>
+                <option value="yes">تتوفر خدمة التوصيل</option>
+                <option value="no">لا تتوفر خدمة التوصيل</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Social Links */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-gray-700/50">
+            <div>
+              <label className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>رابط الانستغرام (Instagram)</label>
+              <input 
+                type="url"
+                dir="ltr"
+                disabled={!editing}
+                value={meta?.instagram_url || ''}
+                onChange={e => setMeta('instagram_url', e.target.value)}
+                placeholder="https://instagram.com/..."
+                className={`w-full px-4 py-2.5 rounded-lg border text-sm text-left transition-all ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white focus:border-amber-500' : 'bg-white border-slate-200 focus:border-amber-500'}`}
+              />
+            </div>
+            <div>
+              <label className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>رابط الفيسبوك (Facebook)</label>
+              <input 
+                type="url"
+                dir="ltr"
+                disabled={!editing}
+                value={meta?.facebook_url || ''}
+                onChange={e => setMeta('facebook_url', e.target.value)}
+                placeholder="https://facebook.com/..."
+                className={`w-full px-4 py-2.5 rounded-lg border text-sm text-left transition-all ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white focus:border-amber-500' : 'bg-white border-slate-200 focus:border-amber-500'}`}
+              />
+            </div>
+          </div>
 
           {/* Display Mode Settings */}
           <div className="pt-3 border-t border-gray-700/50">
