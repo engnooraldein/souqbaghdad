@@ -377,6 +377,9 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
   const tpl = getTemplate(storeTemplateId);
 
   const lang = effectiveSeller.store_language === 'en' ? 'en' : 'ar';
+  const dMode = effectiveSeller.store_metadata?.display_mode; // 'إعلانات' | 'منتجات' | 'أعمالي'
+  const isPortfolio = dMode === 'أعمالي';
+
   const t = {
     verified: lang === 'en' ? 'Verified' : 'موثق',
     online: lang === 'en' ? 'Online' : 'متصل الآن',
@@ -387,10 +390,11 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
     joined: lang === 'en' ? 'Joined' : 'انضم في',
     aboutStore: lang === 'en' ? 'About Store' : 'نبذة عن المتجر',
     university: lang === 'en' ? 'University:' : 'الجامعة:',
+    experience: lang === 'en' ? 'Years of Exp:' : 'سنوات الخبرة:',
     locationBtn: lang === 'en' ? 'Location Map' : 'موقع الجغرافي',
     whatsappBtn: lang === 'en' ? 'WhatsApp' : 'واتساب تجاري',
-    ads: lang === 'en' ? 'Ads' : 'إعلان',
-    products: lang === 'en' ? 'Products' : 'منتج',
+    ads: isPortfolio ? (lang === 'en' ? 'Portfolio' : 'أعمالي') : (lang === 'en' ? 'Ads' : 'إعلان'),
+    products: isPortfolio ? (lang === 'en' ? 'Portfolio' : 'أعمالي') : (lang === 'en' ? 'Products' : 'منتج'),
     views: lang === 'en' ? 'Views' : 'مشاهدة',
     shareStore: lang === 'en' ? 'Share Store' : 'مشاركة المتجر',
     back: lang === 'en' ? 'Back' : 'رجوع'
@@ -574,6 +578,11 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
               {/* Dynamic Metadata Fields */}
               {effectiveSeller.specialty === 'طبيب' && effectiveSeller.store_metadata && (
                 <div className="flex flex-wrap gap-3 mt-3">
+                  {effectiveSeller.store_metadata.years_of_experience && (
+                    <span className={`text-xs px-2.5 py-1 rounded-lg border ${tpl.accentBg} ${tpl.accentText} ${tpl.borderColor}`}>
+                      {t.experience} {effectiveSeller.store_metadata.years_of_experience}
+                    </span>
+                  )}
                   {effectiveSeller.store_metadata.medical_degree && (
                     <span className={`text-xs px-2.5 py-1 rounded-lg border ${tpl.accentBg} ${tpl.accentText} ${tpl.borderColor}`}>
                       {effectiveSeller.store_metadata.medical_degree}
@@ -630,8 +639,8 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
         ) : (
           <>
             <div className={`flex gap-2 mb-5 p-1.5 rounded-2xl border overflow-x-auto hide-scrollbar ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-slate-100 border-slate-200'}`}>
-              {([['ads',`📢 الإعلانات (${sellerAds.length})`],['products',`🛍️ المنتجات (${sellerProds.length})`]] as [string,string][]).map(([t,l])=>(
-                <button key={t} onClick={()=>setTab(t as any)} className={`flex-shrink-0 flex-1 py-2 px-3 rounded-xl text-sm font-bold transition-all ${tab===t?'bg-amber-500 text-black shadow-sm':(isDarkMode ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-900')}`}>{l}</button>
+              {([['ads',`📢 ${t.ads} (${sellerAds.length})`],['products',`🛍️ ${t.products} (${sellerProds.length})`]] as [string,string][]).map(([tk,l])=>(
+                <button key={tk} onClick={()=>setTab(tk as any)} className={`flex-shrink-0 flex-1 py-2 px-3 rounded-xl text-sm font-bold transition-all ${tab===tk?'bg-amber-500 text-black shadow-sm':(isDarkMode ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-900')}`}>{l}</button>
               ))}
               {sellerLines.length > 0 && (
                 <button onClick={() => setTab('lines')} className={`flex-shrink-0 flex-1 py-2 px-3 rounded-xl text-sm font-bold transition-all ${tab==='lines'?'bg-amber-500 text-black shadow-sm':(isDarkMode ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-900')}`}>

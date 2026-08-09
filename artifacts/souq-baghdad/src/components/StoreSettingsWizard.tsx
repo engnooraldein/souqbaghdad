@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { User } from '../types';
-import { Store, User as UserIcon, Briefcase, GraduationCap, MapPin, Globe, LayoutTemplate, Wand2, Loader2, Sparkles } from 'lucide-react';
+import { Store, User as UserIcon, Briefcase, GraduationCap, MapPin, Globe, LayoutTemplate, Wand2, Loader2, Sparkles, ExternalLink } from 'lucide-react';
 
 interface StoreSettingsWizardProps {
   ef: User;
@@ -67,6 +67,25 @@ export const StoreSettingsWizard: React.FC<StoreSettingsWizardProps> = ({ ef, se
           <Store className="w-5 h-5 text-amber-500" />
           إعدادات المتجر الاحترافي
         </h3>
+        {storeType === 'business' && ef.id && (
+          <button
+            onClick={() => {
+              if (editing) {
+                alert('يرجى حفظ التغييرات أولاً لرؤية المعاينة الحقيقية.');
+              } else {
+                window.open(`/seller/${ef.id}`, '_blank');
+              }
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              editing 
+                ? (isDarkMode ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed')
+                : (isDarkMode ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-amber-100 text-amber-700 hover:bg-amber-200')
+            }`}
+          >
+            <ExternalLink className="w-4 h-4" />
+            <span className="hidden sm:inline">معاينة المتجر</span>
+          </button>
+        )}
       </div>
       
       {/* 1. Account Type */}
@@ -250,8 +269,40 @@ export const StoreSettingsWizard: React.FC<StoreSettingsWizardProps> = ({ ef, se
                   />
                 </div>
               </div>
+              <div className="md:col-span-2 mt-2">
+                <label className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>سنوات الخبرة</label>
+                <input 
+                  type="number"
+                  disabled={!editing}
+                  value={meta?.years_of_experience || ''}
+                  onChange={e => setMeta('years_of_experience', e.target.value)}
+                  placeholder="مثال: 10"
+                  className={`w-full px-4 py-2.5 rounded-lg border text-sm font-semibold ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white focus:border-amber-500' : 'bg-white border-slate-200 focus:border-amber-500'}`}
+                />
+              </div>
             </div>
           )}
+
+          {/* Display Mode Settings */}
+          <div className="pt-3 border-t border-gray-700/50">
+             <label className={`text-sm font-bold block mb-2 ${isDarkMode ? 'text-gray-300' : 'text-slate-600'}`}>طريقة العرض في المتجر</label>
+             <div className="flex flex-wrap gap-2">
+                {['إعلانات', 'منتجات', 'أعمالي'].map(mode => (
+                  <button
+                    key={mode}
+                    disabled={!editing}
+                    onClick={() => setMeta('display_mode', mode)}
+                    className={`flex-1 py-2 px-3 rounded-lg border text-xs font-bold flex items-center justify-center gap-1 transition-all ${
+                      (meta?.display_mode || 'إعلانات') === mode
+                        ? 'bg-purple-500/10 border-purple-500 text-purple-500'
+                        : isDarkMode ? 'bg-gray-800 border-gray-600 text-gray-400' : 'bg-white border-slate-200 text-slate-500'
+                    }`}
+                  >
+                    {mode}
+                  </button>
+                ))}
+             </div>
+          </div>
 
           {/* Location / GPS Field (Applies to all businesses) */}
           <div className="pt-3 border-t border-gray-700/50">
