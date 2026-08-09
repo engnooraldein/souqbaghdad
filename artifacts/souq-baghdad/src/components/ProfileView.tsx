@@ -1730,43 +1730,57 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                 <Monitor className="w-4 h-4" /> معاينة المتجر الحيّة
               </h4>
               
-              <div className="w-full aspect-[16/9] sm:aspect-[21/9] rounded-xl overflow-hidden relative shadow-2xl border border-gray-800 pointer-events-none select-none">
+              <div className={`w-full rounded-2xl overflow-hidden relative shadow-2xl border pointer-events-none select-none flex flex-col ${isDarkMode ? 'border-gray-800 bg-black' : 'border-slate-200 bg-white'}`}>
                 {/* Cover Preview based on Template */}
-                <div className={`w-full h-[50%] absolute top-0 left-0 ${
+                <div className={`w-full aspect-[21/7] relative ${
                   (ef as any).store_template === 'beauty' ? 'bg-gradient-to-r from-pink-400 to-rose-400' :
                   (ef as any).store_template === 'tech' ? 'bg-gradient-to-r from-blue-600 to-cyan-400' :
                   (ef as any).store_template === 'medical' ? 'bg-gradient-to-r from-emerald-500 to-teal-400' :
                   (ef as any).store_template === 'auto' ? 'bg-gradient-to-r from-slate-800 to-gray-600' :
                   'bg-gradient-to-r from-amber-400 to-orange-500'
-                }`} />
+                }`}>
+                  <div className={`absolute inset-0 bg-gradient-to-t ${isDarkMode ? 'from-black/60' : 'from-black/30'} to-transparent`} />
+                </div>
                 
                 {/* Store Header Preview */}
-                <div className={`absolute bottom-0 w-full h-[65%] rounded-t-2xl flex items-center px-4 gap-3 ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
-                  <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 -mt-10 flex-shrink-0 z-10 overflow-hidden shadow-lg ${isDarkMode ? 'border-gray-900 bg-gray-800' : 'border-white bg-slate-100'}`}>
-                    <img src={user.avatar || DEFAULT_AVATAR} className="w-full h-full object-cover" alt="avatar" />
+                <div className="px-4 pb-4 relative -mt-8 sm:-mt-10">
+                  <div className="flex justify-between items-end mb-2">
+                    {/* Avatar */}
+                    <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 shadow-xl overflow-hidden flex-shrink-0 relative z-10 ${isDarkMode ? 'border-black bg-gray-900' : 'border-white bg-slate-100'}`}>
+                      <img src={user.avatar || DEFAULT_AVATAR} className="w-full h-full object-cover" alt="avatar" />
+                    </div>
+                    {/* Mock Action Buttons */}
+                    <div className="flex gap-1.5 pb-1">
+                      <div className={`px-2 py-1.5 rounded-lg text-[9px] font-bold shadow-sm border flex items-center gap-1 ${isDarkMode ? 'bg-gray-800 text-gray-300 border-gray-700' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                        <Share2 className="w-2.5 h-2.5" /> مشاركة
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1 mt-1">
-                    <h2 className={`font-black text-xs sm:text-sm line-clamp-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+
+                  {/* Info */}
+                  <div>
+                    <h2 className={`font-black text-sm sm:text-base flex items-center gap-1.5 line-clamp-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                       {(ef as any).store_name || user.name}
+                      {((ef as any).store_type === 'business') && (
+                        <span className={`flex items-center gap-0.5 px-1.5 py-0.5 text-[8px] rounded-full font-bold ${isDarkMode ? 'bg-gray-800/50 text-gray-400' : 'bg-slate-100 text-slate-500'}`}>
+                          <CheckCircle className="w-2.5 h-2.5" /> موثق
+                        </span>
+                      )}
                     </h2>
                     {((ef as any).specialty || (ef as any).store_type === 'business') && (
-                      <p className={`text-[9px] sm:text-[10px] mt-0.5 font-bold ${
+                      <p className={`text-[10px] mt-0.5 font-bold ${
                         (ef as any).store_template === 'beauty' ? 'text-pink-500' :
                         (ef as any).store_template === 'tech' ? 'text-blue-500' :
                         (ef as any).store_template === 'medical' ? 'text-emerald-500' :
-                        (ef as any).store_template === 'auto' ? 'text-slate-500' :
+                        (ef as any).store_template === 'auto' ? 'text-slate-400' :
                         'text-amber-500'
                       }`}>
                         {(ef as any).specialty || 'متجر تجاري'} {((ef as any).specialty_detail) ? ` • ${(ef as any).specialty_detail}` : ''}
                       </p>
                     )}
-                    <p className="text-[8px] sm:text-[9px] text-gray-500 mt-1">
-                      souqbaghdad.store/seller/{(ef as any).username || user.id.substring(0,6)}
+                    <p className={`text-[9px] mt-1.5 flex items-center gap-1 font-mono ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`} dir="ltr">
+                      <Globe className="w-2.5 h-2.5" /> souqbaghdad.store/seller/{(ef as any).username || user.id.substring(0,6)}
                     </p>
-                  </div>
-                  {/* Share button mock */}
-                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-slate-100 text-slate-500'}`}>
-                    <Share2 className="w-3 h-3" />
                   </div>
                 </div>
               </div>
