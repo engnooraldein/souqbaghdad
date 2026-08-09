@@ -148,12 +148,19 @@ export function useAppNavigation() {
 
   useEffect(() => {
     if (view === 'profile' && selectedSellerPhone) {
-      if (selectedSellerPhone.includes('-')) {
+      // UUID format (contains dashes like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+      if (selectedSellerPhone.includes('-') && selectedSellerPhone.length > 30) {
         setSelectedSellerId(selectedSellerPhone);
       } else {
-        supabase.from('profiles').select('id').eq('phone', selectedSellerPhone).maybeSingle().then(({data}) => {
-          if (data) setSelectedSellerId(data.id);
-        });
+        // Could be a phone number OR a username slug - try username first, then phone
+        const slug = selectedSellerPhone;
+        supabase.from('profiles')
+          .select('id')
+          .or(`phone.eq.${slug},username.eq.${slug}`)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (data) setSelectedSellerId(data.id);
+          });
       }
     }
   }, [view, selectedSellerPhone]);

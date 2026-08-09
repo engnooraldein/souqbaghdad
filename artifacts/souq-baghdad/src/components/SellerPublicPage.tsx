@@ -1,4 +1,4 @@
-// ===========================================
+﻿// ===========================================
 // مسؤولية هذا الملف:
 // يعرض الصفحة العامة للبائع (Seller Public Profile).
 //
@@ -23,6 +23,7 @@ import {  } from '../App';
 import { DEFAULT_AVATAR } from '../hooks/useAuth';
 import InfiniteScrollTrigger from './InfiniteScrollTrigger';
 import { DEFAULT_COVER, getCoverImage } from '../constants';
+import { getTemplate } from '../constants/storeTemplates';
 import { useOnlineStatuses } from '../hooks/useOnlineStatuses';
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -623,3 +624,5 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
     </>
   );
 }
+
+

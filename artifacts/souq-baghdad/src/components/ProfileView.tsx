@@ -40,7 +40,7 @@ import {
   Loader2, Wallet, EyeOff, ZoomOut, ZoomIn, CheckCircle, Key, Tag, Package, ImagePlus, Edit2, Phone as PhoneIcon, 
   RefreshCw, TrendingDown, Clock, HelpCircle, Archive, ShoppingCart, Target, 
   Globe, Search as SearchIcon, ArrowLeft, MoreHorizontal, LayoutGrid,
-  FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, 
+  FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, Monitor
 } from 'lucide-react';
 import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
 import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage  } from '../App';
@@ -214,9 +214,9 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
   onFav?: (id: number) => void;
   onStoreGuideClick?: () => void;
   isDarkMode?: boolean;
-  initialTab?: 'ads'|'store'|'favs'|'archive'|'lines'|'account'|'wallet';
+  initialTab?: 'ads'|'store'|'favs'|'archive'|'lines'|'account'|'wallet'|'store_settings';
 }) {
-  const [tab, setTab] = useState<'ads'|'store'|'favs'|'archive'|'lines'|'account'|'wallet'>(() => {
+  const [tab, setTab] = useState<'ads'|'store'|'favs'|'archive'|'lines'|'account'|'wallet'|'store_settings'>(() => {
     if (initialTab) return initialTab;
     if (typeof window !== 'undefined') {
       const path = window.location.pathname;
@@ -310,7 +310,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
     window.open(`https://api.whatsapp.com/send?phone=9647700028170&text=${encodeURIComponent(message)}`, '_blank');
   };
   const [editing, setEditing] = useState(false);
-  const [ef, setEf] = useState({ name:user.name, phone:user.phone, location:user.location, bio:user.bio||'', email:user.email||'' });
+  const [ef, setEf] = useState({ name:user.name, phone:user.phone, location:user.location, bio:user.bio||'', email:user.email||'', username:(user as any).username||'', store_name:(user as any).store_name||'', specialty:(user as any).specialty||'', specialty_detail:(user as any).specialty_detail||'', store_template:(user as any).store_template||'default', whatsapp_business:(user as any).whatsapp_business||'', store_type:(user as any).store_type||'personal' });
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [verifyImage, setVerifyImage] = useState<string|null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -829,7 +829,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
 
         {/* Top Priority Tabs */}
         <div className={`flex gap-2 mb-2 p-2 rounded-2xl border overflow-x-auto scrollbar-hide shadow-lg ${isDarkMode ? 'bg-gray-950/60 border-gray-900' : 'bg-white border-slate-200/80 shadow-slate-100'}`} dir="rtl">
-          {([['lines', '🚌 خطوطي'],['favs', `❤️ المفضلة (${favAds.length + favProducts.length})`],['account','⚙️ الإعدادات']] as [string,string][]).map(([t,l])=>(
+          {((user.role !== 'user' ? [['store_settings', '🌟 متجري الاحترافي']] : []).concat([['lines', '🚌 خطوطي'],['favs', `❤️ المفضلة (${favAds.length + favProducts.length})`],['account','⚙️ الإعدادات']]) as [string,string][]).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t as any)} className={`flex-1 whitespace-nowrap px-3.5 sm:px-4.5 py-3 rounded-xl text-xs sm:text-base font-black transition-all duration-300 ${tab===t?'bg-gradient-to-r from-red-500 to-amber-500 text-white shadow-lg shadow-red-500/20':(isDarkMode ? 'text-gray-300 hover:text-white bg-gray-900 hover:bg-gray-800' : 'text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200')}`}>{l}</button>
           ))}
         </div>
@@ -1551,6 +1551,233 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
             </div>
           </div>
         )}
+        
+        {tab==='store_settings'&&(
+          <div className="space-y-4">
+            <div className={`rounded-2xl p-5 border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200 shadow-sm'}`}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className={`font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-800 font-extrabold'}`}><Store className="w-5 h-5 text-amber-400"/>إعدادات المتجر الاحترافي</h3>
+                {!editing&&<button onClick={()=>setEditing(true)} className="text-xs text-amber-400 hover:underline flex items-center gap-1"><Edit2 className="w-3 h-3"/> تعديل الإعدادات</button>}
+              </div>
+              
+              <div className="space-y-4">
+                {/* Store Type Selection */}
+                <div>
+                  <label className={`text-xs font-medium block mb-2 ${isDarkMode ? 'text-gray-400' : 'text-slate-500 font-semibold'}`}>تصنيف المتجر (نوع الحساب)</label>
+                  <div className="flex gap-3">
+                    <button
+                      disabled={!editing}
+                      onClick={() => setEf({...ef, store_type: 'personal'})}
+                      className={`flex-1 py-3 px-4 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all ${
+                        (ef as any).store_type === 'personal'
+                          ? 'bg-blue-500/10 border-blue-500 text-blue-500 shadow-md ring-1 ring-blue-500'
+                          : isDarkMode 
+                            ? 'bg-gray-800 border-gray-700 text-gray-400' 
+                            : 'bg-white border-slate-200 text-slate-500'
+                      } ${!editing ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    >
+                      <UserIcon className="w-5 h-5 mb-1" />
+                      <span className="font-bold text-sm">حساب شخصي</span>
+                      <span className="text-[9px] opacity-80">لبيع الأغراض المستعملة</span>
+                    </button>
+                    <button
+                      disabled={!editing}
+                      onClick={() => setEf({...ef, store_type: 'business'})}
+                      className={`flex-1 py-3 px-4 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all ${
+                        (ef as any).store_type === 'business'
+                          ? 'bg-amber-500/10 border-amber-500 text-amber-500 shadow-md ring-1 ring-amber-500'
+                          : isDarkMode 
+                            ? 'bg-gray-800 border-gray-700 text-gray-400' 
+                            : 'bg-white border-slate-200 text-slate-500'
+                      } ${!editing ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    >
+                      <Store className="w-5 h-5 mb-1" />
+                      <span className="font-bold text-sm">متجر تجاري</span>
+                      <span className="text-[9px] opacity-80">لأصحاب المهن والمحلات</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Store URL Slug */}
+                <div>
+                  <label className={`text-xs font-medium block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500 font-semibold'}`}>رابط المتجر (اسم المستخدم)</label>
+                  <div className={`flex items-center w-full rounded-xl border transition-colors ${isDarkMode ? 'bg-gray-700 border-gray-600 focus-within:border-amber-400' : 'bg-slate-50 border-slate-200 focus-within:border-amber-500'} ${!editing ? 'opacity-70' : ''}`}>
+                    <span className={`px-3 py-2.5 text-xs border-l ${isDarkMode ? 'border-gray-600 text-gray-400 bg-gray-800 rounded-r-xl' : 'border-slate-200 text-slate-500 bg-slate-100 rounded-r-xl'}`} dir="ltr">souqbaghdad.store/seller/</span>
+                    <input 
+                      disabled={!editing} 
+                      value={(ef as any).username} 
+                      onChange={e=>setEf({...ef, username:e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')})} 
+                      placeholder="my_store_123" 
+                      dir="ltr"
+                      className="flex-1 bg-transparent border-none outline-none px-3 py-2.5 text-sm text-left font-mono"
+                    />
+                  </div>
+                  <p className={`text-[10px] mt-1 ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>يجب أن يحتوي على أحرف إنجليزية وأرقام فقط (بدون مسافات)</p>
+                </div>
+                
+                {/* Store Name */}
+                <div>
+                  <label className={`text-xs font-medium block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500 font-semibold'}`}>اسم المتجر (النشاط التجاري)</label>
+                  <input 
+                    disabled={!editing} 
+                    value={(ef as any).store_name} 
+                    onChange={e=>setEf({...ef, store_name:e.target.value})} 
+                    placeholder="مثال: معرض الهدى للسيارات" 
+                    className={`w-full rounded-xl py-2.5 px-4 border outline-none text-sm transition-colors mb-2 ${isDarkMode ? 'bg-gray-700 text-white border-gray-600 focus:border-amber-400 disabled:opacity-70' : 'bg-slate-50 text-slate-900 border-slate-200 focus:border-amber-500 disabled:opacity-75'}`}
+                  />
+                  {editing && (
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {['معرض', 'مكتب', 'شركة', 'عيادة', 'صيدلية', 'مجمع'].map(s => (
+                        <button key={s} onClick={() => setEf({...ef, store_name: (ef as any).store_name ? `${s} ${(ef as any).store_name}` : s})} className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-amber-400' : 'bg-slate-100 hover:bg-slate-200 text-amber-600'}`}>+ {s}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Specialty */}
+                <div>
+                  <label className={`text-xs font-medium block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500 font-semibold'}`}>التخصص (المهنة)</label>
+                  <input 
+                    disabled={!editing} 
+                    value={(ef as any).specialty} 
+                    onChange={e=>setEf({...ef, specialty:e.target.value})} 
+                    placeholder="مثال: طبيب أسنان، معرض سيارات، مبرمج..." 
+                    className={`w-full rounded-xl py-2.5 px-4 border outline-none text-sm transition-colors mb-2 ${isDarkMode ? 'bg-gray-700 text-white border-gray-600 focus:border-amber-400 disabled:opacity-70' : 'bg-slate-50 text-slate-900 border-slate-200 focus:border-amber-500 disabled:opacity-75'}`}
+                  />
+                  {editing && (
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {['طبيب', 'صيدلي', 'مهندس', 'مبرمج', 'محامي', 'مصور', 'حلاق', 'تجارة عامة', 'سيارات', 'عقارات', 'ملابس', 'إلكترونيات'].map(s => (
+                        <button key={s} onClick={() => setEf({...ef, specialty: s})} className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-colors ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}>{s}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Specialty Detail */}
+                <div>
+                  <label className={`text-xs font-medium block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500 font-semibold'}`}>الوصف الدقيق للتخصص (اختياري)</label>
+                  <input 
+                    disabled={!editing} 
+                    value={(ef as any).specialty_detail} 
+                    onChange={e=>setEf({...ef, specialty_detail:e.target.value})} 
+                    placeholder="مثال: تقويم وتجميل الأسنان" 
+                    className={`w-full rounded-xl py-2.5 px-4 border outline-none text-sm transition-colors mb-2 ${isDarkMode ? 'bg-gray-700 text-white border-gray-600 focus:border-amber-400 disabled:opacity-70' : 'bg-slate-50 text-slate-900 border-slate-200 focus:border-amber-500 disabled:opacity-75'}`}
+                  />
+                  {editing && (
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {['أسنان', 'قلبية', 'أطفال', 'مدني', 'معماري', 'حاسبات', 'أفراح', 'منتجات تجميل', 'هواتف وأجهزة'].map(s => (
+                        <button key={s} onClick={() => setEf({...ef, specialty_detail: s})} className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-colors ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}>{s}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                {/* WhatsApp Business */}
+                <div>
+                  <label className={`text-xs font-medium block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500 font-semibold'}`}>رقم واتساب للأعمال (إن وجد)</label>
+                  <input 
+                    disabled={!editing} 
+                    value={(ef as any).whatsapp_business} 
+                    onChange={e=>setEf({...ef, whatsapp_business:e.target.value})} 
+                    placeholder="07XXXXXXXXX" 
+                    dir="ltr"
+                    className={`w-full text-left font-mono rounded-xl py-2.5 px-4 border outline-none text-sm transition-colors ${isDarkMode ? 'bg-gray-700 text-white border-gray-600 focus:border-amber-400 disabled:opacity-70' : 'bg-slate-50 text-slate-900 border-slate-200 focus:border-amber-500 disabled:opacity-75'}`}
+                  />
+                </div>
+
+                {/* Template Selection */}
+                <div>
+                  <label className={`text-xs font-medium block mb-2 ${isDarkMode ? 'text-gray-400' : 'text-slate-500 font-semibold'}`}>قالب المتجر</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'default', name: 'الافتراضي 🎨' },
+                      { id: 'beauty', name: 'الجمال والأناقة ✨' },
+                      { id: 'tech', name: 'التكنولوجيا 💻' },
+                      { id: 'medical', name: 'الطبي 🩺' },
+                      { id: 'auto', name: 'السيارات 🚗' }
+                    ].map(tpl => (
+                      <button
+                        key={tpl.id}
+                        disabled={!editing}
+                        onClick={() => setEf({...ef, store_template: tpl.id})}
+                        className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
+                          (ef as any).store_template === tpl.id
+                            ? 'bg-amber-500 text-black border-amber-500 shadow-md scale-[1.02]'
+                            : isDarkMode 
+                              ? 'bg-gray-800 text-gray-400 border-gray-700 hover:border-gray-500 disabled:opacity-50' 
+                              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400 disabled:opacity-50'
+                        }`}
+                      >
+                        {tpl.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {editing&&<div className="flex gap-3 pt-4">
+                  <button onClick={() => handleSave()} disabled={isSaving} className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-black rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all">
+                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4"/>}
+                    حفظ إعدادات المتجر
+                  </button>
+                  <button onClick={()=>setEditing(false)} className={`px-4 py-3 rounded-xl text-sm font-bold ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>إلغاء</button>
+                </div>}
+              </div>
+            </div>
+            
+            {/* Live Store Preview */}
+            <div className={`rounded-2xl p-5 border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-slate-50 border-slate-200 shadow-inner'}`}>
+              <h4 className={`font-bold mb-4 flex items-center gap-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-slate-600'}`}>
+                <Monitor className="w-4 h-4" /> معاينة المتجر الحيّة
+              </h4>
+              
+              <div className="w-full aspect-[16/9] sm:aspect-[21/9] rounded-xl overflow-hidden relative shadow-2xl border border-gray-800 pointer-events-none select-none">
+                {/* Cover Preview based on Template */}
+                <div className={`w-full h-[50%] absolute top-0 left-0 ${
+                  (ef as any).store_template === 'beauty' ? 'bg-gradient-to-r from-pink-400 to-rose-400' :
+                  (ef as any).store_template === 'tech' ? 'bg-gradient-to-r from-blue-600 to-cyan-400' :
+                  (ef as any).store_template === 'medical' ? 'bg-gradient-to-r from-emerald-500 to-teal-400' :
+                  (ef as any).store_template === 'auto' ? 'bg-gradient-to-r from-slate-800 to-gray-600' :
+                  'bg-gradient-to-r from-amber-400 to-orange-500'
+                }`} />
+                
+                {/* Store Header Preview */}
+                <div className={`absolute bottom-0 w-full h-[65%] rounded-t-2xl flex items-center px-4 gap-3 ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
+                  <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 -mt-10 flex-shrink-0 z-10 overflow-hidden shadow-lg ${isDarkMode ? 'border-gray-900 bg-gray-800' : 'border-white bg-slate-100'}`}>
+                    <img src={user.avatar || DEFAULT_AVATAR} className="w-full h-full object-cover" alt="avatar" />
+                  </div>
+                  <div className="flex-1 mt-1">
+                    <h2 className={`font-black text-xs sm:text-sm line-clamp-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                      {(ef as any).store_name || user.name}
+                    </h2>
+                    {((ef as any).specialty || (ef as any).store_type === 'business') && (
+                      <p className={`text-[9px] sm:text-[10px] mt-0.5 font-bold ${
+                        (ef as any).store_template === 'beauty' ? 'text-pink-500' :
+                        (ef as any).store_template === 'tech' ? 'text-blue-500' :
+                        (ef as any).store_template === 'medical' ? 'text-emerald-500' :
+                        (ef as any).store_template === 'auto' ? 'text-slate-500' :
+                        'text-amber-500'
+                      }`}>
+                        {(ef as any).specialty || 'متجر تجاري'} {((ef as any).specialty_detail) ? ` • ${(ef as any).specialty_detail}` : ''}
+                      </p>
+                    )}
+                    <p className="text-[8px] sm:text-[9px] text-gray-500 mt-1">
+                      souqbaghdad.store/seller/{(ef as any).username || user.id.substring(0,6)}
+                    </p>
+                  </div>
+                  {/* Share button mock */}
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-slate-100 text-slate-500'}`}>
+                    <Share2 className="w-3 h-3" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className={`rounded-2xl p-5 border ${isDarkMode ? 'bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border-indigo-500/30 text-white' : 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200 text-indigo-900 shadow-sm'}`}>
+              <h4 className="font-bold mb-2 flex items-center gap-2"><Store className="w-4 h-4"/> متجر احترافي</h4>
+              <p className="text-sm leading-relaxed opacity-90">هذه الإعدادات ستجعل متجرك يظهر بتصميم مميز عند مشاركة رابطك مع زبائنك. احرص على اختيار قالب يناسب مهنتك واملأ التفاصيل بشكل دقيق.</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Crop Modal */}
@@ -1603,3 +1830,9 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
     </div>
   );
 }
+
+
+
+
+
+

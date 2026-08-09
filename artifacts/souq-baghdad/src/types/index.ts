@@ -76,6 +76,14 @@ export interface User {
   sellerStats: { totalAds: number; sold: number; responseRate: number; avgResponseTime: string };
   badges?: { isStudent?: boolean; hasVehicle?: boolean; hasID?: boolean; isPhoneVerified?: boolean };
   points?: number;
+  // Professional Store Fields
+  username?: string;          // رابط مخصص: souqbaghdad.store/seller/[username]
+  store_name?: string;        // اسم المتجر التجاري
+  specialty?: string;         // التخصص المهني (طبيب، مهندس، متجر أحذية...)
+  specialty_detail?: string;  // تفاصيل التخصص
+  store_type?: string;        // نوع المتجر: 'personal' | 'business' | 'professional'
+  store_template?: string;    // القالب: 'default'|'beauty'|'tech'|'medical'|'auto'
+  whatsapp_business?: string; // واتساب تجاري منفصل
 }
 
 export interface StoredUser {
