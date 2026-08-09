@@ -6,6 +6,7 @@ import { UNIVERSITIES, PUBLIC_UNIVERSITIES, PRIVATE_UNIVERSITIES, EMPLOYEE_WORKP
 import { supabase } from '../lib/supabase';
 
 export function TransportAlertModal({ onClose, user }: { onClose: () => void; user: any }) {
+  const [activeTab, setActiveTab] = useState<'create'|'my_alerts'>('create');
   const [type, setType] = useState<'offer'|'request'>('request');
   const [categoryType, setCategoryType] = useState<'student'|'employee'|'emergency'>('student');
   const [university, setUniversity] = useState('');
@@ -23,6 +24,11 @@ export function TransportAlertModal({ onClose, user }: { onClose: () => void; us
   const [isSuccess, setIsSuccess] = useState(false);
   const [dbError, setDbError] = useState('');
 
+  // ── My Alerts State ─────────────────────────────────────────────
+  const [myAlerts, setMyAlerts] = useState<any[]>([]);
+  const [isFetchingAlerts, setIsFetchingAlerts] = useState(false);
+  const [deletingId, setDeletingId] = useState<number|null>(null);
+
   useEffect(() => {
     // Lock background scrolling when modal is open safely without touchAction lock
     document.body.style.overflow = 'hidden';
@@ -30,6 +36,49 @@ export function TransportAlertModal({ onClose, user }: { onClose: () => void; us
       document.body.style.overflow = '';
     };
   }, []);
+
+  const fetchMyAlerts = async () => {
+    if (!user) return;
+    setIsFetchingAlerts(true);
+    try {
+      const { data, error } = await supabase
+        .from('transport_alerts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setMyAlerts(data || []);
+    } catch (err) {
+      console.error('Error fetching user alerts:', err);
+    } finally {
+      setIsFetchingAlerts(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'my_alerts') {
+      fetchMyAlerts();
+    }
+  }, [activeTab, user]);
+
+  const handleDeleteAlert = async (alertId: number) => {
+    if (!confirm('هل أنت تأكد من إلغاء هذا التنبيه؟')) return;
+    setDeletingId(alertId);
+    try {
+      const { error } = await supabase
+        .from('transport_alerts')
+        .delete()
+        .eq('id', alertId);
+
+      if (error) throw error;
+      setMyAlerts(prev => prev.filter(a => a.id !== alertId));
+    } catch (err: any) {
+      alert(`تعذر إلغاء التنبيه: ${err.message || err}`);
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const dynamicFormUniversities = categoryType === 'employee' 
     ? [...EMPLOYEE_WORKPLACES, 'أخرى'] 
@@ -100,8 +149,9 @@ export function TransportAlertModal({ onClose, user }: { onClose: () => void; us
       
       setIsSuccess(true);
       setTimeout(() => {
-        onClose();
-      }, 2000);
+        setIsSuccess(false);
+        setActiveTab('my_alerts');
+      }, 1800);
     } catch (err: any) {
       console.error(err);
       const errorText = typeof err === 'object' ? JSON.stringify(err) : String(err);
@@ -128,14 +178,14 @@ export function TransportAlertModal({ onClose, user }: { onClose: () => void; us
         className="relative bg-gray-950/95 border border-emerald-500/30 rounded-3xl w-full max-w-md sm:max-w-lg my-auto overflow-hidden shadow-2xl flex flex-col max-h-[85dvh] sm:max-h-[85vh] z-10"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10 shrink-0">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10 shrink-0" dir="rtl">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
               <Bell className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-black text-white">تفعيل التنبيهات الذكية 🔔</h2>
-              <p className="text-xs text-gray-400 font-semibold">سنخبرك فور توفر الخط المطلوب</p>
+              <h2 className="text-lg sm:text-xl font-black text-white">تنبيهات الخطوط الذكية 🔔</h2>
+              <p className="text-xs text-gray-400 font-semibold">إدارة وتفعيل تنبيهات الخطوط المطلوبة</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2.5 bg-gray-900/60 border border-gray-800 hover:border-gray-700 rounded-xl text-gray-400 hover:text-white transition-colors" title="إغلاق" aria-label="إغلاق">
@@ -143,7 +193,161 @@ export function TransportAlertModal({ onClose, user }: { onClose: () => void; us
           </button>
         </div>
 
-        {isSuccess ? (
+        {/* Top Tab Bar: Create Alert vs My Active Alerts vs Test Preview */}
+        <div className="p-2 bg-gray-900/80 border-b border-gray-800 flex gap-1.5 shrink-0" dir="rtl">
+          <button
+            type="button"
+            onClick={() => setActiveTab('create')}
+            className={`flex-1 py-2 rounded-xl text-[11px] sm:text-xs font-black transition-all flex items-center justify-center gap-1 ${
+              activeTab === 'create'
+                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+            }`}
+          >
+            <span>+ تفعيل تنبيه</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('my_alerts')}
+            className={`flex-1 py-2 rounded-xl text-[11px] sm:text-xs font-black transition-all flex items-center justify-center gap-1 ${
+              activeTab === 'my_alerts'
+                ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+            }`}
+          >
+            <span>تنبيهاتي 🔔</span>
+            {myAlerts.length > 0 && (
+              <span className="bg-black/20 text-black px-1.5 py-0.5 rounded-full text-[10px] font-black">
+                {myAlerts.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('test_demo')}
+            className={`py-2 px-2.5 rounded-xl text-[11px] sm:text-xs font-black transition-all flex items-center justify-center gap-1 ${
+              activeTab === 'test_demo'
+                ? 'bg-sky-500 text-white shadow-md shadow-sky-500/20'
+                : 'text-sky-400 hover:text-sky-300 hover:bg-sky-500/10 border border-sky-500/20'
+            }`}
+            title="تجربة نموذج الإشعار التجريبي للمالك"
+          >
+            <span>نموذج تجريبي 🧪</span>
+          </button>
+        </div>
+
+        {/* DEMO TEST NOTIFICATION TAB */}
+        {activeTab === 'test_demo' ? (
+          <div className="flex-1 overflow-y-auto p-4 space-y-4" dir="rtl">
+            <div className="p-4 bg-gradient-to-br from-slate-900 via-gray-950 to-slate-950 border border-sky-500/40 rounded-2xl shadow-xl space-y-3">
+              <div className="flex items-center justify-between border-b border-sky-500/20 pb-2">
+                <span className="bg-sky-500 text-white font-black text-[10px] px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+                  <span>🧪</span> نموذج إشعار تجريبي (معاينة المالك)
+                </span>
+                <span className="text-gray-400 text-[10px] font-bold">الآن ⏱️</span>
+              </div>
+
+              <div className="space-y-2 text-right">
+                <h4 className="text-white font-black text-sm flex items-center gap-1.5">
+                  <span className="text-emerald-400">🚌</span> تم العثور على خط يطابق طلبك!
+                </h4>
+                <div className="p-3 bg-gray-900/90 rounded-xl border border-gray-800 space-y-1.5 text-xs">
+                  <p className="text-gray-300 font-bold">
+                    <span className="text-amber-400 font-black">الانطلاق:</span> المنصور / اليرموك / الداودي
+                  </p>
+                  <p className="text-gray-300 font-bold">
+                    <span className="text-emerald-400 font-black">الوجهة:</span> جامعة بغداد (الجادرية)
+                  </p>
+                  <p className="text-gray-300 font-bold">
+                    <span className="text-sky-400 font-black">المركبة:</span> كيا سيراتو 2023 - خط طلابي صباحي (مكيفة)
+                  </p>
+                  <p className="text-gray-400 text-[11px] italic pt-1 border-t border-gray-800">
+                    ملاحظة السائق: "التزام تام بالمواعيد والأجور الشهرية، متوفر 3 مقاعد متبقية للطلاب."
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => alert("هذا إشعار تجريبي لاختبار التنبيهات! يعمل الإشعار الحقيقي تلقائياً فور توفر سائق طابق اختيارك.")}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1 shadow-md"
+                >
+                  💬 فتح وتواصل مباشر (معاينة)
+                </button>
+              </div>
+            </div>
+
+            <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs font-bold leading-relaxed">
+              💡 <strong>ملاحظة للمالك:</strong> هذا النموذج التجريبي يوضح شكل الرسالة الحقيقية التي تصل لهاتف الزبون ولتليكرام ولجرس الإشعارات فور نشر أي خط يطابق تنبيهاته!
+            </div>
+          </div>
+        ) : activeTab === 'my_alerts' ? (
+          <div className="flex-1 overflow-y-auto p-4 space-y-3" dir="rtl">
+            {!user ? (
+              <div className="py-12 text-center space-y-3">
+                <p className="text-gray-300 font-bold text-sm">يرجى تسجيل الدخول لعرض وإدارة تنبيهاتك المسجلة 🔐</p>
+              </div>
+            ) : isFetchingAlerts ? (
+              <div className="py-12 text-center text-gray-400 text-sm font-bold animate-pulse">
+                جاري تحميل تنبيهاتك المسجلة...
+              </div>
+            ) : myAlerts.length === 0 ? (
+              <div className="py-12 text-center space-y-3">
+                <div className="text-4xl">🔔</div>
+                <h3 className="text-white font-bold text-base">لا توجد لديك تنبيهات نشطة حالياً</h3>
+                <p className="text-gray-400 text-xs font-semibold max-w-xs mx-auto">
+                  يمكنك تفعيل تنبيه لخط معين ليقوم النظام بإشعارك فور توفر سائق أو راكب يطابق طلبك!
+                </p>
+                <button
+                  onClick={() => setActiveTab('create')}
+                  className="px-4 py-2 bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-md"
+                >
+                  + تفعيل تنبيه جديد الآن
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-gray-400 text-xs font-bold mb-1">تنبيهاتك المسجلة ({myAlerts.length}):</p>
+                {myAlerts.map((alt: any) => (
+                  <div 
+                    key={alt.id}
+                    className="p-3.5 rounded-2xl bg-gray-900/90 border border-gray-800 flex flex-col justify-between gap-2.5 shadow-md hover:border-gray-700 transition-all"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[10px] font-black border border-amber-500/30">
+                            {alt.destination}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[10px] font-black border border-emerald-500/30">
+                            {alt.type === 'offer' ? 'صاحب خط' : 'طلب خط'}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 text-[10px] font-bold">
+                            {alt.category_type === 'employee' ? '👔 موظفين' : alt.category_type === 'emergency' ? '⚡ طوارئ' : '🎓 طلاب'}
+                          </span>
+                        </div>
+                        <p className="text-white text-xs font-bold mt-1">
+                          <span className="text-gray-400 font-normal">المناطق: </span>
+                          <span className="text-emerald-400 font-extrabold">{alt.region_keyword}</span>
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => handleDeleteAlert(alt.id)}
+                        disabled={deletingId === alt.id}
+                        className="px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1 disabled:opacity-50"
+                        title="إلغاء التنبيه"
+                      >
+                        <span>{deletingId === alt.id ? 'جاري الإلغاء...' : 'إلغاء التنبيه 🗑️'}</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : isSuccess ? (
           <div className="p-8 flex flex-col items-center justify-center text-center space-y-4">
             <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center border border-emerald-500/30">
               <Bell className="w-10 h-10 text-emerald-400 animate-bounce" />

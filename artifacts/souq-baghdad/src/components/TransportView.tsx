@@ -331,19 +331,40 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
                 <label className="text-amber-400 text-xs font-black mr-1 mb-1 block">
                   {rideTypeTab === 'emergency' ? 'الوجهة المطلوبة' : mainCategoryFilter === 'employee' ? 'مكان العمل' : 'الوجهة / الجامعة'}
                 </label>
-                <select value={filterUniversity} onChange={e=>setFilterUniversity(e.target.value)} title="تصفية بالوجهة" aria-label="تصفية بالوجهة"
-                  className="w-full bg-gray-900 text-white font-bold rounded-xl py-2.5 px-3 border border-gray-700 focus:border-emerald-400 outline-none text-xs sm:text-sm transition-all cursor-pointer [color-scheme:dark]">
-                  {dynamicUniversities.map(c=><option key={c} value={c} className="bg-gray-900 text-white font-bold">{c}</option>)}
-                </select>
+                <div className="relative">
+                  <select 
+                    value={filterUniversity} 
+                    onChange={e=>setFilterUniversity(e.target.value)} 
+                    title="تصفية بالوجهة" 
+                    aria-label="تصفية بالوجهة"
+                    className={`w-full bg-gray-900 text-white font-black rounded-xl py-2.5 pr-2 pl-5 border border-gray-700 focus:border-emerald-400 outline-none transition-all cursor-pointer appearance-none [color-scheme:dark] ${
+                      filterUniversity.length > 25 
+                        ? 'text-[8.5px] sm:text-[10.5px] tracking-tighter leading-none' 
+                        : filterUniversity.length > 15 
+                          ? 'text-[10px] sm:text-xs tracking-tight' 
+                          : 'text-xs sm:text-sm'
+                    }`}
+                  >
+                    {dynamicUniversities.map(c=>(
+                      <option key={c} value={c} className="bg-gray-900 text-white font-bold text-xs py-1">
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronRight className="w-3.5 h-3.5 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+                </div>
               </div>
               <div>
                 <label className="text-amber-400 text-xs font-black mr-1 mb-1 block">نوع الإعلان</label>
-                <select value={filterType} onChange={e=>setFilterType(e.target.value)} title="تصفية بنوع الإعلان" aria-label="تصفية بنوع الإعلان"
-                  className="w-full bg-gray-900 text-white font-bold rounded-xl py-2.5 px-3 border border-gray-700 focus:border-emerald-400 outline-none text-xs sm:text-sm transition-all cursor-pointer [color-scheme:dark]">
-                  <option className="bg-gray-900 text-white font-bold" value="الكل">الكل</option>
-                  <option className="bg-gray-900 text-white font-bold" value="صاحب الخط">صاحب الخط</option>
-                  <option className="bg-gray-900 text-white font-bold" value="ابحث عن خط">ابحث عن خط</option>
-                </select>
+                <div className="relative">
+                  <select value={filterType} onChange={e=>setFilterType(e.target.value)} title="تصفية بنوع الإعلان" aria-label="تصفية بنوع الإعلان"
+                    className="w-full bg-gray-900 text-white font-bold rounded-xl py-2.5 pr-2 pl-5 border border-gray-700 focus:border-emerald-400 outline-none text-xs sm:text-sm transition-all cursor-pointer appearance-none [color-scheme:dark]">
+                    <option className="bg-gray-900 text-white font-bold" value="الكل">الكل</option>
+                    <option className="bg-gray-900 text-white font-bold" value="صاحب الخط">صاحب الخط</option>
+                    <option className="bg-gray-900 text-white font-bold" value="ابحث عن خط">ابحث عن خط</option>
+                  </select>
+                  <ChevronRight className="w-3.5 h-3.5 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+                </div>
               </div>
             </div>
           </div>

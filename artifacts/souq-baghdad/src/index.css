@@ -170,9 +170,8 @@
     -webkit-touch-callout: none;
   }
 
-  /* Momentum / inertia scrolling on iOS */
+  /* Momentum / inertia scrolling on mobile */
   [data-scroll], .overflow-y-auto, .overflow-y-scroll, .overflow-auto, .overflow-scroll {
-    -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
     touch-action: pan-y; /* Optimize touch scrolling */
   }
