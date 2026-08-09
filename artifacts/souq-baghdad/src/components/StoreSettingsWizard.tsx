@@ -156,7 +156,7 @@ export const StoreSettingsWizard: React.FC<StoreSettingsWizardProps> = ({ ef, se
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="flex flex-col gap-5">
         {/* Store Name */}
         <div>
           <label className={`text-sm font-bold block mb-2 ${isDarkMode ? 'text-gray-300' : 'text-slate-600'}`}>اسم المتجر / النشاط</label>
@@ -180,7 +180,7 @@ export const StoreSettingsWizard: React.FC<StoreSettingsWizardProps> = ({ ef, se
             {usernameStatus === 'available' && <span className="flex items-center gap-1 text-[10px] text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full"><CheckCircle className="w-3 h-3"/> متاح</span>}
             {usernameStatus === 'taken' && <span className="flex items-center gap-1 text-[10px] text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full"><AlertTriangle className="w-3 h-3"/> غير متوفر</span>}
           </label>
-          <div dir="ltr" className={`flex items-center w-full rounded-xl border transition-all ${
+          <div dir="ltr" className={`flex items-center w-full rounded-xl border transition-all overflow-hidden ${
             usernameStatus === 'taken' 
               ? 'border-red-500 focus-within:ring-red-500/50' 
               : usernameStatus === 'available'
@@ -195,7 +195,7 @@ export const StoreSettingsWizard: React.FC<StoreSettingsWizardProps> = ({ ef, se
               value={ef.username || ''} 
               onChange={e => setEf({...ef, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')})} 
               placeholder="my_store_123" 
-              className={`flex-1 bg-transparent border-none outline-none px-3 py-3 text-sm text-left font-mono font-bold ${
+              className={`flex-1 min-w-0 bg-transparent border-none outline-none px-3 py-3 text-sm text-left font-mono font-bold ${
                 usernameStatus === 'taken' ? 'text-red-500' : (isDarkMode ? 'text-white' : 'text-slate-900')
               }`}
             />

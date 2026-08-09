@@ -1687,12 +1687,21 @@ export function MarketView({
                                 </div>
 
                                 {/* Title & Description body */}
-                                <div className="space-y-1.5 cursor-pointer" onClick={() => onSelectAd(ad)}>
-                                  <h3 className={`text-base font-black transition-colors ${
-                                    isDarkMode ? 'text-white group-hover:text-amber-300' : 'text-black group-hover:text-amber-600'
-                                  }`}>
-                                    {ad.title}
-                                  </h3>
+                                <div className="space-y-2 cursor-pointer mt-1" onClick={() => onSelectAd(ad)}>
+                                  <div className="flex items-start justify-between gap-3">
+                                    <h3 className={`text-base sm:text-lg font-black transition-colors leading-snug ${
+                                      isDarkMode ? 'text-white group-hover:text-amber-300' : 'text-black group-hover:text-amber-600'
+                                    }`}>
+                                      {ad.title}
+                                    </h3>
+                                    {ad.price && (
+                                      <div className={`shrink-0 px-3 py-1.5 rounded-xl border font-black text-sm sm:text-base tracking-tight flex items-center gap-1 ${
+                                        isDarkMode ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-inner' : 'bg-amber-50 text-amber-600 border-amber-200 shadow-sm'
+                                      }`}>
+                                        {formatPrice(ad.price)} <span className="text-[9px] sm:text-[10px] opacity-70">د.ع</span>
+                                      </div>
+                                    )}
+                                  </div>
                                   {ad.description && (
                                     <p className={`text-xs sm:text-sm leading-relaxed line-clamp-3 transition-colors duration-500 ${
                                       isDarkMode ? 'text-gray-300' : 'text-slate-600'
@@ -1721,12 +1730,6 @@ export function MarketView({
                                       </div>
                                     )}
 
-                                    {/* Price Tag Overlay */}
-                                    {ad.price && (
-                                      <div className="absolute top-3 right-3 bg-amber-500 text-black text-xs font-black px-3 py-1.5 rounded-xl shadow-lg border border-amber-400/40 font-mono">
-                                        {formatPrice(ad.price)}
-                                      </div>
-                                    )}
                                   </div>
                                 )}
 
