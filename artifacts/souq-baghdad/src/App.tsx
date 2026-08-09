@@ -494,7 +494,6 @@ export default function App() {
         bio: u.bio, 
         city: u.location, 
         role: u.role,
-        username: u.username,
         store_metadata: finalMetadata 
       }, { onConflict: 'id' });
 
