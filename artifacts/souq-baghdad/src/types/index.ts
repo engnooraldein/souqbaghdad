@@ -84,6 +84,8 @@ export interface User {
   store_type?: string;        // نوع المتجر: 'personal' | 'business' | 'professional'
   store_template?: string;    // القالب: 'default'|'beauty'|'tech'|'medical'|'auto'
   whatsapp_business?: string; // واتساب تجاري منفصل
+  store_language?: 'ar' | 'en' | 'auto'; // لغة عرض المتجر
+  store_metadata?: any;       // الخصائص الديناميكية المخصصة للمهنة
 }
 
 export interface StoredUser {

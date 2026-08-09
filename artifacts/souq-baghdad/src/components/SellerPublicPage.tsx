@@ -1,4 +1,4 @@
-﻿// ===========================================
+// ===========================================
 // مسؤولية هذا الملف:
 // يعرض الصفحة العامة للبائع (Seller Public Profile).
 //
@@ -258,7 +258,16 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
             ratingCount: 5,
             cover: dbProfile.cover_url || DEFAULT_COVER,
             created_at: dbProfile.created_at,
-            role: dbProfile.role || 'user'
+            role: dbProfile.role || 'user',
+            store_name: dbProfile.store_name,
+            store_type: dbProfile.store_type,
+            specialty: dbProfile.specialty,
+            specialty_detail: dbProfile.specialty_detail,
+            store_template: dbProfile.store_template,
+            store_language: dbProfile.store_language,
+            bio: dbProfile.bio,
+            whatsapp_business: dbProfile.whatsapp_business,
+            store_metadata: dbProfile.store_metadata
           });
         }
       } catch (e) {
@@ -351,15 +360,48 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
     isVerified: sellerInfo?.isVerified || false,
     rating: sellerInfo?.rating || 4.8,
     ratingCount: 5,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    store_name: sellerUser?.store_name,
+    store_type: sellerUser?.store_type,
+    specialty: sellerUser?.specialty,
+    specialty_detail: sellerUser?.specialty_detail,
+    store_template: sellerUser?.store_template,
+    store_language: sellerUser?.store_language,
+    bio: sellerUser?.bio,
+    whatsapp_business: sellerUser?.whatsapp_business,
+    store_metadata: sellerUser?.store_metadata,
+    role: sellerUser?.role || 'user'
+  };
+
+  const storeTemplateId = effectiveSeller.store_template || 'default';
+  const tpl = getTemplate(storeTemplateId);
+
+  const lang = effectiveSeller.store_language === 'en' ? 'en' : 'ar';
+  const t = {
+    verified: lang === 'en' ? 'Verified' : 'موثق',
+    online: lang === 'en' ? 'Online' : 'متصل الآن',
+    offline: lang === 'en' ? 'Offline' : 'غير متصل',
+    sellerRating: lang === 'en' ? 'Seller Rating:' : 'تقييم البائع:',
+    ratingsCount: lang === 'en' ? 'ratings' : 'تقييم',
+    deleteProfile: lang === 'en' ? 'Delete Profile' : 'حذف الملف الشخصي',
+    joined: lang === 'en' ? 'Joined' : 'انضم في',
+    aboutStore: lang === 'en' ? 'About Store' : 'نبذة عن المتجر',
+    university: lang === 'en' ? 'University:' : 'الجامعة:',
+    locationBtn: lang === 'en' ? 'Location Map' : 'موقع الجغرافي',
+    whatsappBtn: lang === 'en' ? 'WhatsApp' : 'واتساب تجاري',
+    ads: lang === 'en' ? 'Ads' : 'إعلان',
+    products: lang === 'en' ? 'Products' : 'منتج',
+    views: lang === 'en' ? 'Views' : 'مشاهدة',
+    shareStore: lang === 'en' ? 'Share Store' : 'مشاركة المتجر',
+    back: lang === 'en' ? 'Back' : 'رجوع'
   };
 
   return (
     <>
       <LoadingScreen isLoading={loadingProfile || loadingContent} />
-      <div className={`min-h-screen pt-16 pb-10 transition-colors duration-300 ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-800'}`}>
+      <div className={`min-h-screen pt-16 pb-10 transition-colors duration-300 ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-800'}`} dir={lang === 'en' ? 'ltr' : 'rtl'}>
       {/* Cover */}
-      <div className={`w-full aspect-[3/1] md:aspect-[4/1] ${isDarkMode ? 'bg-gray-900' : 'bg-slate-200'} relative overflow-hidden flex items-center justify-center`}>
+      <div className={`w-full aspect-[3/1] md:aspect-[4/1] bg-gradient-to-br ${tpl.bannerGradient} relative overflow-hidden flex items-center justify-center`}>
         <img 
           src={effectiveSeller?.cover || DEFAULT_COVER} 
           alt="Cover" 
@@ -404,9 +446,9 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
                 url: '/seller/' + effectiveSeller.id,
                 image: effectiveSeller.avatar || DEFAULT_AVATAR
               });
-            }} className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-sm font-bold shadow-lg border transition-colors ${isDarkMode ? 'bg-gradient-to-r from-indigo-900 to-purple-900 text-white border-transparent hover:from-indigo-800 hover:to-purple-800' : 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'}`} title="مشاركة المتجر">
+            }} className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-sm font-bold shadow-lg border transition-colors ${isDarkMode ? 'bg-gradient-to-r from-indigo-900 to-purple-900 text-white border-transparent hover:from-indigo-800 hover:to-purple-800' : 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'}`} title={t.shareStore}>
               <Share2 className="w-4 h-4"/>
-              <span>مشاركة المتجر</span>
+              <span>{t.shareStore}</span>
             </button>
             {user && String(effectiveSeller.id) !== String(user.id) && (
               <>
@@ -424,8 +466,8 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
               </>
             )}
             <button onClick={onBack} className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-sm font-bold shadow-lg transition-colors ${isDarkMode ? 'bg-gray-800 text-white hover:bg-gray-750' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}`}>
-              <ChevronRight className="w-4 h-4"/>
-              <span className="hidden sm:inline">رجوع</span>
+              <ChevronLeft className="w-4 h-4"/>
+              <span className="hidden sm:inline">{t.back}</span>
             </button>
           </div>
         </div>
@@ -433,10 +475,17 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
         {/* User Details */}
         <div className="mb-5">
           <div className="flex flex-wrap items-center gap-2 mb-1">
-            <h2 className={`text-xl sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{effectiveSeller?.name}</h2>
+            <h2 className={`text-xl sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+              {effectiveSeller.store_name ? effectiveSeller.store_name : effectiveSeller?.name}
+            </h2>
+            {effectiveSeller.store_type === 'business' && (
+              <span className={`flex items-center gap-1 px-2.5 py-0.5 border text-xs rounded-full font-bold ${tpl.accentBg} ${tpl.accentText} ${tpl.borderColor}`}>
+                <span>{tpl.emoji}</span> {effectiveSeller.specialty || tpl.label}
+              </span>
+            )}
             {effectiveSeller?.isVerified && (
               <span className={`flex items-center gap-1 px-2 py-0.5 text-xs rounded-full font-bold ${isDarkMode ? 'bg-gray-800/20 text-gray-400' : 'bg-slate-200/50 text-slate-500'}`}>
-                <VerifiedBadge className="w-3 h-3"/> موثق
+                <VerifiedBadge className="w-3 h-3"/> {t.verified}
               </span>
             )}
             {(() => {
@@ -457,18 +506,18 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
             })()}
             {Boolean((user && (String(effectiveSeller.id) === String(user.id) || String(effectiveSeller.phone) === String(user.phone))) || onlineStatuses[effectiveSeller.id] || onlineStatuses[effectiveSeller.phone]) ? (
               <span className={`flex items-center gap-1 px-2.5 py-0.5 border text-xs rounded-full font-bold ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50/70 text-emerald-600 border-emerald-200/60'}`}>
-                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> متصل الآن
+                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> {t.online}
               </span>
             ) : (
               <span className={`flex items-center gap-1 px-2.5 py-0.5 border text-xs rounded-full font-medium ${isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700' : 'bg-slate-200 text-slate-500 border-slate-350'}`}>
-                غير متصل
+                {t.offline}
               </span>
             )}
           </div>
           
           {/* Interactive Rating */}
           <div className={`flex items-center gap-2 mt-2 p-2.5 rounded-xl border inline-flex flex-wrap ${isDarkMode ? 'bg-gray-800/40 border-gray-800/80 text-gray-400' : 'bg-white border-slate-200 text-slate-650 shadow-sm'}`}>
-            <span className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>تقييم البائع:</span>
+            <span className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>{t.sellerRating}</span>
             <div className="flex items-center gap-1">
               {[1, 2, 3, 4, 5].map((stars) => {
                 const isLit = stars <= Math.round(effectiveSeller.rating);
@@ -484,34 +533,87 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
                 );
               })}
             </div>
-            <span className="text-amber-400 font-bold text-sm mr-1">{effectiveSeller.rating}</span>
-            <span className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>({effectiveSeller.ratingCount || 1} تقييم)</span>
+            <span className="text-amber-400 font-bold text-sm mx-1">{effectiveSeller.rating}</span>
+            <span className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>({effectiveSeller.ratingCount || 1} {t.ratingsCount})</span>
           </div>
 
           {user && (user.role === 'admin' || user.role === 'owner') && (
             <div className="mt-3">
               <button 
                 onClick={() => {
-                  if(window.confirm('هل أنت متأكد من حذف هذا الملف الشخصي وجميع إعلاناته؟')) {
+                  if(window.confirm('Are you sure you want to delete this profile?')) {
                     onDeleteProfile?.(sellerId);
                   }
                 }} 
                 className={`flex items-center gap-1.5 px-4 py-2 border rounded-xl font-bold transition-colors text-sm w-max ${isDarkMode ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20' : 'bg-red-50 text-red-500 border-red-100 hover:bg-red-100/85 shadow-sm'}`}
               >
-                <Trash2 className="w-4 h-4"/> حذف الملف الشخصي
+                <Trash2 className="w-4 h-4"/> {t.deleteProfile}
               </button>
             </div>
           )}
 
           <p className={`text-sm mt-3 flex items-center gap-3 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>
             <span className="flex items-center gap-1"><MapPin className={`w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`} />{effectiveSeller.location}</span>
-            <span className="flex items-center gap-1"><Calendar className={`w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`} />انضم في {formatJoinedDate(effectiveSeller.joinedDate || effectiveSeller.created_at || new Date().toISOString())}</span>
+            <span className="flex items-center gap-1"><Calendar className={`w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`} />{t.joined} {formatJoinedDate(effectiveSeller.joinedDate || effectiveSeller.created_at || new Date().toISOString())}</span>
           </p>
+
+          {/* Professional Details Section */}
+          {effectiveSeller.store_type === 'business' && (
+            <div className={`mt-4 p-4 rounded-2xl border ${isDarkMode ? 'bg-gray-800/40 border-gray-800 text-gray-300' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+              
+              {/* Store Bio */}
+              {effectiveSeller.bio && (
+                <div className="mb-4">
+                  <h4 className={`text-sm font-bold flex items-center gap-1 mb-2 ${tpl.accentText}`}>
+                    <Info className="w-4 h-4" /> {t.aboutStore}
+                  </h4>
+                  <p className="text-sm leading-relaxed opacity-90">{effectiveSeller.bio}</p>
+                </div>
+              )}
+
+              {/* Dynamic Metadata Fields */}
+              {effectiveSeller.specialty === 'طبيب' && effectiveSeller.store_metadata && (
+                <div className="flex flex-wrap gap-3 mt-3">
+                  {effectiveSeller.store_metadata.medical_degree && (
+                    <span className={`text-xs px-2.5 py-1 rounded-lg border ${tpl.accentBg} ${tpl.accentText} ${tpl.borderColor}`}>
+                      {effectiveSeller.store_metadata.medical_degree}
+                    </span>
+                  )}
+                  {effectiveSeller.store_metadata.university && (
+                    <span className={`text-xs px-2.5 py-1 rounded-lg border flex items-center gap-1 ${tpl.accentBg} ${tpl.accentText} ${tpl.borderColor}`}>
+                      {t.university} {effectiveSeller.store_metadata.university}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Action Buttons: Maps & WhatsApp Business */}
+              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-700/30">
+                {effectiveSeller.store_metadata?.maps_link && (
+                  <button 
+                    onClick={() => window.open(effectiveSeller.store_metadata.maps_link, '_blank')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${isDarkMode ? 'bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/50' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+                  >
+                    <MapPin className="w-3.5 h-3.5" /> {t.locationBtn}
+                  </button>
+                )}
+                {effectiveSeller.whatsapp_business && (
+                  <button 
+                    onClick={() => window.open(getWhatsAppLink(effectiveSeller.whatsapp_business!), '_blank')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${isDarkMode ? 'bg-green-900/30 text-green-400 hover:bg-green-900/50' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" /> {t.whatsappBtn}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 mb-5">
-          {[{v:sellerAds.length,l:'إعلان',c:'text-amber-400'},{v:sellerProds.length,l:'منتج',c:'text-purple-400'},{v:sellerAds.reduce((s,a)=>s+a.views,0)+sellerProds.reduce((s,p)=>s+p.views,0),l:'مشاهدة',c:'text-gray-400'}].map((s,i)=>(
+          {[{v:sellerAds.length,l:t.ads,c:'text-amber-400'},{v:sellerProds.length,l:t.products,c:'text-purple-400'},{v:sellerAds.reduce((s,a)=>s+a.views,0)+sellerProds.reduce((s,p)=>s+p.views,0),l:t.views,c:'text-gray-400'}].map((s,i)=>(
             <div key={i} className={`rounded-2xl p-3 text-center border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200/80 shadow-sm'}`}>
               <p className={`text-2xl font-bold ${s.c}`}>{s.v}</p>
               <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>{s.l}</p>

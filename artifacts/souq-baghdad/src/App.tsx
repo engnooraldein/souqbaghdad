@@ -472,7 +472,7 @@ export default function App() {
     if (!quiet) {
       localStorage.removeItem('souq_cached_profiles');
       localStorage.removeItem('souq_cached_profiles_time');
-      await supabase.from('profiles').upsert({ id: u.id, full_name: u.name, email: cleanEmail || undefined, phone: u.phone || null, avatar_url: u.avatar, cover_url: u.cover, bio: u.bio, city: u.location, role: u.role }, { onConflict: 'id' });
+      await supabase.from('profiles').upsert({ id: u.id, full_name: u.name, email: cleanEmail || undefined, phone: u.phone || null, avatar_url: u.avatar, cover_url: u.cover, bio: u.bio, city: u.location, role: u.role, store_metadata: u.store_metadata }, { onConflict: 'id' });
       try { await supabase.auth.updateUser({ data: { full_name: u.name, phone: u.phone || '' } }); } catch (authErr) {}
       showToast('تم حفظ الملف الشخصي ✅', 'success');
     }
