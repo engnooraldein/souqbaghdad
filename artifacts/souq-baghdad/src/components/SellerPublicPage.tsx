@@ -391,8 +391,14 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
     aboutStore: lang === 'en' ? 'About Store' : 'نبذة عن المتجر',
     university: lang === 'en' ? 'University:' : 'الجامعة:',
     experience: lang === 'en' ? 'Years of Exp:' : 'سنوات الخبرة:',
+    license: lang === 'en' ? 'License No:' : 'رقم الإجازة:',
+    workingHours: lang === 'en' ? 'Working Hours:' : 'ساعات العمل:',
+    deliveryYes: lang === 'en' ? 'Delivery Available' : 'تتوفر خدمة توصيل',
+    deliveryNo: lang === 'en' ? 'No Delivery' : 'لا تتوفر خدمة توصيل',
     locationBtn: lang === 'en' ? 'Location Map' : 'موقع الجغرافي',
     whatsappBtn: lang === 'en' ? 'WhatsApp' : 'واتساب تجاري',
+    instagramBtn: lang === 'en' ? 'Instagram' : 'انستغرام',
+    facebookBtn: lang === 'en' ? 'Facebook' : 'فيسبوك',
     ads: isPortfolio ? (lang === 'en' ? 'Portfolio' : 'أعمالي') : (lang === 'en' ? 'Ads' : 'إعلان'),
     products: isPortfolio ? (lang === 'en' ? 'Portfolio' : 'أعمالي') : (lang === 'en' ? 'Products' : 'منتج'),
     views: lang === 'en' ? 'Views' : 'مشاهدة',
@@ -576,7 +582,7 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
               )}
 
               {/* Dynamic Metadata Fields */}
-              {effectiveSeller.specialty === 'طبيب' && effectiveSeller.store_metadata && (
+              {['طبيب', 'صيدلي', 'مهندس', 'محامي'].includes(effectiveSeller.specialty || '') && effectiveSeller.store_metadata && (
                 <div className="flex flex-wrap gap-3 mt-3">
                   {effectiveSeller.store_metadata.years_of_experience && (
                     <span className={`text-xs px-2.5 py-1 rounded-lg border ${tpl.accentBg} ${tpl.accentText} ${tpl.borderColor}`}>
@@ -593,10 +599,36 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
                       {t.university} {effectiveSeller.store_metadata.university}
                     </span>
                   )}
+                  {effectiveSeller.store_metadata.license_number && (
+                    <span className={`text-xs px-2.5 py-1 rounded-lg border flex items-center gap-1 ${tpl.accentBg} ${tpl.accentText} ${tpl.borderColor}`}>
+                      <ShieldCheck className="w-3.5 h-3.5" /> {t.license} {effectiveSeller.store_metadata.license_number}
+                    </span>
+                  )}
                 </div>
               )}
 
-              {/* Action Buttons: Maps & WhatsApp Business */}
+              {/* Working Hours & Delivery */}
+              {effectiveSeller.store_metadata && (effectiveSeller.store_metadata.working_hours || effectiveSeller.store_metadata.delivery_available) && (
+                <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-gray-700/30">
+                  {effectiveSeller.store_metadata.working_hours && (
+                    <span className={`text-xs px-2.5 py-1 rounded-lg flex items-center gap-1.5 ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-slate-100 text-slate-600'}`}>
+                      <Clock className="w-3.5 h-3.5" /> {t.workingHours} {effectiveSeller.store_metadata.working_hours}
+                    </span>
+                  )}
+                  {effectiveSeller.store_metadata.delivery_available === 'yes' && (
+                    <span className={`text-xs px-2.5 py-1 rounded-lg flex items-center gap-1.5 ${isDarkMode ? 'bg-indigo-900/40 text-indigo-300' : 'bg-indigo-50 text-indigo-600'}`}>
+                      <Truck className="w-3.5 h-3.5" /> {t.deliveryYes}
+                    </span>
+                  )}
+                  {effectiveSeller.store_metadata.delivery_available === 'no' && (
+                    <span className={`text-xs px-2.5 py-1 rounded-lg flex items-center gap-1.5 ${isDarkMode ? 'bg-gray-800 text-gray-500' : 'bg-slate-100 text-slate-400'}`}>
+                      <Truck className="w-3.5 h-3.5 opacity-50" /> {t.deliveryNo}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Action Buttons: Maps & Social */}
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-700/30">
                 {effectiveSeller.store_metadata?.maps_link && (
                   <button 
@@ -612,6 +644,22 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${isDarkMode ? 'bg-green-900/30 text-green-400 hover:bg-green-900/50' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
                   >
                     <MessageCircle className="w-3.5 h-3.5" /> {t.whatsappBtn}
+                  </button>
+                )}
+                {effectiveSeller.store_metadata?.instagram_url && (
+                  <button 
+                    onClick={() => window.open(effectiveSeller.store_metadata.instagram_url, '_blank')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${isDarkMode ? 'bg-pink-900/30 text-pink-400 hover:bg-pink-900/50' : 'bg-pink-50 text-pink-600 hover:bg-pink-100'}`}
+                  >
+                    <Instagram className="w-3.5 h-3.5" /> {t.instagramBtn}
+                  </button>
+                )}
+                {effectiveSeller.store_metadata?.facebook_url && (
+                  <button 
+                    onClick={() => window.open(effectiveSeller.store_metadata.facebook_url, '_blank')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${isDarkMode ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+                  >
+                    <Facebook className="w-3.5 h-3.5" /> {t.facebookBtn}
                   </button>
                 )}
               </div>

@@ -472,7 +472,36 @@ export default function App() {
     if (!quiet) {
       localStorage.removeItem('souq_cached_profiles');
       localStorage.removeItem('souq_cached_profiles_time');
-      await supabase.from('profiles').upsert({ id: u.id, full_name: u.name, email: cleanEmail || undefined, phone: u.phone || null, avatar_url: u.avatar, cover_url: u.cover, bio: u.bio, city: u.location, role: u.role, store_metadata: u.store_metadata }, { onConflict: 'id' });
+      const finalMetadata = {
+        ...(u.store_metadata || {}),
+        username: u.username,
+        store_name: u.store_name,
+        store_type: u.store_type,
+        specialty: u.specialty,
+        specialty_detail: u.specialty_detail,
+        store_template: u.store_template,
+        store_language: u.store_language,
+        whatsapp_business: u.whatsapp_business
+      };
+
+      const { error } = await supabase.from('profiles').upsert({ 
+        id: u.id, 
+        full_name: u.name, 
+        email: cleanEmail || undefined, 
+        phone: u.phone || null, 
+        avatar_url: u.avatar, 
+        cover_url: u.cover, 
+        bio: u.bio, 
+        city: u.location, 
+        role: u.role, 
+        store_metadata: finalMetadata 
+      }, { onConflict: 'id' });
+
+      if (error) {
+        console.error("Save profile error:", error);
+        alert('حدث خطأ ولم يتم الحفظ: ' + error.message);
+        return;
+      }
       try { await supabase.auth.updateUser({ data: { full_name: u.name, phone: u.phone || '' } }); } catch (authErr) {}
       showToast('تم حفظ الملف الشخصي ✅', 'success');
     }

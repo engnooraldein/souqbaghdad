@@ -228,13 +228,15 @@ export function useAuth(setToast: (toast: any) => void) {
         stats: { ads: profile?.ads_count || 0, favorites: profile?.favorites_count || 0, views: profile?.views_count || 0 },
         sellerStats: { totalAds: 0, sold: 0, responseRate: 100, avgResponseTime: 'دقائق' },
         // Professional Store Fields
-        username: profile?.username || undefined,
-        store_name: profile?.store_name || undefined,
-        specialty: profile?.specialty || undefined,
-        specialty_detail: profile?.specialty_detail || undefined,
-        store_type: profile?.store_type || 'personal',
-        store_template: profile?.store_template || 'default',
-        whatsapp_business: profile?.whatsapp_business || undefined,
+        username: profile?.store_metadata?.username || undefined,
+        store_name: profile?.store_metadata?.store_name || undefined,
+        specialty: profile?.store_metadata?.specialty || undefined,
+        specialty_detail: profile?.store_metadata?.specialty_detail || undefined,
+        store_type: profile?.store_metadata?.store_type || 'personal',
+        store_template: profile?.store_metadata?.store_template || 'default',
+        whatsapp_business: profile?.store_metadata?.whatsapp_business || undefined,
+        store_language: profile?.store_metadata?.store_language || 'auto',
+        store_metadata: profile?.store_metadata || {},
       };
 
       setUser(u);
