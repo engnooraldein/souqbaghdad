@@ -44,8 +44,8 @@ export const AppBottomNav: React.FC<AppBottomNavProps> = ({
     <nav 
       className={`fixed z-40 bg-white/30 dark:bg-black/50 backdrop-blur-2xl backdrop-saturate-150 border-slate-200/50 dark:border-white/10 lg:hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-xl ${
         isCollapsed 
-          ? 'bottom-6 left-[calc(50%-30px)] right-[calc(50%-30px)] h-[60px] rounded-full border cursor-pointer overflow-hidden' 
-          : 'bottom-0 left-0 right-0 h-[64px] rounded-none border-t pwa-bottom-nav overflow-visible'
+          ? 'bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-[calc(50%-30px)] right-[calc(50%-30px)] h-[60px] rounded-full border cursor-pointer overflow-hidden' 
+          : 'bottom-0 left-0 right-0 h-[calc(64px+env(safe-area-inset-bottom,0px))] rounded-none border-t pwa-bottom-nav overflow-visible'
       }`}
       onClick={() => {
         if (isCollapsed) setIsForcedOpen(true);
