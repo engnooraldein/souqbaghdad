@@ -197,10 +197,9 @@
     touch-action: pan-y; /* Prevent horizontal gesture interference */
   }
 
-  /* Images: prevent layout shifts with aspect-ratio and GPU decode */
+  /* Images: prevent layout shifts with content-visibility */
   img {
     content-visibility: auto;
-    decoding: async;
   }
 }
 
