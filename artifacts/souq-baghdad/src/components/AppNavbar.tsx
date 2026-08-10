@@ -52,7 +52,7 @@ export const AppNavbar: React.FC<AppNavbarProps> = ({
   setShowSearchPage
 }) => {
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-40 backdrop-blur-xl border-b transition-colors duration-300 pwa-header shadow-md ${isDarkMode ? 'bg-[black]/70 border-transparent shadow-[black]/10' : 'bg-white/80 border-slate-200/80 shadow-slate-100'}`}>
+    <nav className={`fixed top-0 left-0 right-0 z-40 backdrop-blur-2xl backdrop-saturate-150 border-b transition-colors duration-300 pwa-header ${isDarkMode ? 'bg-black/50 border-white/5 shadow-none' : 'bg-white/30 border-slate-200/50 shadow-sm'}`}>
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <button onClick={()=>{ setView('home'); setCat('general'); window.scrollTo(0,0); }} className="flex items-center gap-2">
