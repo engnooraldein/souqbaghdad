@@ -47,7 +47,7 @@ const fetchGlobalOnlineStatuses = async (force = false) => {
   const lastFetchStr = localStorage.getItem('last_online_sync_time');
   const lastFetchTime = lastFetchStr ? parseInt(lastFetchStr, 10) : 0;
   
-  const isDataSaver = localStorage.getItem('data_saver_mode') === 'true';
+  const isDataSaver = true; // localStorage.getItem('data_saver_mode') === 'true'; // Forced ON by Owner
   const fetchInterval = isDataSaver ? 600000 : 180000; // 10 minutes vs 3 minutes
   
   // If not forced, only sync once every fetchInterval

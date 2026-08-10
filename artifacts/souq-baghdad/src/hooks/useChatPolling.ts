@@ -219,7 +219,7 @@ export function useChatPolling(user: User | null, playNotificationSound: any) {
       }
     };
 
-    const isDataSaver = localStorage.getItem('data_saver_mode') === 'true';
+    const isDataSaver = true; // localStorage.getItem('data_saver_mode') === 'true'; // Forced ON by Owner
     const pollIntervalTime = isDataSaver ? 120000 : 30000; // 2 mins vs 30s
 
     const interval = setInterval(pollNewMessages, pollIntervalTime);

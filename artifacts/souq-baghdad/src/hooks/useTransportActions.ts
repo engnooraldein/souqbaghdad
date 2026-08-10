@@ -79,7 +79,7 @@ export function useTransportActions({
       return;
     }
     
-    const isDataSaver = localStorage.getItem('data_saver_mode') === 'true';
+    const isDataSaver = true; // localStorage.getItem('data_saver_mode') === 'true'; // Forced ON by Owner
     if (!isDataSaver) {
       try {
         const { data: alerts, error: alertError } = await supabase

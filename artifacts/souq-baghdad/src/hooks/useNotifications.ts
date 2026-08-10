@@ -59,7 +59,7 @@ export function useNotifications(user: any, unreadChatCount: number, playSound: 
       return;
     }
     fetchNotifications();
-    const isDataSaver = localStorage.getItem('data_saver_mode') === 'true';
+    const isDataSaver = true; // localStorage.getItem('data_saver_mode') === 'true'; // Forced ON by Owner
     const pollIntervalTime = isDataSaver ? 300000 : 90000; // 5 mins vs 90s
 
     const pollInterval = setInterval(() => {
