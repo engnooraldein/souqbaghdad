@@ -740,19 +740,6 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
               ):(
                 <>
                   <button onClick={()=>{
-                    onStoreGuideClick?.();
-                  }} className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-sm font-bold shadow-lg transition-colors border ${isDarkMode ? 'bg-gradient-to-r from-indigo-900 to-purple-900 text-white border-transparent hover:from-indigo-800 hover:to-purple-800' : 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'}`} title="نسخ رابط المتجر للبايو">
-                    <Copy className="w-4 h-4"/>
-                    <span>رابط متجرك</span>
-                  </button>
-                  <button onClick={()=>{
-                    navigate('/accounts');
-                    window.dispatchEvent(new CustomEvent('switch-to-profiles-tab'));
-                  }} className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl text-sm font-bold shadow-lg hover:bg-gray-800" title="دليل الحسابات والمتاجر">
-                    <Users className="w-4 h-4"/>
-                    <span className="hidden sm:inline">دليل الحسابات</span>
-                  </button>
-                  <button onClick={()=>{
                     handleUniversalShare({
                       title: user.name,
                       type: 'profile',
@@ -829,6 +816,16 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
       <div className="container mx-auto px-4 max-w-3xl relative z-10">
 
 
+
+        {/* Store Link Bar */}
+        <div className="mb-2">
+          <button onClick={()=>{
+            onStoreGuideClick?.();
+          }} className={`w-full flex items-center justify-center gap-2 p-3 rounded-2xl text-sm sm:text-base font-black shadow-lg transition-all duration-300 border ${isDarkMode ? 'bg-gradient-to-r from-indigo-900/80 to-purple-900/80 text-white border-indigo-500/30 hover:from-indigo-800 hover:to-purple-800' : 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 shadow-indigo-100'}`} title="نسخ رابط المتجر للبايو">
+            <Copy className="w-5 h-5"/>
+            <span>انسخ رابط متجرك</span>
+          </button>
+        </div>
 
         {/* Top Priority Tabs */}
         <div className={`flex gap-2 mb-2 p-2 rounded-2xl border overflow-x-auto scrollbar-hide shadow-lg ${isDarkMode ? 'bg-gray-950/60 border-gray-900' : 'bg-white border-slate-200/80 shadow-slate-100'}`} dir="rtl">
