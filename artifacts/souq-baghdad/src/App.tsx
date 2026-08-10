@@ -472,18 +472,6 @@ export default function App() {
     if (!quiet) {
       localStorage.removeItem('souq_cached_profiles');
       localStorage.removeItem('souq_cached_profiles_time');
-      const finalMetadata = {
-        ...(u.store_metadata || {}),
-        username: u.username,
-        store_name: u.store_name,
-        store_type: u.store_type,
-        specialty: u.specialty,
-        specialty_detail: u.specialty_detail,
-        store_template: u.store_template,
-        store_language: u.store_language,
-        whatsapp_business: u.whatsapp_business
-      };
-
       const { error } = await supabase.from('profiles').upsert({ 
         id: u.id, 
         full_name: u.name, 
@@ -493,8 +481,7 @@ export default function App() {
         cover_url: u.cover, 
         bio: u.bio, 
         city: u.location, 
-        store_type: u.store_type,
-        store_metadata: finalMetadata 
+        store_metadata: u.store_metadata || {} 
       }, { onConflict: 'id' });
 
       if (error) {

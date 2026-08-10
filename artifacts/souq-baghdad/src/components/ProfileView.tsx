@@ -311,7 +311,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
     window.open(`https://api.whatsapp.com/send?phone=9647700028170&text=${encodeURIComponent(message)}`, '_blank');
   };
   const [editing, setEditing] = useState(false);
-  const [ef, setEf] = useState({ name:user.name, phone:user.phone, location:user.location, bio:user.bio||'', email:user.email||'', username:(user as any).username||'', store_name:(user as any).store_name||'', specialty:(user as any).specialty||'', specialty_detail:(user as any).specialty_detail||'', store_template:(user as any).store_template||'default', whatsapp_business:(user as any).whatsapp_business||'', store_type:(user as any).store_type||'personal' });
+  const [ef, setEf] = useState({ name:user.name, phone:user.phone, location:user.location, bio:user.bio||'', email:user.email||'', username:(user as any).username||'' });
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [verifyImage, setVerifyImage] = useState<string|null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -828,21 +828,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
 
       <div className="container mx-auto px-4 max-w-3xl relative z-10">
 
-        {/* Dedicated Store Settings Bar (for Pro/Business users) */}
-        {user.role !== 'user' && (
-          <div className="mb-2 w-full" dir="rtl">
-            <button 
-              onClick={() => setTab('store_settings')} 
-              className={`w-full flex items-center justify-center gap-2 px-4 py-3.5 sm:py-4 rounded-2xl text-sm sm:text-base font-black transition-all duration-300 shadow-lg border ${
-                tab === 'store_settings' 
-                  ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-black border-amber-400 shadow-amber-500/20' 
-                  : isDarkMode ? 'bg-gray-950/80 border-gray-800 text-amber-400 hover:bg-gray-900' : 'bg-white border-amber-200 text-amber-600 hover:bg-amber-50 shadow-amber-100/50'
-              }`}
-            >
-              <Store className="w-5 h-5" /> إعدادات متجري الاحترافي 🌟
-            </button>
-          </div>
-        )}
+
 
         {/* Top Priority Tabs */}
         <div className={`flex gap-2 mb-2 p-2 rounded-2xl border overflow-x-auto scrollbar-hide shadow-lg ${isDarkMode ? 'bg-gray-950/60 border-gray-900' : 'bg-white border-slate-200/80 shadow-slate-100'}`} dir="rtl">
@@ -1569,125 +1555,7 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
           </div>
         )}
         
-        {tab==='store_settings'&&(
-          <div className="space-y-4">
-            <div className={`rounded-2xl p-5 border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200 shadow-sm'}`}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className={`font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-800 font-extrabold'}`}><Store className="w-5 h-5 text-amber-400"/>إعدادات المتجر الاحترافي</h3>
-                {!editing&&<button onClick={()=>setEditing(true)} className="text-xs text-amber-400 hover:underline flex items-center gap-1"><Edit2 className="w-3 h-3"/> تعديل الإعدادات</button>}
-              </div>
-              
-              <StoreSettingsWizard ef={ef} setEf={setEf} editing={editing} isDarkMode={isDarkMode} />
 
-              {editing && (
-                <div className="flex gap-3 pt-6">
-                  <button onClick={() => handleSave()} disabled={isSaving} className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-black rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all">
-                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4"/>}
-                    حفظ إعدادات المتجر
-                  </button>
-                  <button onClick={()=>setEditing(false)} className={`px-4 py-3 rounded-xl text-sm font-bold ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>إلغاء</button>
-                </div>
-              )}
-            </div>
-            
-            {/* Live Store Preview */}
-            <div className={`rounded-2xl p-5 border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-slate-50 border-slate-200 shadow-inner'}`}>
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-                <h4 className={`font-bold flex items-center gap-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-slate-600'}`}>
-                  <Monitor className="w-4 h-4" /> معاينة المتجر الحيّة
-                </h4>
-                <button 
-                  onClick={() => {
-                    const link = `https://souqbaghdad.store/seller/${(ef as any).username || user.id}`;
-                    navigator.clipboard.writeText(link);
-                    alert('تم نسخ الرابط بنجاح!');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors border ${isDarkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700 border-gray-600' : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'}`}
-                >
-                  <Copy className="w-3.5 h-3.5" /> نسخ الرابط
-                </button>
-              </div>
-              
-              <div className={`w-full rounded-2xl overflow-hidden relative shadow-lg border pointer-events-none select-none flex flex-col ${isDarkMode ? 'border-gray-800 bg-black' : 'border-slate-200 bg-white'}`}>
-                {/* Cover Preview based on Template */}
-                <div className={`w-full aspect-[21/7] relative ${
-                  (ef as any).store_template === 'beauty' ? 'bg-gradient-to-r from-pink-400 to-rose-400' :
-                  (ef as any).store_template === 'tech' ? 'bg-gradient-to-r from-blue-600 to-cyan-400' :
-                  (ef as any).store_template === 'medical' ? 'bg-gradient-to-r from-emerald-500 to-teal-400' :
-                  (ef as any).store_template === 'auto' ? 'bg-gradient-to-r from-slate-800 to-gray-600' :
-                  'bg-gradient-to-r from-amber-400 to-orange-500'
-                }`}>
-                  <div className={`absolute inset-0 bg-gradient-to-t ${isDarkMode ? 'from-black/60' : 'from-black/30'} to-transparent`} />
-                </div>
-                
-                {/* Store Header Preview */}
-                <div className="px-4 pb-4 relative -mt-8 sm:-mt-10">
-                  <div className="flex justify-between items-end mb-2">
-                    {/* Avatar */}
-                    <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 shadow-xl overflow-hidden flex-shrink-0 relative z-10 ${isDarkMode ? 'border-black bg-gray-900' : 'border-white bg-slate-100'}`}>
-                      <img src={user.avatar || DEFAULT_AVATAR} className="w-full h-full object-cover" alt="avatar" />
-                    </div>
-                    {/* Mock Action Buttons */}
-                    <div className="flex gap-1.5 pb-1">
-                      <div className={`px-2 py-1.5 rounded-lg text-[9px] font-bold shadow-sm border flex items-center gap-1 ${isDarkMode ? 'bg-gray-800 text-gray-300 border-gray-700' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                        <Share2 className="w-2.5 h-2.5" /> مشاركة
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Info */}
-                  <div>
-                    <h2 className={`font-black text-sm sm:text-base flex items-center gap-1.5 line-clamp-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                      {(ef as any).store_name || user.name}
-                      {((ef as any).store_type === 'business') && (
-                        <span className={`flex items-center gap-0.5 px-1.5 py-0.5 text-[8px] rounded-full font-bold ${isDarkMode ? 'bg-gray-800/50 text-gray-400' : 'bg-slate-100 text-slate-500'}`}>
-                          <CheckCircle className="w-2.5 h-2.5" /> موثق
-                        </span>
-                      )}
-                    </h2>
-                    {((ef as any).specialty || (ef as any).store_type === 'business') && (
-                      <p className={`text-[10px] mt-0.5 font-bold ${
-                        (ef as any).store_template === 'beauty' ? 'text-pink-500' :
-                        (ef as any).store_template === 'tech' ? 'text-blue-500' :
-                        (ef as any).store_template === 'medical' ? 'text-emerald-500' :
-                        (ef as any).store_template === 'auto' ? 'text-slate-400' :
-                        'text-amber-500'
-                      }`}>
-                        {(ef as any).specialty || 'متجر تجاري'} {((ef as any).specialty_detail) ? ` • ${(ef as any).specialty_detail}` : ''}
-                      </p>
-                    )}
-                    <p className={`text-[9px] mt-1.5 flex items-center gap-1 font-mono ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`} dir="ltr">
-                      <Globe className="w-2.5 h-2.5" /> souqbaghdad.store/seller/{(ef as any).username || user.id.substring(0,6)}
-                    </p>
-                  </div>
-                  
-                  {/* Mock Ads Grid Preview */}
-                  <div className="mt-4 border-t border-dashed pt-4 border-slate-200 dark:border-gray-800">
-                    <h3 className={`text-[10px] font-bold mb-2 flex items-center gap-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>
-                      <LayoutGrid className="w-3 h-3" /> أحدث الإعلانات
-                    </h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[1, 2, 3, 4].map(i => (
-                        <div key={i} className={`rounded-xl overflow-hidden border ${isDarkMode ? 'border-gray-800 bg-gray-900/50' : 'border-slate-100 bg-slate-50'}`}>
-                          <div className={`w-full aspect-[4/3] ${isDarkMode ? 'bg-gray-800' : 'bg-slate-200'} animate-pulse`} />
-                          <div className="p-2 space-y-1.5">
-                            <div className={`h-2.5 w-3/4 rounded ${isDarkMode ? 'bg-gray-800' : 'bg-slate-200'}`} />
-                            <div className={`h-2.5 w-1/2 rounded ${isDarkMode ? 'bg-gray-800' : 'bg-slate-200'}`} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className={`rounded-2xl p-5 border ${isDarkMode ? 'bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border-indigo-500/30 text-white' : 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200 text-indigo-900 shadow-sm'}`}>
-              <h4 className="font-bold mb-2 flex items-center gap-2"><Store className="w-4 h-4"/> متجر احترافي</h4>
-              <p className="text-sm leading-relaxed opacity-90">هذه الإعدادات ستجعل متجرك يظهر بتصميم مميز عند مشاركة رابطك مع زبائنك. احرص على اختيار قالب يناسب مهنتك واملأ التفاصيل بشكل دقيق.</p>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Crop Modal */}

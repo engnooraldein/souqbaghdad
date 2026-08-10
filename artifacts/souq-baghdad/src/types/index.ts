@@ -7,7 +7,6 @@ export interface SellerInfo {
   ratingCount?: number;
   joinedDate: string;
   location: string;
-  store_type?: string;
 }
 
 export interface Ad {
