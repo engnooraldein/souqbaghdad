@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Home, Search, ShoppingBag, Car, UserCircle, Plus } from 'lucide-react';
 import { User } from '../types';
+
+import { useScrollDirection } from '../hooks/useScrollDirection';
 
 interface AppBottomNavProps {
   user: User | null;
@@ -27,9 +29,31 @@ export const AppBottomNav: React.FC<AppBottomNavProps> = ({
   handleHomeRefresh,
   cat,
 }) => {
+  const { scrollDirection, isAtTop } = useScrollDirection();
+  const [isForcedOpen, setIsForcedOpen] = useState(false);
+
+  // Collapse when scrolling down, unless at the very top or forced open by clicking
+  const isCollapsed = scrollDirection === 'down' && !isAtTop && !isForcedOpen;
+
+  useEffect(() => {
+    if (scrollDirection === 'up') {
+      setIsForcedOpen(false);
+    }
+  }, [scrollDirection]);
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/30 dark:bg-black/50 backdrop-blur-2xl backdrop-saturate-150 border-t border-slate-200/50 dark:border-white/10 lg:hidden pwa-bottom-nav transition-colors duration-300">
-      <div className="flex items-center justify-around h-16 px-2">
+    <nav 
+      className={`fixed z-40 bg-white/30 dark:bg-black/50 backdrop-blur-2xl backdrop-saturate-150 border-slate-200/50 dark:border-white/10 lg:hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-xl ${
+        isCollapsed 
+          ? 'bottom-6 left-[calc(50%-30px)] right-[calc(50%-30px)] h-[60px] rounded-full border cursor-pointer overflow-hidden' 
+          : 'bottom-0 left-0 right-0 h-[64px] rounded-none border-t pwa-bottom-nav overflow-visible'
+      }`}
+      onClick={() => {
+        if (isCollapsed) setIsForcedOpen(true);
+      }}
+    >
+      {/* Full Expanded Bar */}
+      <div className={`absolute inset-0 flex items-center justify-around px-2 transition-all duration-500 ${isCollapsed ? 'opacity-0 scale-75 pointer-events-none' : 'opacity-100 scale-100 pointer-events-auto delay-100'}`}>
         {/* Profile */}
         <button
           onClick={() => {
@@ -76,8 +100,8 @@ export const AppBottomNav: React.FC<AppBottomNavProps> = ({
           }}
           className="flex flex-col items-center justify-center flex-1 py-2 relative group"
         >
-          <div className={`p-3 rounded-full -mt-6 shadow-lg transition-transform group-active:scale-95 ${view === 'transport' ? 'bg-gradient-to-r from-emerald-500 to-green-500 shadow-emerald-500/30' : 'bg-gradient-to-r from-amber-500 to-yellow-500 shadow-amber-500/30'}`}>
-            <Plus className="w-6 h-6 text-black" />
+          <div className={`p-3.5 rounded-full -mt-7 shadow-xl border-[4px] border-slate-50 dark:border-gray-950 transition-all duration-300 group-hover:scale-105 group-active:scale-95 ${view === 'transport' ? 'bg-gradient-to-tr from-emerald-600 to-emerald-400 shadow-emerald-500/40' : 'bg-gradient-to-tr from-amber-500 to-yellow-400 shadow-amber-500/40'}`}>
+            <Plus className="w-6 h-6 text-white" strokeWidth={2.5} />
           </div>
           <span className={`text-[10px] mt-1 font-medium ${view === 'transport' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
             {view === 'transport' ? 'إضافة خط' : 'إعلان'}
@@ -107,6 +131,13 @@ export const AppBottomNav: React.FC<AppBottomNavProps> = ({
             <Home className="w-6 h-6" />
           </div>
           <span className="text-[10px] mt-1 font-medium">الرئيسية</span>
+        </button>
+      </div>
+
+      {/* Collapsed FAB (Only visible when collapsed) */}
+      <div className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ${isCollapsed ? 'opacity-100 scale-100 pointer-events-auto delay-100' : 'opacity-0 scale-125 pointer-events-none'}`}>
+        <button className="p-3 text-amber-600 dark:text-amber-400 flex flex-col items-center">
+           <Home className="w-7 h-7" />
         </button>
       </div>
     </nav>

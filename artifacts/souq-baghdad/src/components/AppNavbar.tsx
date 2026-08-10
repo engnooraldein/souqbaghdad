@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Sun, Moon, Monitor, Bell, Wallet, Crown, Settings, ShoppingBag, LogOut, LogIn, MessageSquare, Menu } from 'lucide-react';
 import { Logo } from './Logo';
 import { User } from '../types';
 import { getGlowClass, navigate } from '../utils/helpers';
+import { useScrollDirection } from '../hooks/useScrollDirection';
 
 interface AppNavbarProps {
   isDarkMode: boolean;
@@ -51,10 +52,31 @@ export const AppNavbar: React.FC<AppNavbarProps> = ({
   setShowMobileMenu,
   setShowSearchPage
 }) => {
+  const { scrollDirection, isAtTop } = useScrollDirection();
+  const [isForcedOpen, setIsForcedOpen] = useState(false);
+
+  const isCollapsed = scrollDirection === 'down' && !isAtTop && !isForcedOpen;
+
+  useEffect(() => {
+    if (scrollDirection === 'up') {
+      setIsForcedOpen(false);
+    }
+  }, [scrollDirection]);
+
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-40 backdrop-blur-2xl backdrop-saturate-150 border-b transition-colors duration-300 pwa-header ${isDarkMode ? 'bg-black/50 border-white/5 shadow-none' : 'bg-white/30 border-slate-200/50 shadow-sm'}`}>
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
+    <nav 
+      className={`fixed z-40 backdrop-blur-2xl backdrop-saturate-150 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] pwa-header shadow-sm overflow-hidden ${
+        isCollapsed 
+          ? `top-4 left-4 right-auto w-[48px] h-[48px] rounded-full border cursor-pointer ${isDarkMode ? 'bg-black/50 border-white/10' : 'bg-white/30 border-slate-200/50'}` 
+          : `top-0 left-0 right-0 w-full h-[64px] rounded-none border-b ${isDarkMode ? 'bg-black/50 border-white/5 shadow-none' : 'bg-white/30 border-slate-200/50 shadow-sm'}`
+      }`}
+      onClick={() => {
+        if (isCollapsed) setIsForcedOpen(true);
+      }}
+    >
+      <div className={`w-full h-full transition-all duration-500 ${isCollapsed ? 'opacity-0 scale-75 pointer-events-none' : 'opacity-100 scale-100 pointer-events-auto delay-100'}`}>
+        <div className="container mx-auto px-4 h-full">
+          <div className="flex items-center justify-between h-full">
           <button onClick={()=>{ setView('home'); setCat('general'); window.scrollTo(0,0); }} className="flex items-center gap-2">
             <Logo small/>
             <span className={`font-bold text-sm sm:text-lg transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>سوك بغداد</span>
@@ -190,7 +212,17 @@ export const AppNavbar: React.FC<AppNavbarProps> = ({
             </button>
             <button onClick={()=>setShowMobileMenu(true)} className="p-1.5 rounded-xl bg-gray-800 text-white" title="القائمة" aria-label="القائمة"><Menu className="w-4.5 h-4.5"/></button>
           </div>
+          </div>
         </div>
+      </div>
+
+      {/* Collapsed FAB Profile / Menu */}
+      <div className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ${isCollapsed ? 'opacity-100 scale-100 pointer-events-auto delay-100' : 'opacity-0 scale-125 pointer-events-none'}`}>
+        {user ? (
+          <img src={user.avatar} alt="" className={`w-8 h-8 rounded-full object-cover ${user.role && user.role !== 'user' ? getGlowClass(user.role) : 'border border-gray-650'}`} />
+        ) : (
+          <Menu className={`w-5 h-5 ${isDarkMode ? 'text-white' : 'text-slate-800'}`} />
+        )}
       </div>
     </nav>
   );
