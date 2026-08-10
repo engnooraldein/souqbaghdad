@@ -69,7 +69,7 @@ export const AppNavbar: React.FC<AppNavbarProps> = ({
       className={`fixed z-40 backdrop-blur-2xl backdrop-saturate-150 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-sm ${
         isCollapsed 
           ? `top-4 left-4 right-auto w-[48px] h-[48px] rounded-full border cursor-pointer overflow-hidden ${isDarkMode ? 'bg-black/60 border-white/10 shadow-lg shadow-black/50' : 'bg-white/70 border-slate-200/60 shadow-lg'}` 
-          : `top-0 left-0 right-0 w-full h-16 rounded-none border-b pwa-header overflow-visible ${isDarkMode ? 'bg-black/50 border-white/5 shadow-none' : 'bg-white/30 border-slate-200/50 shadow-sm'}`
+          : `top-0 left-0 right-0 w-full h-[calc(64px+env(safe-area-inset-top,0px))] rounded-none border-b pwa-header overflow-visible ${isDarkMode ? 'bg-black/50 border-white/5 shadow-none' : 'bg-white/30 border-slate-200/50 shadow-sm'}`
       }`}
       onClick={() => {
         if (isCollapsed) setIsForcedOpen(true);
