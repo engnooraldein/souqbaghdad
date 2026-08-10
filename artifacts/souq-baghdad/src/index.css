@@ -131,6 +131,15 @@
     background-color: #030712 !important;
   }
 
+  /* PWA Safe Areas & Glassmorphism for Safari iOS */
+  .pwa-header {
+    padding-top: env(safe-area-inset-top, 0px) !important;
+  }
+  
+  .pwa-bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+  }
+
   /* Custom Scrollbar - hair thin and elegant */
   ::-webkit-scrollbar {
     width: 3.5px;
