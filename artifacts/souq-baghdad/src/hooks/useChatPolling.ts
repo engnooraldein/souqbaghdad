@@ -219,7 +219,10 @@ export function useChatPolling(user: User | null, playNotificationSound: any) {
       }
     };
 
-    const interval = setInterval(pollNewMessages, 30000);
+    const isDataSaver = localStorage.getItem('data_saver_mode') === 'true';
+    const pollIntervalTime = isDataSaver ? 120000 : 30000; // 2 mins vs 30s
+
+    const interval = setInterval(pollNewMessages, pollIntervalTime);
     return () => clearInterval(interval);
   }, [user, playNotificationSound, fetchUnreadChatCount]);
 

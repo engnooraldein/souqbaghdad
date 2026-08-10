@@ -399,6 +399,11 @@ export default function App() {
         const costs: any = { ad: 1, product: 1, transport: 1, vip_ad: 5 };
         data.forEach(r => { costs[r.category] = r.cost; });
         setAdCosts(costs);
+        if (costs.data_saver_mode === 1) {
+          localStorage.setItem('data_saver_mode', 'true');
+        } else {
+          localStorage.setItem('data_saver_mode', 'false');
+        }
       }
     });
   }, []);

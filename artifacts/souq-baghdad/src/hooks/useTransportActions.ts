@@ -79,56 +79,59 @@ export function useTransportActions({
       return;
     }
     
-    try {
-      const { data: alerts, error: alertError } = await supabase
-        .from('subscription_alerts')
-        .select('*');
-        
-      if (!alertError && alerts && alerts.length > 0) {
-        const matches = alerts.filter(alert => {
-          if (alert.user_id === rowData.seller_id) return false;
+    const isDataSaver = localStorage.getItem('data_saver_mode') === 'true';
+    if (!isDataSaver) {
+      try {
+        const { data: alerts, error: alertError } = await supabase
+          .from('subscription_alerts')
+          .select('*');
           
-          const alertCat = alert.category_type;
-          const adCat = ad.categoryType || 'student';
-          if (alertCat && alertCat !== 'all' && alertCat !== adCat) return false;
-          
-          if (alert.university && alert.university.trim() !== '') {
-            const alertUnivNorm = alert.university.trim().toLowerCase();
-            const adUnivNorm = ad.university.trim().toLowerCase();
-            if (!adUnivNorm.includes(alertUnivNorm) && !alertUnivNorm.includes(adUnivNorm)) {
-              return false;
+        if (!alertError && alerts && alerts.length > 0) {
+          const matches = alerts.filter(alert => {
+            if (alert.user_id === rowData.seller_id) return false;
+            
+            const alertCat = alert.category_type;
+            const adCat = ad.categoryType || 'student';
+            if (alertCat && alertCat !== 'all' && alertCat !== adCat) return false;
+            
+            if (alert.university && alert.university.trim() !== '') {
+              const alertUnivNorm = alert.university.trim().toLowerCase();
+              const adUnivNorm = ad.university.trim().toLowerCase();
+              if (!adUnivNorm.includes(alertUnivNorm) && !alertUnivNorm.includes(adUnivNorm)) {
+                return false;
+              }
             }
-          }
-          
-          if (alert.regions && alert.regions.trim() !== '') {
-            const alertRegs = alert.regions.split(/[،,,\-]/).map((r: string) => r.trim().toLowerCase()).filter(Boolean);
-            const adRegs = ad.regions.split(/[،,,\-]/).map((r: string) => r.trim().toLowerCase()).filter(Boolean);
-            const hasOverlap = alertRegs.some((ar: string) => adRegs.some((adr: string) => adr.includes(ar) || ar.includes(adr)));
-            if (!hasOverlap) return false;
-          }
-          
-          if (alert.type && alert.type !== 'all' && alert.type !== ad.type) return false;
-          
-          return true;
-        });
+            
+            if (alert.regions && alert.regions.trim() !== '') {
+              const alertRegs = alert.regions.split(/[،,,\-]/).map((r: string) => r.trim().toLowerCase()).filter(Boolean);
+              const adRegs = ad.regions.split(/[،,,\-]/).map((r: string) => r.trim().toLowerCase()).filter(Boolean);
+              const hasOverlap = alertRegs.some((ar: string) => adRegs.some((adr: string) => adr.includes(ar) || ar.includes(adr)));
+              if (!hasOverlap) return false;
+            }
+            
+            if (alert.type && alert.type !== 'all' && alert.type !== ad.type) return false;
+            
+            return true;
+          });
 
-        if (matches.length > 0) {
-          const notifsToInsert = matches.map(match => ({
-            user_id: match.user_id,
-            title: ad.categoryType === 'emergency' ? '🚗 رحلة طوارئ يومية مطابقة!' : '🔔 خط نقل جديد يطابق بحثك!',
-            body: ad.categoryType === 'emergency'
-              ? `تم نشر رحلة طوارئ يومية من مناطق (${ad.regions}) إلى (${ad.university}) بسعر ${ad.price || 'غير محدد'}. تواصل الآن!`
-              : `تم نشر خط نقل جديد من مناطق (${ad.regions}) إلى (${ad.university}) بسعر ${ad.price || 'غير محدد'}. تواصل الآن!`,
-            type: 'transport_alert',
-            read: false,
-            created_at: new Date().toISOString()
-          }));
-          
-          await supabase.from('user_notifications').insert(notifsToInsert);
+          if (matches.length > 0) {
+            const notifsToInsert = matches.map(match => ({
+              user_id: match.user_id,
+              title: ad.categoryType === 'emergency' ? '🚗 رحلة طوارئ يومية مطابقة!' : '🔔 خط نقل جديد يطابق بحثك!',
+              body: ad.categoryType === 'emergency'
+                ? `تم نشر رحلة طوارئ يومية من مناطق (${ad.regions}) إلى (${ad.university}) بسعر ${ad.price || 'غير محدد'}. تواصل الآن!`
+                : `تم نشر خط نقل جديد من مناطق (${ad.regions}) إلى (${ad.university}) بسعر ${ad.price || 'غير محدد'}. تواصل الآن!`,
+              type: 'transport_alert',
+              read: false,
+              created_at: new Date().toISOString()
+            }));
+            
+            await supabase.from('user_notifications').insert(notifsToInsert);
+          }
         }
+      } catch (e) {
+        console.error("Error matching alert notifications:", e);
       }
-    } catch (e) {
-      console.error("Error matching alert notifications:", e);
     }
 
     showToast('تم نشر الخط بنجاح ✅', 'success');

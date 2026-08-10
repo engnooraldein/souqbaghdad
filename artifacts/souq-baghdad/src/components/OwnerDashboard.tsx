@@ -58,7 +58,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
   onDeleteProfile?:(id:string)=>void;
 }) {
   const [tab, setTab] = useState<'overview'|'visitors'|'users'|'content'|'broadcast'|'recovery'|'verification'|'reports'|'logs'|'changelog'|'settings'|'promo_codes'>('overview');
-  const [costs, setCosts] = useState<{ad:number; product:number; transport:number; vip_ad:number}>({ad:1, product:1, transport:1, vip_ad:5});
+  const [costs, setCosts] = useState<{ad:number; product:number; transport:number; vip_ad:number; data_saver_mode:number}>({ad:1, product:1, transport:1, vip_ad:5, data_saver_mode:0});
   const [savingSettings, setSavingSettings] = useState(false);
   const [reports, setReports] = useState<any[]>([]);
   const [verificationRequests, setVerificationRequests] = useState<any[]>([]);
@@ -221,7 +221,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
     if (tab === 'settings') {
       supabase.from('system_settings').select('*').then(({data, error}) => {
         if(!error && data) {
-          const c: any = { ad:1, product:1, transport:1, vip_ad:5 };
+          const c: any = { ad:1, product:1, transport:1, vip_ad:5, data_saver_mode:0 };
           data.forEach(r => { c[r.category] = r.cost; });
           setCosts(c);
         }
@@ -239,7 +239,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
           throw new Error(error.message);
         }
       }
-      alert('تم حفظ أسعار الإعلانات بنجاح ✅');
+      alert('تم حفظ الإعدادات بنجاح ✅');
     } catch (e: any) {
       alert('حدث خطأ أثناء الحفظ: ' + e.message);
     }
@@ -400,6 +400,9 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
             <div className="flex flex-col items-end">
               <span className="text-[10px] text-gray-400 mb-1">آخر مزامنة: {lastSyncDate}</span>
               <div className="flex items-center gap-2">
+                <button onClick={() => setCosts(prev => ({...prev, data_saver_mode: prev.data_saver_mode === 1 ? 0 : 1}))} className={`px-2 py-1.5 border text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1 shadow-sm ${costs.data_saver_mode === 1 ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' : 'bg-gray-800 border-gray-700 text-gray-500 hover:border-gray-600'}`} title="تقليل الاستهلاك">
+                  {costs.data_saver_mode === 1 ? 'توفير نشط' : 'توفير البيانات'}
+                </button>
                 <button onClick={toggleAutoSync} className={`px-2 py-1.5 border text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1 shadow-sm ${isAutoSync ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-gray-800 border-gray-700 text-gray-500 hover:border-gray-600'}`} title="تحديث تلقائي كل دقيقة">
                   <div className={`w-2 h-2 rounded-full ${isAutoSync ? 'bg-emerald-400 animate-pulse' : 'bg-gray-600'}`}></div>
                   تلقائي

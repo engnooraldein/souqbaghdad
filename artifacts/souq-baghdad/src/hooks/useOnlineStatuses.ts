@@ -47,12 +47,21 @@ const fetchGlobalOnlineStatuses = async (force = false) => {
   const lastFetchStr = localStorage.getItem('last_online_sync_time');
   const lastFetchTime = lastFetchStr ? parseInt(lastFetchStr, 10) : 0;
   
-  // If not forced, only sync once every 3 minutes
-  if (!force && (isFetching || now - lastFetchTime < 180000)) return; 
+  const isDataSaver = localStorage.getItem('data_saver_mode') === 'true';
+  const fetchInterval = isDataSaver ? 600000 : 180000; // 10 minutes vs 3 minutes
+  
+  // If not forced, only sync once every fetchInterval
+  if (!force && (isFetching || now - lastFetchTime < fetchInterval)) return; 
   
   isFetching = true;
   try {
-    const { data } = await supabase.from('profiles').select('id, phone, last_seen');
+    let query = supabase.from('profiles').select('id, phone, last_seen');
+    if (isDataSaver) {
+      const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+      query = query.gt('last_seen', fifteenMinsAgo);
+    }
+    
+    const { data } = await query;
     if (data) {
       const map: Record<string, boolean> = {};
       data.forEach(p => {
