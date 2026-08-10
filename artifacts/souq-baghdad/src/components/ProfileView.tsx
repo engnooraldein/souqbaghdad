@@ -1592,11 +1592,23 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
             
             {/* Live Store Preview */}
             <div className={`rounded-2xl p-5 border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-slate-50 border-slate-200 shadow-inner'}`}>
-              <h4 className={`font-bold mb-4 flex items-center gap-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-slate-600'}`}>
-                <Monitor className="w-4 h-4" /> معاينة المتجر الحيّة
-              </h4>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                <h4 className={`font-bold flex items-center gap-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-slate-600'}`}>
+                  <Monitor className="w-4 h-4" /> معاينة المتجر الحيّة
+                </h4>
+                <button 
+                  onClick={() => {
+                    const link = `https://souqbaghdad.store/seller/${(ef as any).username || user.id}`;
+                    navigator.clipboard.writeText(link);
+                    alert('تم نسخ الرابط بنجاح!');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors border ${isDarkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700 border-gray-600' : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'}`}
+                >
+                  <Copy className="w-3.5 h-3.5" /> نسخ الرابط
+                </button>
+              </div>
               
-              <div className={`w-full rounded-2xl overflow-hidden relative shadow-2xl border pointer-events-none select-none flex flex-col ${isDarkMode ? 'border-gray-800 bg-black' : 'border-slate-200 bg-white'}`}>
+              <div className={`w-full rounded-2xl overflow-hidden relative shadow-lg border pointer-events-none select-none flex flex-col ${isDarkMode ? 'border-gray-800 bg-black' : 'border-slate-200 bg-white'}`}>
                 {/* Cover Preview based on Template */}
                 <div className={`w-full aspect-[21/7] relative ${
                   (ef as any).store_template === 'beauty' ? 'bg-gradient-to-r from-pink-400 to-rose-400' :
@@ -1647,6 +1659,24 @@ export function ProfileView({ user, myAds, myProducts, onDeleteAd, onEditAd, onD
                     <p className={`text-[9px] mt-1.5 flex items-center gap-1 font-mono ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`} dir="ltr">
                       <Globe className="w-2.5 h-2.5" /> souqbaghdad.store/seller/{(ef as any).username || user.id.substring(0,6)}
                     </p>
+                  </div>
+                  
+                  {/* Mock Ads Grid Preview */}
+                  <div className="mt-4 border-t border-dashed pt-4 border-slate-200 dark:border-gray-800">
+                    <h3 className={`text-[10px] font-bold mb-2 flex items-center gap-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                      <LayoutGrid className="w-3 h-3" /> أحدث الإعلانات
+                    </h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[1, 2, 3, 4].map(i => (
+                        <div key={i} className={`rounded-xl overflow-hidden border ${isDarkMode ? 'border-gray-800 bg-gray-900/50' : 'border-slate-100 bg-slate-50'}`}>
+                          <div className={`w-full aspect-[4/3] ${isDarkMode ? 'bg-gray-800' : 'bg-slate-200'} animate-pulse`} />
+                          <div className="p-2 space-y-1.5">
+                            <div className={`h-2.5 w-3/4 rounded ${isDarkMode ? 'bg-gray-800' : 'bg-slate-200'}`} />
+                            <div className={`h-2.5 w-1/2 rounded ${isDarkMode ? 'bg-gray-800' : 'bg-slate-200'}`} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
