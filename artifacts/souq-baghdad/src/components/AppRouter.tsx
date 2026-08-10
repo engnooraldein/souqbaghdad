@@ -12,7 +12,7 @@ const SellerPublicPage = React.lazy(() => import('../components/SellerPublicPage
 const AdminPanel = React.lazy(() => import('../components/AdminPanel').then(m => ({ default: m.AdminPanel })));
 const TransportView = React.lazy(() => import('../components/TransportView').then(m => ({ default: m.TransportView })));
 const WalletView = React.lazy(() => import('../components/WalletView').then(m => ({ default: m.WalletView })));
-const OwnerDashboard = React.lazy(() => import('../components/OwnerDashboard').then(m => ({ default: m.OwnerDashboard })));
+const OwnerDashboard = React.lazy(() => import('../components/OwnerDashboard'));
 const ProductsView = React.lazy(() => import('../components/ProductsView').then(m => ({ default: m.ProductsView })));
 
 export interface AppRouterProps {
