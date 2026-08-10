@@ -233,6 +233,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
     setSavingSettings(true);
     try {
       for (const [cat, cost] of Object.entries(costs)) {
+        if (cat === 'data_saver_mode') continue;
         const { error } = await supabase.from('system_settings').upsert({ category: cat, cost: Number(cost) });
         if (error) {
           console.error('Error saving', cat, error);
