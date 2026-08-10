@@ -4,14 +4,16 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN') || '';
 const tgUrl = `https://api.telegram.org/bot${botToken}`;
 
-async function sendMessage(chatId: number, text: string, replyMarkup?: any) {
+async function sendMessage(chatId: string | number, text: string, replyMarkup?: any, disableWebPagePreview = false) {
   const body: any = { chat_id: chatId, text, parse_mode: 'HTML' };
   if (replyMarkup) body.reply_markup = replyMarkup;
-  await fetch(`${tgUrl}/sendMessage`, {
+  if (disableWebPagePreview) body.link_preview_options = { is_disabled: true };
+  const res = await fetch(`${tgUrl}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
+  return res.json();
 }
 
 async function answerCallbackQuery(callbackQueryId: string, text: string = '') {
@@ -23,11 +25,21 @@ async function answerCallbackQuery(callbackQueryId: string, text: string = '') {
 }
 
 async function sendPhoto(chatId: string | number, photoUrl: string, caption: string) {
-  await fetch(`${tgUrl}/sendPhoto`, {
+  const res = await fetch(`${tgUrl}/sendPhoto`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ chat_id: chatId, photo: photoUrl, caption, parse_mode: 'HTML' })
   });
+  return res.json();
+}
+
+async function deleteMessage(chatId: string | number, messageId: number) {
+  const res = await fetch(`${tgUrl}/deleteMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, message_id: messageId })
+  });
+  return res.json();
 }
 
 // Channel IDs from environment variables (e.g., @ChannelUsername or -100123456789)
@@ -39,41 +51,85 @@ serve(async (req) => {
     const payload = await req.json();
     
     // Check if it's a Supabase Database Webhook (pg_net)
-    if (payload.type === 'INSERT' && payload.table) {
+    if ((payload.type === 'INSERT' || payload.type === 'UPDATE') && payload.table) {
       const record = payload.record;
+      const oldRecord = payload.old_record;
       
-      if (payload.table === 'products' && PRODUCT_CHANNEL) {
-        const caption = `📦 <b>منتج جديد: ${record.title || ''}</b>\n\n` +
-                        `💰 <b>السعر:</b> ${record.price || ''}\n` +
-                        `📍 <b>المحافظة:</b> ${record.governorate || ''}\n` +
-                        `📝 <b>التفاصيل:</b> ${record.description || ''}\n\n` +
-                        `👤 <b>البائع:</b> ${record.seller_name || 'بائع'}\n` +
-                        `📱 <b>تواصل عبر التطبيق أو البوت للطلب!</b>`;
-        const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
-        if (imageUrl) {
-          await sendPhoto(PRODUCT_CHANNEL, imageUrl, caption);
-        } else {
-          await sendMessage(PRODUCT_CHANNEL, caption);
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+      
+      let newMessageId = null;
+      let shouldDelete = false;
+      let shouldPublish = false;
+      
+      if (payload.type === 'INSERT') {
+        shouldPublish = true;
+      } else if (payload.type === 'UPDATE') {
+        if (oldRecord && oldRecord.status === 'active' && (record.status === 'matched' || record.status === 'sold' || record.status === 'inactive')) {
+          shouldDelete = true;
+        }
+        if (oldRecord && (oldRecord.status === 'matched' || oldRecord.status === 'sold' || oldRecord.status === 'inactive') && record.status === 'active') {
+          shouldPublish = true;
         }
       }
-      else if ((payload.table === 'ads' || payload.table === 'transport_ads') && TRANSPORT_CHANNEL) {
-        // Only process transport ads from the 'ads' table, or support the old 'transport_ads' table
-        if (payload.table === 'ads' && record.category !== 'transport') {
-          return new Response('OK', { status: 200 });
+      
+      if (shouldDelete && record.telegram_message_id) {
+        const channel = payload.table === 'products' ? PRODUCT_CHANNEL : TRANSPORT_CHANNEL;
+        if (channel) {
+          await deleteMessage(channel, parseInt(record.telegram_message_id));
         }
-        
-        const typeStr = record.type === 'offer' ? '🚗 أوفر خط' : '🙋‍♂️ أبحث عن خط';
-        let desc: any = {};
-        try { desc = typeof record.description === 'string' ? JSON.parse(record.description) : record.description; } catch(e){}
-        
-        const msg = `🚌 <b>${typeStr} إلى ${record.city || record.university || ''}</b>\n\n` +
-                    `📍 <b>المناطق:</b> ${record.location || record.regions || ''}\n` +
-                    `💰 <b>السعر:</b> ${record.price || ''}\n` +
-                    `⏰ <b>الوقت:</b> ${desc?.shift || record.shift || ''}\n` +
-                    `👥 <b>المقاعد المتوفرة/المطلوبة:</b> ${desc?.seats || record.seats || ''}\n\n` +
-                    `👤 <b>الناشر:</b> ${record.seller_name || 'مستخدم'}\n` +
-                    `📱 <b>تواصل عبر التطبيق أو البوت للتفاصيل!</b>`;
-        await sendMessage(TRANSPORT_CHANNEL, msg);
+      }
+
+      if (shouldPublish) {
+        if (payload.table === 'products' && PRODUCT_CHANNEL) {
+          const caption = `📦 <b>منتج جديد: ${record.title || ''}</b>\n\n` +
+                          `💰 <b>السعر:</b> ${record.price || ''}\n` +
+                          `📍 <b>المحافظة:</b> ${record.governorate || ''}\n` +
+                          `📝 <b>التفاصيل:</b> ${record.description || ''}\n\n` +
+                          `👤 <b>البائع:</b> ${record.seller_name || 'بائع'}\n` +
+                          `📱 <b>تواصل عبر التطبيق أو البوت للطلب!</b>`;
+          const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
+          let res;
+          if (imageUrl) {
+            res = await sendPhoto(PRODUCT_CHANNEL, imageUrl, caption);
+          } else {
+            res = await sendMessage(PRODUCT_CHANNEL, caption);
+          }
+          if (res?.ok && res.result?.message_id) {
+             await supabase.from('products').update({ telegram_message_id: res.result.message_id.toString() }).eq('id', record.id);
+          }
+        }
+        else if ((payload.table === 'ads' || payload.table === 'transport_ads') && TRANSPORT_CHANNEL) {
+          if (payload.table === 'ads' && record.category !== 'transport') {
+            return new Response('OK', { status: 200 });
+          }
+          
+          const typeStr = record.type === 'offer' ? 'أوفر خط' : 'أبحث عن خط';
+          let desc: any = {};
+          try { desc = typeof record.description === 'string' ? JSON.parse(record.description) : record.description; } catch(e){}
+          
+          const catType = desc?.categoryType === 'employee' ? '👔 خط موظفين' : '🎓 خط طلاب';
+          const adId = record.short_id || record.id;
+          const link = `https://www.souqbaghdad.store/transport/card/${adId}`;
+
+          const msg = `(${typeStr})\n` +
+                      `${catType} - مطلوب جديد\n\n` +
+                      `📍 المناطق: ${record.location || record.regions || ''}\n` +
+                      `🏢 الوجهة: ${record.city || record.university || ''}\n` +
+                      `⏰ الدوام: ${desc?.shift || record.shift || ''}\n` +
+                      `🚗 المركبة: ${desc?.vehicleType || record.vehicleType || ''}\n` +
+                      `💰 السعر: ${record.price ? record.price + ' الف دينار عراقي' : 'حسب الاتفاق'}\n\n` +
+                      `📞 التواصل: عبر الموقع فقط\n` +
+                      `👇 نشجعك تطلب مباشرة عبر الموقع\n` +
+                      `🔗 ${link}`;
+                      
+          const res = await sendMessage(TRANSPORT_CHANNEL, msg, undefined, true);
+          if (res?.ok && res.result?.message_id) {
+             await supabase.from(payload.table).update({ telegram_message_id: res.result.message_id.toString() }).eq('id', record.id);
+          }
+        }
       }
 
       return new Response('OK', { status: 200 });
