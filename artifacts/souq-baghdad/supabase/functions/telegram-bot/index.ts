@@ -101,11 +101,29 @@ serve(async (req) => {
              await supabase.from('products').update({ telegram_message_id: res.result.message_id.toString() }).eq('id', record.id);
           }
         }
-        else if ((payload.table === 'ads' || payload.table === 'transport_ads') && TRANSPORT_CHANNEL) {
-          if (payload.table === 'ads' && record.category !== 'transport') {
-            return new Response('OK', { status: 200 });
+        else if (payload.table === 'ads' && record.category !== 'transport' && PRODUCT_CHANNEL) {
+          let descText = record.description || '';
+          if (typeof descText !== 'string') {
+            try { descText = JSON.stringify(descText); } catch(e){}
           }
-          
+          const caption = `📢 <b>إعلان جديد: ${record.title || ''}</b>\n\n` +
+                          `💰 <b>السعر:</b> ${record.price || ''}\n` +
+                          `📍 <b>المنطقة:</b> ${record.location || record.city || ''}\n` +
+                          `📝 <b>التفاصيل:</b> ${descText}\n\n` +
+                          `👤 <b>الناشر:</b> ${record.seller_name || 'مستخدم'}\n` +
+                          `📱 <b>تواصل عبر التطبيق أو البوت للتفاصيل!</b>`;
+          const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
+          let res;
+          if (imageUrl) {
+            res = await sendPhoto(PRODUCT_CHANNEL, imageUrl, caption);
+          } else {
+            res = await sendMessage(PRODUCT_CHANNEL, caption);
+          }
+          if (res?.ok && res.result?.message_id) {
+             await supabase.from('ads').update({ telegram_message_id: res.result.message_id.toString() }).eq('id', record.id);
+          }
+        }
+        else if ((payload.table === 'ads' || payload.table === 'transport_ads') && record.category === 'transport' && TRANSPORT_CHANNEL) {
           const typeStr = record.type === 'offer' ? 'أوفر خط' : 'أبحث عن خط';
           let desc: any = {};
           try { desc = typeof record.description === 'string' ? JSON.parse(record.description) : record.description; } catch(e){}
