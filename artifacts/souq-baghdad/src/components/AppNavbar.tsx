@@ -55,13 +55,14 @@ export const AppNavbar: React.FC<AppNavbarProps> = ({
   const { scrollDirection, isAtTop } = useScrollDirection();
   const [isForcedOpen, setIsForcedOpen] = useState(false);
 
-  const isCollapsed = scrollDirection === 'down' && !isAtTop && !isForcedOpen;
+  const isCollapsed = !isAtTop && !isForcedOpen;
 
   useEffect(() => {
-    if (scrollDirection === 'up') {
+    // Re-collapse if user starts scrolling down again, or reset if at top
+    if (isAtTop || scrollDirection === 'down') {
       setIsForcedOpen(false);
     }
-  }, [scrollDirection]);
+  }, [isAtTop, scrollDirection]);
 
   return (
     <nav 

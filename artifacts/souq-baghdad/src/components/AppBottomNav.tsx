@@ -32,14 +32,13 @@ export const AppBottomNav: React.FC<AppBottomNavProps> = ({
   const { scrollDirection, isAtTop } = useScrollDirection();
   const [isForcedOpen, setIsForcedOpen] = useState(false);
 
-  // Collapse when scrolling down, unless at the very top or forced open by clicking
-  const isCollapsed = scrollDirection === 'down' && !isAtTop && !isForcedOpen;
+  const isCollapsed = !isAtTop && !isForcedOpen;
 
   useEffect(() => {
-    if (scrollDirection === 'up') {
+    if (isAtTop || scrollDirection === 'down') {
       setIsForcedOpen(false);
     }
-  }, [scrollDirection]);
+  }, [isAtTop, scrollDirection]);
 
   return (
     <nav 
