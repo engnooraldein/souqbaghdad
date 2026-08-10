@@ -22,9 +22,65 @@ async function answerCallbackQuery(callbackQueryId: string, text: string = '') {
   });
 }
 
+async function sendPhoto(chatId: string | number, photoUrl: string, caption: string) {
+  await fetch(`${tgUrl}/sendPhoto`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, photo: photoUrl, caption, parse_mode: 'HTML' })
+  });
+}
+
+// Channel IDs from environment variables (e.g., @ChannelUsername or -100123456789)
+const PRODUCT_CHANNEL = Deno.env.get('PRODUCT_CHANNEL_ID') || '';
+const TRANSPORT_CHANNEL = Deno.env.get('TRANSPORT_CHANNEL_ID') || '';
+
 serve(async (req) => {
   try {
-    const update = await req.json();
+    const payload = await req.json();
+    
+    // Check if it's a Supabase Database Webhook (pg_net)
+    if (payload.type === 'INSERT' && payload.table) {
+      const record = payload.record;
+      
+      if (payload.table === 'products' && PRODUCT_CHANNEL) {
+        const caption = `📦 <b>منتج جديد: ${record.title || ''}</b>\n\n` +
+                        `💰 <b>السعر:</b> ${record.price || ''}\n` +
+                        `📍 <b>المحافظة:</b> ${record.governorate || ''}\n` +
+                        `📝 <b>التفاصيل:</b> ${record.description || ''}\n\n` +
+                        `👤 <b>البائع:</b> ${record.seller_name || 'بائع'}\n` +
+                        `📱 <b>تواصل عبر التطبيق أو البوت للطلب!</b>`;
+        const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
+        if (imageUrl) {
+          await sendPhoto(PRODUCT_CHANNEL, imageUrl, caption);
+        } else {
+          await sendMessage(PRODUCT_CHANNEL, caption);
+        }
+      }
+      else if ((payload.table === 'ads' || payload.table === 'transport_ads') && TRANSPORT_CHANNEL) {
+        // Only process transport ads from the 'ads' table, or support the old 'transport_ads' table
+        if (payload.table === 'ads' && record.category !== 'transport') {
+          return new Response('OK', { status: 200 });
+        }
+        
+        const typeStr = record.type === 'offer' ? '🚗 أوفر خط' : '🙋‍♂️ أبحث عن خط';
+        let desc: any = {};
+        try { desc = typeof record.description === 'string' ? JSON.parse(record.description) : record.description; } catch(e){}
+        
+        const msg = `🚌 <b>${typeStr} إلى ${record.city || record.university || ''}</b>\n\n` +
+                    `📍 <b>المناطق:</b> ${record.location || record.regions || ''}\n` +
+                    `💰 <b>السعر:</b> ${record.price || ''}\n` +
+                    `⏰ <b>الوقت:</b> ${desc?.shift || record.shift || ''}\n` +
+                    `👥 <b>المقاعد المتوفرة/المطلوبة:</b> ${desc?.seats || record.seats || ''}\n\n` +
+                    `👤 <b>الناشر:</b> ${record.seller_name || 'مستخدم'}\n` +
+                    `📱 <b>تواصل عبر التطبيق أو البوت للتفاصيل!</b>`;
+        await sendMessage(TRANSPORT_CHANNEL, msg);
+      }
+
+      return new Response('OK', { status: 200 });
+    }
+
+    // Otherwise it's a telegram update
+    const update = payload;
     
     let chatId: number;
     let text = '';
@@ -57,7 +113,7 @@ serve(async (req) => {
     const phone = tgUser?.phone_number;
 
     // --- Main Menu Function ---
-    const showMainMenu = async () => {
+      const showMainMenu = async () => {
       state = {}; // reset state
       if (userId) {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
@@ -66,6 +122,8 @@ serve(async (req) => {
         inline_keyboard: [
           [{ text: '📦 نشر إعلان منتج', callback_data: 'publish_product' }],
           [{ text: '🚌 نشر خط نقل', callback_data: 'publish_transport' }],
+          [{ text: '🗑️ إدارة إعلاناتي (حذف)', callback_data: 'manage_my_ads' }],
+          [{ text: '📞 الدعم الفني والاستفسارات', callback_data: 'contact_support' }],
           [{ text: '🔔 إدارة إشعاراتي', callback_data: 'manage_alerts' }],
         ]
       });
@@ -73,7 +131,7 @@ serve(async (req) => {
 
     // --- Start / Register ---
     if (text === '/start') {
-      await sendMessage(chatId, 'مرحباً بك في بوت <b>سوق بغداد الرقمي</b>! 🇮🇶\n\nيرجى مشاركة رقم هاتفك للتحقق من حسابك أو لإنشاء حساب جديد تلقائياً لتتمكن من النشر مجاناً من التيليكرام.', {
+      await sendMessage(chatId, 'مرحباً بك في بوت <b>سوق بغداد الرقمي</b>! 🇮🇶\n\nيرجى مشاركة رقم هاتفك للتحقق من حسابك أو لإنشاء حساب جديد تلقائياً لتتمكن من النشر واستخدام خدمات الدعم الفني.', {
         keyboard: [[{ text: '📱 مشاركة رقم الهاتف', request_contact: true }]],
         one_time_keyboard: true,
         resize_keyboard: true
@@ -85,26 +143,34 @@ serve(async (req) => {
       let phoneNumber = contact.phone_number;
       if (!phoneNumber.startsWith('+')) phoneNumber = '+' + phoneNumber;
 
-      // Find user
-      const { data: users } = await supabase.auth.admin.listUsers();
-      let matchedUserId = users?.users?.find(u => u.phone === phoneNumber || u.phone === phoneNumber.replace('+964', '0'))?.id;
+      // Clean the phone number (remove spaces, dashes, plus)
+      const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
+      const localPhone = cleanPhone.startsWith('964') ? '0' + cleanPhone.substring(3) : cleanPhone;
+      const intlPhone = cleanPhone.startsWith('964') ? '+' + cleanPhone : (cleanPhone.startsWith('0') ? '+964' + cleanPhone.substring(1) : '+' + cleanPhone);
+
+      // Search in profiles first (more reliable and no pagination limits)
+      const { data: profileMatches } = await supabase.from('profiles')
+        .select('id, phone')
+        .or(`phone.eq.${localPhone},phone.eq.${intlPhone},phone.eq.${cleanPhone}`);
+        
+      let matchedUserId = profileMatches && profileMatches.length > 0 ? profileMatches[0].id : null;
 
       // Create user if not exists
       if (!matchedUserId) {
         const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
-          phone: phoneNumber,
+          phone: intlPhone,
           password: Math.random().toString(36).slice(-8),
           phone_confirm: true
         });
         if (createError) {
-          await sendMessage(chatId, 'عذراً، حدث خطأ أثناء إنشاء حسابك.');
+          await sendMessage(chatId, 'عذراً، الرقم مسجل مسبقاً أو حدث خطأ أثناء التحقق.');
           return new Response('OK', { status: 200 });
         }
         matchedUserId = newUser.user.id;
         
         // Ensure profile exists (in case trigger is missing)
         const fullName = update.message.from.first_name + (update.message.from.last_name ? ' ' + update.message.from.last_name : '');
-        await supabase.from('profiles').upsert({ id: matchedUserId, full_name: fullName, phone: phoneNumber, role: 'user', points: 100 });
+        await supabase.from('profiles').upsert({ id: matchedUserId, full_name: fullName, phone: localPhone, role: 'user', points: 100 });
       }
 
       // Save telegram link
@@ -133,6 +199,72 @@ serve(async (req) => {
 
       if (action === 'main_menu') {
         await showMainMenu();
+        return new Response('OK', { status: 200 });
+      }
+
+      // Manage Ads
+      if (action === 'manage_my_ads') {
+        const { data: myProducts } = await supabase.from('products').select('id, title, price, governorate').eq('seller_id', userId).limit(5);
+        const { data: myTransports } = await supabase.from('ads').select('id, title, price, location, type').eq('seller_id', userId).eq('category', 'transport').limit(5);
+        
+        if ((!myProducts || myProducts.length === 0) && (!myTransports || myTransports.length === 0)) {
+           await sendMessage(chatId, 'لا يوجد لديك أي إعلانات منشورة حالياً.', { inline_keyboard: [[{ text: '🏠 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]] });
+           return new Response('OK', { status: 200 });
+        }
+
+        await sendMessage(chatId, '🗑️ <b>إدارة إعلاناتي</b>\nإليك قائمة إعلاناتك الحالية:');
+
+        if (myProducts && myProducts.length > 0) {
+          for (const p of myProducts) {
+            const text = `📦 <b>${p.title}</b>\n💰 السعر: ${p.price}\n📍 المحافظة: ${p.governorate}`;
+            await sendMessage(chatId, text, { inline_keyboard: [[{ text: '❌ حذف هذا المنتج', callback_data: `del_prod_${p.id}` }]] });
+          }
+        }
+
+        if (myTransports && myTransports.length > 0) {
+          for (const t of myTransports) {
+            const typeText = t.type === 'offer' ? 'أوفر خط' : 'أبحث عن خط';
+            const text = `🚌 <b>${t.title}</b> (${typeText})\n💰 السعر: ${t.price}\n📍 المنطقة: ${t.location}`;
+            await sendMessage(chatId, text, { 
+              inline_keyboard: [
+                [{ text: '✅ إغلاق الإعلان (حصلت على خط)', callback_data: `solve_trans_${t.id}` }],
+                [{ text: '❌ حذف نهائي', callback_data: `del_trans_${t.id}` }]
+              ] 
+            });
+          }
+        }
+        
+        await sendMessage(chatId, 'اختر الإجراء المناسب أسفل الإعلان:', { inline_keyboard: [[{ text: '🏠 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]] });
+        
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action.startsWith('del_prod_')) {
+        const prodId = action.replace('del_prod_', '');
+        await supabase.from('products').delete().eq('id', prodId).eq('seller_id', userId);
+        await sendMessage(chatId, '✅ تم حذف المنتج بنجاح.', { inline_keyboard: [[{ text: 'العودة لإدارة إعلاناتي', callback_data: 'manage_my_ads' }]] });
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action.startsWith('del_trans_')) {
+        const transId = action.replace('del_trans_', '');
+        await supabase.from('ads').delete().eq('id', transId).eq('seller_id', userId);
+        await sendMessage(chatId, '✅ تم حذف الخط بنجاح.', { inline_keyboard: [[{ text: 'العودة لإدارة إعلاناتي', callback_data: 'manage_my_ads' }]] });
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action.startsWith('solve_trans_')) {
+        const transId = action.replace('solve_trans_', '');
+        await supabase.from('ads').update({ status: 'matched', completedAt: new Date().toISOString() }).eq('id', transId).eq('seller_id', userId);
+        await sendMessage(chatId, '✅ تم إغلاق الإعلان بنجاح وتحويله إلى "مكتمل".', { inline_keyboard: [[{ text: 'العودة لإدارة إعلاناتي', callback_data: 'manage_my_ads' }]] });
+        return new Response('OK', { status: 200 });
+      }
+
+      // Support Wizard
+      if (action === 'contact_support') {
+        state = { step: 'support_message', data: {} };
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        await sendMessage(chatId, '📞 <b>الدعم الفني للاستفسارات والشكاوى</b>\n\nيرجى كتابة رسالتك أو استفسارك بالتفصيل وسيقوم فريق الدعم بالرد عليك بأقرب وقت:');
         return new Response('OK', { status: 200 });
       }
 
@@ -214,6 +346,25 @@ serve(async (req) => {
         return new Response('OK', { status: 200 });
       }
 
+      // SUPPORT WIZARD
+      if (state.step === 'support_message' && text) {
+        await sendMessage(chatId, '⏳ جاري إرسال رسالتك للدعم الفني...');
+        const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', userId).single();
+        
+        await supabase.from('support_messages').insert({
+          user_id: userId,
+          name: profile?.full_name || 'مستخدم تيليكرام',
+          phone: phone,
+          message: text,
+          status: 'new'
+        });
+
+        await sendMessage(chatId, '✅ <b>تم إرسال رسالتك بنجاح!</b>\nسيقوم فريق الدعم الفني بالتواصل معك قريباً.', {
+          inline_keyboard: [[{ text: '🏠 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]]
+        });
+        state = {}; // clear state
+      }
+      
       // PRODUCT WIZARD
       if (state.step === 'product_title' && text) {
         state.data.title = text;
@@ -264,7 +415,7 @@ serve(async (req) => {
 
         // Insert Product
         const { data: profile } = await supabase.from('profiles').select('full_name, avatar_url').eq('id', userId).single();
-        await supabase.from('products').insert({
+        const { error: prodInsertError } = await supabase.from('products').insert({
           title: state.data.title,
           price: state.data.price,
           description: state.data.description,
@@ -273,11 +424,13 @@ serve(async (req) => {
           condition: state.data.condition,
           phone: phone,
           images: imageUrl ? [imageUrl] : [],
-          posted_by: userId,
+          seller_id: userId,
           seller_name: profile?.full_name || 'بائع',
           seller_avatar: profile?.avatar_url || '',
           status: 'active'
         });
+
+        // Channel posting is now handled by the database webhook
 
         await sendMessage(chatId, '✅ <b>شكراً لتواصلك!</b>\nتم نشر إعلان المنتج في منصة <b>سوق بغداد</b> بنجاح. 🚀', {
           inline_keyboard: [[{ text: '🏠 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]]
@@ -328,23 +481,34 @@ serve(async (req) => {
         await sendMessage(chatId, '⏳ جاري نشر إعلان الخط...');
         const { data: profile } = await supabase.from('profiles').select('full_name, avatar_url').eq('id', userId).single();
         
-        await supabase.from('transport_ads').insert({
-          type: state.data.type,
-          category_type: state.data.categoryType,
-          university: state.data.university,
-          regions: state.data.regions,
-          price: state.data.price,
-          seats: state.data.seats,
-          shift: state.data.shift,
-          vehicle_type: state.data.vehicleType,
-          target_audience: state.data.targetAudience,
-          note: state.data.note,
+        const { error: transInsertError } = await supabase.from('ads').insert({
+          type: state.data.type === 'offer' ? 'offer' : 'request',
+          title: state.data.type === 'offer' ? `أوفر خط إلى ${state.data.university}` : `أبحث عن خط إلى ${state.data.university}`,
+          description: JSON.stringify({
+            shift: state.data.shift,
+            seats: state.data.seats,
+            vehicleType: state.data.vehicleType,
+            targetAudience: state.data.targetAudience,
+            categoryType: state.data.categoryType || 'student',
+            note: state.data.note,
+            interest: 0,
+            whatsappClicks: 0
+          }),
+          price: state.data.price ? state.data.price.replace(/[^0-9]/g, '') : '0',
+          category: 'transport',
+          location: state.data.regions,
+          city: state.data.university,
+          images: [],
           phone: phone,
-          posted_by: userId,
+          status: 'active',
+          is_demo: false,
+          seller_id: userId,
           seller_name: profile?.full_name || 'صاحب خط',
           seller_avatar: profile?.avatar_url || '',
-          status: 'published'
+          short_id: Math.random().toString(36).substring(2, 7).toUpperCase()
         });
+
+        // Channel posting is now handled by the database webhook
 
         await sendMessage(chatId, '✅ <b>شكراً لتواصلك!</b>\nتم نشر إعلان الخط في منصة <b>سوق بغداد</b> بنجاح. 🚀', {
           inline_keyboard: [[{ text: '🏠 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]]

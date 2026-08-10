@@ -139,9 +139,6 @@ export function useTransportActions({
   };
 
   const handleUpdateTransportStatus = async (id: number, status: string, reason: string | null = null) => {
-    const ad = allTransportAds.find(a => a.id === id);
-    if (!ad) return;
-
     const newStatus = status === 'published' ? 'active' : status;
     const dbStatus = newStatus;
 
@@ -151,22 +148,19 @@ export function useTransportActions({
       .eq('id', id)
       .single();
 
-    let existingDesc = {};
+    let existingDesc: any = {};
     if (existingAd && existingAd.description) {
-      try { existingDesc = JSON.parse(existingAd.description); } catch(e) {}
+      try { 
+        existingDesc = typeof existingAd.description === 'string' 
+          ? JSON.parse(existingAd.description) 
+          : existingAd.description; 
+      } catch(e) {}
     }
 
     const descriptionData = JSON.stringify({
       ...existingDesc,
-      shift: ad.shift,
-      seats: ad.seats,
-      vehicleType: ad.vehicleType,
-      targetAudience: ad.targetAudience,
-      note: ad.note,
-      interest: ad.interest || 0,
-      whatsappClicks: ad.whatsappClicks || 0,
-      completedAt: status === 'matched' ? new Date().toISOString() : ad.completedAt,
-      completion_reason: reason
+      completedAt: status === 'matched' ? new Date().toISOString() : (existingDesc.completedAt || null),
+      completion_reason: reason || existingDesc.completion_reason || null
     });
 
     const { error } = await supabase
