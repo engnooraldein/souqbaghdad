@@ -132,13 +132,25 @@ serve(async (req) => {
           const adId = record.short_id || record.id;
           const link = `https://www.souqbaghdad.store/transport/card/${adId}`;
 
+          function formatTgPrice(val: any): string {
+            if (!val) return 'حسب الاتفاق';
+            let str = String(val).trim();
+            const rawNum = str.replace(/[^\d]/g, '');
+            if (!rawNum) return str;
+            let num = parseInt(rawNum, 10);
+            if (!isNaN(num) && num > 0 && num < 1000) {
+              num = num * 1000;
+            }
+            return isNaN(num) ? str : `${num.toLocaleString('en-US')} د.ع`;
+          }
+
           const msg = `(${typeStr})\n` +
                       `${catType} - مطلوب جديد\n\n` +
                       `📍 المناطق: ${record.location || record.regions || ''}\n` +
                       `🏢 الوجهة: ${record.city || record.university || ''}\n` +
                       `⏰ الدوام: ${desc?.shift || record.shift || ''}\n` +
                       `🚗 المركبة: ${desc?.vehicleType || record.vehicleType || ''}\n` +
-                      `💰 السعر: ${record.price ? record.price + ' الف دينار عراقي' : 'حسب الاتفاق'}\n\n` +
+                      `💰 السعر: ${formatTgPrice(record.price)}\n\n` +
                       `📞 التواصل: عبر الموقع فقط\n` +
                       `👇 نشجعك تطلب مباشرة عبر الموقع\n` +
                       `🔗 ${link}`;

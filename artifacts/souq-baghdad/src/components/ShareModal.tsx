@@ -86,15 +86,13 @@ export function ShareModal({
     if (!p) return '';
     const cleanStr = String(p).trim();
     const rawNum = cleanStr.replace(/[^\d]/g, '');
-    if (!rawNum) return `${cleanStr} دينار عراقي`;
-    const num = Number(rawNum);
-    const formattedNum = num.toLocaleString('en-US');
-    if (cleanStr.includes('مليون') || num >= 100000000) {
-      return `${formattedNum} مليون دينار عراقي`;
-    } else if (cleanStr.includes('الف') || cleanStr.includes('ألف') || num < 1000000) {
-      return `${formattedNum} الف دينار عراقي`;
+    if (!rawNum) return `${cleanStr} د.ع`;
+    let num = Number(rawNum);
+    if (!isNaN(num) && num > 0 && num < 1000) {
+      num = num * 1000;
     }
-    return `${formattedNum} دينار عراقي`;
+    const formattedNum = num.toLocaleString('en-US');
+    return `${formattedNum} د.ع`;
   };
 
   const getShareText = () => {
