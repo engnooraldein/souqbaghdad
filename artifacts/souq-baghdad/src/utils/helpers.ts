@@ -49,7 +49,7 @@ export const isNewItem = (iso?: string): boolean => {
   return new Date().getTime() - new Date(iso).getTime() < 7 * 24 * 60 * 60 * 1000;
 };
 
-export function getWhatsAppLink(phone: string, itemType: 'product' | 'transport', details: any) {
+export function getWhatsAppLink(phone: string, itemType?: 'product' | 'transport', details?: any) {
   if (!phone) return '#';
   let cleanPhone = phone.replace(/[^0-9+]/g, '');
   if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
@@ -57,6 +57,11 @@ export function getWhatsAppLink(phone: string, itemType: 'product' | 'transport'
     cleanPhone = '964' + cleanPhone;
   }
   cleanPhone = cleanPhone.replace('+', '');
+  
+  if (!details) {
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent('السلام عليكم، شفت صفحتك في منصة سوق بغداد وحاب أستفسر عن خدماتكم.')}`;
+  }
+  
   const idStr = details.short_id ? `#${details.short_id}` : `#${String(details.id).substring(0, 5)}`;
   const title = details.title || details.university || 'إعلان';
   const location = details.location || details.governorate || 'غير محدد';

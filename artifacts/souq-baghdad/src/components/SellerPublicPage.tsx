@@ -39,7 +39,7 @@ import {
   Loader2, Wallet, EyeOff, ZoomOut, ZoomIn, CheckCircle, Key, Tag, Package, ImagePlus, Edit2, Phone as PhoneIcon, 
   RefreshCw, TrendingDown, Clock, HelpCircle, Archive, ShoppingCart, Target, 
   Globe, Search as SearchIcon, ArrowLeft, MoreHorizontal, LayoutGrid,
-  FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, Instagram, Facebook, Truck
+  FileText, Gamepad2, Copy, Crown, View, Eye as ViewIcon, Instagram, Facebook, Truck, GraduationCap
 } from 'lucide-react';
 import { User, Ad, Product, TransportAd, SellerInfo } from '../types';
 import { CATEGORIES, IRAQI_GOVERNORATES, EMPLOYEE_WORKPLACES, UNIVERSITIES, uploadImageToStorage, recordItemView, handleUniversalShare, ViewersModal, GAMES_DATA, compressImage } from '../App';
@@ -568,7 +568,7 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
           </p>
 
           {/* Professional Details Section */}
-          {effectiveSeller.store_type === 'business' && (
+          {(effectiveSeller.store_type === 'business' || effectiveSeller.store_type === 'professional') && (
             <div className={`mt-4 p-4 rounded-2xl border ${isDarkMode ? 'bg-gray-800/40 border-gray-800 text-gray-300' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
               
               {/* Store Bio */}
@@ -582,7 +582,7 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
               )}
 
               {/* Dynamic Metadata Fields */}
-              {['طبيب', 'صيدلي', 'مهندس', 'محامي'].includes(effectiveSeller.specialty || '') && effectiveSeller.store_metadata && (
+              {['طبيب', 'طبيب أسنان', 'صيدلي', 'تمريض', 'مهندس', 'محامي'].includes(effectiveSeller.specialty || '') && effectiveSeller.store_metadata && (
                 <div className="flex flex-wrap gap-3 mt-3">
                   {effectiveSeller.store_metadata.years_of_experience && (
                     <span className={`text-xs px-2.5 py-1 rounded-lg border ${tpl.accentBg} ${tpl.accentText} ${tpl.borderColor}`}>
@@ -596,13 +596,29 @@ export function SellerPublicPage({ sellerId, allAds, allProducts, allTransportAd
                   )}
                   {effectiveSeller.store_metadata.university && (
                     <span className={`text-xs px-2.5 py-1 rounded-lg border flex items-center gap-1 ${tpl.accentBg} ${tpl.accentText} ${tpl.borderColor}`}>
-                      {t.university} {effectiveSeller.store_metadata.university}
+                      <GraduationCap className="w-3 h-3"/> {effectiveSeller.store_metadata.university}
                     </span>
                   )}
                   {effectiveSeller.store_metadata.license_number && (
                     <span className={`text-xs px-2.5 py-1 rounded-lg border flex items-center gap-1 ${tpl.accentBg} ${tpl.accentText} ${tpl.borderColor}`}>
-                      <ShieldCheck className="w-3.5 h-3.5" /> {t.license} {effectiveSeller.store_metadata.license_number}
+                      <ShieldCheck className="w-3 h-3"/> نقابة رقم {effectiveSeller.store_metadata.license_number}
                     </span>
+                  )}
+                </div>
+              )}
+
+              {/* Designers and Programmers */}
+              {['مصمم', 'مصور', 'مونتير', 'مبرمج'].includes(effectiveSeller.specialty || '') && effectiveSeller.store_metadata && (
+                <div className="flex flex-wrap gap-3 mt-3">
+                  {effectiveSeller.store_metadata.skills && (
+                    <span className={`text-xs px-2.5 py-1 rounded-lg border flex items-center gap-1 ${tpl.accentBg} ${tpl.accentText} ${tpl.borderColor}`}>
+                      <Sparkles className="w-3 h-3"/> {effectiveSeller.store_metadata.skills}
+                    </span>
+                  )}
+                  {effectiveSeller.store_metadata.portfolio_url && (
+                    <a href={effectiveSeller.store_metadata.portfolio_url} target="_blank" rel="noreferrer" className={`text-xs px-2.5 py-1 rounded-lg border flex items-center gap-1 hover:underline ${tpl.accentBg} ${tpl.accentText} ${tpl.borderColor}`}>
+                      <ExternalLink className="w-3 h-3"/> معرض الأعمال
+                    </a>
                   )}
                 </div>
               )}

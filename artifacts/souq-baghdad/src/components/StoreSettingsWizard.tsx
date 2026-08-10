@@ -20,7 +20,14 @@ export const StoreSettingsWizard: React.FC<StoreSettingsWizardProps> = ({ ef, se
   const storeType = ef.store_type || 'personal';
   const specialty = ef.specialty || '';
 
-  const SPECIALTIES = ['طبيب', 'صيدلي', 'مهندس', 'مبرمج', 'محامي', 'مصور', 'حلاق', 'تجارة عامة', 'سيارات', 'عقارات', 'ملابس', 'إلكترونيات'];
+  const PROFESSION_CATEGORIES = {
+    'خريجون / طبي': ['طبيب', 'طبيب أسنان', 'صيدلي', 'تمريض'],
+    'خريجون / عام': ['مهندس', 'مبرمج', 'محامي', 'محاسب', 'إدارة', 'إعلام', 'علوم'],
+    'أعمال حرة': ['مصمم', 'مصور', 'مونتير', 'مسوق', 'مترجم'],
+    'حرف وخدمات': ['كهربائي', 'سباك', 'نجار', 'ميكانيكي', 'حداد', 'صيانة', 'خياطة', 'تجميل'],
+  };
+
+  const SPECIALTIES = Object.values(PROFESSION_CATEGORIES).flat();
 
   const [isGeneratingBio, setIsGeneratingBio] = useState(false);
   const [usernameStatus, setUsernameStatus] = useState<'idle'|'checking'|'available'|'taken'>('idle');
@@ -122,11 +129,11 @@ export const StoreSettingsWizard: React.FC<StoreSettingsWizardProps> = ({ ef, se
       {/* 1. Account Type */}
       <div>
         <label className={`text-sm font-bold block mb-3 ${isDarkMode ? 'text-gray-300' : 'text-slate-600'}`}>نوع الحساب</label>
-        <div className="flex gap-3">
+        <div className="flex gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
           <button
             disabled={!editing}
             onClick={() => setEf({...ef, store_type: 'personal'})}
-            className={`flex-1 py-4 px-4 rounded-2xl border flex flex-col items-center justify-center gap-2 transition-all ${
+            className={`flex-[1_1_100%] sm:flex-1 py-3 sm:py-4 px-3 sm:px-4 rounded-2xl border flex flex-col items-center justify-center gap-2 transition-all ${
               storeType === 'personal'
                 ? 'bg-blue-500/10 border-blue-500 text-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] ring-1 ring-blue-500'
                 : isDarkMode 
@@ -134,14 +141,14 @@ export const StoreSettingsWizard: React.FC<StoreSettingsWizardProps> = ({ ef, se
                   : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
             } ${!editing ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
-            <UserIcon className="w-7 h-7" />
-            <span className="font-black text-base">حساب شخصي</span>
-            <span className="text-xs opacity-70">لبيع الأغراض المستعملة</span>
+            <UserIcon className="w-6 h-6 sm:w-7 sm:h-7" />
+            <span className="font-black text-sm sm:text-base">حساب شخصي</span>
+            <span className="text-[10px] sm:text-xs opacity-70">لبيع الأغراض المستعملة</span>
           </button>
           <button
             disabled={!editing}
             onClick={() => setEf({...ef, store_type: 'business'})}
-            className={`flex-1 py-4 px-4 rounded-2xl border flex flex-col items-center justify-center gap-2 transition-all ${
+            className={`flex-[1_1_48%] sm:flex-1 py-3 sm:py-4 px-3 sm:px-4 rounded-2xl border flex flex-col items-center justify-center gap-2 transition-all ${
               storeType === 'business'
                 ? 'bg-amber-500/10 border-amber-500 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.15)] ring-1 ring-amber-500'
                 : isDarkMode 
@@ -149,9 +156,24 @@ export const StoreSettingsWizard: React.FC<StoreSettingsWizardProps> = ({ ef, se
                   : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
             } ${!editing ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
-            <Store className="w-7 h-7" />
-            <span className="font-black text-base">متجر تجاري</span>
-            <span className="text-xs opacity-70">لأصحاب المهن والمحلات</span>
+            <Store className="w-6 h-6 sm:w-7 sm:h-7" />
+            <span className="font-black text-sm sm:text-base">متجر تجاري</span>
+            <span className="text-[10px] sm:text-xs opacity-70 text-center">معارض، محلات، شركات</span>
+          </button>
+          <button
+            disabled={!editing}
+            onClick={() => setEf({...ef, store_type: 'professional'})}
+            className={`flex-[1_1_48%] sm:flex-1 py-3 sm:py-4 px-3 sm:px-4 rounded-2xl border flex flex-col items-center justify-center gap-2 transition-all ${
+              storeType === 'professional'
+                ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500'
+                : isDarkMode 
+                  ? 'bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-600' 
+                  : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
+            } ${!editing ? 'opacity-60 cursor-not-allowed' : ''}`}
+          >
+            <Briefcase className="w-6 h-6 sm:w-7 sm:h-7" />
+            <span className="font-black text-sm sm:text-base">صفحة مهنية</span>
+            <span className="text-[10px] sm:text-xs opacity-70 text-center">أطباء، مهندسون، مصممون</span>
           </button>
         </div>
       </div>
@@ -241,26 +263,55 @@ export const StoreSettingsWizard: React.FC<StoreSettingsWizardProps> = ({ ef, se
         </div>
       </div>
 
-      {/* Business Section */}
-      {storeType === 'business' && (
+      {/* Business & Professional Section */}
+      {(storeType === 'business' || storeType === 'professional') && (
         <div className={`p-5 rounded-2xl border ${isDarkMode ? 'bg-gray-900/50 border-gray-700' : 'bg-slate-50 border-slate-200'} space-y-5`}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Specialty (Datalist) */}
+            {/* Specialty (Select for Professional, Datalist for Business) */}
             <div>
-              <label className={`text-sm font-bold block mb-2 ${isDarkMode ? 'text-gray-300' : 'text-slate-600'}`}>التخصص الرئيسي</label>
+              <label className={`text-sm font-bold block mb-2 ${isDarkMode ? 'text-gray-300' : 'text-slate-600'}`}>
+                {storeType === 'professional' ? 'المهنة / التخصص الرئيسي' : 'التخصص الرئيسي'}
+              </label>
               <div className="relative">
                 <Briefcase className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`} />
-                <input 
-                  list="specialties-list"
-                  disabled={!editing} 
-                  value={specialty} 
-                  onChange={e=>setEf({...ef, specialty:e.target.value})} 
-                  placeholder="اختر أو اكتب تخصصك..." 
-                  className={`w-full pl-4 pr-10 py-3 rounded-xl border outline-none text-sm font-semibold transition-all ${isDarkMode ? 'bg-gray-800 text-white border-gray-600 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50' : 'bg-white text-slate-900 border-slate-200 focus:border-amber-500'}`}
-                />
-                <datalist id="specialties-list">
-                  {SPECIALTIES.map(s => <option key={s} value={s} />)}
-                </datalist>
+                {storeType === 'professional' ? (
+                  <select 
+                    disabled={!editing} 
+                    value={specialty} 
+                    onChange={e => {
+                      setEf({...ef, specialty: e.target.value, specialty_detail: ''});
+                      // Auto-select template based on profession
+                      const val = e.target.value;
+                      let tpl = 'default';
+                      if (['طبيب', 'طبيب أسنان', 'صيدلي', 'تمريض'].includes(val)) tpl = 'medical';
+                      else if (['مهندس', 'مبرمج'].includes(val)) tpl = 'tech';
+                      else if (['مصمم', 'مصور', 'مونتير'].includes(val)) tpl = 'beauty'; // creative
+                      setEf(prev => ({...prev, store_template: tpl}));
+                    }} 
+                    className={`w-full pl-4 pr-10 py-3 rounded-xl border outline-none text-sm font-semibold transition-all appearance-none ${isDarkMode ? 'bg-gray-800 text-white border-gray-600 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50' : 'bg-white text-slate-900 border-slate-200 focus:border-amber-500'}`}
+                  >
+                    <option value="">اختر مهنتك...</option>
+                    {Object.entries(PROFESSION_CATEGORIES).map(([cat, specs]) => (
+                      <optgroup key={cat} label={cat}>
+                        {specs.map(s => <option key={s} value={s}>{s}</option>)}
+                      </optgroup>
+                    ))}
+                  </select>
+                ) : (
+                  <>
+                    <input 
+                      list="specialties-list"
+                      disabled={!editing} 
+                      value={specialty} 
+                      onChange={e=>setEf({...ef, specialty:e.target.value})} 
+                      placeholder="اختر أو اكتب تخصصك..." 
+                      className={`w-full pl-4 pr-10 py-3 rounded-xl border outline-none text-sm font-semibold transition-all ${isDarkMode ? 'bg-gray-800 text-white border-gray-600 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50' : 'bg-white text-slate-900 border-slate-200 focus:border-amber-500'}`}
+                    />
+                    <datalist id="specialties-list">
+                      {SPECIALTIES.map(s => <option key={s} value={s} />)}
+                    </datalist>
+                  </>
+                )}
               </div>
             </div>
 
@@ -284,35 +335,78 @@ export const StoreSettingsWizard: React.FC<StoreSettingsWizardProps> = ({ ef, se
           </div>
 
           {/* Dynamic Extra Fields Based on Specialty */}
-          {['طبيب', 'صيدلي', 'مهندس', 'محامي'].includes(specialty) && (
+          {storeType === 'professional' && specialty && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-gray-700/50">
-              {['طبيب', 'صيدلي'].includes(specialty) && (
-                <div>
-                  <label className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>الدرجة العلمية</label>
-                  <select 
-                    disabled={!editing}
-                    value={meta?.medical_degree || ''}
-                    onChange={e => setMeta('medical_degree', e.target.value)}
-                    className={`w-full px-3 py-2.5 rounded-lg border text-sm font-semibold ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-slate-200'}`}
-                  >
-                    <option value="">اختر الدرجة...</option>
-                    <option value="ممارس عام">ممارس عام</option>
-                    <option value="مقيم دوري">مقيم دوري</option>
-                    <option value="مقيم أقدم">مقيم أقدم</option>
-                    <option value="أخصائي">أخصائي</option>
-                    <option value="استشاري">استشاري</option>
-                  </select>
-                </div>
+              {['طبيب', 'طبيب أسنان', 'صيدلي', 'تمريض'].includes(specialty) && (
+                <>
+                  <div>
+                    <label className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>الدرجة العلمية</label>
+                    <select 
+                      disabled={!editing}
+                      value={meta?.medical_degree || ''}
+                      onChange={e => setMeta('medical_degree', e.target.value)}
+                      className={`w-full px-3 py-2.5 rounded-lg border text-sm font-semibold ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-slate-200'}`}
+                    >
+                      <option value="">اختر الدرجة...</option>
+                      <option value="ممارس عام">ممارس عام</option>
+                      <option value="مقيم دوري">مقيم دوري</option>
+                      <option value="مقيم أقدم">مقيم أقدم</option>
+                      <option value="أخصائي">أخصائي</option>
+                      <option value="استشاري">استشاري</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>رقم الانتماء للنقابة / الإجازة</label>
+                    <input 
+                      type="text"
+                      disabled={!editing}
+                      value={meta?.license_number || ''}
+                      onChange={e => setMeta('license_number', e.target.value)}
+                      placeholder="رقم النقابة أو الإجازة"
+                      className={`w-full px-4 py-2.5 rounded-lg border text-sm font-semibold ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white focus:border-amber-500' : 'bg-white border-slate-200 focus:border-amber-500'}`}
+                    />
+                  </div>
+                </>
               )}
+
+              {['مصمم', 'مصور', 'مونتير', 'مبرمج'].includes(specialty) && (
+                <>
+                  <div>
+                    <label className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>رابط معرض الأعمال (Portfolio)</label>
+                    <input 
+                      type="url"
+                      dir="ltr"
+                      disabled={!editing}
+                      value={meta?.portfolio_url || ''}
+                      onChange={e => setMeta('portfolio_url', e.target.value)}
+                      placeholder="https://behance.net/..."
+                      className={`w-full px-4 py-2.5 rounded-lg border text-sm font-semibold text-left transition-all ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white focus:border-amber-500' : 'bg-white border-slate-200 focus:border-amber-500'}`}
+                    />
+                  </div>
+                  <div>
+                    <label className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>أهم البرامج / المهارات</label>
+                    <input 
+                      type="text"
+                      disabled={!editing}
+                      value={meta?.skills || ''}
+                      onChange={e => setMeta('skills', e.target.value)}
+                      placeholder="مثال: Photoshop, Illustrator, Figma"
+                      className={`w-full px-4 py-2.5 rounded-lg border text-sm font-semibold ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white focus:border-amber-500' : 'bg-white border-slate-200 focus:border-amber-500'}`}
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* General fields for all professionals */}
               <div>
-                <label className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>الجامعة المتخرج منها</label>
+                <label className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>الجامعة المتخرج منها / المؤهل</label>
                 <div className="relative">
                   <GraduationCap className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`} />
                   <input 
                     disabled={!editing}
                     value={meta?.university || ''}
                     onChange={e => setMeta('university', e.target.value)}
-                    placeholder="اسم الجامعة"
+                    placeholder="الجامعة أو المعهد"
                     className={`w-full pr-9 pl-3 py-2.5 rounded-lg border text-sm font-semibold ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-slate-200'}`}
                   />
                 </div>
@@ -324,18 +418,7 @@ export const StoreSettingsWizard: React.FC<StoreSettingsWizardProps> = ({ ef, se
                   disabled={!editing}
                   value={meta?.years_of_experience || ''}
                   onChange={e => setMeta('years_of_experience', e.target.value)}
-                  placeholder="مثال: 10"
-                  className={`w-full px-4 py-2.5 rounded-lg border text-sm font-semibold ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white focus:border-amber-500' : 'bg-white border-slate-200 focus:border-amber-500'}`}
-                />
-              </div>
-              <div>
-                <label className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>رقم الانتماء للنقابة / الإجازة (اختياري)</label>
-                <input 
-                  type="text"
-                  disabled={!editing}
-                  value={meta?.license_number || ''}
-                  onChange={e => setMeta('license_number', e.target.value)}
-                  placeholder="رقم النقابة أو الإجازة"
+                  placeholder="مثال: 5"
                   className={`w-full px-4 py-2.5 rounded-lg border text-sm font-semibold ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white focus:border-amber-500' : 'bg-white border-slate-200 focus:border-amber-500'}`}
                 />
               </div>

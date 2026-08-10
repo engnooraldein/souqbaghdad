@@ -449,7 +449,14 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
                   </div>
                 </div>
               </div>
-              <button onClick={()=>onSellerClick?.(ad.postedBy||'')} className="text-[11px] text-amber-400 hover:underline flex items-center gap-0.5 shrink-0">صفحة البائع<ChevronRight className="w-2.5 h-2.5"/></button>
+              <button onClick={()=>onSellerClick?.(ad.postedBy||'')} className="text-[11px] text-amber-400 hover:underline flex items-center gap-0.5 shrink-0">
+                {(currentSeller?.store_type === 'professional' || ad.seller?.store_type === 'professional') 
+                  ? 'الصفحة المهنية' 
+                  : (currentSeller?.store_type === 'business' || ad.seller?.store_type === 'business') 
+                    ? 'زيارة المتجر' 
+                    : 'صفحة البائع'}
+                <ChevronRight className="w-2.5 h-2.5"/>
+              </button>
             </div>
 
             {/* Interactive Rating Panel */}
