@@ -50,15 +50,22 @@ import { TransportAdCard } from './TransportAdCard';
 import { InterestTimer } from './InterestTimer';
 import { IraqiEagle } from './Icons';
 
-export function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id:number)=>void;onClose:()=>void}) {
-  const [tab, setTab] = useState<'ads'|'users'|'settings'>('ads');
+export function AdminPanel({ ads, products, transportAds, onDeleteAd, onDeleteProduct, onDeleteTransportAd, onClose }:{ads:Ad[]; products:Product[]; transportAds:TransportAd[]; onDeleteAd:(id:number)=>void; onDeleteProduct:(id:string)=>void; onDeleteTransportAd:(id:number)=>void; onClose:()=>void}) {
+  const [tab, setTab] = useState<'ads'|'products'|'transport'|'reports'|'users'|'settings'>('ads');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [reports, setReports] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [costs, setCosts] = useState<{ad:number; product:number; transport:number; vip_ad:number}>({ad:1, product:1, transport:1, vip_ad:5});
   const [saving, setSaving] = useState(false);
-  const [deleteAdId, setDeleteAdId] = useState<number | null>(null);
+  const [deleteItem, setDeleteItem] = useState<{id: any, type: 'ad'|'product'|'transport'} | null>(null);
+  const [deletingReport, setDeletingReport] = useState(false);
 
   useEffect(() => {
-    if(tab === 'users') {
+    if(tab === 'reports') {
+      supabase.from('support_messages').select('*').order('created_at', { ascending: false }).limit(200).then(({data}) => {
+        if(data) setReports(data.filter((msg: any) => msg.name && msg.name.startsWith('REPORT:')));
+      });
+    } else if(tab === 'users') {
       supabase.from('profiles').select('id, full_name, phone, points, created_at').order('created_at', { ascending: false }).limit(200).then(({data}) => {
         if(data) setUsers(data.map(u => ({ ...u, name: u.full_name })));
       });
@@ -97,21 +104,96 @@ export function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-4 hide-scrollbar mb-4">
-          <button onClick={() => setTab('ads')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap ${tab === 'ads' ? 'bg-red-500 text-white' : 'bg-gray-800 text-gray-400'}`}>الإعلانات ({ads.length})</button>
+          <button onClick={() => setTab('ads')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap ${tab === 'ads' ? 'bg-red-500 text-white' : 'bg-gray-800 text-gray-400'}`}>الإعلانات</button>
+          <button onClick={() => setTab('products')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap ${tab === 'products' ? 'bg-purple-500 text-white' : 'bg-gray-800 text-gray-400'}`}>المنتجات</button>
+          <button onClick={() => setTab('transport')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap ${tab === 'transport' ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-400'}`}>الخطوط</button>
+          <button onClick={() => setTab('reports')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap ${tab === 'reports' ? 'bg-orange-500 text-white' : 'bg-gray-800 text-gray-400'}`}>البلاغات</button>
           <button onClick={() => setTab('users')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap ${tab === 'users' ? 'bg-amber-500 text-black' : 'bg-gray-800 text-gray-400'}`}>المستخدمين ({users.length || '...'})</button>
           <button onClick={() => setTab('settings')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap ${tab === 'settings' ? 'bg-emerald-500 text-white' : 'bg-gray-800 text-gray-400'}`}>الأسعار والنقاط</button>
         </div>
 
+        {['ads','products','transport'].includes(tab) && (
+          <div className="mb-4 relative">
+            <Search className="w-5 h-5 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2"/>
+            <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="ابحث بالاسم أو المعرف (ID)..." className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-4 py-3 pr-10 outline-none focus:border-red-500"/>
+          </div>
+        )}
+
         {tab === 'ads' && (
           <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
-            {ads.length===0?<div className="p-8 text-center text-gray-400">لا إعلانات</div>:ads.map(ad=>(
+            {(ads.filter(a => a.title?.includes(searchQuery) || String(a.id).includes(searchQuery) || String(a.short_id).includes(searchQuery)).length===0)?<div className="p-8 text-center text-gray-400">لا يوجد نتائج</div>:ads.filter(a => a.title?.includes(searchQuery) || String(a.id).includes(searchQuery) || String(a.short_id).includes(searchQuery)).map(ad=>(
               <div key={ad.id} className="flex items-center gap-3 p-3 border-b border-gray-700/50">
                 <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" loading="lazy" decoding="async" className="w-12 h-12 rounded-lg object-cover"/>
                 <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{ad.title}</p>
                   <p className="text-xs text-gray-400">{ad.location} • {formatPrice(ad.price)} د.ع</p></div>
-                <button onClick={()=>setDeleteAdId(ad.id)} className="p-2 bg-red-500/20 rounded-lg text-red-400" title="حذف الإعلان" aria-label="حذف الإعلان"><Trash2 className="w-4 h-4"/></button>
+                <button onClick={()=>setDeleteItem({id: ad.id, type: 'ad'})} className="p-2 bg-red-500/20 rounded-lg text-red-400" title="حذف الإعلان" aria-label="حذف الإعلان"><Trash2 className="w-4 h-4"/></button>
               </div>
             ))}
+          </div>
+        )}
+
+        {tab === 'products' && (
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+            {(products.filter(p => p.title?.includes(searchQuery) || String(p.id).includes(searchQuery)).length===0)?<div className="p-8 text-center text-gray-400">لا يوجد نتائج</div>:products.filter(p => p.title?.includes(searchQuery) || String(p.id).includes(searchQuery)).map(p=>(
+              <div key={p.id} className="flex items-center gap-3 p-3 border-b border-gray-700/50">
+                <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" className="w-12 h-12 rounded-lg object-cover"/>
+                <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{p.title}</p>
+                  <p className="text-xs text-gray-400">{formatPrice(p.price)} د.ع</p></div>
+                <button onClick={()=>setDeleteItem({id: p.id, type: 'product'})} className="p-2 bg-red-500/20 rounded-lg text-red-400"><Trash2 className="w-4 h-4"/></button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === 'transport' && (
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+            {(transportAds.filter(t => (t.type === 'offer' ? 'خط متاح' : 'محتاج خط').includes(searchQuery) || t.university?.includes(searchQuery) || String(t.id).includes(searchQuery) || String(t.short_id).includes(searchQuery)).length===0)?<div className="p-8 text-center text-gray-400">لا يوجد نتائج</div>:transportAds.filter(t => (t.type === 'offer' ? 'خط متاح' : 'محتاج خط').includes(searchQuery) || t.university?.includes(searchQuery) || String(t.id).includes(searchQuery) || String(t.short_id).includes(searchQuery)).map(t=>(
+              <div key={t.id} className="flex items-center gap-3 p-3 border-b border-gray-700/50">
+                <div className="w-12 h-12 bg-gray-700 rounded-lg flex items-center justify-center"><Car className="w-6 h-6 text-gray-400"/></div>
+                <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{t.type === 'offer' ? 'خط متاح' : 'محتاج خط'} ({t.university})</p>
+                  <p className="text-xs text-gray-400">{t.regions} • {formatPrice(t.price)} د.ع</p></div>
+                <button onClick={()=>setDeleteItem({id: t.id, type: 'transport'})} className="p-2 bg-red-500/20 rounded-lg text-red-400"><Trash2 className="w-4 h-4"/></button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === 'reports' && (
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden p-4 space-y-3">
+            {reports.length === 0 ? <p className="text-center text-gray-400 py-8">لا توجد بلاغات</p> : reports.map(rep => {
+              let reportData: any = {};
+              try { reportData = JSON.parse(rep.message); } catch(e) { reportData = { reason: rep.message }; }
+              const isProduct = reportData.item_type === 'product';
+              const isTransport = reportData.item_type === 'transport' || String(rep.name).includes('Transport');
+              return (
+                <div key={rep.id} className="bg-gray-700/50 p-4 rounded-xl border border-gray-600">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="text-white font-bold text-sm">{rep.name}</h4>
+                      <p className="text-gray-400 text-xs mb-2">من: {rep.contact_info}</p>
+                      <p className="text-orange-400 text-sm font-bold bg-orange-500/10 px-3 py-1.5 rounded-lg inline-block">السبب: {reportData.reason || 'مخالفة الشروط'}</p>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <button onClick={async () => {
+                        if(confirm('هل أنت متأكد من حذف العنصر المُبلّغ عنه؟')) {
+                          setDeletingReport(true);
+                          if (isProduct) onDeleteProduct(reportData.item_id);
+                          else if (isTransport) onDeleteTransportAd(reportData.item_id);
+                          else onDeleteAd(reportData.item_id);
+                          await supabase.from('support_messages').delete().eq('id', rep.id);
+                          setReports(prev => prev.filter(r => r.id !== rep.id));
+                          setDeletingReport(false);
+                        }
+                      }} disabled={deletingReport} className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600">حذف العنصر</button>
+                      <button onClick={async () => {
+                        await supabase.from('support_messages').delete().eq('id', rep.id);
+                        setReports(prev => prev.filter(r => r.id !== rep.id));
+                      }} className="px-3 py-1.5 bg-gray-600 text-white rounded-lg text-xs font-bold hover:bg-gray-500">تجاهل البلاغ</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -167,8 +249,8 @@ export function AdminPanel({ ads, onDeleteAd, onClose }:{ads:Ad[];onDeleteAd:(id
       </div>
 
       <ConfirmationDialog
-        isOpen={deleteAdId !== null}
-        onClose={() => setDeleteAdId(null)}
+        isOpen={deleteItem !== null}
+        onClose={() => setDeleteItem(null)}
         onConfirm={() => {
           if (deleteAdId !== null) {
             onDeleteAd(deleteAdId);

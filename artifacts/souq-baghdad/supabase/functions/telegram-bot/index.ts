@@ -49,6 +49,50 @@ async function deleteMessage(chatId: string | number, messageId: number) {
 const PRODUCT_CHANNEL = Deno.env.get('PRODUCT_CHANNEL_ID') || '';
 const TRANSPORT_CHANNEL = Deno.env.get('TRANSPORT_CHANNEL_ID') || '';
 
+function formatTgPrice(val: any): string {
+  if (!val) return 'حسب الاتفاق';
+  let str = String(val).trim();
+  const rawNum = str.replace(/[^\d]/g, '');
+  if (!rawNum) return str;
+  let num = parseInt(rawNum, 10);
+  if (!isNaN(num) && num > 0 && num < 1000) {
+    num = num * 1000;
+  }
+  return isNaN(num) ? str : `${num.toLocaleString('en-US')} د.ع`;
+}
+
+async function callGemini(prompt: string): Promise<string | null> {
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  if (!GEMINI_API_KEY) return null;
+  
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    
+    const systemInstruction = `أنت مساعد ذكي لخدمة عملاء "سوق بغداد الرقمي". 
+أنت تتحدث اللهجة العراقية بشكل طبيعي وودّي.
+منصة سوق بغداد هي منصة مجانية لنشر المنتجات، إعلانات الوظائف، وخطوط النقل الجامعية.
+إذا سألك المستخدم عن كيفية نشر شيء، أوجهه لاستخدام الأزرار الموجودة أسفل رسالتك.
+يجب أن تكون إجاباتك قصيرة ومفيدة ومباشرة. إذا لم تفهم السؤال، قدم المساعدة بأسلوب لطيف.`;
+
+    const body = {
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      systemInstruction: { parts: [{ text: systemInstruction }] }
+    };
+    
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    
+    const data = await res.json();
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+  } catch (err) {
+    console.error('Gemini Error:', err);
+    return null;
+  }
+}
+
 serve(async (req) => {
   try {
     const payload = await req.json();
@@ -89,17 +133,6 @@ serve(async (req) => {
       }
 
       if (shouldPublish) {
-        function formatTgPrice(val: any): string {
-          if (!val) return 'حسب الاتفاق';
-          let str = String(val).trim();
-          const rawNum = str.replace(/[^\d]/g, '');
-          if (!rawNum) return str;
-          let num = parseInt(rawNum, 10);
-          if (!isNaN(num) && num > 0 && num < 1000) {
-            num = num * 1000;
-          }
-          return isNaN(num) ? str : `${num.toLocaleString('en-US')} د.ع`;
-        }
 
         if (payload.table === 'products' && PRODUCT_CHANNEL) {
           const prodId = record.short_id || record.id;
@@ -233,12 +266,16 @@ serve(async (req) => {
     const phone = tgUser?.phone_number;
 
     // --- Main Menu Function ---
-      const showMainMenu = async () => {
+      const showMainMenu = async (aiText?: string) => {
       state = {}; // reset state
       if (userId) {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
       }
-      await sendMessage(chatId, '🏠 <b>القائمة الرئيسية</b>\nماذا تريد أن تفعل؟', {
+      let messageToSend = '🏠 <b>القائمة الرئيسية</b>\nماذا تريد أن تفعل؟';
+      if (aiText) {
+        messageToSend = aiText + '\n\n👇 <b>القائمة الرئيسية:</b>';
+      }
+      await sendMessage(chatId, messageToSend, {
         inline_keyboard: [
           [{ text: '📦 نشر إعلان منتج', callback_data: 'publish_product' }],
           [{ text: '🚌 نشر خط نقل', callback_data: 'publish_transport' }],
@@ -745,7 +782,12 @@ serve(async (req) => {
           await sendMessage(chatId, '⚠️ إدخال غير متوقع، لإلغاء العملية الحالية أرسل /cancel');
         }
       } else {
-        await showMainMenu();
+        if (text) {
+          const aiRes = await callGemini(text);
+          await showMainMenu(aiRes || undefined);
+        } else {
+          await showMainMenu();
+        }
       }
 
       // Update state in db

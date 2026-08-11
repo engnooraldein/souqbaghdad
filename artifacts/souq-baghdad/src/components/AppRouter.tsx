@@ -248,7 +248,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
         </div>}
         {props.view === 'admin' && props.isAdmin && <div key="admin">
           <Suspense fallback={<SectionLoadingFallback isDarkMode={props.isDarkMode} />}>
-            <AdminPanel ads={props.allAds} onDeleteAd={props.handleDeleteAd} onClose={()=>props.setView('home')}/>
+            <AdminPanel ads={props.allAds} products={props.allProducts} transportAds={props.allTransportAds} onDeleteAd={props.handleDeleteAd} onDeleteProduct={props.handleDeleteProduct} onDeleteTransportAd={props.handleDeleteTransportAd} onClose={()=>props.setView('home')}/>
           </Suspense>
         </div>}
         {props.view === 'owner' && props.isOwner && <div key="owner">
