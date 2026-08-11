@@ -71,7 +71,8 @@ export function useTransportActions({
         });
       }
     }
-
+    
+    console.log("INSERTING INTO ADS:", rowData);
     const { error } = await supabase.from('ads').insert(rowData);
     if (error) {
       showToast('خطأ: ' + (error.message || 'حدث خطأ أثناء حفظ الخط'), 'error');
