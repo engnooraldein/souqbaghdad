@@ -75,7 +75,13 @@ export function useTransportActions({
     console.log("INSERTING INTO ADS:", rowData);
     const { error } = await supabase.from('ads').insert(rowData);
     if (error) {
-      showToast('خطأ: ' + (error.message || 'حدث خطأ أثناء حفظ الخط'), 'error');
+      if (error.message?.includes('row-level security') || error.code === '42501') {
+        showToast('انتهت جلسة الدخول لأسباب أمنية. يرجى تسجيل الدخول مجدداً لمتابعة النشر.', 'error');
+        localStorage.removeItem('souqUser');
+        if (setUser) setUser(null);
+      } else {
+        showToast('خطأ: ' + (error.message || 'حدث خطأ أثناء حفظ الخط'), 'error');
+      }
       console.error(error);
       return;
     }
@@ -173,7 +179,13 @@ export function useTransportActions({
       .eq('id', id);
 
     if (error) {
-      showToast('حدث خطأ أثناء تحديث حالة الخط', 'error');
+      if (error.message?.includes('row-level security') || error.code === '42501') {
+        showToast('انتهت جلسة الدخول لأسباب أمنية. يرجى تسجيل الدخول مجدداً.', 'error');
+        localStorage.removeItem('souqUser');
+        if (setUser) setUser(null);
+      } else {
+        showToast('حدث خطأ أثناء تحديث الحالة', 'error');
+      }
       console.error(error);
       return;
     }

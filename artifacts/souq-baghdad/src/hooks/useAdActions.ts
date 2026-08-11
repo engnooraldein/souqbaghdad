@@ -97,7 +97,17 @@ export function useAdActions({
 
       const { data, error } = await supabase.from('ads').insert(rowData).select().single();
       triggerOnlineStatusesSync();
-      if (error) { showToast('خطأ: ' + (error.message || 'حدث خطأ أثناء النشر'), 'error'); console.error(error); return; }
+      if (error) {
+        if (error.message?.includes('row-level security') || error.code === '42501') {
+          showToast('انتهت جلسة الدخول لأسباب أمنية. يرجى تسجيل الدخول مجدداً لمتابعة النشر.', 'error');
+          localStorage.removeItem('souqUser');
+          if (setUser) setUser(null);
+        } else {
+          showToast('خطأ: ' + (error.message || 'حدث خطأ أثناء النشر'), 'error');
+        }
+        console.error(error); 
+        return; 
+      }
       if (user && data) {
         setUser((prev: any) => {
           if (!prev) return prev;
@@ -112,10 +122,16 @@ export function useAdActions({
   };
 
   const handleMarkAdSold = async (ad: Ad) => {
-    if (!window.confirm('هل تريد وضع علامة "تم البيع" على هذا الإعلان؟ سيختفي من المعرض العام ويُحفظ في الأرشيف.')) return;
+    if (!window.confirm('هل أنت متأكد من تغيير حالة الإعلان إلى "تم البيع"؟ (سيتم إخفاء بيانات الاتصال ولن يظهر في البحث).')) return;
     const { error } = await supabase.from('ads').update({ status: 'sold' }).eq('id', ad.id);
     if (error) {
-      showToast('حدث خطأ أثناء تحديث الحالة', 'error');
+      if (error.message?.includes('row-level security') || error.code === '42501') {
+        showToast('انتهت جلسة الدخول لأسباب أمنية. يرجى تسجيل الدخول مجدداً.', 'error');
+        localStorage.removeItem('souqUser');
+        if (setUser) setUser(null);
+      } else {
+        showToast('حدث خطأ أثناء تعديل الإعلان', 'error');
+      }
       console.error(error);
       return;
     }
