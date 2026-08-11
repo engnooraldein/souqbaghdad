@@ -97,7 +97,7 @@ export interface AppRouterProps {
 
 export const AppRouter: React.FC<AppRouterProps> = (props) => {
   return (
-    <main className="pwa-main lg:pr-64 relative overflow-x-hidden pt-[calc(64px+env(safe-area-inset-top,0px))] pb-[calc(70px+env(safe-area-inset-bottom,0px))] lg:pb-0">
+    <main className="pwa-main lg:pr-64 relative overflow-x-hidden pt-[calc(54px+env(safe-area-inset-top,0px))] pb-[calc(70px+env(safe-area-inset-bottom,0px))] lg:pb-0">
       {/* Peek view - adjacent page visible during swipe */}
       {props.peekView && (
         <motion.div
