@@ -74,7 +74,7 @@ export function useTransportActions({
 
     const { error } = await supabase.from('ads').insert(rowData);
     if (error) {
-      showToast('حدث خطأ أثناء حفظ الخط', 'error');
+      showToast('خطأ: ' + (error.message || 'حدث خطأ أثناء حفظ الخط'), 'error');
       console.error(error);
       return;
     }

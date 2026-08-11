@@ -97,7 +97,7 @@ export function useAdActions({
 
       const { data, error } = await supabase.from('ads').insert(rowData).select().single();
       triggerOnlineStatusesSync();
-      if (error) { showToast('حدث خطأ أثناء النشر', 'error'); console.error(error); return; }
+      if (error) { showToast('خطأ: ' + (error.message || 'حدث خطأ أثناء النشر'), 'error'); console.error(error); return; }
       if (user && data) {
         setUser((prev: any) => {
           if (!prev) return prev;
