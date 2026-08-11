@@ -105,16 +105,21 @@ serve(async (req) => {
           const prodId = record.short_id || record.id;
           const link = `https://www.souqbaghdad.store/product/${prodId}`;
           const condStr = record.condition === 'new' ? '✨ جديد' : '👌 مستعمل';
+          let safeDesc = (record.description || '').substring(0, 200);
+          if ((record.description || '').length > 200) safeDesc += '...';
 
           const caption = `📦 <b>منتج جديد: ${record.title || ''}</b>\n\n` +
                           `🏷️ <b>الحالة:</b> ${condStr}\n` +
                           `💰 <b>السعر:</b> ${formatTgPrice(record.price)}\n` +
                           `📍 <b>المحافظة:</b> ${record.governorate || 'بغداد'}\n` +
-                          `📝 <b>التفاصيل:</b> ${record.description || ''}\n\n` +
+                          `📝 <b>التفاصيل:</b> ${safeDesc}\n\n` +
                           `👤 <b>البائع:</b> ${record.seller_name || 'بائع'}\n` +
                           `📞 <b>التواصل:</b> عبر المنصة مباشرة\n` +
-                          `👇 <b>للطلب وتصفح التفاصيل مباشرة عبر الرابط:</b>\n` +
                           `🔗 ${link}`;
+
+          const replyMarkup = {
+            inline_keyboard: [[{ text: 'عرض التفاصيل والطلب', url: link }]]
+          };
 
           const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
           let res;
@@ -132,17 +137,23 @@ serve(async (req) => {
           if (typeof descText !== 'string') {
             try { descText = JSON.stringify(descText); } catch(e){}
           }
+          let safeDesc = descText.substring(0, 200);
+          if (descText.length > 200) safeDesc += '...';
+
           const adId = record.short_id || record.id;
           const link = `https://www.souqbaghdad.store/card/${adId}`;
 
           const caption = `📢 <b>إعلان جديد: ${record.title || ''}</b>\n\n` +
                           `💰 <b>السعر:</b> ${formatTgPrice(record.price)}\n` +
-                          `📍 <b>المنطقة / المحافظة:</b> ${record.location || record.city || record.governorate || 'بغداد'}\n` +
-                          `📝 <b>التفاصيل:</b> ${descText}\n\n` +
+                          `📍 <b>المكان:</b> ${record.location || record.city || record.governorate || 'بغداد'}\n` +
+                          `📝 <b>التفاصيل:</b> ${safeDesc}\n\n` +
                           `👤 <b>الناشر:</b> ${record.seller_name || 'مستخدم'}\n` +
                           `📞 <b>التواصل:</b> عبر المنصة مباشرة\n` +
-                          `👇 <b>تصفح التفاصيل والتواصل المباشر عبر الرابط:</b>\n` +
                           `🔗 ${link}`;
+
+          const replyMarkup = {
+            inline_keyboard: [[{ text: 'التواصل وعرض التفاصيل', url: link }]]
+          };
 
           const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
           let res;
@@ -172,10 +183,13 @@ serve(async (req) => {
                       `🚗 المركبة: ${desc?.vehicleType || record.vehicleType || ''}\n` +
                       `💰 السعر: ${formatTgPrice(record.price)}\n\n` +
                       `📞 التواصل: عبر الموقع فقط\n` +
-                      `👇 نشجعك تطلب مباشرة عبر الموقع\n` +
                       `🔗 ${link}`;
                       
-          const res = await sendMessage(TRANSPORT_CHANNEL, msg, undefined, true);
+          const replyMarkup = {
+            inline_keyboard: [[{ text: 'التفاصيل والتواصل', url: link }]]
+          };
+                      
+          const res = await sendMessage(TRANSPORT_CHANNEL, msg, replyMarkup, true);
           if (res?.ok && res.result?.message_id) {
              await supabase.from(payload.table).update({ telegram_message_id: res.result.message_id.toString() }).eq('id', record.id);
           }
