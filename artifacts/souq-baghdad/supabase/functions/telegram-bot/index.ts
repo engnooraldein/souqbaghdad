@@ -555,7 +555,7 @@ serve(async (req) => {
       if (action === 'contact_support') {
         state = { step: 'support_message', data: {} };
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        await sendMessage(chatId, '📞 <b>الدعم الفني للاستفسارات والشكاوى</b>\n\nيرجى كتابة رسالتك أو استفسارك بالتفصيل وسيقوم فريق الدعم بالرد عليك بأقرب وقت:');
+        await sendMessage(chatId, '📞 <b>الدعم الفني للاستفسارات والشكاوى</b>\n\nيرجى كتابة رسالتك أو استفسارك بالتفصيل وسيقوم فريق الدعم بالرد عليك بأقرب وقت:', { inline_keyboard: [[{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]] });
         return new Response('OK', { status: 200 });
       }
 
@@ -563,7 +563,7 @@ serve(async (req) => {
       if (action === 'publish_product') {
         state = { step: 'product_title', data: {} };
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        await sendMessage(chatId, '📦 <b>نشر منتج جديد</b>\nيرجى كتابة <b>عنوان</b> المنتج (مثال: ايفون 15 برو ماكس):');
+        await sendMessage(chatId, '📦 <b>نشر منتج جديد</b>\nيرجى كتابة <b>عنوان</b> المنتج (مثال: ايفون 15 برو ماكس):', { inline_keyboard: [[{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]] });
         return new Response('OK', { status: 200 });
       }
 
@@ -617,7 +617,7 @@ serve(async (req) => {
         state.data.categoryType = action.replace('trans_cat_', '');
         state.step = 'trans_regions';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        await sendMessage(chatId, '📍 الرجاء كتابة <b>المناطق</b> التي يشملها الخط (مثال: المنصور، اليرموك، الكرادة):');
+        await sendMessage(chatId, '📍 الرجاء كتابة <b>المناطق</b> التي يشملها الخط (مثال: المنصور، اليرموك، الكرادة):', { inline_keyboard: [[{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]] });
         return new Response('OK', { status: 200 });
       }
 
@@ -625,7 +625,7 @@ serve(async (req) => {
         state.data.targetAudience = action.replace('trans_target_', '');
         state.step = 'trans_vehicle';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        await sendMessage(chatId, 'يرجى كتابة <b>نوع العجلة</b> (مثال: صالون، باص 11، كيا):');
+        await sendMessage(chatId, 'يرجى كتابة <b>نوع العجلة</b> (مثال: صالون، باص 11، كيا):', { inline_keyboard: [[{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]] });
         return new Response('OK', { status: 200 });
       }
     }
@@ -676,17 +676,17 @@ serve(async (req) => {
       if (state.step === 'product_title' && text) {
         state.data.title = text;
         state.step = 'product_price';
-        await sendMessage(chatId, '💰 يرجى كتابة <b>السعر</b> (مثال: 50,000 دينار):');
+        await sendMessage(chatId, '💰 يرجى كتابة <b>السعر</b> (مثال: 50,000 دينار):', cancelBtn);
       } 
       else if (state.step === 'product_price' && text) {
         state.data.price = text;
         state.step = 'product_desc';
-        await sendMessage(chatId, '📝 يرجى كتابة <b>وصف المنتج</b> وتفاصيله:');
+        await sendMessage(chatId, '📝 يرجى كتابة <b>وصف المنتج</b> وتفاصيله:', cancelBtn);
       }
       else if (state.step === 'product_desc' && text) {
         state.data.description = text;
         state.step = 'product_gov';
-        await sendMessage(chatId, '📍 يرجى كتابة <b>المحافظة/المنطقة</b> (مثال: بغداد - الكرادة):');
+        await sendMessage(chatId, '📍 يرجى كتابة <b>المحافظة/المنطقة</b> (مثال: بغداد - الكرادة):', cancelBtn);
       }
       else if (state.step === 'product_gov' && text) {
         state.data.governorate = text;
@@ -749,7 +749,7 @@ serve(async (req) => {
       else if (state.step === 'trans_regions' && text) {
         state.data.regions = text;
         state.step = 'trans_university';
-        await sendMessage(chatId, '🏫 يرجى كتابة اسم <b>الجامعة أو مكان العمل</b> (أو اكتب "لا يوجد"):');
+        await sendMessage(chatId, '🏫 يرجى كتابة اسم <b>الجامعة أو مكان العمل</b> (أو اكتب "لا يوجد"):', cancelBtn);
       }
       else if (state.step === 'trans_university' && text) {
         state.data.university = text;
