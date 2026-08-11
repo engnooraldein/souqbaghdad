@@ -69,10 +69,15 @@ async function callGemini(prompt: string): Promise<string | null> {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
     
     const systemInstruction = `أنت مساعد ذكي لخدمة عملاء "سوق بغداد الرقمي". 
-أنت تتحدث اللهجة العراقية بشكل طبيعي وودّي.
+أنت تتحدث اللهجة العراقية بشكل طبيعي وودّي وتتصرف كقلب الدعم الفني.
 منصة سوق بغداد هي منصة مجانية لنشر المنتجات، إعلانات الوظائف، وخطوط النقل الجامعية.
 إذا سألك المستخدم عن كيفية نشر شيء، أوجهه لاستخدام الأزرار الموجودة أسفل رسالتك.
-يجب أن تكون إجاباتك قصيرة ومفيدة ومباشرة. إذا لم تفهم السؤال، قدم المساعدة بأسلوب لطيف.`;
+يجب أن تكون إجاباتك قصيرة ومفيدة ومباشرة.
+الروابط الهامة التي يمكنك تقديمها:
+- الموقع الرسمي: https://www.souqbaghdad.store
+- تسجيل الدخول: https://www.souqbaghdad.store/auth
+- استعادة كلمة المرور / تغيير الرمز: https://www.souqbaghdad.store/auth (ثم اختيار نسيت كلمة المرور)
+- الدعم الفني: https://www.souqbaghdad.store/support أو عبر زر الدعم الفني في البوت.`;
 
     const body = {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -90,6 +95,29 @@ async function callGemini(prompt: string): Promise<string | null> {
   } catch (err) {
     console.error('Gemini Error:', err);
     return null;
+  }
+}
+
+async function checkInterruption(text: string): Promise<boolean> {
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  if (!GEMINI_API_KEY) return false;
+  if (text.length < 2) return false;
+  
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const body = {
+      contents: [{ role: 'user', parts: [{ text: text }] }],
+      systemInstruction: { parts: [{ text: `أجب بـ "نعم" أو "لا" فقط.
+المستخدم كان يملأ استمارة لنشر إعلان. هل الجملة التالية تبدو وكأنها مقاطعة، سؤال خارجي، أو تراجع عن النشر (مثلا: "شلون انشر"، "غلطت"، "بطلت"، "كيف اسوي")؟
+أجب بـ "نعم" إذا كانت مقاطعة للسياق، وأجب بـ "لا" إذا كانت مجرد إجابة طبيعية للاستمارة (مثل رقم، أو وصف، أو اسم مدينة).` }] }
+    };
+    
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const data = await res.json();
+    const answer = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return answer.includes('نعم');
+  } catch (err) {
+    return false;
   }
 }
 
@@ -354,7 +382,10 @@ serve(async (req) => {
       await answerCallbackQuery(callbackQuery.id);
       const action = callbackQuery.data;
 
-      if (action === 'main_menu') {
+      if (action === 'main_menu' || action === 'cancel_wizard') {
+        if (action === 'cancel_wizard') {
+          await sendMessage(chatId, '❌ تم إلغاء العملية.');
+        }
         await showMainMenu();
         return new Response('OK', { status: 200 });
       }
@@ -605,6 +636,22 @@ serve(async (req) => {
         await showMainMenu();
         return new Response('OK', { status: 200 });
       }
+
+      // Smart Interruption Check
+      if (Object.keys(state).length > 0 && text) {
+        const isInterruption = await checkInterruption(text);
+        if (isInterruption) {
+           state = {}; // Cancel state
+           if (userId) {
+             await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+           }
+           const aiRes = await callGemini(text);
+           await showMainMenu(aiRes || undefined);
+           return new Response('OK', { status: 200 });
+        }
+      }
+
+      const cancelBtn = { inline_keyboard: [[{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]] };
 
       // SUPPORT WIZARD
       if (state.step === 'support_message' && text) {

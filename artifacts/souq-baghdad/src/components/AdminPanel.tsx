@@ -252,9 +252,11 @@ export function AdminPanel({ ads, products, transportAds, onDeleteAd, onDeletePr
         isOpen={deleteItem !== null}
         onClose={() => setDeleteItem(null)}
         onConfirm={() => {
-          if (deleteAdId !== null) {
-            onDeleteAd(deleteAdId);
-            setDeleteAdId(null);
+          if (deleteItem !== null) {
+            if (deleteItem.type === 'ad') onDeleteAd(deleteItem.id);
+            else if (deleteItem.type === 'product') onDeleteProduct(deleteItem.id);
+            else if (deleteItem.type === 'transport') onDeleteTransportAd(deleteItem.id);
+            setDeleteItem(null);
           }
         }}
         title="هل أنت متأكد من حذف الإعلان؟"
