@@ -54,8 +54,8 @@ serve(async (req) => {
     const payload = await req.json();
     
     // Check if it's a Supabase Database Webhook (pg_net)
-    if ((payload.type === 'INSERT' || payload.type === 'UPDATE') && payload.table) {
-      const record = payload.record;
+    if ((payload.type === 'INSERT' || payload.type === 'UPDATE' || payload.type === 'DELETE') && payload.table) {
+      const record = payload.record || payload.old_record;
       const oldRecord = payload.old_record;
       
       const supabase = createClient(
@@ -69,6 +69,8 @@ serve(async (req) => {
       
       if (payload.type === 'INSERT') {
         shouldPublish = true;
+      } else if (payload.type === 'DELETE') {
+        shouldDelete = true;
       } else if (payload.type === 'UPDATE') {
         if (oldRecord && oldRecord.status === 'active' && (record.status === 'matched' || record.status === 'sold' || record.status === 'inactive')) {
           shouldDelete = true;
@@ -78,21 +80,42 @@ serve(async (req) => {
         }
       }
       
-      if (shouldDelete && record.telegram_message_id) {
-        const channel = payload.table === 'products' ? PRODUCT_CHANNEL : TRANSPORT_CHANNEL;
+      const msgId = record?.telegram_message_id || oldRecord?.telegram_message_id;
+      if (shouldDelete && msgId) {
+        const channel = (payload.table === 'products' || record.category !== 'transport') ? PRODUCT_CHANNEL : TRANSPORT_CHANNEL;
         if (channel) {
-          await deleteMessage(channel, parseInt(record.telegram_message_id));
+          await deleteMessage(channel, parseInt(msgId, 10));
         }
       }
 
       if (shouldPublish) {
+        function formatTgPrice(val: any): string {
+          if (!val) return 'حسب الاتفاق';
+          let str = String(val).trim();
+          const rawNum = str.replace(/[^\d]/g, '');
+          if (!rawNum) return str;
+          let num = parseInt(rawNum, 10);
+          if (!isNaN(num) && num > 0 && num < 1000) {
+            num = num * 1000;
+          }
+          return isNaN(num) ? str : `${num.toLocaleString('en-US')} د.ع`;
+        }
+
         if (payload.table === 'products' && PRODUCT_CHANNEL) {
+          const prodId = record.short_id || record.id;
+          const link = `https://www.souqbaghdad.store/product/${prodId}`;
+          const condStr = record.condition === 'new' ? '✨ جديد' : '👌 مستعمل';
+
           const caption = `📦 <b>منتج جديد: ${record.title || ''}</b>\n\n` +
-                          `💰 <b>السعر:</b> ${record.price || ''}\n` +
-                          `📍 <b>المحافظة:</b> ${record.governorate || ''}\n` +
+                          `🏷️ <b>الحالة:</b> ${condStr}\n` +
+                          `💰 <b>السعر:</b> ${formatTgPrice(record.price)}\n` +
+                          `📍 <b>المحافظة:</b> ${record.governorate || 'بغداد'}\n` +
                           `📝 <b>التفاصيل:</b> ${record.description || ''}\n\n` +
                           `👤 <b>البائع:</b> ${record.seller_name || 'بائع'}\n` +
-                          `📱 <b>تواصل عبر التطبيق أو البوت للطلب!</b>`;
+                          `📞 <b>التواصل:</b> عبر المنصة مباشرة\n` +
+                          `👇 <b>للطلب وتصفح التفاصيل مباشرة عبر الرابط:</b>\n` +
+                          `🔗 ${link}`;
+
           const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
           let res;
           if (imageUrl) {
@@ -109,12 +132,18 @@ serve(async (req) => {
           if (typeof descText !== 'string') {
             try { descText = JSON.stringify(descText); } catch(e){}
           }
+          const adId = record.short_id || record.id;
+          const link = `https://www.souqbaghdad.store/card/${adId}`;
+
           const caption = `📢 <b>إعلان جديد: ${record.title || ''}</b>\n\n` +
-                          `💰 <b>السعر:</b> ${record.price || ''}\n` +
-                          `📍 <b>المنطقة:</b> ${record.location || record.city || ''}\n` +
+                          `💰 <b>السعر:</b> ${formatTgPrice(record.price)}\n` +
+                          `📍 <b>المنطقة / المحافظة:</b> ${record.location || record.city || record.governorate || 'بغداد'}\n` +
                           `📝 <b>التفاصيل:</b> ${descText}\n\n` +
                           `👤 <b>الناشر:</b> ${record.seller_name || 'مستخدم'}\n` +
-                          `📱 <b>تواصل عبر التطبيق أو البوت للتفاصيل!</b>`;
+                          `📞 <b>التواصل:</b> عبر المنصة مباشرة\n` +
+                          `👇 <b>تصفح التفاصيل والتواصل المباشر عبر الرابط:</b>\n` +
+                          `🔗 ${link}`;
+
           const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
           let res;
           if (imageUrl) {
@@ -134,18 +163,6 @@ serve(async (req) => {
           const catType = desc?.categoryType === 'employee' ? '👔 خط موظفين' : '🎓 خط طلاب';
           const adId = record.short_id || record.id;
           const link = `https://www.souqbaghdad.store/transport/card/${adId}`;
-
-          function formatTgPrice(val: any): string {
-            if (!val) return 'حسب الاتفاق';
-            let str = String(val).trim();
-            const rawNum = str.replace(/[^\d]/g, '');
-            if (!rawNum) return str;
-            let num = parseInt(rawNum, 10);
-            if (!isNaN(num) && num > 0 && num < 1000) {
-              num = num * 1000;
-            }
-            return isNaN(num) ? str : `${num.toLocaleString('en-US')} د.ع`;
-          }
 
           const msg = `(${typeStr})\n` +
                       `${catType} - مطلوب جديد\n\n` +
@@ -291,61 +308,164 @@ serve(async (req) => {
         return new Response('OK', { status: 200 });
       }
 
-      // Manage Ads
+      // Manage Ads Main Menu
       if (action === 'manage_my_ads') {
-        const { data: myProducts } = await supabase.from('products').select('id, title, price, governorate').eq('seller_id', userId).limit(5);
-        const { data: myTransports } = await supabase.from('ads').select('id, title, price, location, type').eq('seller_id', userId).eq('category', 'transport').limit(5);
-        
-        if ((!myProducts || myProducts.length === 0) && (!myTransports || myTransports.length === 0)) {
-           await sendMessage(chatId, 'لا يوجد لديك أي إعلانات منشورة حالياً.', { inline_keyboard: [[{ text: '🏠 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]] });
-           return new Response('OK', { status: 200 });
+        await sendMessage(chatId, '📦 <b>إدارة إعلاناتي وخطوطي</b>\n\nاختر القسم الذي ترغب بإدارته وحذفه:', {
+          inline_keyboard: [
+            [{ text: '📢 إعلاناتي ومنتجاتي', callback_data: 'manage_cat_ads' }],
+            [{ text: '🚌 خطوط النقل الخاصة بي', callback_data: 'manage_cat_trans' }],
+            [{ text: '🏠 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]
+          ]
+        });
+        return new Response('OK', { status: 200 });
+      }
+
+      // Submenu: Manage Ads & Products
+      if (action === 'manage_cat_ads') {
+        await sendMessage(chatId, '📢 <b>إدارة الإعلانات والمنتجات</b>\n\nاختر تصفية العرض المناسبة:', {
+          inline_keyboard: [
+            [{ text: '⚡ آخر إعلانين', callback_data: 'view_ads_recent' }, { text: '📅 هذا الشهر', callback_data: 'view_ads_month' }],
+            [{ text: '📜 جميع الإعلانات', callback_data: 'view_ads_all' }],
+            [{ text: '🔙 العودة لإدارة الإعلانات', callback_data: 'manage_my_ads' }]
+          ]
+        });
+        return new Response('OK', { status: 200 });
+      }
+
+      // Submenu: Manage Transports
+      if (action === 'manage_cat_trans') {
+        await sendMessage(chatId, '🚌 <b>إدارة خطوط النقل</b>\n\nاختر تصفية العرض المناسبة:', {
+          inline_keyboard: [
+            [{ text: '⚡ آخر خطين', callback_data: 'view_trans_recent' }, { text: '📅 هذا الشهر', callback_data: 'view_trans_month' }],
+            [{ text: '📜 جميع الخطوط', callback_data: 'view_trans_all' }],
+            [{ text: '🔙 العودة لإدارة الإعلانات', callback_data: 'manage_my_ads' }]
+          ]
+        });
+        return new Response('OK', { status: 200 });
+      }
+
+      // Fetch & Display Ads
+      if (action.startsWith('view_ads_')) {
+        const filter = action.replace('view_ads_', '');
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+        let queryProd = supabase.from('products').select('id, title, price, governorate, created_at').eq('seller_id', userId);
+        let queryAds = supabase.from('ads').select('id, title, price, location, created_at').eq('seller_id', userId).neq('category', 'transport');
+
+        if (filter === 'recent') {
+          queryProd = queryProd.order('created_at', { ascending: false }).limit(2);
+          queryAds = queryAds.order('created_at', { ascending: false }).limit(2);
+        } else if (filter === 'month') {
+          queryProd = queryProd.gte('created_at', startOfMonth).order('created_at', { ascending: false });
+          queryAds = queryAds.gte('created_at', startOfMonth).order('created_at', { ascending: false });
+        } else {
+          queryProd = queryProd.order('created_at', { ascending: false });
+          queryAds = queryAds.order('created_at', { ascending: false });
         }
 
-        await sendMessage(chatId, '🗑️ <b>إدارة إعلاناتي</b>\nإليك قائمة إعلاناتك الحالية:');
+        const { data: prods } = await queryProd;
+        const { data: generalAds } = await queryAds;
 
-        if (myProducts && myProducts.length > 0) {
-          for (const p of myProducts) {
-            const text = `📦 <b>${p.title}</b>\n💰 السعر: ${p.price}\n📍 المحافظة: ${p.governorate}`;
-            await sendMessage(chatId, text, { inline_keyboard: [[{ text: '❌ حذف هذا المنتج', callback_data: `del_prod_${p.id}` }]] });
+        const totalItems = (prods?.length || 0) + (generalAds?.length || 0);
+
+        if (totalItems === 0) {
+          await sendMessage(chatId, '📭 لا توجد إعلانات مطابقة لهذا الخيار حالياً.', {
+            inline_keyboard: [[{ text: '🔙 العودة لإدارة الإعلانات', callback_data: 'manage_cat_ads' }]]
+          });
+          return new Response('OK', { status: 200 });
+        }
+
+        await sendMessage(chatId, `📢 <b>إعلاناتك ومنتجاتك (${totalItems}):</b>`);
+
+        if (prods && prods.length > 0) {
+          for (const p of prods) {
+            const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString('ar-IQ') : '';
+            const text = `📦 <b>${p.title}</b>\n💰 السعر: ${formatTgPrice(p.price)}\n📍 المحافظة: ${p.governorate || 'غير مسمى'}${dateStr ? `\n📅 التاريخ: ${dateStr}` : ''}`;
+            await sendMessage(chatId, text, { inline_keyboard: [[{ text: '🗑️ حذف هذا المنتج', callback_data: `del_prod_${p.id}` }]] });
           }
         }
 
-        if (myTransports && myTransports.length > 0) {
-          for (const t of myTransports) {
-            const typeText = t.type === 'offer' ? 'أوفر خط' : 'أبحث عن خط';
-            const text = `🚌 <b>${t.title}</b> (${typeText})\n💰 السعر: ${t.price}\n📍 المنطقة: ${t.location}`;
-            await sendMessage(chatId, text, { 
-              inline_keyboard: [
-                [{ text: '✅ إغلاق الإعلان (حصلت على خط)', callback_data: `solve_trans_${t.id}` }],
-                [{ text: '❌ حذف نهائي', callback_data: `del_trans_${t.id}` }]
-              ] 
-            });
+        if (generalAds && generalAds.length > 0) {
+          for (const a of generalAds) {
+            const dateStr = a.created_at ? new Date(a.created_at).toLocaleDateString('ar-IQ') : '';
+            const text = `📢 <b>${a.title}</b>\n💰 السعر: ${formatTgPrice(a.price)}\n📍 المنطقة: ${a.location || 'غير مسمى'}${dateStr ? `\n📅 التاريخ: ${dateStr}` : ''}`;
+            await sendMessage(chatId, text, { inline_keyboard: [[{ text: '🗑️ حذف هذا الإعلان', callback_data: `del_trans_${a.id}` }]] });
           }
         }
-        
-        await sendMessage(chatId, 'اختر الإجراء المناسب أسفل الإعلان:', { inline_keyboard: [[{ text: '🏠 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]] });
-        
+
+        await sendMessage(chatId, 'اختر الإجراء المطلوب أسفل كل إعلان:', {
+          inline_keyboard: [[{ text: '🔙 العودة لقائمة الإعلانات', callback_data: 'manage_cat_ads' }]]
+        });
+        return new Response('OK', { status: 200 });
+      }
+
+      // Fetch & Display Transports
+      if (action.startsWith('view_trans_')) {
+        const filter = action.replace('view_trans_', '');
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+        let queryTrans = supabase.from('ads').select('id, title, price, location, type, created_at, status').eq('seller_id', userId).eq('category', 'transport');
+
+        if (filter === 'recent') {
+          queryTrans = queryTrans.order('created_at', { ascending: false }).limit(2);
+        } else if (filter === 'month') {
+          queryTrans = queryTrans.gte('created_at', startOfMonth).order('created_at', { ascending: false });
+        } else {
+          queryTrans = queryTrans.order('created_at', { ascending: false });
+        }
+
+        const { data: myTransports } = await queryTrans;
+
+        if (!myTransports || myTransports.length === 0) {
+          await sendMessage(chatId, '📭 لا توجد خطوط نقل مطابقة لهذا الخيار حالياً.', {
+            inline_keyboard: [[{ text: '🔙 العودة لإدارة الخطوط', callback_data: 'manage_cat_trans' }]]
+          });
+          return new Response('OK', { status: 200 });
+        }
+
+        await sendMessage(chatId, `🚌 <b>خطوط النقل الخاصة بك (${myTransports.length}):</b>`);
+
+        for (const t of myTransports) {
+          const typeText = t.type === 'offer' ? 'أوفر خط' : 'أبحث عن خط';
+          const dateStr = t.created_at ? new Date(t.created_at).toLocaleDateString('ar-IQ') : '';
+          const statusTag = t.status === 'matched' ? ' [✅ مكتمل]' : '';
+          const text = `🚌 <b>${t.title}</b> (${typeText})${statusTag}\n💰 السعر: ${formatTgPrice(t.price)}\n📍 المنطقة: ${t.location || 'غير محدد'}${dateStr ? `\n📅 التاريخ: ${dateStr}` : ''}`;
+          
+          const buttons = [];
+          if (t.status !== 'matched') {
+            buttons.push([{ text: '✅ إغلاق الإعلان (حصلت على خط)', callback_data: `solve_trans_${t.id}` }]);
+          }
+          buttons.push([{ text: '🗑️ حذف نهائي', callback_data: `del_trans_${t.id}` }]);
+
+          await sendMessage(chatId, text, { inline_keyboard: buttons });
+        }
+
+        await sendMessage(chatId, 'اختر الإجراء المطلوب أسفل كل خط:', {
+          inline_keyboard: [[{ text: '🔙 العودة لقائمة الخطوط', callback_data: 'manage_cat_trans' }]]
+        });
         return new Response('OK', { status: 200 });
       }
 
       if (action.startsWith('del_prod_')) {
         const prodId = action.replace('del_prod_', '');
         await supabase.from('products').delete().eq('id', prodId).eq('seller_id', userId);
-        await sendMessage(chatId, '✅ تم حذف المنتج بنجاح.', { inline_keyboard: [[{ text: 'العودة لإدارة إعلاناتي', callback_data: 'manage_my_ads' }]] });
+        await sendMessage(chatId, '✅ تم حذف المنتج بنجاح.', { inline_keyboard: [[{ text: 'العودة لإدارة إعلاناتي', callback_data: 'manage_cat_ads' }]] });
         return new Response('OK', { status: 200 });
       }
 
       if (action.startsWith('del_trans_')) {
         const transId = action.replace('del_trans_', '');
         await supabase.from('ads').delete().eq('id', transId).eq('seller_id', userId);
-        await sendMessage(chatId, '✅ تم حذف الخط بنجاح.', { inline_keyboard: [[{ text: 'العودة لإدارة إعلاناتي', callback_data: 'manage_my_ads' }]] });
+        await sendMessage(chatId, '✅ تم حذف الإعلان بنجاح.', { inline_keyboard: [[{ text: 'العودة لإدارة إعلاناتي', callback_data: 'manage_my_ads' }]] });
         return new Response('OK', { status: 200 });
       }
 
       if (action.startsWith('solve_trans_')) {
         const transId = action.replace('solve_trans_', '');
         await supabase.from('ads').update({ status: 'matched', completedAt: new Date().toISOString() }).eq('id', transId).eq('seller_id', userId);
-        await sendMessage(chatId, '✅ تم إغلاق الإعلان بنجاح وتحويله إلى "مكتمل".', { inline_keyboard: [[{ text: 'العودة لإدارة إعلاناتي', callback_data: 'manage_my_ads' }]] });
+        await sendMessage(chatId, '✅ تم إغلاق الإعلان بنجاح وتحويله إلى "مكتمل".', { inline_keyboard: [[{ text: 'العودة لإدارة الخطوط', callback_data: 'manage_cat_trans' }]] });
         return new Response('OK', { status: 200 });
       }
 

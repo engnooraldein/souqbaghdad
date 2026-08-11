@@ -136,27 +136,29 @@ export function MyLinesTab({ userId, lines, onUpdateStatus, onDelete }: {
               )}
 
               {/* Actions */}
-              <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-700">
+              <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-700">
                 {line.status === 'published' && (
                   <>
-                    <button onClick={() => updateStatus(line.id, 'archived')} className="flex-1 px-3 py-1.5 bg-gray-700 text-white rounded-lg text-xs hover:bg-gray-600">أرشفة</button>
-                    <button onClick={() => setShowConfirmModal({ id: line.id, action: line.type === 'request' ? 'found_line' : 'line_full' })} className="flex-[2] px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg text-xs font-bold hover:shadow-lg hover:shadow-emerald-500/20">
-                      {line.type === 'request' ? 'حصلت على خط' : 'اكتمل العدد'}
+                    <button onClick={() => setShowConfirmModal({ id: line.id, action: line.type === 'request' ? 'found_line' : 'line_full' })} className="flex-1 px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl text-xs font-bold hover:shadow-lg hover:shadow-emerald-500/20">
+                      {line.type === 'request' ? '✅ حصلت على خط' : '✅ اكتمل العدد'}
                     </button>
+                    <button onClick={() => updateStatus(line.id, 'archived')} className="px-3 py-2 bg-gray-700 text-white rounded-xl text-xs font-semibold hover:bg-gray-600">أرشفة</button>
                   </>
                 )}
                 {line.status === 'matched' && (
                   <>
-                    <button onClick={() => updateStatus(line.id, 'published')} className="flex-1 px-3 py-1.5 bg-amber-500 text-black rounded-lg text-xs font-bold hover:bg-amber-400">إعادة فتح الخط</button>
-                    <button onClick={() => updateStatus(line.id, 'archived')} className="flex-1 px-3 py-1.5 bg-gray-700 text-white rounded-lg text-xs hover:bg-gray-600">أرشفة</button>
+                    <button onClick={() => updateStatus(line.id, 'published')} className="flex-1 px-3 py-2 bg-amber-500 text-black rounded-xl text-xs font-bold hover:bg-amber-400">🔄 إعادة فتح الخط</button>
+                    <button onClick={() => updateStatus(line.id, 'archived')} className="px-3 py-2 bg-gray-700 text-white rounded-xl text-xs font-semibold hover:bg-gray-600">أرشفة</button>
                   </>
                 )}
                 {line.status === 'archived' && (
                   <>
-                    <button onClick={() => updateStatus(line.id, 'published')} className="flex-1 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-bold hover:bg-emerald-400">تنشيط الإعلان</button>
-                    <button onClick={() => setDeleteLineId(line.id)} className="flex-1 px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-xs hover:bg-red-500/30">حذف نهائي</button>
+                    <button onClick={() => updateStatus(line.id, 'published')} className="flex-1 px-3 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-400">⚡ تنشيط الإعلان</button>
                   </>
                 )}
+                <button onClick={() => setDeleteLineId(line.id)} className="px-3 py-2 bg-red-500/20 text-red-400 rounded-xl text-xs font-bold hover:bg-red-500/30 flex items-center gap-1" title="حذف الإعلان">
+                  🗑️ حذف
+                </button>
               </div>
             </div>
           ))
