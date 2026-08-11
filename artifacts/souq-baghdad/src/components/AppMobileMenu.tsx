@@ -120,7 +120,7 @@ export const AppMobileMenu: React.FC<AppMobileMenuProps> = ({
                       <Crown className="w-5 h-5" /> لوحة تحكم المالك
                     </button>
                   )}
-                  {isAdmin && !isOwner && (
+                  {isAdmin && (
                     <button onClick={() => { setView('admin'); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800/10 text-red-400 text-sm font-bold">
                       <Settings className="w-5 h-5" /> لوحة تحكم الإدارة
                     </button>

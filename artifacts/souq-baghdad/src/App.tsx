@@ -295,8 +295,8 @@ export default function App() {
 
   const [storedUsers, setStoredUsers] = useState<any[]>([]);
   const [showAuth, setShowAuth] = useState(false);
-  const isAdmin = user?.role === 'admin';
   const isOwner = user?.role === 'owner';
+  const isAdmin = user?.role === 'admin' || isOwner;
 
   // 2. Modals, Theme, Polling
   const { themeMode, isDarkMode, showThemeMenu, setShowThemeMenu, changeThemeMode, toggleDarkMode } = useAppTheme();

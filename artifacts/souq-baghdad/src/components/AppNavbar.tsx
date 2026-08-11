@@ -138,7 +138,7 @@ export const AppNavbar: React.FC<AppNavbarProps> = ({
                   <span className="font-bold font-mono">{user.points || 0}</span>
                 </button>
                 {isOwner&&<button onClick={()=>setView('owner')} className={`p-2 rounded-xl text-amber-400 hover:bg-amber-500/20 ${view==='owner'?'bg-amber-500/20':''}`} title="لوحة المالك" aria-label="لوحة المالك"><Crown className="w-5 h-5"/></button>}
-                {isAdmin&&!isOwner&&<button onClick={()=>setView('admin')} className={`p-2 rounded-xl text-red-400 hover:bg-red-500/20 ${view==='admin'?'bg-red-500/20':''}`} title="لوحة الإدارة" aria-label="لوحة الإدارة"><Settings className="w-5 h-5"/></button>}
+                {isAdmin&&<button onClick={()=>setView('admin')} className={`p-2 rounded-xl text-red-400 hover:bg-red-500/20 ${view==='admin'?'bg-red-500/20':''}`} title="لوحة الإدارة" aria-label="لوحة الإدارة"><Settings className="w-5 h-5"/></button>}
                 <button onClick={()=>{setShowCreateProduct(true);setEditingProduct(null);}}
                   className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-bold rounded-xl text-sm hover:bg-purple-700">
                   <ShoppingBag className="w-4 h-4"/> منتج</button>
