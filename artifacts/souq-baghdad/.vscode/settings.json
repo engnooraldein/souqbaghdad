@@ -1,23 +1,4 @@
 {
-  "html.validate.enable": false,
-  "css.validate": false,
-  "html.validate.styles": false,
   "css.lint.unknownAtRules": "ignore",
-
-  // Exclude node_modules from Java/Gradle extension scanning
-  "java.import.exclusions": [
-    "**/node_modules/**",
-    "**/.pnpm/**",
-    "**/dist/**",
-    "**/.git/**"
-  ],
-  "java.autobuild.enabled": false,
-  "gradle.nestedProjects": false,
-  "java.import.gradle.enabled": true,
-
-  // Only scan the actual Android project, not node_modules
-  "java.project.sourcePaths": ["android"],
-  "files.exclude": {
-    "**/node_modules/.pnpm/**/android": true
-  }
+  "scss.lint.unknownAtRules": "ignore"
 }

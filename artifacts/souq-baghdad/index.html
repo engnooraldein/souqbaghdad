@@ -46,6 +46,13 @@
         var dark = document.documentElement.classList.contains('dark');
         var c = dark ? '#030712' : '#ffffff';
         var metaThemes = document.querySelectorAll('meta[name="theme-color"]');
+        if (metaThemes.length === 0) {
+          var m = document.createElement('meta');
+          m.name = 'theme-color';
+          m.id = 'theme-color-meta';
+          document.head.appendChild(m);
+          metaThemes = [m];
+        }
         metaThemes.forEach(function(m) { m.setAttribute('content', c); });
         
         var msMeta = document.querySelector('meta[name="msapplication-navbutton-color"]');
@@ -65,7 +72,6 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="theme-color" content="#030712" id="theme-color-meta" />
   <meta name="apple-mobile-web-app-title" content="سوك بغداد" />
   <script>
     (function() {
