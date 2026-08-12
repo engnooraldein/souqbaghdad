@@ -61,9 +61,9 @@ export function WalletView({ user, onBack, isDarkMode = true, onUpdateUser }: Wa
     }
   };
 
-  const handleRechargeWhatsApp = () => {
-    const text = encodeURIComponent(`مرحباً سوق بغداد،\nأريد شحن حسابي\nرقم الحساب: ${user.id}\nالاسم: ${user.name}`);
-    window.open(`https://wa.me/9647700028170?text=${text}`, '_blank');
+  const handleRechargeTelegram = () => {
+    const text = encodeURIComponent(`مرحباً فريق دعم سوق بغداد 🌟\nأرغب في شحن محفظتي بالنقاط 💎\n\n👤 تفاصيل الحساب:\n• الاسم: ${user.name}\n• معرف الحساب (ID): ${user.id}\n\nيرجى تزويدي بطرق الدفع المتاحة، وشكراً لكم! 🚀`);
+    window.open(`https://t.me/+9647700028170?text=${text}`, '_blank');
   };
 
   return (
@@ -101,11 +101,11 @@ export function WalletView({ user, onBack, isDarkMode = true, onUpdateUser }: Wa
               {!Capacitor.isNativePlatform() && (
                 <>
                   <button 
-                    onClick={handleRechargeWhatsApp}
-                    className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
+                    onClick={handleRechargeTelegram}
+                    className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
                   >
                     <MessageCircle className="w-5 h-5" />
-                    <span>تواصل للشحن السريع</span>
+                    <span>تواصل للشحن عبر تليكرام</span>
                   </button>
                   <p className="text-gray-500 text-xs mt-3">خصم 50% على الباقة الأساسية (100 نقطة بـ 2,500 د.ع)</p>
                 </>
