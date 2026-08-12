@@ -51,6 +51,103 @@ async function deleteMessage(chatId: string | number, messageId: number) {
 const PRODUCT_CHANNEL = Deno.env.get('PRODUCT_CHANNEL_ID') || '';
 const TRANSPORT_CHANNEL = Deno.env.get('TRANSPORT_CHANNEL_ID') || '';
 
+// Facebook & Instagram Publishing
+const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || '';
+const META_PAGE_ID = Deno.env.get('META_PAGE_ID') || '';
+const META_IG_ACCOUNT_ID = Deno.env.get('META_IG_ACCOUNT_ID') || '';
+
+async function postToFacebook(text: string, photoUrl: string | null) {
+  if (!META_PAGE_ACCESS_TOKEN || !META_PAGE_ID) return null;
+  try {
+    const url = photoUrl 
+      ? `https://graph.facebook.com/v20.0/${META_PAGE_ID}/photos`
+      : `https://graph.facebook.com/v20.0/${META_PAGE_ID}/feed`;
+    
+    const body: any = { message: text, access_token: META_PAGE_ACCESS_TOKEN };
+    if (photoUrl) {
+      body.url = photoUrl;
+    }
+    
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.error('FB Error:', err);
+    return null;
+  }
+}
+
+async function deleteFromFacebook(postId: string) {
+  if (!META_PAGE_ACCESS_TOKEN) return false;
+  try {
+    const res = await fetch(`https://graph.facebook.com/v20.0/${postId}?access_token=${META_PAGE_ACCESS_TOKEN}`, {
+      method: 'DELETE'
+    });
+    return res.ok;
+  } catch (err) {
+    console.error('FB Delete Error:', err);
+    return false;
+  }
+}
+
+async function postToInstagram(text: string, photoUrl: string | null) {
+  if (!META_PAGE_ACCESS_TOKEN || !META_IG_ACCOUNT_ID || !photoUrl) return null; // IG requires photo
+  try {
+    // Step 1: Create media container
+    const uploadUrl = `https://graph.facebook.com/v20.0/${META_IG_ACCOUNT_ID}/media`;
+    const uploadBody = {
+      image_url: photoUrl,
+      caption: text,
+      access_token: META_PAGE_ACCESS_TOKEN
+    };
+    const uploadRes = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(uploadBody)
+    });
+    const uploadData = await uploadRes.json();
+    
+    if (!uploadData.id) {
+      console.error('IG Upload Error:', uploadData);
+      return uploadData;
+    }
+    
+    // Step 2: Publish media container
+    const publishUrl = `https://graph.facebook.com/v20.0/${META_IG_ACCOUNT_ID}/media_publish`;
+    const publishBody = {
+      creation_id: uploadData.id,
+      access_token: META_PAGE_ACCESS_TOKEN
+    };
+    const publishRes = await fetch(publishUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(publishBody)
+    });
+    const data = await publishRes.json();
+    return data;
+  } catch (err) {
+    console.error('IG Error:', err);
+    return null;
+  }
+}
+
+async function deleteFromInstagram(mediaId: string) {
+  if (!META_PAGE_ACCESS_TOKEN) return false;
+  try {
+    const res = await fetch(`https://graph.facebook.com/v20.0/${mediaId}?access_token=${META_PAGE_ACCESS_TOKEN}`, {
+      method: 'DELETE'
+    });
+    return res.ok;
+  } catch (err) {
+    console.error('IG Delete Error:', err);
+    return false;
+  }
+}
+
 function formatTgPrice(val: any): string {
   if (!val) return 'حسب الاتفاق';
   let str = String(val).trim();
@@ -154,11 +251,24 @@ serve(async (req) => {
         }
       }
       
-      const msgId = record?.telegram_message_id || oldRecord?.telegram_message_id;
-      if (shouldDelete && msgId) {
-        const channel = (payload.table === 'products' || record.category !== 'transport') ? PRODUCT_CHANNEL : TRANSPORT_CHANNEL;
-        if (channel) {
-          await deleteMessage(channel, parseInt(msgId, 10));
+      if (shouldDelete) {
+        const msgId = record?.telegram_message_id || oldRecord?.telegram_message_id;
+        if (msgId) {
+          const channel = (payload.table === 'products' || record.category !== 'transport') ? PRODUCT_CHANNEL : TRANSPORT_CHANNEL;
+          if (channel) {
+            await deleteMessage(channel, parseInt(msgId, 10));
+          }
+        }
+        
+        // Delete from Social Media
+        const fbPostId = record?.facebook_post_id || oldRecord?.facebook_post_id;
+        if (fbPostId) {
+          await deleteFromFacebook(fbPostId);
+        }
+        
+        const igPostId = record?.instagram_post_id || oldRecord?.instagram_post_id;
+        if (igPostId) {
+          await deleteFromInstagram(igPostId);
         }
       }
 
@@ -200,8 +310,27 @@ serve(async (req) => {
           } else {
             res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
           }
+          const updates: any = {};
           if (res?.ok && res.result?.message_id) {
-             await supabase.from('products').update({ telegram_message_id: res.result.message_id.toString() }).eq('id', record.id);
+             updates.telegram_message_id = res.result.message_id.toString();
+          }
+          
+          // Publish to Social Media (strip HTML from caption for FB/IG)
+          const cleanCaption = caption.replace(/<[^>]*>?/gm, '');
+          const fbData = await postToFacebook(cleanCaption, imageUrl);
+          if (fbData && (fbData.post_id || fbData.id)) {
+            updates.facebook_post_id = fbData.post_id || fbData.id;
+          }
+          
+          if (imageUrl) {
+            const igData = await postToInstagram(cleanCaption, imageUrl);
+            if (igData && igData.id) {
+              updates.instagram_post_id = igData.id;
+            }
+          }
+          
+          if (Object.keys(updates).length > 0) {
+             await supabase.from('products').update(updates).eq('id', record.id);
           }
         }
         else if (payload.table === 'ads' && record.category !== 'transport' && PRODUCT_CHANNEL) {
@@ -243,8 +372,27 @@ serve(async (req) => {
           } else {
             res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
           }
+          const updates: any = {};
           if (res?.ok && res.result?.message_id) {
-             await supabase.from('ads').update({ telegram_message_id: res.result.message_id.toString() }).eq('id', record.id);
+             updates.telegram_message_id = res.result.message_id.toString();
+          }
+          
+          // Publish to Social Media
+          const cleanCaption = caption.replace(/<[^>]*>?/gm, '');
+          const fbData = await postToFacebook(cleanCaption, imageUrl);
+          if (fbData && (fbData.post_id || fbData.id)) {
+            updates.facebook_post_id = fbData.post_id || fbData.id;
+          }
+          
+          if (imageUrl) {
+            const igData = await postToInstagram(cleanCaption, imageUrl);
+            if (igData && igData.id) {
+              updates.instagram_post_id = igData.id;
+            }
+          }
+          
+          if (Object.keys(updates).length > 0) {
+             await supabase.from('ads').update(updates).eq('id', record.id);
           }
         }
         else if ((payload.table === 'ads' || payload.table === 'transport_ads') && record.category === 'transport' && TRANSPORT_CHANNEL) {
@@ -280,8 +428,20 @@ serve(async (req) => {
           };
                       
           const res = await sendMessage(TRANSPORT_CHANNEL, msg, replyMarkup, true);
+          const updates: any = {};
           if (res?.ok && res.result?.message_id) {
-             await supabase.from(payload.table).update({ telegram_message_id: res.result.message_id.toString() }).eq('id', record.id);
+             updates.telegram_message_id = res.result.message_id.toString();
+          }
+          
+          // Publish to Social Media
+          const cleanMsg = msg.replace(/<[^>]*>?/gm, '');
+          const fbData = await postToFacebook(cleanMsg, null);
+          if (fbData && (fbData.post_id || fbData.id)) {
+            updates.facebook_post_id = fbData.post_id || fbData.id;
+          }
+          
+          if (Object.keys(updates).length > 0) {
+             await supabase.from(payload.table).update(updates).eq('id', record.id);
           }
         }
       }
