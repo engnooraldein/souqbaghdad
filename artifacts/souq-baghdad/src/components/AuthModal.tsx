@@ -254,6 +254,20 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
         if (resolvedEmail) {
           const res = await supabase.auth.signInWithPassword({ email: resolvedEmail, password });
           loginErr = res.error;
+          
+          if (loginErr && resolvedPhone) {
+            const resPhone = await supabase.auth.signInWithPassword({ phone: resolvedPhone, password });
+            if (!resPhone.error) {
+              loginErr = null;
+            } else {
+              const fallbackEmail = `${resolvedPhone}@souqbaghdad.store`;
+              const resEmail = await supabase.auth.signInWithPassword({ email: fallbackEmail, password });
+              if (!resEmail.error) {
+                loginErr = null;
+                activeEmail = fallbackEmail;
+              }
+            }
+          }
         } else if (resolvedPhone) {
           // محاولة الدخول برقم الهاتف المباشر أولاً
           const resPhone = await supabase.auth.signInWithPassword({ phone: resolvedPhone, password });
