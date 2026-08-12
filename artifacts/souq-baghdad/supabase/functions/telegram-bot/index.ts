@@ -178,8 +178,15 @@ serve(async (req) => {
                           `📞 <b>التواصل:</b> عبر المنصة مباشرة\n` +
                           `🔗 ${link}`;
 
+          const buttons = [{ text: 'عرض التفاصيل 🌐', url: link }];
+          if (record.phone) {
+             let cleanPhone = record.phone.replace(/[^0-9+]/g, '');
+             if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
+             else cleanPhone = cleanPhone.replace('+', '');
+             buttons.push({ text: 'تواصل مباشر 💬', url: `https://wa.me/${cleanPhone}` });
+          }
           const replyMarkup = {
-            inline_keyboard: [[{ text: 'عرض التفاصيل والطلب', url: link }]]
+            inline_keyboard: [buttons]
           };
 
           const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
@@ -212,8 +219,15 @@ serve(async (req) => {
                           `📞 <b>التواصل:</b> عبر المنصة مباشرة\n` +
                           `🔗 ${link}`;
 
+          const buttons = [{ text: 'عرض التفاصيل 🌐', url: link }];
+          if (record.phone) {
+             let cleanPhone = record.phone.replace(/[^0-9+]/g, '');
+             if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
+             else cleanPhone = cleanPhone.replace('+', '');
+             buttons.push({ text: 'تواصل مباشر 💬', url: `https://wa.me/${cleanPhone}` });
+          }
           const replyMarkup = {
-            inline_keyboard: [[{ text: 'التواصل وعرض التفاصيل', url: link }]]
+            inline_keyboard: [buttons]
           };
 
           const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
@@ -246,8 +260,15 @@ serve(async (req) => {
                       `📞 التواصل: عبر الموقع فقط\n` +
                       `🔗 ${link}`;
                       
+          const buttons = [{ text: 'التفاصيل 🌐', url: link }];
+          if (record.phone) {
+             let cleanPhone = record.phone.replace(/[^0-9+]/g, '');
+             if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
+             else cleanPhone = cleanPhone.replace('+', '');
+             buttons.push({ text: 'تواصل مباشر 💬', url: `https://wa.me/${cleanPhone}` });
+          }
           const replyMarkup = {
-            inline_keyboard: [[{ text: 'التفاصيل والتواصل', url: link }]]
+            inline_keyboard: [buttons]
           };
                       
           const res = await sendMessage(TRANSPORT_CHANNEL, msg, replyMarkup, true);
