@@ -63,7 +63,7 @@ export function WalletView({ user, onBack, isDarkMode = true, onUpdateUser }: Wa
 
   const handleRechargeWhatsApp = () => {
     const text = encodeURIComponent(`مرحباً سوق بغداد،\nأريد شحن حسابي\nرقم الحساب: ${user.id}\nالاسم: ${user.name}`);
-    window.open(`https://wa.me/9647864440003?text=${text}`, '_blank');
+    window.open(`https://wa.me/9647700028170?text=${text}`, '_blank');
   };
 
   return (

@@ -597,13 +597,16 @@ serve(async (req) => {
           [{ text: '🗑️ إدارة إعلاناتي', callback_data: 'manage_my_ads' }, { text: '💳 شراء نقاط', callback_data: 'buy_points' }],
           [{ text: '📖 كيفية التسجيل', callback_data: 'how_to_register' }, { text: '🔑 نسيت كلمة المرور', callback_data: 'forgot_password' }],
           [{ text: '❓ الأسئلة الشائعة', callback_data: 'faq' }, { text: '📞 الدعم الفني', callback_data: 'contact_support' }],
-          [{ text: '🔔 إدارة إشعاراتي', callback_data: 'manage_alerts' }],
+          [{ text: '🔔 إدارة إشعاراتي', callback_data: 'manage_alerts' }, { text: '🔌 تحديث/إعادة ربط الحساب', callback_data: 'relink_account' }],
         ]
       });
     };
 
     // --- Start / Register ---
-    if (text === '/start') {
+    if (text === '/start' || text === '/relink') {
+      if (text === '/relink') {
+        await supabase.from('telegram_users').delete().eq('telegram_chat_id', chatId);
+      }
       await sendMessage(chatId, 'مرحباً بك في بوت <b>سوق بغداد الرقمي</b>! 🇮🇶\n\nيرجى مشاركة رقم هاتفك للتحقق من حسابك أو لإنشاء حساب جديد تلقائياً لتتمكن من النشر واستخدام خدمات الدعم الفني.', {
         keyboard: [[{ text: '📱 مشاركة رقم الهاتف', request_contact: true }]],
         one_time_keyboard: true,
@@ -652,10 +655,18 @@ serve(async (req) => {
 
       // Search in profiles first (more reliable and no pagination limits)
       const { data: profileMatches } = await supabase.from('profiles')
-        .select('id, phone')
+        .select('id, phone, email, points')
         .or(`phone.eq.${localPhone},phone.eq.${intlPhone},phone.eq.${cleanPhone}`);
         
-      let matchedUserId = profileMatches && profileMatches.length > 0 ? profileMatches[0].id : null;
+      let matchedUserId = null;
+      if (profileMatches && profileMatches.length > 0) {
+        profileMatches.sort((a, b) => {
+          if (a.email && !b.email) return -1;
+          if (!a.email && b.email) return 1;
+          return (b.points || 0) - (a.points || 0);
+        });
+        matchedUserId = profileMatches[0].id;
+      }
 
       // Create user if not exists
       if (!matchedUserId) {
@@ -698,6 +709,16 @@ serve(async (req) => {
     if (callbackQuery) {
       await answerCallbackQuery(callbackQuery.id);
       const action = callbackQuery.data;
+      
+      if (action === 'relink_account') {
+        await supabase.from('telegram_users').delete().eq('telegram_chat_id', chatId);
+        await sendMessage(chatId, 'تم إلغاء ربط حسابك الحالي بالبوت.\n\nيرجى مشاركة رقم هاتفك للتحقق من حسابك الأساسي وإعادة الربط.', {
+          keyboard: [[{ text: '📱 مشاركة رقم الهاتف', request_contact: true }]],
+          one_time_keyboard: true,
+          resize_keyboard: true
+        });
+        return new Response('OK', { status: 200 });
+      }
 
       if (action === 'main_menu' || action === 'cancel_wizard') {
         if (action === 'cancel_wizard') {
@@ -935,9 +956,14 @@ serve(async (req) => {
       if (action.startsWith('del_prod_')) {
         const prodId = action.replace('del_prod_', '');
         const { data: adToDelete } = await supabase.from('products').select('facebook_post_id, telegram_message_id, instagram_post_id').eq('id', prodId).single();
-        const { error } = await supabase.from('products').delete().eq('id', prodId).eq('seller_id', userId);
+        const { data: deletedRow, error } = await supabase.from('products').delete().eq('id', prodId).eq('seller_id', userId).select();
         
-        if (!error && adToDelete) {
+        if (error || !deletedRow || deletedRow.length === 0) {
+          await sendMessage(chatId, '❌ لم يتم العثور على المنتج، أو أنك لا تملك صلاحية حذفه (قد يعود لحسابك القديم).');
+          return new Response('OK', { status: 200 });
+        }
+        
+        if (adToDelete) {
           if (adToDelete.facebook_post_id) await deleteFromFacebook(adToDelete.facebook_post_id);
           if (adToDelete.instagram_post_id) await deleteFromInstagram(adToDelete.instagram_post_id);
           if (adToDelete.telegram_message_id && PRODUCT_CHANNEL) {
@@ -952,9 +978,14 @@ serve(async (req) => {
       if (action.startsWith('del_trans_')) {
         const transId = action.replace('del_trans_', '');
         const { data: adToDelete } = await supabase.from('ads').select('facebook_post_id, telegram_message_id, instagram_post_id, category').eq('id', transId).single();
-        const { error } = await supabase.from('ads').delete().eq('id', transId).eq('seller_id', userId);
+        const { data: deletedRow, error } = await supabase.from('ads').delete().eq('id', transId).eq('seller_id', userId).select();
         
-        if (!error && adToDelete) {
+        if (error || !deletedRow || deletedRow.length === 0) {
+          await sendMessage(chatId, '❌ لم يتم العثور على الإعلان، أو أنك لا تملك صلاحية حذفه (قد يعود لحسابك القديم).');
+          return new Response('OK', { status: 200 });
+        }
+        
+        if (adToDelete) {
           if (adToDelete.facebook_post_id) await deleteFromFacebook(adToDelete.facebook_post_id);
           if (adToDelete.instagram_post_id) await deleteFromInstagram(adToDelete.instagram_post_id);
           if (adToDelete.telegram_message_id) {
@@ -969,7 +1000,13 @@ serve(async (req) => {
 
       if (action.startsWith('solve_trans_')) {
         const transId = action.replace('solve_trans_', '');
-        await supabase.from('ads').update({ status: 'matched', completedAt: new Date().toISOString() }).eq('id', transId).eq('seller_id', userId);
+        const { data: updatedRow, error } = await supabase.from('ads').update({ status: 'matched', completedAt: new Date().toISOString() }).eq('id', transId).eq('seller_id', userId).select();
+        
+        if (error || !updatedRow || updatedRow.length === 0) {
+          await sendMessage(chatId, '❌ لم يتم العثور على الإعلان، أو أنك لا تملك صلاحية تعديله (قد يعود لحسابك القديم).');
+          return new Response('OK', { status: 200 });
+        }
+        
         await sendMessage(chatId, '✅ تم إغلاق الإعلان بنجاح وتحويله إلى "مكتمل".', { inline_keyboard: [[{ text: 'العودة لإدارة الخطوط', callback_data: 'manage_cat_trans' }]] });
         return new Response('OK', { status: 200 });
       }
