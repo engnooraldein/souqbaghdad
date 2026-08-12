@@ -804,7 +804,7 @@ serve(async (req) => {
         await sendMessage(chatId, '📢 <b>إدارة الإعلانات والمنتجات</b>\n\nاختر تصفية العرض المناسبة:', {
           inline_keyboard: [
             [{ text: '⚡ آخر إعلانين', callback_data: 'view_ads_recent' }, { text: '📅 هذا الشهر', callback_data: 'view_ads_month' }],
-            [{ text: '📜 جميع الإعلانات', callback_data: 'view_ads_all' }],
+            [{ text: '🟢 الإعلانات النشطة', callback_data: 'view_ads_active' }, { text: '📜 جميع الإعلانات', callback_data: 'view_ads_all' }],
             [{ text: '🔙 العودة لإدارة الإعلانات', callback_data: 'manage_my_ads' }]
           ]
         });
@@ -816,7 +816,7 @@ serve(async (req) => {
         await sendMessage(chatId, '🚌 <b>إدارة خطوط النقل</b>\n\nاختر تصفية العرض المناسبة:', {
           inline_keyboard: [
             [{ text: '⚡ آخر خطين', callback_data: 'view_trans_recent' }, { text: '📅 هذا الشهر', callback_data: 'view_trans_month' }],
-            [{ text: '📜 جميع الخطوط', callback_data: 'view_trans_all' }],
+            [{ text: '🟢 الخطوط النشطة', callback_data: 'view_trans_active' }, { text: '📜 جميع الخطوط', callback_data: 'view_trans_all' }],
             [{ text: '🔙 العودة لإدارة الإعلانات', callback_data: 'manage_my_ads' }]
           ]
         });
@@ -838,6 +838,9 @@ serve(async (req) => {
         } else if (filter === 'month') {
           queryProd = queryProd.gte('created_at', startOfMonth).order('created_at', { ascending: false });
           queryAds = queryAds.gte('created_at', startOfMonth).order('created_at', { ascending: false });
+        } else if (filter === 'active') {
+          queryProd = queryProd.eq('status', 'active').order('created_at', { ascending: false });
+          queryAds = queryAds.eq('status', 'active').order('created_at', { ascending: false });
         } else {
           queryProd = queryProd.order('created_at', { ascending: false });
           queryAds = queryAds.order('created_at', { ascending: false });
@@ -891,6 +894,8 @@ serve(async (req) => {
           queryTrans = queryTrans.order('created_at', { ascending: false }).limit(2);
         } else if (filter === 'month') {
           queryTrans = queryTrans.gte('created_at', startOfMonth).order('created_at', { ascending: false });
+        } else if (filter === 'active') {
+          queryTrans = queryTrans.eq('status', 'active').order('created_at', { ascending: false });
         } else {
           queryTrans = queryTrans.order('created_at', { ascending: false });
         }
@@ -929,14 +934,35 @@ serve(async (req) => {
 
       if (action.startsWith('del_prod_')) {
         const prodId = action.replace('del_prod_', '');
-        await supabase.from('products').delete().eq('id', prodId).eq('seller_id', userId);
+        const { data: adToDelete } = await supabase.from('products').select('facebook_post_id, telegram_message_id, instagram_post_id').eq('id', prodId).single();
+        const { error } = await supabase.from('products').delete().eq('id', prodId).eq('seller_id', userId);
+        
+        if (!error && adToDelete) {
+          if (adToDelete.facebook_post_id) await deleteFromFacebook(adToDelete.facebook_post_id);
+          if (adToDelete.instagram_post_id) await deleteFromInstagram(adToDelete.instagram_post_id);
+          if (adToDelete.telegram_message_id && PRODUCT_CHANNEL) {
+             await deleteMessage(PRODUCT_CHANNEL, parseInt(adToDelete.telegram_message_id, 10));
+          }
+        }
+        
         await sendMessage(chatId, '✅ تم حذف المنتج بنجاح.', { inline_keyboard: [[{ text: 'العودة لإدارة إعلاناتي', callback_data: 'manage_cat_ads' }]] });
         return new Response('OK', { status: 200 });
       }
 
       if (action.startsWith('del_trans_')) {
         const transId = action.replace('del_trans_', '');
-        await supabase.from('ads').delete().eq('id', transId).eq('seller_id', userId);
+        const { data: adToDelete } = await supabase.from('ads').select('facebook_post_id, telegram_message_id, instagram_post_id, category').eq('id', transId).single();
+        const { error } = await supabase.from('ads').delete().eq('id', transId).eq('seller_id', userId);
+        
+        if (!error && adToDelete) {
+          if (adToDelete.facebook_post_id) await deleteFromFacebook(adToDelete.facebook_post_id);
+          if (adToDelete.instagram_post_id) await deleteFromInstagram(adToDelete.instagram_post_id);
+          if (adToDelete.telegram_message_id) {
+             const channel = (adToDelete.category !== 'transport') ? PRODUCT_CHANNEL : TRANSPORT_CHANNEL;
+             if (channel) await deleteMessage(channel, parseInt(adToDelete.telegram_message_id, 10));
+          }
+        }
+        
         await sendMessage(chatId, '✅ تم حذف الإعلان بنجاح.', { inline_keyboard: [[{ text: 'العودة لإدارة إعلاناتي', callback_data: 'manage_my_ads' }]] });
         return new Response('OK', { status: 200 });
       }
@@ -1117,6 +1143,21 @@ serve(async (req) => {
           }
         }
 
+        // Deduct points directly since we are using service_role
+        const cost = 1;
+        const { data: userProfile } = await supabase.from('profiles').select('points, role').eq('id', userId).single();
+        if (userProfile?.role !== 'admin' && userProfile?.role !== 'owner') {
+          if (!userProfile || (userProfile.points || 0) < cost) {
+            await sendMessage(chatId, '❌ عذراً، ليس لديك نقاط كافية لنشر الإعلان. يرجى التوجه لزر "شراء نقاط".', {
+               inline_keyboard: [[{ text: '💳 شراء نقاط', callback_data: 'buy_points' }], [{ text: '🏠 العودة للقائمة', callback_data: 'main_menu' }]]
+            });
+            state = {};
+            await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+            return new Response('OK', { status: 200 });
+          }
+          await supabase.from('profiles').update({ points: userProfile.points - cost }).eq('id', userId);
+        }
+
         // Insert Product
         const { data: profile } = await supabase.from('profiles').select('full_name, avatar_url').eq('id', userId).single();
         const { error: prodInsertError } = await supabase.from('products').insert({
@@ -1181,8 +1222,23 @@ serve(async (req) => {
       else if (state.step === 'trans_note' && text) {
         state.data.note = text === 'لا' ? '' : text;
         
+        // Deduct points directly since we are using service_role
+        const cost = 1;
+        const { data: userProfile } = await supabase.from('profiles').select('points, role').eq('id', userId).single();
+        if (userProfile?.role !== 'admin' && userProfile?.role !== 'owner') {
+          if (!userProfile || (userProfile.points || 0) < cost) {
+            await sendMessage(chatId, '❌ عذراً، ليس لديك نقاط كافية لنشر إعلان الخط. يرجى التوجه لزر "شراء نقاط".', {
+               inline_keyboard: [[{ text: '💳 شراء نقاط', callback_data: 'buy_points' }], [{ text: '🏠 العودة للقائمة', callback_data: 'main_menu' }]]
+            });
+            state = {};
+            await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+            return new Response('OK', { status: 200 });
+          }
+          await supabase.from('profiles').update({ points: userProfile.points - cost }).eq('id', userId);
+        }
+
         // Insert Transport Ad
-        await sendMessage(chatId, '⏳ جاري نشر إعلان الخط...');
+        await sendMessage(chatId, '⏳ جاري نشر إعلان الخط واستقطاع النقاط...');
         const { data: profile } = await supabase.from('profiles').select('full_name, avatar_url').eq('id', userId).single();
         
         const { error: transInsertError } = await supabase.from('ads').insert({
