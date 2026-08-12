@@ -1000,10 +1000,28 @@ serve(async (req) => {
 
       if (action.startsWith('solve_trans_')) {
         const transId = action.replace('solve_trans_', '');
-        const { data: updatedRow, error } = await supabase.from('ads').update({ status: 'matched', completedAt: new Date().toISOString() }).eq('id', transId).eq('seller_id', userId).select();
+        
+        // Fetch existing description first
+        const { data: existingAd } = await supabase.from('ads').select('description').eq('id', transId).eq('seller_id', userId).single();
+        if (!existingAd) {
+          await sendMessage(chatId, '❌ لم يتم العثور على الإعلان، أو أنك لا تملك صلاحية تعديله (قد يعود لحسابك القديم).');
+          return new Response('OK', { status: 200 });
+        }
+        
+        let existingDesc: any = {};
+        try {
+          existingDesc = typeof existingAd.description === 'string' ? JSON.parse(existingAd.description) : existingAd.description;
+        } catch(e) {}
+        
+        const newDesc = JSON.stringify({
+          ...existingDesc,
+          completedAt: new Date().toISOString()
+        });
+
+        const { data: updatedRow, error } = await supabase.from('ads').update({ status: 'matched', description: newDesc }).eq('id', transId).eq('seller_id', userId).select();
         
         if (error || !updatedRow || updatedRow.length === 0) {
-          await sendMessage(chatId, '❌ لم يتم العثور على الإعلان، أو أنك لا تملك صلاحية تعديله (قد يعود لحسابك القديم).');
+          await sendMessage(chatId, '❌ حدث خطأ أثناء تحديث الإعلان.');
           return new Response('OK', { status: 200 });
         }
         
