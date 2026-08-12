@@ -64,10 +64,48 @@ export function useAdActions({
       seller_avatar: user?.avatar,
     };
     if (editingAd) {
+      let extraCost = 0;
+      const vipCostPerMonth = adCosts?.vip_ad !== undefined ? adCosts.vip_ad : 30;
+      
+      const oldIsVip = editingAd.is_vip;
+      const oldVipDays = editingAd.vip_days || 0;
+      const newIsVip = ad.is_vip;
+      const newVipDays = ad.vip_days || 0;
+      
+      if (newIsVip) {
+        if (!oldIsVip) {
+          extraCost = Math.ceil((vipCostPerMonth / 30) * newVipDays);
+        } else if (newVipDays > oldVipDays) {
+          extraCost = Math.ceil((vipCostPerMonth / 30) * (newVipDays - oldVipDays));
+        }
+      }
+      
+      if (extraCost > 0 && user?.role !== 'admin' && user?.role !== 'owner') {
+        const { data: deductData, error: deductError } = await supabase.rpc('deduct_points', {
+          p_user_id: user?.id,
+          p_amount: extraCost,
+          p_reason: 'تعديل الإعلان (تمديد فترة VIP)'
+        });
+        
+        if (deductError || !deductData?.success) {
+          showToast(deductData?.message || 'رصيد النقاط غير كافٍ لتمديد فترة الـ VIP.', 'error');
+          return;
+        }
+        
+        if (user && deductData.remaining !== undefined) {
+          setUser((prev: any) => {
+            if (!prev) return prev;
+            const u = { ...prev, points: deductData.remaining };
+            localStorage.setItem('souqUser', JSON.stringify(u));
+            return u;
+          });
+        }
+      }
+
       const { error } = await supabase.from('ads').update(rowData).eq('id', ad.id);
       if (error) { showToast('حدث خطأ أثناء التعديل', 'error'); return; }
       setEditingAd(null);
-      showToast('تم تعديل الإعلان ✅', 'success');
+      showToast('تم تعديل الإعلان بنجاح ✅', 'success');
     } else {
       let cost = adCosts?.ad !== undefined ? adCosts.ad : 1;
       if (ad.is_vip) {

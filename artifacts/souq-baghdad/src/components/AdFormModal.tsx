@@ -352,7 +352,7 @@ export function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1,
       images:images.filter(i=>i.preview).map(i=>i.preview).concat(images.length===0?[getAdCategoryPlaceholderImage(fd.category)]:[]),
       seller:{name:user.name,avatar:user.avatar,isVerified:user.isVerified,rating:user.rating||5,joinedDate:user.joinedDate,location:user.location},
       time:'الآن', createdAtISO:isEdit?(editAd?.createdAtISO||new Date().toISOString()):new Date().toISOString(), views:isEdit?(editAd?.views||0):0,
-      status:'active', type:fd.type, description:fd.description, adCount:user.stats.ads+1, soldCount:0, responseRate:100, avgResponseTime:'5 دقائق', postedBy:user.id, is_vip:fd.is_vip };
+      status:'active', type:fd.type, description:fd.description, adCount:user.stats.ads+1, soldCount:0, responseRate:100, avgResponseTime:'5 دقائق', postedBy:user.id, is_vip:fd.is_vip, vip_days: fd.vip_days };
     setUploading(false); playSound('success'); onSubmit(ad); onClose();
     if(!isEdit){setFd({title:'',price:'',description:'',category:'cars',governorate:user?.location||'بغداد',phone:user?.phone||'',type:'sell',is_vip:false,vip_days:0});setImages([]);}
     setTab('form');

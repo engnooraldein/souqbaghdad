@@ -1001,10 +1001,15 @@ serve(async (req) => {
       if (action.startsWith('solve_trans_')) {
         const transId = action.replace('solve_trans_', '');
         
-        // Fetch existing description first
-        const { data: existingAd } = await supabase.from('ads').select('description').eq('id', transId).eq('seller_id', userId).single();
-        if (!existingAd) {
-          await sendMessage(chatId, '❌ لم يتم العثور على الإعلان، أو أنك لا تملك صلاحية تعديله (قد يعود لحسابك القديم).');
+        const { data: existingAd, error: fetchError } = await supabase.from('ads').select('description, seller_id').eq('id', transId).maybeSingle();
+        
+        if (fetchError || !existingAd) {
+          await sendMessage(chatId, '❌ لم يتم العثور على الإعلان.');
+          return new Response('OK', { status: 200 });
+        }
+        
+        if (existingAd.seller_id !== userId) {
+          await sendMessage(chatId, '❌ لا تملك صلاحية تعديل هذا الإعلان (ربما يعود لحساب آخر).');
           return new Response('OK', { status: 200 });
         }
         
