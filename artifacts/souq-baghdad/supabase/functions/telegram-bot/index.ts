@@ -160,6 +160,45 @@ function formatTgPrice(val: any): string {
   return isNaN(num) ? str : `${num.toLocaleString('en-US')} د.ع`;
 }
 
+function generateHashtags(title: string, desc: string): string {
+  const defaultTag = '#سوق_بغداد_الرقمي';
+  if (!title) return defaultTag;
+  const words = title.split(/\s+/).filter(w => w.length > 2).slice(0, 3);
+  const tags = words.map(w => '#' + w.replace(/[^\w\u0600-\u06FF]/g, ''));
+  return [defaultTag, ...tags].join(' ');
+}
+
+async function sendWhatsAppWelcome(phone: string, title: string, link: string) {
+  const token = Deno.env.get('WHATSAPP_TOKEN');
+  const phoneId = Deno.env.get('WHATSAPP_PHONE_ID');
+  if (!token || !phoneId || !phone) return;
+
+  let cleanPhone = phone.replace(/[^0-9]/g, '');
+  if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
+
+  const msg = `أهلاً بك في منصة سوق بغداد الرقمي! 👋\n\nشكراً لنشر إعلانك: "${title}" في منصتنا.\n\n✅ لقد تم نشره بنجاح في الموقع وتيليكرام وفيسبوك وانستكرام.\n\nيمكنك متابعة إعلانك ورؤية التفاصيل عبر الرابط:\n🔗 ${link}\n\nنتمنى لك التوفيق! 🚀`;
+
+  try {
+    const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
+    await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: cleanPhone,
+        type: 'text',
+        text: { body: msg }
+      })
+    });
+  } catch(e) {
+    console.error('WhatsApp Error:', e);
+  }
+}
+
+
 async function callGemini(prompt: string): Promise<string | null> {
   const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
   if (!GEMINI_API_KEY) return null;
@@ -315,15 +354,18 @@ serve(async (req) => {
              updates.telegram_message_id = res.result.message_id.toString();
           }
           
-          // Publish to Social Media (strip HTML from caption for FB/IG)
-          const cleanCaption = caption.replace(/<[^>]*>?/gm, '');
-          const fbData = await postToFacebook(cleanCaption, imageUrl);
+          // Publish to Social Media
+          const tags = generateHashtags(record.title, safeDesc);
+          const fbIgCaption = caption.replace(/<[^>]*>?/gm, '') + 
+                              `\n\n💡 ملاحظة: يمكنك كتابة "تم" في تعليق وسنرسل لك رابط الإعلان برسالة خاصة.\n\n` +
+                              `${tags}`;
+          const fbData = await postToFacebook(fbIgCaption, imageUrl);
           if (fbData && (fbData.post_id || fbData.id)) {
             updates.facebook_post_id = fbData.post_id || fbData.id;
           }
           
           if (imageUrl) {
-            const igData = await postToInstagram(cleanCaption, imageUrl);
+            const igData = await postToInstagram(fbIgCaption, imageUrl);
             if (igData && igData.id) {
               updates.instagram_post_id = igData.id;
             }
@@ -331,6 +373,10 @@ serve(async (req) => {
           
           if (Object.keys(updates).length > 0) {
              await supabase.from('products').update(updates).eq('id', record.id);
+          }
+          
+          if (record.phone) {
+             await sendWhatsAppWelcome(record.phone, record.title || '', link);
           }
         }
         else if (payload.table === 'ads' && record.category !== 'transport' && PRODUCT_CHANNEL) {
@@ -378,14 +424,17 @@ serve(async (req) => {
           }
           
           // Publish to Social Media
-          const cleanCaption = caption.replace(/<[^>]*>?/gm, '');
-          const fbData = await postToFacebook(cleanCaption, imageUrl);
+          const tags = generateHashtags(record.title, safeDesc);
+          const fbIgCaption = caption.replace(/<[^>]*>?/gm, '') + 
+                              `\n\n💡 ملاحظة: يمكنك كتابة "تم" في تعليق وسنرسل لك رابط الإعلان برسالة خاصة.\n\n` +
+                              `${tags}`;
+          const fbData = await postToFacebook(fbIgCaption, imageUrl);
           if (fbData && (fbData.post_id || fbData.id)) {
             updates.facebook_post_id = fbData.post_id || fbData.id;
           }
           
           if (imageUrl) {
-            const igData = await postToInstagram(cleanCaption, imageUrl);
+            const igData = await postToInstagram(fbIgCaption, imageUrl);
             if (igData && igData.id) {
               updates.instagram_post_id = igData.id;
             }
@@ -393,6 +442,10 @@ serve(async (req) => {
           
           if (Object.keys(updates).length > 0) {
              await supabase.from('ads').update(updates).eq('id', record.id);
+          }
+          
+          if (record.phone) {
+             await sendWhatsAppWelcome(record.phone, record.title || '', link);
           }
         }
         else if ((payload.table === 'ads' || payload.table === 'transport_ads') && record.category === 'transport' && TRANSPORT_CHANNEL) {
@@ -434,14 +487,21 @@ serve(async (req) => {
           }
           
           // Publish to Social Media
-          const cleanMsg = msg.replace(/<[^>]*>?/gm, '');
-          const fbData = await postToFacebook(cleanMsg, null);
+          const tags = generateHashtags(`${catType} ${record.city || ''}`, '');
+          const fbIgCaption = msg.replace(/<[^>]*>?/gm, '') + 
+                              `\n\n💡 ملاحظة: يمكنك كتابة "تم" في تعليق وسنرسل لك الرابط برسالة خاصة.\n\n` +
+                              `${tags}`;
+          const fbData = await postToFacebook(fbIgCaption, null);
           if (fbData && (fbData.post_id || fbData.id)) {
             updates.facebook_post_id = fbData.post_id || fbData.id;
           }
           
           if (Object.keys(updates).length > 0) {
              await supabase.from(payload.table).update(updates).eq('id', record.id);
+          }
+          
+          if (record.phone) {
+             await sendWhatsAppWelcome(record.phone, `${catType} - مطلوب جديد`, link);
           }
         }
       }
