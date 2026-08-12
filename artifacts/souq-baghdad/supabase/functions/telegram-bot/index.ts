@@ -27,11 +27,13 @@ async function answerCallbackQuery(callbackQueryId: string, text: string = '') {
   });
 }
 
-async function sendPhoto(chatId: string | number, photoUrl: string, caption: string) {
+async function sendPhoto(chatId: string | number, photoUrl: string, caption: string, replyMarkup?: any) {
+  const body: any = { chat_id: chatId, photo: photoUrl, caption, parse_mode: 'HTML' };
+  if (replyMarkup) body.reply_markup = replyMarkup;
   const res = await fetch(`${tgUrl}/sendPhoto`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, photo: photoUrl, caption, parse_mode: 'HTML' })
+    body: JSON.stringify(body)
   });
   return res.json();
 }
@@ -194,9 +196,9 @@ serve(async (req) => {
           const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
           let res;
           if (imageUrl) {
-            res = await sendPhoto(PRODUCT_CHANNEL, imageUrl, caption);
+            res = await sendPhoto(PRODUCT_CHANNEL, imageUrl, caption, replyMarkup);
           } else {
-            res = await sendMessage(PRODUCT_CHANNEL, caption);
+            res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
           }
           if (res?.ok && res.result?.message_id) {
              await supabase.from('products').update({ telegram_message_id: res.result.message_id.toString() }).eq('id', record.id);
@@ -237,9 +239,9 @@ serve(async (req) => {
           const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
           let res;
           if (imageUrl) {
-            res = await sendPhoto(PRODUCT_CHANNEL, imageUrl, caption);
+            res = await sendPhoto(PRODUCT_CHANNEL, imageUrl, caption, replyMarkup);
           } else {
-            res = await sendMessage(PRODUCT_CHANNEL, caption);
+            res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
           }
           if (res?.ok && res.result?.message_id) {
              await supabase.from('ads').update({ telegram_message_id: res.result.message_id.toString() }).eq('id', record.id);
