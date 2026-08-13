@@ -2,7 +2,9 @@
   "compilerOptions": {
     "noEmit": true,
     "allowJs": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true
   },
   "include": [
     "functions/**/*"
