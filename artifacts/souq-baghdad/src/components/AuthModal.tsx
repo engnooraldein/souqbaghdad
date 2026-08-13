@@ -636,31 +636,19 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
           <>
             {/* ══ شاشة استعادة الحساب ══ */}
             {isRecovery && (
-              <div className="text-center py-4 space-y-4">
+              <div className="text-center py-4 space-y-5">
                 <h3 className="text-white text-xl font-bold">استعادة كلمة المرور</h3>
                 <p className="text-gray-400 text-sm leading-relaxed px-2">
-                  اختر الوسيلة المفضلة لاستعادة حسابك وتلقي رمز التحقق السري (OTP) فوراً:
+                  انتقل إلى بوت تيليغرام الخاص بنا لاستعادة حسابك بسرعة وأمان.
                 </p>
-                <div className="space-y-3 pt-2">
-                  {/* زر الواتساب */}
-                  <a
-                    href={`https://wa.me/15551975975?text=${encodeURIComponent('نسيت كلمة السر وأريد استعادة حسابي OTP')}`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="flex w-full items-center justify-center gap-2 py-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-600/20"
-                  >
-                    💬 الذهاب إلى البوت على واتساب (OTP)
-                  </a>
-
-                  {/* زر تيليكرام */}
-                  <a
-                    href="https://t.me/souqbaghda_bot"
-                    target="_blank" rel="noopener noreferrer"
-                    className="flex w-full items-center justify-center gap-2 py-3.5 bg-[#2AABEE] text-white font-bold rounded-xl hover:bg-[#229ED9] transition-colors"
-                  >
-                    ✈️ الذهاب إلى البوت على تيليغرام
-                  </a>
-                </div>
-                <button type="button" onClick={() => setIsRecovery(false)} className="w-full text-center text-gray-400 hover:text-white text-sm pt-2">
+                <a
+                  href="https://t.me/souqbaghda_bot"
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex w-full items-center justify-center gap-2 py-4 bg-[#2AABEE] text-white font-bold rounded-xl hover:bg-[#229ED9] transition-colors"
+                >
+                  الذهاب إلى البوت على تيليغرام
+                </a>
+                <button type="button" onClick={() => setIsRecovery(false)} className="w-full text-center text-gray-400 hover:text-white text-sm">
                   ← العودة لتسجيل الدخول
                 </button>
               </div>
