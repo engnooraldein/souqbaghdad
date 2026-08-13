@@ -754,6 +754,14 @@ export function AuthModal({ onClose, onLogin }: { onClose: () => void; onLogin: 
                   </button>
                 )}
 
+                {/* زر استعادة كلمة المرور المباشر */}
+                <button
+                  onClick={() => { setIsRecovery(true); setError(''); }}
+                  className="w-full py-3 bg-amber-500/10 text-amber-400 font-bold rounded-xl hover:bg-amber-500/20 transition-all border border-amber-500/30 text-sm flex items-center justify-center gap-2 mt-2"
+                >
+                  🔑 نسيت كلمة المرور؟ استعادة عبر الواتساب وتيليكرام
+                </button>
+
                 {/* بصمة (تطبيق فقط، إذا مفعّلة) */}
                 {isNative && biometricEnabled && (
                   <button
