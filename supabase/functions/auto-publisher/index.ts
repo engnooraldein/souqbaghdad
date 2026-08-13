@@ -9,6 +9,34 @@ const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+const FB_ACCESS_TOKEN = Deno.env.get("FB_ACCESS_TOKEN") ?? "";
+const FB_PAGE_ID = Deno.env.get("FB_PAGE_ID") ?? "";
+
+const sendFacebookPost = async (message: string, imageUrl?: string) => {
+  if (!FB_ACCESS_TOKEN || !FB_PAGE_ID) return;
+  try {
+    let url = `https://graph.facebook.com/v19.0/${FB_PAGE_ID}/feed`;
+    let body: any = { message, access_token: FB_ACCESS_TOKEN };
+    
+    if (imageUrl) {
+      url = `https://graph.facebook.com/v19.0/${FB_PAGE_ID}/photos`;
+      body = { caption: message, url: imageUrl, access_token: FB_ACCESS_TOKEN };
+    }
+    
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (data.error) {
+      console.error("Facebook API Error:", data.error);
+    }
+  } catch (err) {
+    console.error("Facebook Fetch Error:", err);
+  }
+};
+
 const sendTelegramPhoto = async (chatId: string, photoUrl: string, caption: string) => {
   if (!BOT_TOKEN) return;
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
@@ -73,6 +101,7 @@ serve(async (req) => {
       // نشر المنشور مع الصورة على قنوات تيليكرام وفيسبوك
       if (ad.images && ad.images.length > 0) {
         await sendTelegramPhoto(GENERAL_CHANNEL, ad.images[0], smartCaption);
+        await sendFacebookPost(smartCaption, ad.images[0]);
       }
     }
 

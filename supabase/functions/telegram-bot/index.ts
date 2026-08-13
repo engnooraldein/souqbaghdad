@@ -23,7 +23,8 @@ const formatPriceWithCommas = (price: any) => {
 };
 
 const formatTransportAd = (ad: any) => {
-  let desc: any = {};
+  await sendFacebookPost(formatTransportAd(payload.record));
+            let desc: any = {};
   try {
     desc = JSON.parse(ad.description || '{}');
   } catch (e) {}
@@ -65,6 +66,34 @@ const formatGeneralAd = (ad: any, table: string = 'ads') => {
          `💰 السعر: ${formatPriceWithCommas(ad.price)}\n\n` +
          `🔗 شاهد الإعلان كاملاً:\n` +
          `${detailUrl}`;
+};
+
+const FB_ACCESS_TOKEN = Deno.env.get("FB_ACCESS_TOKEN") ?? "";
+const FB_PAGE_ID = Deno.env.get("FB_PAGE_ID") ?? "";
+
+const sendFacebookPost = async (message: string, imageUrl?: string) => {
+  if (!FB_ACCESS_TOKEN || !FB_PAGE_ID) return;
+  try {
+    let url = `https://graph.facebook.com/v19.0/${FB_PAGE_ID}/feed`;
+    let body: any = { message, access_token: FB_ACCESS_TOKEN };
+    
+    if (imageUrl) {
+      url = `https://graph.facebook.com/v19.0/${FB_PAGE_ID}/photos`;
+      body = { caption: message, url: imageUrl, access_token: FB_ACCESS_TOKEN };
+    }
+    
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (data.error) {
+      console.error("Facebook API Error:", data.error);
+    }
+  } catch (err) {
+    console.error("Facebook Fetch Error:", err);
+  }
 };
 
 const sendTelegramMessage = async (chatId: string, text: string) => {
@@ -125,6 +154,7 @@ serve(async (req) => {
         if (payload.record.category === "transport") {
           const msgId = await sendTelegramMessage(TRANSPORT_CHANNEL, formatTransportAd(payload.record));
           if (msgId) {
+            await sendFacebookPost(formatTransportAd(payload.record));
             let desc: any = {};
             try { desc = JSON.parse(payload.record.description || '{}'); } catch(e) {}
             desc.telegram_msg_id = msgId;
@@ -136,8 +166,10 @@ serve(async (req) => {
           
           if (ad.images && ad.images.length > 0) {
             await sendTelegramPhoto(GENERAL_CHANNEL, ad.images[0], text);
+            await sendFacebookPost(text, ad.images[0]);
           } else {
             await sendTelegramMessage(GENERAL_CHANNEL, text);
+            await sendFacebookPost(text);
           }
         }
       } else if (payload.table === "products") {
@@ -146,8 +178,10 @@ serve(async (req) => {
         
         if (ad.images && ad.images.length > 0) {
           await sendTelegramPhoto(GENERAL_CHANNEL, ad.images[0], text);
+            await sendFacebookPost(text, ad.images[0]);
         } else {
           await sendTelegramMessage(GENERAL_CHANNEL, text);
+            await sendFacebookPost(text);
         }
       } else if (payload.table === "support_messages") {
         const ADMIN_CHAT_ID = Deno.env.get("ADMIN_CHAT_ID") ?? "777557036";
@@ -173,7 +207,8 @@ serve(async (req) => {
         const newStatus = payload.record.status;
         
         if (newStatus === "matched" && oldStatus !== "matched") {
-          let desc: any = {};
+          await sendFacebookPost(formatTransportAd(payload.record));
+            let desc: any = {};
           try { desc = JSON.parse(payload.record.description || '{}'); } catch(e) {}
           const msgId = desc.telegram_msg_id;
           if (msgId) {
