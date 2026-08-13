@@ -9,38 +9,14 @@ const WHATSAPP_PHONE_NUMBER_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") ?? "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// إرسال رسالة عبر WhatsApp Cloud API مع دعم الصور الترحيبية الاحترافية والـ OTP
-const sendWhatsAppMessage = async (to: string, text: string, imageUrl?: string) => {
+const sendWhatsAppMessage = async (to: string, text: string) => {
   if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_NUMBER_ID) {
     console.log("WhatsApp Credentials missing.");
     return;
   }
   const url = `https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
 
-  // إذا تم توفير صورة
-  if (imageUrl) {
-    await fetch(url, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${WHATSAPP_TOKEN}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: to,
-        type: "image",
-        image: {
-          link: imageUrl,
-          caption: text
-        }
-      })
-    });
-    return;
-  }
-
-  // إرسال نص عادي
-  await fetch(url, {
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${WHATSAPP_TOKEN}`,
@@ -54,6 +30,9 @@ const sendWhatsAppMessage = async (to: string, text: string, imageUrl?: string) 
       text: { body: text }
     })
   });
+  
+  const resData = await res.json();
+  console.log("WhatsApp Send Result:", JSON.stringify(resData));
 };
 
 serve(async (req) => {
@@ -66,6 +45,7 @@ serve(async (req) => {
       const challenge = url.searchParams.get("hub.challenge");
 
       if (mode === "subscribe" && token === WHATSAPP_VERIFY_TOKEN) {
+        console.log("WhatsApp Webhook Verified!");
         return new Response(challenge, { status: 200 });
       }
       return new Response("Forbidden", { status: 403 });
@@ -73,18 +53,19 @@ serve(async (req) => {
 
     if (req.method === "POST") {
       const body = await req.json();
+      console.log("WhatsApp Webhook Payload Received:", JSON.stringify(body));
+
       const entry = body.entry?.[0];
       const changes = entry?.changes?.[0];
       const value = changes?.value;
       const message = value?.messages?.[0];
 
       if (message) {
-        const fromNumber = message.from; // رقم هاتف العميل
+        const fromNumber = message.from;
         const textBody = (message.text?.body || "").trim();
 
-        // 1. ميزة استعادة كلمة السر عبر رمز التحقق (OTP)
+        // 1. استعادة كلمة السر والـ OTP
         if (textBody.includes("كلمة السر") || textBody.includes("رمز") || textBody.includes("نسيت") || textBody.includes("OTP")) {
-          // استخراج وتنسيق رقم الهاتف المحلي 07x
           let formattedPhone = fromNumber.replace(/^\+964/, "0").replace(/^964/, "0");
           
           const { data: profile } = await supabase
@@ -94,10 +75,7 @@ serve(async (req) => {
             .maybeSingle();
 
           if (profile) {
-            // توليد رمز OTP مكون من 6 أرقام
             const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-            // تعيين الرمز ككلمة مرور جديدة للمستخدم عبر Admin API
             await supabase.auth.admin.updateUserById(profile.id, { password: otpCode });
 
             const otpReply = 
@@ -108,8 +86,7 @@ serve(async (req) => {
 
 🔑 *${otpCode}*
 
-يمكنك استخدام هذا الرمز فوراً لتسجيل الدخول إلى حسابك في الموقع: https://souqbaghdad.store
-⚠️ لا تشارك هذا الرمز مع أي شخص لحماية حسابك.`;
+يمكنك استخدام هذا الرمز فوراً لتسجيل الدخول إلى حسابك في الموقع: https://souqbaghdad.store`;
 
             await sendWhatsAppMessage(fromNumber, otpReply);
             return new Response("EVENT_RECEIVED", { status: 200 });
@@ -120,9 +97,7 @@ serve(async (req) => {
           }
         }
 
-        // 2. الرد الاحترافي الترحيبي والتفاعل بـ AI Engine
-        const logoUrl = "https://souqbaghdad.store/favicon.ico"; // شعار سوق بغداد الرسمي
-
+        // 2. معالجة الرسائل العامة عبر ai-engine
         const aiRes = await fetch(`${SUPABASE_URL}/functions/v1/ai-engine`, {
           method: "POST",
           headers: {
@@ -140,27 +115,16 @@ serve(async (req) => {
         const aiData = await aiRes.json();
 
         if (aiData.reply) {
-          const profReply = `🛍️ **سوق بغداد — الموظف الرقمي الاحترافي**\n\n${aiData.reply}\n\n🌐 souqbaghdad.store`;
-          
-          // إذا كان أول تواصل أو رسالة ترحيبية نرسل الشعار الرسمي
-          if (textBody.toLowerCase() === "مرحبا" || textBody.toLowerCase() === "هلا" || textBody === "/start") {
-            await sendWhatsAppMessage(fromNumber, profReply, logoUrl);
-          } else {
-            await sendWhatsAppMessage(fromNumber, profReply);
-          }
+          const profReply = `🛍️ *سوق بغداد — الموظف الرقمي*\n\n${aiData.reply}\n\n🌐 souqbaghdad.store`;
+          await sendWhatsAppMessage(fromNumber, profReply);
         }
 
-        // عرض نتائج البحث بطريقة احترافية
+        // عرض نتائج البحث إن وجدت
         if (aiData.searchResults && aiData.searchResults.length > 0) {
           for (const item of aiData.searchResults) {
             const itemUrl = `https://souqbaghdad.store/product/${item.short_id || item.id}`;
-            const card = `📌 **${item.title}**\n💰 السعر: ${item.price || 'غير محدد'} د.ع\n📍 الموقع: ${item.location || item.city || 'بغداد'}\n\n🔗 التفاصيل والطلب المباشر:\n${itemUrl}`;
-            
-            if (item.images && item.images.length > 0) {
-              await sendWhatsAppMessage(fromNumber, card, item.images[0]);
-            } else {
-              await sendWhatsAppMessage(fromNumber, card);
-            }
+            const card = `📌 *${item.title}*\n💰 السعر: ${item.price || 'غير محدد'} د.ع\n📍 الموقع: ${item.location || item.city || 'بغداد'}\n🔗 ${itemUrl}`;
+            await sendWhatsAppMessage(fromNumber, card);
           }
         }
       }
