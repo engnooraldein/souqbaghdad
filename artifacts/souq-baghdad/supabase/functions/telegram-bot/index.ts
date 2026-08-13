@@ -581,15 +581,24 @@ serve(async (req) => {
     const userId = tgUser?.user_id;
     const phone = tgUser?.phone_number;
 
-    // --- Main Menu Function ---
+      // --- Main Menu Function ---
       const showMainMenu = async (aiText?: string) => {
       state = {}; // reset state
       if (userId) {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
       }
-      let messageToSend = '🏠 <b>القائمة الرئيسية</b>\nماذا تريد أن تفعل؟';
+      
+      let userInfo = '';
+      if (userId) {
+        const { data: profile } = await supabase.from('profiles').select('full_name, points').eq('id', userId).maybeSingle();
+        if (profile) {
+          userInfo = `👤 <b>${profile.full_name || 'مستخدم'}</b>\n🪙 <b>رصيد النقاط:</b> ${profile.points || 0}\n\n`;
+        }
+      }
+
+      let messageToSend = `🏠 <b>القائمة الرئيسية</b>\n${userInfo}ماذا تريد أن تفعل؟`;
       if (aiText) {
-        messageToSend = aiText + '\n\n👇 <b>القائمة الرئيسية:</b>';
+        messageToSend = aiText + `\n\n${userInfo}👇 <b>القائمة الرئيسية:</b>`;
       }
       await sendMessage(chatId, messageToSend, {
         inline_keyboard: [
@@ -1044,9 +1053,15 @@ serve(async (req) => {
 
       // Product Wizard
       if (action === 'publish_product') {
+        const { data: profile } = await supabase.from('profiles').select('points, role').eq('id', userId).maybeSingle();
+        if (profile?.role !== 'admin' && profile?.role !== 'owner' && (profile?.points || 0) < 1) {
+          await sendMessage(chatId, '❌ عذراً، رصيد النقاط الخاص بك غير كافٍ لنشر إعلان. يرجى شحن المحفظة أولاً.', { inline_keyboard: [[{ text: '💳 شراء نقاط', callback_data: 'buy_points' }], [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]] });
+          return new Response('OK', { status: 200 });
+        }
+        
         state = { step: 'product_title', data: {} };
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        await sendMessage(chatId, '📦 <b>نشر منتج جديد</b>\nيرجى كتابة <b>عنوان</b> المنتج (مثال: ايفون 15 برو ماكس):', { inline_keyboard: [[{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]] });
+        await sendMessage(chatId, '⚠️ <b>تنبيه:</b> سيتم خصم نقاط من رصيدك عند إتمام النشر.\n\n📦 <b>نشر منتج جديد</b>\nيرجى كتابة <b>عنوان</b> المنتج (مثال: ايفون 15 برو ماكس):', { inline_keyboard: [[{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]] });
         return new Response('OK', { status: 200 });
       }
 
@@ -1072,9 +1087,15 @@ serve(async (req) => {
 
       // Transport Wizard
       if (action === 'publish_transport') {
+        const { data: profile } = await supabase.from('profiles').select('points, role').eq('id', userId).maybeSingle();
+        if (profile?.role !== 'admin' && profile?.role !== 'owner' && (profile?.points || 0) < 1) {
+          await sendMessage(chatId, '❌ عذراً، رصيد النقاط الخاص بك غير كافٍ لنشر إعلان. يرجى شحن المحفظة أولاً.', { inline_keyboard: [[{ text: '💳 شراء نقاط', callback_data: 'buy_points' }], [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]] });
+          return new Response('OK', { status: 200 });
+        }
+
         state = { step: 'trans_type', data: {} };
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        await sendMessage(chatId, '🚌 <b>نشر خط نقل</b>\nهل تبحث عن خط أم تقدم خدمة خط؟', {
+        await sendMessage(chatId, '⚠️ <b>تنبيه:</b> سيتم خصم نقاط من رصيدك عند إتمام النشر.\n\n🚌 <b>نشر خط نقل</b>\nهل تبحث عن خط أم تقدم خدمة خط؟', {
           inline_keyboard: [
             [{ text: '🙋‍♂️ أبحث عن خط (طلب)', callback_data: 'trans_type_request' }],
             [{ text: '🚗 أوفر خط (عرض)', callback_data: 'trans_type_offer' }]
