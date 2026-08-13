@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = (Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) ?? "";
 const BOT_TOKEN = (Deno.env.get("TELEGRAM_BOT_TOKEN") ?? Deno.env.get("BOT_TOKEN")) ?? "";
-const GENERAL_CHANNEL = Deno.env.get("GENERAL_CHANNEL") ?? "-1004381673206";
+const GENERAL_CHANNEL = (Deno.env.get("PRODUCT_CHANNEL_ID") ?? Deno.env.get("GENERAL_CHANNEL")) ?? "-1004381673206";
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);

@@ -7,8 +7,8 @@ const supabase = createClient(
 );
 
 const BOT_TOKEN = (Deno.env.get("TELEGRAM_BOT_TOKEN") ?? Deno.env.get("BOT_TOKEN")) ?? "8886561538:AAGM68k1ljmvNgRF5IafMo6Kip3VI1g1rzg";
-const TRANSPORT_CHANNEL = Deno.env.get("TRANSPORT_CHANNEL") ?? "-1001437356679";
-const GENERAL_CHANNEL = Deno.env.get("GENERAL_CHANNEL") ?? "-1004381673206";
+const TRANSPORT_CHANNEL = (Deno.env.get("TRANSPORT_CHANNEL_ID") ?? Deno.env.get("TRANSPORT_CHANNEL")) ?? "-1001437356679";
+const GENERAL_CHANNEL = (Deno.env.get("PRODUCT_CHANNEL_ID") ?? Deno.env.get("GENERAL_CHANNEL")) ?? "-1004381673206";
 const SITE_URL = "https://souqbaghdad.com";
 
 const formatPriceWithCommas = (price: any) => {
