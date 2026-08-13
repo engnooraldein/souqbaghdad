@@ -4,5 +4,8 @@
     "allowJs": true,
     "skipLibCheck": true
   },
-  "files": []
+  "include": [
+    "functions/**/*"
+  ]
 }
+
