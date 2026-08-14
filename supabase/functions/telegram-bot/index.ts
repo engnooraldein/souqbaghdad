@@ -773,6 +773,9 @@ serve(async (req) => {
           let res;
           if (publishTelegram) {
             res = await sendMessage(TRANSPORT_CHANNEL, msg, replyMarkup, true);
+            if (EXTRA_CHANNEL) {
+              await sendMessage(EXTRA_CHANNEL, msg, replyMarkup, true);
+            }
           }
           const updates: any = {};
           let syncStatus = record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' };
@@ -783,6 +786,7 @@ serve(async (req) => {
                syncStatus.telegram = 'success';
             } else {
                syncStatus.telegram = 'failed';
+               console.error('Telegram Error:', res);
             }
           }
           
@@ -807,6 +811,7 @@ serve(async (req) => {
               syncStatus.facebook = 'success';
             } else {
               syncStatus.facebook = 'failed';
+              console.error('Facebook Post Failed:', fbData);
             }
           }
           
@@ -817,6 +822,7 @@ serve(async (req) => {
                syncStatus.instagram = 'success';
             } else {
                syncStatus.instagram = 'failed';
+               console.error('Instagram Post Failed:', igData);
             }
           }
           
