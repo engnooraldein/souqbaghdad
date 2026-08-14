@@ -23,8 +23,7 @@ const formatPriceWithCommas = (price: any) => {
 };
 
 const formatTransportAd = (ad: any) => {
-  await sendFacebookPost(formatTransportAd(payload.record));
-            let desc: any = {};
+  let desc: any = {};
   try {
     desc = JSON.parse(ad.description || '{}');
   } catch (e) {}
