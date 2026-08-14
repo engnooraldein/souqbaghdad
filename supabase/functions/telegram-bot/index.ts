@@ -63,12 +63,9 @@ async function postToFacebook(text: string, photoUrl: string | null) {
       ? `https://graph.facebook.com/v20.0/${META_PAGE_ID}/photos`
       : `https://graph.facebook.com/v20.0/${META_PAGE_ID}/feed`;
       
-    // Force 1080x1080 white background padding for universal social media compatibility
-    const proxyPhotoUrl = photoUrl ? `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&w=1080&h=1080&fit=contain&bg=white&output=jpg` : null;
-    
     const body: any = { message: text, access_token: META_PAGE_ACCESS_TOKEN };
-    if (proxyPhotoUrl) {
-      body.url = proxyPhotoUrl;
+    if (photoUrl) {
+      body.url = photoUrl;
     }
     
     const res = await fetch(url, {
@@ -103,12 +100,8 @@ async function postToInstagram(text: string, photoUrl: string | null) {
     // Step 1: Create media container
     const uploadUrl = `https://graph.facebook.com/v20.0/${META_IG_ACCOUNT_ID}/media`;
     
-    // Instagram strict requirements: aspect ratio 4:5 to 1.91:1 and JPEG format. 
-    // We use wsrv.nl proxy to dynamically pad any image into a perfect 1080x1080 white square.
-    const proxyPhotoUrl = `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&w=1080&h=1080&fit=contain&bg=white&output=jpg`;
-    
     const uploadBody = {
-      image_url: proxyPhotoUrl,
+      image_url: photoUrl,
       caption: text,
       access_token: META_PAGE_ACCESS_TOKEN
     };
