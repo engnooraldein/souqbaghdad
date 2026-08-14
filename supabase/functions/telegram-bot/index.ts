@@ -68,6 +68,7 @@ async function deleteMessage(chatId: string | number, messageId: number) {
 // Channel IDs from environment variables (e.g., @ChannelUsername or -100123456789)
 const PRODUCT_CHANNEL = Deno.env.get('PRODUCT_CHANNEL_ID') || '';
 const TRANSPORT_CHANNEL = Deno.env.get('TRANSPORT_CHANNEL_ID') || '';
+const EXTRA_CHANNEL = '@souqbaghdad_iq';
 
 // Facebook & Instagram Publishing
 const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || '';
@@ -292,10 +293,10 @@ const generateSmartCaption = async (ad: any, fallbackText: string, detailUrl: st
 اسم الناشر (البائع): ${ad.seller_name || 'غير محدد'}
 ${ad.shift ? 'أوقات الدوام: ' + ad.shift : ''}
 
-ملاحظة هامة جداً 1: ضع هاشتاقات ذكية وممتازة متعلقة بمحتوى الإعلان بدقة في نهاية المنشور. (مثلاً: للإعلانات العامة استخدم هاشتاقات تخص الفئة مثل #سيارات_للبيع #عقارات #موبايلات حسب نوع الإعلان. واذكر هاشتاق للمنطقة واسم البائع إذا أمكن).
+ملاحظة هامة جداً 1: ضع هاشتاقات ذكية وممتازة متعلقة بمحتوى الإعلان بدقة لزيادة الوصول في نهاية المنشور. (مثلاً: استخدم هاشتاقات تخص الفئة مثل #سيارات_للبيع #عقارات #موبايلات حسب نوع الإعلان، مع إضافة هاشتاق إلزامي ثابت وهو #سوق_بغداد_الرقمي في جميع المنشورات).
 ملاحظة هامة جداً 2: اذكر اسم البائع في المنشور إذا كان متوفراً (مثال: يعرض لكم ${ad.seller_name || 'البائع'}...).
 ملاحظة هامة جداً 3: ضع رابط الموقع في نهاية المنشور تماماً لكي يتمكن المشتري من الضغط عليه: ${detailUrl}
-ملاحظة هامة جداً 4: يرجى ترتيب النص بشكل مريح للعين باستخدام فواصل أسطر فارغة بين الجمل، ولا تستخدم علامات النجمة (*) أو تنسيقات Markdown أبدأً.`
+ملاحظة هامة جداً 4: يرجى ترتيب النص بشكل مريح للعين باستخدام فواصل أسطر فارغة بين الجمل. (تنبيه: يسمح بل ويجب استخدام رمز الهاشتاك # للكلمات المفتاحية في نهاية النص، ولكن يُمنع استخدام علامات النجمة * أو تنسيقات Markdown الأخرى).`
                 }
               ]
             }
@@ -304,8 +305,11 @@ ${ad.shift ? 'أوقات الدوام: ' + ad.shift : ''}
       }
     );
     const aiData = await aiRes.json();
-    const generatedCaption = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
+    let generatedCaption = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
     if (generatedCaption) {
+      if (!generatedCaption.includes('#سوق_بغداد_الرقمي')) {
+          generatedCaption += '\n\n#سوق_بغداد_الرقمي';
+      }
       return generatedCaption;
     }
   } catch (e) {
@@ -552,11 +556,17 @@ serve(async (req) => {
             const imagesToPost = record.images && record.images.length > 0 ? record.images : (imageUrl ? [imageUrl] : []);
             if (imagesToPost.length > 1) {
               await sendMediaGroup(PRODUCT_CHANNEL, imagesToPost, caption);
-              res = await sendMessage(PRODUCT_CHANNEL, 'للتواصل وعرض التفاصيل:', replyMarkup);
+              res = await sendMessage(PRODUCT_CHANNEL, 'للتواصل وعرض التفاصيل يرجى استخدام الأزرار أدناه 👇', replyMarkup);
+              if (EXTRA_CHANNEL) {
+                await sendMediaGroup(EXTRA_CHANNEL, imagesToPost, caption);
+                await sendMessage(EXTRA_CHANNEL, 'للتواصل وعرض التفاصيل يرجى استخدام الأزرار أدناه 👇', replyMarkup);
+              }
             } else if (imagesToPost.length === 1) {
               res = await sendPhoto(PRODUCT_CHANNEL, imagesToPost[0], caption, replyMarkup);
+              if (EXTRA_CHANNEL) await sendPhoto(EXTRA_CHANNEL, imagesToPost[0], caption, replyMarkup);
             } else {
               res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
+              if (EXTRA_CHANNEL) await sendMessage(EXTRA_CHANNEL, caption, replyMarkup);
             }
           }
           const updates: any = {};
@@ -650,11 +660,17 @@ serve(async (req) => {
             const imagesToPost = record.images && record.images.length > 0 ? record.images : (imageUrl ? [imageUrl] : []);
             if (imagesToPost.length > 1) {
               await sendMediaGroup(PRODUCT_CHANNEL, imagesToPost, caption);
-              res = await sendMessage(PRODUCT_CHANNEL, 'للتواصل وعرض التفاصيل:', replyMarkup);
+              res = await sendMessage(PRODUCT_CHANNEL, 'للتواصل وعرض التفاصيل يرجى استخدام الأزرار أدناه 👇', replyMarkup);
+              if (EXTRA_CHANNEL) {
+                await sendMediaGroup(EXTRA_CHANNEL, imagesToPost, caption);
+                await sendMessage(EXTRA_CHANNEL, 'للتواصل وعرض التفاصيل يرجى استخدام الأزرار أدناه 👇', replyMarkup);
+              }
             } else if (imagesToPost.length === 1) {
               res = await sendPhoto(PRODUCT_CHANNEL, imagesToPost[0], caption, replyMarkup);
+              if (EXTRA_CHANNEL) await sendPhoto(EXTRA_CHANNEL, imagesToPost[0], caption, replyMarkup);
             } else {
               res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
+              if (EXTRA_CHANNEL) await sendMessage(EXTRA_CHANNEL, caption, replyMarkup);
             }
           }
           const updates: any = {};
