@@ -82,7 +82,7 @@ const generateSmartCaption = async (ad: any, fallbackText: string, detailUrl: st
               role: "user",
               parts: [
                 {
-                  text: `اكتب منشور تسويقي قصير وجذاب جداً باللغة العربية والعامية العراقية للإعلان التالي لمنصات التواصل الاجتماعي:\nالعنوان: ${ad.title}\nالسعر: ${ad.price || 'غير محدد'}\nالفئة: ${ad.category || 'عام'}\nالموقع: ${ad.city || 'بغداد'} - ${ad.location || ''}\nضع هاشتاقات ممتازة ورابط الموقع ${detailUrl}`
+                  text: `اكتب منشور تسويقي قصير وجذاب جداً باللغة العربية والعامية العراقية للإعلان التالي لمنصات التواصل الاجتماعي:\nالعنوان: ${ad.title}\nالسعر: ${ad.price || 'غير محدد'}\nالفئة: ${ad.category || 'عام'}\nالموقع: ${ad.city || 'بغداد'} - ${ad.location || ''}\nضع هاشتاقات ممتازة ورابط الموقع ${detailUrl}\n\nملاحظة هامة جداً: يرجى ترتيب النص بشكل مريح للعين باستخدام فواصل أسطر فارغة بين الجمل (استخدم أسطر جديدة مضاعفة)، ولا تستخدم علامات النجمة (*) أو تنسيقات Markdown لأنها لا تظهر بشكل صحيح.`
                 }
               ]
             }
@@ -101,18 +101,19 @@ const generateSmartCaption = async (ad: any, fallbackText: string, detailUrl: st
   return fallbackText;
 };
 
-const FB_ACCESS_TOKEN = Deno.env.get("FB_ACCESS_TOKEN") ?? "";
-const FB_PAGE_ID = Deno.env.get("FB_PAGE_ID") ?? "";
+const FB_ACCESS_TOKEN = Deno.env.get("META_PAGE_ACCESS_TOKEN") ?? Deno.env.get("FB_ACCESS_TOKEN") ?? "";
+const FB_PAGE_ID = Deno.env.get("META_PAGE_ID") ?? Deno.env.get("FB_PAGE_ID") ?? "";
 
 const sendFacebookPost = async (message: string, imageUrl?: string) => {
   if (!FB_ACCESS_TOKEN || !FB_PAGE_ID) return;
   try {
+    const fbMessage = message.replace(/\*/g, '').replace(/\n+/g, '\n\n');
     let url = `https://graph.facebook.com/v19.0/${FB_PAGE_ID}/feed`;
-    let body: any = { message, access_token: FB_ACCESS_TOKEN };
+    let body: any = { message: fbMessage, access_token: FB_ACCESS_TOKEN };
     
     if (imageUrl) {
       url = `https://graph.facebook.com/v19.0/${FB_PAGE_ID}/photos`;
-      body = { caption: message, url: imageUrl, access_token: FB_ACCESS_TOKEN };
+      body = { message: fbMessage, url: imageUrl, access_token: FB_ACCESS_TOKEN };
     }
     
     const res = await fetch(url, {
