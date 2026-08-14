@@ -182,13 +182,15 @@ const generateSmartCaption = async (ad: any, fallbackText: string, detailUrl: st
               parts: [
                 {
                   text: `اكتب منشور تسويقي قصير وجذاب جداً باللغة العربية والعامية العراقية للإعلان التالي لمنصات التواصل الاجتماعي:
-العنوان: ${ad.title || ad.category || 'إعلان'}
+العنوان أو التفاصيل: ${ad.title || (ad.categoryType ? 'خط نقل ' + ad.categoryType : 'إعلان')}
 السعر: ${ad.price || 'غير محدد'}
-الفئة: ${ad.category || 'عام'}
-الموقع: ${ad.city || 'بغداد'} - ${ad.location || ''}
-ضع هاشتاقات ممتازة ورابط الموقع ${detailUrl}
+النوع: ${ad.category || ad.vehicleType || 'عام'}
+الموقع أو المناطق: ${ad.city || ad.regions || 'بغداد'} ${ad.location || ''}
+${ad.shift ? 'أوقات الدوام: ' + ad.shift : ''}
 
-ملاحظة هامة جداً: يرجى ترتيب النص بشكل مريح للعين باستخدام فواصل أسطر فارغة بين الجمل (استخدم أسطر جديدة مضاعفة)، ولا تستخدم علامات النجمة (*) أو تنسيقات Markdown لأنها لا تظهر بشكل صحيح.`
+ملاحظة هامة: ضع هاشتاقات ذكية وممتازة متعلقة بمحتوى الإعلان بدقة (مثلاً إذا كان خط نقل ضع هاشتاقات للمناطق المذكورة وللطلاب أو الموظفين)، وضع رابط الموقع في النهاية: ${detailUrl}
+
+ملاحظة هامة جداً: يرجى ترتيب النص بشكل مريح للعين باستخدام فواصل أسطر فارغة بين الجمل، ولا تستخدم علامات النجمة (*) أو تنسيقات Markdown.`
                 }
               ]
             }
@@ -439,11 +441,9 @@ serve(async (req) => {
           }
           
           // Publish to Social Media
-          const tags = generateHashtags(record.title, safeDesc);
           const generatedFbCaption = await generateSmartCaption(record, caption.replace(/<[^>]*>?/gm, ''), link);
           const fbIgCaption = generatedFbCaption + 
-                              `\n\n💡 ملاحظة: يمكنك كتابة "تم" في تعليق وسنرسل لك رابط الإعلان برسالة خاصة.\n\n` +
-                              `${tags}`;
+                              `\n\n💡 ملاحظة: يمكنك كتابة "تم" في تعليق وسنرسل لك رابط الإعلان برسالة خاصة.`;
           const fbData = await postToFacebook(fbIgCaption, imageUrl);
           if (fbData && (fbData.post_id || fbData.id)) {
             updates.facebook_post_id = fbData.post_id || fbData.id;
@@ -573,11 +573,10 @@ serve(async (req) => {
           }
           
           // Publish to Social Media
-          const tags = generateHashtags(`${catType} ${record.city || ''}`, '');
+          // Publish to Social Media
           const generatedFbCaption = await generateSmartCaption(record, msg.replace(/<[^>]*>?/gm, ''), link);
           const fbIgCaption = generatedFbCaption + 
-                              `\n\n💡 ملاحظة: يمكنك كتابة "تم" في تعليق وسنرسل لك الرابط برسالة خاصة.\n\n` +
-                              `${tags}`;
+                              `\n\n💡 ملاحظة: يمكنك كتابة "تم" في تعليق وسنرسل لك الرابط برسالة خاصة.`;
           const fbData = await postToFacebook(fbIgCaption, null);
           if (fbData && (fbData.post_id || fbData.id)) {
             updates.facebook_post_id = fbData.post_id || fbData.id;
