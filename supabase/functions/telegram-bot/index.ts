@@ -10,6 +10,7 @@ const BOT_TOKEN = (Deno.env.get("TELEGRAM_BOT_TOKEN") ?? Deno.env.get("BOT_TOKEN
 const TRANSPORT_CHANNEL = (Deno.env.get("TRANSPORT_CHANNEL_ID") ?? Deno.env.get("TRANSPORT_CHANNEL")) ?? "-1001437356679";
 const GENERAL_CHANNEL = (Deno.env.get("PRODUCT_CHANNEL_ID") ?? Deno.env.get("GENERAL_CHANNEL")) ?? "-1004381673206";
 const SITE_URL = "https://souqbaghdad.com";
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 
 const formatPriceWithCommas = (price: any) => {
   if (!price || price === '0' || price === 0) return 'غير محدد';
@@ -65,6 +66,39 @@ const formatGeneralAd = (ad: any, table: string = 'ads') => {
          `💰 السعر: ${formatPriceWithCommas(ad.price)}\n\n` +
          `🔗 شاهد الإعلان كاملاً:\n` +
          `${detailUrl}`;
+};
+
+const generateSmartCaption = async (ad: any, fallbackText: string, detailUrl: string) => {
+  if (!GEMINI_API_KEY) return fallbackText;
+  try {
+    const aiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: `اكتب منشور تسويقي قصير وجذاب جداً باللغة العربية والعامية العراقية للإعلان التالي لمنصات التواصل الاجتماعي:\nالعنوان: ${ad.title}\nالسعر: ${ad.price || 'غير محدد'}\nالفئة: ${ad.category || 'عام'}\nالموقع: ${ad.city || 'بغداد'} - ${ad.location || ''}\nضع هاشتاقات ممتازة ورابط الموقع ${detailUrl}`
+                }
+              ]
+            }
+          ]
+        })
+      }
+    );
+    const aiData = await aiRes.json();
+    const generatedCaption = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (generatedCaption) {
+      return generatedCaption;
+    }
+  } catch (e) {
+    console.error("AI Caption error:", e);
+  }
+  return fallbackText;
 };
 
 const FB_ACCESS_TOKEN = Deno.env.get("FB_ACCESS_TOKEN") ?? "";
@@ -161,7 +195,9 @@ serve(async (req) => {
           }
         } else if (payload.record.category !== "notification") {
           const ad = payload.record;
-          const text = formatGeneralAd(ad);
+          const fallbackText = formatGeneralAd(ad);
+          const detailUrl = `https://www.souqbaghdad.store/ad/${ad.short_id || ad.id}`;
+          const text = await generateSmartCaption(ad, fallbackText, detailUrl);
           
           if (ad.images && ad.images.length > 0) {
             await sendTelegramPhoto(GENERAL_CHANNEL, ad.images[0], text);
@@ -173,14 +209,16 @@ serve(async (req) => {
         }
       } else if (payload.table === "products") {
         const ad = payload.record;
-        const text = formatGeneralAd(ad);
+        const fallbackText = formatGeneralAd(ad, 'products');
+        const detailUrl = `https://www.souqbaghdad.store/product/${ad.short_id || ad.id}`;
+        const text = await generateSmartCaption(ad, fallbackText, detailUrl);
         
         if (ad.images && ad.images.length > 0) {
           await sendTelegramPhoto(GENERAL_CHANNEL, ad.images[0], text);
-            await sendFacebookPost(text, ad.images[0]);
+          await sendFacebookPost(text, ad.images[0]);
         } else {
           await sendTelegramMessage(GENERAL_CHANNEL, text);
-            await sendFacebookPost(text);
+          await sendFacebookPost(text);
         }
       } else if (payload.table === "support_messages") {
         const ADMIN_CHAT_ID = Deno.env.get("ADMIN_CHAT_ID") ?? "777557036";
