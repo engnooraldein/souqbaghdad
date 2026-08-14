@@ -441,19 +441,19 @@ serve(async (req) => {
           }
           
           // Publish to Social Media
+          const fbIgPhotoUrl = imageUrl || 'https://souqbaghdad.store/opengraph.jpg';
           const generatedFbCaption = await generateSmartCaption(record, caption.replace(/<[^>]*>?/gm, ''), link);
           const fbIgCaption = generatedFbCaption + 
                               `\n\n💡 ملاحظة: يمكنك كتابة "تم" في تعليق وسنرسل لك رابط الإعلان برسالة خاصة.`;
-          const fbData = await postToFacebook(fbIgCaption, imageUrl);
+                              
+          const fbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl);
           if (fbData && (fbData.post_id || fbData.id)) {
             updates.facebook_post_id = fbData.post_id || fbData.id;
           }
           
-          if (imageUrl) {
-            const igData = await postToInstagram(fbIgCaption, imageUrl);
-            if (igData && igData.id) {
-              updates.instagram_post_id = igData.id;
-            }
+          const igData = await postToInstagram(fbIgCaption, fbIgPhotoUrl);
+          if (igData && (igData.id || igData.media_id)) {
+             updates.instagram_post_id = igData.id || igData.media_id;
           }
           
           if (Object.keys(updates).length > 0) {
@@ -497,6 +497,8 @@ serve(async (req) => {
           };
 
           const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
+          const fbIgPhotoUrl = imageUrl || 'https://souqbaghdad.store/opengraph.jpg';
+          
           let res;
           if (imageUrl) {
             res = await sendPhoto(PRODUCT_CHANNEL, imageUrl, caption, replyMarkup);
@@ -508,22 +510,20 @@ serve(async (req) => {
              updates.telegram_message_id = res.result.message_id.toString();
           }
           
-          // Publish to Social Media
-          const tags = generateHashtags(record.title, safeDesc);
+          // Publish to Social Media (Gemini already includes hashtags)
           const generatedFbCaption = await generateSmartCaption(record, caption.replace(/<[^>]*>?/gm, ''), link);
           const fbIgCaption = generatedFbCaption + 
-                              `\n\n💡 ملاحظة: يمكنك كتابة "تم" في تعليق وسنرسل لك رابط الإعلان برسالة خاصة.\n\n` +
-                              `${tags}`;
-          const fbData = await postToFacebook(fbIgCaption, imageUrl);
+                              `\n\n💡 ملاحظة: يمكنك كتابة "تم" في تعليق وسنرسل لك رابط الإعلان برسالة خاصة.`;
+                              
+          const fbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl);
           if (fbData && (fbData.post_id || fbData.id)) {
             updates.facebook_post_id = fbData.post_id || fbData.id;
           }
           
-          if (imageUrl) {
-            const igData = await postToInstagram(fbIgCaption, imageUrl);
-            if (igData && igData.id) {
-              updates.instagram_post_id = igData.id;
-            }
+          // IG requires a photo, we now guarantee fbIgPhotoUrl is present
+          const igData = await postToInstagram(fbIgCaption, fbIgPhotoUrl);
+          if (igData && (igData.id || igData.media_id)) {
+            updates.instagram_post_id = igData.id || igData.media_id;
           }
           
           if (Object.keys(updates).length > 0) {
