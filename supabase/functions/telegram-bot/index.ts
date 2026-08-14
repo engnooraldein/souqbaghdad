@@ -99,8 +99,13 @@ async function postToInstagram(text: string, photoUrl: string | null) {
   try {
     // Step 1: Create media container
     const uploadUrl = `https://graph.facebook.com/v20.0/${META_IG_ACCOUNT_ID}/media`;
+    
+    // Instagram strict requirements: aspect ratio 4:5 to 1.91:1 and JPEG format. 
+    // We use wsrv.nl proxy to dynamically pad any image into a perfect 1080x1080 white square.
+    const proxyPhotoUrl = `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&w=1080&h=1080&fit=contain&bg=white&output=jpg`;
+    
     const uploadBody = {
-      image_url: photoUrl,
+      image_url: proxyPhotoUrl,
       caption: text,
       access_token: META_PAGE_ACCESS_TOKEN
     };
