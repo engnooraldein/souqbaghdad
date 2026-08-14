@@ -63,10 +63,9 @@ async function postToFacebook(text: string, photoUrl: string | null) {
       ? `https://graph.facebook.com/v19.0/${META_PAGE_ID}/photos`
       : `https://graph.facebook.com/v19.0/${META_PAGE_ID}/feed`;
       
-    const body: any = { message: text, access_token: META_PAGE_ACCESS_TOKEN };
+    let body: any = { message: text, access_token: META_PAGE_ACCESS_TOKEN };
     if (photoUrl) {
-      body.caption = text;
-      body.url = encodeURI(photoUrl);
+      body = { caption: text, url: photoUrl, access_token: META_PAGE_ACCESS_TOKEN };
     }
     
     const res = await fetch(url, {
