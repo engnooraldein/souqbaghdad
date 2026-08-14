@@ -162,6 +162,8 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSocialPublishing, setIsSocialPublishing] = useState<string|null>(null);
+  const [publishModalItem, setPublishModalItem] = useState<{id: string, type: 'product'|'ad'|'transport', record: any} | null>(null);
+  const [publishTargets, setPublishTargets] = useState({ facebook: true, instagram: true, telegram: true });
   const [lastSyncDate, setLastSyncDate] = useState(() => localStorage.getItem('owner_sync_date') || 'غير مزامن');
 
   const syncAll = async () => {
@@ -768,20 +770,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                       <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{ad.title}</p>
                         <p className="text-xs text-gray-400">{ad.location} • {formatPrice(ad.price)} د.ع • <button onClick={() => setViewersModalItem({id: ad.id, type: 'ad'})} className="hover:text-amber-400">{ad.views} 👁</button></p></div>
                       <button 
-                        onClick={async () => {
-                          setIsSocialPublishing(String(ad.id));
-                          try {
-                            const { data, error } = await supabase.functions.invoke('telegram-bot', {
-                              body: { type: 'INSERT', table: 'ads', record: ad }
-                            });
-                            if (error) alert('فشل النشر: ' + error.message);
-                            else alert('تم إرسال طلب إعادة النشر للمنصات بنجاح ✅');
-                          } catch (e: any) {
-                            alert('خطأ: ' + e.message);
-                          } finally {
-                            setIsSocialPublishing(null);
-                          }
-                        }}
+                        onClick={() => setPublishModalItem({ id: String(ad.id), type: 'ad', record: ad })}
                         disabled={isSocialPublishing === String(ad.id)}
                         className="p-2 bg-blue-500/20 rounded-lg text-blue-400 hover:bg-blue-500/30 flex-shrink-0 flex items-center gap-1 text-xs font-bold"
                         title="إعادة نشر على المنصات (FB, IG, Telegram)"
@@ -812,20 +801,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                       <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{p.title}</p>
                         <p className="text-xs text-gray-400">{p.governorate} • {formatPrice(p.price)} د.ع • <button onClick={() => setViewersModalItem({id: p.id, type: 'product'})} className="hover:text-amber-400">{p.views} 👁</button> • {p.condition==='new'?'جديد':'مستعمل'}</p></div>
                       <button 
-                        onClick={async () => {
-                          setIsSocialPublishing(String(p.id));
-                          try {
-                            const { data, error } = await supabase.functions.invoke('telegram-bot', {
-                              body: { type: 'INSERT', table: 'products', record: p }
-                            });
-                            if (error) alert('فشل النشر: ' + error.message);
-                            else alert('تم إرسال طلب إعادة النشر للمنصات بنجاح ✅');
-                          } catch (e: any) {
-                            alert('خطأ: ' + e.message);
-                          } finally {
-                            setIsSocialPublishing(null);
-                          }
-                        }}
+                        onClick={() => setPublishModalItem({ id: String(p.id), type: 'product', record: p })}
                         disabled={isSocialPublishing === String(p.id)}
                         className="p-2 bg-blue-500/20 rounded-lg text-blue-400 hover:bg-blue-500/30 flex-shrink-0 flex items-center gap-1 text-xs font-bold"
                         title="إعادة نشر على المنصات (FB, IG, Telegram)"
@@ -857,6 +833,15 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                       </div>
                       <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{t.type === 'offer' ? 'متوفر خط' : 'أبحث عن خط'} ({t.university})</p>
                         <p className="text-xs text-gray-400">{t.regions} • {formatPrice(t.price)} د.ع • <button onClick={() => setViewersModalItem({id: t.id, type: 'transport'})} className="hover:text-amber-400">{t.views||0} 👁</button></p></div>
+                      <button 
+                        onClick={() => setPublishModalItem({ id: String(t.id), type: 'transport', record: t })}
+                        disabled={isSocialPublishing === String(t.id)}
+                        className="p-2 bg-blue-500/20 rounded-lg text-blue-400 hover:bg-blue-500/30 flex-shrink-0 flex items-center gap-1 text-xs font-bold"
+                        title="إعادة نشر على المنصات (FB, IG, Telegram)"
+                      >
+                        {isSocialPublishing === String(t.id) ? <Loader2 className="w-4 h-4 animate-spin"/> : <Share2 className="w-4 h-4"/>}
+                        <span className="hidden sm:inline">نشر</span>
+                      </button>
                       <button onClick={()=>setItemToDelete({ id: t.id, type: 'transport' })} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0" title="حذف خط النقل" aria-label="حذف خط النقل"><Trash2 className="w-4 h-4"/></button>
                     </div>
                   ))}
@@ -1468,6 +1453,65 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
         cancelText="إلغاء"
         variant="danger"
       />
+
+      {publishModalItem && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl relative">
+            <div className="p-5">
+              <h3 className="text-white font-bold text-lg mb-4 text-center">خيارات النشر 🌍</h3>
+              
+              <div className="space-y-3 mb-6">
+                <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer hover:bg-gray-750 transition">
+                  <input type="checkbox" checked={publishTargets.facebook} onChange={e=>setPublishTargets(prev=>({...prev, facebook: e.target.checked}))} className="w-5 h-5 accent-blue-500" />
+                  <span className="text-gray-200 font-medium">فيسبوك (Facebook)</span>
+                </label>
+                <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer hover:bg-gray-750 transition">
+                  <input type="checkbox" checked={publishTargets.instagram} onChange={e=>setPublishTargets(prev=>({...prev, instagram: e.target.checked}))} className="w-5 h-5 accent-pink-500" />
+                  <span className="text-gray-200 font-medium">انستغرام (Instagram)</span>
+                </label>
+                <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer hover:bg-gray-750 transition">
+                  <input type="checkbox" checked={publishTargets.telegram} onChange={e=>setPublishTargets(prev=>({...prev, telegram: e.target.checked}))} className="w-5 h-5 accent-sky-500" />
+                  <span className="text-gray-200 font-medium">تيليكرام (Telegram)</span>
+                </label>
+              </div>
+
+              <div className="flex gap-3">
+                <button 
+                  onClick={async () => {
+                    if (!publishTargets.facebook && !publishTargets.instagram && !publishTargets.telegram) {
+                      alert('يرجى تحديد منصة واحدة على الأقل');
+                      return;
+                    }
+                    setIsSocialPublishing(publishModalItem.id);
+                    const tableMap = { ad: 'ads', product: 'products', transport: 'transport_ads' };
+                    try {
+                      const { error } = await supabase.functions.invoke('telegram-bot', {
+                        body: { type: 'INSERT', table: tableMap[publishModalItem.type], record: publishModalItem.record, targets: publishTargets }
+                      });
+                      if (error) alert('فشل النشر: ' + error.message);
+                      else alert('تم إرسال طلب إعادة النشر للمنصات بنجاح ✅');
+                    } catch (e: any) {
+                      alert('خطأ: ' + e.message);
+                    } finally {
+                      setIsSocialPublishing(null);
+                      setPublishModalItem(null);
+                    }
+                  }}
+                  disabled={isSocialPublishing === publishModalItem.id}
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center justify-center gap-2"
+                >
+                  {isSocialPublishing === publishModalItem.id ? <Loader2 className="w-5 h-5 animate-spin"/> : <Share2 className="w-5 h-5"/>}
+                  نشر الآن
+                </button>
+                <button onClick={() => setPublishModalItem(null)} className="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 text-gray-200 font-bold rounded-xl">
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

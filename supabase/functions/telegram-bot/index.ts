@@ -344,7 +344,16 @@ async function checkInterruption(text: string): Promise<boolean> {
   }
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   try {
     const payload = await req.json();
     
@@ -396,6 +405,10 @@ serve(async (req) => {
         }
       }
 
+      let publishTelegram = payload.targets ? payload.targets.telegram : true;
+      let publishFacebook = payload.targets ? payload.targets.facebook : true;
+      let publishInstagram = payload.targets ? payload.targets.instagram : true;
+
       if (shouldPublish) {
 
         if (payload.table === 'products' && PRODUCT_CHANNEL) {
@@ -429,41 +442,52 @@ serve(async (req) => {
 
           const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
           let res;
-          if (imageUrl) {
-            res = await sendPhoto(PRODUCT_CHANNEL, imageUrl, caption, replyMarkup);
-          } else {
-            res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
+          if (publishTelegram) {
+            if (imageUrl) {
+              res = await sendPhoto(PRODUCT_CHANNEL, imageUrl, caption, replyMarkup);
+            } else {
+              res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
+            }
           }
           const updates: any = {};
           let syncStatus = record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' };
 
-          if (res?.ok && res.result?.message_id) {
-             updates.telegram_message_id = res.result.message_id.toString();
-             syncStatus.telegram = 'success';
-          } else {
-             syncStatus.telegram = 'failed';
+          if (publishTelegram) {
+            if (res?.ok && res.result?.message_id) {
+               updates.telegram_message_id = res.result.message_id.toString();
+               syncStatus.telegram = 'success';
+            } else {
+               syncStatus.telegram = 'failed';
+            }
           }
           
           // Publish to Social Media
           const fbIgPhotoUrl = imageUrl || 'https://souqbaghdad.store/opengraph.jpg';
-          const generatedFbCaption = await generateSmartCaption(record, caption.replace(/<[^>]*>?/gm, ''), link);
+          let generatedFbCaption = caption.replace(/<[^>]*>?/gm, '');
+          if (publishFacebook || publishInstagram) {
+            generatedFbCaption = await generateSmartCaption(record, generatedFbCaption, link);
+          }
           const fbIgCaption = generatedFbCaption + 
                               `\n\n💡 ملاحظة: يمكنك كتابة "تم" في تعليق وسنرسل لك رابط الإعلان برسالة خاصة.`;
                               
-          const fbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl);
-          if (fbData && (fbData.post_id || fbData.id)) {
-            updates.facebook_post_id = fbData.post_id || fbData.id;
-            syncStatus.facebook = 'success';
-          } else {
-            syncStatus.facebook = 'failed';
+          if (publishFacebook) {
+            const fbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl);
+            if (fbData && (fbData.post_id || fbData.id)) {
+              updates.facebook_post_id = fbData.post_id || fbData.id;
+              syncStatus.facebook = 'success';
+            } else {
+              syncStatus.facebook = 'failed';
+            }
           }
           
-          const igData = await postToInstagram(fbIgCaption, fbIgPhotoUrl);
-          if (igData && (igData.id || igData.media_id)) {
-             updates.instagram_post_id = igData.id || igData.media_id;
-             syncStatus.instagram = 'success';
-          } else {
-             syncStatus.instagram = 'failed';
+          if (publishInstagram) {
+            const igData = await postToInstagram(fbIgCaption, fbIgPhotoUrl);
+            if (igData && (igData.id || igData.media_id)) {
+               updates.instagram_post_id = igData.id || igData.media_id;
+               syncStatus.instagram = 'success';
+            } else {
+               syncStatus.instagram = 'failed';
+            }
           }
           
           updates.sync_status = syncStatus;
@@ -512,41 +536,52 @@ serve(async (req) => {
           const fbIgPhotoUrl = imageUrl || 'https://souqbaghdad.store/opengraph.jpg';
           
           let res;
-          if (imageUrl) {
-            res = await sendPhoto(PRODUCT_CHANNEL, imageUrl, caption, replyMarkup);
-          } else {
-            res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
+          if (publishTelegram) {
+            if (imageUrl) {
+              res = await sendPhoto(PRODUCT_CHANNEL, imageUrl, caption, replyMarkup);
+            } else {
+              res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
+            }
           }
           const updates: any = {};
           let syncStatus = record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' };
 
-          if (res?.ok && res.result?.message_id) {
-             updates.telegram_message_id = res.result.message_id.toString();
-             syncStatus.telegram = 'success';
-          } else {
-             syncStatus.telegram = 'failed';
+          if (publishTelegram) {
+            if (res?.ok && res.result?.message_id) {
+               updates.telegram_message_id = res.result.message_id.toString();
+               syncStatus.telegram = 'success';
+            } else {
+               syncStatus.telegram = 'failed';
+            }
           }
           
           // Publish to Social Media (Gemini already includes hashtags)
-          const generatedFbCaption = await generateSmartCaption(record, caption.replace(/<[^>]*>?/gm, ''), link);
+          let generatedFbCaption = caption.replace(/<[^>]*>?/gm, '');
+          if (publishFacebook || publishInstagram) {
+            generatedFbCaption = await generateSmartCaption(record, generatedFbCaption, link);
+          }
           const fbIgCaption = generatedFbCaption + 
                               `\n\n💡 ملاحظة: يمكنك كتابة "تم" في تعليق وسنرسل لك رابط الإعلان برسالة خاصة.`;
                               
-          const fbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl);
-          if (fbData && (fbData.post_id || fbData.id)) {
-            updates.facebook_post_id = fbData.post_id || fbData.id;
-            syncStatus.facebook = 'success';
-          } else {
-            syncStatus.facebook = 'failed';
+          if (publishFacebook) {
+            const fbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl);
+            if (fbData && (fbData.post_id || fbData.id)) {
+              updates.facebook_post_id = fbData.post_id || fbData.id;
+              syncStatus.facebook = 'success';
+            } else {
+              syncStatus.facebook = 'failed';
+            }
           }
           
           // IG requires a photo, we now guarantee fbIgPhotoUrl is present
-          const igData = await postToInstagram(fbIgCaption, fbIgPhotoUrl);
-          if (igData && (igData.id || igData.media_id)) {
-            updates.instagram_post_id = igData.id || igData.media_id;
-            syncStatus.instagram = 'success';
-          } else {
-            syncStatus.instagram = 'failed';
+          if (publishInstagram) {
+            const igData = await postToInstagram(fbIgCaption, fbIgPhotoUrl);
+            if (igData && (igData.id || igData.media_id)) {
+              updates.instagram_post_id = igData.id || igData.media_id;
+              syncStatus.instagram = 'success';
+            } else {
+              syncStatus.instagram = 'failed';
+            }
           }
           
           updates.sync_status = syncStatus;
@@ -591,38 +626,50 @@ serve(async (req) => {
             inline_keyboard: row2.length > 0 ? [row1, row2] : [row1]
           };
                       
-          const res = await sendMessage(TRANSPORT_CHANNEL, msg, replyMarkup, true);
+          let res;
+          if (publishTelegram) {
+            res = await sendMessage(TRANSPORT_CHANNEL, msg, replyMarkup, true);
+          }
           const updates: any = {};
           let syncStatus = record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' };
 
-          if (res?.ok && res.result?.message_id) {
-             updates.telegram_message_id = res.result.message_id.toString();
-             syncStatus.telegram = 'success';
-          } else {
-             syncStatus.telegram = 'failed';
+          if (publishTelegram) {
+            if (res?.ok && res.result?.message_id) {
+               updates.telegram_message_id = res.result.message_id.toString();
+               syncStatus.telegram = 'success';
+            } else {
+               syncStatus.telegram = 'failed';
+            }
           }
           
           // Publish to Social Media
-          const generatedFbCaption = await generateSmartCaption(record, msg.replace(/<[^>]*>?/gm, ''), link);
+          let generatedFbCaption = msg.replace(/<[^>]*>?/gm, '');
+          if (publishFacebook || publishInstagram) {
+            generatedFbCaption = await generateSmartCaption(record, generatedFbCaption, link);
+          }
           const fbIgCaption = generatedFbCaption + 
                               `\n\n💡 ملاحظة: يمكنك كتابة "تم" في تعليق وسنرسل لك الرابط برسالة خاصة.`;
                               
           const defaultPhotoUrl = 'https://souqbaghdad.store/opengraph.jpg';
           
-          const fbData = await postToFacebook(fbIgCaption, defaultPhotoUrl);
-          if (fbData && (fbData.post_id || fbData.id)) {
-            updates.facebook_post_id = fbData.post_id || fbData.id;
-            syncStatus.facebook = 'success';
-          } else {
-            syncStatus.facebook = 'failed';
+          if (publishFacebook) {
+            const fbData = await postToFacebook(fbIgCaption, defaultPhotoUrl);
+            if (fbData && (fbData.post_id || fbData.id)) {
+              updates.facebook_post_id = fbData.post_id || fbData.id;
+              syncStatus.facebook = 'success';
+            } else {
+              syncStatus.facebook = 'failed';
+            }
           }
           
-          const igData = await postToInstagram(fbIgCaption, defaultPhotoUrl);
-          if (igData && (igData.id || igData.media_id)) {
-             updates.instagram_post_id = igData.id || igData.media_id;
-             syncStatus.instagram = 'success';
-          } else {
-             syncStatus.instagram = 'failed';
+          if (publishInstagram) {
+            const igData = await postToInstagram(fbIgCaption, defaultPhotoUrl);
+            if (igData && (igData.id || igData.media_id)) {
+               updates.instagram_post_id = igData.id || igData.media_id;
+               syncStatus.instagram = 'success';
+            } else {
+               syncStatus.instagram = 'failed';
+            }
           }
           
           updates.sync_status = syncStatus;
@@ -637,7 +684,7 @@ serve(async (req) => {
         }
       }
 
-      return new Response('OK', { status: 200 });
+      return new Response('OK', { status: 200, headers: corsHeaders });
     }
 
     // Otherwise it's a telegram update
@@ -1491,9 +1538,12 @@ serve(async (req) => {
       }
     }
 
-    return new Response('OK', { status: 200 });
+    return new Response('OK', { status: 200, headers: corsHeaders });
   } catch (error: any) {
-    console.error(error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    console.error('Error handling request:', error);
+    return new Response(JSON.stringify({ error: error.message }), { 
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 })
