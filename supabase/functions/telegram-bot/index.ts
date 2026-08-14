@@ -573,13 +573,20 @@ serve(async (req) => {
           }
           
           // Publish to Social Media
-          // Publish to Social Media
           const generatedFbCaption = await generateSmartCaption(record, msg.replace(/<[^>]*>?/gm, ''), link);
           const fbIgCaption = generatedFbCaption + 
                               `\n\n💡 ملاحظة: يمكنك كتابة "تم" في تعليق وسنرسل لك الرابط برسالة خاصة.`;
-          const fbData = await postToFacebook(fbIgCaption, null);
+                              
+          const defaultPhotoUrl = 'https://souqbaghdad.store/opengraph.jpg';
+          
+          const fbData = await postToFacebook(fbIgCaption, defaultPhotoUrl);
           if (fbData && (fbData.post_id || fbData.id)) {
             updates.facebook_post_id = fbData.post_id || fbData.id;
+          }
+          
+          const igData = await postToInstagram(fbIgCaption, defaultPhotoUrl);
+          if (igData && (igData.id || igData.media_id)) {
+             updates.instagram_post_id = igData.id || igData.media_id;
           }
           
           if (Object.keys(updates).length > 0) {
