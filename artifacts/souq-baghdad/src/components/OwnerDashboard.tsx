@@ -36,7 +36,7 @@ import {
   Clock, Bell, Lock, User as UserIcon, Phone, Check, RefreshCw,
   Globe, Smartphone, Monitor, Tablet, MapPin, BarChart3, Star,
   UserCheck, Key, CheckCircle, Loader2, Mail, Car, Layers, Ticket, Copy, Settings, MessageCircle,
-  TrendingUp
+  TrendingUp, Share2
 } from 'lucide-react';
 import { useOnlineStatuses } from '../hooks/useOnlineStatuses';
 import type { Ad, Product, User, StoredUser, Visit, SystemLog, TransportAd } from '../types';
@@ -161,6 +161,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
   const onlineStatuses = useOnlineStatuses();
 
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isSocialPublishing, setIsSocialPublishing] = useState<string|null>(null);
   const [lastSyncDate, setLastSyncDate] = useState(() => localStorage.getItem('owner_sync_date') || 'غير مزامن');
 
   const syncAll = async () => {
@@ -766,6 +767,28 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                       <img src={ad.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" loading="lazy" decoding="async" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
                       <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{ad.title}</p>
                         <p className="text-xs text-gray-400">{ad.location} • {formatPrice(ad.price)} د.ع • <button onClick={() => setViewersModalItem({id: ad.id, type: 'ad'})} className="hover:text-amber-400">{ad.views} 👁</button></p></div>
+                      <button 
+                        onClick={async () => {
+                          setIsSocialPublishing(String(ad.id));
+                          try {
+                            const { data, error } = await supabase.functions.invoke('telegram-bot', {
+                              body: { type: 'INSERT', table: 'ads', record: ad }
+                            });
+                            if (error) alert('فشل النشر: ' + error.message);
+                            else alert('تم إرسال طلب إعادة النشر للمنصات بنجاح ✅');
+                          } catch (e: any) {
+                            alert('خطأ: ' + e.message);
+                          } finally {
+                            setIsSocialPublishing(null);
+                          }
+                        }}
+                        disabled={isSocialPublishing === String(ad.id)}
+                        className="p-2 bg-blue-500/20 rounded-lg text-blue-400 hover:bg-blue-500/30 flex-shrink-0 flex items-center gap-1 text-xs font-bold"
+                        title="إعادة نشر على المنصات (FB, IG, Telegram)"
+                      >
+                        {isSocialPublishing === String(ad.id) ? <Loader2 className="w-4 h-4 animate-spin"/> : <Share2 className="w-4 h-4"/>}
+                        <span className="hidden sm:inline">نشر</span>
+                      </button>
                       <button onClick={()=>setItemToDelete({ id: ad.id, type: 'ad' })} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0" title="حذف الإعلان" aria-label="حذف الإعلان"><Trash2 className="w-4 h-4"/></button>
                     </div>
                   ))}
@@ -788,6 +811,28 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                       <img src={p.images?.[0] || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700'} alt="" loading="lazy" decoding="async" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>
                       <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium line-clamp-1">{p.title}</p>
                         <p className="text-xs text-gray-400">{p.governorate} • {formatPrice(p.price)} د.ع • <button onClick={() => setViewersModalItem({id: p.id, type: 'product'})} className="hover:text-amber-400">{p.views} 👁</button> • {p.condition==='new'?'جديد':'مستعمل'}</p></div>
+                      <button 
+                        onClick={async () => {
+                          setIsSocialPublishing(String(p.id));
+                          try {
+                            const { data, error } = await supabase.functions.invoke('telegram-bot', {
+                              body: { type: 'INSERT', table: 'products', record: p }
+                            });
+                            if (error) alert('فشل النشر: ' + error.message);
+                            else alert('تم إرسال طلب إعادة النشر للمنصات بنجاح ✅');
+                          } catch (e: any) {
+                            alert('خطأ: ' + e.message);
+                          } finally {
+                            setIsSocialPublishing(null);
+                          }
+                        }}
+                        disabled={isSocialPublishing === String(p.id)}
+                        className="p-2 bg-blue-500/20 rounded-lg text-blue-400 hover:bg-blue-500/30 flex-shrink-0 flex items-center gap-1 text-xs font-bold"
+                        title="إعادة نشر على المنصات (FB, IG, Telegram)"
+                      >
+                        {isSocialPublishing === String(p.id) ? <Loader2 className="w-4 h-4 animate-spin"/> : <Share2 className="w-4 h-4"/>}
+                        <span className="hidden sm:inline">نشر</span>
+                      </button>
                       <button onClick={()=>setItemToDelete({ id: p.id, type: 'product' })} className="p-2 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 flex-shrink-0" title="حذف المنتج" aria-label="حذف المنتج"><Trash2 className="w-4 h-4"/></button>
                     </div>
                   ))}
