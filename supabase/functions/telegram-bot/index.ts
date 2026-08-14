@@ -435,8 +435,13 @@ serve(async (req) => {
             res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
           }
           const updates: any = {};
+          let syncStatus = record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' };
+
           if (res?.ok && res.result?.message_id) {
              updates.telegram_message_id = res.result.message_id.toString();
+             syncStatus.telegram = 'success';
+          } else {
+             syncStatus.telegram = 'failed';
           }
           
           // Publish to Social Media
@@ -448,13 +453,21 @@ serve(async (req) => {
           const fbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl);
           if (fbData && (fbData.post_id || fbData.id)) {
             updates.facebook_post_id = fbData.post_id || fbData.id;
+            syncStatus.facebook = 'success';
+          } else {
+            syncStatus.facebook = 'failed';
           }
           
           const igData = await postToInstagram(fbIgCaption, fbIgPhotoUrl);
           if (igData && (igData.id || igData.media_id)) {
              updates.instagram_post_id = igData.id || igData.media_id;
+             syncStatus.instagram = 'success';
+          } else {
+             syncStatus.instagram = 'failed';
           }
           
+          updates.sync_status = syncStatus;
+
           if (Object.keys(updates).length > 0) {
              await supabase.from('products').update(updates).eq('id', record.id);
           }
@@ -505,8 +518,13 @@ serve(async (req) => {
             res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
           }
           const updates: any = {};
+          let syncStatus = record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' };
+
           if (res?.ok && res.result?.message_id) {
              updates.telegram_message_id = res.result.message_id.toString();
+             syncStatus.telegram = 'success';
+          } else {
+             syncStatus.telegram = 'failed';
           }
           
           // Publish to Social Media (Gemini already includes hashtags)
@@ -517,14 +535,22 @@ serve(async (req) => {
           const fbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl);
           if (fbData && (fbData.post_id || fbData.id)) {
             updates.facebook_post_id = fbData.post_id || fbData.id;
+            syncStatus.facebook = 'success';
+          } else {
+            syncStatus.facebook = 'failed';
           }
           
           // IG requires a photo, we now guarantee fbIgPhotoUrl is present
           const igData = await postToInstagram(fbIgCaption, fbIgPhotoUrl);
           if (igData && (igData.id || igData.media_id)) {
             updates.instagram_post_id = igData.id || igData.media_id;
+            syncStatus.instagram = 'success';
+          } else {
+            syncStatus.instagram = 'failed';
           }
           
+          updates.sync_status = syncStatus;
+
           if (Object.keys(updates).length > 0) {
              await supabase.from('ads').update(updates).eq('id', record.id);
           }
@@ -567,8 +593,13 @@ serve(async (req) => {
                       
           const res = await sendMessage(TRANSPORT_CHANNEL, msg, replyMarkup, true);
           const updates: any = {};
+          let syncStatus = record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' };
+
           if (res?.ok && res.result?.message_id) {
              updates.telegram_message_id = res.result.message_id.toString();
+             syncStatus.telegram = 'success';
+          } else {
+             syncStatus.telegram = 'failed';
           }
           
           // Publish to Social Media
@@ -581,13 +612,21 @@ serve(async (req) => {
           const fbData = await postToFacebook(fbIgCaption, defaultPhotoUrl);
           if (fbData && (fbData.post_id || fbData.id)) {
             updates.facebook_post_id = fbData.post_id || fbData.id;
+            syncStatus.facebook = 'success';
+          } else {
+            syncStatus.facebook = 'failed';
           }
           
           const igData = await postToInstagram(fbIgCaption, defaultPhotoUrl);
           if (igData && (igData.id || igData.media_id)) {
              updates.instagram_post_id = igData.id || igData.media_id;
+             syncStatus.instagram = 'success';
+          } else {
+             syncStatus.instagram = 'failed';
           }
           
+          updates.sync_status = syncStatus;
+
           if (Object.keys(updates).length > 0) {
              await supabase.from(payload.table).update(updates).eq('id', record.id);
           }

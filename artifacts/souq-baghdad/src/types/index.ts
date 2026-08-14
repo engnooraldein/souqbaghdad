@@ -36,6 +36,7 @@ export interface Ad {
   likes?: number;
   is_vip?: boolean;
   vip_days?: number;
+  sync_status?: { facebook?: 'pending'|'success'|'failed', instagram?: 'pending'|'success'|'failed', telegram?: 'pending'|'success'|'failed' };
 }
 
 export interface Product {
@@ -57,6 +58,7 @@ export interface Product {
   short_id?: string;
   is_vip?: boolean;
   vip_days?: number;
+  sync_status?: { facebook?: 'pending'|'success'|'failed', instagram?: 'pending'|'success'|'failed', telegram?: 'pending'|'success'|'failed' };
 }
 
 export interface User {
@@ -150,4 +152,5 @@ export interface TransportAd {
   interest?: number;
   whatsappClicks?: number;
   short_id?: string;
+  sync_status?: { facebook?: 'pending'|'success'|'failed', instagram?: 'pending'|'success'|'failed', telegram?: 'pending'|'success'|'failed' };
 }

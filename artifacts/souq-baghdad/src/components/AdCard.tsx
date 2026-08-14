@@ -33,6 +33,7 @@ import { supabase } from '../lib/supabase';
 import { ImageWithDataSaver } from './ImageWithDataSaver';
 import { VerifiedBadge } from './VerifiedBadge';
 import { triggerHaptic } from '../utils/haptics';
+import { SyncStatusIndicator } from './SyncStatusIndicator';
 
 // Map all lucide icons to global scope to avoid missing imports
 const {
@@ -253,6 +254,11 @@ export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, o
           {ad.type === 'rent' && (
             <div className="px-2 py-0.5 bg-sky-600/90 text-white text-[8px] font-black rounded-full shadow-md border border-sky-400/30 backdrop-blur-md">
               للإيجار
+            </div>
+          )}
+          {ad.sync_status && (
+            <div className="scale-75 origin-top-left -ml-1">
+              <SyncStatusIndicator status={ad.sync_status} />
             </div>
           )}
         </div>

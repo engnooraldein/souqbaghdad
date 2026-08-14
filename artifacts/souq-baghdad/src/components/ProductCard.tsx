@@ -28,6 +28,7 @@ import { supabase } from '../lib/supabase';
 import { ImageWithDataSaver } from './ImageWithDataSaver';
 import {  } from '../App';
 import { DEFAULT_AVATAR } from '../hooks/useAuth';
+import { SyncStatusIndicator } from './SyncStatusIndicator';
 
 // Map all lucide icons to global scope to avoid missing imports
 const {
@@ -170,6 +171,11 @@ export const ProductCard = React.memo(function ProductCard({ product, onSelect, 
           {isNewItem(product.createdAtISO) && (
             <div className="px-2 py-0.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[8px] font-black rounded-full shadow-lg border border-red-400/40 animate-pulse backdrop-blur-md">
               حديث ✨
+            </div>
+          )}
+          {product.sync_status && (
+            <div className="scale-75 origin-top-left -ml-1">
+              <SyncStatusIndicator status={product.sync_status} />
             </div>
           )}
         </div>

@@ -17,6 +17,7 @@ import { slugify, getWhatsAppLink, detectDevice, isNewItem, getWhatsAppResetLink
 import { formatPrice } from '../utils/format';
 import { useSound } from '../hooks/useSound';
 import { supabase } from '../lib/supabase';
+import { SyncStatusIndicator } from './SyncStatusIndicator';
 
 // Map all lucide icons to global scope to avoid missing imports
 const {
@@ -145,6 +146,12 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
             حديث ✨
           </div>
         ) : null}
+        
+        {ad.sync_status && (
+          <div className="absolute top-8 left-2 z-10 scale-75 origin-top-left">
+            <SyncStatusIndicator status={ad.sync_status} />
+          </div>
+        )}
 
         <div className="pt-3">
           <div className="flex justify-between items-start mb-2">
@@ -243,6 +250,11 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
               <span className="px-2 py-0.5 bg-rose-500 text-white text-[9px] font-black rounded-lg animate-pulse shadow-sm">
                 جديد ✨
               </span>
+            )}
+            {ad.sync_status && (
+              <div className="scale-75 origin-left">
+                <SyncStatusIndicator status={ad.sync_status} />
+              </div>
             )}
           </div>
 
