@@ -273,8 +273,18 @@ function formatTgPrice(val: any): string {
 
 
 const generateSmartCaption = async (ad: any, fallbackText: string, detailUrl: string) => {
+  const defaultHashtag = '\n\n#سوق_بغداد_الرقمي';
   const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') ?? '';
-  if (!GEMINI_API_KEY) return fallbackText;
+  let finalFallback = fallbackText;
+  
+  // Try to extract some basic tags from title if API fails
+  const basicTags = ad.title ? generateHashtags(ad.title, '') : defaultHashtag;
+  if (!finalFallback.includes(defaultHashtag.trim())) {
+    finalFallback += '\n\n' + basicTags;
+  }
+
+  if (!GEMINI_API_KEY) return finalFallback;
+
   try {
     const aiRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
@@ -306,18 +316,24 @@ ${ad.shift ? 'أوقات الدوام: ' + ad.shift : ''}
         })
       }
     );
+    
+    if (!aiRes.ok) {
+       console.error('Gemini API error:', await aiRes.text());
+       return finalFallback;
+    }
+
     const aiData = await aiRes.json();
     let generatedCaption = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
     if (generatedCaption) {
       if (!generatedCaption.includes('#سوق_بغداد_الرقمي')) {
-          generatedCaption += '\n\n#سوق_بغداد_الرقمي';
+          generatedCaption += defaultHashtag;
       }
       return generatedCaption;
     }
   } catch (e) {
     console.error('AI Caption error:', e);
   }
-  return fallbackText;
+  return finalFallback;
 };
 
 function generateHashtags(title: string, desc: string): string {
