@@ -1247,9 +1247,9 @@ serve(async (req) => {
         state.step = 'product_category';
         await sendMessage(chatId, '📑 اختر <b>القسم</b> المناسب للمنتج:', {
           inline_keyboard: [
-            [{ text: '📱 إلكترونيات', callback_data: 'prod_cat_إلكترونيات' }, { text: '👕 أزياء وملابس', callback_data: 'prod_cat_أزياء وملابس' }],
-            [{ text: '🏠 المنزل', callback_data: 'prod_cat_المنزل' }, { text: '🚗 أوتو', callback_data: 'prod_cat_أوتو' }],
-            [{ text: '🔄 أخرى', callback_data: 'prod_cat_أصناف أخرى' }]
+            [{ text: '📱 إلكترونيات', callback_data: 'prod_cat_electronics' }, { text: '👕 أزياء وملابس', callback_data: 'prod_cat_fashion' }],
+            [{ text: '🏠 المنزل', callback_data: 'prod_cat_home' }, { text: '🚗 أوتو', callback_data: 'prod_cat_vehicles' }],
+            [{ text: '🔄 أخرى', callback_data: 'prod_cat_other' }]
           ]
         });
       }
@@ -1305,6 +1305,14 @@ serve(async (req) => {
           seller_avatar: profile?.avatar_url || '',
           status: 'active'
         });
+
+        if (prodInsertError) {
+          console.error("prodInsertError:", prodInsertError);
+          await sendMessage(chatId, '❌ حدث خطأ أثناء نشر الإعلان. يرجى المحاولة مرة أخرى.');
+          // Optional debug for now
+          // await sendMessage(chatId, 'Error inserting: ' + JSON.stringify(prodInsertError));
+          return new Response('OK', { status: 200 });
+        }
 
         // Channel posting is now handled by the database webhook
 

@@ -14,7 +14,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 const sendMessengerMessage = async (recipientId: string, text: string) => {
   if (!FB_PAGE_ACCESS_TOKEN) return;
   const url = `https://graph.facebook.com/v18.0/me/messages?access_token=${FB_PAGE_ACCESS_TOKEN}`;
-  await fetch(url, {
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -22,17 +22,52 @@ const sendMessengerMessage = async (recipientId: string, text: string) => {
       message: { text: text }
     })
   });
+  if (!res.ok) {
+    console.error("Messenger API Error:", await res.text());
+  }
 };
 
 // الرد على التعليقات أو الرسائل
 const replyToFBComment = async (commentId: string, message: string) => {
   if (!FB_PAGE_ACCESS_TOKEN) return;
   const url = `https://graph.facebook.com/v18.0/${commentId}/comments?access_token=${FB_PAGE_ACCESS_TOKEN}`;
-  await fetch(url, {
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message: message })
   });
+  if (!res.ok) {
+    console.error("FB Comment API Error:", await res.text());
+  }
+};
+
+// الرد على التعليقات على الخاص
+const privateReplyToComment = async (commentId: string, text: string, platform: string) => {
+  if (!FB_PAGE_ACCESS_TOKEN) return;
+  
+  let url = '';
+  let body = {};
+  
+  if (platform === 'instagram') {
+    url = `https://graph.facebook.com/v18.0/me/messages?access_token=${FB_PAGE_ACCESS_TOKEN}`;
+    body = {
+      recipient: { comment_id: commentId },
+      message: { text: text }
+    };
+  } else {
+    url = `https://graph.facebook.com/v18.0/${commentId}/private_replies?access_token=${FB_PAGE_ACCESS_TOKEN}`;
+    body = { message: text };
+  }
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  
+  if (!res.ok) {
+    console.error("Private Reply API Error:", await res.text());
+  }
 };
 
 // إرسال تنبيه للأدمن على تيليكرام
@@ -127,9 +162,7 @@ serve(async (req) => {
                 // 1. الكلمات المحفزة للرابط
                 if (["رابط", "وين", "لنك", "لينك", "موقع"].some(k => commentText.includes(k))) {
                   await replyToFBComment(commentId, "تم إرسال التفاصيل والفيسبوك/الموقع على الخاص 📩");
-                  if (fromId) {
-                    await sendMessengerMessage(fromId, "أهلاً بك! 👋 إليك رابط المعاينة المباشرة: https://souqbaghdad.store");
-                  }
+                  await privateReplyToComment(commentId, "أهلاً بك! 👋 إليك رابط المعاينة المباشرة: https://souqbaghdad.store", body.object);
                 }
                 // 2. الكلمات المحفزة للسعر
                 else if (["بكم", "شكد", "السعر", "سعر"].some(k => commentText.includes(k))) {
@@ -138,6 +171,7 @@ serve(async (req) => {
                 // 3. التوفر
                 else if (["متوفر", "موجود"].some(k => commentText.includes(k))) {
                   await replyToFBComment(commentId, "نعم متوفر ✅ تواصل مباشرة مع البائع عبر الرابط بالخاص 📩");
+                  await privateReplyToComment(commentId, "أهلاً بك! 👋 يمكنك العثور على الإعلان وتفاصيل البائع هنا: https://souqbaghdad.store", body.object);
                 }
                 // 4. البلاغات والاحتيال
                 else if (["نصاب", "احتيال", "كذب", "حرامي"].some(k => commentText.includes(k))) {
