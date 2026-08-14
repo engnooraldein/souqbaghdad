@@ -742,7 +742,7 @@ serve(async (req) => {
              await sendWhatsAppWelcome(record.phone, record.title || '', link);
           }
         }
-        else if ((payload.table === 'ads' || payload.table === 'transport_ads') && record.category === 'transport' && TRANSPORT_CHANNEL) {
+        else if (((payload.table === 'ads' && record.category === 'transport') || payload.table === 'transport_ads') && TRANSPORT_CHANNEL) {
           const typeStr = record.type === 'offer' ? 'أوفر خط' : 'أبحث عن خط';
           let desc: any = {};
           try { desc = typeof record.description === 'string' ? JSON.parse(record.description) : record.description; } catch(e){}
