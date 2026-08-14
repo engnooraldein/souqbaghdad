@@ -62,10 +62,13 @@ async function postToFacebook(text: string, photoUrl: string | null) {
     const url = photoUrl 
       ? `https://graph.facebook.com/v20.0/${META_PAGE_ID}/photos`
       : `https://graph.facebook.com/v20.0/${META_PAGE_ID}/feed`;
+      
+    // Force 1080x1080 white background padding for universal social media compatibility
+    const proxyPhotoUrl = photoUrl ? `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&w=1080&h=1080&fit=contain&bg=white&output=jpg` : null;
     
     const body: any = { message: text, access_token: META_PAGE_ACCESS_TOKEN };
-    if (photoUrl) {
-      body.url = photoUrl;
+    if (proxyPhotoUrl) {
+      body.url = proxyPhotoUrl;
     }
     
     const res = await fetch(url, {
