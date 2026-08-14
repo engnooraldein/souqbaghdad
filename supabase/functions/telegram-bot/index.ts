@@ -38,6 +38,24 @@ async function sendPhoto(chatId: string | number, photoUrl: string, caption: str
   return res.json();
 }
 
+async function sendMediaGroup(chatId: string | number, photoUrls: string[], caption: string) {
+  const media = photoUrls.slice(0, 10).map((url, index) => {
+    const item: any = { type: 'photo', media: url };
+    if (index === 0) {
+      item.caption = caption;
+      item.parse_mode = 'HTML';
+    }
+    return item;
+  });
+  const body: any = { chat_id: chatId, media };
+  const res = await fetch(`${tgUrl}/sendMediaGroup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+
 async function deleteMessage(chatId: string | number, messageId: number) {
   const res = await fetch(`${tgUrl}/deleteMessage`, {
     method: 'POST',
@@ -56,16 +74,45 @@ const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || '';
 const META_PAGE_ID = Deno.env.get('META_PAGE_ID') || '';
 const META_IG_ACCOUNT_ID = Deno.env.get('META_IG_ACCOUNT_ID') || '';
 
-async function postToFacebook(text: string, photoUrl: string | null) {
-  if (!META_PAGE_ACCESS_TOKEN || !META_PAGE_ID) return null;
+async function postToFacebook(text: string, photoUrl: string | string[] | null) {
+  if (!META_PAGE_ACCESS_TOKEN || !META_PAGE_ID) return { error: { message: 'رمز الوصول لفيسبوك مفقود أو غير صالح' } };
   try {
-    const url = photoUrl 
-      ? `https://graph.facebook.com/v19.0/${META_PAGE_ID}/photos`
-      : `https://graph.facebook.com/v19.0/${META_PAGE_ID}/feed`;
+    const urls = Array.isArray(photoUrl) ? photoUrl : (photoUrl ? [photoUrl] : []);
+    
+    if (urls.length > 1) {
+      const attachedMedia = [];
+      for (const url of urls) {
+        const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${META_PAGE_ID}/photos`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: url, published: false, access_token: META_PAGE_ACCESS_TOKEN })
+        });
+        const uploadData = await uploadRes.json();
+        if (uploadData && uploadData.id) {
+          attachedMedia.push({ media_fbid: uploadData.id });
+        }
+      }
+      
+      if (attachedMedia.length > 0) {
+        const res = await fetch(`https://graph.facebook.com/v20.0/${META_PAGE_ID}/feed`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text, attached_media: attachedMedia, access_token: META_PAGE_ACCESS_TOKEN })
+        });
+        const data = await res.json();
+        if (data.error) console.error('FB API Error:', data.error);
+        return data;
+      }
+    }
+
+    const singleUrl = urls.length > 0 ? urls[0] : null;
+    const url = singleUrl 
+      ? `https://graph.facebook.com/v20.0/${META_PAGE_ID}/photos`
+      : `https://graph.facebook.com/v20.0/${META_PAGE_ID}/feed`;
       
     let body: any = { message: text, access_token: META_PAGE_ACCESS_TOKEN };
-    if (photoUrl) {
-      body = { caption: text, url: photoUrl, access_token: META_PAGE_ACCESS_TOKEN };
+    if (singleUrl) {
+      body = { caption: text, url: singleUrl, access_token: META_PAGE_ACCESS_TOKEN };
     }
     
     const res = await fetch(url, {
@@ -78,9 +125,9 @@ async function postToFacebook(text: string, photoUrl: string | null) {
       console.error('FB API Error:', data.error);
     }
     return data;
-  } catch (err) {
+  } catch (err: any) {
     console.error('FB Fetch Error:', err);
-    return null;
+    return { error: { message: err.message || 'خطأ في الاتصال بفيسبوك' } };
   }
 }
 
@@ -97,14 +144,70 @@ async function deleteFromFacebook(postId: string) {
   }
 }
 
-async function postToInstagram(text: string, photoUrl: string | null) {
-  if (!META_PAGE_ACCESS_TOKEN || !META_IG_ACCOUNT_ID || !photoUrl) return null; // IG requires photo
+async function postToInstagram(text: string, photoUrl: string | string[] | null) {
+  if (!META_PAGE_ACCESS_TOKEN || !META_IG_ACCOUNT_ID || !photoUrl) return { error: { message: 'رمز الوصول لانستكرام أو الصورة مفقودة' } };
   try {
-    // Step 1: Create media container
+    const urls = Array.isArray(photoUrl) ? photoUrl : [photoUrl];
+    
+    if (urls.length > 1) {
+      const containerIds = [];
+      for (const url of urls) {
+        const uploadBody = {
+          image_url: url,
+          is_carousel_item: true,
+          access_token: META_PAGE_ACCESS_TOKEN
+        };
+        const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${META_IG_ACCOUNT_ID}/media`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(uploadBody)
+        });
+        const uploadData = await uploadRes.json();
+        if (uploadData && uploadData.id) {
+          containerIds.push(uploadData.id);
+        }
+      }
+      
+      if (containerIds.length > 1) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        const carouselBody = {
+          caption: text,
+          media_type: 'CAROUSEL',
+          children: containerIds.join(','),
+          access_token: META_PAGE_ACCESS_TOKEN
+        };
+        
+        const carouselRes = await fetch(`https://graph.facebook.com/v20.0/${META_IG_ACCOUNT_ID}/media`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(carouselBody)
+        });
+        const carouselData = await carouselRes.json();
+        
+        if (carouselData && carouselData.id) {
+           await new Promise(resolve => setTimeout(resolve, 5000));
+           const publishBody = {
+             creation_id: carouselData.id,
+             access_token: META_PAGE_ACCESS_TOKEN
+           };
+           const publishRes = await fetch(`https://graph.facebook.com/v20.0/${META_IG_ACCOUNT_ID}/media_publish`, {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify(publishBody)
+           });
+           return await publishRes.json();
+        } else {
+           return { error: { message: `Failed to create carousel: ${JSON.stringify(carouselData)}` } };
+        }
+      }
+    }
+    
+    const singleUrl = urls[0];
     const uploadUrl = `https://graph.facebook.com/v20.0/${META_IG_ACCOUNT_ID}/media`;
     
     const uploadBody = {
-      image_url: photoUrl,
+      image_url: singleUrl,
       caption: text,
       access_token: META_PAGE_ACCESS_TOKEN
     };
@@ -117,10 +220,11 @@ async function postToInstagram(text: string, photoUrl: string | null) {
     
     if (!uploadData.id) {
       console.error('IG Upload Error:', uploadData);
-      return uploadData;
+      return { error: { message: `Media ID not available. URL: ${singleUrl}. Response: ${JSON.stringify(uploadData)}` } };
     }
     
-    // Step 2: Publish media container
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    
     const publishUrl = `https://graph.facebook.com/v20.0/${META_IG_ACCOUNT_ID}/media_publish`;
     const publishBody = {
       creation_id: uploadData.id,
@@ -133,9 +237,9 @@ async function postToInstagram(text: string, photoUrl: string | null) {
     });
     const data = await publishRes.json();
     return data;
-  } catch (err) {
+  } catch (err: any) {
     console.error('IG Error:', err);
-    return null;
+    return { error: { message: err.message || 'خطأ في الاتصال بانستكرام' } };
   }
 }
 
@@ -185,11 +289,13 @@ const generateSmartCaption = async (ad: any, fallbackText: string, detailUrl: st
 السعر: ${ad.price || 'غير محدد'}
 النوع: ${ad.category || ad.vehicleType || 'عام'}
 الموقع أو المناطق: ${ad.city || ad.regions || 'بغداد'} ${ad.location || ''}
+اسم الناشر (البائع): ${ad.seller_name || 'غير محدد'}
 ${ad.shift ? 'أوقات الدوام: ' + ad.shift : ''}
 
-ملاحظة هامة: ضع هاشتاقات ذكية وممتازة متعلقة بمحتوى الإعلان بدقة (مثلاً إذا كان خط نقل ضع هاشتاقات للمناطق المذكورة وللطلاب أو الموظفين)، وضع رابط الموقع في النهاية: ${detailUrl}
-
-ملاحظة هامة جداً: يرجى ترتيب النص بشكل مريح للعين باستخدام فواصل أسطر فارغة بين الجمل، ولا تستخدم علامات النجمة (*) أو تنسيقات Markdown.`
+ملاحظة هامة جداً 1: ضع هاشتاقات ذكية وممتازة متعلقة بمحتوى الإعلان بدقة في نهاية المنشور. (مثلاً: للإعلانات العامة استخدم هاشتاقات تخص الفئة مثل #سيارات_للبيع #عقارات #موبايلات حسب نوع الإعلان. واذكر هاشتاق للمنطقة واسم البائع إذا أمكن).
+ملاحظة هامة جداً 2: اذكر اسم البائع في المنشور إذا كان متوفراً (مثال: يعرض لكم ${ad.seller_name || 'البائع'}...).
+ملاحظة هامة جداً 3: ضع رابط الموقع في نهاية المنشور تماماً لكي يتمكن المشتري من الضغط عليه: ${detailUrl}
+ملاحظة هامة جداً 4: يرجى ترتيب النص بشكل مريح للعين باستخدام فواصل أسطر فارغة بين الجمل، ولا تستخدم علامات النجمة (*) أو تنسيقات Markdown أبدأً.`
                 }
               ]
             }
@@ -443,8 +549,12 @@ serve(async (req) => {
           const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
           let res;
           if (publishTelegram) {
-            if (imageUrl) {
-              res = await sendPhoto(PRODUCT_CHANNEL, imageUrl, caption, replyMarkup);
+            const imagesToPost = record.images && record.images.length > 0 ? record.images : (imageUrl ? [imageUrl] : []);
+            if (imagesToPost.length > 1) {
+              await sendMediaGroup(PRODUCT_CHANNEL, imagesToPost, caption);
+              res = await sendMessage(PRODUCT_CHANNEL, 'للتواصل وعرض التفاصيل:', replyMarkup);
+            } else if (imagesToPost.length === 1) {
+              res = await sendPhoto(PRODUCT_CHANNEL, imagesToPost[0], caption, replyMarkup);
             } else {
               res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
             }
@@ -462,7 +572,7 @@ serve(async (req) => {
           }
           
           // Publish to Social Media
-          const fbIgPhotoUrl = imageUrl || 'https://souqbaghdad.store/opengraph.jpg';
+          const fbIgPhotoUrl = record.images && record.images.length > 0 ? record.images : (imageUrl ? [imageUrl] : ['https://souqbaghdad.store/opengraph.jpg']);
           let generatedFbCaption = caption.replace(/<[^>]*>?/gm, '');
           if (publishFacebook || publishInstagram) {
             generatedFbCaption = await generateSmartCaption(record, generatedFbCaption, link);
@@ -509,7 +619,7 @@ serve(async (req) => {
           if (descText.length > 200) safeDesc += '...';
 
           const adId = record.short_id || record.id;
-          const link = `https://www.souqbaghdad.store/card/${adId}`;
+          const link = `https://www.souqbaghdad.store/ad/${adId}`;
 
           const caption = `📢 <b>إعلان جديد: ${record.title || ''}</b>\n\n` +
                           `💰 <b>السعر:</b> ${formatTgPrice(record.price)}\n` +
@@ -533,12 +643,16 @@ serve(async (req) => {
           };
 
           const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
-          const fbIgPhotoUrl = imageUrl || 'https://souqbaghdad.store/opengraph.jpg';
+          const fbIgPhotoUrl = record.images && record.images.length > 0 ? record.images : (imageUrl ? [imageUrl] : ['https://souqbaghdad.store/opengraph.jpg']);
           
           let res;
           if (publishTelegram) {
-            if (imageUrl) {
-              res = await sendPhoto(PRODUCT_CHANNEL, imageUrl, caption, replyMarkup);
+            const imagesToPost = record.images && record.images.length > 0 ? record.images : (imageUrl ? [imageUrl] : []);
+            if (imagesToPost.length > 1) {
+              await sendMediaGroup(PRODUCT_CHANNEL, imagesToPost, caption);
+              res = await sendMessage(PRODUCT_CHANNEL, 'للتواصل وعرض التفاصيل:', replyMarkup);
+            } else if (imagesToPost.length === 1) {
+              res = await sendPhoto(PRODUCT_CHANNEL, imagesToPost[0], caption, replyMarkup);
             } else {
               res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
             }
