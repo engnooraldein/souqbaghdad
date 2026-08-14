@@ -60,12 +60,13 @@ async function postToFacebook(text: string, photoUrl: string | null) {
   if (!META_PAGE_ACCESS_TOKEN || !META_PAGE_ID) return null;
   try {
     const url = photoUrl 
-      ? `https://graph.facebook.com/v20.0/${META_PAGE_ID}/photos`
-      : `https://graph.facebook.com/v20.0/${META_PAGE_ID}/feed`;
+      ? `https://graph.facebook.com/v19.0/${META_PAGE_ID}/photos`
+      : `https://graph.facebook.com/v19.0/${META_PAGE_ID}/feed`;
       
     const body: any = { message: text, access_token: META_PAGE_ACCESS_TOKEN };
     if (photoUrl) {
-      body.url = photoUrl;
+      body.caption = text;
+      body.url = encodeURI(photoUrl);
     }
     
     const res = await fetch(url, {
@@ -74,9 +75,12 @@ async function postToFacebook(text: string, photoUrl: string | null) {
       body: JSON.stringify(body)
     });
     const data = await res.json();
+    if (data.error) {
+      console.error('FB API Error:', data.error);
+    }
     return data;
   } catch (err) {
-    console.error('FB Error:', err);
+    console.error('FB Fetch Error:', err);
     return null;
   }
 }
