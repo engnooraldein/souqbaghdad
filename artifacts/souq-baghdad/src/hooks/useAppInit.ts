@@ -519,14 +519,14 @@ export function useAppInit({
 
   // 4. Fetch dependent data
   useEffect(() => {
-    if (view === 'transport' || view === 'profile') {
+    if (view === 'transport' || view === 'profile' || view === 'owner' || view === 'admin') {
       fetchTransportAds();
     }
   }, [view, fetchTransportAds]);
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
-      if (view === 'home' || view === 'products' || view === 'transport' || view === 'profile') {
+      if (view === 'home' || view === 'products' || view === 'transport' || view === 'profile' || view === 'owner' || view === 'admin') {
         fetchAds(true);
         fetchProducts(true);
       }

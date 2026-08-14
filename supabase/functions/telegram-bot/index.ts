@@ -148,7 +148,9 @@ async function deleteFromFacebook(postId: string) {
 async function postToInstagram(text: string, photoUrl: string | string[] | null) {
   if (!META_PAGE_ACCESS_TOKEN || !META_IG_ACCOUNT_ID || !photoUrl) return { error: { message: 'رمز الوصول لانستكرام أو الصورة مفقودة' } };
   try {
-    const urls = Array.isArray(photoUrl) ? photoUrl : [photoUrl];
+    const originalUrls = Array.isArray(photoUrl) ? photoUrl : [photoUrl];
+    // Automatically crop to square (1080x1080) for Instagram using wsrv.nl proxy to avoid ratio errors
+    const urls = originalUrls.map(url => `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=1080&h=1080&fit=cover`);
     
     if (urls.length > 1) {
       const containerIds = [];
@@ -775,7 +777,8 @@ serve(async (req) => {
           // Publish to Social Media
           let generatedFbCaption = msg.replace(/<[^>]*>?/gm, '');
           if (publishFacebook || publishInstagram) {
-            generatedFbCaption = await generateSmartCaption(record, generatedFbCaption, link);
+            const smartAd = { ...record, ...desc };
+            generatedFbCaption = await generateSmartCaption(smartAd, generatedFbCaption, link);
           }
           const fbIgCaption = generatedFbCaption + 
                               `\n\n💡 ملاحظة: يمكنك كتابة "تم" في تعليق وسنرسل لك الرابط برسالة خاصة.`;
