@@ -1,113 +1,112 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const { imageBase64 } = await req.json()
-    
-    const isEnabled = Deno.env.get('ENABLE_IMAGE_MODERATION') === 'true'
-    
-    // If feature is disabled, bypass moderation
-    if (!isEnabled) {
-      return new Response(JSON.stringify({ isSafe: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    const { imageBase64 } = await req.json();
 
     if (!imageBase64) {
-      return new Response(JSON.stringify({ isSafe: false, reason: "لم يتم توفير صورة." }), {
+      return new Response(JSON.stringify({ error: 'No image provided' }), {
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400
-      })
+      });
     }
 
-    const geminiKey = Deno.env.get('GEMINI_API_KEY')
-    if (!geminiKey) {
-      throw new Error("GEMINI_API_KEY is not set.")
+    const openAiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openAiKey) {
+      throw new Error('OPENAI_API_KEY is not configured');
     }
 
-    const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+    const prompt = `You are a strict image moderation assistant. Analyze this image and determine if it contains any of the following prohibited content:
+1. Cigarettes, vapes, hookahs, or any smoking-related products
+2. Medicines, drugs, or medical equipment
+3. Weapons or firearms
+4. Nudity or sexually explicit content
+5. Graphic violence or gore
+
+Respond strictly in JSON format with two fields:
+{
+  "isSafe": boolean (false if any prohibited content is found, true otherwise),
+  "reason": string (short explanation in Arabic of what was found, or "آمن" if safe)
+}`;
 
     const payload = {
-      contents: [{
-        parts: [
-          { text: "حلل هذه الصورة بدقة شديدة. هل تحتوي على أي من الممنوعات التالية: (1) عري أو محتوى جنسي (2) سجائر، تدخين، أرجيلة، أو سجائر إلكترونية بجميع أنواعها (3) أدوية، حبوب طبية، مخدرات، أو كحول (4) أسلحة، عنف، أو دماء. يجب أن يكون الرد عبارة عن ملف JSON صالح فقط يحتوي على مفتاحين: isSafe (قيمة منطقية false إذا كان هناك أي ممنوعات، و true إذا كانت الصورة آمنة تماماً) و reason (شرح قصير باللغة العربية لسبب الرفض إذا كانت isSafe تساوي false، أو نص فارغ إذا كانت آمنة)." },
-          { inline_data: { mime_type: "image/jpeg", data: base64Data } }
-        ]
-      }],
-      generationConfig: {
-        temperature: 0.1,
-        topK: 1,
-        topP: 1,
-        responseMimeType: "application/json"
-      }
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/jpeg;base64,${imageBase64}`
+              }
+            }
+          ]
+        }
+      ],
+      response_format: { type: "json_object" },
+      max_tokens: 150
     };
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openAiKey}`
+      },
       body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      throw new Error(`Gemini API Error: ${errText}`);
+      throw new Error(`OpenAI API Error: ${errText}`);
     }
 
     const data = await response.json();
-
-    if (data.candidates?.[0]?.finishReason === 'SAFETY') {
-      return new Response(JSON.stringify({ isSafe: false, reason: "الصورة تحتوي على محتوى مخالف لشروط السلامة وتم حظرها بواسطة النظام." }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    let textResult = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    
-    // Clean up potential markdown formatting in JSON response
-    textResult = textResult.replace(/```json/gi, '').replace(/```/g, '').trim();
-    
-    let result = { isSafe: false, reason: "فشل في تحليل محتوى الصورة." };
-    if (textResult) {
-      try {
-        result = JSON.parse(textResult);
-      } catch (e) {
-        console.warn("Could not parse Gemini response as JSON:", textResult);
-        result = { isSafe: true, reason: "" }; // Allow if it was just a weirdly formatted text that didn't trip safety
-      }
+    const content = data.choices?.[0]?.message?.content || '{}';
+    let result;
+    try {
+      result = JSON.parse(content);
+    } catch (e) {
+      result = { isSafe: true, reason: 'Failed to parse OpenAI JSON response' };
     }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    });
+
   } catch (error) {
-    console.error('Moderation error:', error)
+    console.error('Error in moderate-image:', error.message);
     
-    // SEND TELEGRAM ALERT ON FAILURE
-    const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN') || '';
-    // Notify the admin directly, do NOT use public channels for error logs
-    const notifyChannel = Deno.env.get('ADMIN_CHAT_ID'); 
-    if (botToken && notifyChannel) {
-      const tgUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
-      const msg = `⚠️ <b>تنبيه من نظام الحماية (Gemini):</b>\n\nتوقف نظام فحص الصور عن العمل أو حدث خطأ أثناء التحقق من صورة جديدة.\n\n<b>الخطأ:</b>\n<code>${error.message}</code>\n\n<i>تم السماح برفع الصورة مؤقتاً لتجنب تعطيل المستخدمين. يرجى مراجعة الخطأ.</i>`;
-      fetch(tgUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: notifyChannel, text: msg, parse_mode: 'HTML' })
-      }).catch(e => console.error("Failed to send telegram alert:", e));
+    // Send alert to Telegram Admin Channel
+    try {
+      const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
+      const adminChatId = Deno.env.get('ADMIN_CHAT_ID');
+      if (botToken && adminChatId) {
+        const text = `⚠️ *تنبيه من نظام الحماية (ChatGPT):*\n\nتوقف نظام فحص الصور عن العمل أو حدث خطأ أثناء التحقق من صورة جديدة.\n\n*الخطأ:*\n\`${error.message}\`\n\nتم السماح برفع الصورة مؤقتاً لتجنب تعطيل المستخدمين. يرجى مراجعة الخطأ.`;
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: adminChatId, text: text, parse_mode: 'Markdown' })
+        });
+      }
+    } catch (telegramError) {
+      console.error('Failed to send Telegram alert:', telegramError.message);
     }
 
-    // FALLBACK: ALLOW UPLOAD IF GEMINI CRASHES
-    return new Response(JSON.stringify({ isSafe: true, fallback: true, error: error.message }), {
+    // Fallback: allow upload if AI fails
+    return new Response(JSON.stringify({ isSafe: true, reason: 'Error occurred during moderation. Allowed as fallback.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    });
   }
-})
+});
