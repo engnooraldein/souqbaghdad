@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -5,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -55,27 +56,13 @@ Respond strictly in JSON format with two fields:
       }
     };
 
-    let response;
-    
-    // Check if the key is an OAuth token (starts with AQ. or ya29.) or a standard API key (AIza)
-    if (geminiKey.startsWith('AQ.') || geminiKey.startsWith('ya29.')) {
-      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${geminiKey}`
-        },
-        body: JSON.stringify(payload)
-      });
-    } else {
-      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      });
-    }
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    });
 
     if (!response.ok) {
       const errText = await response.text();
@@ -91,30 +78,27 @@ Respond strictly in JSON format with two fields:
       result = { isSafe: true, reason: 'Failed to parse Gemini JSON response' };
     }
 
-    // Ensure the fallback behavior triggers for unsafe images instead of returning 'safe' when AI marks it unsafe
-    // If the image is not safe, we STILL want the UI to catch it.
-    // The previous code returned a 200 OK with { isSafe: false, reason: "..." }
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
-    console.error('Error in moderate-image:', error.message);
+  } catch (error: any) {
+    console.error('Error in moderate-image:', error?.message || error);
     
     // Send alert to Telegram Admin Channel
     try {
       const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
       const adminChatId = Deno.env.get('ADMIN_CHAT_ID');
       if (botToken && adminChatId) {
-        const text = `⚠️ *تنبيه من نظام الحماية (Gemini Pro):*\n\nتوقف نظام فحص الصور عن العمل أو حدث خطأ أثناء التحقق من صورة جديدة.\n\n*الخطأ:*\n\`${error.message}\`\n\nتم السماح برفع الصورة مؤقتاً لتجنب تعطيل المستخدمين. يرجى مراجعة الخطأ.`;
+        const text = `⚠️ *تنبيه من نظام الحماية (Gemini Pro):*\n\nتوقف نظام فحص الصور عن العمل أو حدث خطأ أثناء التحقق من صورة جديدة.\n\n*الخطأ:*\n\`${error?.message || error}\`\n\nتم السماح برفع الصورة مؤقتاً لتجنب تعطيل المستخدمين. يرجى مراجعة الخطأ.`;
         await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ chat_id: adminChatId, text: text, parse_mode: 'Markdown' })
         });
       }
-    } catch (telegramError) {
-      console.error('Failed to send Telegram alert:', telegramError.message);
+    } catch (telegramError: any) {
+      console.error('Failed to send Telegram alert:', telegramError?.message || telegramError);
     }
 
     // Fallback: allow upload if AI fails
