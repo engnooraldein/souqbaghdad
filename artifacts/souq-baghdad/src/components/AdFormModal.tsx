@@ -309,14 +309,13 @@ export function AdFormModal({ isOpen, onClose, onSubmit, user, editAd, cost = 1,
       try {
         // Compress and moderate the image first
         const base64Data = await compressImage(file, 900, 0.78, false);
-        const modResponse = await fetch('/api/moderate-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: base64Data })
+        const { data: modData, error: modError } = await supabase.functions.invoke('moderate-image', {
+          body: { imageBase64: base64Data }
         });
-        const modData = await modResponse.json();
 
-        if (modResponse.ok && !modData.isSafe) {
+        if (modError) throw modError;
+
+        if (!modData?.isSafe) {
           clearInterval(iv);
           setImages(prev=>prev.filter(img=>img._uid!==uid));
           setImageError(`تم رفض الصورة "${file.name}" بسبب: ${modData.reason || 'محتوى غير متوافق مع شروط المنصة.'}`);
