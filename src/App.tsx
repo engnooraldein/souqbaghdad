@@ -1127,9 +1127,58 @@ export default function App() {
       if (session?.user) loadUserFromSupabase(session.user);
       else if (_event === 'SIGNED_OUT') { setUser(null); localStorage.removeItem('souqUser'); }
     });
-    return () => subscription.unsubscribe();
+
+    const handleFocus = () => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) loadUserFromSupabase(session.user);
+      });
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') handleFocus();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('focus', handleFocus);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── مزامنة لحظية حية (Realtime Live Sync) لرصيد النقاط والملف الشخصي ──
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`profile-live-sync-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` },
+        (payload: any) => {
+          if (payload.new) {
+            setUser(prev => {
+              if (!prev) return null;
+              const updated: User = {
+                ...prev,
+                points: payload.new.points !== undefined ? payload.new.points : prev.points,
+                role: payload.new.role || prev.role,
+                name: payload.new.full_name || prev.name,
+                phone: payload.new.phone || prev.phone,
+                avatar: payload.new.avatar_url || prev.avatar
+              };
+              try {
+                localStorage.setItem('souqUser', JSON.stringify(updated));
+              } catch {}
+              return updated;
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   // Notifications handlers and effects are initialized below notifications state
 
