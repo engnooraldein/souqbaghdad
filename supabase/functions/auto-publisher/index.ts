@@ -9,17 +9,21 @@ const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const FB_ACCESS_TOKEN = Deno.env.get("FB_ACCESS_TOKEN") ?? "";
-const FB_PAGE_ID = Deno.env.get("FB_PAGE_ID") ?? "";
+const FB_ACCESS_TOKEN = Deno.env.get("META_PAGE_ACCESS_TOKEN") || Deno.env.get("FB_ACCESS_TOKEN") || "";
+const FB_PAGE_ID = Deno.env.get("META_PAGE_ID") || Deno.env.get("FB_PAGE_ID") || "";
 
+const THREADS_USER_ID = Deno.env.get("THREADS_USER_ID") || "28119436894335542";
+const THREADS_ACCESS_TOKEN = Deno.env.get("THREADS_ACCESS_TOKEN") || "";
+
+// ── 1. النشر على Facebook ──
 const sendFacebookPost = async (message: string, imageUrl?: string) => {
   if (!FB_ACCESS_TOKEN || !FB_PAGE_ID) return;
   try {
-    let url = `https://graph.facebook.com/v19.0/${FB_PAGE_ID}/feed`;
+    let url = `https://graph.facebook.com/v21.0/${FB_PAGE_ID}/feed`;
     let body: any = { message, access_token: FB_ACCESS_TOKEN };
     
     if (imageUrl) {
-      url = `https://graph.facebook.com/v19.0/${FB_PAGE_ID}/photos`;
+      url = `https://graph.facebook.com/v21.0/${FB_PAGE_ID}/photos`;
       body = { caption: message, url: imageUrl, access_token: FB_ACCESS_TOKEN };
     }
     
@@ -31,32 +35,72 @@ const sendFacebookPost = async (message: string, imageUrl?: string) => {
     const data = await res.json();
     if (data.error) {
       console.error("Facebook API Error:", data.error);
+    } else {
+      console.log("Facebook Post Published:", data.id);
     }
   } catch (err) {
     console.error("Facebook Fetch Error:", err);
   }
 };
 
+// ── 2. النشر على Threads ──
+const sendThreadsPost = async (message: string, imageUrl?: string) => {
+  if (!THREADS_ACCESS_TOKEN || !THREADS_USER_ID) return;
+  try {
+    let containerUrl = `https://graph.threads.net/v1.0/${THREADS_USER_ID}/threads`;
+    let params = new URLSearchParams();
+    params.append('access_token', THREADS_ACCESS_TOKEN);
+    params.append('text', message);
+
+    if (imageUrl) {
+      params.append('media_type', 'IMAGE');
+      params.append('image_url', imageUrl);
+    } else {
+      params.append('media_type', 'TEXT');
+    }
+
+    const cRes = await fetch(`${containerUrl}?${params.toString()}`, { method: 'POST' });
+    const cData = await cRes.json();
+
+    if (cData.id) {
+      // نشر الحاوية (Publish)
+      const pUrl = `https://graph.threads.net/v1.0/${THREADS_USER_ID}/threads_publish?creation_id=${cData.id}&access_token=${encodeURIComponent(THREADS_ACCESS_TOKEN)}`;
+      const pRes = await fetch(pUrl, { method: 'POST' });
+      const pData = await pRes.json();
+      console.log("Threads Post Published Successfully:", pData.id);
+    } else {
+      console.error("Threads Container Error:", cData);
+    }
+  } catch (err) {
+    console.error("Threads Publish Error:", err);
+  }
+};
+
+// ── 3. النشر على Telegram Channel ──
 const sendTelegramPhoto = async (chatId: string, photoUrl: string, caption: string) => {
   if (!BOT_TOKEN) return;
-  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
-  await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, photo: photoUrl, caption: caption, disable_web_page_preview: true })
-  });
+  try {
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, photo: photoUrl, caption: caption, disable_web_page_preview: true })
+    });
+  } catch (err) {
+    console.error("Telegram Send Error:", err);
+  }
 };
 
 serve(async (req) => {
   try {
-    console.log("Starting Auto Publisher...");
+    console.log("Starting Auto Publisher across Telegram, Facebook & Threads...");
 
-    // 1. اختيار أفضل 3 إعلانات متميزة أو حديثة النشاط
+    // اختيار أفضل الإعلانات النشطة
     const { data: topAds, error } = await supabase
       .from("ads")
       .select("*")
       .eq("status", "active")
-      .order("views_count", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(3);
 
     if (error || !topAds || topAds.length === 0) {
@@ -64,9 +108,9 @@ serve(async (req) => {
     }
 
     for (const ad of topAds) {
-      let smartCaption = `🛍️ **إعلان مميز اليوم في سوق بغداد**\n\n📌 ${ad.title}\n💰 السعر: ${ad.price || 'غير محدد'} د.ع\n📍 ${ad.location || ad.city || 'بغداد'}\n\n🔗 تفاصيل الإعلان والشراء:\nhttps://souqbaghdad.store/product/${ad.short_id || ad.id}\n\n#سوق_بغداد #العراق #تجارة #إعلانات`;
+      let smartCaption = `🚗 ${ad.title}\n💰 السعر: ${ad.price || 'حسب الاتفاق'} د.ع\n📍 ${ad.location || ad.city || 'بغداد'}\n\n🔗 تفاصيل الإعلان والتواصل مع البائع:\nhttps://www.souqbaghdad.store/product/${ad.short_id || ad.id}\n\n#سوق_بغداد #العراق #سيارات_للبيع #بغداد`;
       
-      // كتابة وصف إبداعي وجذاب بـ Gemini الذكاء الاصطناعي
+      // كتابة وصف تسويقي ذكي بالذكاء الاصطناعي
       if (GEMINI_API_KEY) {
         try {
           const aiRes = await fetch(
@@ -80,15 +124,13 @@ serve(async (req) => {
                     role: "user",
                     parts: [
                       {
-                        text: `اكتب منشور تسويقي قصير وجذاب جداً باللغة العربية والعامية العراقية للإعلان التالي لمنصات التواصل الاجتماعي:
+                        text: `اكتب منشور تسويقي قصير وجذاب جداً بالعامية العراقية لمنصات التواصل الاجتماعي (Facebook, Threads, Telegram):
 العنوان: ${ad.title}
 السعر: ${ad.price}
-الفئة: ${ad.category}
-الموقع: ${ad.city || 'بغداد'}
+الموقع: ${ad.city || ad.location || 'بغداد'}
+الرابط: https://www.souqbaghdad.store/product/${ad.short_id || ad.id}
 
-ملاحظة هامة: ضع هاشتاقات ذكية وممتازة متعلقة بمحتوى الإعلان بدقة، وضع رابط الموقع في النهاية: https://souqbaghdad.store/product/${ad.short_id || ad.id}
-
-ملاحظة هامة جداً: يرجى ترتيب النص بشكل مريح للعين باستخدام فواصل أسطر فارغة بين الجمل، ولا تستخدم علامات النجمة (*) أو تنسيقات Markdown.`
+الشروط: ضع هاشتاقات عراقية ذكية وضع الرابط في الأسفل، ولا تستخدم علامات النجمة (*).`
                       }
                     ]
                   }
@@ -99,17 +141,22 @@ serve(async (req) => {
           const aiData = await aiRes.json();
           const generatedCaption = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
           if (generatedCaption) {
-            smartCaption = generatedCaption;
+            smartCaption = generatedCaption.replace(/[*#]/g, '');
           }
         } catch (e) {
           console.error("AI Caption error:", e);
         }
       }
 
-      // نشر المنشور مع الصورة على قنوات تيليكرام وفيسبوك
-      if (ad.images && ad.images.length > 0) {
-        await sendTelegramPhoto(GENERAL_CHANNEL, ad.images[0], smartCaption);
-        await sendFacebookPost(smartCaption, ad.images[0]);
+      // نشر المنشور مع الصورة على قنوات تيليكرام وفيسبوك وثريدز
+      const img = ad.images && ad.images.length > 0 ? ad.images[0] : undefined;
+      if (img) {
+        await sendTelegramPhoto(GENERAL_CHANNEL, img, smartCaption);
+        await sendFacebookPost(smartCaption, img);
+        await sendThreadsPost(smartCaption, img);
+      } else {
+        await sendFacebookPost(smartCaption);
+        await sendThreadsPost(smartCaption);
       }
     }
 
