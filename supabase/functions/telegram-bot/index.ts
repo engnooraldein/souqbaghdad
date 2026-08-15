@@ -464,46 +464,90 @@ function getLocalIraqiResponse(text: string): string {
   return 'هلا بيك عيوني نورت سوق بغداد! 🇮🇶 شلون أقدر أساعدك اليوم؟ تكدر تختار مباشرة من الأزرار أدناه 👇';
 }
 
-async function callGemini(text: string | null, audioUrl: string | null = null): Promise<string | null> {
+async function fetchDatabaseContext(queryText: string): Promise<string> {
+  try {
+    const clean = queryText.toLowerCase().trim();
+    let adsContext = '';
+
+    // 1. إذا طلب المستخدم آخر الإعلانات أو أحدث المنشورات
+    if (clean.includes('اخر') || clean.includes('اخير') || clean.includes('أحدث') || clean.includes('جديد') || clean.includes('شنو نزل') || clean.includes('اعلانات')) {
+      const { data: latestAds } = await supabase
+        .from('ads')
+        .select('title, price, year, location, city, phone, short_id, category, type, created_at')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(4);
+
+      if (latestAds && latestAds.length > 0) {
+        adsContext += `\n[أحدث الإعلانات المعروضة حالياً في المنصة]:\n`;
+        latestAds.forEach((ad, i) => {
+          adsContext += `${i + 1}. ${ad.title} (موديل: ${ad.year || 'غير محدد'}) | السعر: ${ad.price} | الموقع: ${ad.city || ad.location || 'بغداد'} | رقم هاتف البائع: ${ad.phone || 'تواصل عبر الموقع'} | رقم الإعلان: #${ad.short_id || ad.title} | الرابط: https://www.souqbaghdad.store/product/${ad.short_id}\n`;
+        });
+      }
+    }
+
+    // 2. البحث عن سيارة محددة أو خط نقل أو كلمة مفتاحية (مثل النترا، كورولا، توسان، سنتافي، كيا، اوبتيما، كامري، تكسي، خط...)
+    const keywords = queryText.replace(/[\?\؟\!\,]/g, '').trim().split(/\s+/).filter(w => w.length >= 2 && !['شنو', 'اكو', 'عندكم', 'ناشرين', 'اريد', 'أريد', 'ادور', 'أدور', 'شكد', 'بكم', 'سعر', 'هل', 'منو', 'على', 'في', 'عن'].includes(w));
+    
+    if (keywords.length > 0) {
+      const searchTerms = keywords.slice(0, 3);
+      let query = supabase.from('ads').select('title, price, year, location, city, phone, short_id, category, description, created_at').eq('status', 'active');
+      
+      const orConditions = searchTerms.map(t => `title.ilike.%${t}%,description.ilike.%${t}%,location.ilike.%${t}%`).join(',');
+      const { data: searchAds } = await query.or(orConditions).order('created_at', { ascending: false }).limit(4);
+
+      if (searchAds && searchAds.length > 0) {
+        adsContext += `\n[إعلانات مطابقة لبحث المستخدم في قاعدة البيانات]:\n`;
+        searchAds.forEach((ad, i) => {
+          adsContext += `${i + 1}. ${ad.title} (سنة: ${ad.year || 'غير محدد'}) | السعر: ${ad.price} | الموقع: ${ad.city || ad.location || 'بغداد'} | هاتف البائع: ${ad.phone || 'متوفر بالموقع'} | رقم الإعلان: #${ad.short_id} | الرابط: https://www.souqbaghdad.store/product/${ad.short_id}\n`;
+        });
+      }
+    }
+
+    return adsContext;
+  } catch (e) {
+    console.error('Error fetching database context:', e);
+    return '';
+  }
+}
+
+async function callGemini(text: string | null, audioUrl: string | null = null, photoUrl: string | null = null): Promise<string | null> {
   const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
   const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
-  const systemInstruction = `أنت المساعد الذكي الخبير لمنصة "سوق بغداد" (سوق رقمي عراقي متكامل لبيع وشراء السيارات، خطوط النقل، والمنتجات). 
-مهمتك: الإجابة بذكاء وبلهجة عراقية بغدادية دارجة ومحببة ومهذبة جداً (مثل: هلا بيك عيوني، تدلل يالغالي، من عيوني، تأمر أمر، حياك الله، شلون أقدر أساعدك؟)، ومساعدة المستخدم بمعرفة الخطوات الدقيقة حسب سؤاله.
+  // استرجاع معلومات حية من قاعدة البيانات
+  const dbContext = text ? await fetchDatabaseContext(text) : '';
 
-قواعد الإجابة حسب نوع السؤال:
-1. إذا سأل عن تعبئة كود أو بروموكود أو شحن نقاط (مثلاً: عندي كود، بروموكود، شلون أعبي كود):
-   - جاوبه: "تدلل عيوني! اضغط على زر [🎟️ تعبئة بروموكود] جوة، واكتب الكود مالتك وراح ينشحن رصيدك بالنقاط فوراً!"
+  const systemInstruction = `أنت المساعد الذكي الخبير لمنصة "سوق بغداد" (سوق رقمي عراقي متكامل لبيع وشراء السيارات، خطوط النقل، والمنتجات - موقعنا: https://www.souqbaghdad.store).
+شخصيتك:
+- تتحدث بلهجة عراقية بغدادية دارجة ومحببة جداً وذكية وخدومة (مثل: هلا بيك عيوني، تدلل يالغالي، من عيوني، تأمر أمر، حياك الله، عاشت ايدك).
+- تفهم كل أسئلة المستخدم عن السيارات المعروضة، الأسعار، أحدث الإعلانات، وأرقام الهواتف، وخطوط النقل، وطريقة النشر والتعديل.
+- إذا كان هناك معلومات مرفقة من قاعدة بيانات المنصة أدناه، استخدمها فوراً للإجابة بدقة متناهية وزوّد المستخدم باسم السيارة، السعر، رقم الإعلان، ورقم هاتف البائع إذا سأل عنه.
+- إذا أرسل المستخدم صورة أو سكرين شوت، قم بقراءتها واستخراج اسم السيارة وسعرها ورقم الهاتف منها بذكاء.
 
-2. إذا سأل عن بيع أو نشر سيارة (مثلاً: شلون أبيع، عندي سيارة، أريد أنشر سيارة، شلون الخطوات):
-   - جاوبه بلطافة واشرح له الخطوات: "كلش سهلة عيوني! اضغط على زر [🚗 اعرض سيارتك للبيع مجاناً] جوة، وراح تختار نوع السيارة، الموديل، سنة الصنع، السعر، وترفع صورها، ومباشرة راح ينزل إعلانك بالمنصة وقناة التليكرام!"
+${dbContext ? `معلومات حقيقية ومباشرة من قاعدة بيانات سوق بغداد حالياً:\n${dbContext}\n` : ''}
 
-3. إذا سأل عن خطوط النقل (مثلاً: أريد خط، أدور خط لجامعة، أنا سايق وعندي خط، خطوط موظفين):
-   - جاوبه واشرح له الخطوات: "يا هلا بيك! اضغط على زر [🚌 انشر خط نقل] جوة، وحدد إذا إنت صاحب خط أو طالب/موظف تدور خط، واختار المناطق والجامعة والدوام، وراح ينزل إعلانك وتوصلك الطلبات فوراً!"
+قواعد أساسية:
+1. إذا سأل هل ناشرين سيارة معينة (مثل النترا، كورولا، سنتافي): تحقق من المعلومات أعلاه، إذا موجودة اذكره له بالتفصيل وسعرها ورقم الهاتف. إذا غير موجودة، أخبره بلطافة أن يدخل للموقع أو يبحث من الأزرار أو ينشر طلبه.
+2. إذا سأل عن آخر إعلان أو أحدث السيارات: اعرض له الإعلانات الأخيرة من البيانات أعلاه.
+3. إذا سأل عن بيع أو نشر سيارة: وضّح له أن النشر مجاني بالكامل وبدقائق بالضغط على زر [🚗 اعرض سيارتك للبيع مجاناً] جوة أو عبر الموقع.
+4. إذا سأل عن كود أو بروموكود: وجّهه لزر [🎟️ تعبئة بروموكود] لشحن رصيده فوراً.
+5. رابط المنصة الرسمي: https://www.souqbaghdad.store
 
-4. إذا سأل عن تعديل السعر أو حذف الإعلان أو تعليم السيارة كمباعة:
-   - جاوبه: "تدلل حبيبي، تكدر تعدل السعر أو رقم التلفون أو تحذف الإعلان أو تبلغه كمباع من خلال زر [📋 إدارة إعلاناتي وخطوطي] جوة."
+ملاحظة: اجعل الرد جذاباً، دقيقاً، مدعوماً بإيموجيات لطيفة وبدون علامات نجمية كثيرة.`;
 
-5. إذا سأل عن الرابط أو الموقع الإلكتروني:
-   - الرابط هو https://www.souqbaghdad.store وتكدر تتصفح كل المعروضات بيه.
-
-6. إذا سلم أو رحب (مثل: هلو، السلام عليكم، شلونك، مرحبا):
-   - رحب بيه بحرارة عراقية: "أهلاً وسهلاً بيك نورت سوق بغداد يالغالي! شلون أقدر أساعدك اليوم؟ تكدر تعرض سيارتك أو تنشر خط نقل أو تتصفح العروض من الأزرار جوة 👇"
-
-ملاحظة هامة: اجعل الرد ذكياً، مختصراً (سطرين إلى 4 أسطر)، مريحاً وموجهاً للأزرار الظاهرة في القائمة المرفقة. لا تستخدم علامات النجمة الكثيرة.`;
-
-  // 1. Try Google Gemini
+  // 1. Try Google Gemini (Vision + Audio + Text)
   if (GEMINI_API_KEY) {
     try {
       const parts: any[] = [];
       if (text) parts.push({ text: text });
       
+      // صوت
       if (audioUrl) {
         try {
           const audioRes = await fetch(audioUrl);
           let mimeType = audioRes.headers.get('content-type') || 'audio/ogg';
           if (mimeType.includes('octet-stream')) mimeType = 'audio/ogg';
-          
           const arrayBuffer = await audioRes.arrayBuffer();
           const uint8Array = new Uint8Array(arrayBuffer);
           let binaryString = "";
@@ -512,13 +556,33 @@ async function callGemini(text: string | null, audioUrl: string | null = null): 
             binaryString += String.fromCharCode.apply(null, Array.from(uint8Array.slice(i, i + chunkSize)));
           }
           parts.push({
-            inlineData: {
-              mimeType: mimeType,
-              data: btoa(binaryString)
-            }
+            inlineData: { mimeType: mimeType, data: btoa(binaryString) }
           });
         } catch(e) {
           console.error('Audio processing error:', e);
+        }
+      }
+
+      // صورة / سكرين شوت
+      if (photoUrl) {
+        try {
+          const photoRes = await fetch(photoUrl);
+          const mimeType = photoRes.headers.get('content-type') || 'image/jpeg';
+          const arrayBuffer = await photoRes.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          let binaryString = "";
+          const chunkSize = 8192;
+          for (let i = 0; i < uint8Array.length; i += chunkSize) {
+            binaryString += String.fromCharCode.apply(null, Array.from(uint8Array.slice(i, i + chunkSize)));
+          }
+          parts.push({
+            inlineData: { mimeType: mimeType, data: btoa(binaryString) }
+          });
+          if (!text) {
+            parts.push({ text: 'حلل هذا السكرين شوت أو الصورة المرفقة، واستخرج تفاصيل الإعلان أو السيارة ورقم الهاتف والسعر واشرحها للمستخدم باللهجة العراقية.' });
+          }
+        } catch(e) {
+          console.error('Photo processing error:', e);
         }
       }
 
@@ -537,7 +601,7 @@ async function callGemini(text: string | null, audioUrl: string | null = null): 
         const data = await res.json();
         const generated = data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (generated && generated.trim().length > 0) {
-          return generated.trim();
+          return generated.trim().replace(/[*#]/g, '');
         }
       } else {
         console.error('Gemini API returned error:', await res.text());
@@ -562,7 +626,7 @@ async function callGemini(text: string | null, audioUrl: string | null = null): 
             { role: 'system', content: systemInstruction },
             { role: 'user', content: text }
           ],
-          max_tokens: 300,
+          max_tokens: 400,
           temperature: 0.7
         })
       });
@@ -570,7 +634,7 @@ async function callGemini(text: string | null, audioUrl: string | null = null): 
         const data = await res.json();
         const reply = data?.choices?.[0]?.message?.content;
         if (reply && reply.trim().length > 0) {
-          return reply.trim();
+          return reply.trim().replace(/[*#]/g, '');
         }
       } else {
         console.error('OpenAI API returned error:', await res.text());
@@ -582,6 +646,9 @@ async function callGemini(text: string | null, audioUrl: string | null = null): 
 
   // 3. Fallback to Local Intelligent Iraqi Rules
   if (text) {
+    if (dbContext) {
+      return `يا هلا بيك عيوني! 🚗 بخصوص سؤالك، هاي بعض الإعلانات المعروضة حالياً بالمنصة:\n${dbContext}\nوتكدر تشوف كل التفاصيل والصور والتواصل مباشرة من خلال موقعنا: https://www.souqbaghdad.store`;
+    }
     return getLocalIraqiResponse(text);
   }
 
@@ -3203,19 +3270,31 @@ serve(async (req) => {
         }
       }
       else {
-        if (text || voice) {
+        if (text || voice || photo) {
           let audioUrl = null;
+          let photoUrl = null;
+
           if (voice) {
-            await sendMessage(chatId, '⏳ جاري الاستماع...');
+            await sendMessage(chatId, '⏳ جاري الاستماع والتحليل...');
             const fileRes = await fetch(`${tgUrl}/getFile?file_id=${voice.file_id}`);
             const fileData = await fileRes.json();
             if (fileData.ok) {
               const filePath = fileData.result.file_path;
               audioUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
             }
+          } else if (photo && photo.length > 0) {
+            await sendMessage(chatId, '🔍 جاري فحص وتحليل الصورة والسكرين شوت...');
+            const fileId = photo[photo.length - 1].file_id;
+            const fileRes = await fetch(`${tgUrl}/getFile?file_id=${fileId}`);
+            const fileData = await fileRes.json();
+            if (fileData.ok) {
+              const filePath = fileData.result.file_path;
+              photoUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
+            }
           }
           
-          const aiRes = await callGemini(text || null, audioUrl);
+          const userCaption = caption || text || null;
+          const aiRes = await callGemini(userCaption, audioUrl, photoUrl);
           await showMainMenu(aiRes || undefined);
         } else {
           await showMainMenu();

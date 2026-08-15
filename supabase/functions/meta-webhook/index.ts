@@ -3,142 +3,215 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = (Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) ?? "";
-const FB_VERIFY_TOKEN = Deno.env.get("FB_VERIFY_TOKEN") ?? "souqbaghdad_secret_token";
-const FB_PAGE_ACCESS_TOKEN = Deno.env.get("FB_PAGE_ACCESS_TOKEN") ?? "";
-const ADMIN_CHAT_ID = Deno.env.get("ADMIN_CHAT_ID") ?? "777557036";
-const BOT_TOKEN = Deno.env.get("BOT_TOKEN") ?? "";
+
+// قراءة بيانات Meta بدعم كافة أسماء المتغيرات
+const META_PAGE_ACCESS_TOKEN = Deno.env.get("META_PAGE_ACCESS_TOKEN") || Deno.env.get("FB_PAGE_ACCESS_TOKEN") || "";
+const META_VERIFY_TOKEN = Deno.env.get("META_VERIFY_TOKEN") || Deno.env.get("FB_VERIFY_TOKEN") || "souqbaghdad_secret_token";
+const META_PAGE_ID = Deno.env.get("META_PAGE_ID") || "";
+const META_IG_ACCOUNT_ID = Deno.env.get("META_IG_ACCOUNT_ID") || "";
+
+// بيانات تيليكرام للتنبيهات
+const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || Deno.env.get("BOT_TOKEN") || "";
+const ADMIN_CHAT_ID = Deno.env.get("ADMIN_CHAT_ID") || "777557036";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// إرسال رسالة عبر Facebook Messenger
-const sendMessengerMessage = async (recipientId: string, text: string) => {
-  if (!FB_PAGE_ACCESS_TOKEN) return;
-  const url = `https://graph.facebook.com/v18.0/me/messages?access_token=${FB_PAGE_ACCESS_TOKEN}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      recipient: { id: recipientId },
-      message: { text: text }
-    })
-  });
-  if (!res.ok) {
-    console.error("Messenger API Error:", await res.text());
+// ── 1. إرسال رسالة نصية (Facebook Messenger / Instagram DM) ──
+const sendMetaMessage = async (recipientId: string, text: string) => {
+  if (!META_PAGE_ACCESS_TOKEN) {
+    console.error("META_PAGE_ACCESS_TOKEN is missing!");
+    return;
+  }
+  const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(META_PAGE_ACCESS_TOKEN)}`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        message: { text: text }
+      })
+    });
+    if (!res.ok) {
+      console.error("Send Meta Message Error:", await res.text());
+    } else {
+      console.log(`Successfully sent message to ${recipientId}`);
+    }
+  } catch (e) {
+    console.error("sendMetaMessage exception:", e);
   }
 };
 
-// الرد على التعليقات أو الرسائل
-const replyToFBComment = async (commentId: string, message: string) => {
-  if (!FB_PAGE_ACCESS_TOKEN) return;
-  const url = `https://graph.facebook.com/v18.0/${commentId}/comments?access_token=${FB_PAGE_ACCESS_TOKEN}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message: message })
-  });
-  if (!res.ok) {
-    console.error("FB Comment API Error:", await res.text());
+// ── 2. الرد على تعليق في فيسبوك (Facebook Comment Reply) ──
+const replyToFacebookComment = async (commentId: string, message: string) => {
+  if (!META_PAGE_ACCESS_TOKEN) return;
+  const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(commentId)}/comments?access_token=${encodeURIComponent(META_PAGE_ACCESS_TOKEN)}`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: message })
+    });
+    if (!res.ok) {
+      console.error("Facebook Comment Reply Error:", await res.text());
+    } else {
+      console.log(`Successfully replied to FB comment ${commentId}`);
+    }
+  } catch (e) {
+    console.error("replyToFacebookComment exception:", e);
   }
 };
 
-// الرد على التعليقات على الخاص
-const privateReplyToComment = async (commentId: string, text: string, platform: string) => {
-  if (!FB_PAGE_ACCESS_TOKEN) return;
-  
-  let url = '';
-  let body = {};
-  
-  if (platform === 'instagram') {
-    url = `https://graph.facebook.com/v18.0/me/messages?access_token=${FB_PAGE_ACCESS_TOKEN}`;
-    body = {
-      recipient: { comment_id: commentId },
-      message: { text: text }
-    };
-  } else {
-    url = `https://graph.facebook.com/v18.0/${commentId}/private_replies?access_token=${FB_PAGE_ACCESS_TOKEN}`;
-    body = { message: text };
-  }
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
-  
-  if (!res.ok) {
-    console.error("Private Reply API Error:", await res.text());
+// ── 3. الرد على تعليق في إنستغرام (Instagram Comment Reply) ──
+const replyToInstagramComment = async (commentId: string, message: string) => {
+  if (!META_PAGE_ACCESS_TOKEN) return;
+  const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(commentId)}/replies?access_token=${encodeURIComponent(META_PAGE_ACCESS_TOKEN)}`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: message })
+    });
+    if (!res.ok) {
+      console.error("Instagram Comment Reply Error:", await res.text());
+    } else {
+      console.log(`Successfully replied to IG comment ${commentId}`);
+    }
+  } catch (e) {
+    console.error("replyToInstagramComment exception:", e);
   }
 };
 
-// إرسال تنبيه للأدمن على تيليكرام
+// ── 4. إرسال رد خاص لصاحب التعليق (Private Reply) ──
+const sendPrivateReplyToComment = async (commentId: string, text: string, isInstagram: boolean) => {
+  if (!META_PAGE_ACCESS_TOKEN) return;
+  try {
+    if (isInstagram) {
+      const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(META_PAGE_ACCESS_TOKEN)}`;
+      await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipient: { comment_id: commentId },
+          message: { text: text }
+        })
+      });
+    } else {
+      const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(commentId)}/private_replies?access_token=${encodeURIComponent(META_PAGE_ACCESS_TOKEN)}`;
+      await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text })
+      });
+    }
+  } catch (e) {
+    console.error("sendPrivateReplyToComment exception:", e);
+  }
+};
+
+// ── 5. إرسال تنبيه فوري للأدمن على تيليكرام عند الشكاوى أو البلاغات ──
 const notifyAdminTelegram = async (text: string) => {
-  if (!BOT_TOKEN || !ADMIN_CHAT_ID) return;
-  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-  await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: ADMIN_CHAT_ID, text: text })
-  });
+  if (!TELEGRAM_BOT_TOKEN || !ADMIN_CHAT_ID) return;
+  try {
+    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: ADMIN_CHAT_ID,
+        text: text,
+        parse_mode: "HTML"
+      })
+    });
+  } catch (e) {
+    console.error("notifyAdminTelegram exception:", e);
+  }
+};
+
+// ── 6. استدعاء محرك الذكاء الاصطناعي ai-engine ──
+const getAIReply = async (action: 'process_message' | 'process_comment', platform: string, text: string, senderId?: string) => {
+  try {
+    const aiRes = await fetch(`${SUPABASE_URL}/functions/v1/ai-engine`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+      },
+      body: JSON.stringify({
+        action,
+        platform,
+        sender_id: senderId || 'meta_user',
+        text
+      })
+    });
+    if (aiRes.ok) {
+      return await aiRes.json();
+    }
+  } catch (e) {
+    console.error("getAIReply exception:", e);
+  }
+  return { reply: "أهلاً بك في منصة سوق بغداد! 🇮🇶 يسعدنا تواصلك معنا، تفضل بزيارة موقعنا: https://www.souqbaghdad.store" };
 };
 
 serve(async (req) => {
   try {
     const url = new URL(req.url);
 
-    // 1. Meta Webhook Verification (GET Request)
+    // ── 1. Meta Webhook Verification (GET Request) ──
     if (req.method === "GET") {
       const mode = url.searchParams.get("hub.mode");
       const token = url.searchParams.get("hub.verify_token");
       const challenge = url.searchParams.get("hub.challenge");
 
-      if (mode === "subscribe" && token === FB_VERIFY_TOKEN) {
-        console.log("Meta Webhook Verified!");
+      console.log(`[Meta Webhook GET] Mode: ${mode}, Token: ${token}`);
+
+      if (mode === "subscribe" && (token === META_VERIFY_TOKEN || token === "souqbaghdad_secret_token")) {
+        console.log("Meta Webhook Verified Successfully!");
         return new Response(challenge, { status: 200 });
       }
       return new Response("Forbidden", { status: 403 });
     }
 
-    // 2. Incoming Meta Webhook Event (POST Request)
+    // ── 2. Meta Webhook Events (POST Request) ──
     if (req.method === "POST") {
       const body = await req.json();
-      console.log("Received Meta Webhook:", JSON.stringify(body));
+      console.log("Received Meta Webhook Payload:", JSON.stringify(body));
 
-      if (body.object === "page" || body.object === "instagram") {
-        for (const entry of body.entry) {
-          // --- التعامل مع رسائل Messenger و Instagram DM ---
-          if (entry.messaging) {
+      const isInstagram = body.object === "instagram";
+      const isPage = body.object === "page";
+
+      if (isPage || isInstagram) {
+        for (const entry of (body.entry || [])) {
+          const entryId = entry.id;
+
+          // ── أ. معالجة الرسائل الخاصة (Direct Messages & Messenger) ──
+          if (entry.messaging && Array.isArray(entry.messaging)) {
             for (const messagingEvent of entry.messaging) {
-              const senderId = messagingEvent.sender.id;
+              const senderId = messagingEvent.sender?.id;
+              const recipientId = messagingEvent.recipient?.id;
+
+              // تجاهل الرسائل الصادرة من الصفحة نفسها لمنع الحلقات اللانهائية
+              if (!senderId || senderId === META_PAGE_ID || senderId === META_IG_ACCOUNT_ID || senderId === entryId) {
+                continue;
+              }
 
               if (messagingEvent.message && messagingEvent.message.text) {
                 const userText = messagingEvent.message.text.trim();
+                const platform = isInstagram ? "instagram" : "facebook";
 
-                // معالجة الرسالة في AI Engine المشترك
-                const aiRes = await fetch(`${SUPABASE_URL}/functions/v1/ai-engine`, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
-                  },
-                  body: JSON.stringify({
-                    action: "process_message",
-                    platform: body.object === "instagram" ? "instagram" : "facebook",
-                    sender_id: senderId,
-                    text: userText
-                  })
-                });
+                console.log(`[${platform} DM] From: ${senderId}, Text: "${userText}"`);
 
-                const aiData = await aiRes.json();
+                const aiData = await getAIReply("process_message", platform, userText, senderId);
 
-                if (aiData.reply) {
-                  await sendMessengerMessage(senderId, aiData.reply);
+                if (aiData?.reply) {
+                  await sendMetaMessage(senderId, aiData.reply);
                 }
 
-                // إذا كانت هناك نتائج بحث
-                if (aiData.searchResults && aiData.searchResults.length > 0) {
+                // إذا كان هناك نتائج بحث ذات صلة
+                if (aiData?.searchResults && aiData.searchResults.length > 0) {
                   for (const item of aiData.searchResults) {
-                    const itemUrl = `https://souqbaghdad.store/product/${item.short_id || item.id}`;
-                    await sendMessengerMessage(
+                    const itemUrl = `https://www.souqbaghdad.store/product/${item.short_id || item.id}`;
+                    await sendMetaMessage(
                       senderId,
                       `📌 ${item.title}\n💰 السعر: ${item.price} د.ع\n📍 ${item.location || 'بغداد'}\n🔗 ${itemUrl}`
                     );
@@ -148,35 +221,59 @@ serve(async (req) => {
             }
           }
 
-          // --- التعامل مع التعليقات الأوتوماتيكية (Comment Automation) ---
-          if (entry.changes) {
+          // ── ب. معالجة التعليقات على المنشورات (Comments Automation) ──
+          if (entry.changes && Array.isArray(entry.changes)) {
             for (const change of entry.changes) {
-              if (change.field === "feed" || change.field === "comments") {
+              const field = change.field;
+              
+              if (field === "feed" || field === "comments" || field === "mention") {
                 const val = change.value;
+                if (!val) continue;
+
+                // استخراج معرف التعليق والنص
                 const commentId = val.comment_id || val.id;
-                const commentText = (val.message || "").toLowerCase().trim();
+                const commentText = (val.message || val.text || "").trim();
                 const fromId = val.from?.id;
 
-                if (!commentText || !commentId) continue;
+                // تجاهل التعليقات الفارغة أو تعليقات الصفحة نفسها
+                if (!commentText || !commentId || fromId === META_PAGE_ID || fromId === META_IG_ACCOUNT_ID || fromId === entryId) {
+                  continue;
+                }
 
-                // 1. الكلمات المحفزة للرابط
-                if (["رابط", "وين", "لنك", "لينك", "موقع"].some(k => commentText.includes(k))) {
-                  await replyToFBComment(commentId, "تم إرسال التفاصيل والفيسبوك/الموقع على الخاص 📩");
-                  await privateReplyToComment(commentId, "أهلاً بك! 👋 إليك رابط المعاينة المباشرة: https://souqbaghdad.store", body.object);
+                // تجاهل إذا كان الحدث حذف تعليق أو تفاعل (reaction)
+                if (val.verb && val.verb !== "add") continue;
+                if (val.item && val.item !== "comment") continue;
+
+                console.log(`[${isInstagram ? "Instagram" : "Facebook"} Comment] ID: ${commentId}, Text: "${commentText}"`);
+
+                // 1. توليد رد ذكي من الذكاء الاصطناعي
+                const aiData = await getAIReply("process_comment", isInstagram ? "instagram" : "facebook", commentText, fromId);
+                const replyText = aiData?.reply || "أهلاً بك عيوني في سوق بغداد 🇮🇶 يسعدنا تواصلك، تفضل بزيارة موقعنا: https://www.souqbaghdad.store";
+
+                // 2. نشر الرد على التعليق
+                if (isInstagram) {
+                  await replyToInstagramComment(commentId, replyText);
+                } else {
+                  await replyToFacebookComment(commentId, replyText);
                 }
-                // 2. الكلمات المحفزة للسعر
-                else if (["بكم", "شكد", "السعر", "سعر"].some(k => commentText.includes(k))) {
-                  await replyToFBComment(commentId, "أهلاً بك! السعر موضح بالإعلان، ويمكنك مشاهدة أفضل الأسعار المتاحة عبر منصة سوق بغداد 🏷️");
+
+                // 3. إرسال رابط المنصة والتفاصيل على الخاص دائماً
+                const cleanComment = commentText.toLowerCase();
+                const isGeneralPraise = ["ما شاء الله", "حلو", "بالتوفيق", "منورين", "تبارك"].some(k => cleanComment.includes(k)) && cleanComment.length < 20;
+                
+                if (!isGeneralPraise) {
+                  await sendPrivateReplyToComment(
+                    commentId,
+                    "يا هلا بيك عيوني 👋 إليك الرابط المباشر للتصفح والنشر والتواصل مع البائعين في منصة سوق بغداد: https://www.souqbaghdad.store",
+                    isInstagram
+                  );
                 }
-                // 3. التوفر
-                else if (["متوفر", "موجود"].some(k => commentText.includes(k))) {
-                  await replyToFBComment(commentId, "نعم متوفر ✅ تواصل مباشرة مع البائع عبر الرابط بالخاص 📩");
-                  await privateReplyToComment(commentId, "أهلاً بك! 👋 يمكنك العثور على الإعلان وتفاصيل البائع هنا: https://souqbaghdad.store", body.object);
-                }
-                // 4. البلاغات والاحتيال
-                else if (["نصاب", "احتيال", "كذب", "حرامي"].some(k => commentText.includes(k))) {
-                  await replyToFBComment(commentId, "نحن نأخذ البلاغات بجدية عالية 🙏 سيقوم فريق الإدارة بمراجعة الإعلان فوراً.");
-                  await notifyAdminTelegram(`🚨 **تنبيه تعليق مشبوه/شكوى على الفيسبوك!**\n\n💬 التعليق: "${commentText}"\n🆔 المعرف: ${commentId}`);
+
+                // 4. إشعار فوري للأدمن عند رصد أي بلاغ أو شكوى
+                if (["نصاب", "احتيال", "كذب", "حرامي", "اشتكي", "سرقة"].some(k => cleanComment.includes(k))) {
+                  await notifyAdminTelegram(
+                    `🚨 <b>تنبيه شكوى/تعليق مشبوه على ${isInstagram ? "إنستغرام" : "فيسبوك"}!</b>\n\n💬 <b>التعليق:</b> "${commentText}"\n🆔 <b>المعرف:</b> <code>${commentId}</code>`
+                  );
                 }
               }
             }
