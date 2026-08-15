@@ -39,7 +39,7 @@ serve(async (req) => {
     const payload = {
       contents: [{
         parts: [
-          { text: "Analyze this image. Does it contain any prohibited content? Prohibited content includes: Nudity or sexual content, Smoking, tobacco, e-cigarettes, Alcohol or drugs, Weapons or violence, Any illegal or highly inappropriate items. Respond ONLY with a valid JSON in this format: {\"isSafe\": boolean, \"reason\": \"short explanation in Arabic if false\"}" },
+          { text: "حلل هذه الصورة بدقة شديدة. هل تحتوي على أي من الممنوعات التالية: (1) عري أو محتوى جنسي (2) سجائر، تدخين، أرجيلة، أو سجائر إلكترونية بجميع أنواعها (3) أدوية، حبوب طبية، مخدرات، أو كحول (4) أسلحة، عنف، أو دماء. يجب أن يكون الرد عبارة عن ملف JSON صالح فقط يحتوي على مفتاحين: isSafe (قيمة منطقية false إذا كان هناك أي ممنوعات، و true إذا كانت الصورة آمنة تماماً) و reason (شرح قصير باللغة العربية لسبب الرفض إذا كانت isSafe تساوي false، أو نص فارغ إذا كانت آمنة)." },
           { inline_data: { mime_type: "image/jpeg", data: base64Data } }
         ]
       }],
@@ -47,6 +47,7 @@ serve(async (req) => {
         temperature: 0.1,
         topK: 1,
         topP: 1,
+        responseMimeType: "application/json"
       }
     };
 
