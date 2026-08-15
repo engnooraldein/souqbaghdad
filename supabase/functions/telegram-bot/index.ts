@@ -93,10 +93,46 @@ const PRODUCT_CHANNEL = Deno.env.get('PRODUCT_CHANNEL_ID') || '';
 const TRANSPORT_CHANNEL = Deno.env.get('TRANSPORT_CHANNEL_ID') || '';
 const EXTRA_CHANNEL = '@souqbaghdad_iq';
 
-// Facebook & Instagram Publishing
+// Facebook, Instagram & Threads Publishing
 const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || '';
 const META_PAGE_ID = Deno.env.get('META_PAGE_ID') || '';
 const META_IG_ACCOUNT_ID = Deno.env.get('META_IG_ACCOUNT_ID') || '';
+const THREADS_USER_ID = Deno.env.get('THREADS_USER_ID') || '28119436894335542';
+const THREADS_ACCESS_TOKEN = Deno.env.get('THREADS_ACCESS_TOKEN') || '';
+
+async function postToThreads(text: string, photoUrl: string | string[] | null) {
+  if (!THREADS_ACCESS_TOKEN || !THREADS_USER_ID) return { error: { message: 'رمز الوصول لـ Threads مفقود أو غير صالح' } };
+  try {
+    const urls = Array.isArray(photoUrl) ? photoUrl : (photoUrl ? [photoUrl] : []);
+    const singleUrl = urls.length > 0 ? urls[0] : null;
+
+    let containerUrl = `https://graph.threads.net/v1.0/${THREADS_USER_ID}/threads`;
+    let params = new URLSearchParams();
+    params.append('access_token', THREADS_ACCESS_TOKEN);
+    params.append('text', text);
+
+    if (singleUrl) {
+      params.append('media_type', 'IMAGE');
+      params.append('image_url', singleUrl);
+    } else {
+      params.append('media_type', 'TEXT');
+    }
+
+    const cRes = await fetch(`${containerUrl}?${params.toString()}`, { method: 'POST' });
+    const cData = await cRes.json();
+
+    if (cData.id) {
+      const pUrl = `https://graph.threads.net/v1.0/${THREADS_USER_ID}/threads_publish?creation_id=${cData.id}&access_token=${encodeURIComponent(THREADS_ACCESS_TOKEN)}`;
+      const pRes = await fetch(pUrl, { method: 'POST' });
+      const pData = await pRes.json();
+      return pData;
+    }
+    return cData;
+  } catch (err: any) {
+    console.error('Threads Post Error:', err);
+    return { error: { message: err.message || 'خطأ في النشر على Threads' } };
+  }
+}
 
 async function postToFacebook(text: string, photoUrl: string | string[] | null) {
   if (!META_PAGE_ACCESS_TOKEN || !META_PAGE_ID) return { error: { message: 'رمز الوصول لفيسبوك مفقود أو غير صالح' } };
@@ -867,6 +903,7 @@ serve(async (req) => {
       let publishFacebook = payload.targets ? payload.targets.facebook : true;
       let publishInstagram = payload.targets ? payload.targets.instagram : true;
       let publishTiktok = payload.targets ? payload.targets.tiktok : true;
+      let publishThreads = payload.targets ? payload.targets.threads : true;
 
       if (shouldPublish) {
         // --- 1. CAR ADS (VEHICLES) ---
@@ -977,6 +1014,14 @@ serve(async (req) => {
             }
           }
 
+          if (publishThreads) {
+            const thData = await postToThreads(fbIgCaption, fbIgPhotoUrl);
+            if (thData && (thData.id || thData.media_id)) {
+              updates.threads_post_id = thData.id || thData.media_id;
+              syncStatus.threads = 'success';
+            }
+          }
+
           updates.sync_status = syncStatus;
           if (Object.keys(updates).length > 0) {
             await supabase.from('ads').update(updates).eq('id', record.id);
@@ -1060,6 +1105,14 @@ serve(async (req) => {
             if (tkData?.data?.publish_id) {
                updates.tiktok_post_id = tkData.data.publish_id;
                syncStatus.tiktok = 'success';
+            }
+          }
+          
+          if (publishThreads) {
+            const thData = await postToThreads(fbIgCaption, fbIgPhotoUrl);
+            if (thData && (thData.id || thData.media_id)) {
+               updates.threads_post_id = thData.id || thData.media_id;
+               syncStatus.threads = 'success';
             }
           }
           
@@ -1153,6 +1206,14 @@ serve(async (req) => {
             }
           }
           
+          if (publishThreads) {
+            const thData = await postToThreads(fbIgCaption, fbIgPhotoUrl);
+            if (thData && (thData.id || thData.media_id)) {
+               updates.threads_post_id = thData.id || thData.media_id;
+               syncStatus.threads = 'success';
+            }
+          }
+          
           updates.sync_status = syncStatus;
           if (Object.keys(updates).length > 0) {
              await supabase.from('ads').update(updates).eq('id', record.id);
@@ -1222,7 +1283,7 @@ serve(async (req) => {
           }
           
           let generatedFbCaption = msg.replace(/<[^>]*>?/gm, '');
-          if (publishFacebook || publishInstagram) {
+          if (publishFacebook || publishInstagram || publishThreads) {
             const smartAd = { ...record, ...desc };
             generatedFbCaption = await generateSmartCaption(smartAd, generatedFbCaption, link);
           }
@@ -1251,6 +1312,14 @@ serve(async (req) => {
             if (tkData?.data?.publish_id) {
                updates.tiktok_post_id = tkData.data.publish_id;
                syncStatus.tiktok = 'success';
+            }
+          }
+
+          if (publishThreads) {
+            const thData = await postToThreads(fbIgCaption, defaultPhotoUrl);
+            if (thData && (thData.id || thData.media_id)) {
+               updates.threads_post_id = thData.id || thData.media_id;
+               syncStatus.threads = 'success';
             }
           }
           

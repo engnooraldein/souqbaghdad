@@ -163,7 +163,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSocialPublishing, setIsSocialPublishing] = useState<string|null>(null);
   const [publishModalItem, setPublishModalItem] = useState<{id: string, type: 'product'|'ad'|'transport', record: any} | null>(null);
-  const [publishTargets, setPublishTargets] = useState({ facebook: true, instagram: true, telegram: true, tiktok: true });
+  const [publishTargets, setPublishTargets] = useState({ facebook: true, instagram: true, telegram: true, tiktok: true, threads: true });
   const [lastSyncDate, setLastSyncDate] = useState(() => localStorage.getItem('owner_sync_date') || 'غير مزامن');
 
   const syncAll = async () => {
@@ -1470,6 +1470,10 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
                   <span className="text-gray-200 font-medium">انستغرام (Instagram)</span>
                 </label>
                 <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer hover:bg-gray-750 transition">
+                  <input type="checkbox" checked={publishTargets.threads} onChange={e=>setPublishTargets(prev=>({...prev, threads: e.target.checked}))} className="w-5 h-5 accent-emerald-500" />
+                  <span className="text-gray-200 font-medium">ثريدز (Threads) 🧵</span>
+                </label>
+                <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer hover:bg-gray-750 transition">
                   <input type="checkbox" checked={publishTargets.telegram} onChange={e=>setPublishTargets(prev=>({...prev, telegram: e.target.checked}))} className="w-5 h-5 accent-sky-500" />
                   <span className="text-gray-200 font-medium">تيليكرام (Telegram)</span>
                 </label>
@@ -1482,7 +1486,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
               <div className="flex gap-3">
                 <button 
                   onClick={async () => {
-                    if (!publishTargets.facebook && !publishTargets.instagram && !publishTargets.telegram && !publishTargets.tiktok) {
+                    if (!publishTargets.facebook && !publishTargets.instagram && !publishTargets.threads && !publishTargets.telegram && !publishTargets.tiktok) {
                       alert('يرجى تحديد منصة واحدة على الأقل');
                       return;
                     }
