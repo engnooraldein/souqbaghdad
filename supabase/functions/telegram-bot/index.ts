@@ -380,63 +380,60 @@ function formatTgPrice(val: any, currency = 'د.ع'): string {
   return isNaN(num) ? str : `${num.toLocaleString('en-US')} ${currency}`;
 }
 
-const generateSmartCaption = async (ad: any, fallbackText: string, detailUrl: string) => {
-  const defaultHashtag = '\n\n#سوق_بغداد_الرقمي';
+const generateSocialCaption = async (record: any, type: 'car' | 'product' | 'transport' | 'ad', link: string): Promise<string> => {
   const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') ?? '';
-  let finalFallback = fallbackText;
-  
-  const basicTags = ad.title ? generateHashtags(ad.title, '') : defaultHashtag;
-  if (!finalFallback.includes(defaultHashtag.trim())) {
-    finalFallback += '\n\n' + basicTags;
+  let title = record.title || (type === 'car' ? 'سيارة للبيع' : 'إعلان جديد');
+  let price = formatTgPrice(record.price, record.currency || 'د.ع');
+  let location = record.governorate || record.location || record.city || 'بغداد';
+  let details = (typeof record.description === 'string' && !record.description.startsWith('{') ? record.description : '').substring(0, 250);
+
+  if (GEMINI_API_KEY) {
+    try {
+      const prompt = `أنت خبير تسويق محتوى لمنصات التواصل (Instagram, Threads, Facebook) لـ "سوق بغداد".
+اكتب منشوراً تسويقياً مرتباً وجذاباً باللغة العربية مع لمسة ودية باللهجة العراقية للإعلان التالي:
+النوع: ${type}
+العنوان: ${title}
+السعر: ${price}
+الموقع: ${location}
+التفاصيل: ${details || 'متوفر الآن عبر المنصة'}
+
+شروط إلزامية:
+1. رتب النص بشكل أنيق ومريح للعين مع ترك سطر فارغ بين كل نقطة وأخرى.
+2. لا تستخدم علامات النجمة (*) أو تنسيقات Markdown المعقدة.
+3. ضع الهاشتاقات المناسبة في النهاية.
+4. أضف دعوة تفاعل واضحة: "💬 اكتب تم أو تواصل بالتعليقات وتوصلك كافة التفاصيل على الخاص 📩".`;
+
+      const aiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }]
+          })
+        }
+      );
+      if (aiRes.ok) {
+        const aiData = await aiRes.json();
+        const generated = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (generated && generated.length > 25) {
+          const cleanText = generated.replace(/[*_#`]/g, '').trim();
+          return `${cleanText}\n\n🔗 ${link}\n\n#سوق_بغداد #العراق #بغداد`;
+        }
+      }
+    } catch (e) {
+      console.error('AI Caption generation error:', e);
+    }
   }
 
-  if (!GEMINI_API_KEY) return finalFallback;
-
-  try {
-    const aiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                {
-                  text: `قم بتحسين الإعلان التالي المخصص لمنصات التواصل الاجتماعي. 
-الرجاء الحفاظ على جميع المعلومات الأساسية كما هي (النوع، الوجهة، المناطق، السعر، المركبة، إلخ) وعدم حذف أي منها، مع إضافة مقدمة تسويقية قصيرة وجذابة بالعامية العراقية، وإضافة هاشتاقات ذكية في النهاية.
-
-النص الأصلي للإعلان:
-${fallbackText}
-
-ملاحظة هامة 1: ضع هاشتاقات تتعلق بدقة بنوع الإعلان (مثلاً #سيارات_للبيع #سوق_السيارات #بغداد_للسيارات أو #خطوط_نقل #خطوط_جامعات_بغداد)، مع إضافة الهاشتاق الثابت والإلزامي #سوق_بغداد_الرقمي.
-ملاحظة هامة 2: يمنع منعاً باتاً استخدام علامات النجمة * أو تنسيقات Markdown. حافظ على النص مرتباً وواضحاً.`
-                }
-              ]
-            }
-          ]
-        })
-      }
-    );
-    
-    if (!aiRes.ok) {
-       console.error('Gemini API error:', await aiRes.text());
-       return finalFallback;
-    }
-
-    const aiData = await aiRes.json();
-    let generatedCaption = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (generatedCaption) {
-      if (!generatedCaption.includes('#سوق_بغداد_الرقمي')) {
-          generatedCaption += defaultHashtag;
-      }
-      return generatedCaption;
-    }
-  } catch (e) {
-    console.error('AI Caption error:', e);
+  // Fallback Clean Social Template (No flipped symbols or bot tags)
+  if (type === 'car') {
+    return `🚗 سيارة مميزة للبيع في سوق بغداد\n\n📌 النوع: ${title}\n💰 السعر: ${price}\n📍 الموقع: ${location}\n\n🔗 تفاصيل الإعلان والتواصل مع البائع:\n${link}\n\n💬 اكتب "تم" أو "تواصل" بالتعليقات وتوصلك كافة التفاصيل على الخاص 📩\n\n#سوق_بغداد #سيارات_العراق #بغداد`;
+  } else if (type === 'transport') {
+    return `🚌 خط نقل جديد في بغداد\n\n📍 مناطق الانطلاق: ${location}\n🏢 الوجهة: ${record.university || record.city || 'بغداد'}\n💰 الأجرة: ${price}\n\n🔗 تفاصيل الخط والتواصل:\n${link}\n\n💬 اكتب "تم" بالتعليقات وتوصلك التفاصيل على الخاص 📩\n\n#سوق_بغداد #خطوط_نقل #جامعات_العراق`;
+  } else {
+    return `🛍️ منتج مميز معروض في سوق بغداد\n\n📌 الاسم: ${title}\n💰 السعر: ${price}\n📍 الموقع: ${location}\n\n🔗 تفاصيل المنتج والشراء:\n${link}\n\n💬 اكتب "تم" أو "تواصل" بالتعليقات وتوصلك كافة التفاصيل على الخاص 📩\n\n#سوق_بغداد #تسوق_العراق #بغداد`;
   }
-  return finalFallback;
 };
 
 function generateHashtags(title: string, desc: string): string {
@@ -984,11 +981,9 @@ serve(async (req) => {
           
           // Social Media Sync for Cars
           const fbIgPhotoUrl = imagesToPost.length > 0 ? imagesToPost : ['https://souqbaghdad.store/opengraph.jpg'];
-          let generatedFbCaption = caption.replace(/<[^>]*>?/gm, '');
-          if (publishFacebook || publishInstagram) {
-            generatedFbCaption = await generateSmartCaption(record, generatedFbCaption, link);
-          }
-          const fbIgCaption = generatedFbCaption + `\n\n💡 ملاحظة: اكتب "تم" أو "تواصل" في تعليق وسنرسل لك تفاصيل السيارة برسالة خاصة.`;
+          const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
+            ? await generateSocialCaption(record, 'car', link)
+            : '';
 
           if (publishFacebook) {
             const fbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl);
@@ -1078,11 +1073,9 @@ serve(async (req) => {
           }
           
           const fbIgPhotoUrl = record.images && record.images.length > 0 ? record.images : (imageUrl ? [imageUrl] : ['https://souqbaghdad.store/opengraph.jpg']);
-          let generatedFbCaption = caption.replace(/<[^>]*>?/gm, '');
-          if (publishFacebook || publishInstagram) {
-            generatedFbCaption = await generateSmartCaption(record, generatedFbCaption, link);
-          }
-          const fbIgCaption = generatedFbCaption + `\n\n💡 ملاحظة: اكتب "تم" في تعليق وسنرسل لك رابط الإعلان برسالة خاصة.`;
+          const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
+            ? await generateSocialCaption(record, 'product', link)
+            : '';
                               
           if (publishFacebook) {
             const fbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl);
@@ -1176,11 +1169,9 @@ serve(async (req) => {
              syncStatus.telegram = 'success';
           }
           
-          let generatedFbCaption = caption.replace(/<[^>]*>?/gm, '');
-          if (publishFacebook || publishInstagram) {
-            generatedFbCaption = await generateSmartCaption(record, generatedFbCaption, link);
-          }
-          const fbIgCaption = generatedFbCaption + `\n\n💡 ملاحظة: اكتب "تم" في تعليق وسنرسل لك رابط الإعلان برسالة خاصة.`;
+          const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
+            ? await generateSocialCaption(record, 'ad', link)
+            : '';
                               
           if (publishFacebook) {
             const fbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl);
@@ -1282,12 +1273,9 @@ serve(async (req) => {
              syncStatus.telegram = 'success';
           }
           
-          let generatedFbCaption = msg.replace(/<[^>]*>?/gm, '');
-          if (publishFacebook || publishInstagram || publishThreads) {
-            const smartAd = { ...record, ...desc };
-            generatedFbCaption = await generateSmartCaption(smartAd, generatedFbCaption, link);
-          }
-          const fbIgCaption = generatedFbCaption + `\n\n💡 ملاحظة: اكتب "تم" في تعليق وسنرسل لك الرابط برسالة خاصة.`;
+          const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
+            ? await generateSocialCaption({ ...record, ...desc }, 'transport', link)
+            : '';
                                         
           const defaultPhotoUrl = `https://www.souqbaghdad.store/transport-default.jpg?v=${Date.now()}`;
           
