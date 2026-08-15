@@ -443,6 +443,9 @@ async function sendWhatsAppWelcome(phone: string, title: string, link: string) {
 
 function getLocalIraqiResponse(text: string): string {
   const clean = text.toLowerCase().trim();
+  if (clean.includes('برومو') || clean.includes('كود') || clean.includes('رمز') || clean.includes('شحن كود')) {
+    return '🎟️ هلا بيك عيوني! إذا عندك كود بروموكود لشحن النقاط، اضغط على زر <b>[🎟️ تعبئة بروموكود]</b> جوة، ودز الكود وراح تنزل النقاط بمحفظتك فوراً!';
+  }
   if (clean.includes('سيار') || clean.includes('ابيع') || clean.includes('أبيع') || clean.includes('اعرض') || clean.includes('بيع')) {
     return '🚗 هلا بيك عيوني وتدلل! نشر السيارة كلش سهل وبدقايق.. بس اضغط على زر <b>[🚗 اعرض سيارتك للبيع مجاناً]</b> جوة، واختار الماركة والموديل وسنة الصنع والسعر ودزلنا صورها، ومباشرة راح ينزل إعلانك بالمنصة وقناة التليكرام!';
   }
@@ -453,10 +456,10 @@ function getLocalIraqiResponse(text: string): string {
     return '📋 تدلل حبيبي، تكدر تعدل السعر أو رقم التلفون أو تحذف الإعلان أو تبلغه كمباع بأي وقت وبسهولة من خلال زر <b>[📋 إدارة إعلاناتي وخطوطي]</b> جوة.';
   }
   if (clean.includes('نقط') || clean.includes('نقاط') || clean.includes('شحن') || clean.includes('محفظ')) {
-    return '🪙 النشر مجاني بالكامل عيوني! وإذا حبيت تزيد نقاطك أو استفسار خاص تكدر تضغط على <b>[💳 شراء نقاط]</b> جوة أو تراسل الإدارة @rucno.';
+    return '🪙 النشر مجاني بالكامل عيوني! وإذا حبيت تزيد نقاطك تكدر تضغط على <b>[🎟️ تعبئة بروموكود]</b> أو <b>[💳 شراء نقاط]</b> جوة أو تراسل الإدارة @rucno.';
   }
   if (clean.includes('سلام') || clean.includes('هلو') || clean.includes('مرحبا') || clean.includes('شلونك') || clean.includes('شخبارك') || clean.includes('مساء') || clean.includes('صباح')) {
-    return '👋 أهلاً وسهلاً بيك نورت سوق بغداد يالغالي! شلون أقدر أساعدك اليوم؟ تكدر تعرض سيارتك أو تنشر خط نقل أو تتصفح العروض من الأزرار جوة 👇';
+    return '👋 أهلاً وسهلاً بيك نورت سوق بغداد يالغالي! شلون أقدر أساعدك اليوم؟ تكدر تعرض سيارتك أو تنشر خط نقل أو تعبي بروموكود من الأزرار جوة 👇';
   }
   return 'هلا بيك عيوني نورت سوق بغداد! 🇮🇶 شلون أقدر أساعدك اليوم؟ تكدر تختار مباشرة من الأزرار أدناه 👇';
 }
@@ -469,19 +472,22 @@ async function callGemini(text: string | null, audioUrl: string | null = null): 
 مهمتك: الإجابة بذكاء وبلهجة عراقية بغدادية دارجة ومحببة ومهذبة جداً (مثل: هلا بيك عيوني، تدلل يالغالي، من عيوني، تأمر أمر، حياك الله، شلون أقدر أساعدك؟)، ومساعدة المستخدم بمعرفة الخطوات الدقيقة حسب سؤاله.
 
 قواعد الإجابة حسب نوع السؤال:
-1. إذا سأل عن بيع أو نشر سيارة (مثلاً: شلون أبيع، عندي سيارة، أريد أنشر سيارة، شلون الخطوات):
+1. إذا سأل عن تعبئة كود أو بروموكود أو شحن نقاط (مثلاً: عندي كود، بروموكود، شلون أعبي كود):
+   - جاوبه: "تدلل عيوني! اضغط على زر [🎟️ تعبئة بروموكود] جوة، واكتب الكود مالتك وراح ينشحن رصيدك بالنقاط فوراً!"
+
+2. إذا سأل عن بيع أو نشر سيارة (مثلاً: شلون أبيع، عندي سيارة، أريد أنشر سيارة، شلون الخطوات):
    - جاوبه بلطافة واشرح له الخطوات: "كلش سهلة عيوني! اضغط على زر [🚗 اعرض سيارتك للبيع مجاناً] جوة، وراح تختار نوع السيارة، الموديل، سنة الصنع، السعر، وترفع صورها، ومباشرة راح ينزل إعلانك بالمنصة وقناة التليكرام!"
 
-2. إذا سأل عن خطوط النقل (مثلاً: أريد خط، أدور خط لجامعة، أنا سايق وعندي خط، خطوط موظفين):
+3. إذا سأل عن خطوط النقل (مثلاً: أريد خط، أدور خط لجامعة، أنا سايق وعندي خط، خطوط موظفين):
    - جاوبه واشرح له الخطوات: "يا هلا بيك! اضغط على زر [🚌 انشر خط نقل] جوة، وحدد إذا إنت صاحب خط أو طالب/موظف تدور خط، واختار المناطق والجامعة والدوام، وراح ينزل إعلانك وتوصلك الطلبات فوراً!"
 
-3. إذا سأل عن تعديل السعر أو حذف الإعلان أو تعليم السيارة كمباعة:
+4. إذا سأل عن تعديل السعر أو حذف الإعلان أو تعليم السيارة كمباعة:
    - جاوبه: "تدلل حبيبي، تكدر تعدل السعر أو رقم التلفون أو تحذف الإعلان أو تبلغه كمباع من خلال زر [📋 إدارة إعلاناتي وخطوطي] جوة."
 
-4. إذا سأل عن الرابط أو الموقع الإلكتروني:
+5. إذا سأل عن الرابط أو الموقع الإلكتروني:
    - الرابط هو https://www.souqbaghdad.store وتكدر تتصفح كل المعروضات بيه.
 
-5. إذا سلم أو رحب (مثل: هلو، السلام عليكم، شلونك، مرحبا):
+6. إذا سلم أو رحب (مثل: هلو، السلام عليكم، شلونك، مرحبا):
    - رحب بيه بحرارة عراقية: "أهلاً وسهلاً بيك نورت سوق بغداد يالغالي! شلون أقدر أساعدك اليوم؟ تكدر تعرض سيارتك أو تنشر خط نقل أو تتصفح العروض من الأزرار جوة 👇"
 
 ملاحظة هامة: اجعل الرد ذكياً، مختصراً (سطرين إلى 4 أسطر)، مريحاً وموجهاً للأزرار الظاهرة في القائمة المرفقة. لا تستخدم علامات النجمة الكثيرة.`;
@@ -1268,7 +1274,8 @@ serve(async (req) => {
         inline_keyboard: [
           [{ text: '🚗 اعرض سيارتك للبيع مجاناً', callback_data: 'publish_car' }],
           [{ text: '🚌 انشر خط نقل (سائق / راكب)', callback_data: 'publish_transport' }, { text: '📦 نشر منتج عام', callback_data: 'publish_product' }],
-          [{ text: '📋 إدارة إعلاناتي وخطوطي', callback_data: 'manage_my_ads' }, { text: '💳 شراء نقاط', callback_data: 'buy_points' }],
+          [{ text: '📋 إدارة إعلاناتي وخطوطي', callback_data: 'manage_my_ads' }],
+          [{ text: '🎟️ تعبئة بروموكود', callback_data: 'redeem_promo' }, { text: '💳 شراء نقاط', callback_data: 'buy_points' }],
           [{ text: '📖 كيفية التسجيل', callback_data: 'how_to_register' }, { text: '🔑 نسيت كلمة المرور', callback_data: 'forgot_password' }],
           [{ text: '❓ الأسئلة الشائعة', callback_data: 'faq' }, { text: '📞 الدعم الفني', callback_data: 'contact_support' }],
           [{ text: '🔔 إدارة إشعاراتي', callback_data: 'manage_alerts' }, { text: '🔌 تحديث/إعادة ربط الحساب', callback_data: 'relink_account' }],
@@ -2256,10 +2263,24 @@ serve(async (req) => {
         return new Response('OK', { status: 200 });
       }
 
+      // Redeem Promo Code Action
+      if (action === 'redeem_promo') {
+        state = { step: 'enter_promo_code' };
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        await updateOrSend('🎟️ <b>شحن وتعبئة بروموكود (كود نقاط)</b> 🪙\n\nأرسل رمز الكود الآن في رسالة (مثال: <code>GIFT50</code> أو <code>VIP100</code>):', {
+          inline_keyboard: [[{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]]
+        });
+        return new Response('OK', { status: 200 });
+      }
+
       // Other features (support, register, faq...)
       if (action === 'buy_points') {
-        await updateOrSend(`لشراء النقاط وتعبئة رصيدك في الموقع، يرجى مراسلة الإدارة عبر تيليكرام للحصول على كود التعبئة 💳:\n\n👉 @rucno`, {
-          inline_keyboard: [[{ text: 'الرجوع للقائمة الرئيسية 🔙', callback_data: 'main_menu' }]]
+        await updateOrSend(`💳 <b>شراء وشحن النقاط</b> 🪙\n\nلشراء النقاط وتعبئة رصيدك في المنصة، يرجى مراسلة الإدارة عبر تيليكرام للحصول على كود التعبئة:\n👉 @rucno\n\nإذا كان لديك كود بروموكود جاهز، اضغط على زر "🎟️ إدخال بروموكود" أدناه لتفعيله فوراً:`, {
+          inline_keyboard: [
+            [{ text: '🎟️ إدخال وتعبئة بروموكود', callback_data: 'redeem_promo' }],
+            [{ text: '💬 مراسلة الإدارة لشراء نقاط', url: 'https://t.me/rucno' }],
+            [{ text: 'الرجوع للقائمة الرئيسية 🔙', callback_data: 'main_menu' }]
+          ]
         });
         return new Response('OK', { status: 200 });
       }
@@ -2973,6 +2994,102 @@ serve(async (req) => {
             });
           }
         }
+        state = {};
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        return new Response('OK', { status: 200 });
+      }
+
+      // Promo Code Redemption Input
+      else if (state.step === 'enter_promo_code' && text) {
+        const inputCode = text.trim().toUpperCase();
+        
+        // 1. Fetch promo code
+        const { data: promo, error: pErr } = await supabase.from('promo_codes').select('*').eq('code', inputCode).maybeSingle();
+        
+        if (pErr || !promo) {
+          await sendMessage(chatId, `❌ <b>كود غير صالح!</b>\nالكود <code>${inputCode}</code> غير موجود أو تم إدخاله بشكل غير صحيح.`, {
+            inline_keyboard: [
+              [{ text: '🔄 تجربة كود آخر', callback_data: 'redeem_promo' }],
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ]
+          });
+          state = {};
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+          return new Response('OK', { status: 200 });
+        }
+
+        if (promo.is_used) {
+          await sendMessage(chatId, `⚠️ <b>هذا الكود تم استخدامه واكتمال حدّه مسبقاً.</b>`, {
+            inline_keyboard: [
+              [{ text: '🔄 تجربة كود آخر', callback_data: 'redeem_promo' }],
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ]
+          });
+          state = {};
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+          return new Response('OK', { status: 200 });
+        }
+
+        // 2. Check if user already used it
+        const { data: alreadyUsed } = await supabase.from('promo_code_usages').select('id').eq('code', inputCode).eq('user_id', userId).maybeSingle();
+        if (alreadyUsed) {
+          await sendMessage(chatId, `⚠️ <b>لقد قمت باستخدام وتفعيل هذا الكود مسبقاً في حسابك!</b>`, {
+            inline_keyboard: [[{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
+          });
+          state = {};
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+          return new Response('OK', { status: 200 });
+        }
+
+        // 3. Check total usages
+        const { count: totalUses } = await supabase.from('promo_code_usages').select('id', { count: 'exact', head: true }).eq('code', inputCode);
+        const maxUses = promo.max_uses || 1;
+        if ((totalUses || 0) >= maxUses) {
+          await supabase.from('promo_codes').update({ is_used: true }).eq('code', inputCode);
+          await sendMessage(chatId, `⚠️ <b>هذا الكود اكتمل الحد الأقصى لاستخدامه.</b>`, {
+            inline_keyboard: [[{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
+          });
+          state = {};
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+          return new Response('OK', { status: 200 });
+        }
+
+        // 4. Record usage
+        await supabase.from('promo_code_usages').insert({ code: inputCode, user_id: userId });
+
+        // 5. Add points
+        const { data: curProfile } = await supabase.from('profiles').select('points').eq('id', userId).single();
+        const addedPoints = promo.points || 0;
+        const newTotalPoints = (curProfile?.points || 0) + addedPoints;
+        await supabase.from('profiles').update({ points: newTotalPoints }).eq('id', userId);
+
+        // 6. Record points ledger if table exists
+        try {
+          await supabase.from('points_ledger').insert({
+            user_id: userId,
+            amount: addedPoints,
+            reason: `استرداد بروموكود عبر البوت: ${inputCode}`
+          });
+        } catch(e) {}
+
+        // 7. Update promo is_used if reached max
+        if ((totalUses || 0) + 1 >= maxUses) {
+          await supabase.from('promo_codes').update({ is_used: true }).eq('code', inputCode);
+        }
+
+        // 8. Celebration message & direct shortcuts
+        await sendMessage(chatId, `🎉 <b>ألف مبروك! تم شحن محفظتك بنجاح!</b> 🪙\n\n` +
+                                  `🎟️ <b>رمز الكود:</b> <code>${inputCode}</code>\n` +
+                                  `🎁 <b>النقاط المضافة:</b> +${addedPoints} نقطة\n` +
+                                  `💰 <b>رصيدك الكلي الآن:</b> ${newTotalPoints} نقطة\n\n` +
+                                  `تم تحديث محفظتك فوراً، ويمكنك نشر إعلاناتك الآن:`, {
+          inline_keyboard: [
+            [{ text: '🚗 اعرض سيارة للبيع مجاناً', callback_data: 'publish_car' }],
+            [{ text: '🚌 انشر خط نقل', callback_data: 'publish_transport' }],
+            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+          ]
+        });
+
         state = {};
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
         return new Response('OK', { status: 200 });
