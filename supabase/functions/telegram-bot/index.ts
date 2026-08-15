@@ -246,6 +246,57 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null)
   }
 }
 
+async function postToTikTok(text: string, photoUrl: string | string[] | null, supabaseClient: any) {
+  if (!photoUrl) return { error: { message: 'الصورة مفقودة' } };
+  
+  try {
+    const { data: authData, error: authError } = await supabaseClient
+      .from('social_integrations')
+      .select('access_token')
+      .eq('platform', 'tiktok')
+      .single();
+      
+    if (authError || !authData?.access_token) {
+      return { error: { message: 'غير مسجل الدخول في تيك توك' } };
+    }
+    
+    const token = authData.access_token;
+    const originalUrls = Array.isArray(photoUrl) ? photoUrl : [photoUrl];
+    
+    const initRes = await fetch('https://open.tiktokapis.com/v2/post/publish/content/init/', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        post_info: {
+          title: text.substring(0, 150),
+          description: text.substring(0, 2200),
+          privacy_level: "SELF_ONLY",
+          disable_duet: false,
+          disable_comment: false,
+          disable_stitch: false,
+          auto_add_music: true
+        },
+        source_info: {
+          source: "PULL_FROM_URL",
+          photo_cover_index: 1,
+          photo_images: originalUrls
+        },
+        post_mode: "DIRECT_POST",
+        media_type: "PHOTO"
+      })
+    });
+    
+    const initData = await initRes.json();
+    return initData;
+  } catch (err: any) {
+    console.error('TikTok Error:', err);
+    return { error: { message: err.message || 'خطأ في الاتصال بتيك توك' } };
+  }
+}
+
 async function deleteFromInstagram(mediaId: string) {
   if (!META_PAGE_ACCESS_TOKEN) return false;
   try {
@@ -532,6 +583,7 @@ serve(async (req) => {
       let publishTelegram = payload.targets ? payload.targets.telegram : true;
       let publishFacebook = payload.targets ? payload.targets.facebook : true;
       let publishInstagram = payload.targets ? payload.targets.instagram : true;
+      let publishTiktok = payload.targets ? payload.targets.tiktok : true;
 
       if (shouldPublish) {
 
@@ -621,6 +673,17 @@ serve(async (req) => {
                syncStatus.instagram = 'success';
             } else {
                syncStatus.instagram = 'failed';
+            }
+          }
+          
+          if (publishTiktok) {
+            const tkData = await postToTikTok(fbIgCaption, fbIgPhotoUrl, supabase);
+            if (tkData && tkData.data && tkData.data.publish_id) {
+               updates.tiktok_post_id = tkData.data.publish_id;
+               syncStatus.tiktok = 'success';
+            } else {
+               syncStatus.tiktok = 'failed';
+               console.error('TikTok Post Failed:', tkData);
             }
           }
           
@@ -728,6 +791,17 @@ serve(async (req) => {
             }
           }
           
+          if (publishTiktok) {
+            const tkData = await postToTikTok(fbIgCaption, fbIgPhotoUrl, supabase);
+            if (tkData && tkData.data && tkData.data.publish_id) {
+               updates.tiktok_post_id = tkData.data.publish_id;
+               syncStatus.tiktok = 'success';
+            } else {
+               syncStatus.tiktok = 'failed';
+               console.error('TikTok Post Failed:', tkData);
+            }
+          }
+          
           updates.sync_status = syncStatus;
 
           if (Object.keys(updates).length > 0) {
@@ -824,6 +898,17 @@ serve(async (req) => {
             } else {
                syncStatus.instagram = 'failed';
                console.error('Instagram Post Failed:', igData);
+            }
+          }
+          
+          if (publishTiktok) {
+            const tkData = await postToTikTok(fbIgCaption, defaultPhotoUrl, supabase);
+            if (tkData && tkData.data && tkData.data.publish_id) {
+               updates.tiktok_post_id = tkData.data.publish_id;
+               syncStatus.tiktok = 'success';
+            } else {
+               syncStatus.tiktok = 'failed';
+               console.error('TikTok Post Failed:', tkData);
             }
           }
           
