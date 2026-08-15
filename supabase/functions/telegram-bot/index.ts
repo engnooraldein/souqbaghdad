@@ -812,6 +812,7 @@ serve(async (req) => {
             } else {
               syncStatus.facebook = 'failed';
               console.error('Facebook Post Failed:', fbData);
+              await sendTelegramMessage(ADMIN_CHAT_ID, `❌ فشل النشر على فيسبوك\nالإعلان: ${record.id}\nالسبب:\n${JSON.stringify(fbData)}`);
             }
           }
           
