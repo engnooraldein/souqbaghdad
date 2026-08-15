@@ -801,8 +801,8 @@ serve(async (req) => {
                               
           const isTransportAd = payload.table === 'transport_ads' || (payload.table === 'ads' && record.category === 'transport');
           const defaultPhotoUrl = isTransportAd 
-            ? 'https://www.souqbaghdad.store/transport-default.jpg' 
-            : 'https://souqbaghdad.store/opengraph.jpg';
+            ? `https://www.souqbaghdad.store/transport-default.jpg?v=${Date.now()}` 
+            : `https://souqbaghdad.store/opengraph.jpg?v=${Date.now()}`;
           
           if (publishFacebook) {
             const fbData = await postToFacebook(fbIgCaption, defaultPhotoUrl);
