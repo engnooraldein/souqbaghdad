@@ -62,17 +62,26 @@ serve(async (req) => {
     }
 
     const data = await response.json();
+
+    if (data.candidates?.[0]?.finishReason === 'SAFETY') {
+      return new Response(JSON.stringify({ isSafe: false, reason: "الصورة تحتوي على محتوى مخالف لشروط السلامة وتم حظرها بواسطة النظام." }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     let textResult = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     
     // Clean up potential markdown formatting in JSON response
-    textResult = textResult.replace(/```json/g, '').replace(/```/g, '').trim();
+    textResult = textResult.replace(/```json/gi, '').replace(/```/g, '').trim();
     
-    let result = { isSafe: true, reason: "" };
-    try {
-      result = JSON.parse(textResult);
-    } catch (e) {
-      console.warn("Could not parse Gemini response as JSON:", textResult);
-      // If we can't parse it but it didn't crash, we'll assume safe to not block users erroneously
+    let result = { isSafe: false, reason: "فشل في تحليل محتوى الصورة." };
+    if (textResult) {
+      try {
+        result = JSON.parse(textResult);
+      } catch (e) {
+        console.warn("Could not parse Gemini response as JSON:", textResult);
+        result = { isSafe: true, reason: "" }; // Allow if it was just a weirdly formatted text that didn't trip safety
+      }
     }
 
     return new Response(JSON.stringify(result), {
