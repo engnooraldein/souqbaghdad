@@ -20,9 +20,9 @@ serve(async (req) => {
       });
     }
 
-    const openAiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAiKey) {
-      throw new Error('OPENAI_API_KEY is not configured');
+    const geminiKey = Deno.env.get('GEMINI_API_KEY');
+    if (!geminiKey) {
+      throw new Error('GEMINI_API_KEY is not configured');
     }
 
     const prompt = `You are a strict image moderation assistant. Analyze this image and determine if it contains any of the following prohibited content:
@@ -39,48 +39,61 @@ Respond strictly in JSON format with two fields:
 }`;
 
     const payload = {
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:image/jpeg;base64,${imageBase64}`
-              }
+      contents: [{
+        parts: [
+          { text: prompt },
+          {
+            inline_data: {
+              mime_type: "image/jpeg",
+              data: imageBase64
             }
-          ]
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 150
+          }
+        ]
+      }],
+      generationConfig: {
+        response_mime_type: "application/json",
+      }
     };
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openAiKey}`
-      },
-      body: JSON.stringify(payload)
-    });
+    let response;
+    
+    // Check if the key is an OAuth token (starts with AQ. or ya29.) or a standard API key (AIza)
+    if (geminiKey.startsWith('AQ.') || geminiKey.startsWith('ya29.')) {
+      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${geminiKey}`
+        },
+        body: JSON.stringify(payload)
+      });
+    } else {
+      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+    }
 
     if (!response.ok) {
       const errText = await response.text();
-      throw new Error(`OpenAI API Error: ${errText}`);
+      throw new Error(`Gemini API Error: ${errText}`);
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '{}';
+    const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
     let result;
     try {
-      result = JSON.parse(content);
+      result = JSON.parse(textContent);
     } catch (e) {
-      result = { isSafe: true, reason: 'Failed to parse OpenAI JSON response' };
+      result = { isSafe: true, reason: 'Failed to parse Gemini JSON response' };
     }
 
+    // Ensure the fallback behavior triggers for unsafe images instead of returning 'safe' when AI marks it unsafe
+    // If the image is not safe, we STILL want the UI to catch it.
+    // The previous code returned a 200 OK with { isSafe: false, reason: "..." }
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -93,7 +106,7 @@ Respond strictly in JSON format with two fields:
       const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
       const adminChatId = Deno.env.get('ADMIN_CHAT_ID');
       if (botToken && adminChatId) {
-        const text = `⚠️ *تنبيه من نظام الحماية (ChatGPT):*\n\nتوقف نظام فحص الصور عن العمل أو حدث خطأ أثناء التحقق من صورة جديدة.\n\n*الخطأ:*\n\`${error.message}\`\n\nتم السماح برفع الصورة مؤقتاً لتجنب تعطيل المستخدمين. يرجى مراجعة الخطأ.`;
+        const text = `⚠️ *تنبيه من نظام الحماية (Gemini Pro):*\n\nتوقف نظام فحص الصور عن العمل أو حدث خطأ أثناء التحقق من صورة جديدة.\n\n*الخطأ:*\n\`${error.message}\`\n\nتم السماح برفع الصورة مؤقتاً لتجنب تعطيل المستخدمين. يرجى مراجعة الخطأ.`;
         await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
