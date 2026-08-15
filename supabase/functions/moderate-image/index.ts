@@ -51,7 +51,7 @@ serve(async (req) => {
       }
     };
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -93,8 +93,8 @@ serve(async (req) => {
     
     // SEND TELEGRAM ALERT ON FAILURE
     const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN') || '';
-    // Notify the product channel or fallback if not provided
-    const notifyChannel = Deno.env.get('PRODUCT_CHANNEL_ID') || '@souqbaghdad_iq'; 
+    // Notify the admin directly, do NOT use public channels for error logs
+    const notifyChannel = Deno.env.get('ADMIN_CHAT_ID'); 
     if (botToken && notifyChannel) {
       const tgUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
       const msg = `⚠️ <b>تنبيه من نظام الحماية (Gemini):</b>\n\nتوقف نظام فحص الصور عن العمل أو حدث خطأ أثناء التحقق من صورة جديدة.\n\n<b>الخطأ:</b>\n<code>${error.message}</code>\n\n<i>تم السماح برفع الصورة مؤقتاً لتجنب تعطيل المستخدمين. يرجى مراجعة الخطأ.</i>`;
