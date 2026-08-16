@@ -100,6 +100,10 @@ const META_IG_ACCOUNT_ID = Deno.env.get('META_IG_ACCOUNT_ID') || '';
 const THREADS_USER_ID = Deno.env.get('THREADS_USER_ID') || '28119436894335542';
 const THREADS_ACCESS_TOKEN = Deno.env.get('THREADS_ACCESS_TOKEN') || '';
 
+const ALRAFDAIN_FB_TOKEN = Deno.env.get('ALRAFDAIN_FB_TOKEN') || '';
+const ALRAFDAIN_FB_PAGE_ID = Deno.env.get('ALRAFDAIN_FB_PAGE_ID') || '';
+const ALRAFDAIN_IG_ID = Deno.env.get('ALRAFDAIN_IG_ID') || '';
+
 async function postToThreads(text: string, photoUrl: string | string[] | null) {
   if (!THREADS_ACCESS_TOKEN || !THREADS_USER_ID) return { error: { message: 'رمز الوصول لـ Threads مفقود أو غير صالح' } };
   try {
@@ -134,18 +138,20 @@ async function postToThreads(text: string, photoUrl: string | string[] | null) {
   }
 }
 
-async function postToFacebook(text: string, photoUrl: string | string[] | null) {
-  if (!META_PAGE_ACCESS_TOKEN || !META_PAGE_ID) return { error: { message: 'رمز الوصول لفيسبوك مفقود أو غير صالح' } };
+async function postToFacebook(text: string, photoUrl: string | string[] | null, customToken?: string, customPageId?: string) {
+  const token = customToken || META_PAGE_ACCESS_TOKEN;
+  const pageId = customPageId || META_PAGE_ID;
+  if (!token || !pageId) return { error: { message: 'رمز الوصول لفيسبوك مفقود أو غير صالح' } };
   try {
     const urls = Array.isArray(photoUrl) ? photoUrl : (photoUrl ? [photoUrl] : []);
     
     if (urls.length > 1) {
       const attachedMedia = [];
       for (const url of urls) {
-        const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${META_PAGE_ID}/photos`, {
+        const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: url, published: false, access_token: META_PAGE_ACCESS_TOKEN })
+          body: JSON.stringify({ url: url, published: false, access_token: token })
         });
         const uploadData = await uploadRes.json();
         if (uploadData && uploadData.id) {
@@ -154,10 +160,10 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null) 
       }
       
       if (attachedMedia.length > 0) {
-        const res = await fetch(`https://graph.facebook.com/v20.0/${META_PAGE_ID}/feed`, {
+        const res = await fetch(`https://graph.facebook.com/v20.0/${pageId}/feed`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text, attached_media: attachedMedia, access_token: META_PAGE_ACCESS_TOKEN })
+          body: JSON.stringify({ message: text, attached_media: attachedMedia, access_token: token })
         });
         const data = await res.json();
         if (data.error) console.error('FB API Error:', data.error);
@@ -167,12 +173,12 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null) 
 
     const singleUrl = urls.length > 0 ? urls[0] : null;
     const url = singleUrl 
-      ? `https://graph.facebook.com/v20.0/${META_PAGE_ID}/photos`
-      : `https://graph.facebook.com/v20.0/${META_PAGE_ID}/feed`;
+      ? `https://graph.facebook.com/v20.0/${pageId}/photos`
+      : `https://graph.facebook.com/v20.0/${pageId}/feed`;
       
-    let body: any = { message: text, access_token: META_PAGE_ACCESS_TOKEN };
+    let body: any = { message: text, access_token: token };
     if (singleUrl) {
-      body = { caption: text, url: singleUrl, access_token: META_PAGE_ACCESS_TOKEN };
+      body = { caption: text, url: singleUrl, access_token: token };
     }
     
     const res = await fetch(url, {
@@ -201,6 +207,41 @@ async function deleteFromFacebook(postId: string) {
   } catch (err) {
     console.error('FB Delete Error:', err);
     return false;
+  }
+}
+
+async function postToInstagramStory(photoUrl: string, igAccountId: string, accessToken: string) {
+  if (!accessToken || !igAccountId || !photoUrl) return { error: { message: 'رمز الوصول لانستكرام أو الصورة مفقودة' } };
+  try {
+    const uploadBody = {
+      image_url: photoUrl,
+      media_type: 'STORIES',
+      access_token: accessToken
+    };
+    const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${igAccountId}/media`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(uploadBody)
+    });
+    const uploadData = await uploadRes.json();
+    
+    if (uploadData && uploadData.id) {
+       await new Promise(resolve => setTimeout(resolve, 5000));
+       const publishBody = {
+         creation_id: uploadData.id,
+         access_token: accessToken
+       };
+       const publishRes = await fetch(`https://graph.facebook.com/v20.0/${igAccountId}/media_publish`, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify(publishBody)
+       });
+       return await publishRes.json();
+    }
+    return uploadData;
+  } catch (err: any) {
+    console.error('IG Story Fetch Error:', err);
+    return { error: { message: err.message || 'خطأ في الاتصال بانستكرام' } };
   }
 }
 
@@ -1277,10 +1318,22 @@ serve(async (req) => {
             ? await generateSocialCaption({ ...record, ...desc }, 'transport', link)
             : '';
                                         
+          const isAlRafdain = 
+            (record.university && record.university.includes('الرافدين')) || 
+            (record.city && record.city.includes('الرافدين')) || 
+            (desc?.targetAudience && desc.targetAudience.includes('الرافدين')) ||
+            (record.destination && record.destination.includes('الرافدين'));
+
           const defaultPhotoUrl = `https://www.souqbaghdad.store/transport-default.jpg?v=${Date.now()}`;
           
           if (publishFacebook) {
-            const fbData = await postToFacebook(fbIgCaption, defaultPhotoUrl);
+            let fbData;
+            if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
+              fbData = await postToFacebook(fbIgCaption, defaultPhotoUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID);
+            } else {
+              fbData = await postToFacebook(fbIgCaption, defaultPhotoUrl);
+            }
+            
             if (fbData && (fbData.post_id || fbData.id)) {
               updates.facebook_post_id = fbData.post_id || fbData.id;
               syncStatus.facebook = 'success';
@@ -1288,7 +1341,13 @@ serve(async (req) => {
           }
           
           if (publishInstagram) {
-            const igData = await postToInstagram(fbIgCaption, defaultPhotoUrl);
+            let igData;
+            if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_IG_ID) {
+              igData = await postToInstagramStory(defaultPhotoUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
+            } else {
+              igData = await postToInstagram(fbIgCaption, defaultPhotoUrl);
+            }
+            
             if (igData && (igData.id || igData.media_id)) {
                updates.instagram_post_id = igData.id || igData.media_id;
                syncStatus.instagram = 'success';

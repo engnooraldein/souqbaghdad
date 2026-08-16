@@ -10,6 +10,18 @@ const META_VERIFY_TOKEN = Deno.env.get("META_VERIFY_TOKEN") || Deno.env.get("FB_
 const META_PAGE_ID = Deno.env.get("META_PAGE_ID") || "";
 const META_IG_ACCOUNT_ID = Deno.env.get("META_IG_ACCOUNT_ID") || "";
 
+const ALRAFDAIN_FB_TOKEN = Deno.env.get("ALRAFDAIN_FB_TOKEN") || "";
+const ALRAFDAIN_FB_PAGE_ID = Deno.env.get("ALRAFDAIN_FB_PAGE_ID") || "102975411515668";
+const ALRAFDAIN_IG_ID = Deno.env.get("ALRAFDAIN_IG_ID") || "17841404181680155";
+
+function resolveAccessToken(entryId: string) {
+  if ((ALRAFDAIN_FB_PAGE_ID && entryId === ALRAFDAIN_FB_PAGE_ID) || 
+      (ALRAFDAIN_IG_ID && entryId === ALRAFDAIN_IG_ID)) {
+    return ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
+  }
+  return META_PAGE_ACCESS_TOKEN;
+}
+
 // بيانات تيليكرام للتنبيهات
 const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || Deno.env.get("BOT_TOKEN") || "";
 const ADMIN_CHAT_ID = Deno.env.get("ADMIN_CHAT_ID") || "777557036";
@@ -17,12 +29,12 @@ const ADMIN_CHAT_ID = Deno.env.get("ADMIN_CHAT_ID") || "777557036";
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // ── 1. إرسال رسالة نصية (Facebook Messenger / Instagram DM) ──
-const sendMetaMessage = async (recipientId: string, text: string) => {
-  if (!META_PAGE_ACCESS_TOKEN) {
-    console.error("META_PAGE_ACCESS_TOKEN is missing!");
+const sendMetaMessage = async (recipientId: string, text: string, token: string) => {
+  if (!token) {
+    console.error("Access token is missing!");
     return;
   }
-  const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(META_PAGE_ACCESS_TOKEN)}`;
+  const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(token)}`;
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -43,9 +55,9 @@ const sendMetaMessage = async (recipientId: string, text: string) => {
 };
 
 // ── 2. الرد على تعليق في فيسبوك (Facebook Comment Reply) ──
-const replyToFacebookComment = async (commentId: string, message: string) => {
-  if (!META_PAGE_ACCESS_TOKEN) return;
-  const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(commentId)}/comments?access_token=${encodeURIComponent(META_PAGE_ACCESS_TOKEN)}`;
+const replyToFacebookComment = async (commentId: string, message: string, token: string) => {
+  if (!token) return;
+  const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(commentId)}/comments?access_token=${encodeURIComponent(token)}`;
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -63,9 +75,9 @@ const replyToFacebookComment = async (commentId: string, message: string) => {
 };
 
 // ── 3. الرد على تعليق في إنستغرام (Instagram Comment Reply) ──
-const replyToInstagramComment = async (commentId: string, message: string) => {
-  if (!META_PAGE_ACCESS_TOKEN) return;
-  const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(commentId)}/replies?access_token=${encodeURIComponent(META_PAGE_ACCESS_TOKEN)}`;
+const replyToInstagramComment = async (commentId: string, message: string, token: string) => {
+  if (!token) return;
+  const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(commentId)}/replies?access_token=${encodeURIComponent(token)}`;
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -83,11 +95,11 @@ const replyToInstagramComment = async (commentId: string, message: string) => {
 };
 
 // ── 4. إرسال رد خاص لصاحب التعليق (Private Reply) ──
-const sendPrivateReplyToComment = async (commentId: string, text: string, isInstagram: boolean) => {
-  if (!META_PAGE_ACCESS_TOKEN) return;
+const sendPrivateReplyToComment = async (commentId: string, text: string, isInstagram: boolean, token: string) => {
+  if (!token) return;
   try {
     if (isInstagram) {
-      const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(META_PAGE_ACCESS_TOKEN)}`;
+      const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(token)}`;
       await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -97,7 +109,7 @@ const sendPrivateReplyToComment = async (commentId: string, text: string, isInst
         })
       });
     } else {
-      const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(commentId)}/private_replies?access_token=${encodeURIComponent(META_PAGE_ACCESS_TOKEN)}`;
+      const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(commentId)}/private_replies?access_token=${encodeURIComponent(token)}`;
       await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -183,6 +195,7 @@ serve(async (req) => {
       if (isPage || isInstagram) {
         for (const entry of (body.entry || [])) {
           const entryId = entry.id;
+          const currentToken = resolveAccessToken(entryId);
 
           // ── أ. معالجة الرسائل الخاصة (Direct Messages & Messenger) ──
           if (entry.messaging && Array.isArray(entry.messaging)) {
@@ -204,7 +217,7 @@ serve(async (req) => {
                 const aiData = await getAIReply("process_message", platform, userText, senderId);
 
                 if (aiData?.reply) {
-                  await sendMetaMessage(senderId, aiData.reply);
+                  await sendMetaMessage(senderId, aiData.reply, currentToken);
                 }
 
                 // إذا كان هناك نتائج بحث ذات صلة
@@ -213,7 +226,8 @@ serve(async (req) => {
                     const itemUrl = `https://www.souqbaghdad.store/product/${item.short_id || item.id}`;
                     await sendMetaMessage(
                       senderId,
-                      `📌 ${item.title}\n💰 السعر: ${item.price} د.ع\n📍 ${item.location || 'بغداد'}\n🔗 ${itemUrl}`
+                      `📌 ${item.title}\n💰 السعر: ${item.price} د.ع\n📍 ${item.location || 'بغداد'}\n🔗 ${itemUrl}`,
+                      currentToken
                     );
                   }
                 }
@@ -252,9 +266,9 @@ serve(async (req) => {
 
                 // 2. نشر الرد على التعليق
                 if (isInstagram) {
-                  await replyToInstagramComment(commentId, replyText);
+                  await replyToInstagramComment(commentId, replyText, currentToken);
                 } else {
-                  await replyToFacebookComment(commentId, replyText);
+                  await replyToFacebookComment(commentId, replyText, currentToken);
                 }
 
                 // 3. إرسال رابط المنصة والتفاصيل على الخاص دائماً
@@ -262,10 +276,15 @@ serve(async (req) => {
                 const isGeneralPraise = ["ما شاء الله", "حلو", "بالتوفيق", "منورين", "تبارك"].some(k => cleanComment.includes(k)) && cleanComment.length < 20;
                 
                 if (!isGeneralPraise) {
+                  let pmText = "يا هلا بيك عيوني 👋 إليك الرابط المباشر للتصفح والنشر والتواصل مع البائعين في منصة سوق بغداد: https://www.souqbaghdad.store";
+                  if (entryId === ALRAFDAIN_FB_PAGE_ID || entryId === ALRAFDAIN_IG_ID) {
+                     pmText = "أهلاً بك في كلية الرافدين الجامعة 🎓 يسعدنا تواصلك معنا، لمزيد من التفاصيل ومعرفة الخطوط المتاحة تفضل بزيارة موقعنا: https://www.souqbaghdad.store/transport";
+                  }
                   await sendPrivateReplyToComment(
                     commentId,
-                    "يا هلا بيك عيوني 👋 إليك الرابط المباشر للتصفح والنشر والتواصل مع البائعين في منصة سوق بغداد: https://www.souqbaghdad.store",
-                    isInstagram
+                    pmText,
+                    isInstagram,
+                    currentToken
                   );
                 }
 
