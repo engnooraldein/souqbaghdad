@@ -1318,11 +1318,13 @@ serve(async (req) => {
             ? await generateSocialCaption({ ...record, ...desc }, 'transport', link)
             : '';
                                         
-          const isAlRafdain = 
-            (record.university && record.university.includes('الرافدين')) || 
-            (record.city && record.city.includes('الرافدين')) || 
-            (desc?.targetAudience && desc.targetAudience.includes('الرافدين')) ||
-            (record.destination && record.destination.includes('الرافدين'));
+          const rafdainTerms = ['الرافدين', 'الرفدين'];
+          const isAlRafdain = rafdainTerms.some(term => 
+            (record.university && record.university.includes(term)) || 
+            (record.city && record.city.includes(term)) || 
+            (desc?.targetAudience && desc.targetAudience.includes(term)) ||
+            (record.destination && record.destination.includes(term))
+          );
 
           const defaultPhotoUrl = `https://www.souqbaghdad.store/transport-default.jpg?v=${Date.now()}`;
           
