@@ -163,7 +163,7 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSocialPublishing, setIsSocialPublishing] = useState<string|null>(null);
   const [publishModalItem, setPublishModalItem] = useState<{id: string, type: 'product'|'ad'|'transport', record: any} | null>(null);
-  const [publishTargets, setPublishTargets] = useState({ facebook: true, instagram: true, telegram: true, tiktok: true, threads: true });
+  const [publishTargets, setPublishTargets] = useState({ facebook: true, facebookPage: 'souqbaghdad', instagram: true, instagramPage: 'souqbaghdad', telegram: true, tiktok: true, threads: true });
   const [lastSyncDate, setLastSyncDate] = useState(() => localStorage.getItem('owner_sync_date') || 'غير مزامن');
 
   const syncAll = async () => {
@@ -1461,14 +1461,43 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
               <h3 className="text-white font-bold text-lg mb-4 text-center">خيارات النشر 🌍</h3>
               
               <div className="space-y-3 mb-6">
-                <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer hover:bg-gray-750 transition">
-                  <input type="checkbox" checked={publishTargets.facebook} onChange={e=>setPublishTargets(prev=>({...prev, facebook: e.target.checked}))} className="w-5 h-5 accent-blue-500" />
-                  <span className="text-gray-200 font-medium">فيسبوك (Facebook)</span>
-                </label>
-                <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer hover:bg-gray-750 transition">
-                  <input type="checkbox" checked={publishTargets.instagram} onChange={e=>setPublishTargets(prev=>({...prev, instagram: e.target.checked}))} className="w-5 h-5 accent-pink-500" />
-                  <span className="text-gray-200 font-medium">انستغرام (Instagram)</span>
-                </label>
+                <div className="space-y-1">
+                  <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer hover:bg-gray-750 transition">
+                    <input type="checkbox" checked={publishTargets.facebook} onChange={e=>setPublishTargets(prev=>({...prev, facebook: e.target.checked}))} className="w-5 h-5 accent-blue-500" />
+                    <span className="text-gray-200 font-medium">فيسبوك (Facebook)</span>
+                  </label>
+                  {publishTargets.facebook && (
+                    <div className="mr-8 pr-3 border-r-2 border-gray-700">
+                      <select 
+                        value={publishTargets.facebookPage} 
+                        onChange={e=>setPublishTargets(prev=>({...prev, facebookPage: e.target.value}))}
+                        className="bg-gray-800 text-sm text-gray-300 p-2 rounded-lg border border-gray-600 outline-none w-full"
+                      >
+                        <option value="souqbaghdad">صفحة سوق بغداد (الافتراضي)</option>
+                        <option value="alrafdain">صفحة كلية الرافدين</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer hover:bg-gray-750 transition">
+                    <input type="checkbox" checked={publishTargets.instagram} onChange={e=>setPublishTargets(prev=>({...prev, instagram: e.target.checked}))} className="w-5 h-5 accent-pink-500" />
+                    <span className="text-gray-200 font-medium">انستغرام (Instagram)</span>
+                  </label>
+                  {publishTargets.instagram && (
+                    <div className="mr-8 pr-3 border-r-2 border-gray-700">
+                      <select 
+                        value={publishTargets.instagramPage} 
+                        onChange={e=>setPublishTargets(prev=>({...prev, instagramPage: e.target.value}))}
+                        className="bg-gray-800 text-sm text-gray-300 p-2 rounded-lg border border-gray-600 outline-none w-full"
+                      >
+                        <option value="souqbaghdad">صفحة سوق بغداد (الافتراضي)</option>
+                        <option value="alrafdain">صفحة كلية الرافدين (ستوري)</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
                 <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer hover:bg-gray-750 transition">
                   <input type="checkbox" checked={publishTargets.threads} onChange={e=>setPublishTargets(prev=>({...prev, threads: e.target.checked}))} className="w-5 h-5 accent-emerald-500" />
                   <span className="text-gray-200 font-medium">ثريدز (Threads) 🧵</span>

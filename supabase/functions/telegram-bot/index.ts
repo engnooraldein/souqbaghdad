@@ -942,6 +942,9 @@ serve(async (req) => {
       let publishInstagram = payload.targets ? payload.targets.instagram : true;
       let publishTiktok = payload.targets ? payload.targets.tiktok : true;
       let publishThreads = payload.targets ? payload.targets.threads : true;
+      
+      let forceFacebookPage = payload.targets ? payload.targets.facebookPage : null;
+      let forceInstagramPage = payload.targets ? payload.targets.instagramPage : null;
 
       if (shouldPublish) {
         // --- 1. CAR ADS (VEHICLES) ---
@@ -1325,12 +1328,15 @@ serve(async (req) => {
             (desc?.targetAudience && desc.targetAudience.includes(term)) ||
             (record.destination && record.destination.includes(term))
           );
+          
+          const useAlRafdainFb = forceFacebookPage ? (forceFacebookPage === 'alrafdain') : isAlRafdain;
+          const useAlRafdainIg = forceInstagramPage ? (forceInstagramPage === 'alrafdain') : isAlRafdain;
 
           const defaultPhotoUrl = `https://www.souqbaghdad.store/transport-default.jpg?v=${Date.now()}`;
           
           if (publishFacebook) {
             let fbData;
-            if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
+            if (useAlRafdainFb && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
               fbData = await postToFacebook(fbIgCaption, defaultPhotoUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID);
             } else {
               fbData = await postToFacebook(fbIgCaption, defaultPhotoUrl);
@@ -1344,7 +1350,7 @@ serve(async (req) => {
           
           if (publishInstagram) {
             let igData;
-            if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_IG_ID) {
+            if (useAlRafdainIg && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_IG_ID) {
               igData = await postToInstagramStory(defaultPhotoUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
             } else {
               igData = await postToInstagram(fbIgCaption, defaultPhotoUrl);
