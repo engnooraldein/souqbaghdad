@@ -214,6 +214,33 @@ serve(async (req) => {
 
                 console.log(`[${platform} DM] From: ${senderId}, Text: "${userText}"`);
 
+                // ── معالجة الردود على الستوري ──
+                let storyId = null;
+                if (messagingEvent.message.reply_to && messagingEvent.message.reply_to.story) {
+                  storyId = messagingEvent.message.reply_to.story.id;
+                }
+                
+                if (storyId) {
+                  console.log(`[Story Reply] Story ID: ${storyId}`);
+                  const { data: adRecord } = await supabase
+                    .from('ads')
+                    .select('id, short_id, title, category, description, university, destination')
+                    .eq('instagram_post_id', storyId)
+                    .single();
+                  
+                  if (adRecord) {
+                    const itemUrl = `https://www.souqbaghdad.store/ad/${adRecord.short_id || adRecord.id}`;
+                    let details = adRecord.title;
+                    if (adRecord.category === 'transport') {
+                      details = `خط نقل: ${adRecord.university || ''} - ${adRecord.destination || ''}`;
+                    }
+                    const replyText = `أهلاً بك!\nبخصوص الإعلان الذي استفسرت عنه في الستوري (${details})، تفضل هذا الرابط المباشر للإعلان للتواصل مع المعلن:\n🔗 ${itemUrl}`;
+                    
+                    await sendMetaMessage(senderId, replyText, currentToken);
+                    continue; // تجاوز الذكاء الاصطناعي لأننا ردينا بالفعل
+                  }
+                }
+
                 const aiData = await getAIReply("process_message", platform, userText, senderId);
 
                 if (aiData?.reply) {

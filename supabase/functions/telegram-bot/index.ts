@@ -1351,7 +1351,8 @@ serve(async (req) => {
           if (publishInstagram) {
             let igData;
             if (useAlRafdainIg && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_IG_ID) {
-              igData = await postToInstagramStory(defaultPhotoUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
+              const storyPhotoUrl = `https://www.souqbaghdad.store/transport-story-rafdain.jpg?v=${Date.now()}`;
+              igData = await postToInstagramStory(storyPhotoUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
             } else {
               igData = await postToInstagram(fbIgCaption, defaultPhotoUrl);
             }
