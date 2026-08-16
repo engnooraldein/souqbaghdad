@@ -1334,6 +1334,11 @@ serve(async (req) => {
 
           const defaultPhotoUrl = `https://www.souqbaghdad.store/transport-default.jpg?v=${Date.now()}`;
           
+          // Generate a dynamic story image for Instagram if it's Al-Rafidain
+          const storyImageUrl = useAlRafdainIg 
+            ? `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?title=${encodeURIComponent('خط نقل: ' + (record.university || ''))}&details=${encodeURIComponent(record.destination || '')}`
+            : defaultPhotoUrl;
+          
           if (publishFacebook) {
             let fbData;
             if (useAlRafdainFb && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
@@ -1351,7 +1356,7 @@ serve(async (req) => {
           if (publishInstagram) {
             let igData;
             if (useAlRafdainIg && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_IG_ID) {
-              igData = await postToInstagramStory(defaultPhotoUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
+              igData = await postToInstagramStory(storyImageUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
             } else {
               igData = await postToInstagram(fbIgCaption, defaultPhotoUrl);
             }
