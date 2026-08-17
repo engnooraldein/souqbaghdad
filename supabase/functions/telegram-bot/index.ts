@@ -1405,11 +1405,37 @@ serve(async (req) => {
 
           const replyMarkup = { inline_keyboard: inlineKeyboard };
                       
+          const cleanTitle = 'خط نقل جديد في بغداد';
+          const cleanSubtitle = (record.university || record.city || 'كلية الرافدين').replace(/<[^>]*>?/gm, '').trim();
+          const cleanSubdesc = `${catType} (${targetStr})`.replace(/<[^>]*>?/gm, '').trim();
+          
+          // Pure regions text without HTML tags
+          const rawReg = record.regions || record.location || 'بغداد';
+          const cleanRegions = rawReg.replace(/<[^>]*>?/gm, '').replace(/&lt;.*?&gt;/gm, '').trim();
+          const cleanDestination = (record.city || record.university || 'كلية الرافدين').replace(/<[^>]*>?/gm, '').trim();
+          
+          // Format fare accurately (match 100,000 د.ع)
+          let cleanFare = 'حسب الاتفاق';
+          if (record.price) {
+            const rawNum = String(record.price).replace(/[^0-9]/g, '');
+            if (rawNum && Number(rawNum) > 0) {
+              cleanFare = `${Number(rawNum).toLocaleString('en-US')} د.ع`;
+            } else if (typeof record.price === 'string' && record.price.trim()) {
+              cleanFare = record.price.trim();
+            }
+          } else if (record.fare) {
+            cleanFare = record.fare;
+          }
+
+          // Dynamic Programmatic Templates (1080x1350 Post & 1080x1920 Story)
+          const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
+          const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
+
           let res;
           if (publishTelegram) {
             const transportPhoto = (record.images && Array.isArray(record.images) && record.images.length > 0)
               ? record.images[0]
-              : (record.image_url || 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=1000');
+              : dynamicPostUrl;
             // Send exclusively to the dedicated transport lines channel (once)
             const targetLinesChannel = LINES_CHANNEL_ID || LINES_CHANNEL;
             res = await sendPhoto(targetLinesChannel, transportPhoto, msg, replyMarkup);
@@ -1436,32 +1462,6 @@ serve(async (req) => {
           
           const useAlRafdainFb = forceFacebookPage ? (forceFacebookPage === 'alrafdain') : isAlRafdain;
           const useAlRafdainIg = forceInstagramPage ? (forceInstagramPage === 'alrafdain') : isAlRafdain;
-
-          const cleanTitle = 'خط نقل جديد في بغداد';
-          const cleanSubtitle = (record.university || record.city || 'كلية الرافدين').replace(/<[^>]*>?/gm, '').trim();
-          const cleanSubdesc = `${catType} (${targetStr})`.replace(/<[^>]*>?/gm, '').trim();
-          
-          // Pure regions text without HTML tags
-          const rawReg = record.regions || record.location || 'بغداد';
-          const cleanRegions = rawReg.replace(/<[^>]*>?/gm, '').replace(/&lt;.*?&gt;/gm, '').trim();
-          const cleanDestination = (record.city || record.university || 'كلية الرافدين').replace(/<[^>]*>?/gm, '').trim();
-          
-          // Format fare accurately (match 100,000 د.ع)
-          let cleanFare = 'حسب الاتفاق';
-          if (record.price) {
-            const rawNum = String(record.price).replace(/[^0-9]/g, '');
-            if (rawNum && Number(rawNum) > 0) {
-              cleanFare = `${Number(rawNum).toLocaleString('en-US')} د.ع`;
-            } else if (typeof record.price === 'string' && record.price.trim()) {
-              cleanFare = record.price.trim();
-            }
-          } else if (record.fare) {
-            cleanFare = record.fare;
-          }
-
-          // Dynamic Programmatic Templates (1080x1350 Post & 1080x1920 Story)
-          const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
-          const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
           
           if (publishFacebook) {
             let fbData;
