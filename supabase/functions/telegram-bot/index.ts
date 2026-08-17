@@ -2374,81 +2374,102 @@ serve(async (req) => {
         }
 
         // Auto publish to Telegram channels and Socials with dynamic template
-        try {
-          const typeStr = state.data.type === 'offer' ? '🚗 أوفر خط نقل (سائق)' : '🙋‍♂️ أبحث عن خط نقل (مطلوب)';
-          const catType = state.data.categoryType === 'employee' ? '💼 خط موظفين' : (state.data.categoryType === 'emergency' ? '🚨 نقل خاص' : '🎓 خط طلاب');
-          const targetStr = state.data.targetAudience || 'الجميع';
-          const link = `https://www.souqbaghdad.store/transport/card/${shortId}`;
-          const cleanTitle = 'خط نقل جديد في بغداد';
-          const cleanSubtitle = (state.data.destination || 'كلية الرافدين الجامعة').replace(/<[^>]*>?/gm, '').trim();
-          const cleanSubdesc = `${catType} (${targetStr})`.replace(/<[^>]*>?/gm, '').trim();
-          const cleanRegions = (state.data.regions || 'بغداد').replace(/<[^>]*>?/gm, '').trim();
-          const cleanDestination = (state.data.destination || 'كلية الرافدين الجامعة').replace(/<[^>]*>?/gm, '').trim();
-          const cleanFare = formatTgPrice(state.data.price);
+        const typeStr = state.data.type === 'offer' ? '🚗 أوفر خط نقل (سائق)' : '🙋‍♂️ أبحث عن خط نقل (مطلوب)';
+        const catType = state.data.categoryType === 'employee' ? '💼 خط موظفين' : (state.data.categoryType === 'emergency' ? '🚨 نقل خاص' : '🎓 خط طلاب');
+        const targetStr = state.data.targetAudience || 'الجميع';
+        const link = `https://www.souqbaghdad.store/transport/card/${shortId}`;
+        const cleanTitle = 'خط نقل جديد في بغداد';
+        const cleanSubtitle = (state.data.destination || 'كلية الرافدين الجامعة').replace(/<[^>]*>?/gm, '').trim();
+        const cleanSubdesc = `${catType} (${targetStr})`.replace(/<[^>]*>?/gm, '').trim();
+        const cleanRegions = (state.data.regions || 'بغداد').replace(/<[^>]*>?/gm, '').trim();
+        const cleanDestination = (state.data.destination || 'كلية الرافدين الجامعة').replace(/<[^>]*>?/gm, '').trim();
+        const cleanFare = formatTgPrice(state.data.price);
 
-          const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}`;
-          const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}`;
+        const isAlRafdain = ['الرافدين', 'الرفدين'].some(term => cleanDestination.includes(term) || targetStr.includes(term));
+        const channelLink = isAlRafdain && ALRAFDAIN_TELEGRAM_CHANNEL
+          ? `https://t.me/${ALRAFDAIN_TELEGRAM_CHANNEL.replace('@', '')}`
+          : `https://t.me/${LINES_CHANNEL.replace('@', '')}`;
+        
+        const insertedId = insertedTrans.id;
 
-          const cleanPhone = (state.data.phone || phone || '').replace(/[^0-9+]/g, '');
-          let formattedPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
+        // Immediately send success message to user before heavy background tasks
+        await updateOrSend(`🎉 <b>تم نشر إعلان الخط بنجاح!</b>\n\n🚌 <b>${transTitle}</b>\n💰 <b>الأجرة:</b> ${cleanFare}\n📍 <b>المناطق:</b> ${state.data.regions}\n🏢 <b>الوجهة:</b> ${state.data.destination}\n\n📣 <b>الخط معروض الآن في المنصة وقناة خطوط النقل.</b>\nيمكنك إدارة خطك مباشرة عبر الأزرار أدناه:`, {
+          inline_keyboard: [
+            [{ text: '📢 شاهد الخط في القناة', url: channelLink }],
+            [{ text: '💰 تعديل الأجرة', callback_data: `edit_trans_price_${insertedId}` }, { text: '📞 تعديل الهاتف', callback_data: `edit_trans_phone_${insertedId}` }],
+            [{ text: '✅ إغلاق الخط (اكتمل العدد)', callback_data: `solve_trans_${insertedId}` }],
+            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+          ]
+        });
 
-          const contactRow = [];
-          if (formattedPhone) {
-            contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${formattedPhone}` });
-            contactRow.push({ text: '✈️ تواصل تيليكرام', url: `https://t.me/+${formattedPhone}` });
-          }
+        // Reset state so user can do other things
+        state = {};
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-          const channelKeyboard = [
-            [{ text: '🌐 التفاصيل الكاملة وحجز المقعد', url: link }]
-          ];
-          if (contactRow.length > 0) channelKeyboard.push(contactRow);
-          channelKeyboard.push([{ text: '🚌 انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}` }]);
+        // Background task for publishing to channels and social media
+        const publishBackground = async () => {
+          try {
+            const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}`;
+            const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}`;
 
-          const channelMsg = `🚌 <b>إعلان خط نقل جديد — سوق بغداد</b>\n\n` +
-                             `📌 <b>النوع:</b> ${typeStr}\n` +
-                             `🏷️ <b>الفئة:</b> ${catType} (${targetStr})\n` +
-                             `📍 <b>مناطق الانطلاق:</b> ${cleanRegions}\n` +
-                             `🏢 <b>الوجهة:</b> ${cleanDestination}\n` +
-                             `⏰ <b>وقت الدوام:</b> ${state.data.shift || 'صباحي'}\n` +
-                             `🚗 <b>المركبة:</b> ${state.data.vehicleType || 'صالون'} | <b>المقاعد:</b> ${state.data.seats || '4'} مقاعد\n` +
-                             `💰 <b>الأجرة:</b> ${cleanFare}\n` +
-                             (cleanPhone ? `📞 <b>التواصل:</b> ${cleanPhone}\n\n` : `\n`) +
-                             `📣 <b>#رقم_الخط_${shortId}</b> | @${BOT_USERNAME}`;
+            const cleanPhone = (state.data.phone || phone || '').replace(/[^0-9+]/g, '');
+            let formattedPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
 
-          // 1. Post to @souqbaghdad_lines
-          const targetLinesChannel = LINES_CHANNEL_ID || LINES_CHANNEL;
-          const linesRes = await sendPhoto(targetLinesChannel, dynamicPostUrl, channelMsg, { inline_keyboard: channelKeyboard });
-          let tgMsgId: string | null = null;
-          if (linesRes?.ok && linesRes.result?.message_id) {
-            tgMsgId = linesRes.result.message_id.toString();
-          }
-
-          // 2. If it's Al-Rafdain, ALSO post to @ruc_1
-          const isAlRafdain = ['الرافدين', 'الرفدين'].some(term => cleanDestination.includes(term) || (state.data.targetAudience && state.data.targetAudience.includes(term)));
-          let rucMsgId: string | null = null;
-          if (isAlRafdain) {
-            try {
-              const rucRes = await sendPhoto(ALRAFDAIN_TELEGRAM_CHANNEL, dynamicPostUrl, channelMsg, { inline_keyboard: channelKeyboard });
-              if (rucRes?.ok && rucRes.result?.message_id) {
-                rucMsgId = rucRes.result.message_id.toString();
-              }
-            } catch(err) {
-              console.error("Error sending to Al-Rafdain @ruc_1 from bot wizard:", err);
+            const contactRow = [];
+            if (formattedPhone) {
+              contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${formattedPhone}` });
+              contactRow.push({ text: '✈️ تواصل تيليكرام', url: `https://t.me/+${formattedPhone}` });
             }
-          }
 
-          // Save telegram_message_id to prevent DB webhook from publishing again (dedup)
-          if (tgMsgId) {
-            const syncStatus: any = { telegram: 'success', facebook: 'pending', instagram: 'pending' };
-            if (rucMsgId) syncStatus.ruc_telegram_message_id = rucMsgId;
-            await supabase.from('ads').update({ 
-              telegram_message_id: tgMsgId, 
-              sync_status: syncStatus
-            }).eq('id', insertedTrans.id);
-          }
+            const channelKeyboard = [
+              [{ text: '🌐 التفاصيل الكاملة وحجز المقعد', url: link }]
+            ];
+            if (contactRow.length > 0) channelKeyboard.push(contactRow);
+            channelKeyboard.push([{ text: '🚌 انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}` }]);
 
-          // 3. Social Media (Run in background to prevent Telegram webhook timeout)
-          const postSocialBg = async () => {
+            const channelMsg = `🚌 <b>إعلان خط نقل جديد — سوق بغداد</b>\n\n` +
+                               `📌 <b>النوع:</b> ${typeStr}\n` +
+                               `🏷️ <b>الفئة:</b> ${catType} (${targetStr})\n` +
+                               `📍 <b>مناطق الانطلاق:</b> ${cleanRegions}\n` +
+                               `🏢 <b>الوجهة:</b> ${cleanDestination}\n` +
+                               `⏰ <b>وقت الدوام:</b> ${state.data.shift || 'صباحي'}\n` +
+                               `🚗 <b>المركبة:</b> ${state.data.vehicleType || 'صالون'} | <b>المقاعد:</b> ${state.data.seats || '4'} مقاعد\n` +
+                               `💰 <b>الأجرة:</b> ${cleanFare}\n` +
+                               (cleanPhone ? `📞 <b>التواصل:</b> ${cleanPhone}\n\n` : `\n`) +
+                               `📣 <b>#رقم_الخط_${shortId}</b> | @${BOT_USERNAME}`;
+
+            // 1. Post to @souqbaghdad_lines
+            const targetLinesChannel = LINES_CHANNEL_ID || LINES_CHANNEL;
+            const linesRes = await sendPhoto(targetLinesChannel, dynamicPostUrl, channelMsg, { inline_keyboard: channelKeyboard });
+            let tgMsgId: string | null = null;
+            if (linesRes?.ok && linesRes.result?.message_id) {
+              tgMsgId = linesRes.result.message_id.toString();
+            }
+
+            // 2. If it's Al-Rafdain, ALSO post to @ruc_1
+            let rucMsgId: string | null = null;
+            if (isAlRafdain) {
+              try {
+                const rucRes = await sendPhoto(ALRAFDAIN_TELEGRAM_CHANNEL, dynamicPostUrl, channelMsg, { inline_keyboard: channelKeyboard });
+                if (rucRes?.ok && rucRes.result?.message_id) {
+                  rucMsgId = rucRes.result.message_id.toString();
+                }
+              } catch(err) {
+                console.error("Error sending to Al-Rafdain @ruc_1 from bot wizard:", err);
+              }
+            }
+
+            // Save telegram_message_id to prevent DB webhook from publishing again (dedup)
+            if (tgMsgId) {
+              const syncStatus: any = { telegram: 'success', facebook: 'pending', instagram: 'pending' };
+              if (rucMsgId) syncStatus.ruc_telegram_message_id = rucMsgId;
+              await supabase.from('ads').update({ 
+                telegram_message_id: tgMsgId, 
+                sync_status: syncStatus
+              }).eq('id', insertedTrans.id);
+            }
+
+            // 3. Social Media
             try {
               const fbIgCaption = await generateSocialCaption(insertedTrans, 'transport', link);
               if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
@@ -2465,34 +2486,17 @@ serve(async (req) => {
             } catch (err) {
               console.error("Error auto publishing transport to social media:", err);
             }
-          };
-
-          if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
-            EdgeRuntime.waitUntil(postSocialBg());
-          } else {
-            postSocialBg();
+          } catch(pubErr) {
+            console.error("Error in publishBackground task:", pubErr);
           }
-        } catch(pubErr) {
-          console.error("Error auto publishing transport from bot wizard:", pubErr);
+        };
+
+        if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+          EdgeRuntime.waitUntil(publishBackground());
+        } else {
+          publishBackground();
         }
 
-        const insertedId = insertedTrans.id;
-        // Use channel @username (not numeric ID) for t.me links
-        const channelLink = isAlRafdain && ALRAFDAIN_TELEGRAM_CHANNEL
-          ? `https://t.me/${ALRAFDAIN_TELEGRAM_CHANNEL.replace('@', '')}`
-          : `https://t.me/${LINES_CHANNEL.replace('@', '')}`;
-        const fareStr = formatTgPrice(state.data.price);
-
-        await updateOrSend(`🎉 <b>تم نشر إعلان الخط بنجاح!</b>\n\n🚌 <b>${transTitle}</b>\n💰 <b>الأجرة:</b> ${fareStr}\n📍 <b>المناطق:</b> ${state.data.regions}\n🏢 <b>الوجهة:</b> ${state.data.destination}\n\n📣 <b>الخط معروض الآن في المنصة وقناة خطوط النقل.</b>\nيمكنك إدارة خطك مباشرة عبر الأزرار أدناه:`, {
-          inline_keyboard: [
-            [{ text: '📢 شاهد الخط في القناة', url: channelLink }],
-            [{ text: '💰 تعديل الأجرة', callback_data: `edit_trans_price_${insertedId}` }, { text: '📞 تعديل الهاتف', callback_data: `edit_trans_phone_${insertedId}` }],
-            [{ text: '✅ إغلاق الخط (اكتمل العدد)', callback_data: `solve_trans_${insertedId}` }],
-            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
-          ]
-        });
-        state = {};
-        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
         return new Response('OK', { status: 200 });
       }
 
