@@ -92,17 +92,17 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
 
   // ── Publish Modal (Owner/Admin) ──────────────
   const [publishItem, setPublishItem] = useState<TransportAd|null>(null);
-  const [publishTargets, setPublishTargets] = useState({ facebook: true, facebookPage: 'souqbaghdad', instagram: true, instagramPage: 'souqbaghdad', threads: true, telegram: true, tiktok: false });
+  const [publishTargets, setPublishTargets] = useState({ facebook: true, facebookPage: 'souqbaghdad', instagram: true, instagramPage: 'souqbaghdad', instagramFormat: 'post' as 'post' | 'story', threads: true, telegram: true, tiktok: false });
   const [isSocialPublishing, setIsSocialPublishing] = useState(false);
   const doPublish = async () => {
     if (!publishItem) return;
     setIsSocialPublishing(true);
     try {
       const { error } = await supabase.functions.invoke('telegram-bot', {
-        body: { type: 'INSERT', table: 'transport_ads', record: publishItem, targets: publishTargets }
+        body: { type: 'INSERT', table: 'transport_ads', record: publishItem, targets: { ...publishTargets, instagramFormat: publishTargets.instagramFormat } }
       });
       if (error) alert('خطأ في النشر: ' + error.message);
-      else alert('✅ تم إرسال الطلب! سيُنشر على المنصات المحددة.');
+      else alert(`✅ تم إرسال الطلب! سيُنشر كـ ${publishTargets.instagramFormat === 'story' ? 'ستوري 📱' : 'بوست 🖼️'} على المنصات المحددة.`);
     } catch (e: any) {
       alert('خطأ: ' + e.message);
     } finally {
@@ -795,14 +795,48 @@ export function TransportView({ user, onBack, onCreateAd, onGoToMyLines, onSelec
               )}
               <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer">
                 <input type="checkbox" checked={publishTargets.instagram} onChange={e => setPublishTargets(p => ({...p, instagram: e.target.checked}))} className="w-5 h-5 accent-pink-500" />
-                <span className="text-gray-200 font-medium">انستقرام (Instagram)</span>
+                <span className="text-gray-200 font-medium flex items-center gap-2">
+                  <span>📸</span> انستقرام (Instagram)
+                </span>
               </label>
               {publishTargets.instagram && (
-                <div className="mr-8 pr-3 border-r-2 border-gray-700">
+                <div className="mr-8 pr-3 border-r-2 border-pink-500/30 space-y-2">
+                  {/* Account selector */}
                   <select value={publishTargets.instagramPage} onChange={e => setPublishTargets(p => ({...p, instagramPage: e.target.value}))} className="bg-gray-800 text-sm text-gray-300 p-2 rounded-lg border border-gray-600 outline-none w-full">
                     <option value="souqbaghdad">سوق بغداد (souqbaghdad)</option>
                     <option value="alrafdain">كلية الرافدين (al_rafdain)</option>
                   </select>
+                  {/* Post vs Story toggle */}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPublishTargets(p => ({...p, instagramFormat: 'post'}))}
+                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                        publishTargets.instagramFormat === 'post'
+                          ? 'bg-pink-600 border-pink-500 text-white shadow-lg shadow-pink-500/20'
+                          : 'bg-gray-800 border-gray-600 text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      🖼️ بوست (1080×1350)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPublishTargets(p => ({...p, instagramFormat: 'story'}))}
+                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                        publishTargets.instagramFormat === 'story'
+                          ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-500/20'
+                          : 'bg-gray-800 border-gray-600 text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      📱 ستوري (1080×1920)
+                    </button>
+                  </div>
+                  {/* Live preview thumbnail */}
+                  <div className="text-[10px] text-gray-500 flex items-center gap-1.5">
+                    <span className={publishTargets.instagramFormat === 'post' ? 'text-pink-400' : 'text-purple-400'}>
+                      {publishTargets.instagramFormat === 'post' ? '✅ سيُنشر كبوست في الفيد (4:5)' : '✅ سيُنشر كستوري رأسي (9:16)'}
+                    </span>
+                  </div>
                 </div>
               )}
               <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer">

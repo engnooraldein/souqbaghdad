@@ -1029,6 +1029,7 @@ serve(async (req) => {
       
       let forceFacebookPage = payload.targets ? payload.targets.facebookPage : null;
       let forceInstagramPage = payload.targets ? payload.targets.instagramPage : null;
+      let instagramFormat: 'post' | 'story' = payload.targets?.instagramFormat || 'post';
 
       if (shouldPublish) {
         // --- 1. CAR ADS (VEHICLES) ---
@@ -1461,11 +1462,15 @@ serve(async (req) => {
           }
           
           if (publishInstagram) {
+            // Use Post or Story image based on user's selection in the publish modal
+            const igImageUrl = instagramFormat === 'story' ? dynamicStoryUrl : dynamicPostUrl;
             let igData;
             if (useAlRafdainIg && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_IG_ID) {
-              igData = await postToInstagramStory(dynamicStoryUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
+              igData = await postToInstagramStory(igImageUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
+            } else if (instagramFormat === 'story' && META_PAGE_ACCESS_TOKEN && META_IG_ACCOUNT_ID) {
+              igData = await postToInstagramStory(igImageUrl, META_IG_ACCOUNT_ID, META_PAGE_ACCESS_TOKEN);
             } else {
-              igData = await postToInstagram(fbIgCaption, dynamicPostUrl);
+              igData = await postToInstagram(fbIgCaption, igImageUrl);
             }
             
             if (igData && (igData.id || igData.media_id)) {
