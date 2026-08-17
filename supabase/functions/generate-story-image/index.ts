@@ -25,17 +25,53 @@ serve(async (req) => {
     const url = new URL(req.url);
     const mode = url.searchParams.get("type") || "post"; // "post" (1080x1350) or "story" (1080x1920)
     
-    const title = cleanText(url.searchParams.get("title"), "خط نقل جديد في بغداد");
-    const subtitle = cleanText(url.searchParams.get("subtitle"), "كلية الرافدين");
-    const subdesc = cleanText(url.searchParams.get("subdesc"), "خط نقل طلاب وموظفين");
-    const regions = cleanText(url.searchParams.get("regions"), "صليخ 600 - سبع بكار - كريعات - حي تونس - القاهرة");
-    const destination = cleanText(url.searchParams.get("destination"), "كلية الرافدين");
-    const fare = cleanText(url.searchParams.get("fare"), "حسب الاتفاق");
-    let link = cleanText(url.searchParams.get("link"), "https://www.souqbaghdad.store/transport");
-    if (link.includes('data:image')) {
-      link = "https://www.souqbaghdad.store/transport";
+    const category = (url.searchParams.get("category") || "transport").toLowerCase();
+    
+    let defaultTitle = "خط نقل جديد في بغداد";
+    let badgeText = "📢 إعلان خط جديد";
+    let emoji = "🚌";
+    let fareLabel = "الأجرة الشهرية:";
+    let box1Label = "📍 مناطق الانطلاق والمرور:";
+    let box2Label = "🏛️ الوجهة والكلية:";
+    let footerTag = "@souqbaghdad_lines";
+
+    if (category === "cars" || category === "vehicles") {
+      defaultTitle = "سيارة معروضة للبيع";
+      badgeText = "🚗 إعلان سيارة معروضة";
+      emoji = "🚗";
+      fareLabel = "السعر المطلوب:";
+      box1Label = "📍 المحافظة والموقع:";
+      box2Label = "🔧 المواصفات والتفاصيل:";
+      footerTag = "@souqbaghdad_car";
+    } else if (category === "products") {
+      defaultTitle = "منتج معروض للبيع";
+      badgeText = "📦 منتج معروض في سوق بغداد";
+      emoji = "🛍️";
+      fareLabel = "السعر المطلوب:";
+      box1Label = "📍 المحافظة / الموقع:";
+      box2Label = "🏷️ الحالة والتفاصيل:";
+      footerTag = "@souqbaghdad_iq";
+    } else if (category === "general") {
+      defaultTitle = "إعلان معروض في سوق بغداد";
+      badgeText = "📢 إعلان جديد";
+      emoji = "✨";
+      fareLabel = "السعر المطلوب:";
+      box1Label = "📍 الموقع والمدينة:";
+      box2Label = "📝 تفاصيل الإعلان:";
+      footerTag = "@souqbaghdad_iq";
     }
-    const shortId = cleanText(url.searchParams.get("short_id"), "35AHU");
+
+    const title = cleanText(url.searchParams.get("title"), defaultTitle);
+    const subtitle = cleanText(url.searchParams.get("subtitle"), category === "cars" ? "وارد ومواصفات ممتازة" : "سوق بغداد الرقمي");
+    const subdesc = cleanText(url.searchParams.get("subdesc"), "معروض الآن عبر المنصة");
+    const regions = cleanText(url.searchParams.get("regions"), "بغداد وعموم العراق");
+    const destination = cleanText(url.searchParams.get("destination"), "متوفر للتواصل والشراء");
+    const fare = cleanText(url.searchParams.get("fare"), "حسب الاتفاق");
+    let link = cleanText(url.searchParams.get("link"), "https://www.souqbaghdad.store");
+    if (link.includes('data:image')) {
+      link = "https://www.souqbaghdad.store";
+    }
+    const shortId = cleanText(url.searchParams.get("short_id"), "BGHD1");
     
     // Dynamic themes to prevent duplicate pixel spam detection on Meta
     const themeIndex = Math.abs((shortId.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)) % 4);
@@ -77,59 +113,57 @@ serve(async (req) => {
               <span style="font-size: 16px; color: #94a3b8; letter-spacing: 2px; direction: ltr;">SOUQ BAGHDAD</span>
             </div>
             <div style="display: flex; background: rgba(56, 189, 248, 0.15); border: 2px solid #38bdf8; border-radius: 20px; padding: 10px 26px;">
-              <span style="font-size: 24px; color: #38bdf8; font-weight: bold;">📢 إعلان خط جديد</span>
+              <span style="font-size: 24px; color: #38bdf8; font-weight: bold;">${badgeText}</span>
             </div>
           </div>
 
           <!-- Hero Main Title -->
           <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; margin: 15px 0; direction: rtl;">
-            <span style="font-size: 54px; font-weight: bold; color: #ffffff; margin-bottom: 8px;">${title} 🚌</span>
-            <span style="font-size: 44px; font-weight: bold; color: #38bdf8; margin-bottom: 6px;">${subtitle}</span>
-            <span style="font-size: 26px; color: #cbd5e1;">${subdesc}</span>
+            <span style="font-size: 50px; font-weight: bold; color: #ffffff; margin-bottom: 8px;">${title} ${emoji}</span>
+            <span style="font-size: 40px; font-weight: bold; color: #38bdf8; margin-bottom: 6px;">${subtitle}</span>
+            <span style="font-size: 24px; color: #cbd5e1;">${subdesc}</span>
           </div>
 
-          <!-- Main Fare Highlight Card -->
+          <!-- Main Fare / Price Highlight Card -->
           <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: linear-gradient(90deg, rgba(2, 132, 199, 0.25), rgba(245, 158, 11, 0.2)); border: 2px solid rgba(245, 158, 11, 0.5); border-radius: 26px; padding: 18px 35px; direction: rtl;">
-            <span style="font-size: 28px; color: #cbd5e1; font-weight: bold;">الأجرة الشهرية:</span>
+            <span style="font-size: 28px; color: #cbd5e1; font-weight: bold;">${fareLabel}</span>
             <span style="font-size: 40px; color: #fbbf24; font-weight: bold;">${fare}</span>
           </div>
 
-          <!-- 2-Column Info Cards (Regions + Destination) -->
+          <!-- 2-Column Info Cards (Regions + Destination / Details) -->
           <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; gap: 20px; direction: rtl;">
-            <!-- Start Regions -->
-            <div style="display: flex; flex-direction: column; flex: 1.3; background: rgba(15, 23, 42, 0.85); border: 2px solid rgba(56, 189, 248, 0.4); border-radius: 24px; padding: 24px; text-align: right; direction: rtl;">
-              <span style="font-size: 24px; color: #38bdf8; font-weight: bold; margin-bottom: 10px;">📍 مناطق الانطلاق والمرور:</span>
+            <div style="display: flex; flex-direction: column; flex: 1.2; background: rgba(15, 23, 42, 0.85); border: 2px solid rgba(56, 189, 248, 0.4); border-radius: 24px; padding: 24px; text-align: right; direction: rtl;">
+              <span style="font-size: 24px; color: #38bdf8; font-weight: bold; margin-bottom: 10px;">${box1Label}</span>
               <span style="font-size: 22px; color: #f1f5f9; line-height: 1.5;">${regions}</span>
             </div>
-            <!-- Destination -->
-            <div style="display: flex; flex-direction: column; flex: 0.9; background: rgba(15, 23, 42, 0.85); border: 2px solid rgba(56, 189, 248, 0.4); border-radius: 24px; padding: 24px; text-align: right; direction: rtl;">
-              <span style="font-size: 24px; color: #38bdf8; font-weight: bold; margin-bottom: 10px;">🏛️ الوجهة والكلية:</span>
-              <span style="font-size: 24px; color: #f1f5f9; font-weight: bold; line-height: 1.4;">${destination}</span>
+            <div style="display: flex; flex-direction: column; flex: 1; background: rgba(15, 23, 42, 0.85); border: 2px solid rgba(56, 189, 248, 0.4); border-radius: 24px; padding: 24px; text-align: right; direction: rtl;">
+              <span style="font-size: 24px; color: #38bdf8; font-weight: bold; margin-bottom: 10px;">${box2Label}</span>
+              <span style="font-size: 22px; color: #f1f5f9; font-weight: bold; line-height: 1.4;">${destination}</span>
             </div>
           </div>
 
           <!-- Link & CTA Section -->
           <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: rgba(30, 41, 59, 0.7); border: 2px solid rgba(56, 189, 248, 0.3); border-radius: 24px; padding: 20px 30px; gap: 20px; direction: rtl;">
             <div style="display: flex; flex-direction: column; flex: 1.4; text-align: right; direction: rtl;">
-              <span style="font-size: 22px; color: #38bdf8; font-weight: bold; margin-bottom: 4px;">🔗 رابط تفاصيل الخط والحجز:</span>
+              <span style="font-size: 22px; color: #38bdf8; font-weight: bold; margin-bottom: 4px;">🔗 رابط المعاينة والتواصل:</span>
               <span style="font-size: 20px; color: #94a3b8; direction: ltr; text-align: right;">${link}</span>
             </div>
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #0284c7, #0369a1); border-radius: 18px; padding: 14px 28px; border: 1px solid #38bdf8;">
-              <span style="font-size: 22px; color: white; font-weight: bold;">للتفاصيل والحجز</span>
+              <span style="font-size: 22px; color: white; font-weight: bold;">للتفاصيل والتواصل</span>
               <span style="font-size: 16px; color: #e0f2fe;">اضغط على الرابط ✨</span>
             </div>
           </div>
 
           <!-- Feature Trust Badges -->
           <div style="display: flex; flex-direction: row; justify-content: space-around; width: 100%; border-top: 1px solid rgba(255, 255, 255, 0.1); border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding: 14px 0; direction: rtl;">
-            <span style="font-size: 20px; color: #94a3b8;">🛡️ رحلات آمنة</span>
-            <span style="font-size: 20px; color: #94a3b8;">💺 سيارات وباصات حديثة</span>
-            <span style="font-size: 20px; color: #94a3b8;">⏰ التزام بالمواعيد</span>
+            <span style="font-size: 20px; color: #94a3b8;">🛡️ إعلان موثوق</span>
+            <span style="font-size: 20px; color: #94a3b8;">⚡ تواصل سريع ومباشر</span>
+            <span style="font-size: 20px; color: #94a3b8;">🇮🇶 سوق بغداد الرقمي</span>
           </div>
 
           <!-- Footer Bar -->
           <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; direction: rtl;">
-            <span style="font-size: 22px; color: #38bdf8; font-weight: bold;">✈️ @souqbaghdad_lines</span>
+            <span style="font-size: 22px; color: #38bdf8; font-weight: bold;">✈️ ${footerTag}</span>
             <span style="font-size: 20px; color: #cbd5e1;">منصة سوق بغداد الرقمية 🇮🇶</span>
           </div>
 
@@ -147,54 +181,51 @@ serve(async (req) => {
               <span style="font-size: 20px; color: #94a3b8; letter-spacing: 2px; direction: ltr;">SOUQ BAGHDAD</span>
             </div>
             <div style="display: flex; background: rgba(56, 189, 248, 0.2); border: 2px solid #38bdf8; border-radius: 25px; padding: 12px 30px;">
-              <span style="font-size: 28px; color: #38bdf8; font-weight: bold;">🚌 خط نقل</span>
+              <span style="font-size: 28px; color: #38bdf8; font-weight: bold;">${badgeText}</span>
             </div>
           </div>
 
           <!-- Story Hero Title -->
           <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; margin: 25px 0; direction: rtl;">
-            <span style="font-size: 64px; font-weight: bold; color: #ffffff; margin-bottom: 12px;">${title} 🚌</span>
-            <span style="font-size: 52px; font-weight: bold; color: #38bdf8; margin-bottom: 10px;">${subtitle}</span>
-            <span style="font-size: 34px; color: #cbd5e1;">${subdesc}</span>
+            <span style="font-size: 60px; font-weight: bold; color: #ffffff; margin-bottom: 12px;">${title} ${emoji}</span>
+            <span style="font-size: 48px; font-weight: bold; color: #38bdf8; margin-bottom: 10px;">${subtitle}</span>
+            <span style="font-size: 30px; color: #cbd5e1;">${subdesc}</span>
           </div>
 
-          <!-- Fare Highlight Card -->
+          <!-- Fare / Price Highlight Card -->
           <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: linear-gradient(90deg, rgba(2, 132, 199, 0.3), rgba(245, 158, 11, 0.25)); border: 3px solid rgba(245, 158, 11, 0.6); border-radius: 30px; padding: 25px 40px; direction: rtl;">
-            <span style="font-size: 34px; color: #cbd5e1; font-weight: bold;">الأجرة الشهرية:</span>
+            <span style="font-size: 34px; color: #cbd5e1; font-weight: bold;">${fareLabel}</span>
             <span style="font-size: 48px; color: #fbbf24; font-weight: bold;">${fare}</span>
           </div>
 
           <!-- Info Box Stack -->
           <div style="display: flex; flex-direction: column; width: 100%; gap: 25px; direction: rtl;">
-            <!-- Start Regions -->
             <div style="display: flex; flex-direction: column; background: rgba(15, 23, 42, 0.9); border: 2px solid rgba(56, 189, 248, 0.5); border-radius: 30px; padding: 35px; text-align: right; direction: rtl;">
-              <span style="font-size: 32px; color: #38bdf8; font-weight: bold; margin-bottom: 10px;">📍 مناطق الانطلاق والمرور:</span>
+              <span style="font-size: 32px; color: #38bdf8; font-weight: bold; margin-bottom: 10px;">${box1Label}</span>
               <span style="font-size: 28px; color: #f8fafc; line-height: 1.5;">${regions}</span>
             </div>
 
-            <!-- Destination -->
             <div style="display: flex; flex-direction: column; background: rgba(15, 23, 42, 0.9); border: 2px solid rgba(56, 189, 248, 0.5); border-radius: 30px; padding: 30px; text-align: right; direction: rtl;">
-              <span style="font-size: 30px; color: #38bdf8; font-weight: bold; margin-bottom: 8px;">🏛️ الوجهة والكلية:</span>
+              <span style="font-size: 30px; color: #38bdf8; font-weight: bold; margin-bottom: 8px;">${box2Label}</span>
               <span style="font-size: 30px; color: white; font-weight: bold;">${destination}</span>
             </div>
 
-            <!-- Link Box -->
             <div style="display: flex; flex-direction: column; background: rgba(30, 41, 59, 0.8); border: 2px solid rgba(56, 189, 248, 0.4); border-radius: 30px; padding: 30px; text-align: right; direction: rtl;">
-              <span style="font-size: 26px; color: #38bdf8; font-weight: bold; margin-bottom: 8px;">🔗 تفاصيل الخط والتواصل:</span>
+              <span style="font-size: 26px; color: #38bdf8; font-weight: bold; margin-bottom: 8px;">🔗 رابط الإعلان والتواصل:</span>
               <span style="font-size: 24px; color: #cbd5e1; direction: ltr; text-align: right;">${link}</span>
             </div>
           </div>
 
           <!-- Story CTA Bubble -->
           <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #0284c7, #0369a1); border: 2px solid #38bdf8; border-radius: 35px; padding: 35px 50px; text-align: center; margin-top: 15px; direction: rtl;">
-            <span style="font-size: 36px; font-weight: bold; color: white;">💬 اسحب للأعلى أو اضغط الرابط للحجز</span>
-            <span style="font-size: 26px; color: #e0f2fe; margin-top: 6px;">نتمنى لكم رحلة آمنة ومريحة ✨</span>
+            <span style="font-size: 36px; font-weight: bold; color: white;">💬 اسحب للأعلى أو اضغط الرابط للتفاصيل</span>
+            <span style="font-size: 26px; color: #e0f2fe; margin-top: 6px;">سوق بغداد — المنصة الإعلانية الأولى في العراق 🇮🇶</span>
           </div>
 
           <!-- Story Footer -->
           <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; border-top: 1px solid rgba(255, 255, 255, 0.2); padding-top: 25px; direction: rtl;">
             <span style="font-size: 26px; color: #38bdf8; font-weight: bold;">📸 @souqbaghdad.iq</span>
-            <span style="font-size: 26px; color: #94a3b8;">✈️ @souqbaghdad_lines</span>
+            <span style="font-size: 26px; color: #94a3b8;">✈️ ${footerTag}</span>
           </div>
 
         </div>

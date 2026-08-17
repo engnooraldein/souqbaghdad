@@ -1103,9 +1103,11 @@ serve(async (req) => {
 
           const replyMarkup = { inline_keyboard: inlineKeyboard };
 
+          const dynamicCarUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&category=cars&title=${encodeURIComponent(carTitle)}&subtitle=${encodeURIComponent(carSubtitle || 'مواصفات ممتازة')}&subdesc=${encodeURIComponent((details || 'معروضة الآن للبيع').substring(0, 100))}&fare=${encodeURIComponent(formattedPrice)}&regions=${encodeURIComponent(record.location || 'بغداد')}&destination=${encodeURIComponent(record.city || record.location || 'بغداد')}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
+
           let res;
           if (publishTelegram) {
-            const mainPhoto = imagesToPost.length > 0 ? imagesToPost[0] : 'https://souqbaghdad.store/opengraph.jpg';
+            const mainPhoto = imagesToPost.length > 0 ? imagesToPost[0] : dynamicCarUrl;
             // Send exclusively to the dedicated car channel (once)
             const targetCarChannel = CAR_CHANNEL_ID || CAR_CHANNEL;
             res = await sendPhoto(targetCarChannel, mainPhoto, caption, replyMarkup);
@@ -1120,7 +1122,7 @@ serve(async (req) => {
           }
           
           // Social Media Sync for Cars
-          const fbIgPhotoUrl = imagesToPost.length > 0 ? imagesToPost : ['https://souqbaghdad.store/opengraph.jpg'];
+          const fbIgPhotoUrl = imagesToPost.length > 0 ? imagesToPost : [dynamicCarUrl];
           const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
             ? await generateSocialCaption(record, 'car', link)
             : '';
@@ -1201,10 +1203,12 @@ serve(async (req) => {
             inline_keyboard: row2.length > 0 ? [row1, row2] : [row1]
           };
 
+          const dynamicProductUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&category=products&title=${encodeURIComponent(record.title || 'منتج معروض')}&subtitle=${encodeURIComponent(condStr)}&subdesc=${encodeURIComponent((safeDesc || 'متوفر الآن للشراء').substring(0, 100))}&fare=${encodeURIComponent(formatTgPrice(record.price))}&regions=${encodeURIComponent(record.governorate || 'بغداد')}&destination=${encodeURIComponent(record.seller_name || 'بائع موثوق')}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(prodId)}`;
+
           const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
           let res;
           if (publishTelegram) {
-            const mainPhoto = imageUrl || 'https://souqbaghdad.store/opengraph.jpg';
+            const mainPhoto = imageUrl || dynamicProductUrl;
             // Send once to main product channel
             res = await sendPhoto(PRODUCT_CHANNEL, mainPhoto, caption, replyMarkup);
           }
@@ -1216,7 +1220,7 @@ serve(async (req) => {
              syncStatus.telegram = 'success';
           }
           
-          const fbIgPhotoUrl = record.images && record.images.length > 0 ? record.images : (imageUrl ? [imageUrl] : ['https://souqbaghdad.store/opengraph.jpg']);
+          const fbIgPhotoUrl = record.images && record.images.length > 0 ? record.images : [dynamicProductUrl];
           const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
             ? await generateSocialCaption(record, 'product', link)
             : '';
@@ -1307,12 +1311,14 @@ serve(async (req) => {
             inline_keyboard: row2.length > 0 ? [row1, row2] : [row1]
           };
 
+          const dynamicAdUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&category=general&title=${encodeURIComponent(record.title || 'إعلان جديد')}&subtitle=${encodeURIComponent(record.location || 'بغداد')}&subdesc=${encodeURIComponent((safeDesc || 'متوفر للتواصل والشراء').substring(0, 100))}&fare=${encodeURIComponent(formatTgPrice(record.price))}&regions=${encodeURIComponent(record.location || 'بغداد')}&destination=${encodeURIComponent(record.seller_name || 'الناشر')}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
+
           const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
-          const fbIgPhotoUrl = record.images && record.images.length > 0 ? record.images : (imageUrl ? [imageUrl] : ['https://souqbaghdad.store/opengraph.jpg']);
+          const fbIgPhotoUrl = record.images && record.images.length > 0 ? record.images : [dynamicAdUrl];
           
           let res;
           if (publishTelegram) {
-            const mainPhoto = imageUrl || 'https://souqbaghdad.store/opengraph.jpg';
+            const mainPhoto = imageUrl || dynamicAdUrl;
             // Send once to main product/ads channel
             res = await sendPhoto(PRODUCT_CHANNEL, mainPhoto, caption, replyMarkup);
           }
