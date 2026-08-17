@@ -2360,7 +2360,7 @@ serve(async (req) => {
         }
 
         const insertedId = insertedTrans.id;
-        const channelLink = `https://t.me/${TRANSPORT_CHANNEL.replace('@', '')}`;
+        const channelLink = `https://t.me/${(LINES_CHANNEL_ID || LINES_CHANNEL).replace('@', '')}`;
         const fareStr = formatTgPrice(state.data.price);
 
         await updateOrSend(`🎉 <b>تم نشر إعلان الخط بنجاح!</b>\n\n🚌 <b>${transTitle}</b>\n💰 <b>الأجرة:</b> ${fareStr}\n📍 <b>المناطق:</b> ${state.data.regions}\n🏢 <b>الوجهة:</b> ${state.data.destination}\n\n📣 <b>الخط معروض الآن في المنصة وقناة خطوط النقل.</b>\nيمكنك إدارة خطك مباشرة عبر الأزرار أدناه:`, {
@@ -2585,7 +2585,8 @@ serve(async (req) => {
         
         if (updatedTrans) {
           const msgId = updatedTrans.telegram_message_id;
-          if (msgId && TRANSPORT_CHANNEL) {
+          // Use numeric LINES_CHANNEL_ID — Telegram requires numeric Chat ID for editMessageCaption
+          if (msgId && LINES_CHANNEL_ID) {
             try {
               const closedButtons = {
                 inline_keyboard: [
@@ -2599,9 +2600,26 @@ serve(async (req) => {
                                     `📍 ${updatedTrans.location || 'بغداد'}\n\n` +
                                     `📣 لم يعد هذا الخط متاحاً للتسجيل. يمكنك تصفح خطوط أخرى متاحة بالضغط أدناه 👇`;
 
-              await editMessageCaption(TRANSPORT_CHANNEL, parseInt(msgId, 10), closedCaption, closedButtons);
-              if (EXTRA_CHANNEL) {
-                await editMessageCaption(EXTRA_CHANNEL, parseInt(msgId, 10), closedCaption, closedButtons);
+              // Edit in main lines channel using numeric ID
+              await editMessageCaption(LINES_CHANNEL_ID, parseInt(msgId, 10), closedCaption, closedButtons);
+
+              // Check if transport is for Al-Rafdain, update @ruc_1 as well
+              const descStr = typeof updatedTrans.description === 'string'
+                ? updatedTrans.description
+                : JSON.stringify(updatedTrans.description || {});
+              const rafdainTerms = ['الرافدين', 'الرفدين'];
+              const isAlRafdainTrans = rafdainTerms.some(term =>
+                (updatedTrans.university && updatedTrans.university.includes(term)) ||
+                (updatedTrans.city && updatedTrans.city.includes(term)) ||
+                (updatedTrans.destination && updatedTrans.destination.includes(term)) ||
+                descStr.includes(term)
+              );
+              if (isAlRafdainTrans && ALRAFDAIN_TELEGRAM_CHANNEL) {
+                try {
+                  await editMessageCaption(ALRAFDAIN_TELEGRAM_CHANNEL, parseInt(msgId, 10), closedCaption, closedButtons);
+                } catch(e2) {
+                  console.error('Al-Rafdain (ruc_1) caption update error:', e2);
+                }
               }
             } catch(e) {
               console.error('Transport caption update error:', e);
