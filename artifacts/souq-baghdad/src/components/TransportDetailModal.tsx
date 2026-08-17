@@ -43,6 +43,7 @@ import { TransportFormModal } from './TransportFormModal';
 import { SkeletonCard } from './SkeletonCard';
 import { AdCard } from './AdCard';
 import { ProductCard } from './ProductCard';
+import { SocialImageGeneratorModal } from './social/SocialImageGeneratorModal';
 import { TransportAdCard } from './TransportAdCard';
 import { InterestTimer } from './InterestTimer';
 import { IraqiEagle } from './Icons';
@@ -56,6 +57,7 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
   const [realViews, setRealViews] = useState(0);
   const [showReadingMode, setShowReadingMode] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showSocialGenerator, setShowSocialGenerator] = useState(false);
 
   const [isNoteExpanded, setIsNoteExpanded] = useState(false);
 
@@ -311,11 +313,11 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
             <PhoneIcon className="w-4 h-4"/> اتصال
           </motion.a>
         </div>
-        <div className="grid grid-cols-[1fr,auto] gap-2">
+        <div className="grid grid-cols-[1fr,auto] gap-2 mb-2">
           <motion.button
             onClick={() => handleUniversalShare({ id: ad.id, short_id: ad.short_id, university: ad.university, type: ad.type, regions: ad.regions, price: ad.price, url: `/transport/card/${ad.short_id || ad.id}` })}
             whileHover={{scale:1.02}} whileTap={{scale:0.98}}
-            className="flex items-center justify-center gap-1.5 py-3.5 bg-gradient-to-r from-amber-500/10 via-amber-500/15 to-yellow-500/10 hover:from-amber-500/20 hover:to-yellow-500/15 text-amber-400 border border-amber-500/20 hover:border-amber-500/40 font-black rounded-xl text-xs transition-all duration-300 shadow-sm active:scale-[0.98]">
+            className="flex items-center justify-center gap-1.5 py-3 bg-gradient-to-r from-amber-500/10 via-amber-500/15 to-yellow-500/10 hover:from-amber-500/20 hover:to-yellow-500/15 text-amber-400 border border-amber-500/20 hover:border-amber-500/40 font-black rounded-xl text-xs transition-all duration-300 shadow-sm active:scale-[0.98]">
             <Share2 className="w-4 h-4 text-amber-400 animate-pulse"/>
             <span>مشاركة الإعلان</span>
           </motion.button>
@@ -336,6 +338,17 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
           </motion.button>
         </div>
 
+        {/* Dynamic Instagram Design Generator Button */}
+        <motion.button
+          onClick={() => setShowSocialGenerator(true)}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-sky-500/15 via-sky-500/25 to-blue-600/15 hover:from-sky-500/30 hover:to-blue-600/25 text-sky-400 border border-sky-500/30 hover:border-sky-500/50 font-black rounded-xl text-xs transition-all duration-300 shadow-sm"
+        >
+          <Sparkles className="w-4 h-4 text-sky-400" />
+          <span>🎨 تصميم منشور إنستقرام (Post & Story)</span>
+        </motion.button>
+
         <AnimatePresence>
           {showViewers && (
             <Suspense fallback={null}>
@@ -344,6 +357,12 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
           )}
         </AnimatePresence>
       </motion.div>
+
+      <SocialImageGeneratorModal 
+        isOpen={showSocialGenerator}
+        onClose={() => setShowSocialGenerator(false)}
+        ad={ad}
+      />
       <ReportModal 
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}

@@ -1435,19 +1435,23 @@ serve(async (req) => {
           const useAlRafdainFb = forceFacebookPage ? (forceFacebookPage === 'alrafdain') : isAlRafdain;
           const useAlRafdainIg = forceInstagramPage ? (forceInstagramPage === 'alrafdain') : isAlRafdain;
 
-          const defaultPhotoUrl = `https://www.souqbaghdad.store/transport-default.jpg?v=${Date.now()}`;
-          
-          // Generate a dynamic story image for Instagram if it's Al-Rafidain
-          const storyImageUrl = useAlRafdainIg 
-            ? `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?title=${encodeURIComponent('خط نقل: ' + (record.university || ''))}&details=${encodeURIComponent(record.destination || '')}`
-            : defaultPhotoUrl;
+          const cleanTitle = 'خط نقل جديد في بغداد';
+          const cleanSubtitle = record.university || record.city || 'بغداد';
+          const cleanSubdesc = `${catType} (${targetStr})`;
+          const cleanRegions = record.location || record.regions || 'بغداد';
+          const cleanDestination = record.city || record.university || 'بغداد';
+          const cleanFare = record.fare || 'حسب الاتفاق';
+
+          // Dynamic Programmatic Templates (1080x1350 Post & 1080x1920 Story)
+          const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
+          const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
           
           if (publishFacebook) {
             let fbData;
             if (useAlRafdainFb && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
-              fbData = await postToFacebook(fbIgCaption, defaultPhotoUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID);
+              fbData = await postToFacebook(fbIgCaption, dynamicPostUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID);
             } else {
-              fbData = await postToFacebook(fbIgCaption, defaultPhotoUrl);
+              fbData = await postToFacebook(fbIgCaption, dynamicPostUrl);
             }
             
             if (fbData && (fbData.post_id || fbData.id)) {
@@ -1459,9 +1463,9 @@ serve(async (req) => {
           if (publishInstagram) {
             let igData;
             if (useAlRafdainIg && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_IG_ID) {
-              igData = await postToInstagramStory(storyImageUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
+              igData = await postToInstagramStory(dynamicStoryUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
             } else {
-              igData = await postToInstagram(fbIgCaption, defaultPhotoUrl);
+              igData = await postToInstagram(fbIgCaption, dynamicPostUrl);
             }
             
             if (igData && (igData.id || igData.media_id)) {
@@ -1471,7 +1475,7 @@ serve(async (req) => {
           }
           
           if (publishTiktok) {
-            const tkData = await postToTikTok(fbIgCaption, defaultPhotoUrl, supabase);
+            const tkData = await postToTikTok(fbIgCaption, dynamicPostUrl, supabase);
             if (tkData?.data?.publish_id) {
                updates.tiktok_post_id = tkData.data.publish_id;
                syncStatus.tiktok = 'success';
@@ -1479,7 +1483,7 @@ serve(async (req) => {
           }
 
           if (publishThreads) {
-            const thData = await postToThreads(fbIgCaption, defaultPhotoUrl);
+            const thData = await postToThreads(fbIgCaption, dynamicPostUrl);
             if (thData && (thData.id || thData.media_id)) {
                updates.threads_post_id = thData.id || thData.media_id;
                syncStatus.threads = 'success';
