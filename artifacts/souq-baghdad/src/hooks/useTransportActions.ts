@@ -86,24 +86,7 @@ export function useTransportActions({
       return;
     }
 
-    // Automatically publish to Telegram, Facebook, Instagram, and Threads
-    try {
-      supabase.functions.invoke('telegram-bot', {
-        body: {
-          type: 'INSERT',
-          table: 'transport_ads',
-          record: insertedAd || rowData,
-          targets: {
-            telegram: true,
-            facebook: true,
-            instagram: true,
-            threads: true
-          }
-        }
-      }).catch(err => console.error("Auto publish transport error:", err));
-    } catch (e) {
-      console.error("Auto invoke telegram-bot error:", e);
-    }
+    // Publishing to Telegram, Facebook, Instagram, and Threads is handled automatically via DB Webhook
     
     const isDataSaver = true; // localStorage.getItem('data_saver_mode') === 'true'; // Forced ON by Owner
     if (!isDataSaver) {

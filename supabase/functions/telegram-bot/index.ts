@@ -8,10 +8,15 @@ const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN') || '';
 const tgUrl = `https://api.telegram.org/bot${botToken}`;
 const BOT_USERNAME = 'souqbaghda_bot';
 
-async function sendMessage(chatId: string | number, text: string, replyMarkup?: any, disableWebPagePreview = false) {
-  const body: any = { chat_id: chatId, text, parse_mode: 'HTML' };
+async function sendMessage(chatId: string | number, text: string, replyMarkup?: any, disableWebPagePreview = true) {
+  const body: any = { 
+    chat_id: chatId, 
+    text, 
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    link_preview_options: { is_disabled: true }
+  };
   if (replyMarkup) body.reply_markup = replyMarkup;
-  if (disableWebPagePreview) body.link_preview_options = { is_disabled: true };
   const res = await fetch(`${tgUrl}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -30,7 +35,12 @@ async function answerCallbackQuery(callbackQueryId: string, text: string = '', s
 
 async function sendPhoto(chatId: string | number, photoUrl: string, caption: string, replyMarkup?: any) {
   try {
-    const body: any = { chat_id: chatId, photo: photoUrl, caption, parse_mode: 'HTML' };
+    const body: any = { 
+      chat_id: chatId, 
+      photo: photoUrl, 
+      caption, 
+      parse_mode: 'HTML'
+    };
     if (replyMarkup) body.reply_markup = replyMarkup;
     const res = await fetch(`${tgUrl}/sendPhoto`, {
       method: 'POST',
@@ -40,12 +50,12 @@ async function sendPhoto(chatId: string | number, photoUrl: string, caption: str
     const data = await res.json();
     if (!data.ok) {
       console.warn('sendPhoto failed, falling back to sendMessage:', data.description);
-      return await sendMessage(chatId, caption, replyMarkup);
+      return await sendMessage(chatId, caption, replyMarkup, true);
     }
     return data;
   } catch (e) {
     console.error('sendPhoto exception, falling back to sendMessage:', e);
-    return await sendMessage(chatId, caption, replyMarkup);
+    return await sendMessage(chatId, caption, replyMarkup, true);
   }
 }
 
@@ -119,6 +129,7 @@ const THREADS_ACCESS_TOKEN = Deno.env.get('THREADS_ACCESS_TOKEN') || '';
 const ALRAFDAIN_FB_TOKEN = Deno.env.get('ALRAFDAIN_FB_TOKEN') || '';
 const ALRAFDAIN_FB_PAGE_ID = Deno.env.get('ALRAFDAIN_FB_PAGE_ID') || '';
 const ALRAFDAIN_IG_ID = Deno.env.get('ALRAFDAIN_IG_ID') || '';
+const ALRAFDAIN_TELEGRAM_CHANNEL = '@ruc_1';
 
 async function postToThreads(text: string, photoUrl: string | string[] | null) {
   if (!THREADS_ACCESS_TOKEN) return { error: { message: 'رمز الوصول لـ Threads مفقود أو غير صالح' } };
@@ -888,14 +899,14 @@ const TRANSPORT_AREAS_BAGHDAD = [
 ];
 
 const TRANSPORT_DESTINATIONS_BAGHDAD = [
-  ['جامعة بغداد (الجادرية)', 'جامعة بغداد (باب المعظم)'],
-  ['الجامعة المستنصرية', 'الجامعة التكنولوجية'],
-  ['جامعة النهرين', 'الجامعة العراقية'],
-  ['جامعة الفراهيدي', 'جامعة البيان'],
-  ['جامعة التراث', 'جامعة أوروك'],
-  ['كلية دجلة / الإسراء', 'كلية المنصور / المأمون'],
-  ['دوائر ومؤسسات الكرخ', 'دوائر ومؤسسات الرصافة'],
-  ['وجهة أخرى 📝']
+  ['كلية الرافدين الجامعة 🎓', 'جامعة بغداد (الجادرية)'],
+  ['جامعة بغداد (باب المعظم)', 'الجامعة المستنصرية'],
+  ['الجامعة التكنولوجية', 'جامعة النهرين'],
+  ['الجامعة العراقية', 'جامعة الفراهيدي'],
+  ['جامعة البيان', 'جامعة التراث'],
+  ['جامعة أوروك', 'كلية دجلة / الإسراء'],
+  ['كلية المنصور / المأمون', 'دوائر ومؤسسات الكرخ'],
+  ['دوائر ومؤسسات الرصافة', 'وجهة أخرى 📝']
 ];
 
 const TRANSPORT_SHIFTS = [
@@ -1364,6 +1375,18 @@ serve(async (req) => {
         }
         // --- 4. TRANSPORT ADS (خطوط النقل) ---
         else if ((payload.table === 'ads' && record.category === 'transport') || payload.table === 'transport_ads') {
+          // Prevent duplicate execution if already synced
+          if (record.id && payload.table === 'ads') {
+            const { data: existingAd } = await supabase.from('ads').select('telegram_message_id, sync_status').eq('id', record.id).maybeSingle();
+            if (existingAd?.telegram_message_id || existingAd?.sync_status?.telegram === 'success') {
+              console.log(`Transport ad ${record.id} already published to Telegram, skipping duplicate.`);
+              return new Response(JSON.stringify({ ok: true, message: 'Already published' }), { 
+                status: 200, 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+              });
+            }
+          }
+
           const typeStr = record.type === 'offer' ? '🚗 أوفر خط نقل (سائق)' : '🙋‍♂️ أبحث عن خط نقل (مطلوب)';
           let desc: any = {};
           try { desc = typeof record.description === 'string' ? JSON.parse(record.description) : record.description; } catch(e){}
@@ -1431,14 +1454,34 @@ serve(async (req) => {
           const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
           const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
 
+          const rafdainTerms = ['الرافدين', 'الرفدين'];
+          const isAlRafdain = rafdainTerms.some(term => 
+            (record.university && record.university.includes(term)) || 
+            (record.city && record.city.includes(term)) || 
+            (desc?.targetAudience && desc.targetAudience.includes(term)) ||
+            (record.destination && record.destination.includes(term))
+          );
+          
+          const useAlRafdainFb = forceFacebookPage ? (forceFacebookPage === 'alrafdain') : isAlRafdain;
+          const useAlRafdainIg = forceInstagramPage ? (forceInstagramPage === 'alrafdain') : isAlRafdain;
+
           let res;
           if (publishTelegram) {
             const transportPhoto = (record.images && Array.isArray(record.images) && record.images.length > 0)
               ? record.images[0]
               : dynamicPostUrl;
-            // Send exclusively to the dedicated transport lines channel (once)
+            // 1. Send to main transport channel: @souqbaghdad_lines
             const targetLinesChannel = LINES_CHANNEL_ID || LINES_CHANNEL;
             res = await sendPhoto(targetLinesChannel, transportPhoto, msg, replyMarkup);
+
+            // 2. If it is for Al-Rafdain, ALSO publish to @ruc_1
+            if (isAlRafdain) {
+              try {
+                await sendPhoto(ALRAFDAIN_TELEGRAM_CHANNEL, transportPhoto, msg, replyMarkup);
+              } catch(e) {
+                console.error('Error sending to Al-Rafdain Telegram channel @ruc_1:', e);
+              }
+            }
           }
           const updates: any = {};
           let syncStatus = record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' };
@@ -1451,17 +1494,6 @@ serve(async (req) => {
           const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
             ? await generateSocialCaption({ ...record, ...desc }, 'transport', link)
             : '';
-                                        
-          const rafdainTerms = ['الرافدين', 'الرفدين'];
-          const isAlRafdain = rafdainTerms.some(term => 
-            (record.university && record.university.includes(term)) || 
-            (record.city && record.city.includes(term)) || 
-            (desc?.targetAudience && desc.targetAudience.includes(term)) ||
-            (record.destination && record.destination.includes(term))
-          );
-          
-          const useAlRafdainFb = forceFacebookPage ? (forceFacebookPage === 'alrafdain') : isAlRafdain;
-          const useAlRafdainIg = forceInstagramPage ? (forceInstagramPage === 'alrafdain') : isAlRafdain;
           
           if (publishFacebook) {
             let fbData;
@@ -2246,6 +2278,79 @@ serve(async (req) => {
           console.error('Transport insert error:', transInsertError);
           await updateOrSend('❌ حدث خطأ أثناء حفظ الخط، يرجى المحاولة مرة أخرى.');
           return new Response('OK', { status: 200 });
+        }
+
+        // Auto publish to Telegram channels and Socials with dynamic template
+        try {
+          const typeStr = state.data.type === 'offer' ? '🚗 أوفر خط نقل (سائق)' : '🙋‍♂️ أبحث عن خط نقل (مطلوب)';
+          const catType = state.data.categoryType === 'employee' ? '💼 خط موظفين' : (state.data.categoryType === 'emergency' ? '🚨 نقل خاص' : '🎓 خط طلاب');
+          const targetStr = state.data.targetAudience || 'الجميع';
+          const link = `https://www.souqbaghdad.store/transport/card/${shortId}`;
+          const cleanTitle = 'خط نقل جديد في بغداد';
+          const cleanSubtitle = (state.data.destination || 'كلية الرافدين الجامعة').replace(/<[^>]*>?/gm, '').trim();
+          const cleanSubdesc = `${catType} (${targetStr})`.replace(/<[^>]*>?/gm, '').trim();
+          const cleanRegions = (state.data.regions || 'بغداد').replace(/<[^>]*>?/gm, '').trim();
+          const cleanDestination = (state.data.destination || 'كلية الرافدين الجامعة').replace(/<[^>]*>?/gm, '').trim();
+          const cleanFare = formatTgPrice(state.data.price);
+
+          const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}`;
+          const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}`;
+
+          const cleanPhone = (state.data.phone || phone || '').replace(/[^0-9+]/g, '');
+          let formattedPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
+
+          const contactRow = [];
+          if (formattedPhone) {
+            contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${formattedPhone}` });
+            contactRow.push({ text: '✈️ تواصل تيليكرام', url: `https://t.me/+${formattedPhone}` });
+          }
+
+          const channelKeyboard = [
+            [{ text: '🌐 التفاصيل الكاملة وحجز المقعد', url: link }]
+          ];
+          if (contactRow.length > 0) channelKeyboard.push(contactRow);
+          channelKeyboard.push([{ text: '🚌 انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}` }]);
+
+          const channelMsg = `🚌 <b>إعلان خط نقل جديد — سوق بغداد</b>\n\n` +
+                             `📌 <b>النوع:</b> ${typeStr}\n` +
+                             `🏷️ <b>الفئة:</b> ${catType} (${targetStr})\n` +
+                             `📍 <b>مناطق الانطلاق:</b> ${cleanRegions}\n` +
+                             `🏢 <b>الوجهة:</b> ${cleanDestination}\n` +
+                             `⏰ <b>وقت الدوام:</b> ${state.data.shift || 'صباحي'}\n` +
+                             `🚗 <b>المركبة:</b> ${state.data.vehicleType || 'صالون'} | <b>المقاعد:</b> ${state.data.seats || '4'} مقاعد\n` +
+                             `💰 <b>الأجرة:</b> ${cleanFare}\n` +
+                             (cleanPhone ? `📞 <b>التواصل:</b> ${cleanPhone}\n\n` : `\n`) +
+                             `📣 <b>#رقم_الخط_${shortId}</b> | @${BOT_USERNAME}`;
+
+          // 1. Post to @souqbaghdad_lines
+          const targetLinesChannel = LINES_CHANNEL_ID || LINES_CHANNEL;
+          await sendPhoto(targetLinesChannel, dynamicPostUrl, channelMsg, { inline_keyboard: channelKeyboard });
+
+          // 2. If it's Al-Rafdain, ALSO post to @ruc_1
+          const isAlRafdain = ['الرافدين', 'الرفدين'].some(term => cleanDestination.includes(term) || (state.data.targetAudience && state.data.targetAudience.includes(term)));
+          if (isAlRafdain) {
+            try {
+              await sendPhoto(ALRAFDAIN_TELEGRAM_CHANNEL, dynamicPostUrl, channelMsg, { inline_keyboard: channelKeyboard });
+            } catch(err) {
+              console.error("Error sending to Al-Rafdain @ruc_1 from bot wizard:", err);
+            }
+          }
+
+          // 3. Social Media
+          const fbIgCaption = await generateSocialCaption(insertedTrans, 'transport', link);
+          if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
+            await postToFacebook(fbIgCaption, dynamicPostUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID);
+          } else {
+            await postToFacebook(fbIgCaption, dynamicPostUrl);
+          }
+          if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_IG_ID) {
+            await postToInstagramStory(dynamicStoryUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
+          } else {
+            await postToInstagram(fbIgCaption, dynamicPostUrl);
+          }
+          await postToThreads(fbIgCaption, dynamicPostUrl);
+        } catch(pubErr) {
+          console.error("Error auto publishing transport from bot wizard:", pubErr);
         }
 
         const insertedId = insertedTrans.id;
