@@ -45,12 +45,24 @@ export const SocialImageGeneratorModal: React.FC<SocialImageGeneratorModalProps>
     }
   } catch {}
 
-  const regions = ad.location || ad.regions || 'صليخ 600 - سبع بكار - كريعات - حي تونس - القاهرة';
-  const destination = ad.city || ad.university || 'جامعة الرافدين';
-  const fare = ad.fare ? `${ad.fare} د.ع` : (ad.price ? `${ad.price} د.ع` : 'حسب الاتفاق');
+  const rawReg = ad.regions || ad.location || 'صليخ 600 - سبع بكار - كريعات - حي تونس - القاهرة';
+  const regions = rawReg.replace(/<[^>]*>?/gm, '').replace(/&lt;.*?&gt;/gm, '').trim();
+  const destination = (ad.city || ad.university || 'جامعة الرافدين').replace(/<[^>]*>?/gm, '').trim();
+  
+  let fare = 'حسب الاتفاق';
+  if (ad.price) {
+    const rawNum = String(ad.price).replace(/[^0-9]/g, '');
+    if (rawNum && Number(rawNum) > 0) {
+      fare = `${Number(rawNum).toLocaleString('en-US')} د.ع`;
+    } else if (typeof ad.price === 'string' && ad.price.trim()) {
+      fare = ad.price.trim();
+    }
+  } else if (ad.fare) {
+    fare = `${ad.fare} د.ع`;
+  }
   const link = `https://www.souqbaghdad.store/transport/card/${shortId}`;
 
-  const imageUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=${templateType}&title=${encodeURIComponent(title)}&subtitle=${encodeURIComponent(subtitle)}&subdesc=${encodeURIComponent(catType)}&regions=${encodeURIComponent(regions)}&destination=${encodeURIComponent(destination)}&fare=${encodeURIComponent(fare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&t=${Date.now()}`;
+  const imageUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=${templateType}&title=${encodeURIComponent(title)}&subtitle=${encodeURIComponent(subtitle)}&subdesc=${encodeURIComponent(catType)}&regions=${encodeURIComponent(regions)}&destination=${encodeURIComponent(destination)}&fare=${encodeURIComponent(fare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}`;
 
   const handleDownload = async () => {
     try {
