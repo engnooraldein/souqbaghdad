@@ -189,6 +189,29 @@ async function postToThreads(text: string, photoUrl: string | string[] | null) {
   }
 }
 
+// ── Helper: Download generated image and return as Blob ──────────────────
+// Used to avoid Facebook/Instagram timeout when fetching from our Edge Function.
+async function fetchImageAsBlob(imageUrl: string, retries = 3): Promise<Blob | null> {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const res = await fetch(imageUrl, {
+        signal: AbortSignal.timeout(50000) // 50s timeout (WASM init can be slow)
+      });
+      if (res.ok) {
+        const buf = await res.arrayBuffer();
+        if (buf.byteLength > 1000) {
+          return new Blob([buf], { type: 'image/png' });
+        }
+      }
+      console.warn(`fetchImageAsBlob attempt ${attempt+1} failed: status ${res.status}`);
+    } catch(e: any) {
+      console.warn(`fetchImageAsBlob attempt ${attempt+1} error:`, e.message);
+    }
+    if (attempt < retries - 1) await new Promise(r => setTimeout(r, 3000));
+  }
+  return null;
+}
+
 async function postToFacebook(text: string, photoUrl: string | string[] | null, customToken?: string, customPageId?: string) {
   const token = customToken || META_PAGE_ACCESS_TOKEN;
   const pageId = customPageId || META_PAGE_ID;
@@ -1447,12 +1470,42 @@ serve(async (req) => {
           const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
           const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
           
+          // ── Pre-fetch image once for all platforms (avoids Meta timeout) ──
+          const imageUrlToFetch = (publishInstagram && instagramFormat === 'story') ? dynamicStoryUrl : dynamicPostUrl;
+          let generatedImageBlob: Blob | null = null;
+          if (publishFacebook || publishInstagram || publishThreads) {
+            console.log('Pre-fetching generated image...');
+            generatedImageBlob = await fetchImageAsBlob(imageUrlToFetch);
+            console.log(generatedImageBlob ? `Image fetched: ${generatedImageBlob.size} bytes` : 'Image fetch FAILED');
+          }
+
           if (publishFacebook) {
             let fbData;
-            if (useAlRafdainFb && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
-              fbData = await postToFacebook(fbIgCaption, dynamicPostUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID);
+            if (generatedImageBlob) {
+              // Upload image as multipart (avoids FB timeout on URL fetch)
+              const formData = new FormData();
+              formData.append('source', generatedImageBlob, `transport_${adId}.png`);
+              formData.append('caption', fbIgCaption);
+              const fbToken = (useAlRafdainFb && ALRAFDAIN_FB_TOKEN) ? ALRAFDAIN_FB_TOKEN : META_PAGE_ACCESS_TOKEN;
+              const fbPageId = (useAlRafdainFb && ALRAFDAIN_FB_PAGE_ID) ? ALRAFDAIN_FB_PAGE_ID : META_PAGE_ID;
+              formData.append('access_token', fbToken);
+              const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${fbPageId}/photos`, {
+                method: 'POST',
+                body: formData
+              });
+              fbData = await uploadRes.json();
+              if (fbData?.error) {
+                console.warn('FB multipart failed, falling back to URL:', fbData.error.message);
+                const fbUrl = useAlRafdainFb ? dynamicPostUrl : dynamicPostUrl;
+                fbData = useAlRafdainFb && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID
+                  ? await postToFacebook(fbIgCaption, fbUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID)
+                  : await postToFacebook(fbIgCaption, fbUrl);
+              }
             } else {
-              fbData = await postToFacebook(fbIgCaption, dynamicPostUrl);
+              // Fallback to URL if blob fetch failed
+              fbData = useAlRafdainFb && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID
+                ? await postToFacebook(fbIgCaption, dynamicPostUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID)
+                : await postToFacebook(fbIgCaption, dynamicPostUrl);
             }
             
             if (fbData && (fbData.post_id || fbData.id)) {
@@ -1462,7 +1515,6 @@ serve(async (req) => {
           }
           
           if (publishInstagram) {
-            // Use Post or Story image based on user's selection in the publish modal
             const igImageUrl = instagramFormat === 'story' ? dynamicStoryUrl : dynamicPostUrl;
             let igData;
             if (useAlRafdainIg && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_IG_ID) {
@@ -1488,7 +1540,10 @@ serve(async (req) => {
           }
 
           if (publishThreads) {
-            const thData = await postToThreads(fbIgCaption, dynamicPostUrl);
+            // Threads also needs the blob approach for our generated images
+            const thData = generatedImageBlob
+              ? await postToThreads(fbIgCaption, dynamicPostUrl) // Threads uses URL (no multipart support)
+              : await postToThreads(fbIgCaption, dynamicPostUrl);
             if (thData && (thData.id || thData.media_id)) {
                updates.threads_post_id = thData.id || thData.media_id;
                syncStatus.threads = 'success';
