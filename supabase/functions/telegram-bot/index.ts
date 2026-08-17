@@ -1997,14 +1997,56 @@ serve(async (req) => {
         }
 
         const insertedId = insertedCar.id;
-        const channelLink = `https://t.me/${PRODUCT_CHANNEL.replace('@', '')}`;
+        const adId = insertedCar.short_id || insertedId;
+        const carLink = `https://www.souqbaghdad.store/ad/${adId}`;
+        const carChannelLink = `https://t.me/${CAR_CHANNEL.replace('@', '')}`;
         const currencySymbol = state.data.currency || 'د.ع';
         const formattedPrice = formatTgPrice(state.data.price, currencySymbol);
 
-        // Success message with full management buttons
-        await updateOrSend(`🎉 <b>تم نشر إعلان سيارتك بنجاح!</b>\n\n🚗 <b>${carTitle}</b>\n💰 <b>السعر:</b> ${formattedPrice}\n📍 <b>المحافظة:</b> ${state.data.governorate || 'بغداد'}\n\n📣 <b>إعلانك معروض الآن في المنصة وقناة التليكرام.</b>\nيمكنك إدارة إعلانك مباشرة عبر الأزرار أدناه:`, {
+        // Build caption for channel post
+        const channelCaption = `🚗 <b>${carTitle}</b>\n` +
+          `💰 <b>السعر:</b> ${formattedPrice}\n` +
+          `📍 <b>المحافظة:</b> ${state.data.governorate || 'بغداد'}\n` +
+          (state.data.year ? `📅 <b>السنة:</b> ${state.data.year}\n` : '') +
+          (state.data.mileage ? `🛣️ <b>الكيلومتر:</b> ${parseInt(state.data.mileage || '0').toLocaleString('en-US')} كم\n` : '') +
+          (state.data.origin ? `🌍 <b>المواصفات:</b> ${state.data.origin}\n` : '') +
+          (state.data.phone ? `📞 <b>التواصل:</b> ${state.data.phone}\n` : '') +
+          `\n📣 <b>#رقم_الإعلان_${adId}</b> | @${BOT_USERNAME}`;
+
+        let cleanPhone = (state.data.phone || '').replace(/[^0-9+]/g, '');
+        if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
+        else cleanPhone = cleanPhone.replace('+', '');
+        const contactRow: any[] = [];
+        if (cleanPhone) {
+          contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
+          contactRow.push({ text: '✈️ تواصل تيليكرام', url: `https://t.me/+${cleanPhone}` });
+        }
+        const channelMarkup: any = {
           inline_keyboard: [
-            [{ text: '📢 شاهد إعلانك في القناة', url: channelLink }],
+            [{ text: '🌐 عرض التفاصيل كاملة بالمنصة', url: carLink }],
+            ...(contactRow.length > 0 ? [contactRow] : []),
+            [{ text: '🚗 اعرض سيارتك للبيع مجاناً', url: `https://t.me/${BOT_USERNAME}` }]
+          ]
+        };
+
+        // Directly publish to car channel
+        const carImages = insertedCar.images && insertedCar.images.length > 0 ? insertedCar.images : null;
+        let tgMsgId: string | null = null;
+        try {
+          const photoUrl = carImages ? carImages[0] : `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&category=cars&title=${encodeURIComponent(carTitle)}&fare=${encodeURIComponent(formattedPrice)}&regions=${encodeURIComponent(state.data.governorate || 'بغداد')}&link=${encodeURIComponent(carLink)}&short_id=${encodeURIComponent(adId)}`;
+          const carRes = await sendPhoto(CAR_CHANNEL_ID || CAR_CHANNEL, photoUrl, channelCaption, channelMarkup);
+          if (carRes?.ok && carRes.result?.message_id) {
+            tgMsgId = carRes.result.message_id.toString();
+            await supabase.from('ads').update({ telegram_message_id: tgMsgId, sync_status: { telegram: 'success', facebook: 'pending', instagram: 'pending' } }).eq('id', insertedId);
+          }
+        } catch(e) {
+          console.error('Car channel publish error:', e);
+        }
+
+        // Success message with full management buttons
+        await updateOrSend(`🎉 <b>تم نشر إعلان سيارتك بنجاح!</b>\n\n🚗 <b>${carTitle}</b>\n💰 <b>السعر:</b> ${formattedPrice}\n📍 <b>المحافظة:</b> ${state.data.governorate || 'بغداد'}\n\n📣 <b>إعلانك معروض الآن في المنصة وقناة سيارات سوق بغداد.</b>\nيمكنك إدارة إعلانك مباشرة عبر الأزرار أدناه:`, {
+          inline_keyboard: [
+            [{ text: '📢 شاهد إعلانك في قناة السيارات', url: carChannelLink }],
             [{ text: '💰 تعديل السعر', callback_data: `edit_car_price_${insertedId}` }, { text: '📞 تعديل الهاتف', callback_data: `edit_car_phone_${insertedId}` }],
             [{ text: '⚠️ تم بيع السيارة (تعليم كمباعة)', callback_data: `mark_sold_${insertedId}` }],
             [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
