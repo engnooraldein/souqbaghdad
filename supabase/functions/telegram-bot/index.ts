@@ -1622,6 +1622,7 @@ serve(async (req) => {
         try {
           const editRes = await editMessageText(chatId, callbackMsgId, msgText, markup);
           if (editRes?.ok) return editRes;
+          if (editRes?.description?.includes('message is not modified')) return editRes;
         } catch(e) {
           console.error('editMessageText failed, sending new:', e);
         }
@@ -1957,6 +1958,12 @@ serve(async (req) => {
       }
 
       if (action === 'car_confirm_publish') {
+        if (state.step === 'publishing' || !state.data || (!state.data.brand && !state.data.model)) {
+          return new Response('OK', { status: 200 });
+        }
+        state.step = 'publishing';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
         await updateOrSend('⏳ جاري نشر إعلان سيارتك في المنصة وقناة التليكرام وشبكات التواصل...');
 
         const cost = 1;
@@ -2286,6 +2293,12 @@ serve(async (req) => {
       }
 
       if (action === 'trans_confirm_publish') {
+        if (state.step === 'publishing' || !state.data || !state.data.destination) {
+          return new Response('OK', { status: 200 });
+        }
+        state.step = 'publishing';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
         await updateOrSend('⏳ جاري نشر إعلان الخط في المنصة وقناة خطوط النقل...');
 
         const cost = 1;
@@ -2417,19 +2430,31 @@ serve(async (req) => {
             }).eq('id', insertedTrans.id);
           }
 
-          // 3. Social Media
-          const fbIgCaption = await generateSocialCaption(insertedTrans, 'transport', link);
-          if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
-            await postToFacebook(fbIgCaption, dynamicPostUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID);
+          // 3. Social Media (Run in background to prevent Telegram webhook timeout)
+          const postSocialBg = async () => {
+            try {
+              const fbIgCaption = await generateSocialCaption(insertedTrans, 'transport', link);
+              if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
+                await postToFacebook(fbIgCaption, dynamicPostUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID);
+              } else {
+                await postToFacebook(fbIgCaption, dynamicPostUrl);
+              }
+              if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_IG_ID) {
+                await postToInstagramStory(dynamicStoryUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
+              } else {
+                await postToInstagram(fbIgCaption, dynamicPostUrl);
+              }
+              await postToThreads(fbIgCaption, dynamicPostUrl);
+            } catch (err) {
+              console.error("Error auto publishing transport to social media:", err);
+            }
+          };
+
+          if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+            EdgeRuntime.waitUntil(postSocialBg());
           } else {
-            await postToFacebook(fbIgCaption, dynamicPostUrl);
+            postSocialBg();
           }
-          if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_IG_ID) {
-            await postToInstagramStory(dynamicStoryUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
-          } else {
-            await postToInstagram(fbIgCaption, dynamicPostUrl);
-          }
-          await postToThreads(fbIgCaption, dynamicPostUrl);
         } catch(pubErr) {
           console.error("Error auto publishing transport from bot wizard:", pubErr);
         }
