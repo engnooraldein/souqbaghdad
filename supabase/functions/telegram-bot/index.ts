@@ -1041,6 +1041,19 @@ serve(async (req) => {
       let forceFacebookPage = payload.targets ? payload.targets.facebookPage : null;
       let forceInstagramPage = payload.targets ? payload.targets.instagramPage : null;
 
+      // Respect skip flags from initial insert (to prevent double publishing with bot wizard)
+      if (record?.sync_status) {
+        if (record.sync_status.telegram === 'skip' || record.sync_status.telegram === 'success') publishTelegram = false;
+        if (record.sync_status.facebook === 'skip' || record.sync_status.facebook === 'success') publishFacebook = false;
+        if (record.sync_status.instagram === 'skip' || record.sync_status.instagram === 'success') publishInstagram = false;
+        if (record.sync_status.tiktok === 'skip' || record.sync_status.tiktok === 'success') publishTiktok = false;
+        if (record.sync_status.threads === 'skip' || record.sync_status.threads === 'success') publishThreads = false;
+      }
+
+      if (!publishTelegram && !publishFacebook && !publishInstagram && !publishTiktok && !publishThreads) {
+        shouldPublish = false;
+      }
+
       if (shouldPublish) {
         // --- 1. CAR ADS (VEHICLES) ---
         if (payload.table === 'ads' && (record.category === 'vehicles' || record.category === 'cars' || record.category === 'car' || (record.category || '').toLowerCase().includes('car'))) {
@@ -1987,7 +2000,8 @@ serve(async (req) => {
           seller_avatar: userProfile?.avatar_url || '',
           status: 'active',
           is_demo: false,
-          short_id: shortId
+          short_id: shortId,
+          sync_status: { telegram: 'skip', facebook: 'pending', instagram: 'pending', tiktok: 'pending', threads: 'pending' }
         }).select().single();
 
         if (carInsertError || !insertedCar) {
@@ -2319,7 +2333,8 @@ serve(async (req) => {
           seller_id: userId,
           seller_name: userProfile?.full_name || 'صاحب خط',
           seller_avatar: userProfile?.avatar_url || '',
-          short_id: shortId
+          short_id: shortId,
+          sync_status: { telegram: 'skip', facebook: 'skip', instagram: 'skip', tiktok: 'skip', threads: 'skip' }
         }).select().single();
 
         if (transInsertError || !insertedTrans) {
@@ -2372,16 +2387,34 @@ serve(async (req) => {
 
           // 1. Post to @souqbaghdad_lines
           const targetLinesChannel = LINES_CHANNEL_ID || LINES_CHANNEL;
-          await sendPhoto(targetLinesChannel, dynamicPostUrl, channelMsg, { inline_keyboard: channelKeyboard });
+          const linesRes = await sendPhoto(targetLinesChannel, dynamicPostUrl, channelMsg, { inline_keyboard: channelKeyboard });
+          let tgMsgId: string | null = null;
+          if (linesRes?.ok && linesRes.result?.message_id) {
+            tgMsgId = linesRes.result.message_id.toString();
+          }
 
           // 2. If it's Al-Rafdain, ALSO post to @ruc_1
           const isAlRafdain = ['الرافدين', 'الرفدين'].some(term => cleanDestination.includes(term) || (state.data.targetAudience && state.data.targetAudience.includes(term)));
+          let rucMsgId: string | null = null;
           if (isAlRafdain) {
             try {
-              await sendPhoto(ALRAFDAIN_TELEGRAM_CHANNEL, dynamicPostUrl, channelMsg, { inline_keyboard: channelKeyboard });
+              const rucRes = await sendPhoto(ALRAFDAIN_TELEGRAM_CHANNEL, dynamicPostUrl, channelMsg, { inline_keyboard: channelKeyboard });
+              if (rucRes?.ok && rucRes.result?.message_id) {
+                rucMsgId = rucRes.result.message_id.toString();
+              }
             } catch(err) {
               console.error("Error sending to Al-Rafdain @ruc_1 from bot wizard:", err);
             }
+          }
+
+          // Save telegram_message_id to prevent DB webhook from publishing again (dedup)
+          if (tgMsgId) {
+            const syncStatus: any = { telegram: 'success', facebook: 'pending', instagram: 'pending' };
+            if (rucMsgId) syncStatus.ruc_telegram_message_id = rucMsgId;
+            await supabase.from('ads').update({ 
+              telegram_message_id: tgMsgId, 
+              sync_status: syncStatus
+            }).eq('id', insertedTrans.id);
           }
 
           // 3. Social Media
@@ -2402,7 +2435,8 @@ serve(async (req) => {
         }
 
         const insertedId = insertedTrans.id;
-        const channelLink = `https://t.me/${(LINES_CHANNEL_ID || LINES_CHANNEL).replace('@', '')}`;
+        // Use channel @username (not numeric ID) for t.me links
+        const channelLink = `https://t.me/${LINES_CHANNEL.replace('@', '')}`;
         const fareStr = formatTgPrice(state.data.price);
 
         await updateOrSend(`🎉 <b>تم نشر إعلان الخط بنجاح!</b>\n\n🚌 <b>${transTitle}</b>\n💰 <b>الأجرة:</b> ${fareStr}\n📍 <b>المناطق:</b> ${state.data.regions}\n🏢 <b>الوجهة:</b> ${state.data.destination}\n\n📣 <b>الخط معروض الآن في المنصة وقناة خطوط النقل.</b>\nيمكنك إدارة خطك مباشرة عبر الأزرار أدناه:`, {
