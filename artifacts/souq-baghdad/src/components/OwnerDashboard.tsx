@@ -43,6 +43,7 @@ import type { Ad, Product, User, StoredUser, Visit, SystemLog, TransportAd } fro
 import { formatPrice } from '../utils/format';
 import { logSystemAction } from '../utils/logs';
 import { getGlowClass, getWhatsAppResetLink } from '../utils/helpers';
+import { SocialPublishModal } from './social/SocialPublishModal';
 import { DEFAULT_COVER } from '../constants';
 import { ViewersModal } from './ViewersModal';
 import { ConfirmationDialog } from './ConfirmationDialog';
@@ -1454,101 +1455,18 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
         variant="danger"
       />
 
-      {publishModalItem && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl relative">
-            <div className="p-5">
-              <h3 className="text-white font-bold text-lg mb-4 text-center">خيارات النشر 🌍</h3>
-              
-              <div className="space-y-3 mb-6">
-                <div className="space-y-1">
-                  <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer hover:bg-gray-750 transition">
-                    <input type="checkbox" checked={publishTargets.facebook} onChange={e=>setPublishTargets(prev=>({...prev, facebook: e.target.checked}))} className="w-5 h-5 accent-blue-500" />
-                    <span className="text-gray-200 font-medium">فيسبوك (Facebook)</span>
-                  </label>
-                  {publishTargets.facebook && (
-                    <div className="mr-8 pr-3 border-r-2 border-gray-700">
-                      <select 
-                        value={publishTargets.facebookPage} 
-                        onChange={e=>setPublishTargets(prev=>({...prev, facebookPage: e.target.value}))}
-                        className="bg-gray-800 text-sm text-gray-300 p-2 rounded-lg border border-gray-600 outline-none w-full"
-                      >
-                        <option value="souqbaghdad">صفحة سوق بغداد (الافتراضي)</option>
-                        <option value="alrafdain">صفحة كلية الرافدين</option>
-                      </select>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer hover:bg-gray-750 transition">
-                    <input type="checkbox" checked={publishTargets.instagram} onChange={e=>setPublishTargets(prev=>({...prev, instagram: e.target.checked}))} className="w-5 h-5 accent-pink-500" />
-                    <span className="text-gray-200 font-medium">انستغرام (Instagram)</span>
-                  </label>
-                  {publishTargets.instagram && (
-                    <div className="mr-8 pr-3 border-r-2 border-gray-700">
-                      <select 
-                        value={publishTargets.instagramPage} 
-                        onChange={e=>setPublishTargets(prev=>({...prev, instagramPage: e.target.value}))}
-                        className="bg-gray-800 text-sm text-gray-300 p-2 rounded-lg border border-gray-600 outline-none w-full"
-                      >
-                        <option value="souqbaghdad">صفحة سوق بغداد (الافتراضي)</option>
-                        <option value="alrafdain">صفحة كلية الرافدين (ستوري)</option>
-                      </select>
-                    </div>
-                  )}
-                </div>
-                <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer hover:bg-gray-750 transition">
-                  <input type="checkbox" checked={publishTargets.threads} onChange={e=>setPublishTargets(prev=>({...prev, threads: e.target.checked}))} className="w-5 h-5 accent-emerald-500" />
-                  <span className="text-gray-200 font-medium">ثريدز (Threads) 🧵</span>
-                </label>
-                <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer hover:bg-gray-750 transition">
-                  <input type="checkbox" checked={publishTargets.telegram} onChange={e=>setPublishTargets(prev=>({...prev, telegram: e.target.checked}))} className="w-5 h-5 accent-sky-500" />
-                  <span className="text-gray-200 font-medium">تيليكرام (Telegram)</span>
-                </label>
-                <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer hover:bg-gray-750 transition">
-                  <input type="checkbox" checked={publishTargets.tiktok} onChange={e=>setPublishTargets(prev=>({...prev, tiktok: e.target.checked}))} className="w-5 h-5 accent-black" />
-                  <span className="text-gray-200 font-medium">تيك توك (TikTok)</span>
-                </label>
-              </div>
-
-              <div className="flex gap-3">
-                <button 
-                  onClick={async () => {
-                    if (!publishTargets.facebook && !publishTargets.instagram && !publishTargets.threads && !publishTargets.telegram && !publishTargets.tiktok) {
-                      alert('يرجى تحديد منصة واحدة على الأقل');
-                      return;
-                    }
-                    setIsSocialPublishing(publishModalItem.id);
-                    const tableMap = { ad: 'ads', product: 'products', transport: 'transport_ads' };
-                    try {
-                      const { error } = await supabase.functions.invoke('telegram-bot', {
-                        body: { type: 'INSERT', table: tableMap[publishModalItem.type], record: publishModalItem.record, targets: publishTargets }
-                      });
-                      if (error) alert('فشل النشر: ' + error.message);
-                      else alert('تم إرسال طلب إعادة النشر للمنصات بنجاح ✅');
-                    } catch (e: any) {
-                      alert('خطأ: ' + e.message);
-                    } finally {
-                      setIsSocialPublishing(null);
-                      setPublishModalItem(null);
-                    }
-                  }}
-                  disabled={isSocialPublishing === publishModalItem.id}
-                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center justify-center gap-2"
-                >
-                  {isSocialPublishing === publishModalItem.id ? <Loader2 className="w-5 h-5 animate-spin"/> : <Share2 className="w-5 h-5"/>}
-                  نشر الآن
-                </button>
-                <button onClick={() => setPublishModalItem(null)} className="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 text-gray-200 font-bold rounded-xl">
-                  إلغاء
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* ── Social Publish Modal (Owner Dashboard) ── */}
+      <SocialPublishModal
+        isOpen={!!publishModalItem}
+        onClose={() => setPublishModalItem(null)}
+        item={publishModalItem?.record}
+        category={
+          publishModalItem?.type === 'transport' 
+            ? 'transport' 
+            : (publishModalItem?.record?.category === 'vehicles' || publishModalItem?.record?.category === 'cars' ? 'cars' : 'general')
+        }
+        table={publishModalItem?.type === 'product' ? 'products' : (publishModalItem?.type === 'transport' ? 'transport_ads' : 'ads')}
+      />
     </div>
   );
 }
