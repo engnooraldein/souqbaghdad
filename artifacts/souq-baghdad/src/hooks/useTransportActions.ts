@@ -73,7 +73,7 @@ export function useTransportActions({
     }
     
     console.log("INSERTING INTO ADS:", rowData);
-    const { error } = await supabase.from('ads').insert(rowData);
+    const { data: insertedAd, error } = await supabase.from('ads').insert(rowData).select().single();
     if (error) {
       if (error.message?.includes('row-level security') || error.code === '42501') {
         showToast('انتهت جلسة الدخول لأسباب أمنية. يرجى تسجيل الدخول مجدداً لمتابعة النشر.', 'error');
@@ -84,6 +84,25 @@ export function useTransportActions({
       }
       console.error(error);
       return;
+    }
+
+    // Automatically publish to Telegram, Facebook, Instagram, and Threads
+    try {
+      supabase.functions.invoke('telegram-bot', {
+        body: {
+          type: 'INSERT',
+          table: 'transport_ads',
+          record: insertedAd || rowData,
+          targets: {
+            telegram: true,
+            facebook: true,
+            instagram: true,
+            threads: true
+          }
+        }
+      }).catch(err => console.error("Auto publish transport error:", err));
+    } catch (e) {
+      console.error("Auto invoke telegram-bot error:", e);
     }
     
     const isDataSaver = true; // localStorage.getItem('data_saver_mode') === 'true'; // Forced ON by Owner
