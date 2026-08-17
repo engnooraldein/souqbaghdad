@@ -2436,7 +2436,9 @@ serve(async (req) => {
 
         const insertedId = insertedTrans.id;
         // Use channel @username (not numeric ID) for t.me links
-        const channelLink = `https://t.me/${LINES_CHANNEL.replace('@', '')}`;
+        const channelLink = isAlRafdain && ALRAFDAIN_TELEGRAM_CHANNEL
+          ? `https://t.me/${ALRAFDAIN_TELEGRAM_CHANNEL.replace('@', '')}`
+          : `https://t.me/${LINES_CHANNEL.replace('@', '')}`;
         const fareStr = formatTgPrice(state.data.price);
 
         await updateOrSend(`🎉 <b>تم نشر إعلان الخط بنجاح!</b>\n\n🚌 <b>${transTitle}</b>\n💰 <b>الأجرة:</b> ${fareStr}\n📍 <b>المناطق:</b> ${state.data.regions}\n🏢 <b>الوجهة:</b> ${state.data.destination}\n\n📣 <b>الخط معروض الآن في المنصة وقناة خطوط النقل.</b>\nيمكنك إدارة خطك مباشرة عبر الأزرار أدناه:`, {
