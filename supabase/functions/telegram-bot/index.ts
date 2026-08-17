@@ -2391,9 +2391,10 @@ serve(async (req) => {
           : `https://t.me/${LINES_CHANNEL.replace('@', '')}`;
         
         const insertedId = insertedTrans.id;
+        const stateData = state.data || {};
 
         // Immediately send success message to user before heavy background tasks
-        await updateOrSend(`🎉 <b>تم نشر إعلان الخط بنجاح!</b>\n\n🚌 <b>${transTitle}</b>\n💰 <b>الأجرة:</b> ${cleanFare}\n📍 <b>المناطق:</b> ${state.data.regions}\n🏢 <b>الوجهة:</b> ${state.data.destination}\n\n📣 <b>الخط معروض الآن في المنصة وقناة خطوط النقل.</b>\nيمكنك إدارة خطك مباشرة عبر الأزرار أدناه:`, {
+        await updateOrSend(`🎉 <b>تم نشر إعلان الخط بنجاح!</b>\n\n🚌 <b>${transTitle}</b>\n💰 <b>الأجرة:</b> ${cleanFare}\n📍 <b>المناطق:</b> ${stateData.regions}\n🏢 <b>الوجهة:</b> ${stateData.destination}\n\n📣 <b>الخط معروض الآن في المنصة وقناة خطوط النقل.</b>\nيمكنك إدارة خطك مباشرة عبر الأزرار أدناه:`, {
           inline_keyboard: [
             [{ text: '📢 شاهد الخط في القناة', url: channelLink }],
             [{ text: '💰 تعديل الأجرة', callback_data: `edit_trans_price_${insertedId}` }, { text: '📞 تعديل الهاتف', callback_data: `edit_trans_phone_${insertedId}` }],
@@ -2412,7 +2413,7 @@ serve(async (req) => {
             const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}`;
             const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}`;
 
-            const cleanPhone = (state.data.phone || phone || '').replace(/[^0-9+]/g, '');
+            const cleanPhone = (stateData.phone || phone || '').replace(/[^0-9+]/g, '');
             let formattedPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
 
             const contactRow = [];
@@ -2432,8 +2433,8 @@ serve(async (req) => {
                                `🏷️ <b>الفئة:</b> ${catType} (${targetStr})\n` +
                                `📍 <b>مناطق الانطلاق:</b> ${cleanRegions}\n` +
                                `🏢 <b>الوجهة:</b> ${cleanDestination}\n` +
-                               `⏰ <b>وقت الدوام:</b> ${state.data.shift || 'صباحي'}\n` +
-                               `🚗 <b>المركبة:</b> ${state.data.vehicleType || 'صالون'} | <b>المقاعد:</b> ${state.data.seats || '4'} مقاعد\n` +
+                               `⏰ <b>وقت الدوام:</b> ${stateData.shift || 'صباحي'}\n` +
+                               `🚗 <b>المركبة:</b> ${stateData.vehicleType || 'صالون'} | <b>المقاعد:</b> ${stateData.seats || '4'} مقاعد\n` +
                                `💰 <b>الأجرة:</b> ${cleanFare}\n` +
                                (cleanPhone ? `📞 <b>التواصل:</b> ${cleanPhone}\n\n` : `\n`) +
                                `📣 <b>#رقم_الخط_${shortId}</b> | @${BOT_USERNAME}`;
