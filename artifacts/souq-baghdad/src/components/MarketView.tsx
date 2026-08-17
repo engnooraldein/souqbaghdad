@@ -146,6 +146,35 @@ export function MarketView({
   const [latestAdsPage, setLatestAdsPage] = useState(0);
   const [vipAdsPage, setVipAdsPage] = useState(0);
 
+  // ── Publish Modal (Owner/Admin only) ─────────
+  const [publishItem, setPublishItem] = useState<{id:string|number; type:'product'|'ad'; record:any}|null>(null);
+  const [publishTargets, setPublishTargets] = useState({ facebook: true, facebookPage: 'souqbaghdad', instagram: true, instagramPage: 'souqbaghdad', threads: true, telegram: true, tiktok: false });
+  const [isSocialPublishing, setIsSocialPublishing] = useState(false);
+  const handleShareProduct = (product: Product) => {
+    setPublishItem({ id: product.id, type: 'product', record: product });
+  };
+  const handleShareAd = (ad: Ad) => {
+    setPublishItem({ id: ad.id, type: 'ad', record: ad });
+  };
+  const doPublish = async () => {
+    if (!publishItem) return;
+    setIsSocialPublishing(true);
+    const tableMap = { ad: 'ads', product: 'products', transport: 'transport_ads' };
+    try {
+      const { error } = await supabase.functions.invoke('telegram-bot', {
+        body: { type: 'INSERT', table: tableMap[publishItem.type], record: publishItem.record, targets: publishTargets }
+      });
+      if (error) alert('خطأ في النشر: ' + error.message);
+      else alert('✅ تم إرسال الطلب! سيُنشر على المنصات المحددة.');
+    } catch (e: any) {
+      alert('خطأ: ' + e.message);
+    } finally {
+      setIsSocialPublishing(false);
+      setPublishItem(null);
+    }
+  };
+
+
   // ── Pull To Refresh state ───────────────────
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -1502,6 +1531,8 @@ export function MarketView({
                                           onActionMenu={e => { e.preventDefault(); if (user && (user.id === ad.postedBy || user.role === "admin" || user.role === "owner")) onActionMenu?.({ type: "ad", item: ad }); }}
                                           sellerRole={seller?.role}
                                           compact={true}
+                                          currentUserRole={user?.role}
+                                          onShare={(_e, a) => handleShareAd(a)}
                                         />
                                       );
                                     }}
@@ -1525,6 +1556,8 @@ export function MarketView({
                                           onActionMenu={e => { e.preventDefault(); if (user && (user.id === p.postedBy || user.role === "admin" || user.role === "owner")) onActionMenu?.({ type: "product", item: p }); }}
                                           sellerRole={seller?.role}
                                           compact={true}
+                                          currentUserRole={user?.role}
+                                          onShare={(_e, prod) => handleShareProduct(prod)}
                                         />
                                       );
                                     }}
@@ -1706,7 +1739,22 @@ export function MarketView({
                                     <p className={`text-xs sm:text-sm leading-relaxed line-clamp-3 transition-colors duration-500 ${
                                       isDarkMode ? 'text-gray-300' : 'text-slate-600'
                                     }`}>
-                                      {ad.description}
+                                      {(() => {
+                                        try {
+                                          if (typeof ad.description === 'string' && ad.description.trim().startsWith('{')) {
+                                            const p = JSON.parse(ad.description);
+                                            const parts = [];
+                                            if (p.brand) parts.push(`الماركة: ${p.brand}`);
+                                            if (p.model) parts.push(`الموديل: ${p.model}`);
+                                            if (p.year) parts.push(`السنة: ${p.year}`);
+                                            if (p.origin) parts.push(`المواصفات: ${p.origin}`);
+                                            if (p.mileage) parts.push(`المسافة: ${parseInt(p.mileage).toLocaleString('en-US')} كم`);
+                                            if (p.note) parts.push(`ملاحظات: ${p.note}`);
+                                            return parts.length > 0 ? parts.join(' • ') : (p.note || p.details || '');
+                                          }
+                                        } catch {}
+                                        return ad.description;
+                                      })()}
                                     </p>
                                   )}
                                 </div>
@@ -1778,6 +1826,17 @@ export function MarketView({
                                       <Share2 className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
                                       <span>مشاركة</span>
                                     </motion.button>
+                                    {(user?.role === 'owner' || user?.role === 'admin') && (
+                                      <motion.button
+                                        onClick={() => handleShareAd(ad)}
+                                        whileHover={{ scale: 1.04 }}
+                                        whileTap={{ scale: 0.96 }}
+                                        className="flex items-center gap-1.5 px-3.5 py-2.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 hover:text-blue-300 rounded-xl text-xs font-black transition-all shadow-sm active:scale-[0.98]"
+                                      >
+                                        <Share2 className="w-3.5 h-3.5 text-blue-400" />
+                                        <span>نشر</span>
+                                      </motion.button>
+                                    )}
                                   </div>
                                 </div>
                               </motion.div>
@@ -1871,6 +1930,8 @@ export function MarketView({
                                       onSellerClick={(id) => { if (id) onSellerClick(id); }}
                                       onActionMenu={e => { e.preventDefault(); if (user && (user.id === ad.postedBy || user.role === "admin" || user.role === "owner")) onActionMenu?.({ type: "ad", item: ad }); }}
                                       sellerRole={seller?.role}
+                                      currentUserRole={user?.role}
+                                      onShare={(_e, a) => handleShareAd(a)}
                                     />
                                   );
                                 })}
@@ -1920,6 +1981,8 @@ export function MarketView({
                                       onSellerClick={(id) => { if (id) onSellerClick(id); }}
                                       onActionMenu={e => { e.preventDefault(); if (user && (user.id === p.postedBy || user.role === "admin" || user.role === "owner")) onActionMenu?.({ type: "product", item: p }); }}
                                       sellerRole={seller?.role}
+                                      currentUserRole={user?.role}
+                                      onShare={(_e, prod) => handleShareProduct(prod)}
                                     />
                                   );
                                 })}
@@ -2319,6 +2382,70 @@ export function MarketView({
           </div>
         </div>
       </section>
+      {/* ── Social Publish Modal (Owner/Admin) ── */}
+      {publishItem && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" dir="rtl">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setPublishItem(null)} />
+          <div className="relative bg-gray-900 border border-blue-500/30 rounded-3xl w-full max-w-md p-6 shadow-2xl z-10">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-white font-black text-lg flex items-center gap-2">
+                <Share2 className="w-5 h-5 text-blue-400" />
+                نشر على وسائل التواصل
+              </h3>
+              <button onClick={() => setPublishItem(null)} className="text-gray-400 hover:text-white p-1 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-2 mb-5">
+              {/* Facebook */}
+              <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer">
+                <input type="checkbox" checked={publishTargets.facebook} onChange={e => setPublishTargets(p => ({...p, facebook: e.target.checked}))} className="w-5 h-5 accent-blue-500" />
+                <span className="text-gray-200 font-medium">فيسبوك (Facebook)</span>
+              </label>
+              {publishTargets.facebook && (
+                <div className="mr-8 pr-3 border-r-2 border-gray-700">
+                  <select value={publishTargets.facebookPage} onChange={e => setPublishTargets(p => ({...p, facebookPage: e.target.value}))} className="bg-gray-800 text-sm text-gray-300 p-2 rounded-lg border border-gray-600 outline-none w-full">
+                    <option value="souqbaghdad">سوق بغداد (souqbaghdad)</option>
+                    <option value="alrafdain">كلية الرافدين (alrafdain)</option>
+                  </select>
+                </div>
+              )}
+              {/* Instagram */}
+              <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer">
+                <input type="checkbox" checked={publishTargets.instagram} onChange={e => setPublishTargets(p => ({...p, instagram: e.target.checked}))} className="w-5 h-5 accent-pink-500" />
+                <span className="text-gray-200 font-medium">انستقرام (Instagram)</span>
+              </label>
+              {publishTargets.instagram && (
+                <div className="mr-8 pr-3 border-r-2 border-gray-700">
+                  <select value={publishTargets.instagramPage} onChange={e => setPublishTargets(p => ({...p, instagramPage: e.target.value}))} className="bg-gray-800 text-sm text-gray-300 p-2 rounded-lg border border-gray-600 outline-none w-full">
+                    <option value="souqbaghdad">سوق بغداد (souqbaghdad)</option>
+                    <option value="alrafdain">كلية الرافدين (al_rafdain)</option>
+                  </select>
+                </div>
+              )}
+              {/* Threads */}
+              <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer">
+                <input type="checkbox" checked={publishTargets.threads} onChange={e => setPublishTargets(p => ({...p, threads: e.target.checked}))} className="w-5 h-5 accent-gray-400" />
+                <span className="text-gray-200 font-medium">ثريدز (Threads)</span>
+              </label>
+              {/* Telegram */}
+              <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer">
+                <input type="checkbox" checked={publishTargets.telegram} onChange={e => setPublishTargets(p => ({...p, telegram: e.target.checked}))} className="w-5 h-5 accent-sky-400" />
+                <span className="text-gray-200 font-medium">تيليجرام (Telegram)</span>
+              </label>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={doPublish} disabled={isSocialPublishing} className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all">
+                {isSocialPublishing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Share2 className="w-5 h-5" />}
+                نشر الآن
+              </button>
+              <button onClick={() => setPublishItem(null)} className="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 text-gray-200 font-bold rounded-xl transition-all">
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

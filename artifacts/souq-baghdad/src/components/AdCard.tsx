@@ -188,11 +188,14 @@ export const getCategoryIcon = (categoryId?: string) => {
   }
 };
 
-export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu, sellerRole, compact }:{
+export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, onSellerClick, onActionMenu, sellerRole, compact, currentUserRole, onShare }:{
   ad:Ad; onSelect:()=>void; isFav:boolean; onFav:(e:React.MouseEvent)=>void; onSellerClick?:(id:string)=>void; onActionMenu?:(e:React.MouseEvent)=>void;
   sellerRole?: string;
   compact?: boolean;
+  currentUserRole?: string;
+  onShare?: (e: React.MouseEvent, ad: Ad) => void;
 }) {
+  const isAdminOrOwner = currentUserRole === 'owner' || currentUserRole === 'admin';
   const onlineStatuses = useOnlineStatuses();
   const time = useRelativeTime(ad.createdAtISO);
   const catInfo = getCategoryIcon(ad.category);
@@ -304,6 +307,16 @@ export const AdCard = React.memo(function AdCard({ ad, onSelect, isFav, onFav, o
             <span className="text-gray-500 dark:text-gray-400 text-[9px] truncate max-w-[65px]">{ad.seller?.name || 'مستخدم'}</span>
           </button>
           <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 text-[9px]">
+            {isAdminOrOwner && onShare && (
+              <button
+                onClick={e => { e.stopPropagation(); onShare(e, ad); }}
+                title="نشر على وسائل التواصل"
+                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-blue-500/10 hover:bg-blue-500/25 text-blue-400 hover:text-blue-300 border border-blue-500/20 transition-all"
+              >
+                <Share2 className="w-2.5 h-2.5" />
+                <span className="text-[8px] font-bold">نشر</span>
+              </button>
+            )}
             <span className="text-green-500 dark:text-green-400 font-medium">{time}</span>
             <span className="flex items-center gap-0.5"><ViewIcon className="w-2.5 h-2.5"/>{ad.views}</span>
           </div>

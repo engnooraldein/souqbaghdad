@@ -68,6 +68,27 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
   const [isPlayingSlideshow, setIsPlayingSlideshow] = useState(true);
   const slideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // ── Social Publishing (Owner/Admin) ─────────
+  const [showSocialModal, setShowSocialModal] = useState(false);
+  const [publishTargets, setPublishTargets] = useState({ facebook: true, facebookPage: 'souqbaghdad', instagram: true, instagramPage: 'souqbaghdad', threads: true, telegram: true, tiktok: false });
+  const [isSocialPublishing, setIsSocialPublishing] = useState(false);
+  const doPublish = async () => {
+    if (!ad) return;
+    setIsSocialPublishing(true);
+    try {
+      const { error } = await supabase.functions.invoke('telegram-bot', {
+        body: { type: 'INSERT', table: 'ads', record: ad, targets: publishTargets }
+      });
+      if (error) alert('خطأ في النشر: ' + error.message);
+      else alert('✅ تم إرسال الطلب! سيُنشر على المنصات المحددة.');
+    } catch (e: any) {
+      alert('خطأ: ' + e.message);
+    } finally {
+      setIsSocialPublishing(false);
+      setShowSocialModal(false);
+    }
+  };
+
   useEffect(() => {
     if (isPlayingSlideshow && ad && ad.images && ad.images.length > 1) {
       slideTimerRef.current = setInterval(() => {
@@ -401,7 +422,22 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
               </div>
               <div className="relative">
                 <p className={`text-gray-300 text-xs sm:text-sm leading-relaxed transition-all duration-300 whitespace-pre-line ${!isDescExpanded ? 'line-clamp-3' : ''}`}>
-                  {ad.description}
+                  {(() => {
+                    try {
+                      if (typeof ad.description === 'string' && ad.description.trim().startsWith('{')) {
+                        const p = JSON.parse(ad.description);
+                        const parts = [];
+                        if (p.brand) parts.push(`🚗 الماركة: ${p.brand}`);
+                        if (p.model) parts.push(`🏷️ الموديل: ${p.model}`);
+                        if (p.year) parts.push(`📅 سنة الصنع: ${p.year}`);
+                        if (p.origin) parts.push(`📋 المواصفات: ${p.origin}`);
+                        if (p.mileage) parts.push(`🛣️ المسافة المقطوعة: ${parseInt(p.mileage).toLocaleString('en-US')} كم`);
+                        if (p.note) parts.push(`📝 ملاحظات: ${p.note}`);
+                        return parts.length > 0 ? parts.join('\n') : (p.note || p.details || '');
+                      }
+                    } catch {}
+                    return ad.description;
+                  })()}
                 </p>
                 {(ad.description.length > 140 || ad.description.split('\n').length > 3) && (
                   <button 
@@ -575,6 +611,16 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
               <Share2 className="w-3.5 h-3.5 text-amber-400 animate-pulse"/>
               <span>مشاركة الإعلان</span>
             </button>
+            {(user?.role === 'owner' || user?.role === 'admin') && (
+              <button
+                onClick={() => setShowSocialModal(true)}
+                title="نشر على وسائل التواصل الاجتماعي"
+                className="px-3.5 py-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 border border-blue-500/20 hover:border-blue-500/40 rounded-xl flex items-center justify-center gap-1.5 text-xs sm:text-sm font-black transition-all duration-300 shadow-sm active:scale-[0.98]"
+              >
+                <Share2 className="w-3.5 h-3.5 text-blue-400" />
+                <span>نشر</span>
+              </button>
+            )}
             <button 
               onClick={() => {
                 if (!user) {
@@ -599,6 +645,67 @@ export function AdDetailModal({ ad, onClose, isFav, onFav, user, storedUsers = [
         targetType="ad"
         targetTitle={ad.title}
       />
+
+      {/* ── Social Publish Modal (Owner/Admin) ── */}
+      {showSocialModal && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4" dir="rtl">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setShowSocialModal(false)} />
+          <div className="relative bg-gray-900 border border-blue-500/30 rounded-3xl w-full max-w-md p-6 shadow-2xl z-10">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-white font-black text-lg flex items-center gap-2">
+                <Share2 className="w-5 h-5 text-blue-400" />
+                نشر الإعلان على وسائل التواصل
+              </h3>
+              <button onClick={() => setShowSocialModal(false)} className="text-gray-400 hover:text-white p-1 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-2 mb-5">
+              <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer">
+                <input type="checkbox" checked={publishTargets.facebook} onChange={e => setPublishTargets(p => ({...p, facebook: e.target.checked}))} className="w-5 h-5 accent-blue-500" />
+                <span className="text-gray-200 font-medium">فيسبوك (Facebook)</span>
+              </label>
+              {publishTargets.facebook && (
+                <div className="mr-8 pr-3 border-r-2 border-gray-700">
+                  <select value={publishTargets.facebookPage} onChange={e => setPublishTargets(p => ({...p, facebookPage: e.target.value}))} className="bg-gray-800 text-sm text-gray-300 p-2 rounded-lg border border-gray-600 outline-none w-full">
+                    <option value="souqbaghdad">سوق بغداد (souqbaghdad)</option>
+                    <option value="alrafdain">كلية الرافدين (alrafdain)</option>
+                  </select>
+                </div>
+              )}
+              <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer">
+                <input type="checkbox" checked={publishTargets.instagram} onChange={e => setPublishTargets(p => ({...p, instagram: e.target.checked}))} className="w-5 h-5 accent-pink-500" />
+                <span className="text-gray-200 font-medium">انستقرام (Instagram)</span>
+              </label>
+              {publishTargets.instagram && (
+                <div className="mr-8 pr-3 border-r-2 border-gray-700">
+                  <select value={publishTargets.instagramPage} onChange={e => setPublishTargets(p => ({...p, instagramPage: e.target.value}))} className="bg-gray-800 text-sm text-gray-300 p-2 rounded-lg border border-gray-600 outline-none w-full">
+                    <option value="souqbaghdad">سوق بغداد (souqbaghdad)</option>
+                    <option value="alrafdain">كلية الرافدين (al_rafdain)</option>
+                  </select>
+                </div>
+              )}
+              <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer">
+                <input type="checkbox" checked={publishTargets.threads} onChange={e => setPublishTargets(p => ({...p, threads: e.target.checked}))} className="w-5 h-5 accent-gray-400" />
+                <span className="text-gray-200 font-medium">ثريدز (Threads)</span>
+              </label>
+              <label className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700 cursor-pointer">
+                <input type="checkbox" checked={publishTargets.telegram} onChange={e => setPublishTargets(p => ({...p, telegram: e.target.checked}))} className="w-5 h-5 accent-sky-400" />
+                <span className="text-gray-200 font-medium">تيليجرام (Telegram)</span>
+              </label>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={doPublish} disabled={isSocialPublishing} className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all">
+                {isSocialPublishing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Share2 className="w-5 h-5" />}
+                نشر الآن
+              </button>
+              <button onClick={() => setShowSocialModal(false)} className="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 text-gray-200 font-bold rounded-xl transition-all">
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }

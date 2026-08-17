@@ -85,8 +85,9 @@ export function VisualRoutePath({ regions, university, type }: { regions: string
   );
 }
 
-export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }: { ad: TransportAd, onSelect: () => void, onActionMenu?: (e: any) => void, onShare?: () => void, seller?: any }) {
+export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller, currentUserRole }: { ad: TransportAd, onSelect: () => void, onActionMenu?: (e: any) => void, onShare?: () => void, seller?: any, currentUserRole?: string }) {
   const isEmployee = ad.categoryType === 'employee';
+  const isAdminOrOwner = currentUserRole === 'owner' || currentUserRole === 'admin';
   
   // Note: isNewItem needs to be passed or accessed if globally available. Assuming it's defined in App.tsx globally.
   // Actually isNewItem is defined locally in App! Let's just inline a simple check.
@@ -323,12 +324,14 @@ export function TransportAdCard({ ad, onSelect, onActionMenu, onShare, seller }:
             >
               <MessageSquare className="w-3 h-3" /> واتساب
             </a>
-            {onShare && (
+            {onShare && isAdminOrOwner && (
               <button
                 onClick={(e) => { e.stopPropagation(); onShare(); }}
-                className="p-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 font-black rounded-lg text-[10px]"
+                title="نشر على وسائل التواصل"
+                className="flex items-center gap-1 px-2 py-1.5 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 font-black rounded-lg text-[10px] transition-all"
               >
                 <Share2 className="w-3 h-3" />
+                <span>نشر</span>
               </button>
             )}
           </div>

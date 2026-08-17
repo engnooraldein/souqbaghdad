@@ -29,14 +29,24 @@ async function answerCallbackQuery(callbackQueryId: string, text: string = '', s
 }
 
 async function sendPhoto(chatId: string | number, photoUrl: string, caption: string, replyMarkup?: any) {
-  const body: any = { chat_id: chatId, photo: photoUrl, caption, parse_mode: 'HTML' };
-  if (replyMarkup) body.reply_markup = replyMarkup;
-  const res = await fetch(`${tgUrl}/sendPhoto`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  return res.json();
+  try {
+    const body: any = { chat_id: chatId, photo: photoUrl, caption, parse_mode: 'HTML' };
+    if (replyMarkup) body.reply_markup = replyMarkup;
+    const res = await fetch(`${tgUrl}/sendPhoto`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      console.warn('sendPhoto failed, falling back to sendMessage:', data.description);
+      return await sendMessage(chatId, caption, replyMarkup);
+    }
+    return data;
+  } catch (e) {
+    console.error('sendPhoto exception, falling back to sendMessage:', e);
+    return await sendMessage(chatId, caption, replyMarkup);
+  }
 }
 
 async function sendMediaGroup(chatId: string | number, photoUrls: string[], caption: string) {
@@ -89,9 +99,15 @@ async function deleteMessage(chatId: string | number, messageId: number) {
 }
 
 // Channel IDs from environment variables
-const PRODUCT_CHANNEL = Deno.env.get('PRODUCT_CHANNEL_ID') || '';
-const TRANSPORT_CHANNEL = Deno.env.get('TRANSPORT_CHANNEL_ID') || '';
+const PRODUCT_CHANNEL = Deno.env.get('PRODUCT_CHANNEL_ID') || '@souqbaghdad_iq';
+const TRANSPORT_CHANNEL = Deno.env.get('TRANSPORT_CHANNEL_ID') || '@souqbaghdad_lines';
 const EXTRA_CHANNEL = '@souqbaghdad_iq';
+
+// Specialized channels
+const CAR_CHANNEL = '@souqbaghdad_car';           // Cars/Vehicles only
+const CAR_CHANNEL_ID = '-1004369757057';          // Cars channel exact ID
+const LINES_CHANNEL = '@souqbaghdad_lines';       // Transport lines username
+const LINES_CHANNEL_ID = '-1004317618528';        // Transport lines ID
 
 // Facebook, Instagram & Threads Publishing
 const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || '';
@@ -105,12 +121,14 @@ const ALRAFDAIN_FB_PAGE_ID = Deno.env.get('ALRAFDAIN_FB_PAGE_ID') || '';
 const ALRAFDAIN_IG_ID = Deno.env.get('ALRAFDAIN_IG_ID') || '';
 
 async function postToThreads(text: string, photoUrl: string | string[] | null) {
-  if (!THREADS_ACCESS_TOKEN || !THREADS_USER_ID) return { error: { message: 'رمز الوصول لـ Threads مفقود أو غير صالح' } };
+  if (!THREADS_ACCESS_TOKEN) return { error: { message: 'رمز الوصول لـ Threads مفقود أو غير صالح' } };
+  const userId = THREADS_USER_ID || 'me';
   try {
     const urls = Array.isArray(photoUrl) ? photoUrl : (photoUrl ? [photoUrl] : []);
-    const singleUrl = urls.length > 0 ? urls[0] : null;
+    const rawUrl = urls.length > 0 ? urls[0] : null;
+    const singleUrl = rawUrl ? `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=1080&h=1080&fit=cover` : null;
 
-    let containerUrl = `https://graph.threads.net/v1.0/${THREADS_USER_ID}/threads`;
+    let containerUrl = `https://graph.threads.net/v1.0/${userId}/threads`;
     let params = new URLSearchParams();
     params.append('access_token', THREADS_ACCESS_TOKEN);
     params.append('text', text);
@@ -122,15 +140,48 @@ async function postToThreads(text: string, photoUrl: string | string[] | null) {
       params.append('media_type', 'TEXT');
     }
 
-    const cRes = await fetch(`${containerUrl}?${params.toString()}`, { method: 'POST' });
-    const cData = await cRes.json();
+    let cRes = await fetch(`${containerUrl}?${params.toString()}`, { method: 'POST' });
+    let cData = await cRes.json();
+
+    // If userId failed, retry with 'me'
+    if (cData.error && userId !== 'me') {
+      console.warn(`Threads creation failed with userId ${userId}, retrying with 'me':`, cData.error);
+      const meUrl = `https://graph.threads.net/v1.0/me/threads`;
+      cRes = await fetch(`${meUrl}?${params.toString()}`, { method: 'POST' });
+      cData = await cRes.json();
+    }
+
+    // Fallback: If image upload failed on Threads, try text-only post
+    if (cData.error && singleUrl) {
+      console.warn('Threads image creation failed, falling back to TEXT:', cData.error);
+      params.set('media_type', 'TEXT');
+      params.delete('image_url');
+      cRes = await fetch(`${containerUrl}?${params.toString()}`, { method: 'POST' });
+      cData = await cRes.json();
+      if (cData.error && userId !== 'me') {
+        const meUrl = `https://graph.threads.net/v1.0/me/threads`;
+        cRes = await fetch(`${meUrl}?${params.toString()}`, { method: 'POST' });
+        cData = await cRes.json();
+      }
+    }
 
     if (cData.id) {
-      const pUrl = `https://graph.threads.net/v1.0/${THREADS_USER_ID}/threads_publish?creation_id=${cData.id}&access_token=${encodeURIComponent(THREADS_ACCESS_TOKEN)}`;
-      const pRes = await fetch(pUrl, { method: 'POST' });
-      const pData = await pRes.json();
+      // Wait for Threads media processing before publishing
+      if (singleUrl) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+      let pUrl = `https://graph.threads.net/v1.0/${userId}/threads_publish?creation_id=${cData.id}&access_token=${encodeURIComponent(THREADS_ACCESS_TOKEN)}`;
+      let pRes = await fetch(pUrl, { method: 'POST' });
+      let pData = await pRes.json();
+      if (pData.error && userId !== 'me') {
+        pUrl = `https://graph.threads.net/v1.0/me/threads_publish?creation_id=${cData.id}&access_token=${encodeURIComponent(THREADS_ACCESS_TOKEN)}`;
+        pRes = await fetch(pUrl, { method: 'POST' });
+        pData = await pRes.json();
+      }
+      console.log('Threads Publish Response:', pData);
       return pData;
     }
+    console.error('Threads Container Creation Error:', cData);
     return cData;
   } catch (err: any) {
     console.error('Threads Post Error:', err);
@@ -186,9 +237,19 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-    const data = await res.json();
+    let data = await res.json();
     if (data.error) {
       console.error('FB API Error:', data.error);
+      // Fallback: If photo post failed, try feed text post
+      if (singleUrl) {
+        console.warn('FB photo post failed, trying feed text fallback...');
+        const fallbackRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/feed`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text, access_token: token })
+        });
+        data = await fallbackRes.json();
+      }
     }
     return data;
   } catch (err: any) {
@@ -248,7 +309,9 @@ async function postToInstagramStory(photoUrl: string, igAccountId: string, acces
 async function postToInstagram(text: string, photoUrl: string | string[] | null) {
   if (!META_PAGE_ACCESS_TOKEN || !META_IG_ACCOUNT_ID || !photoUrl) return { error: { message: 'رمز الوصول لانستكرام أو الصورة مفقودة' } };
   try {
-    const originalUrls = Array.isArray(photoUrl) ? photoUrl : [photoUrl];
+    const rawUrls = Array.isArray(photoUrl) ? photoUrl : [photoUrl];
+    // Instagram carousel supports a max of 10 items
+    const originalUrls = rawUrls.slice(0, 10);
     const urls = originalUrls.map(url => `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=1080&h=1080&fit=cover`);
     
     if (urls.length > 1) {
@@ -426,7 +489,27 @@ const generateSocialCaption = async (record: any, type: 'car' | 'product' | 'tra
   let title = record.title || (type === 'car' ? 'سيارة للبيع' : 'إعلان جديد');
   let price = formatTgPrice(record.price, record.currency || 'د.ع');
   let location = record.governorate || record.location || record.city || 'بغداد';
-  let details = (typeof record.description === 'string' && !record.description.startsWith('{') ? record.description : '').substring(0, 250);
+  let details = '';
+  if (typeof record.description === 'string') {
+    if (record.description.trim().startsWith('{')) {
+      try {
+        const p = JSON.parse(record.description);
+        const parts = [];
+        if (p.brand) parts.push(`الماركة: ${p.brand}`);
+        if (p.model) parts.push(`الموديل: ${p.model}`);
+        if (p.year) parts.push(`السنة: ${p.year}`);
+        if (p.origin) parts.push(`المواصفات: ${p.origin}`);
+        if (p.mileage) parts.push(`المسافة: ${p.mileage} كم`);
+        if (p.note) parts.push(`ملاحظات: ${p.note}`);
+        details = parts.join(' | ');
+      } catch {
+        details = record.description;
+      }
+    } else {
+      details = record.description;
+    }
+  }
+  details = details.substring(0, 250);
 
   if (GEMINI_API_KEY) {
     try {
@@ -868,6 +951,7 @@ serve(async (req) => {
       let shouldDelete = false;
       let shouldPublish = false;
       let shouldUpdateStatus = false;
+      let finalSyncStatus: any = {};
       
       if (payload.type === 'INSERT') {
         shouldPublish = true;
@@ -948,7 +1032,7 @@ serve(async (req) => {
 
       if (shouldPublish) {
         // --- 1. CAR ADS (VEHICLES) ---
-        if (payload.table === 'ads' && (record.category === 'vehicles' || record.category === 'cars') && PRODUCT_CHANNEL) {
+        if (payload.table === 'ads' && (record.category === 'vehicles' || record.category === 'cars' || record.category === 'car' || (record.category || '').toLowerCase().includes('car'))) {
           const adId = record.short_id || record.id;
           const link = `https://www.souqbaghdad.store/ad/${adId}`;
           
@@ -1011,8 +1095,9 @@ serve(async (req) => {
           let res;
           if (publishTelegram) {
             const mainPhoto = imagesToPost.length > 0 ? imagesToPost[0] : 'https://souqbaghdad.store/opengraph.jpg';
-            res = await sendPhoto(PRODUCT_CHANNEL, mainPhoto, caption, replyMarkup);
-            if (EXTRA_CHANNEL) await sendPhoto(EXTRA_CHANNEL, mainPhoto, caption, replyMarkup);
+            // Send exclusively to the dedicated car channel (once)
+            const targetCarChannel = CAR_CHANNEL_ID || CAR_CHANNEL;
+            res = await sendPhoto(targetCarChannel, mainPhoto, caption, replyMarkup);
           }
 
           const updates: any = {};
@@ -1058,10 +1143,14 @@ serve(async (req) => {
             if (thData && (thData.id || thData.media_id)) {
               updates.threads_post_id = thData.id || thData.media_id;
               syncStatus.threads = 'success';
+            } else {
+              syncStatus.threads = 'failed';
+              syncStatus.threads_error = thData?.error?.message || JSON.stringify(thData);
             }
           }
 
           updates.sync_status = syncStatus;
+          finalSyncStatus = syncStatus;
           if (Object.keys(updates).length > 0) {
             await supabase.from('ads').update(updates).eq('id', record.id);
           }
@@ -1105,8 +1194,8 @@ serve(async (req) => {
           let res;
           if (publishTelegram) {
             const mainPhoto = imageUrl || 'https://souqbaghdad.store/opengraph.jpg';
+            // Send once to main product channel
             res = await sendPhoto(PRODUCT_CHANNEL, mainPhoto, caption, replyMarkup);
-            if (EXTRA_CHANNEL) await sendPhoto(EXTRA_CHANNEL, mainPhoto, caption, replyMarkup);
           }
           const updates: any = {};
           let syncStatus = record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' };
@@ -1154,6 +1243,7 @@ serve(async (req) => {
           }
           
           updates.sync_status = syncStatus;
+          finalSyncStatus = syncStatus;
           if (Object.keys(updates).length > 0) {
              await supabase.from('products').update(updates).eq('id', record.id);
           }
@@ -1166,7 +1256,17 @@ serve(async (req) => {
         else if (payload.table === 'ads' && record.category !== 'transport' && record.category !== 'vehicles' && record.category !== 'cars' && PRODUCT_CHANNEL) {
           let descText = record.description || '';
           if (typeof descText !== 'string') {
-            try { descText = JSON.stringify(descText); } catch(e){}
+            // If it's an object, try to extract a readable description
+            try { 
+              const parsed = descText;
+              descText = parsed.note || parsed.description || parsed.details || JSON.stringify(parsed); 
+            } catch(e){ descText = String(descText); }
+          } else if (descText.startsWith('{') || descText.startsWith('[')) {
+            // It's a JSON string, parse and extract readable text
+            try {
+              const parsed = JSON.parse(descText);
+              descText = parsed.note || parsed.description || parsed.details || '';
+            } catch(e){}
           }
           let safeDesc = descText.substring(0, 200);
           if (descText.length > 200) safeDesc += '...';
@@ -1202,8 +1302,8 @@ serve(async (req) => {
           let res;
           if (publishTelegram) {
             const mainPhoto = imageUrl || 'https://souqbaghdad.store/opengraph.jpg';
+            // Send once to main product/ads channel
             res = await sendPhoto(PRODUCT_CHANNEL, mainPhoto, caption, replyMarkup);
-            if (EXTRA_CHANNEL) await sendPhoto(EXTRA_CHANNEL, mainPhoto, caption, replyMarkup);
           }
           const updates: any = {};
           let syncStatus = record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' };
@@ -1246,10 +1346,14 @@ serve(async (req) => {
             if (thData && (thData.id || thData.media_id)) {
                updates.threads_post_id = thData.id || thData.media_id;
                syncStatus.threads = 'success';
+            } else {
+               syncStatus.threads = 'failed';
+               syncStatus.threads_error = thData?.error?.message || JSON.stringify(thData);
             }
           }
           
           updates.sync_status = syncStatus;
+          finalSyncStatus = syncStatus;
           if (Object.keys(updates).length > 0) {
              await supabase.from('ads').update(updates).eq('id', record.id);
           }
@@ -1259,7 +1363,7 @@ serve(async (req) => {
           }
         }
         // --- 4. TRANSPORT ADS (خطوط النقل) ---
-        else if (((payload.table === 'ads' && record.category === 'transport') || payload.table === 'transport_ads') && TRANSPORT_CHANNEL) {
+        else if ((payload.table === 'ads' && record.category === 'transport') || payload.table === 'transport_ads') {
           const typeStr = record.type === 'offer' ? '🚗 أوفر خط نقل (سائق)' : '🙋‍♂️ أبحث عن خط نقل (مطلوب)';
           let desc: any = {};
           try { desc = typeof record.description === 'string' ? JSON.parse(record.description) : record.description; } catch(e){}
@@ -1303,11 +1407,10 @@ serve(async (req) => {
                       
           let res;
           if (publishTelegram) {
-            const transportPhoto = 'https://www.souqbaghdad.store/transport-default.jpg';
-            res = await sendPhoto(TRANSPORT_CHANNEL, transportPhoto, msg, replyMarkup);
-            if (EXTRA_CHANNEL) {
-              await sendPhoto(EXTRA_CHANNEL, transportPhoto, msg, replyMarkup);
-            }
+            const transportPhoto = 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=1000';
+            // Send exclusively to the dedicated transport lines channel (once)
+            const targetLinesChannel = LINES_CHANNEL_ID || LINES_CHANNEL;
+            res = await sendPhoto(targetLinesChannel, transportPhoto, msg, replyMarkup);
           }
           const updates: any = {};
           let syncStatus = record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' };
@@ -1380,10 +1483,14 @@ serve(async (req) => {
             if (thData && (thData.id || thData.media_id)) {
                updates.threads_post_id = thData.id || thData.media_id;
                syncStatus.threads = 'success';
+            } else {
+               syncStatus.threads = 'failed';
+               syncStatus.threads_error = thData?.error?.message || JSON.stringify(thData);
             }
           }
           
           updates.sync_status = syncStatus;
+          finalSyncStatus = syncStatus;
           if (Object.keys(updates).length > 0) {
              await supabase.from(payload.table).update(updates).eq('id', record.id);
           }
@@ -1394,7 +1501,10 @@ serve(async (req) => {
         }
       }
 
-      return new Response('OK', { status: 200, headers: corsHeaders });
+      return new Response(JSON.stringify({ ok: true, syncStatus: finalSyncStatus }), { 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
     }
 
     // --- Telegram Message / Callback Processing ---
