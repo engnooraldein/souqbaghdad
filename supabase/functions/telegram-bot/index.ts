@@ -1407,7 +1407,9 @@ serve(async (req) => {
                       
           let res;
           if (publishTelegram) {
-            const transportPhoto = 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=1000';
+            const transportPhoto = (record.images && Array.isArray(record.images) && record.images.length > 0)
+              ? record.images[0]
+              : (record.image_url || 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=1000');
             // Send exclusively to the dedicated transport lines channel (once)
             const targetLinesChannel = LINES_CHANNEL_ID || LINES_CHANNEL;
             res = await sendPhoto(targetLinesChannel, transportPhoto, msg, replyMarkup);
