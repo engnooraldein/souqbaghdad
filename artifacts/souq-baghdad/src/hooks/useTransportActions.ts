@@ -192,6 +192,31 @@ export function useTransportActions({
       return;
     }
     showToast('تم تحديث حالة الخط بنجاح ✅', 'success');
+
+    // Directly notify the bot to update the Telegram channel post
+    if (dbStatus === 'matched' || dbStatus === 'inactive') {
+      try {
+        // Fetch the full record to pass to the bot
+        const { data: fullAd } = await supabase
+          .from('ads')
+          .select('*')
+          .eq('id', id)
+          .single();
+        if (fullAd) {
+          await supabase.functions.invoke('telegram-bot', {
+            body: {
+              type: 'UPDATE',
+              table: 'ads',
+              record: { ...fullAd, status: dbStatus },
+              old_record: { ...fullAd, status: 'active' } // force shouldUpdateStatus = true
+            }
+          });
+        }
+      } catch (e) {
+        console.error('Bot channel update error:', e);
+      }
+    }
+
     fetchTransportAds();
   };
 

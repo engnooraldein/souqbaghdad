@@ -3825,6 +3825,7 @@ serve(async (req) => {
             }
           }
           
+          const caption = message?.caption || null;
           const userCaption = caption || text || null;
           const aiRes = await callGemini(userCaption, audioUrl, photoUrl);
           await showMainMenu(aiRes || undefined);
