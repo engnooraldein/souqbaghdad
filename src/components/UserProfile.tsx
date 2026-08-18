@@ -73,7 +73,7 @@ export function UserProfile({ onBack }: UserProfileProps) {
       <div 
         className="pt-8 pb-20 relative overflow-hidden bg-gray-900"
         style={{
-          backgroundImage: 'url(/baghdad_night_bg.png)',
+          backgroundImage: 'url(/baghdad_night_bg.webp)',
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}

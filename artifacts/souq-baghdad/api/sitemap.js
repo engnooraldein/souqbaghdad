@@ -63,7 +63,7 @@ export default async function handler(req, res) {
       <image:caption>هوية وتصاميم سوق بغداد المنصة الرقمية الأولى للإعلانات والمتاجر في العراق</image:caption>
     </image:image>
     <image:image>
-      <image:loc>https://www.souqbaghdad.store/baghdad_night.png</image:loc>
+      <image:loc>https://www.souqbaghdad.store/baghdad_night.webp</image:loc>
       <image:title>خلفية بغداد الليلية وتصاميم سوق بغداد</image:title>
       <image:caption>تصميم واجهة سوق بغداد بالوضع الليلي</image:caption>
     </image:image>
