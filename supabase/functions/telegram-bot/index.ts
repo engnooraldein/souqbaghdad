@@ -1513,10 +1513,24 @@ serve(async (req) => {
             // 2. If it is for Al-Rafdain, ALSO publish to @ruc_1
             if (isAlRafdain) {
               try {
-                await sendPhoto(ALRAFDAIN_TELEGRAM_CHANNEL, transportPhoto, msg, replyMarkup);
-              } catch(e) {
+                console.log(`[RUC] isAlRafdain=true, city="${record.city}", sending to ${ALRAFDAIN_TELEGRAM_CHANNEL}`);
+                const rucRes = await sendPhoto(ALRAFDAIN_TELEGRAM_CHANNEL, transportPhoto, msg, replyMarkup);
+                console.log('[RUC] sendPhoto response:', JSON.stringify(rucRes));
+                if (rucRes?.ok && rucRes.result?.message_id) {
+                  syncStatus.ruc_telegram_message_id = rucRes.result.message_id.toString();
+                  syncStatus.ruc_telegram = 'success';
+                } else {
+                  syncStatus.ruc_telegram = 'failed';
+                  syncStatus.ruc_telegram_error = rucRes?.description || 'unknown error';
+                  console.error('[RUC] sendPhoto failed:', JSON.stringify(rucRes));
+                }
+              } catch(e: any) {
+                syncStatus.ruc_telegram = 'failed';
+                syncStatus.ruc_telegram_error = e?.message || String(e);
                 console.error('Error sending to Al-Rafdain Telegram channel @ruc_1:', e);
               }
+            } else {
+              console.log(`[RUC] isAlRafdain=false — city="${record.city}", university="${record.university}", destination="${record.destination}"`);
             }
           }
           const updates: any = {};
