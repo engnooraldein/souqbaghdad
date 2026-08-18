@@ -99,6 +99,24 @@ async function editMessageText(chatId: string | number, messageId: number, text:
   return res.json();
 }
 
+async function editChannelMessage(chatId: string | number, messageId: number, captionOrText: string, replyMarkup?: any) {
+  try {
+    let res = await editMessageCaption(chatId, messageId, captionOrText, replyMarkup);
+    if (!res?.ok) {
+      console.warn(`editMessageCaption failed on ${chatId} (msg: ${messageId}):`, res?.description, '- trying editMessageText...');
+      res = await editMessageText(chatId, messageId, captionOrText, replyMarkup);
+    }
+    return res;
+  } catch (err) {
+    console.error(`editChannelMessage exception on ${chatId}:`, err);
+    try {
+      return await editMessageText(chatId, messageId, captionOrText, replyMarkup);
+    } catch(e) {
+      return { ok: false, description: String(e) };
+    }
+  }
+}
+
 async function deleteMessage(chatId: string | number, messageId: number) {
   const res = await fetch(`${tgUrl}/deleteMessage`, {
     method: 'POST',
@@ -979,51 +997,59 @@ serve(async (req) => {
 
       // Handle Sold / Matched status update on Telegram Channel
       if (shouldUpdateStatus) {
+        const isTransport = record.category === 'transport';
+        const isCar = record.category === 'vehicles' || record.category === 'cars' || record.category === 'car' || (record.category || '').toLowerCase().includes('car');
         const msgId = record?.telegram_message_id || oldRecord?.telegram_message_id;
-        if (msgId) {
-          const isTransport = record.category === 'transport';
-          const isCar = record.category === 'vehicles' || record.category === 'cars' || record.category === 'car' || (record.category || '').toLowerCase().includes('car');
-          const targetChannel = isTransport ? (LINES_CHANNEL_ID || TRANSPORT_CHANNEL) : (isCar ? (CAR_CHANNEL_ID || CAR_CHANNEL) : PRODUCT_CHANNEL);
+        const rucMsgId = record?.sync_status?.ruc_telegram_message_id || oldRecord?.sync_status?.ruc_telegram_message_id;
 
+        const browseUrl = isCar ? 'https://www.souqbaghdad.store/vehicles' : (isTransport ? 'https://www.souqbaghdad.store/transport' : 'https://www.souqbaghdad.store');
+        const soldTag = isTransport ? '✅ <b>[اكتمل العدد / الخط مغلق]</b>' : (isCar ? '⚠️ <b>[تم البيع / مباعة]</b>' : '⚠️ <b>[تم البيع / غير متوفر]</b>');
+        const soldButtons = {
+          inline_keyboard: [
+            [{ text: isTransport ? '🚌 تصفح خطوط أخرى متاحة 🌐' : '⚠️ تم البيع — تصفح المزيد 🛍️', url: browseUrl }],
+            [{ text: isTransport ? '🚌 اعرض خطك مجاناً عبر البوت' : '🚗 اعرض إعلانك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}` }]
+          ]
+        };
+        const soldCaption = `${soldTag}\n\n` +
+                            `📌 <b>${record.title || 'إعلان'}</b>\n` +
+                            `💰 <b>تمت العملية بنجاح عبر منصة سوق بغداد</b>\n` +
+                            `📍 ${record.location || record.city || 'العراق'}\n\n` +
+                            `📣 لم يعد هذا الإعلان متاحاً للتواصل. يمكنك تصفح العروض المشابهة عبر الزر أدناه 👇`;
+
+        // 1. Update main channel (souqbaghdad_lines or product/car channel)
+        if (msgId) {
+          const targetChannel = isTransport ? (LINES_CHANNEL_ID || LINES_CHANNEL) : (isCar ? (CAR_CHANNEL_ID || CAR_CHANNEL) : PRODUCT_CHANNEL);
           if (targetChannel) {
             try {
-              const browseUrl = isCar ? 'https://www.souqbaghdad.store/vehicles' : (isTransport ? 'https://www.souqbaghdad.store/transport' : 'https://www.souqbaghdad.store');
-              const soldTag = isTransport ? '✅ <b>[اكتمل العدد / الخط مغلق]</b>' : (isCar ? '⚠️ <b>[تم البيع / مباعة]</b>' : '⚠️ <b>[تم البيع / غير متوفر]</b>');
-              const soldButtons = {
-                inline_keyboard: [
-                  [{ text: isTransport ? '🚌 تصفح خطوط أخرى متاحة 🌐' : '⚠️ تم البيع — تصفح المزيد 🛍️', url: browseUrl }],
-                  [{ text: isTransport ? '🚌 اعرض خطك مجاناً عبر البوت' : '🚗 اعرض إعلانك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}` }]
-                ]
-              };
-              const soldCaption = `${soldTag}\n\n` +
-                                  `📌 <b>${record.title || 'إعلان'}</b>\n` +
-                                  `💰 <b>تمت العملية بنجاح عبر منصة سوق بغداد</b>\n` +
-                                  `📍 ${record.location || record.city || 'العراق'}\n\n` +
-                                  `📣 لم يعد هذا الإعلان متاحاً للتواصل. يمكنك تصفح العروض المشابهة عبر الزر أدناه 👇`;
-              
-              await editMessageCaption(targetChannel, parseInt(msgId, 10), soldCaption, soldButtons);
-
-              // If it's transport for Al-Rafdain, ALSO update @ruc_1
-              if (isTransport) {
-                const descStr = typeof record.description === 'string' ? record.description : JSON.stringify(record.description || {});
-                const isAlRafdain = ['الرافدين', 'الرفدين', 'ruc'].some(term => 
-                  (record.city && record.city.toLowerCase().includes(term)) ||
-                  (record.location && record.location.toLowerCase().includes(term)) ||
-                  (record.title && record.title.toLowerCase().includes(term)) ||
-                  descStr.toLowerCase().includes(term)
-                );
-                const rucMsgId = record?.sync_status?.ruc_telegram_message_id || oldRecord?.sync_status?.ruc_telegram_message_id;
-                if (isAlRafdain && ALRAFDAIN_TELEGRAM_CHANNEL) {
-                  try {
-                    const targetRucId = rucMsgId ? parseInt(rucMsgId, 10) : parseInt(msgId, 10);
-                    await editMessageCaption(ALRAFDAIN_TELEGRAM_CHANNEL, targetRucId, soldCaption, soldButtons);
-                  } catch (err) {
-                    console.error('Al-Rafdain webhook caption update error:', err);
-                  }
-                }
+              let res = await editChannelMessage(targetChannel, parseInt(msgId, 10), soldCaption, soldButtons);
+              if (!res?.ok && isTransport && LINES_CHANNEL && LINES_CHANNEL !== targetChannel) {
+                await editChannelMessage(LINES_CHANNEL, parseInt(msgId, 10), soldCaption, soldButtons);
               }
             } catch(e) {
-              console.error('Failed to update caption to sold:', e);
+              console.error('Failed to update caption in main channel:', e);
+            }
+          }
+        }
+
+        // 2. If it's transport for Al-Rafdain, ALSO update @ruc_1
+        if (isTransport) {
+          const descStr = typeof record.description === 'string' ? record.description : JSON.stringify(record.description || {});
+          const isAlRafdain = ['الرافدين', 'الرفدين', 'ruc'].some(term => 
+            (record.city && record.city.toLowerCase().includes(term)) ||
+            (record.location && record.location.toLowerCase().includes(term)) ||
+            (record.title && record.title.toLowerCase().includes(term)) ||
+            (record.university && record.university.toLowerCase().includes(term)) ||
+            (record.destination && record.destination.toLowerCase().includes(term)) ||
+            (record.regions && record.regions.toLowerCase().includes(term)) ||
+            descStr.toLowerCase().includes(term)
+          );
+
+          if ((isAlRafdain || rucMsgId) && ALRAFDAIN_TELEGRAM_CHANNEL && rucMsgId) {
+            try {
+              console.log(`[RUC WEBHOOK UPDATE] Updating post in ${ALRAFDAIN_TELEGRAM_CHANNEL} with msgId ${rucMsgId}`);
+              await editChannelMessage(ALRAFDAIN_TELEGRAM_CHANNEL, parseInt(rucMsgId, 10), soldCaption, soldButtons);
+            } catch (err) {
+              console.error('Al-Rafdain webhook caption update error:', err);
             }
           }
         }
@@ -1490,16 +1516,24 @@ serve(async (req) => {
           const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
           const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
 
-          const rafdainTerms = ['الرافدين', 'الرفدين'];
+          const descStr = typeof record.description === 'string' ? record.description : JSON.stringify(record.description || {});
+          const rafdainTerms = ['الرافدين', 'الرفدين', 'ruc'];
           const isAlRafdain = rafdainTerms.some(term => 
-            (record.university && record.university.includes(term)) || 
-            (record.city && record.city.includes(term)) || 
-            (desc?.targetAudience && desc.targetAudience.includes(term)) ||
-            (record.destination && record.destination.includes(term))
+            (record.university && record.university.toLowerCase().includes(term)) || 
+            (record.city && record.city.toLowerCase().includes(term)) || 
+            (record.title && record.title.toLowerCase().includes(term)) || 
+            (record.destination && record.destination.toLowerCase().includes(term)) || 
+            (record.location && record.location.toLowerCase().includes(term)) || 
+            (record.regions && record.regions.toLowerCase().includes(term)) || 
+            (desc?.targetAudience && desc.targetAudience.toLowerCase().includes(term)) ||
+            descStr.toLowerCase().includes(term)
           );
           
           const useAlRafdainFb = forceFacebookPage ? (forceFacebookPage === 'alrafdain') : isAlRafdain;
           const useAlRafdainIg = forceInstagramPage ? (forceInstagramPage === 'alrafdain') : isAlRafdain;
+
+          const updates: any = {};
+          let syncStatus: any = { ...(record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' }) };
 
           let res;
           if (publishTelegram) {
@@ -1509,20 +1543,24 @@ serve(async (req) => {
             // 1. Send to main transport channel: @souqbaghdad_lines
             const targetLinesChannel = LINES_CHANNEL_ID || LINES_CHANNEL;
             res = await sendPhoto(targetLinesChannel, transportPhoto, msg, replyMarkup);
+            if (res?.ok && res.result?.message_id) {
+              updates.telegram_message_id = res.result.message_id.toString();
+              syncStatus.telegram = 'success';
+            }
 
             // 2. If it is for Al-Rafdain, ALSO publish to @ruc_1
             if (isAlRafdain) {
               try {
-                console.log(`[RUC] isAlRafdain=true, city="${record.city}", sending to ${ALRAFDAIN_TELEGRAM_CHANNEL}`);
+                console.log(`[RUC WEBHOOK] isAlRafdain=true, sending to ${ALRAFDAIN_TELEGRAM_CHANNEL}`);
                 const rucRes = await sendPhoto(ALRAFDAIN_TELEGRAM_CHANNEL, transportPhoto, msg, replyMarkup);
-                console.log('[RUC] sendPhoto response:', JSON.stringify(rucRes));
+                console.log('[RUC WEBHOOK] sendPhoto response:', JSON.stringify(rucRes));
                 if (rucRes?.ok && rucRes.result?.message_id) {
                   syncStatus.ruc_telegram_message_id = rucRes.result.message_id.toString();
                   syncStatus.ruc_telegram = 'success';
                 } else {
                   syncStatus.ruc_telegram = 'failed';
                   syncStatus.ruc_telegram_error = rucRes?.description || 'unknown error';
-                  console.error('[RUC] sendPhoto failed:', JSON.stringify(rucRes));
+                  console.error('[RUC WEBHOOK] sendPhoto failed:', JSON.stringify(rucRes));
                 }
               } catch(e: any) {
                 syncStatus.ruc_telegram = 'failed';
@@ -1530,15 +1568,8 @@ serve(async (req) => {
                 console.error('Error sending to Al-Rafdain Telegram channel @ruc_1:', e);
               }
             } else {
-              console.log(`[RUC] isAlRafdain=false — city="${record.city}", university="${record.university}", destination="${record.destination}"`);
+              console.log(`[RUC WEBHOOK] isAlRafdain=false — city="${record.city}", university="${record.university}", destination="${record.destination}"`);
             }
-          }
-          const updates: any = {};
-          let syncStatus = record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' };
-
-          if (publishTelegram && res?.ok && res.result?.message_id) {
-             updates.telegram_message_id = res.result.message_id.toString();
-             syncStatus.telegram = 'success';
           }
           
           const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
@@ -2399,7 +2430,12 @@ serve(async (req) => {
         const cleanDestination = (state.data.destination || 'كلية الرافدين الجامعة').replace(/<[^>]*>?/gm, '').trim();
         const cleanFare = formatTgPrice(state.data.price);
 
-        const isAlRafdain = ['الرافدين', 'الرفدين'].some(term => cleanDestination.includes(term) || targetStr.includes(term));
+        const isAlRafdain = ['الرافدين', 'الرفدين', 'ruc'].some(term => 
+          cleanDestination.toLowerCase().includes(term) || 
+          targetStr.toLowerCase().includes(term) ||
+          cleanRegions.toLowerCase().includes(term) ||
+          (stateData.university && stateData.university.toLowerCase().includes(term))
+        );
         const channelLink = isAlRafdain && ALRAFDAIN_TELEGRAM_CHANNEL
           ? `https://t.me/${ALRAFDAIN_TELEGRAM_CHANNEL.replace('@', '')}`
           : `https://t.me/${LINES_CHANNEL.replace('@', '')}`;
@@ -2465,23 +2501,24 @@ serve(async (req) => {
             let rucMsgId: string | null = null;
             if (isAlRafdain) {
               try {
+                console.log(`[BOT RUC] isAlRafdain=true, sending to ${ALRAFDAIN_TELEGRAM_CHANNEL}`);
                 const rucRes = await sendPhoto(ALRAFDAIN_TELEGRAM_CHANNEL, dynamicPostUrl, channelMsg, { inline_keyboard: channelKeyboard });
                 if (rucRes?.ok && rucRes.result?.message_id) {
                   rucMsgId = rucRes.result.message_id.toString();
+                  console.log(`[BOT RUC] sendPhoto success, message_id: ${rucMsgId}`);
                 }
               } catch(err) {
                 console.error("Error sending to Al-Rafdain @ruc_1 from bot wizard:", err);
               }
             }
 
-            // Save telegram_message_id to prevent DB webhook from publishing again (dedup)
-            if (tgMsgId) {
+            // Save telegram_message_id and ruc_telegram_message_id to prevent DB webhook from publishing again (dedup)
+            if (tgMsgId || rucMsgId) {
               const syncStatus: any = { telegram: 'success', facebook: 'pending', instagram: 'pending' };
               if (rucMsgId) syncStatus.ruc_telegram_message_id = rucMsgId;
-              await supabase.from('ads').update({ 
-                telegram_message_id: tgMsgId, 
-                sync_status: syncStatus
-              }).eq('id', insertedTrans.id);
+              const updateData: any = { sync_status: syncStatus };
+              if (tgMsgId) updateData.telegram_message_id = tgMsgId;
+              await supabase.from('ads').update(updateData).eq('id', insertedTrans.id);
             }
 
             // 3. Social Media
@@ -2724,51 +2761,58 @@ serve(async (req) => {
         
         if (updatedTrans) {
           const msgId = updatedTrans.telegram_message_id;
-          // Use numeric LINES_CHANNEL_ID — Telegram requires numeric Chat ID for editMessageCaption
-          if (msgId && LINES_CHANNEL_ID) {
+          const rucMsgId = updatedTrans.sync_status?.ruc_telegram_message_id;
+
+          const closedButtons = {
+            inline_keyboard: [
+              [{ text: '🚌 تصفح خطوط أخرى متاحة 🌐', url: 'https://www.souqbaghdad.store/transport' }],
+              [{ text: '🚌 اعرض خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}` }]
+            ]
+          };
+          const closedCaption = `✅ <b>[اكتمل العدد / الخط مغلق]</b>\n\n` +
+                                `🚌 <b>${updatedTrans.title}</b>\n` +
+                                `💰 <b>تم اكتمال العدد بنجاح عبر منصة سوق بغداد</b>\n` +
+                                `📍 ${updatedTrans.location || updatedTrans.city || 'بغداد'}\n\n` +
+                                `📣 لم يعد هذا الخط متاحاً للتسجيل. يمكنك تصفح خطوط أخرى متاحة بالضغط أدناه 👇`;
+
+          // 1. Edit in main lines channel
+          if (msgId) {
             try {
-              const closedButtons = {
-                inline_keyboard: [
-                  [{ text: '🚌 تصفح خطوط أخرى متاحة 🌐', url: 'https://www.souqbaghdad.store/transport' }],
-                  [{ text: '🚌 اعرض خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}` }]
-                ]
-              };
-              const closedCaption = `✅ <b>[اكتمل العدد / الخط مغلق]</b>\n\n` +
-                                    `🚌 <b>${updatedTrans.title}</b>\n` +
-                                    `💰 <b>تم اكتمال العدد بنجاح عبر منصة سوق بغداد</b>\n` +
-                                    `📍 ${updatedTrans.location || 'بغداد'}\n\n` +
-                                    `📣 لم يعد هذا الخط متاحاً للتسجيل. يمكنك تصفح خطوط أخرى متاحة بالضغط أدناه 👇`;
-
-              // Edit in main lines channel using numeric ID
-              await editMessageCaption(LINES_CHANNEL_ID, parseInt(msgId, 10), closedCaption, closedButtons);
-
-              // Check if transport is for Al-Rafdain, update @ruc_1 as well
-              const descStr = typeof updatedTrans.description === 'string'
-                ? updatedTrans.description
-                : JSON.stringify(updatedTrans.description || {});
-              const rafdainTerms = ['الرافدين', 'الرفدين', 'ruc'];
-              const isAlRafdainTrans = rafdainTerms.some(term =>
-                (updatedTrans.title && updatedTrans.title.toLowerCase().includes(term)) ||
-                (updatedTrans.university && updatedTrans.university.toLowerCase().includes(term)) ||
-                (updatedTrans.city && updatedTrans.city.toLowerCase().includes(term)) ||
-                (updatedTrans.destination && updatedTrans.destination.toLowerCase().includes(term)) ||
-                (updatedTrans.location && updatedTrans.location.toLowerCase().includes(term)) ||
-                descStr.toLowerCase().includes(term)
-              );
-              const rucMsgId = updatedTrans.sync_status?.ruc_telegram_message_id;
-              if (isAlRafdainTrans && ALRAFDAIN_TELEGRAM_CHANNEL) {
-                try {
-                  const targetRucId = rucMsgId ? parseInt(rucMsgId, 10) : parseInt(msgId, 10);
-                  await editMessageCaption(ALRAFDAIN_TELEGRAM_CHANNEL, targetRucId, closedCaption, closedButtons);
-                } catch(e2) {
-                  console.error('Al-Rafdain (ruc_1) caption update error:', e2);
-                }
+              const targetChannel = LINES_CHANNEL_ID || LINES_CHANNEL;
+              let res = await editChannelMessage(targetChannel, parseInt(msgId, 10), closedCaption, closedButtons);
+              if (!res?.ok && LINES_CHANNEL && LINES_CHANNEL !== targetChannel) {
+                await editChannelMessage(LINES_CHANNEL, parseInt(msgId, 10), closedCaption, closedButtons);
               }
             } catch(e) {
-              console.error('Transport caption update error:', e);
+              console.error('Transport caption update error in main channel:', e);
             }
           }
-          await updateOrSend('✅ <b>تم إغلاق الخط بنجاح!</b>\nتم تحديث المنشور في القناة وتغيير الأزرار ليظهر للمشتركين أن العدد اكتمل.', {
+
+          // 2. Check if transport is for Al-Rafdain, update @ruc_1 as well
+          const descStr = typeof updatedTrans.description === 'string'
+            ? updatedTrans.description
+            : JSON.stringify(updatedTrans.description || {});
+          const rafdainTerms = ['الرافدين', 'الرفدين', 'ruc'];
+          const isAlRafdainTrans = rafdainTerms.some(term =>
+            (updatedTrans.title && updatedTrans.title.toLowerCase().includes(term)) ||
+            (updatedTrans.university && updatedTrans.university.toLowerCase().includes(term)) ||
+            (updatedTrans.city && updatedTrans.city.toLowerCase().includes(term)) ||
+            (updatedTrans.destination && updatedTrans.destination.toLowerCase().includes(term)) ||
+            (updatedTrans.location && updatedTrans.location.toLowerCase().includes(term)) ||
+            (updatedTrans.regions && updatedTrans.regions.toLowerCase().includes(term)) ||
+            descStr.toLowerCase().includes(term)
+          );
+
+          if ((isAlRafdainTrans || rucMsgId) && ALRAFDAIN_TELEGRAM_CHANNEL && rucMsgId) {
+            try {
+              console.log(`[RUC BOT UPDATE] Updating post in ${ALRAFDAIN_TELEGRAM_CHANNEL} with msgId ${rucMsgId}`);
+              await editChannelMessage(ALRAFDAIN_TELEGRAM_CHANNEL, parseInt(rucMsgId, 10), closedCaption, closedButtons);
+            } catch(e2) {
+              console.error('Al-Rafdain (ruc_1) caption update error:', e2);
+            }
+          }
+
+          await updateOrSend('✅ <b>تم إغلاق الخط بنجاح!</b>\nتم تحديث المنشور في القنوات وتغيير الأزرار ليظهر للمشتركين أن العدد اكتمل.', {
             inline_keyboard: [[{ text: '🔙 العودة لخطوطي', callback_data: 'manage_cat_trans' }]]
           });
         } else {
