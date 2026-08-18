@@ -2017,7 +2017,7 @@ serve(async (req) => {
           category: 'vehicles',
           location: state.data.governorate || 'بغداد',
           city: state.data.model || 'بغداد',
-          images: state.data.images && state.data.images.length > 0 ? state.data.images : ['https://souqbaghdad.store/car-default.webp'],
+          images: state.data.images && state.data.images.length > 0 ? state.data.images : ['https://souqbaghdad.store/car-default.jpg'],
           phone: state.data.phone || phone,
           seller_id: userId,
           seller_name: userProfile?.full_name || 'بائع سيارات',
