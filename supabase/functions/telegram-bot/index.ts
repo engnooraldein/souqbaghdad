@@ -155,7 +155,9 @@ async function postToThreads(text: string, photoUrl: string | string[] | null) {
   try {
     const urls = Array.isArray(photoUrl) ? photoUrl : (photoUrl ? [photoUrl] : []);
     const rawUrl = urls.length > 0 ? urls[0] : null;
-    const singleUrl = rawUrl ? `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=1080&h=1080&fit=cover` : null;
+    const singleUrl = rawUrl 
+      ? ((rawUrl.includes('generate-story-image') || rawUrl.includes('supabase.co')) ? rawUrl : `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=1080&h=1080&fit=cover`)
+      : null;
 
     let containerUrl = `https://graph.threads.net/v1.0/${userId}/threads`;
     let params = new URLSearchParams();
@@ -341,7 +343,7 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null)
     const rawUrls = Array.isArray(photoUrl) ? photoUrl : [photoUrl];
     // Instagram carousel supports a max of 10 items
     const originalUrls = rawUrls.slice(0, 10);
-    const urls = originalUrls.map(url => `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=1080&h=1080&fit=cover`);
+    const urls = originalUrls.map(url => (url.includes('generate-story-image') || url.includes('supabase.co')) ? url : `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=1080&h=1080&fit=cover`);
     
     if (urls.length > 1) {
       const containerIds = [];
@@ -1577,49 +1579,78 @@ serve(async (req) => {
             : '';
           
           if (publishFacebook) {
-            let fbData;
-            if (useAlRafdainFb && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
-              fbData = await postToFacebook(fbIgCaption, dynamicPostUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID);
-            } else {
-              fbData = await postToFacebook(fbIgCaption, dynamicPostUrl);
-            }
-            
-            if (fbData && (fbData.post_id || fbData.id)) {
-              updates.facebook_post_id = fbData.post_id || fbData.id;
-              syncStatus.facebook = 'success';
+            try {
+              let fbData;
+              if (useAlRafdainFb && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
+                console.log('[WEBHOOK SOCIAL] Posting transport to Al-Rafdain Facebook Page...');
+                fbData = await postToFacebook(fbIgCaption, dynamicPostUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID);
+              } else {
+                console.log('[WEBHOOK SOCIAL] Posting transport to Main Facebook Page...');
+                fbData = await postToFacebook(fbIgCaption, dynamicPostUrl);
+              }
+              console.log('[WEBHOOK SOCIAL] FB response:', JSON.stringify(fbData));
+              if (fbData && (fbData.post_id || fbData.id)) {
+                updates.facebook_post_id = fbData.post_id || fbData.id;
+                syncStatus.facebook = 'success';
+              } else {
+                syncStatus.facebook = 'failed';
+                syncStatus.facebook_error = fbData?.error?.message || JSON.stringify(fbData);
+              }
+            } catch(fbErr: any) {
+              console.error('[WEBHOOK SOCIAL] FB Error:', fbErr);
+              syncStatus.facebook = 'failed';
             }
           }
           
           if (publishInstagram) {
-            let igData;
-            if (useAlRafdainIg && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_IG_ID) {
-              igData = await postToInstagramStory(dynamicStoryUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
-            } else {
-              igData = await postToInstagram(fbIgCaption, dynamicPostUrl);
-            }
-            
-            if (igData && (igData.id || igData.media_id)) {
-               updates.instagram_post_id = igData.id || igData.media_id;
-               syncStatus.instagram = 'success';
+            try {
+              if (useAlRafdainIg && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_IG_ID) {
+                console.log('[WEBHOOK SOCIAL] Posting transport to Al-Rafdain IG Story...');
+                await postToInstagramStory(dynamicStoryUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
+              }
+              console.log('[WEBHOOK SOCIAL] Posting transport to Instagram Feed...');
+              const igData = await postToInstagram(fbIgCaption, dynamicPostUrl);
+              console.log('[WEBHOOK SOCIAL] IG response:', JSON.stringify(igData));
+              if (igData && (igData.id || igData.media_id)) {
+                updates.instagram_post_id = igData.id || igData.media_id;
+                syncStatus.instagram = 'success';
+              } else {
+                syncStatus.instagram = 'failed';
+                syncStatus.instagram_error = igData?.error?.message || JSON.stringify(igData);
+              }
+            } catch(igErr: any) {
+              console.error('[WEBHOOK SOCIAL] IG Error:', igErr);
+              syncStatus.instagram = 'failed';
             }
           }
           
           if (publishTiktok) {
-            const tkData = await postToTikTok(fbIgCaption, dynamicPostUrl, supabase);
-            if (tkData?.data?.publish_id) {
-               updates.tiktok_post_id = tkData.data.publish_id;
-               syncStatus.tiktok = 'success';
+            try {
+              const tkData = await postToTikTok(fbIgCaption, dynamicPostUrl, supabase);
+              if (tkData?.data?.publish_id) {
+                updates.tiktok_post_id = tkData.data.publish_id;
+                syncStatus.tiktok = 'success';
+              }
+            } catch(tkErr) {
+              console.error('[WEBHOOK SOCIAL] TikTok Error:', tkErr);
             }
           }
 
           if (publishThreads) {
-            const thData = await postToThreads(fbIgCaption, dynamicPostUrl);
-            if (thData && (thData.id || thData.media_id)) {
-               updates.threads_post_id = thData.id || thData.media_id;
-               syncStatus.threads = 'success';
-            } else {
-               syncStatus.threads = 'failed';
-               syncStatus.threads_error = thData?.error?.message || JSON.stringify(thData);
+            try {
+              console.log('[WEBHOOK SOCIAL] Posting transport to Threads...');
+              const thData = await postToThreads(fbIgCaption, dynamicPostUrl);
+              console.log('[WEBHOOK SOCIAL] Threads response:', JSON.stringify(thData));
+              if (thData && (thData.id || thData.media_id)) {
+                updates.threads_post_id = thData.id || thData.media_id;
+                syncStatus.threads = 'success';
+              } else {
+                syncStatus.threads = 'failed';
+                syncStatus.threads_error = thData?.error?.message || JSON.stringify(thData);
+              }
+            } catch(thErr: any) {
+              console.error('[WEBHOOK SOCIAL] Threads Error:', thErr);
+              syncStatus.threads = 'failed';
             }
           }
           
@@ -2524,17 +2555,76 @@ serve(async (req) => {
             // 3. Social Media
             try {
               const fbIgCaption = await generateSocialCaption(insertedTrans, 'transport', link);
-              if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
-                await postToFacebook(fbIgCaption, dynamicPostUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID);
-              } else {
-                await postToFacebook(fbIgCaption, dynamicPostUrl);
+              const socialUpdates: any = {};
+              const currentSync: any = { telegram: 'success', facebook: 'pending', instagram: 'pending', threads: 'pending' };
+              if (rucMsgId) currentSync.ruc_telegram_message_id = rucMsgId;
+
+              // Facebook
+              try {
+                let fbData;
+                if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
+                  console.log('[BOT SOCIAL] Posting to Al-Rafdain Facebook Page...');
+                  fbData = await postToFacebook(fbIgCaption, dynamicPostUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID);
+                } else {
+                  console.log('[BOT SOCIAL] Posting to Main Facebook Page...');
+                  fbData = await postToFacebook(fbIgCaption, dynamicPostUrl);
+                }
+                console.log('[BOT SOCIAL] FB response:', JSON.stringify(fbData));
+                if (fbData && (fbData.post_id || fbData.id)) {
+                  socialUpdates.facebook_post_id = fbData.post_id || fbData.id;
+                  currentSync.facebook = 'success';
+                } else {
+                  currentSync.facebook = 'failed';
+                  currentSync.facebook_error = fbData?.error?.message || JSON.stringify(fbData);
+                }
+              } catch(fbErr: any) {
+                console.error('[BOT SOCIAL] FB Error:', fbErr);
+                currentSync.facebook = 'failed';
+                currentSync.facebook_error = fbErr?.message || String(fbErr);
               }
-              if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_IG_ID) {
-                await postToInstagramStory(dynamicStoryUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
-              } else {
-                await postToInstagram(fbIgCaption, dynamicPostUrl);
+
+              // Instagram
+              try {
+                if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_IG_ID) {
+                  console.log('[BOT SOCIAL] Posting to Al-Rafdain IG Story...');
+                  await postToInstagramStory(dynamicStoryUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
+                }
+                console.log('[BOT SOCIAL] Posting to Instagram Feed...');
+                const igData = await postToInstagram(fbIgCaption, dynamicPostUrl);
+                console.log('[BOT SOCIAL] IG response:', JSON.stringify(igData));
+                if (igData && (igData.id || igData.media_id)) {
+                  socialUpdates.instagram_post_id = igData.id || igData.media_id;
+                  currentSync.instagram = 'success';
+                } else {
+                  currentSync.instagram = 'failed';
+                  currentSync.instagram_error = igData?.error?.message || JSON.stringify(igData);
+                }
+              } catch(igErr: any) {
+                console.error('[BOT SOCIAL] IG Error:', igErr);
+                currentSync.instagram = 'failed';
+                currentSync.instagram_error = igErr?.message || String(igErr);
               }
-              await postToThreads(fbIgCaption, dynamicPostUrl);
+
+              // Threads
+              try {
+                console.log('[BOT SOCIAL] Posting to Threads...');
+                const thData = await postToThreads(fbIgCaption, dynamicPostUrl);
+                console.log('[BOT SOCIAL] Threads response:', JSON.stringify(thData));
+                if (thData && (thData.id || thData.media_id)) {
+                  socialUpdates.threads_post_id = thData.id || thData.media_id;
+                  currentSync.threads = 'success';
+                } else {
+                  currentSync.threads = 'failed';
+                  currentSync.threads_error = thData?.error?.message || JSON.stringify(thData);
+                }
+              } catch(thErr: any) {
+                console.error('[BOT SOCIAL] Threads Error:', thErr);
+                currentSync.threads = 'failed';
+                currentSync.threads_error = thErr?.message || String(thErr);
+              }
+
+              socialUpdates.sync_status = currentSync;
+              await supabase.from('ads').update(socialUpdates).eq('id', insertedTrans.id);
             } catch (err) {
               console.error("Error auto publishing transport to social media:", err);
             }
