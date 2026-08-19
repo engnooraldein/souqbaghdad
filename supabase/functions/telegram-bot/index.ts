@@ -220,69 +220,94 @@ async function postToThreads(text: string, photoUrl: string | string[] | null) {
   }
 }
 
+function extractImages(record: any): string[] {
+  if (!record) return [];
+  let list: any[] = [];
+  if (Array.isArray(record.images)) {
+    list = record.images;
+  } else if (typeof record.images === 'string') {
+    try {
+      const parsed = JSON.parse(record.images);
+      if (Array.isArray(parsed)) list = parsed;
+      else if (typeof parsed === 'string') list = [parsed];
+    } catch {
+      if (record.images.startsWith('http')) list = [record.images];
+    }
+  } else if (typeof record.image === 'string' && record.image.startsWith('http')) {
+    list = [record.image];
+  } else if (Array.isArray(record.photos)) {
+    list = record.photos;
+  }
+  return list.filter(u => typeof u === 'string' && u.startsWith('http') && !u.startsWith('data:'));
+}
+
 async function postToFacebook(text: string, photoUrl: string | string[] | null, customToken?: string, customPageId?: string) {
   const token = customToken || META_PAGE_ACCESS_TOKEN;
   const pageId = customPageId || META_PAGE_ID;
   if (!token || !pageId) return { error: { message: 'رمز الوصول لفيسبوك مفقود أو غير صالح' } };
   try {
     const urls = Array.isArray(photoUrl) ? photoUrl : (photoUrl ? [photoUrl] : []);
-    
-    if (urls.length > 1) {
-      const attachedMedia = [];
-      for (const url of urls) {
-        const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: url, published: false, access_token: token })
-        });
-        const uploadData = await uploadRes.json();
-        if (uploadData && uploadData.id) {
-          attachedMedia.push({ media_fbid: uploadData.id });
+    const cleanUrls = urls.filter(u => typeof u === 'string' && u.startsWith('http'));
+
+    // 1. Multiple photos -> Upload each photo unpublished, then publish album feed post with attached_media
+    if (cleanUrls.length > 1) {
+      console.log(`[FB MULTI-PHOTO] Uploading ${cleanUrls.length} photos to Facebook Page ${pageId}...`);
+      const attachedMedia: any[] = [];
+      for (const imgUrl of cleanUrls.slice(0, 10)) {
+        try {
+          const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: imgUrl, published: false, access_token: token })
+          });
+          const uploadData = await uploadRes.json();
+          if (uploadData && uploadData.id) {
+            attachedMedia.push({ media_fbid: uploadData.id });
+          } else {
+            console.warn('FB Photo single item upload failed:', uploadData);
+          }
+        } catch (e) {
+          console.error('FB Multi-photo item upload exception:', e);
         }
       }
       
       if (attachedMedia.length > 0) {
+        console.log(`[FB MULTI-PHOTO] Publishing multi-photo feed post with ${attachedMedia.length} attached media...`);
         const res = await fetch(`https://graph.facebook.com/v20.0/${pageId}/feed`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: text, attached_media: attachedMedia, access_token: token })
         });
         const data = await res.json();
-        if (data.error) console.error('FB API Error:', data.error);
-        return data;
+        console.log('[FB MULTI-PHOTO] Response:', data);
+        if (data.id || data.post_id) return data;
+        console.warn('FB Feed attached_media post failed, trying single photo fallback...');
       }
     }
 
-    const singleUrl = urls.length > 0 ? urls[0] : null;
-    const url = singleUrl 
-      ? `https://graph.facebook.com/v20.0/${pageId}/photos`
-      : `https://graph.facebook.com/v20.0/${pageId}/feed`;
-      
-    let body: any = { message: text, access_token: token };
+    // 2. Single photo post
+    const singleUrl = cleanUrls.length > 0 ? cleanUrls[0] : null;
     if (singleUrl) {
-      body = { caption: text, url: singleUrl, access_token: token };
+      console.log(`[FB PHOTO] Posting single photo to Facebook Page ${pageId}...`);
+      const photoRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caption: text, url: singleUrl, access_token: token })
+      });
+      const photoData = await photoRes.json();
+      console.log('[FB PHOTO] Response:', photoData);
+      if (photoData.id || photoData.post_id) return photoData;
+      console.warn('FB Single photo post failed, trying feed text fallback...');
     }
-    
-    const res = await fetch(url, {
+
+    // 3. Fallback text only post
+    console.log(`[FB TEXT] Posting text-only feed to Facebook Page ${pageId}...`);
+    const feedRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/feed`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      body: JSON.stringify({ message: text, access_token: token })
     });
-    let data = await res.json();
-    if (data.error) {
-      console.error('FB API Error:', data.error);
-      // Fallback: If photo post failed, try feed text post
-      if (singleUrl) {
-        console.warn('FB photo post failed, trying feed text fallback...');
-        const fallbackRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/feed`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text, access_token: token })
-        });
-        data = await fallbackRes.json();
-      }
-    }
-    return data;
+    return await feedRes.json();
   } catch (err: any) {
     console.error('FB Fetch Error:', err);
     return { error: { message: err.message || 'خطأ في الاتصال بفيسبوك' } };
@@ -615,14 +640,33 @@ const generateSocialCaption = async (record: any, type: 'car' | 'product' | 'tra
   }
 
   // --- 3. PRODUCTS & GENERAL ADS (المنتجات والإعلانات العامة) ---
-  const title = record.title || 'منتج معروض في سوق بغداد';
+  const title = record.title || 'إعلان معروض في سوق بغداد';
   const location = record.governorate || record.location || record.city || 'بغداد';
-  const shortId = record.short_id || record.id || '';
+  const shortId = record.short_id || (record.id && String(record.id).length < 12 ? record.id : '');
+  const condition = record.condition === 'new' ? '✨ جديد' : (record.condition === 'used' ? '👌 مستعمل' : '');
+  
+  let descText = '';
+  if (typeof record.description === 'string') {
+    if (record.description.trim().startsWith('{')) {
+      try {
+        const p = JSON.parse(record.description);
+        descText = p.note || p.description || p.details || '';
+      } catch { descText = record.description; }
+    } else {
+      descText = record.description;
+    }
+  } else if (typeof record.description === 'object' && record.description !== null) {
+    descText = record.description.note || record.description.description || record.description.details || '';
+  }
+  descText = descText.replace(/<[^>]*>?/gm, '').trim();
+  if (descText.length > 250) descText = descText.substring(0, 250) + '...';
 
-  return `🛍️ إعلان جديد معروض في سوق بغداد\n\n` +
-         `📌 الاسم: ${title}\n` +
+  return `🛍️ إعلان جديد في سوق بغداد\n\n` +
+         `📌 ${title}\n` +
+         (condition ? `🏷️ الحالة: ${condition}\n` : '') +
          `💰 السعر: ${price}\n` +
          `📍 الموقع: ${location}\n` +
+         (descText ? `📝 التفاصيل: ${descText}\n` : '') +
          (shortId ? `🆔 كود الإعلان: #${shortId}\n\n` : `\n`) +
          `🔗 تفاصيل الإعلان والتواصل مع البائع:\n${link}\n\n` +
          `💬 اكتب "تم" أو "تواصل" بالتعليقات وتوصلك كافة التفاصيل على الخاص 📩\n\n` +
@@ -1192,7 +1236,7 @@ serve(async (req) => {
                           (record.phone ? `📞 <b>التواصل:</b> ${record.phone}\n\n` : `\n`) +
                           `📣 <b>#رقم_الإعلان_${adId}</b> | @${BOT_USERNAME}`;
 
-          const imagesToPost = record.images && record.images.length > 0 ? record.images : [];
+          const imagesToPost = extractImages(record);
           const photoCount = imagesToPost.length;
           const detailsButtonText = photoCount > 1 
             ? `📸 تصفح كافة الصور (${photoCount} صور) والتفاصيل 🌐` 
@@ -1219,14 +1263,18 @@ serve(async (req) => {
 
           const replyMarkup = { inline_keyboard: inlineKeyboard };
 
-          const dynamicCarUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&category=cars&title=${encodeURIComponent(carTitle)}&subtitle=${encodeURIComponent(carSubtitle || 'مواصفات ممتازة')}&subdesc=${encodeURIComponent((details || 'معروضة الآن للبيع').substring(0, 100))}&fare=${encodeURIComponent(formattedPrice)}&regions=${encodeURIComponent(record.location || 'بغداد')}&destination=${encodeURIComponent(record.city || record.location || 'بغداد')}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
+          const dynamicCarUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&category=cars&title=${encodeURIComponent(carTitle)}&subtitle=${encodeURIComponent(gov)}&subdesc=${encodeURIComponent(origin)}&fare=${encodeURIComponent(formattedPrice)}&regions=${encodeURIComponent(gov)}&destination=${encodeURIComponent(carTitle)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
 
           let res;
           if (publishTelegram) {
-            const mainPhoto = imagesToPost.length > 0 ? imagesToPost[0] : dynamicCarUrl;
-            // Send exclusively to the dedicated car channel (once)
             const targetCarChannel = CAR_CHANNEL_ID || CAR_CHANNEL;
-            res = await sendPhoto(targetCarChannel, mainPhoto, caption, replyMarkup);
+            if (imagesToPost.length > 1) {
+              await sendMediaGroup(targetCarChannel, imagesToPost, caption);
+              res = { ok: true, result: { message_id: Date.now() } };
+            } else {
+              const mainPhoto = imagesToPost.length > 0 ? imagesToPost[0] : dynamicCarUrl;
+              res = await sendPhoto(targetCarChannel, mainPhoto, caption, replyMarkup);
+            }
           }
 
           const updates: any = {};
@@ -1237,7 +1285,7 @@ serve(async (req) => {
              syncStatus.telegram = 'success';
           }
           
-          // Social Media Sync for Cars
+          // Social Media Sync for Cars (All images)
           const fbIgPhotoUrl = imagesToPost.length > 0 ? imagesToPost : [dynamicCarUrl];
           const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
             ? await generateSocialCaption(record, 'car', link)
@@ -1321,12 +1369,16 @@ serve(async (req) => {
 
           const dynamicProductUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&category=products&title=${encodeURIComponent(record.title || 'منتج معروض')}&subtitle=${encodeURIComponent(condStr)}&subdesc=${encodeURIComponent((safeDesc || 'متوفر الآن للشراء').substring(0, 100))}&fare=${encodeURIComponent(formatTgPrice(record.price))}&regions=${encodeURIComponent(record.governorate || 'بغداد')}&destination=${encodeURIComponent(record.seller_name || 'بائع موثوق')}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(prodId)}`;
 
-          const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
+          const imagesToPost = extractImages(record);
           let res;
           if (publishTelegram) {
-            const mainPhoto = imageUrl || dynamicProductUrl;
-            // Send once to main product channel
-            res = await sendPhoto(PRODUCT_CHANNEL, mainPhoto, caption, replyMarkup);
+            if (imagesToPost.length > 1) {
+              await sendMediaGroup(PRODUCT_CHANNEL, imagesToPost, caption);
+              res = { ok: true, result: { message_id: Date.now() } };
+            } else {
+              const mainPhoto = imagesToPost.length > 0 ? imagesToPost[0] : dynamicProductUrl;
+              res = await sendPhoto(PRODUCT_CHANNEL, mainPhoto, caption, replyMarkup);
+            }
           }
           const updates: any = {};
           let syncStatus = record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' };
@@ -1336,7 +1388,7 @@ serve(async (req) => {
              syncStatus.telegram = 'success';
           }
           
-          const fbIgPhotoUrl = record.images && record.images.length > 0 ? record.images : [dynamicProductUrl];
+          const fbIgPhotoUrl = imagesToPost.length > 0 ? imagesToPost : [dynamicProductUrl];
           const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
             ? await generateSocialCaption(record, 'product', link)
             : '';
@@ -1387,13 +1439,11 @@ serve(async (req) => {
         else if (payload.table === 'ads' && record.category !== 'transport' && record.category !== 'vehicles' && record.category !== 'cars' && PRODUCT_CHANNEL) {
           let descText = record.description || '';
           if (typeof descText !== 'string') {
-            // If it's an object, try to extract a readable description
             try { 
               const parsed = descText;
               descText = parsed.note || parsed.description || parsed.details || JSON.stringify(parsed); 
             } catch(e){ descText = String(descText); }
           } else if (descText.startsWith('{') || descText.startsWith('[')) {
-            // It's a JSON string, parse and extract readable text
             try {
               const parsed = JSON.parse(descText);
               descText = parsed.note || parsed.description || parsed.details || '';
@@ -1429,14 +1479,16 @@ serve(async (req) => {
 
           const dynamicAdUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&category=general&title=${encodeURIComponent(record.title || 'إعلان جديد')}&subtitle=${encodeURIComponent(record.location || 'بغداد')}&subdesc=${encodeURIComponent((safeDesc || 'متوفر للتواصل والشراء').substring(0, 100))}&fare=${encodeURIComponent(formatTgPrice(record.price))}&regions=${encodeURIComponent(record.location || 'بغداد')}&destination=${encodeURIComponent(record.seller_name || 'الناشر')}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
 
-          const imageUrl = record.images && record.images.length > 0 ? record.images[0] : null;
-          const fbIgPhotoUrl = record.images && record.images.length > 0 ? record.images : [dynamicAdUrl];
-          
+          const imagesToPost = extractImages(record);
           let res;
           if (publishTelegram) {
-            const mainPhoto = imageUrl || dynamicAdUrl;
-            // Send once to main product/ads channel
-            res = await sendPhoto(PRODUCT_CHANNEL, mainPhoto, caption, replyMarkup);
+            if (imagesToPost.length > 1) {
+              await sendMediaGroup(PRODUCT_CHANNEL, imagesToPost, caption);
+              res = { ok: true, result: { message_id: Date.now() } };
+            } else {
+              const mainPhoto = imagesToPost.length > 0 ? imagesToPost[0] : dynamicAdUrl;
+              res = await sendPhoto(PRODUCT_CHANNEL, mainPhoto, caption, replyMarkup);
+            }
           }
           const updates: any = {};
           let syncStatus = record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' };
@@ -1446,6 +1498,7 @@ serve(async (req) => {
              syncStatus.telegram = 'success';
           }
           
+          const fbIgPhotoUrl = imagesToPost.length > 0 ? imagesToPost : [dynamicAdUrl];
           const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
             ? await generateSocialCaption(record, 'ad', link)
             : '';
