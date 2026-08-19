@@ -104,67 +104,67 @@ serve(async (req) => {
     if (isPost) {
       // --- Instagram Post (1080 x 1350 px, 4:5 ratio) ---
       markup = html`
-        <div style="display: flex; flex-direction: column; width: 1080px; height: 1350px; background: ${currentBg}; color: white; padding: 50px 60px; font-family: 'Tajawal', sans-serif; box-sizing: border-box; justify-content: space-between; border: 8px solid #0284c7; border-radius: 40px; direction: rtl;">
+        <div dir="rtl" style="display: flex; flex-direction: column; width: 1080px; height: 1350px; background: ${currentBg}; color: white; padding: 50px 60px; font-family: 'Tajawal', sans-serif; box-sizing: border-box; justify-content: space-between; border: 8px solid #0284c7; border-radius: 40px;">
           
           <!-- Top Header Bar -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; border-bottom: 2px solid rgba(56, 189, 248, 0.25); padding-bottom: 20px; direction: rtl;">
+          <div dir="rtl" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; border-bottom: 2px solid rgba(56, 189, 248, 0.25); padding-bottom: 20px;">
             <div style="display: flex; flex-direction: column; align-items: flex-start; text-align: right;">
-              <span style="font-size: 32px; font-weight: bold; color: #38bdf8;">سوق بغداد الرقمي</span>
-              <span style="font-size: 16px; color: #94a3b8; letter-spacing: 2px; direction: ltr;">SOUQ BAGHDAD</span>
+              <span style="font-size: 36px; font-weight: bold; color: #38bdf8;">سوق بغداد الرقمي</span>
+              <span dir="ltr" style="font-size: 18px; color: #94a3b8; letter-spacing: 2px;">SOUQ BAGHDAD</span>
             </div>
             <div style="display: flex; background: rgba(56, 189, 248, 0.15); border: 2px solid #38bdf8; border-radius: 20px; padding: 10px 26px;">
-              <span style="font-size: 24px; color: #38bdf8; font-weight: bold;">${badgeText}</span>
+              <span style="font-size: 28px; color: #38bdf8; font-weight: bold;">${badgeText}</span>
             </div>
           </div>
 
           <!-- Hero Main Title -->
-          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; margin: 15px 0; direction: rtl;">
-            <span style="font-size: 50px; font-weight: bold; color: #ffffff; margin-bottom: 8px;">${title} ${emoji}</span>
-            <span style="font-size: 40px; font-weight: bold; color: #38bdf8; margin-bottom: 6px;">${subtitle}</span>
-            <span style="font-size: 24px; color: #cbd5e1;">${subdesc}</span>
+          <div dir="rtl" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; margin: 15px 0;">
+            <span style="font-size: 58px; font-weight: bold; color: #ffffff; margin-bottom: 12px;">${title} ${emoji}</span>
+            <span style="font-size: 46px; font-weight: bold; color: #facc15; margin-bottom: 8px;">${subtitle}</span>
+            <span style="font-size: 28px; color: #cbd5e1;">${subdesc}</span>
           </div>
 
           <!-- Main Fare / Price Highlight Card -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: linear-gradient(90deg, rgba(2, 132, 199, 0.25), rgba(245, 158, 11, 0.2)); border: 2px solid rgba(245, 158, 11, 0.5); border-radius: 26px; padding: 18px 35px; direction: rtl;">
-            <span style="font-size: 28px; color: #cbd5e1; font-weight: bold;">${fareLabel}</span>
-            <span style="font-size: 40px; color: #fbbf24; font-weight: bold;">${fare}</span>
+          <div dir="rtl" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: linear-gradient(90deg, rgba(2, 132, 199, 0.25), rgba(245, 158, 11, 0.2)); border: 2px solid rgba(245, 158, 11, 0.5); border-radius: 26px; padding: 22px 40px;">
+            <span style="font-size: 32px; color: #cbd5e1; font-weight: bold;">${fareLabel}</span>
+            <span style="font-size: 46px; color: #fbbf24; font-weight: bold;">${fare}</span>
           </div>
 
           <!-- 2-Column Info Cards (Regions + Destination / Details) -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; gap: 20px; direction: rtl;">
-            <div style="display: flex; flex-direction: column; flex: 1.2; background: rgba(15, 23, 42, 0.85); border: 2px solid rgba(56, 189, 248, 0.4); border-radius: 24px; padding: 24px; text-align: right; direction: rtl;">
-              <span style="font-size: 24px; color: #38bdf8; font-weight: bold; margin-bottom: 10px;">${box1Label}</span>
-              <span style="font-size: 22px; color: #f1f5f9; line-height: 1.5;">${regions}</span>
+          <div dir="rtl" style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; gap: 20px;">
+            <div style="display: flex; flex-direction: column; flex: 1.2; background: rgba(15, 23, 42, 0.85); border: 2px solid rgba(56, 189, 248, 0.4); border-radius: 24px; padding: 28px; text-align: right;">
+              <span style="font-size: 28px; color: #facc15; font-weight: bold; margin-bottom: 12px;">${box1Label}</span>
+              <span style="font-size: 26px; color: #f1f5f9; line-height: 1.5;">${regions}</span>
             </div>
-            <div style="display: flex; flex-direction: column; flex: 1; background: rgba(15, 23, 42, 0.85); border: 2px solid rgba(56, 189, 248, 0.4); border-radius: 24px; padding: 24px; text-align: right; direction: rtl;">
-              <span style="font-size: 24px; color: #38bdf8; font-weight: bold; margin-bottom: 10px;">${box2Label}</span>
-              <span style="font-size: 22px; color: #f1f5f9; font-weight: bold; line-height: 1.4;">${destination}</span>
+            <div style="display: flex; flex-direction: column; flex: 1; background: rgba(15, 23, 42, 0.85); border: 2px solid rgba(56, 189, 248, 0.4); border-radius: 24px; padding: 28px; text-align: right;">
+              <span style="font-size: 28px; color: #facc15; font-weight: bold; margin-bottom: 12px;">${box2Label}</span>
+              <span style="font-size: 26px; color: #f1f5f9; font-weight: bold; line-height: 1.4;">${destination}</span>
             </div>
           </div>
 
           <!-- Link & CTA Section -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: rgba(30, 41, 59, 0.7); border: 2px solid rgba(56, 189, 248, 0.3); border-radius: 24px; padding: 20px 30px; gap: 20px; direction: rtl;">
-            <div style="display: flex; flex-direction: column; flex: 1.4; text-align: right; direction: rtl;">
-              <span style="font-size: 22px; color: #38bdf8; font-weight: bold; margin-bottom: 4px;">🔗 رابط المعاينة والتواصل:</span>
-              <span style="font-size: 20px; color: #94a3b8; direction: ltr; text-align: right;">${link}</span>
+          <div dir="rtl" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: rgba(30, 41, 59, 0.7); border: 2px solid rgba(56, 189, 248, 0.3); border-radius: 24px; padding: 22px 30px; gap: 20px;">
+            <div style="display: flex; flex-direction: column; flex: 1.4; text-align: right;">
+              <span style="font-size: 26px; color: #38bdf8; font-weight: bold; margin-bottom: 6px;">🔗 رابط المعاينة والتواصل:</span>
+              <span dir="ltr" style="font-size: 24px; color: #94a3b8; text-align: right;">${link}</span>
             </div>
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #0284c7, #0369a1); border-radius: 18px; padding: 14px 28px; border: 1px solid #38bdf8;">
-              <span style="font-size: 22px; color: white; font-weight: bold;">للتفاصيل والتواصل</span>
-              <span style="font-size: 16px; color: #e0f2fe;">اضغط على الرابط ✨</span>
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #0284c7, #0369a1); border-radius: 18px; padding: 16px 28px; border: 1px solid #38bdf8;">
+              <span style="font-size: 26px; color: white; font-weight: bold;">للتفاصيل والتواصل</span>
+              <span style="font-size: 18px; color: #e0f2fe;">اضغط على الرابط ✨</span>
             </div>
           </div>
 
           <!-- Feature Trust Badges -->
-          <div style="display: flex; flex-direction: row; justify-content: space-around; width: 100%; border-top: 1px solid rgba(255, 255, 255, 0.1); border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding: 14px 0; direction: rtl;">
-            <span style="font-size: 20px; color: #94a3b8;">🛡️ إعلان موثوق</span>
-            <span style="font-size: 20px; color: #94a3b8;">⚡ تواصل سريع ومباشر</span>
-            <span style="font-size: 20px; color: #94a3b8;">🇮🇶 سوق بغداد الرقمي</span>
+          <div dir="rtl" style="display: flex; flex-direction: row; justify-content: space-around; width: 100%; border-top: 1px solid rgba(255, 255, 255, 0.1); border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding: 18px 0;">
+            <span style="font-size: 22px; color: #94a3b8;">🛡️ إعلان موثوق</span>
+            <span style="font-size: 22px; color: #94a3b8;">⚡ تواصل سريع ومباشر</span>
+            <span style="font-size: 22px; color: #94a3b8;">🇮🇶 سوق بغداد الرقمي</span>
           </div>
 
           <!-- Footer Bar -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; direction: rtl;">
-            <span style="font-size: 22px; color: #38bdf8; font-weight: bold;">✈️ ${footerTag}</span>
-            <span style="font-size: 20px; color: #cbd5e1;">منصة سوق بغداد الرقمية 🇮🇶</span>
+          <div dir="rtl" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%;">
+            <span style="font-size: 26px; color: #38bdf8; font-weight: bold;">✈️ ${footerTag}</span>
+            <span style="font-size: 24px; color: #cbd5e1;">منصة سوق بغداد الرقمية 🇮🇶</span>
           </div>
 
         </div>
@@ -172,60 +172,60 @@ serve(async (req) => {
     } else {
       // --- Instagram Story (1080 x 1920 px, 9:16 ratio) ---
       markup = html`
-        <div style="display: flex; flex-direction: column; width: 1080px; height: 1920px; background: ${currentBg}; color: white; padding: 80px 65px; font-family: 'Tajawal', sans-serif; box-sizing: border-box; justify-content: space-between; border: 10px solid #0284c7; border-radius: 50px; direction: rtl;">
+        <div dir="rtl" style="display: flex; flex-direction: column; width: 1080px; height: 1920px; background: ${currentBg}; color: white; padding: 80px 65px; font-family: 'Tajawal', sans-serif; box-sizing: border-box; justify-content: space-between; border: 10px solid #0284c7; border-radius: 50px;">
           
           <!-- Story Header -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; border-bottom: 2px solid rgba(56, 189, 248, 0.3); padding-bottom: 30px; direction: rtl;">
+          <div dir="rtl" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; border-bottom: 2px solid rgba(56, 189, 248, 0.3); padding-bottom: 30px;">
             <div style="display: flex; flex-direction: column; text-align: right;">
-              <span style="font-size: 40px; font-weight: bold; color: #38bdf8;">سوق بغداد الرقمي</span>
-              <span style="font-size: 20px; color: #94a3b8; letter-spacing: 2px; direction: ltr;">SOUQ BAGHDAD</span>
+              <span style="font-size: 46px; font-weight: bold; color: #38bdf8;">سوق بغداد الرقمي</span>
+              <span dir="ltr" style="font-size: 24px; color: #94a3b8; letter-spacing: 2px;">SOUQ BAGHDAD</span>
             </div>
             <div style="display: flex; background: rgba(56, 189, 248, 0.2); border: 2px solid #38bdf8; border-radius: 25px; padding: 12px 30px;">
-              <span style="font-size: 28px; color: #38bdf8; font-weight: bold;">${badgeText}</span>
+              <span style="font-size: 32px; color: #38bdf8; font-weight: bold;">${badgeText}</span>
             </div>
           </div>
 
           <!-- Story Hero Title -->
-          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; margin: 25px 0; direction: rtl;">
-            <span style="font-size: 60px; font-weight: bold; color: #ffffff; margin-bottom: 12px;">${title} ${emoji}</span>
-            <span style="font-size: 48px; font-weight: bold; color: #38bdf8; margin-bottom: 10px;">${subtitle}</span>
-            <span style="font-size: 30px; color: #cbd5e1;">${subdesc}</span>
+          <div dir="rtl" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; margin: 25px 0;">
+            <span style="font-size: 70px; font-weight: bold; color: #ffffff; margin-bottom: 12px;">${title} ${emoji}</span>
+            <span style="font-size: 56px; font-weight: bold; color: #facc15; margin-bottom: 10px;">${subtitle}</span>
+            <span style="font-size: 34px; color: #cbd5e1;">${subdesc}</span>
           </div>
 
           <!-- Fare / Price Highlight Card -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: linear-gradient(90deg, rgba(2, 132, 199, 0.3), rgba(245, 158, 11, 0.25)); border: 3px solid rgba(245, 158, 11, 0.6); border-radius: 30px; padding: 25px 40px; direction: rtl;">
-            <span style="font-size: 34px; color: #cbd5e1; font-weight: bold;">${fareLabel}</span>
-            <span style="font-size: 48px; color: #fbbf24; font-weight: bold;">${fare}</span>
+          <div dir="rtl" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: linear-gradient(90deg, rgba(2, 132, 199, 0.3), rgba(245, 158, 11, 0.25)); border: 3px solid rgba(245, 158, 11, 0.6); border-radius: 30px; padding: 28px 40px;">
+            <span style="font-size: 38px; color: #cbd5e1; font-weight: bold;">${fareLabel}</span>
+            <span style="font-size: 54px; color: #fbbf24; font-weight: bold;">${fare}</span>
           </div>
 
           <!-- Info Box Stack -->
-          <div style="display: flex; flex-direction: column; width: 100%; gap: 25px; direction: rtl;">
-            <div style="display: flex; flex-direction: column; background: rgba(15, 23, 42, 0.9); border: 2px solid rgba(56, 189, 248, 0.5); border-radius: 30px; padding: 35px; text-align: right; direction: rtl;">
-              <span style="font-size: 32px; color: #38bdf8; font-weight: bold; margin-bottom: 10px;">${box1Label}</span>
-              <span style="font-size: 28px; color: #f8fafc; line-height: 1.5;">${regions}</span>
+          <div dir="rtl" style="display: flex; flex-direction: column; width: 100%; gap: 25px;">
+            <div style="display: flex; flex-direction: column; background: rgba(15, 23, 42, 0.9); border: 2px solid rgba(56, 189, 248, 0.5); border-radius: 30px; padding: 35px; text-align: right;">
+              <span style="font-size: 36px; color: #facc15; font-weight: bold; margin-bottom: 10px;">${box1Label}</span>
+              <span style="font-size: 32px; color: #f8fafc; line-height: 1.5;">${regions}</span>
             </div>
 
-            <div style="display: flex; flex-direction: column; background: rgba(15, 23, 42, 0.9); border: 2px solid rgba(56, 189, 248, 0.5); border-radius: 30px; padding: 30px; text-align: right; direction: rtl;">
-              <span style="font-size: 30px; color: #38bdf8; font-weight: bold; margin-bottom: 8px;">${box2Label}</span>
-              <span style="font-size: 30px; color: white; font-weight: bold;">${destination}</span>
+            <div style="display: flex; flex-direction: column; background: rgba(15, 23, 42, 0.9); border: 2px solid rgba(56, 189, 248, 0.5); border-radius: 30px; padding: 35px; text-align: right;">
+              <span style="font-size: 36px; color: #facc15; font-weight: bold; margin-bottom: 10px;">${box2Label}</span>
+              <span style="font-size: 32px; color: white; font-weight: bold; line-height: 1.4;">${destination}</span>
             </div>
 
-            <div style="display: flex; flex-direction: column; background: rgba(30, 41, 59, 0.8); border: 2px solid rgba(56, 189, 248, 0.4); border-radius: 30px; padding: 30px; text-align: right; direction: rtl;">
-              <span style="font-size: 26px; color: #38bdf8; font-weight: bold; margin-bottom: 8px;">🔗 رابط الإعلان والتواصل:</span>
-              <span style="font-size: 24px; color: #cbd5e1; direction: ltr; text-align: right;">${link}</span>
+            <div style="display: flex; flex-direction: column; background: rgba(30, 41, 59, 0.8); border: 2px solid rgba(56, 189, 248, 0.4); border-radius: 30px; padding: 35px; text-align: right;">
+              <span style="font-size: 30px; color: #38bdf8; font-weight: bold; margin-bottom: 8px;">🔗 رابط الإعلان والتواصل:</span>
+              <span dir="ltr" style="font-size: 28px; color: #cbd5e1; text-align: right;">${link}</span>
             </div>
           </div>
 
           <!-- Story CTA Bubble -->
-          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #0284c7, #0369a1); border: 2px solid #38bdf8; border-radius: 35px; padding: 35px 50px; text-align: center; margin-top: 15px; direction: rtl;">
-            <span style="font-size: 36px; font-weight: bold; color: white;">💬 اسحب للأعلى أو اضغط الرابط للتفاصيل</span>
-            <span style="font-size: 26px; color: #e0f2fe; margin-top: 6px;">سوق بغداد — المنصة الإعلانية الأولى في العراق 🇮🇶</span>
+          <div dir="rtl" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #0284c7, #0369a1); border: 2px solid #38bdf8; border-radius: 35px; padding: 35px 50px; text-align: center; margin-top: 15px;">
+            <span style="font-size: 40px; font-weight: bold; color: white;">💬 اسحب للأعلى أو اضغط الرابط للتفاصيل</span>
+            <span style="font-size: 28px; color: #e0f2fe; margin-top: 6px;">سوق بغداد — المنصة الإعلانية الأولى في العراق 🇮🇶</span>
           </div>
 
           <!-- Story Footer -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; border-top: 1px solid rgba(255, 255, 255, 0.2); padding-top: 25px; direction: rtl;">
-            <span style="font-size: 26px; color: #38bdf8; font-weight: bold;">📸 @souqbaghdad.iq</span>
-            <span style="font-size: 26px; color: #94a3b8;">✈️ ${footerTag}</span>
+          <div dir="rtl" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; border-top: 1px solid rgba(255, 255, 255, 0.2); padding-top: 25px;">
+            <span dir="ltr" style="font-size: 28px; color: #38bdf8; font-weight: bold;">📸 @souqbaghdad.iq</span>
+            <span style="font-size: 28px; color: #94a3b8;">✈️ ${footerTag}</span>
           </div>
 
         </div>
