@@ -3228,15 +3228,15 @@ serve(async (req) => {
       }
 
       // =================== Product Wizard (Full 9-Step) ===================
-      // Helper: edit wizard message or send new if edit fails
+      // Helper: DELETE old wizard message + SEND new one at bottom of chat
+      // This ensures the wizard always appears as the latest message (not editing old ones)
       const editProdWizard = async (text: string, markup: any) => {
         const wMsgId = state.data?.wizardMsgId;
+        // Delete old wizard message silently
         if (wMsgId) {
-          try {
-            await editMessageText(chatId, wMsgId, text, markup);
-            return;
-          } catch(e) { /* fallthrough to sendMessage */ }
+          try { await deleteMessage(chatId, wMsgId); } catch(e) {}
         }
+        // Send fresh message at bottom
         const res = await sendMessage(chatId, text, markup);
         if (res?.result?.message_id) {
           if (!state.data) state.data = {};
@@ -3244,6 +3244,7 @@ serve(async (req) => {
           await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
         }
       };
+
 
       if (action === 'publish_product') {
         const { data: profile } = await supabase.from('profiles').select('points, role').eq('id', userId).maybeSingle();
@@ -4166,8 +4167,11 @@ serve(async (req) => {
         }
         state.data.title = text.trim();
         state.step = 'product_category';
-        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        await sendMessage(chatId,
+        
+        // Delete old wizard message
+        if (state.data.wizardMsgId) { try { await deleteMessage(chatId, state.data.wizardMsgId); } catch(e) {} }
+        
+        const res2 = await sendMessage(chatId,
           `<b>الخطوة 2 من 9 — قسم المنتج</b>\n\nاختر <b>القسم</b> المناسب:`,
           {
             inline_keyboard: [
@@ -4178,6 +4182,8 @@ serve(async (req) => {
             ]
           }
         );
+        if (res2?.result?.message_id) { state.data.wizardMsgId = res2.result.message_id; }
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
       }
       else if (state.step === 'product_price' && text) {
         const rawNum = text.replace(/[^0-9]/g, '');
@@ -4187,17 +4193,23 @@ serve(async (req) => {
         }
         state.data.price = rawNum;
         state.step = 'product_desc';
-        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        await sendMessage(chatId,
+        
+        if (state.data.wizardMsgId) { try { await deleteMessage(chatId, state.data.wizardMsgId); } catch(e) {} }
+
+        const res5 = await sendMessage(chatId,
           `<b>الخطوة 5 من 9 — وصف المنتج</b>\n\nاكتب <b>وصفاً مفصلاً</b> للمنتج (المواصفات، الحالة، أي معلومة مفيدة):`,
           cancelBtn
         );
+        if (res5?.result?.message_id) { state.data.wizardMsgId = res5.result.message_id; }
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
       }
       else if (state.step === 'product_desc' && text) {
         state.data.description = text.trim();
         state.step = 'product_gov';
-        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        await sendMessage(chatId,
+        
+        if (state.data.wizardMsgId) { try { await deleteMessage(chatId, state.data.wizardMsgId); } catch(e) {} }
+
+        const res6 = await sendMessage(chatId,
           `<b>الخطوة 6 من 9 — المحافظة</b>\n\nاختر محافظتك:`,
           {
             inline_keyboard: [
@@ -4210,6 +4222,8 @@ serve(async (req) => {
             ]
           }
         );
+        if (res6?.result?.message_id) { state.data.wizardMsgId = res6.result.message_id; }
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
       }
       else if (state.step === 'product_images' && photo) {
         if ((state.data.images || []).length >= 5) {
@@ -4283,8 +4297,12 @@ serve(async (req) => {
           ]
         };
         const wId = state.data?.wizardMsgId;
-        if (wId) { try { await editMessageText(chatId, wId, reviewText, revMarkup); } catch(e) { await sendMessage(chatId, reviewText, revMarkup); } }
-        else { await sendMessage(chatId, reviewText, revMarkup); }
+        if (wId) { try { await deleteMessage(chatId, wId); } catch(e) {} }
+        const resRev = await sendMessage(chatId, reviewText, revMarkup);
+        if (resRev?.result?.message_id) {
+          state.data.wizardMsgId = resRev.result.message_id;
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        }
       }
       else if (Object.keys(state).length > 0) {
         if (state.step === 'car_images' || state.step === 'product_images') {
