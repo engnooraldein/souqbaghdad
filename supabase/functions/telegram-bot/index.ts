@@ -1634,8 +1634,15 @@ serve(async (req) => {
           let res;
           if (publishTelegram) {
             if (imagesToPost.length > 1) {
-              await sendMediaGroup(PRODUCT_CHANNEL, imagesToPost, caption);
-              res = { ok: true, result: { message_id: Date.now() } };
+              let mediaGroupCaption = caption;
+              mediaGroupCaption += `\n\n🌐 <a href="${link}">عرض التفاصيل بالمنصة</a>`;
+              if (record.phone) {
+                let cleanPhone = record.phone.replace(/[^0-9+]/g, '');
+                if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
+                else cleanPhone = cleanPhone.replace('+', '');
+                mediaGroupCaption += `\n💬 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> | ✈️ <a href="https://t.me/+${cleanPhone}">تواصل تيليكرام</a>`;
+              }
+              res = await sendMediaGroup(PRODUCT_CHANNEL, imagesToPost, mediaGroupCaption);
             } else if (imagesToPost.length === 1) {
               res = await sendPhoto(PRODUCT_CHANNEL, imagesToPost[0], caption, replyMarkup);
             } else {
@@ -1822,7 +1829,16 @@ serve(async (req) => {
           if (publishTelegram) {
             // 1. Send to main transport channel: @souqbaghdad_lines
             const targetLinesChannel = LINES_CHANNEL_ID || LINES_CHANNEL;
-            res = await sendPhoto(targetLinesChannel, transportPhoto, msg, replyMarkup);
+            if (imagesToPost.length > 1) {
+              let mediaGroupCaption = msg;
+              mediaGroupCaption += `\n\n🌐 <a href="${link}">التفاصيل الكاملة وحجز المقعد</a>`;
+              if (cleanPhone) {
+                mediaGroupCaption += `\n💬 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> | ✈️ <a href="https://t.me/+${cleanPhone}">تواصل تيليكرام</a>`;
+              }
+              res = await sendMediaGroup(targetLinesChannel, imagesToPost, mediaGroupCaption);
+            } else {
+              res = await sendPhoto(targetLinesChannel, transportPhoto, msg, replyMarkup);
+            }
             if (res?.ok && res.result?.message_id) {
               updates.telegram_message_id = res.result.message_id.toString();
               syncStatus.telegram = 'success';
@@ -1832,7 +1848,17 @@ serve(async (req) => {
             if (isAlRafdain) {
               try {
                 console.log(`[RUC WEBHOOK] isAlRafdain=true, sending to ${ALRAFDAIN_TELEGRAM_CHANNEL}`);
-                const rucRes = await sendPhoto(ALRAFDAIN_TELEGRAM_CHANNEL, transportPhoto, msg, replyMarkup);
+                let rucRes;
+                if (imagesToPost.length > 1) {
+                  let mediaGroupCaption = msg;
+                  mediaGroupCaption += `\n\n🌐 <a href="${link}">التفاصيل الكاملة وحجز المقعد</a>`;
+                  if (cleanPhone) {
+                    mediaGroupCaption += `\n💬 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> | ✈️ <a href="https://t.me/+${cleanPhone}">تواصل تيليكرام</a>`;
+                  }
+                  rucRes = await sendMediaGroup(ALRAFDAIN_TELEGRAM_CHANNEL, imagesToPost, mediaGroupCaption);
+                } else {
+                  rucRes = await sendPhoto(ALRAFDAIN_TELEGRAM_CHANNEL, transportPhoto, msg, replyMarkup);
+                }
                 console.log('[RUC WEBHOOK] sendPhoto response:', JSON.stringify(rucRes));
                 if (rucRes?.ok && rucRes.result?.message_id) {
                   syncStatus.ruc_telegram_message_id = rucRes.result.message_id.toString();
@@ -2442,8 +2468,16 @@ serve(async (req) => {
         let tgMsgId: string | null = null;
         try {
           let carRes;
-          if (carImages && carImages.length > 0) {
-            carRes = await sendPhoto(CAR_CHANNEL_ID || CAR_CHANNEL, carImages[0], channelCaption, channelMarkup);
+          const resolvedImages = await ensurePublicImages(insertedCar, 'ads', supabase);
+          if (resolvedImages.length > 1) {
+            let mediaGroupCaption = channelCaption;
+            mediaGroupCaption += `\n\n🌐 <a href="${carLink}">عرض التفاصيل كاملة بالمنصة</a>`;
+            if (cleanPhone) {
+              mediaGroupCaption += `\n💬 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> | ✈️ <a href="https://t.me/+${cleanPhone}">تواصل تيليكرام</a>`;
+            }
+            carRes = await sendMediaGroup(CAR_CHANNEL_ID || CAR_CHANNEL, resolvedImages, mediaGroupCaption);
+          } else if (resolvedImages.length === 1) {
+            carRes = await sendPhoto(CAR_CHANNEL_ID || CAR_CHANNEL, resolvedImages[0], channelCaption, channelMarkup);
           } else {
             carRes = await sendMessage(CAR_CHANNEL_ID || CAR_CHANNEL, channelCaption, channelMarkup);
           }
@@ -3654,22 +3688,29 @@ serve(async (req) => {
 
             // 3. Send to Telegram product channel
             const updates: any = {};
-            const prodImages = extractImages(inserted);
+            const prodImages = await ensurePublicImages(inserted, 'products', supabase);
             const mainImage = prodImages && prodImages.length > 0 ? prodImages[0] : null;
             let tgMsgId: string | null = null;
 
-            if (mainImage) {
-              const tgRes = await sendPhoto(PRODUCT_CHANNEL, mainImage, tgCaption, tgButtons);
-              if (tgRes?.ok && tgRes.result?.message_id) {
-                tgMsgId = tgRes.result.message_id.toString();
-                updates.telegram_message_id = tgMsgId;
+            let tgRes;
+            if (prodImages.length > 1) {
+              let mediaGroupCaption = tgCaption;
+              mediaGroupCaption += `\n\n🌐 <a href="${productLink}">عرض المنتج كاملاً</a>`;
+              if (inserted.phone) {
+                let cleanPhone = inserted.phone.replace(/[^0-9+]/g, '');
+                if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
+                else cleanPhone = cleanPhone.replace('+', '');
+                mediaGroupCaption += `\n💬 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> | ✈️ <a href="https://t.me/+${cleanPhone}">تواصل تيليكرام</a>`;
               }
+              tgRes = await sendMediaGroup(PRODUCT_CHANNEL, prodImages, mediaGroupCaption);
+            } else if (prodImages.length === 1) {
+              tgRes = await sendPhoto(PRODUCT_CHANNEL, prodImages[0], tgCaption, tgButtons);
             } else {
-              const tgRes = await sendMessage(PRODUCT_CHANNEL, tgCaption, tgButtons);
-              if (tgRes?.result?.message_id) {
-                tgMsgId = tgRes.result.message_id.toString();
-                updates.telegram_message_id = tgMsgId;
-              }
+              tgRes = await sendMessage(PRODUCT_CHANNEL, tgCaption, tgButtons);
+            }
+            if (tgRes?.ok && tgRes.result?.message_id) {
+              tgMsgId = tgRes.result.message_id.toString();
+              updates.telegram_message_id = tgMsgId;
             }
 
             // 4. Social media caption
