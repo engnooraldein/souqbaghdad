@@ -145,8 +145,8 @@ const THREADS_USER_ID = Deno.env.get('THREADS_USER_ID') || '28119436894335542';
 const THREADS_ACCESS_TOKEN = Deno.env.get('THREADS_ACCESS_TOKEN') || '';
 
 const ALRAFDAIN_FB_TOKEN = Deno.env.get('ALRAFDAIN_FB_TOKEN') || '';
-const ALRAFDAIN_FB_PAGE_ID = Deno.env.get('ALRAFDAIN_FB_PAGE_ID') || '';
-const ALRAFDAIN_IG_ID = Deno.env.get('ALRAFDAIN_IG_ID') || '';
+const ALRAFDAIN_FB_PAGE_ID = Deno.env.get('ALRAFDAIN_FB_PAGE_ID') || '102975411515668';
+const ALRAFDAIN_IG_ID = Deno.env.get('ALRAFDAIN_IG_ID') || '17841404181680155';
 const ALRAFDAIN_TELEGRAM_CHANNEL = '@ruc_1';
 
 async function postToThreads(text: string, photoUrl: string | string[] | null) {
@@ -1140,17 +1140,18 @@ serve(async (req) => {
         if (thPostId) await deleteFromThreads(thPostId);
       }
 
-      let publishTelegram = payload.targets ? payload.targets.telegram : true;
-      let publishFacebook = payload.targets ? payload.targets.facebook : true;
-      let publishInstagram = payload.targets ? payload.targets.instagram : true;
-      let publishTiktok = payload.targets ? payload.targets.tiktok : true;
-      let publishThreads = payload.targets ? payload.targets.threads : true;
+      const isManualExplicitPublish = Boolean(payload.targets);
+      let publishTelegram = payload.targets ? Boolean(payload.targets.telegram) : true;
+      let publishFacebook = payload.targets ? Boolean(payload.targets.facebook) : true;
+      let publishInstagram = payload.targets ? Boolean(payload.targets.instagram) : true;
+      let publishTiktok = payload.targets ? Boolean(payload.targets.tiktok) : true;
+      let publishThreads = payload.targets ? Boolean(payload.targets.threads) : true;
       
-      let forceFacebookPage = payload.targets ? payload.targets.facebookPage : null;
-      let forceInstagramPage = payload.targets ? payload.targets.instagramPage : null;
+      let forceFacebookPage = payload.targets ? (payload.targets.forceFacebookPage || payload.targets.facebookPage) : null;
+      let forceInstagramPage = payload.targets ? (payload.targets.forceInstagramPage || payload.targets.instagramPage) : null;
 
-      // Respect skip flags from initial insert (to prevent double publishing with bot wizard)
-      if (record?.sync_status) {
+      // Respect skip flags ONLY for automated background webhooks, NEVER for explicit manual modal publish
+      if (!isManualExplicitPublish && record?.sync_status) {
         if (record.sync_status.telegram === 'skip' || record.sync_status.telegram === 'success') publishTelegram = false;
         if (record.sync_status.facebook === 'skip' || record.sync_status.facebook === 'success') publishFacebook = false;
         if (record.sync_status.instagram === 'skip' || record.sync_status.instagram === 'success') publishInstagram = false;
@@ -1502,8 +1503,8 @@ serve(async (req) => {
         }
         // --- 4. TRANSPORT ADS (خطوط النقل) ---
         else if ((payload.table === 'ads' && record.category === 'transport') || payload.table === 'transport_ads') {
-          // Prevent duplicate execution if already synced
-          if (record.id && payload.table === 'ads') {
+          // Prevent duplicate execution if already synced (only for automated background triggers, not manual modal publish)
+          if (!isManualExplicitPublish && record.id && payload.table === 'ads') {
             const { data: existingAd } = await supabase.from('ads').select('telegram_message_id, sync_status').eq('id', record.id).maybeSingle();
             if (existingAd?.telegram_message_id || existingAd?.sync_status?.telegram === 'success') {
               console.log(`Transport ad ${record.id} already published to Telegram, skipping duplicate.`);
@@ -1643,34 +1644,50 @@ serve(async (req) => {
           
           if (publishFacebook) {
             try {
-              let fbData;
-              if (useAlRafdainFb && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
-                console.log('[WEBHOOK SOCIAL] Posting transport to Al-Rafdain Facebook Page...');
-                fbData = await postToFacebook(fbIgCaption, dynamicPostUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID);
-              } else {
-                console.log('[WEBHOOK SOCIAL] Posting transport to Main Facebook Page...');
-                fbData = await postToFacebook(fbIgCaption, dynamicPostUrl);
-              }
-              console.log('[WEBHOOK SOCIAL] FB response:', JSON.stringify(fbData));
-              if (fbData && (fbData.post_id || fbData.id)) {
-                updates.facebook_post_id = fbData.post_id || fbData.id;
+              // 1. Post to Souq Baghdad Main Facebook Page
+              console.log('[WEBHOOK SOCIAL] Posting transport to Souq Baghdad Main Facebook Page...');
+              const mainFbData = await postToFacebook(fbIgCaption, dynamicPostUrl);
+              console.log('[WEBHOOK SOCIAL] Main FB response:', JSON.stringify(mainFbData));
+              if (mainFbData && (mainFbData.post_id || mainFbData.id)) {
+                updates.facebook_post_id = mainFbData.post_id || mainFbData.id;
                 syncStatus.facebook = 'success';
               } else {
                 syncStatus.facebook = 'failed';
-                syncStatus.facebook_error = fbData?.error?.message || JSON.stringify(fbData);
+                syncStatus.facebook_error = mainFbData?.error?.message || JSON.stringify(mainFbData);
+              }
+
+              // 2. ALSO post to Al-Rafdain University Facebook Page
+              if (isAlRafdain || useAlRafdainFb || ALRAFDAIN_FB_PAGE_ID) {
+                const rafdainToken = ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
+                const rafdainPageId = ALRAFDAIN_FB_PAGE_ID || '102975411515668';
+                if (rafdainToken && rafdainPageId && rafdainPageId !== META_PAGE_ID) {
+                  console.log(`[WEBHOOK SOCIAL] Also posting transport to Al-Rafdain Facebook Page (${rafdainPageId})...`);
+                  const rafdainFbData = await postToFacebook(fbIgCaption, dynamicPostUrl, rafdainToken, rafdainPageId);
+                  console.log('[WEBHOOK SOCIAL] Al-Rafdain FB response:', JSON.stringify(rafdainFbData));
+                  if (rafdainFbData && (rafdainFbData.post_id || rafdainFbData.id)) {
+                    syncStatus.rafdain_facebook_post_id = rafdainFbData.post_id || rafdainFbData.id;
+                    syncStatus.rafdain_facebook = 'success';
+                  }
+                }
               }
             } catch(fbErr: any) {
               console.error('[WEBHOOK SOCIAL] FB Error:', fbErr);
-              syncStatus.facebook = 'failed';
+              syncStatus.facebook = syncStatus.facebook || 'failed';
             }
           }
           
           if (publishInstagram) {
             try {
-              if (useAlRafdainIg && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_IG_ID) {
-                console.log('[WEBHOOK SOCIAL] Posting transport to Al-Rafdain IG Story...');
-                await postToInstagramStory(dynamicStoryUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
+              // 1. Post to Al-Rafdain IG Story / Feed if applicable
+              if (isAlRafdain || useAlRafdainIg || ALRAFDAIN_IG_ID) {
+                const igToken = ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
+                const igTargetId = ALRAFDAIN_IG_ID || '17841404181680155';
+                if (igToken && igTargetId) {
+                  console.log('[WEBHOOK SOCIAL] Posting transport to Al-Rafdain IG Story...');
+                  await postToInstagramStory(dynamicStoryUrl, igTargetId, igToken);
+                }
               }
+              // 2. Post to Main Souq Baghdad Instagram Feed
               console.log('[WEBHOOK SOCIAL] Posting transport to Instagram Feed...');
               const igData = await postToInstagram(fbIgCaption, dynamicPostUrl);
               console.log('[WEBHOOK SOCIAL] IG response:', JSON.stringify(igData));
@@ -1678,12 +1695,12 @@ serve(async (req) => {
                 updates.instagram_post_id = igData.id || igData.media_id;
                 syncStatus.instagram = 'success';
               } else {
-                syncStatus.instagram = 'failed';
+                syncStatus.instagram = syncStatus.instagram || 'failed';
                 syncStatus.instagram_error = igData?.error?.message || JSON.stringify(igData);
               }
             } catch(igErr: any) {
               console.error('[WEBHOOK SOCIAL] IG Error:', igErr);
-              syncStatus.instagram = 'failed';
+              syncStatus.instagram = syncStatus.instagram || 'failed';
             }
           }
           
