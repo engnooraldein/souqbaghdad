@@ -289,15 +289,59 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
   }
 }
 
-async function deleteFromFacebook(postId: string) {
-  if (!META_PAGE_ACCESS_TOKEN) return false;
+async function deleteFromFacebook(postId: string, customToken?: string) {
+  const token = customToken || META_PAGE_ACCESS_TOKEN;
+  if (!token || !postId) return false;
   try {
-    const res = await fetch(`https://graph.facebook.com/v20.0/${postId}?access_token=${META_PAGE_ACCESS_TOKEN}`, {
+    let res = await fetch(`https://graph.facebook.com/v20.0/${postId}?access_token=${token}`, {
       method: 'DELETE'
     });
+    if (!res.ok && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_TOKEN !== token) {
+      res = await fetch(`https://graph.facebook.com/v20.0/${postId}?access_token=${ALRAFDAIN_FB_TOKEN}`, {
+        method: 'DELETE'
+      });
+    }
     return res.ok;
   } catch (err) {
     console.error('FB Delete Error:', err);
+    return false;
+  }
+}
+
+async function updateFacebookPost(postId: string, newText: string, customToken?: string) {
+  const token = customToken || META_PAGE_ACCESS_TOKEN;
+  if (!token || !postId) return false;
+  try {
+    let res = await fetch(`https://graph.facebook.com/v20.0/${postId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: newText, access_token: token })
+    });
+    let data = await res.json();
+    if (!data.success && !data.id && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_TOKEN !== token) {
+      res = await fetch(`https://graph.facebook.com/v20.0/${postId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: newText, access_token: ALRAFDAIN_FB_TOKEN })
+      });
+      data = await res.json();
+    }
+    return data;
+  } catch (err) {
+    console.error('FB Update Post Error:', err);
+    return false;
+  }
+}
+
+async function deleteFromThreads(threadsMediaId: string) {
+  if (!THREADS_ACCESS_TOKEN || !threadsMediaId) return false;
+  try {
+    const res = await fetch(`https://graph.threads.net/v1.0/${threadsMediaId}?access_token=${encodeURIComponent(THREADS_ACCESS_TOKEN)}`, {
+      method: 'DELETE'
+    });
+    return res.ok;
+  } catch(err) {
+    console.error('Threads Delete Error:', err);
     return false;
   }
 }
@@ -1055,18 +1099,34 @@ serve(async (req) => {
             }
           }
         }
+
+        // 3. Update Facebook post text if available
+        const fbPostId = record?.facebook_post_id || oldRecord?.facebook_post_id;
+        if (fbPostId) {
+          const fbSoldText = isTransport 
+            ? `✅ [اكتمل العدد / الخط مغلق]\n\n🚌 ${record.title || 'إعلان خط'}\n💰 تمت العملية بنجاح عبر منصة سوق بغداد\n\nلم يعد هذا الخط متاحاً للتسجيل. تصفح الخطوط المتاحة عبر:\nhttps://www.souqbaghdad.store/transport`
+            : `⚠️ [تم البيع / غير متوفر]\n\n${record.title || 'إعلان'}\n💰 تم البيع بنجاح عبر منصة سوق بغداد\n\nتصفح المزيد من العروض عبر:\nhttps://www.souqbaghdad.store`;
+          await updateFacebookPost(fbPostId, fbSoldText);
+        }
       }
       
       if (shouldDelete) {
         const msgId = record?.telegram_message_id || oldRecord?.telegram_message_id;
+        const rucMsgId = record?.sync_status?.ruc_telegram_message_id || oldRecord?.sync_status?.ruc_telegram_message_id;
+        
         if (msgId) {
-          const channel = (payload.table === 'products' || record.category !== 'transport') ? PRODUCT_CHANNEL : TRANSPORT_CHANNEL;
+          const isTransport = record?.category === 'transport' || oldRecord?.category === 'transport';
+          const isCar = record?.category === 'vehicles' || record?.category === 'cars' || oldRecord?.category === 'vehicles' || oldRecord?.category === 'cars';
+          const channel = isTransport ? (LINES_CHANNEL_ID || TRANSPORT_CHANNEL) : (isCar ? (CAR_CHANNEL_ID || CAR_CHANNEL) : PRODUCT_CHANNEL);
           if (channel) {
             await deleteMessage(channel, parseInt(msgId, 10));
           }
           if (EXTRA_CHANNEL) {
             await deleteMessage(EXTRA_CHANNEL, parseInt(msgId, 10));
           }
+        }
+        if (rucMsgId && ALRAFDAIN_TELEGRAM_CHANNEL) {
+          await deleteMessage(ALRAFDAIN_TELEGRAM_CHANNEL, parseInt(rucMsgId, 10));
         }
         
         // Delete from Social Media
@@ -1075,6 +1135,9 @@ serve(async (req) => {
         
         const igPostId = record?.instagram_post_id || oldRecord?.instagram_post_id;
         if (igPostId) await deleteFromInstagram(igPostId);
+
+        const thPostId = record?.threads_post_id || oldRecord?.threads_post_id;
+        if (thPostId) await deleteFromThreads(thPostId);
       }
 
       let publishTelegram = payload.targets ? payload.targets.telegram : true;
@@ -3116,7 +3179,7 @@ serve(async (req) => {
 
       if (action.startsWith('del_trans_')) {
         const transId = action.replace('del_trans_', '');
-        const { data: adToDelete } = await supabase.from('ads').select('id, seller_id, phone, facebook_post_id, telegram_message_id, instagram_post_id, category').eq('id', transId).maybeSingle();
+        const { data: adToDelete } = await supabase.from('ads').select('id, seller_id, phone, facebook_post_id, telegram_message_id, instagram_post_id, threads_post_id, sync_status, category').eq('id', transId).maybeSingle();
         
         if (!adToDelete) {
           await sendMessage(chatId, '❌ لم يتم العثور على الإعلان أو تم حذفه مسبقاً.');
@@ -3134,15 +3197,22 @@ serve(async (req) => {
         if (adToDelete) {
           if (adToDelete.facebook_post_id) await deleteFromFacebook(adToDelete.facebook_post_id);
           if (adToDelete.instagram_post_id) await deleteFromInstagram(adToDelete.instagram_post_id);
+          if (adToDelete.threads_post_id) await deleteFromThreads(adToDelete.threads_post_id);
+          
           if (adToDelete.telegram_message_id) {
-             const channel = (adToDelete.category !== 'transport') ? PRODUCT_CHANNEL : TRANSPORT_CHANNEL;
+             const channel = (adToDelete.category === 'transport') ? (LINES_CHANNEL_ID || TRANSPORT_CHANNEL) : (adToDelete.category === 'vehicles' || adToDelete.category === 'cars' ? (CAR_CHANNEL_ID || CAR_CHANNEL) : PRODUCT_CHANNEL);
              if (channel) await deleteMessage(channel, parseInt(adToDelete.telegram_message_id, 10));
              if (EXTRA_CHANNEL) await deleteMessage(EXTRA_CHANNEL, parseInt(adToDelete.telegram_message_id, 10));
+          }
+
+          const rucMsgId = adToDelete.sync_status?.ruc_telegram_message_id;
+          if (rucMsgId && ALRAFDAIN_TELEGRAM_CHANNEL) {
+            await deleteMessage(ALRAFDAIN_TELEGRAM_CHANNEL, parseInt(rucMsgId, 10));
           }
         }
         
         const returnCb = (adToDelete.category === 'vehicles' || adToDelete.category === 'cars') ? 'manage_cat_cars' : (adToDelete.category === 'transport' ? 'manage_cat_trans' : 'manage_my_ads');
-        await sendMessage(chatId, '✅ <b>تم حذف الإعلان نهائياً بنجاح!</b>\nتمت إزالة المنشور من القناة وقاعدة البيانات.', {
+        await sendMessage(chatId, '✅ <b>تم حذف الإعلان نهائياً بنجاح!</b>\nتمت إزالة المنشور من كافة القنوات ومنصات التواصل وقاعدة البيانات.', {
           inline_keyboard: [[{ text: '🔙 العودة لإعلاناتي', callback_data: returnCb }], [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
         });
         return new Response('OK', { status: 200 });
