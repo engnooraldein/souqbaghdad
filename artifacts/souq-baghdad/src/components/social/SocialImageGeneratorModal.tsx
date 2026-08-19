@@ -84,7 +84,11 @@ export const SocialImageGeneratorModal: React.FC<SocialImageGeneratorModalProps>
   }
   const adType = ad.type === 'request' ? 'request' : 'offer';
   const link = `https://www.souqbaghdad.store/transport/card/${shortId}`;
-  const imageUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=${templateType}&ad_type=${adType}&title=${encodeURIComponent(title)}&subtitle=${encodeURIComponent(destination)}&subdesc=${encodeURIComponent(catType)}&regions=${encodeURIComponent(regions)}&destination=${encodeURIComponent(destination)}&fare=${encodeURIComponent(fare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&audience=${encodeURIComponent(audience)}&days=${encodeURIComponent(workDays)}&time=${encodeURIComponent(shiftTime)}`;
+  // Clean audience to remove any special characters that cause □ boxes
+  const cleanAudience = audience.replace(/[^\u0600-\u06FFa-zA-Z0-9\s.,\-]/g, '').trim() || 'للطلبة';
+  const cleanDays = workDays.replace(/-/g, ' إلى ').replace(/\s{2,}/g, ' ').trim();
+  const cacheBuster = Date.now();
+  const imageUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=${templateType}&ad_type=${adType}&title=${encodeURIComponent(title)}&subtitle=${encodeURIComponent(destination)}&subdesc=${encodeURIComponent(catType)}&regions=${encodeURIComponent(regions)}&destination=${encodeURIComponent(destination)}&fare=${encodeURIComponent(fare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&audience=${encodeURIComponent(cleanAudience)}&days=${encodeURIComponent(cleanDays)}&time=${encodeURIComponent(shiftTime)}&_t=${cacheBuster}`;
 
   const handleDownload = async () => {
     try {

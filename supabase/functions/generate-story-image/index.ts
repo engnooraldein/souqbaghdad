@@ -7,19 +7,23 @@ import ArabicShaper from 'npm:arabic-persian-reshaper@1.0.1'
 
 let wasmInitialized = false;
 
-// Robust Arabic & Unicode cleanup + Reshaping
+// Aggressive text cleanup - WHITELIST approach: only keep renderable characters
+// Strips ALL characters the font can't render (emojis, special Unicode, pipes, etc.)
 function cleanText(val: string | null, fallback: string): string {
   if (!val) return fallback;
   let s = val
+    // Strip HTML tags and entities
     .replace(/<[^>]*>?/gm, ' ')
     .replace(/&lt;.*?&gt;/gm, ' ')
     .replace(/&[a-z0-9#]+;/gi, ' ')
+    // Strip base64 images
     .replace(/data:image\/[a-zA-Z+]+;base64,[a-zA-Z0-9+/=]+/g, '')
     .replace(/img\s+src=[^\s>]+/gi, '')
-    .replace(/[\[\]]/g, '')
-    .replace(/[\uFFF0-\uFFFF]/g, '')
-    .replace(/[\u200E\u200F\u202A-\u202E]/g, '')
-    .replace(/[\u{1F300}-\u{1FAFF}\u{1F600}-\u{1F64F}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F1E0}-\u{1F1FF}]/gu, '')
+    // WHITELIST: Only keep Arabic (0600-06FF, 0750-077F, FB50-FDFF, FE70-FEFF),
+    // Latin (a-zA-Z), digits (0-9), spaces, and basic punctuation
+    .replace(/[^\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFFa-zA-Z0-9\s.,;:!?\-\/()@#_•=+%'"\u060C\u061B\u061F]/g, ' ')
+    // Collapse multiple spaces
+    .replace(/\s{2,}/g, ' ')
     .trim();
   return s.length > 0 ? s : fallback;
 }
@@ -210,8 +214,8 @@ serve(async (req) => {
     let audience = cleanText(url.searchParams.get("audience"), "الطلبة");
     if (audience.startsWith('ل')) audience = audience.substring(1);
     
-    let rawDays = cleanText(url.searchParams.get("days"), "الأحد - الخميس");
-    let workDays = rawDays.replace(/-/g, 'إلى').replace(/  +/g, ' ').trim();
+    let rawDays = cleanText(url.searchParams.get("days"), "الأحد إلى الخميس");
+    let workDays = rawDays.replace(/-/g, ' إلى ').replace(/\s{2,}/g, ' ').trim();
     if (!workDays.includes('إلى')) workDays = "الأحد إلى الخميس";
 
     const shiftTime = cleanText(url.searchParams.get("time"), "صباحاً ومساءً");
@@ -300,7 +304,7 @@ serve(async (req) => {
           <!-- Footer Information -->
           <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; padding-top: 10px;">
             <span style="font-size: 24px; color: #38bdf8; font-weight: bold;">${footerTag}</span>
-            <span style="font-size: 22px; color: #e2e8f0; font-weight: bold;">${fixAr('إعلانات موثوقة • تواصل مباشر • نشر سريع')}</span>
+            <span style="font-size: 22px; color: #e2e8f0; font-weight: bold;">${fixAr('إعلانات موثوقة - تواصل مباشر - نشر سريع')}</span>
           </div>
 
         </div>
@@ -371,7 +375,7 @@ serve(async (req) => {
           <!-- Story Bottom Footer -->
           <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; border-top: 1px solid rgba(255, 255, 255, 0.15); padding-top: 20px;">
             <span style="font-size: 26px; color: #38bdf8; font-weight: bold;">${footerTag}</span>
-            <span style="font-size: 24px; color: #cbd5e1;">${fixAr('إعلانات موثوقة • تواصل مباشر')}</span>
+            <span style="font-size: 24px; color: #cbd5e1;">${fixAr('إعلانات موثوقة - تواصل مباشر')}</span>
           </div>
 
         </div>
@@ -403,7 +407,7 @@ serve(async (req) => {
     return new Response(pngBuffer, {
       headers: {
         'Content-Type': 'image/png',
-        'Cache-Control': 'public, max-age=31536000',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Access-Control-Allow-Origin': '*'
       },
     });
