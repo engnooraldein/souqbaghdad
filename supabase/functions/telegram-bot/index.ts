@@ -560,79 +560,73 @@ function formatTgPrice(val: any, currency = 'د.ع'): string {
 }
 
 const generateSocialCaption = async (record: any, type: 'car' | 'product' | 'transport' | 'ad', link: string): Promise<string> => {
-  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') ?? '';
-  let title = record.title || (type === 'car' ? 'سيارة للبيع' : 'إعلان جديد');
   let price = formatTgPrice(record.price, record.currency || 'د.ع');
-  let location = record.governorate || record.location || record.city || 'بغداد';
-  let details = '';
-  if (typeof record.description === 'string') {
-    if (record.description.trim().startsWith('{')) {
-      try {
-        const p = JSON.parse(record.description);
-        const parts = [];
-        if (p.brand) parts.push(`الماركة: ${p.brand}`);
-        if (p.model) parts.push(`الموديل: ${p.model}`);
-        if (p.year) parts.push(`السنة: ${p.year}`);
-        if (p.origin) parts.push(`المواصفات: ${p.origin}`);
-        if (p.mileage) parts.push(`المسافة: ${p.mileage} كم`);
-        if (p.note) parts.push(`ملاحظات: ${p.note}`);
-        details = parts.join(' | ');
-      } catch {
-        details = record.description;
-      }
-    } else {
-      details = record.description;
+
+  // --- 1. TRANSPORT LINES (خطوط النقل) ---
+  if (type === 'transport') {
+    let descObj: any = {};
+    if (typeof record.description === 'string') {
+      try { descObj = JSON.parse(record.description); } catch { descObj = { note: record.description }; }
+    } else if (typeof record.description === 'object' && record.description !== null) {
+      descObj = record.description;
     }
-  }
-  details = details.substring(0, 250);
 
-  if (GEMINI_API_KEY) {
-    try {
-      const prompt = `أنت خبير تسويق محتوى لمنصات التواصل (Instagram, Threads, Facebook) لـ "سوق بغداد".
-اكتب منشوراً تسويقياً مرتباً وجذاباً باللغة العربية مع لمسة ودية باللهجة العراقية للإعلان التالي:
-النوع: ${type}
-العنوان: ${title}
-السعر: ${price}
-الموقع: ${location}
-التفاصيل: ${details || 'متوفر الآن عبر المنصة'}
+    const destination = record.university || record.destination || record.city || 'الجامعة / مكان العمل';
+    const regions = record.regions || record.location || record.city || 'بغداد';
+    const audience = descObj?.targetAudience || record.targetAudience || 'طالبات / طلاب / موظفين';
+    const shift = descObj?.shift || record.shift || 'صباحي';
+    const days = descObj?.days || record.days || 'طيلة أيام الدوام';
+    const shortId = record.short_id || record.id || '';
 
-شروط إلزامية:
-1. رتب النص بشكل أنيق ومريح للعين مع ترك سطر فارغ بين كل نقطة وأخرى.
-2. لا تستخدم علامات النجمة (*) أو تنسيقات Markdown المعقدة.
-3. ضع الهاشتاقات المناسبة في النهاية.
-4. أضف دعوة تفاعل واضحة: "💬 اكتب تم أو تواصل بالتعليقات وتوصلك كافة التفاصيل على الخاص 📩".`;
-
-      const aiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }]
-          })
-        }
-      );
-      if (aiRes.ok) {
-        const aiData = await aiRes.json();
-        const generated = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (generated && generated.length > 25) {
-          const cleanText = generated.replace(/[*_#`]/g, '').trim();
-          return `${cleanText}\n\n🔗 ${link}\n\n#سوق_بغداد #العراق #بغداد`;
-        }
-      }
-    } catch (e) {
-      console.error('AI Caption generation error:', e);
-    }
+    return `🚌 توفير نقل خط جديد — سوق بغداد\n\n` +
+           `🏢 الوجهة: ${destination}\n` +
+           `📍 مناطق الانطلاق: ${regions}\n` +
+           `👥 نوع الخط: ${audience}\n` +
+           `⏰ أوقات الدوام: ${shift}\n` +
+           `📅 أيام الدوام: ${days}\n` +
+           `💰 الأجرة: ${price}\n` +
+           (shortId ? `🆔 كود الإعلان: #${shortId}\n\n` : `\n`) +
+           `🔗 لمشاهدة تفاصيل الخط ورقم التواصل:\n${link}\n\n` +
+           `💬 اكتب "تم" أو راسلنا بالتعليقات وتوصلك كافة تفاصيل الخط على الخاص 📩\n\n` +
+           `#سوق_بغداد #خطوط_نقل #خط_جامعة #خطوط_بغداد #جامعة_الرافدين #باصات_بغداد #العراق`;
   }
 
-  // Fallback Clean Social Template (No flipped symbols or bot tags)
+  // --- 2. CARS (سيارات) ---
   if (type === 'car') {
-    return `🚗 سيارة مميزة للبيع في سوق بغداد\n\n📌 النوع: ${title}\n💰 السعر: ${price}\n📍 الموقع: ${location}\n\n🔗 تفاصيل الإعلان والتواصل مع البائع:\n${link}\n\n💬 اكتب "تم" أو "تواصل" بالتعليقات وتوصلك كافة التفاصيل على الخاص 📩\n\n#سوق_بغداد #سيارات_العراق #بغداد`;
-  } else if (type === 'transport') {
-    return `🚌 خط نقل جديد في بغداد\n\n📍 مناطق الانطلاق: ${location}\n🏢 الوجهة: ${record.university || record.city || 'بغداد'}\n💰 الأجرة: ${price}\n\n🔗 تفاصيل الخط والتواصل:\n${link}\n\n💬 اكتب "تم" بالتعليقات وتوصلك التفاصيل على الخاص 📩\n\n#سوق_بغداد #خطوط_نقل #جامعات_العراق`;
-  } else {
-    return `🛍️ منتج مميز معروض في سوق بغداد\n\n📌 الاسم: ${title}\n💰 السعر: ${price}\n📍 الموقع: ${location}\n\n🔗 تفاصيل المنتج والشراء:\n${link}\n\n💬 اكتب "تم" أو "تواصل" بالتعليقات وتوصلك كافة التفاصيل على الخاص 📩\n\n#سوق_بغداد #تسوق_العراق #بغداد`;
+    let p: any = {};
+    if (typeof record.description === 'string') {
+      try { p = JSON.parse(record.description); } catch { p = { note: record.description }; }
+    }
+    const carTitle = `${p.brand || ''} ${p.model || ''} ${p.year || ''}`.trim() || record.title || 'سيارة للبيع';
+    const gov = record.location || record.city || record.governorate || 'بغداد';
+    const shortId = record.short_id || record.id || '';
+
+    return `🚗 سيارة مميزة معروضة للبيع — سوق بغداد\n\n` +
+           `📌 النوع والموديل: ${carTitle}\n` +
+           (p.year ? `📅 سنة الصنع: ${p.year}\n` : '') +
+           (p.mileage ? `🛣️ المسافة المقطوعة: ${parseInt(p.mileage).toLocaleString('en-US')} كم\n` : '') +
+           (p.origin ? `📋 المواصفات: ${p.origin}\n` : '') +
+           `📍 الموقع: ${gov}\n` +
+           `💰 السعر: ${price}\n` +
+           (shortId ? `🆔 كود الإعلان: #${shortId}\n\n` : `\n`) +
+           `🔗 لمشاهدة كافة الصور والتواصل مع البائع:\n${link}\n\n` +
+           `💬 اكتب "تم" أو "سعر" بالتعليقات وتوصلك كافة التفاصيل على الخاص 📩\n\n` +
+           `#سوق_بغداد #سيارات_العراق #سيارات_للبيع #بغداد_سيارات #العراق`;
   }
+
+  // --- 3. PRODUCTS & GENERAL ADS (المنتجات والإعلانات العامة) ---
+  const title = record.title || 'منتج معروض في سوق بغداد';
+  const location = record.governorate || record.location || record.city || 'بغداد';
+  const shortId = record.short_id || record.id || '';
+
+  return `🛍️ إعلان جديد معروض في سوق بغداد\n\n` +
+         `📌 الاسم: ${title}\n` +
+         `💰 السعر: ${price}\n` +
+         `📍 الموقع: ${location}\n` +
+         (shortId ? `🆔 كود الإعلان: #${shortId}\n\n` : `\n`) +
+         `🔗 تفاصيل الإعلان والتواصل مع البائع:\n${link}\n\n` +
+         `💬 اكتب "تم" أو "تواصل" بالتعليقات وتوصلك كافة التفاصيل على الخاص 📩\n\n` +
+         `#سوق_بغداد #تسوق_العراق #العراق #بغداد`;
 };
 
 function generateHashtags(title: string, desc: string): string {
@@ -1578,9 +1572,23 @@ serve(async (req) => {
             cleanFare = record.fare;
           }
 
+          let rawPhone = record.phone || (desc && (desc.phone || desc.contact_phone || desc.whatsapp)) || '';
+          let cleanDisplayPhone = String(rawPhone).replace(/[^\d+]/g, '').trim();
+          if (cleanDisplayPhone.startsWith('964')) {
+            cleanDisplayPhone = '0' + cleanDisplayPhone.substring(3);
+          }
+          if (cleanDisplayPhone.startsWith('+964')) {
+            cleanDisplayPhone = '0' + cleanDisplayPhone.substring(4);
+          }
+          if (!cleanDisplayPhone) cleanDisplayPhone = '0780 000 0000';
+
+          const daysStr = desc?.days || desc?.workDays || 'الأحد إلى الخميس';
+          const shiftVal = desc?.shift || 'من 08:00 ص إلى 02:00 م';
+          const targetAudienceVal = desc?.targetAudience || targetStr || 'طالبات فقط';
+
           // Dynamic Programmatic Templates (1080x1350 Post & 1080x1920 Story)
-          const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
-          const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
+          const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}&phone=${encodeURIComponent(cleanDisplayPhone)}&audience=${encodeURIComponent(targetAudienceVal)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}`;
+          const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}&phone=${encodeURIComponent(cleanDisplayPhone)}&audience=${encodeURIComponent(targetAudienceVal)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}`;
 
           const descStr = typeof record.description === 'string' ? record.description : JSON.stringify(record.description || {});
           const rafdainTerms = ['الرافدين', 'الرفدين', 'ruc'];
