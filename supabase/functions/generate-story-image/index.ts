@@ -2,197 +2,88 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import satori from 'npm:satori@0.10.11'
 import { Resvg, initWasm } from 'npm:@resvg/resvg-wasm@2.6.2'
 import { html } from "npm:satori-html@0.3.2"
-
 import ArabicShaper from 'npm:arabic-persian-reshaper@1.0.1'
 
 let wasmInitialized = false;
 
-// Aggressive text cleanup - WHITELIST approach: only keep renderable characters
-// Strips ALL characters the font can't render (emojis, special Unicode, pipes, etc.)
+// Aggressive text cleanup - WHITELIST approach
 function cleanText(val: string | null, fallback: string): string {
   if (!val) return fallback;
   let s = val
-    // Strip HTML tags and entities
     .replace(/<[^>]*>?/gm, ' ')
     .replace(/&lt;.*?&gt;/gm, ' ')
     .replace(/&[a-z0-9#]+;/gi, ' ')
-    // Strip base64 images
     .replace(/data:image\/[a-zA-Z+]+;base64,[a-zA-Z0-9+/=]+/g, '')
     .replace(/img\s+src=[^\s>]+/gi, '')
-    // WHITELIST: Only keep Arabic (0600-06FF, 0750-077F, FB50-FDFF, FE70-FEFF),
-    // Latin (a-zA-Z), digits (0-9), spaces, and basic punctuation
-    .replace(/[^\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFFa-zA-Z0-9\s.,;:!?\-\/()@#_•=+%'"\u060C\u061B\u061F]/g, ' ')
-    // Collapse multiple spaces
+    .replace(/[^\u0600-\u06FF\u0750-\u077Fa-zA-Z0-9\s.,;:!?\-\/()@#_=+%'"]/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
   return s.length > 0 ? s : fallback;
 }
 
-// Check if a character is Arabic (or Arabic presentation form)
-function isArabicChar(ch: string): boolean {
-  const code = ch.charCodeAt(0);
-  return (
-    (code >= 0x0600 && code <= 0x06FF) ||  // Arabic
-    (code >= 0x0750 && code <= 0x077F) ||  // Arabic Supplement
-    (code >= 0xFB50 && code <= 0xFDFF) ||  // Arabic Presentation Forms-A
-    (code >= 0xFE70 && code <= 0xFEFF)     // Arabic Presentation Forms-B
-  );
-}
-
-// Segment text into runs of Arabic vs non-Arabic characters
-function segmentText(text: string): { text: string; isArabic: boolean }[] {
-  const segments: { text: string; isArabic: boolean }[] = [];
-  let current = '';
-  let currentIsArabic = false;
-
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    const charIsArabic = isArabicChar(ch);
-    // Treat spaces and common punctuation as part of current segment
-    const isNeutral = /[\s\u060C\u061B\u061F•،.:!\-\/|()]/.test(ch);
-
-    if (current.length === 0) {
-      currentIsArabic = charIsArabic;
-      current = ch;
-    } else if (charIsArabic === currentIsArabic || isNeutral) {
-      current += ch;
-    } else {
-      segments.push({ text: current, isArabic: currentIsArabic });
-      current = ch;
-      currentIsArabic = charIsArabic;
-    }
-  }
-  if (current.length > 0) {
-    segments.push({ text: current, isArabic: currentIsArabic });
-  }
-  return segments;
-}
-
-// Reshape connected Arabic letters and fix bidirectional sequence for SVG canvas
-// Satori renders LTR by default, so we must:
-// 1. Reshape Arabic glyphs (connect letters)
-// 2. Reverse each Arabic segment so it reads RTL
-// 3. Reverse the overall segment order so the rightmost segment appears first
+// Convert and connect Arabic glyphs, with proper character and number ordering
 function fixAr(text: string): string {
   if (!text) return '';
+  const clean = cleanText(text, '');
+  if (!clean) return '';
   try {
-    const clean = cleanText(text, '');
-    if (!clean) return '';
-
     const fn = (ArabicShaper as any).convertArabic || (ArabicShaper as any)?.ArabicShaper?.convertArabic || (ArabicShaper as any);
-
-    const segments = segmentText(clean);
-
-    const processedSegments = segments.map(seg => {
-      if (seg.isArabic && typeof fn === 'function') {
-        const reshaped = fn(seg.text);
-        // Reverse the Arabic segment for LTR canvas
-        return reshaped.split('').reverse().join('');
-      }
-      // Non-Arabic segments (numbers, English, URLs) stay as-is
-      return seg.text;
-    });
-
-    // Reverse segment order so Arabic reads right-to-left in LTR canvas
-    return processedSegments.reverse().join('');
-  } catch (e) {
-    return text;
+    if (typeof fn === 'function') {
+      const shaped = fn(clean);
+      // Reverse shaped characters so words read correctly from right to left,
+      // while re-reversing numbers/times so they stay left-to-right (e.g. 2,000 and 08:00)
+      return shaped.split('').reverse().join('').replace(/[0-9]+([.:,/-][0-9]+)*/g, (num: string) => {
+        return num.split('').reverse().join('');
+      });
+    }
+    return clean;
+  } catch {
+    return clean;
   }
 }
+
+// Helper to convert SVG markup to safe data-uri image source
+function svgImg(svgStr: string): string {
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svgStr)}`;
+}
+
+const SVGS = {
+  logo: `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 40 40"><rect width="40" height="40" rx="12" fill="#7c3aed"/><path d="M20 9C14 9 11 12 11 15C11 18.5 15 19.5 20 20.5C25 21.5 29 22.5 29 26C29 29.5 25 32 20 32C14 32 11 29 11 29" stroke="white" stroke-width="4" stroke-linecap="round"/><circle cx="27" cy="12" r="3" fill="#c084fc"/></svg>`,
+  
+  pin: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
+  
+  exchange: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>`,
+  
+  wallet: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>`,
+  
+  code: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-8"/><path d="M16 12h-8"/><path d="M12 16h-4"/></svg>`,
+  
+  clock: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  
+  calendar: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>`,
+  
+  bus: `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.2 6 18.2 6H5.8C4.8 6 3.9 6.8 3.6 7.8l-1.4 5c-.1.4-.2.8-.2 1.2 0 .4.1.8.2 1.2.3 1.1.8 2.8.8 2.8h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></svg>`,
+  
+  users: `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  
+  phone: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`,
+  
+  link: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
+  
+  shield: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+  
+  timeCommit: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/><path d="m9 12 2 2 4-4"/></svg>`,
+  
+  tag: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><circle cx="7" cy="7" r=".5" fill="#c084fc"/></svg>`,
+  
+  star: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+};
 
 serve(async (req) => {
   try {
     const url = new URL(req.url);
     const mode = url.searchParams.get("type") || "post"; // "post" (1080x1350) or "story" (1080x1920)
-    
-    const category = (url.searchParams.get("category") || "transport").toLowerCase();
-    
-    const adType = (url.searchParams.get("ad_type") || url.searchParams.get("type_mode") || "offer").toLowerCase(); // "offer" (توفير خط) vs "request" (مطلوب خط)
-    
-    let defaultTitle = adType === "request" ? "مطلوب خط نقل في بغداد" : "توفير خط نقل جديد في بغداد";
-    let badgeText = adType === "request" ? "إعلان مطلوب خط" : "إعلان توفير خط نقل";
-    let emoji = "";
-    let fareLabel = "الأجرة الشهرية:";
-    let box1Label = "مناطق الانطلاق والمرور:";
-    let box2Label = "الوجهة والكلية:";
-    let footerTag = "@souqbaghdad_lines";
-
-    if (category === "cars" || category === "vehicles") {
-      defaultTitle = "سيارة معروضة للبيع";
-      badgeText = "إعلان سيارة معروضة";
-      emoji = "";
-      fareLabel = "السعر المطلوب:";
-      box1Label = "المحافظة والموقع:";
-      box2Label = "المواصفات والتفاصيل:";
-      footerTag = "@souqbaghdad_car";
-    } else if (category === "products") {
-      defaultTitle = "منتج معروض للبيع";
-      badgeText = "منتج معروض في سوق بغداد";
-      emoji = "";
-      fareLabel = "السعر المطلوب:";
-      box1Label = "المحافظة / الموقع:";
-      box2Label = "الحالة والتفاصيل:";
-      footerTag = "@souqbaghdad_iq";
-    } else if (category === "general") {
-      defaultTitle = "إعلان معروض في سوق بغداد";
-      badgeText = "إعلان جديد";
-      emoji = "";
-      fareLabel = "السعر المطلوب:";
-      box1Label = "الموقع والمدينة:";
-      box2Label = "تفاصيل الإعلان:";
-      footerTag = "@souqbaghdad_iq";
-    }
-
-    const title = cleanText(url.searchParams.get("title"), defaultTitle);
-    const subtitle = cleanText(url.searchParams.get("subtitle"), category === "cars" ? "وارد ومواصفات ممتازة" : "سوق بغداد الرقمي");
-    const subdesc = cleanText(url.searchParams.get("subdesc"), adType === "request" ? "طلب نقل مباشر عبر المنصة" : "متوفر الآن للتسجيل والحجز");
-    const regions = cleanText(url.searchParams.get("regions"), "بغداد وعموم العراق");
-    const destination = cleanText(url.searchParams.get("destination"), "متوفر للتواصل والشراء");
-    const fare = cleanText(url.searchParams.get("fare"), "حسب الاتفاق");
-    let link = cleanText(url.searchParams.get("link"), "https://www.souqbaghdad.store");
-    if (link.includes('data:image')) {
-      link = "https://www.souqbaghdad.store";
-    }
-    const shortId = cleanText(url.searchParams.get("short_id"), "BGHD1");
-    
-    // Dynamic themes to distinguish offer vs request and categories with gorgeous gradients
-    let bgGradients = [
-      'linear-gradient(180deg, #0b1528 0%, #030712 100%)',
-      'linear-gradient(180deg, #082138 0%, #020617 100%)',
-      'linear-gradient(180deg, #0e1a33 0%, #030712 100%)',
-      'linear-gradient(180deg, #071927 0%, #020617 100%)'
-    ];
-
-    let borderAccent = '#0284c7';
-    let badgeBorder = '#38bdf8';
-    let badgeBg = 'rgba(56, 189, 248, 0.15)';
-    let badgeTextColor = '#38bdf8';
-
-    if (adType === "request") {
-      // Emerald / Teal theme for requests (مطلوب خط)
-      bgGradients = [
-        'linear-gradient(180deg, #06231c 0%, #02120e 100%)',
-        'linear-gradient(180deg, #042f2e 0%, #021312 100%)',
-        'linear-gradient(180deg, #062b25 0%, #01140f 100%)'
-      ];
-      borderAccent = '#059669';
-      badgeBorder = '#10b981';
-      badgeBg = 'rgba(16, 185, 129, 0.2)';
-      badgeTextColor = '#34d399';
-    } else if (category === "cars") {
-      // Violet / Indigo theme for cars
-      bgGradients = [
-        'linear-gradient(180deg, #1e1b4b 0%, #0a0a18 100%)',
-        'linear-gradient(180deg, #17153b 0%, #050510 100%)'
-      ];
-      borderAccent = '#6366f1';
-      badgeBorder = '#818cf8';
-      badgeBg = 'rgba(129, 140, 248, 0.2)';
-      badgeTextColor = '#a5b4fc';
-    }
-
-    const themeIndex = Math.abs((shortId.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)) % bgGradients.length);
-    const currentBg = bgGradients[themeIndex];
+    const adType = (url.searchParams.get("ad_type") || "offer").toLowerCase();
 
     // 1. Initialize WASM for Resvg
     if (!wasmInitialized) {
@@ -202,208 +93,318 @@ serve(async (req) => {
       wasmInitialized = true;
     }
 
-    // 2. Fetch Arabic Font (Noto Sans Arabic - Full Glyphs Support)
-    const fontUrl = 'https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf';
-    const fontRes = await fetch(fontUrl);
-    const fontData = await fontRes.arrayBuffer();
+    // 2. Fetch Complete Arabic (Noto) + Latin (Almarai) Fonts
+    const [notoRes, almaraiRes] = await Promise.all([
+      fetch('https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf'),
+      fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/almarai/Almarai-Bold.ttf')
+    ]);
+    const [notoData, almaraiData] = await Promise.all([
+      notoRes.arrayBuffer(),
+      almaraiRes.arrayBuffer()
+    ]);
 
     const isPost = mode === "post";
     const canvasWidth = 1080;
     const canvasHeight = isPost ? 1350 : 1920;
 
-    let audience = cleanText(url.searchParams.get("audience"), "الطلبة");
-    if (audience.startsWith('ل')) audience = audience.substring(1);
+    // 3. Clean Input Parameters
+    const shortId = cleanText(url.searchParams.get("short_id"), "GVR37#");
+    const formattedId = shortId.endsWith('#') ? shortId : `${shortId}#`;
     
-    let rawDays = cleanText(url.searchParams.get("days"), "الأحد إلى الخميس");
+    const audience = cleanText(url.searchParams.get("audience"), "طالبات نقل");
+    const rawDays = cleanText(url.searchParams.get("days"), "الأحد إلى الخميس");
     let workDays = rawDays.replace(/-/g, ' إلى ').replace(/\s{2,}/g, ' ').trim();
     if (!workDays.includes('إلى')) workDays = "الأحد إلى الخميس";
 
-    const shiftTime = cleanText(url.searchParams.get("time"), "صباحاً ومساءً");
+    const shiftTime = cleanText(url.searchParams.get("time"), "من 08:00 ص إلى 02:00 م");
+    const regions = cleanText(url.searchParams.get("regions"), "اليرموك، المنصور، الحارثية، زيونة");
+    const destination = cleanText(url.searchParams.get("destination"), "جامعة أوروك");
+    
+    let rawFare = cleanText(url.searchParams.get("fare"), "45,000 د.ع");
+    if (!rawFare.includes('د.ع')) rawFare = `${rawFare} د.ع`;
 
-    // Dynamic clean titles
-    const line1 = adType === "request" ? "مطلوب خط نقل مباشر" : "توفير خط نقل جديد";
-    const line2 = `لل${audience} في بغداد`;
-
-    // Short display link for clean presentation (guaranteed no special chars)
-    const cleanId = shortId.replace(/[^a-zA-Z0-9]/g, '');
-    const displayLink = `souqbaghdad.store/transport/card/${cleanId}`;
-
-    let markup;
-
-    if (isPost) {
-      // --- Exact 1:1 Match of Post Reference (1080 x 1350 px) ---
-      markup = html`
-        <div style="display: flex; flex-direction: column; width: 1080px; height: 1350px; background: #07152b; color: white; padding: 55px 60px; font-family: 'Noto Sans Arabic', sans-serif; box-sizing: border-box; justify-content: space-between; border: 4px solid #0f294d; border-radius: 36px; position: relative;">
-          
-          <!-- Background Grid / Map Accent Pattern -->
-          <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0.12; display: flex; background-image: radial-gradient(#38bdf8 1px, transparent 1px); background-size: 32px 32px;"></div>
-
-          <!-- Top Header Brand & Badge -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%;">
-            <div style="display: flex; flex-direction: column; align-items: flex-start; text-align: left;">
-              <span style="font-size: 30px; font-weight: bold; color: #ffffff;">${fixAr('سوق بغداد الرقمي')}</span>
-              <span style="font-size: 15px; color: #94a3b8; letter-spacing: 2px; font-weight: bold;">SOUQ BAGHDAD</span>
-            </div>
-            
-            <div style="display: flex; background: #0284c7; border-radius: 16px; padding: 8px 24px;">
-              <span style="font-size: 24px; color: #ffffff; font-weight: bold;">${fixAr(badgeText)}</span>
-            </div>
-          </div>
-
-          <!-- Main Headline -->
-          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; margin: 10px 0;">
-            <span style="font-size: 56px; font-weight: bold; color: #ffffff; margin-bottom: 6px;">${fixAr(line1)}</span>
-            <span style="font-size: 48px; font-weight: bold; color: #38bdf8;">${fixAr(line2)}</span>
-          </div>
-
-          <!-- Highlight Amber Banner (الأجرة الشهرية: 45,000 د.ع) -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: linear-gradient(90deg, #b45309, #d97706); border: 2px solid #f59e0b; border-radius: 22px; padding: 18px 36px; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
-            <span style="font-size: 36px; color: #fef3c7; font-weight: bold;">${fixAr(fare)}</span>
-            <span style="font-size: 34px; color: #ffffff; font-weight: bold;">${fixAr(fareLabel)}</span>
-          </div>
-
-          <!-- Two-Box Grid: الوجهة والكلية (يمين) + الانطلاق ومناطق المرور (يسار) -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; gap: 20px;">
-            <!-- Left Box: الانطلاق ومناطق المرور (على اليسار) -->
-            <div style="display: flex; flex-direction: column; flex: 1.2; background: #0c203c; border: 2px solid #1e40af; border-radius: 20px; padding: 22px 24px; text-align: right;">
-              <span style="font-size: 24px; color: #38bdf8; font-weight: bold; margin-bottom: 8px;">${fixAr('الانطلاق ومناطق المرور:')}</span>
-              <span style="font-size: 26px; color: #ffffff; font-weight: bold; line-height: 1.4;">${fixAr(regions)}</span>
-            </div>
-
-            <!-- Right Box: الوجهة والكلية (على اليمين) -->
-            <div style="display: flex; flex-direction: column; flex: 1; background: #0c203c; border: 2px solid #1e40af; border-radius: 20px; padding: 22px 24px; text-align: right;">
-              <span style="font-size: 24px; color: #38bdf8; font-weight: bold; margin-bottom: 8px;">${fixAr('الوجهة والكلية:')}</span>
-              <span style="font-size: 26px; color: #ffffff; font-weight: bold; line-height: 1.4;">${fixAr(destination)}</span>
-            </div>
-          </div>
-
-          <!-- Pill Attributes Badges (نوع الخط + الأيام + الوقت) من اليمين لليسار -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; gap: 12px;">
-            <div style="display: flex; flex: 1; justify-content: center; align-items: center; background: #0f274a; border: 1.5px solid #2563eb; border-radius: 50px; padding: 12px 16px;">
-              <span style="font-size: 21px; color: #ffffff; font-weight: bold;"><span style="color: #38bdf8; font-weight: bold;">${fixAr('الوقت: ')}</span>${fixAr(shiftTime)}</span>
-            </div>
-            <div style="display: flex; flex: 1.2; justify-content: center; align-items: center; background: #0f274a; border: 1.5px solid #2563eb; border-radius: 50px; padding: 12px 16px;">
-              <span style="font-size: 21px; color: #ffffff; font-weight: bold;"><span style="color: #38bdf8; font-weight: bold;">${fixAr('الأيام: ')}</span>${fixAr(workDays)}</span>
-            </div>
-            <div style="display: flex; flex: 1.3; justify-content: center; align-items: center; background: #0f274a; border: 1.5px solid #2563eb; border-radius: 50px; padding: 12px 16px;">
-              <span style="font-size: 21px; color: #ffffff; font-weight: bold;"><span style="color: #38bdf8; font-weight: bold;">${fixAr('نوع الخط: ')}</span>${fixAr(`نقل ${audience}`)}</span>
-            </div>
-          </div>
-
-          <!-- Bottom Action Link Box -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #0c203c; border: 2px solid #1e40af; border-radius: 20px; padding: 18px 26px;">
-            <div style="display: flex; flex-direction: column; text-align: left;">
-              <span style="font-size: 20px; color: #38bdf8; font-weight: bold; margin-bottom: 2px;">${fixAr('للتفاصيل والتواصل المباشر:')}</span>
-              <span style="font-size: 19px; color: #ffffff; font-family: monospace; letter-spacing: 0.5px;">https://${displayLink}</span>
-            </div>
-            <div style="display: flex; background: #0284c7; border: 1.5px solid #38bdf8; border-radius: 14px; padding: 12px 26px;">
-              <span style="font-size: 22px; color: #ffffff; font-weight: bold;">${fixAr('اضغط على الرابط')}</span>
-            </div>
-          </div>
-
-          <!-- Footer Information -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; padding-top: 10px;">
-            <span style="font-size: 24px; color: #38bdf8; font-weight: bold;">${footerTag}</span>
-            <span style="font-size: 22px; color: #e2e8f0; font-weight: bold;">${fixAr('إعلانات موثوقة - تواصل مباشر - نشر سريع')}</span>
-          </div>
-
-        </div>
-      `;
-    } else {
-      // --- Exact 1:1 Match of Story Reference (1080 x 1920 px) ---
-      markup = html`
-        <div style="display: flex; flex-direction: column; width: 1080px; height: 1920px; background: #07152b; color: white; padding: 75px 65px; font-family: 'Noto Sans Arabic', sans-serif; box-sizing: border-box; justify-content: space-between; border: 6px solid #0f294d; border-radius: 46px; position: relative;">
-          
-          <!-- Background Grid / Map Pattern -->
-          <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0.12; display: flex; background-image: radial-gradient(#38bdf8 1px, transparent 1px); background-size: 36px 36px;"></div>
-
-          <!-- Top Brand Header -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%;">
-            <div style="display: flex; flex-direction: column; align-items: flex-start; text-align: left;">
-              <span style="font-size: 38px; font-weight: bold; color: #ffffff;">${fixAr('سوق بغداد الرقمي')}</span>
-              <span style="font-size: 18px; color: #94a3b8; letter-spacing: 2px; font-weight: bold;">SOUQ BAGHDAD</span>
-            </div>
-            <div style="display: flex; background: #0284c7; border-radius: 20px; padding: 12px 30px;">
-              <span style="font-size: 28px; color: #ffffff; font-weight: bold;">${fixAr(badgeText)}</span>
-            </div>
-          </div>
-
-          <!-- Story Headline -->
-          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; margin: 25px 0;">
-            <span style="font-size: 64px; font-weight: bold; color: #ffffff; margin-bottom: 10px;">${fixAr(line1)}</span>
-            <span style="font-size: 54px; font-weight: bold; color: #38bdf8;">${fixAr(line2)}</span>
-          </div>
-
-          <!-- Highlight Amber Banner -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: linear-gradient(90deg, #b45309, #d97706); border: 3px solid #f59e0b; border-radius: 28px; padding: 26px 45px; box-shadow: 0 12px 30px rgba(0,0,0,0.35);">
-            <span style="font-size: 46px; color: #fef3c7; font-weight: bold;">${fixAr(fare)}</span>
-            <span style="font-size: 42px; color: #ffffff; font-weight: bold;">${fixAr(fareLabel)}</span>
-          </div>
-
-          <!-- Vertical Info Cards Stack: الوجهة أولاً ثم الانطلاق -->
-          <div style="display: flex; flex-direction: column; width: 100%; gap: 22px;">
-            <div style="display: flex; flex-direction: column; background: #0c203c; border: 2.5px solid #1e3a63; border-radius: 26px; padding: 30px 34px; text-align: right;">
-              <span style="font-size: 28px; color: #38bdf8; font-weight: bold; margin-bottom: 10px;">${fixAr('الوجهة والكلية:')}</span>
-              <span style="font-size: 30px; color: #ffffff; font-weight: bold; line-height: 1.4;">${fixAr(destination)}</span>
-            </div>
-
-            <div style="display: flex; flex-direction: column; background: #0c203c; border: 2.5px solid #1e3a63; border-radius: 26px; padding: 30px 34px; text-align: right;">
-              <span style="font-size: 28px; color: #38bdf8; font-weight: bold; margin-bottom: 10px;">${fixAr('الانطلاق ومناطق المرور:')}</span>
-              <span style="font-size: 30px; color: #ffffff; font-weight: bold; line-height: 1.4;">${fixAr(regions)}</span>
-            </div>
-          </div>
-
-          <!-- Story Pill Attributes Row -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; gap: 14px;">
-            <div style="display: flex; flex: 1; justify-content: center; align-items: center; background: #0f274a; border: 2px solid #2563eb; border-radius: 50px; padding: 16px 20px;">
-              <span style="font-size: 24px; color: #ffffff; font-weight: bold;"><span style="color: #38bdf8; font-weight: bold;">${fixAr('الوقت: ')}</span>${fixAr(shiftTime)}</span>
-            </div>
-            <div style="display: flex; flex: 1.2; justify-content: center; align-items: center; background: #0f274a; border: 2px solid #2563eb; border-radius: 50px; padding: 16px 20px;">
-              <span style="font-size: 24px; color: #ffffff; font-weight: bold;"><span style="color: #38bdf8; font-weight: bold;">${fixAr('الأيام: ')}</span>${fixAr(workDays)}</span>
-            </div>
-            <div style="display: flex; flex: 1.3; justify-content: center; align-items: center; background: #0f274a; border: 2px solid #2563eb; border-radius: 50px; padding: 16px 20px;">
-              <span style="font-size: 24px; color: #ffffff; font-weight: bold;"><span style="color: #38bdf8; font-weight: bold;">${fixAr('النوع: ')}</span>${fixAr(audience)}</span>
-            </div>
-          </div>
-
-          <!-- Story Link Box -->
-          <div style="display: flex; flex-direction: column; background: #0c203c; border: 2.5px solid #1e3a63; border-radius: 26px; padding: 26px 34px; text-align: left;">
-            <span style="font-size: 24px; color: #38bdf8; font-weight: bold; margin-bottom: 6px;">${fixAr('للتفاصيل والتواصل المباشر:')}</span>
-            <span style="font-size: 22px; color: #ffffff; font-family: monospace;">https://${displayLink}</span>
-          </div>
-
-          <!-- Story Bottom Footer -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; border-top: 1px solid rgba(255, 255, 255, 0.15); padding-top: 20px;">
-            <span style="font-size: 26px; color: #38bdf8; font-weight: bold;">${footerTag}</span>
-            <span style="font-size: 24px; color: #cbd5e1;">${fixAr('إعلانات موثوقة - تواصل مباشر')}</span>
-          </div>
-
-        </div>
-      `;
+    let phone = cleanText(url.searchParams.get("phone"), "0780 000 0000");
+    if (phone === "0780 000 0000" || phone.length < 5) {
+      phone = "0780 000 0000";
     }
 
-    // 4. Render to SVG using Satori
+    const cleanShortId = shortId.replace(/[^a-zA-Z0-9]/g, '');
+    const shortUrlDisplay = `souqbaghdad.store/ad/${cleanShortId || 'transport'}`;
+    const directAdUrl = `https://www.souqbaghdad.store/transport/card/${cleanShortId}`;
+
+    // Generate QR Code data URL using public API
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&format=png&data=${encodeURIComponent(directAdUrl)}`;
+
+    // Badges & Titles
+    const badgeLabel = adType === "request" ? "مطلوب" : "جديد";
+    const mainTitle1 = adType === "request" ? "طلب نقل" : "نقل خط";
+    const mainTitle2 = adType === "request" ? "مباشر" : "توفير";
+    const subHeadline = adType === "request" ? "بحث عن خط نقل مريح وآمن" : "رحلتك مريحة.. بسعر أوفر";
+    const fareTitle = adType === "request" ? "الأجرة المقترحة" : "سعر الأجرة";
+
+    // 4. Build Exact Editorial Template HTML (Clean LTR Flow with Pre-shaped Arabic)
+    const markup = html`
+      <div style="display: flex; flex-direction: column; width: 1080px; height: ${canvasHeight}px; background: #fbfbfe; color: #1e1b4b; padding: 48px 52px; font-family: 'Noto Sans Arabic', 'Almarai', sans-serif; box-sizing: border-box; justify-content: space-between; position: relative;">
+        
+        <!-- Decorative Header Background Curves -->
+        <div style="position: absolute; top: 0; right: 0; left: 0; height: 380px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-bottom-left-radius: 60px; border-bottom-right-radius: 60px; opacity: 0.8; display: flex;"></div>
+        <div style="position: absolute; top: -50px; left: -50px; width: 350px; height: 350px; border-radius: 175px; background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, rgba(245,243,255,0) 70%); display: flex;"></div>
+
+        <!-- 1. Top Header Row (Logo Left + Main Title Right) -->
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; width: 100%; position: relative; z-index: 10; margin-bottom: 15px;">
+          
+          <!-- Right side: Title & Headline -->
+          <div style="display: flex; flex-direction: column; align-items: flex-start;">
+            <!-- Badge "جديد" -->
+            <div style="display: flex; background: #2e0854; border-radius: 20px; padding: 6px 28px; margin-bottom: 10px;">
+              <span style="font-size: 24px; color: #ffffff; font-weight: bold;">${fixAr(badgeLabel)}</span>
+            </div>
+            <!-- Huge Title -->
+            <div style="display: flex; flex-direction: row; align-items: baseline; gap: 14px; margin-bottom: 2px;">
+              <span style="font-size: 70px; font-weight: bold; color: #1e1b4b; line-height: 1;">${fixAr(mainTitle1)}</span>
+              <span style="font-size: 70px; font-weight: bold; color: #7c3aed; line-height: 1;">${fixAr(mainTitle2)}</span>
+            </div>
+            <!-- Subtitle -->
+            <span style="font-size: 26px; color: #4b5563; font-weight: bold; margin-top: 6px;">${fixAr(subHeadline)}</span>
+          </div>
+
+          <!-- Left side: Brand Logo -->
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; background: #ffffff; padding: 10px 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(124,58,237,0.08); border: 1.5px solid #ede9fe;">
+            <div style="display: flex; flex-direction: column; align-items: flex-end;">
+              <span style="font-size: 26px; font-weight: bold; color: #1e1b4b; line-height: 1.1;">${fixAr('سوق بغداد')}</span>
+              <span style="font-size: 13px; color: #6b7280; letter-spacing: 1.5px; font-weight: bold;">SOUQ BAGHDAD</span>
+            </div>
+            <img src="${svgImg(SVGS.logo)}" width="44" height="44" />
+          </div>
+        </div>
+
+        <!-- 2. Route Card (Floating White Card) -->
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 28px; padding: 22px 32px; box-shadow: 0 10px 30px rgba(76,29,149,0.06); position: relative; z-index: 10;">
+          
+          <!-- الانطلاق من (Right in layout) -->
+          <div style="display: flex; flex-direction: column; align-items: flex-start; flex: 1;">
+            <div style="display: flex; background: #2e0854; border-radius: 14px; padding: 6px 18px; margin-bottom: 8px;">
+              <span style="font-size: 20px; color: #ffffff; font-weight: bold;">${fixAr('الانطلاق من')}</span>
+            </div>
+            <div style="display: flex; flex-direction: row; align-items: center; gap: 8px;">
+              <span style="font-size: 32px; font-weight: bold; color: #1e1b4b;">${fixAr(regions.split('،')[0] || regions.split(',')[0] || regions)}</span>
+              <img src="${svgImg(SVGS.pin)}" width="24" height="24" />
+            </div>
+            <span style="font-size: 20px; color: #6b7280; font-weight: bold; margin-top: 2px;">${fixAr('نقطة الانطلاق')}</span>
+          </div>
+
+          <!-- Middle Exchange Arrow -->
+          <div style="display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; background: #f5f3ff; border: 1.5px solid #ddd6fe; border-radius: 32px;">
+            <img src="${svgImg(SVGS.exchange)}" width="32" height="32" />
+          </div>
+
+          <!-- الوجهة إلى (Left in layout) -->
+          <div style="display: flex; flex-direction: column; align-items: flex-end; flex: 1;">
+            <div style="display: flex; background: #2e0854; border-radius: 14px; padding: 6px 18px; margin-bottom: 8px;">
+              <span style="font-size: 20px; color: #ffffff; font-weight: bold;">${fixAr('الوجهة إلى')}</span>
+            </div>
+            <div style="display: flex; flex-direction: row; align-items: center; gap: 8px;">
+              <img src="${svgImg(SVGS.pin)}" width="24" height="24" />
+              <span style="font-size: 32px; font-weight: bold; color: #1e1b4b;">${fixAr(destination)}</span>
+            </div>
+            <span style="font-size: 20px; color: #6b7280; font-weight: bold; margin-top: 2px;">${fixAr(destination)}</span>
+          </div>
+        </div>
+
+        <!-- 3. Price & Ad Code Row (Two Cards) -->
+        <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; gap: 20px; position: relative; z-index: 10;">
+          
+          <!-- Price Card (Dark Purple) -->
+          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; flex: 1.1; background: #230b3d; border-radius: 24px; padding: 20px 28px; box-shadow: 0 10px 25px rgba(35,11,61,0.25);">
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <span style="font-size: 20px; color: #d8b4fe; font-weight: bold; margin-bottom: 4px;">${fixAr(fareTitle)}</span>
+              <span style="font-size: 38px; color: #ffffff; font-weight: bold;">${fixAr(rawFare)}</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: #3b0764; border: 1.5px solid #7c3aed; border-radius: 28px;">
+              <img src="${svgImg(SVGS.wallet)}" width="30" height="30" />
+            </div>
+          </div>
+
+          <!-- Ad Code Card (White) -->
+          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; flex: 0.9; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 24px; padding: 20px 28px; box-shadow: 0 8px 20px rgba(76,29,149,0.04);">
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <span style="font-size: 20px; color: #6b7280; font-weight: bold; margin-bottom: 4px;">${fixAr('كود الإعلان')}</span>
+              <span style="font-size: 32px; color: #2e0854; font-weight: bold; letter-spacing: 1px;">${formattedId}</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 28px;">
+              <img src="${svgImg(SVGS.code)}" width="30" height="30" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Schedule & Details Pill Row (3 Columns Card) -->
+        <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 24px; padding: 18px 24px; box-shadow: 0 8px 20px rgba(76,29,149,0.04); position: relative; z-index: 10;">
+          
+          <!-- Column 1: نوع الخط -->
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 14px; flex: 1;">
+            <div style="display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 25px;">
+              <img src="${svgImg(SVGS.bus)}" width="26" height="26" />
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <span style="font-size: 18px; color: #6b7280; font-weight: bold;">${fixAr('نوع الخط')}</span>
+              <span style="font-size: 22px; color: #1e1b4b; font-weight: bold;">${fixAr(audience)}</span>
+            </div>
+          </div>
+
+          <!-- Column 2: أيام الدوام -->
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 14px; flex: 1.2; border-right: 1.5px solid #f3e8ff; border-left: 1.5px solid #f3e8ff; padding: 0 16px;">
+            <div style="display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 25px;">
+              <img src="${svgImg(SVGS.calendar)}" width="24" height="24" />
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <span style="font-size: 18px; color: #6b7280; font-weight: bold;">${fixAr('أيام الدوام')}</span>
+              <span style="font-size: 22px; color: #1e1b4b; font-weight: bold;">${fixAr(workDays)}</span>
+            </div>
+          </div>
+
+          <!-- Column 3: أوقات الدوام -->
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 14px; flex: 1.2;">
+            <div style="display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 25px;">
+              <img src="${svgImg(SVGS.clock)}" width="24" height="24" />
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <span style="font-size: 18px; color: #6b7280; font-weight: bold;">${fixAr('أوقات الدوام')}</span>
+              <span style="font-size: 22px; color: #1e1b4b; font-weight: bold;">${fixAr(shiftTime)}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Secondary Details (2 Columns) -->
+        <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; gap: 20px; position: relative; z-index: 10;">
+          
+          <!-- Right Box: المرور والمناطق -->
+          <div style="display: flex; flex-direction: row; align-items: flex-start; gap: 16px; flex: 1.3; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 24px; padding: 18px 24px; box-shadow: 0 8px 20px rgba(76,29,149,0.04);">
+            <div style="display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 25px;">
+              <img src="${svgImg(SVGS.pin)}" width="24" height="24" />
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-start; flex: 1;">
+              <span style="font-size: 18px; color: #6b7280; font-weight: bold; margin-bottom: 4px;">${fixAr('المرور والمناطق')}</span>
+              <span style="font-size: 21px; color: #1e1b4b; font-weight: bold; line-height: 1.4;">${fixAr(regions)}</span>
+            </div>
+          </div>
+
+          <!-- Left Box: الفئة المستهدفة -->
+          <div style="display: flex; flex-direction: row; align-items: flex-start; gap: 16px; flex: 1; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 24px; padding: 18px 24px; box-shadow: 0 8px 20px rgba(76,29,149,0.04);">
+            <div style="display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 25px;">
+              <img src="${svgImg(SVGS.users)}" width="26" height="26" />
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <span style="font-size: 18px; color: #6b7280; font-weight: bold; margin-bottom: 4px;">${fixAr('الفئة المستهدفة')}</span>
+              <span style="font-size: 21px; color: #1e1b4b; font-weight: bold;">${fixAr(audience)}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. Contact & QR Code Card -->
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 24px; padding: 18px 28px; box-shadow: 0 8px 20px rgba(76,29,149,0.04); position: relative; z-index: 10;">
+          
+          <!-- Contact Phone -->
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 14px;">
+            <div style="display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; background: #7c3aed; border-radius: 26px; box-shadow: 0 4px 12px rgba(124,58,237,0.3);">
+              <img src="${svgImg(SVGS.phone)}" width="24" height="24" />
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <span style="font-size: 18px; color: #6b7280; font-weight: bold;">${fixAr('للتفاصيل والتواصل')}</span>
+              <span style="font-size: 26px; color: #1e1b4b; font-weight: bold; letter-spacing: 0.5px;">${phone}</span>
+            </div>
+          </div>
+
+          <!-- QR Code (Center) -->
+          <div style="display: flex; align-items: center; justify-content: center; width: 84px; height: 84px; background: #ffffff; border: 1.5px solid #ddd6fe; border-radius: 14px; padding: 4px;">
+            <img src="${qrUrl}" width="76" height="76" style="border-radius: 8px;" />
+          </div>
+
+          <!-- Direct Link Pill -->
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 14px;">
+            <div style="display: flex; flex-direction: column; align-items: flex-end;">
+              <span style="font-size: 18px; color: #6b7280; font-weight: bold; margin-bottom: 4px;">${fixAr('اضغط على الرابط')}</span>
+              <div style="display: flex; background: #7c3aed; border-radius: 12px; padding: 6px 18px;">
+                <span style="font-size: 17px; color: #ffffff; font-weight: bold;">${shortUrlDisplay}</span>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; background: #7c3aed; border-radius: 26px; box-shadow: 0 4px 12px rgba(124,58,237,0.3);">
+              <img src="${svgImg(SVGS.link)}" width="24" height="24" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 7. Bottom Dark Purple Footer Bar -->
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #1e0836; border-radius: 24px; padding: 18px 30px; position: relative; z-index: 10;">
+          
+          <!-- Feature 1 -->
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+            <img src="${svgImg(SVGS.shield)}" width="24" height="24" />
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('راحة وأمان')}</span>
+              <span style="font-size: 13px; color: #c084fc;">${fixAr('رحلات مريحة وآمنة')}</span>
+            </div>
+          </div>
+
+          <!-- Feature 2 -->
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+            <img src="${svgImg(SVGS.timeCommit)}" width="24" height="24" />
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('التزام بالوقت')}</span>
+              <span style="font-size: 13px; color: #c084fc;">${fixAr('نصل بك في الوقت المحدد')}</span>
+            </div>
+          </div>
+
+          <!-- Feature 3 -->
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+            <img src="${svgImg(SVGS.tag)}" width="24" height="24" />
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('أسعار مناسبة')}</span>
+              <span style="font-size: 13px; color: #c084fc;">${fixAr('أفضل الأسعار للجميع')}</span>
+            </div>
+          </div>
+
+          <!-- Feature 4 -->
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+            <img src="${svgImg(SVGS.star)}" width="24" height="24" />
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('خدمة مميزة')}</span>
+              <span style="font-size: 13px; color: #c084fc;">${fixAr('نهتم براحتك دائماً')}</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    `;
+
+    // 5. Render to SVG using Satori
     const svg = await satori(markup, {
       width: canvasWidth,
       height: canvasHeight,
       fonts: [
         {
           name: 'Noto Sans Arabic',
-          data: fontData,
+          data: notoData,
+          weight: 700,
+          style: 'normal',
+        },
+        {
+          name: 'Almarai',
+          data: almaraiData,
           weight: 700,
           style: 'normal',
         },
       ],
     });
 
-    // 5. Render to PNG using Resvg
+    // 6. Render to PNG using Resvg
     const resvg = new Resvg(svg, {
       fitTo: { mode: 'original' }
     });
     const pngData = resvg.render();
     const pngBuffer = pngData.asPng();
 
-    // 6. Return the image
+    // 7. Return the image
     return new Response(pngBuffer, {
       headers: {
         'Content-Type': 'image/png',
@@ -414,6 +415,9 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error(error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+    return new Response(JSON.stringify({ error: error.message }), { 
+      status: 500, 
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } 
+    });
   }
 })

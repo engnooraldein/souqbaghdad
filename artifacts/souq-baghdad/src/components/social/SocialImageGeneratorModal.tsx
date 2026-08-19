@@ -67,6 +67,15 @@ export const SocialImageGeneratorModal: React.FC<SocialImageGeneratorModalProps>
     }
   } catch {}
 
+  let phone = (ad as any).phone || (ad as any).contact_phone || (ad as any).whatsapp || '';
+  if (!phone && ad.description && typeof ad.description === 'string') {
+    try {
+      const p = JSON.parse(ad.description);
+      if (p.phone) phone = p.phone;
+      if (p.contact_phone) phone = p.contact_phone;
+    } catch {}
+  }
+
   const rawReg = ad.regions || ad.location || 'شارع فلسطين';
   const regions = rawReg.replace(/<[^>]*>?/gm, '').replace(/&lt;.*?&gt;/gm, '').trim();
   const destination = (ad.university || ad.city || 'كلية الرافدين الجامعة').replace(/<[^>]*>?/gm, '').trim();
@@ -88,7 +97,7 @@ export const SocialImageGeneratorModal: React.FC<SocialImageGeneratorModalProps>
   const cleanAudience = audience.replace(/[^\u0600-\u06FFa-zA-Z0-9\s.,\-]/g, '').trim() || 'للطلبة';
   const cleanDays = workDays.replace(/-/g, ' إلى ').replace(/\s{2,}/g, ' ').trim();
   const cacheBuster = Date.now();
-  const imageUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=${templateType}&ad_type=${adType}&title=${encodeURIComponent(title)}&subtitle=${encodeURIComponent(destination)}&subdesc=${encodeURIComponent(catType)}&regions=${encodeURIComponent(regions)}&destination=${encodeURIComponent(destination)}&fare=${encodeURIComponent(fare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&audience=${encodeURIComponent(cleanAudience)}&days=${encodeURIComponent(cleanDays)}&time=${encodeURIComponent(shiftTime)}&_t=${cacheBuster}`;
+  const imageUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=${templateType}&ad_type=${adType}&title=${encodeURIComponent(title)}&subtitle=${encodeURIComponent(destination)}&subdesc=${encodeURIComponent(catType)}&regions=${encodeURIComponent(regions)}&destination=${encodeURIComponent(destination)}&fare=${encodeURIComponent(fare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&audience=${encodeURIComponent(cleanAudience)}&days=${encodeURIComponent(cleanDays)}&time=${encodeURIComponent(shiftTime)}&phone=${encodeURIComponent(phone)}&_t=${cacheBuster}`;
 
   const handleDownload = async () => {
     try {
