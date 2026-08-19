@@ -361,6 +361,7 @@ export function TransportDetailModal({ ad, onClose, user, onAuthRequired, onView
       <SocialImageGeneratorModal 
         isOpen={showSocialGenerator}
         onClose={() => setShowSocialGenerator(false)}
+        user={user}
         ad={ad}
       />
       <ReportModal 

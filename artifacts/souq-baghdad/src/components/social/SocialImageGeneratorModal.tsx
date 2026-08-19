@@ -3,9 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Download, Share2, Sparkles, Image as ImageIcon, Smartphone, Check, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
+import { useAuth } from '../../hooks/useAuth';
+
 interface SocialImageGeneratorModalProps {
   isOpen: boolean;
   onClose: () => void;
+  user?: any;
   ad: {
     id: string | number;
     short_id?: string;
@@ -18,17 +21,25 @@ interface SocialImageGeneratorModalProps {
     type?: string;
     description?: string;
     images?: string[];
+    vehicleType?: string;
+    shift?: string;
+    workDays?: string;
+    targetAudience?: string;
+    categoryType?: string;
   };
 }
 
 export const SocialImageGeneratorModal: React.FC<SocialImageGeneratorModalProps> = ({
   isOpen,
   onClose,
+  user,
   ad
 }) => {
   const [templateType, setTemplateType] = useState<'post' | 'story'>('post');
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState(false);
+
+  const isOwner = user?.role === 'owner';
 
   if (!isOpen || !ad) return null;
 
@@ -36,20 +47,31 @@ export const SocialImageGeneratorModal: React.FC<SocialImageGeneratorModalProps>
   const title = 'خط نقل جديد في بغداد';
   const subtitle = ad.university || ad.city || 'جامعة الرافدين';
   let catType = 'خط نقل طلاب وموظفين';
+  let audience = ad.targetAudience || 'للطلبة';
+  let workDays = ad.workDays || 'الأحد - الخميس';
+  let shiftTime = ad.shift || 'صباحاً ومساءً';
+  let vehicle = ad.vehicleType || '';
+
   try {
     if (ad.description && typeof ad.description === 'string' && ad.description.startsWith('{')) {
       const p = JSON.parse(ad.description);
       if (p.categoryType === 'employee') catType = 'خط موظفين';
       else if (p.categoryType === 'emergency') catType = 'نقل خاص';
-      else if (p.targetAudience) catType = `خط ${p.targetAudience}`;
+      else if (p.targetAudience) {
+        catType = `خط ${p.targetAudience}`;
+        audience = p.targetAudience;
+      }
+      if (p.workDays) workDays = p.workDays;
+      if (p.shift) shiftTime = p.shift;
+      if (p.vehicleType) vehicle = p.vehicleType;
     }
   } catch {}
 
-  const rawReg = ad.regions || ad.location || 'صليخ 600 - سبع بكار - كريعات - حي تونس - القاهرة';
+  const rawReg = ad.regions || ad.location || 'شارع فلسطين';
   const regions = rawReg.replace(/<[^>]*>?/gm, '').replace(/&lt;.*?&gt;/gm, '').trim();
-  const destination = (ad.city || ad.university || 'جامعة الرافدين').replace(/<[^>]*>?/gm, '').trim();
+  const destination = (ad.university || ad.city || 'كلية الرافدين الجامعة').replace(/<[^>]*>?/gm, '').trim();
   
-  let fare = 'حسب الاتفاق';
+  let fare = '0 د.ع';
   if (ad.price) {
     const rawNum = String(ad.price).replace(/[^0-9]/g, '');
     if (rawNum && Number(rawNum) > 0) {
@@ -62,7 +84,7 @@ export const SocialImageGeneratorModal: React.FC<SocialImageGeneratorModalProps>
   }
   const adType = ad.type === 'request' ? 'request' : 'offer';
   const link = `https://www.souqbaghdad.store/transport/card/${shortId}`;
-  const imageUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=${templateType}&ad_type=${adType}&title=${encodeURIComponent(title)}&subtitle=${encodeURIComponent(subtitle)}&subdesc=${encodeURIComponent(catType)}&regions=${encodeURIComponent(regions)}&destination=${encodeURIComponent(destination)}&fare=${encodeURIComponent(fare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}`;
+  const imageUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=${templateType}&ad_type=${adType}&title=${encodeURIComponent(title)}&subtitle=${encodeURIComponent(destination)}&subdesc=${encodeURIComponent(catType)}&regions=${encodeURIComponent(regions)}&destination=${encodeURIComponent(destination)}&fare=${encodeURIComponent(fare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&audience=${encodeURIComponent(audience)}&days=${encodeURIComponent(workDays)}&time=${encodeURIComponent(shiftTime)}`;
 
   const handleDownload = async () => {
     try {
@@ -195,29 +217,35 @@ export const SocialImageGeneratorModal: React.FC<SocialImageGeneratorModalProps>
                   تحميل الصورة بدقة كاملة (PNG)
                 </button>
 
-                <button
-                  type="button"
-                  onClick={handleDirectPublish}
-                  disabled={isPublishing}
-                  className="w-full py-4 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-black text-sm rounded-2xl shadow-xl shadow-sky-500/25 flex items-center justify-center gap-2 transition active:scale-[0.98] disabled:opacity-50"
-                >
-                  {isPublishing ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      جاري النشر عبر السيرفر...
-                    </>
-                  ) : publishSuccess ? (
-                    <>
-                      <Check className="w-5 h-5 text-green-300" />
-                      تم النشر بنجاح!
-                    </>
-                  ) : (
-                    <>
-                      <Share2 className="w-5 h-5" />
-                      نشر فوري (إنستقرام • فيسبوك • ثريدز)
-                    </>
-                  )}
-                </button>
+                {isOwner ? (
+                  <button
+                    type="button"
+                    onClick={handleDirectPublish}
+                    disabled={isPublishing}
+                    className="w-full py-4 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-black text-sm rounded-2xl shadow-xl shadow-sky-500/25 flex items-center justify-center gap-2 transition active:scale-[0.98] disabled:opacity-50"
+                  >
+                    {isPublishing ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        جاري النشر عبر السيرفر...
+                      </>
+                    ) : publishSuccess ? (
+                      <>
+                        <Check className="w-5 h-5 text-green-300" />
+                        تم النشر بنجاح!
+                      </>
+                    ) : (
+                      <>
+                        <Share2 className="w-5 h-5" />
+                        نشر فوري (إنستقرام • فيسبوك • ثريدز)
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <div className="w-full py-3 bg-slate-950/60 border border-slate-800 rounded-2xl text-center text-xs text-slate-400 font-medium">
+                    🔒 النشر الفوري المباشر مخصص لمالك المنصة فقط
+                  </div>
+                )}
               </div>
             </div>
 
