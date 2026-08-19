@@ -3228,6 +3228,23 @@ serve(async (req) => {
       }
 
       // =================== Product Wizard (Full 9-Step) ===================
+      // Helper: edit wizard message or send new if edit fails
+      const editProdWizard = async (text: string, markup: any) => {
+        const wMsgId = state.data?.wizardMsgId;
+        if (wMsgId) {
+          try {
+            await editMessageText(chatId, wMsgId, text, markup);
+            return;
+          } catch(e) { /* fallthrough to sendMessage */ }
+        }
+        const res = await sendMessage(chatId, text, markup);
+        if (res?.result?.message_id) {
+          if (!state.data) state.data = {};
+          state.data.wizardMsgId = res.result.message_id;
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        }
+      };
+
       if (action === 'publish_product') {
         const { data: profile } = await supabase.from('profiles').select('points, role').eq('id', userId).maybeSingle();
         if (profile?.role !== 'admin' && profile?.role !== 'owner' && (profile?.points || 0) < 1) {
@@ -3236,10 +3253,14 @@ serve(async (req) => {
         }
         state = { step: 'product_title', data: { images: [] } };
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        await sendMessage(chatId,
+        const initMsg = await sendMessage(chatId,
           `📦 <b>نشر منتج جديد في سوق بغداد</b> 🛍️\n\n<b>الخطوة 1 من 9 — عنوان المنتج</b>\n\nاكتب اسم المنتج بوضوح (مثال: ايفون 15 برو ماكس، تلفزيون سامسونج 55 بوصة):`,
           { inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]] }
         );
+        if (initMsg?.result?.message_id) {
+          state.data.wizardMsgId = initMsg.result.message_id;
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        }
         return new Response('OK', { status: 200 });
       }
 
@@ -3247,7 +3268,7 @@ serve(async (req) => {
         state.data.category = action.replace('prod_cat_', '');
         state.step = 'product_condition';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        await sendMessage(chatId,
+        await editProdWizard(
           `<b>الخطوة 3 من 9 — حالة المنتج</b>\n\nما هي حالة المنتج؟`,
           { inline_keyboard: [[{ text: '🆕 جديد', callback_data: 'prod_cond_new' }, { text: '♻️ مستعمل', callback_data: 'prod_cond_used' }], [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]] }
         );
@@ -3258,8 +3279,8 @@ serve(async (req) => {
         state.data.condition = action.replace('prod_cond_', '') === 'new' ? 'جديد' : 'مستعمل';
         state.step = 'product_price';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        await sendMessage(chatId,
-          `<b>الخطوة 4 من 9 — السعر</b>\n\naكتب <b>سعر المنتج</b> بالأرقام بالدينار العراقي:\n(مثال: 50000 أو 150000)`,
+        await editProdWizard(
+          `<b>الخطوة 4 من 9 — السعر</b>\n\nاكتب <b>سعر المنتج</b> بالأرقام بالدينار العراقي:\n(مثال: 50000 أو 150000)`,
           { inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]] }
         );
         return new Response('OK', { status: 200 });
@@ -3271,7 +3292,7 @@ serve(async (req) => {
         state.step = 'product_images';
         if (!state.data.images) state.data.images = [];
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        await sendMessage(chatId,
+        await editProdWizard(
           `<b>الخطوة 7 من 9 — صور المنتج</b>\n\nأرسل صور المنتج الآن (يمكنك إرسال حتى 5 صور).\nبعد الانتهاء اضغط «تم ✅».`,
           { inline_keyboard: [[{ text: '✅ تم إرسال الصور', callback_data: 'prod_images_done' }], [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]] }
         );
@@ -3280,17 +3301,17 @@ serve(async (req) => {
 
       if (action === 'prod_images_done') {
         if (!state.data.images || state.data.images.length === 0) {
-          await updateOrSend('⚠️ يرجى إرسال صورة واحدة على الأقل قبل المتابعة.', {
+          await editProdWizard('⚠️ يرجى إرسال صورة واحدة على الأقل قبل المتابعة.', {
             inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]]
           });
           return new Response('OK', { status: 200 });
         }
         state.step = 'product_phone';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        const phoneButtons = [];
+        const phoneButtons: any[] = [];
         if (phone) phoneButtons.push([{ text: `📱 استخدم رقمي الحالي (${phone})`, callback_data: 'prod_phone_current' }]);
         phoneButtons.push([{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
-        await sendMessage(chatId,
+        await editProdWizard(
           `<b>الخطوة 8 من 9 — رقم الهاتف</b>\n\nاكتب <b>رقم هاتفك</b> للتواصل، أو اضغط الزر أدناه:`,
           { inline_keyboard: phoneButtons }
         );
@@ -3314,7 +3335,7 @@ serve(async (req) => {
           `📸 <b>الصور:</b> ${(d.images || []).length} صورة\n` +
           `📞 <b>الهاتف:</b> ${d.phone || '-'}\n\n` +
           `هل كل شيء صحيح؟ اضغط «✅ نشر الإعلان الآن» للنشر الفوري على تيليكرام وفيسبوك وانستكرام وثريدز.`;
-        await sendMessage(chatId, reviewText, {
+        await editProdWizard(reviewText, {
           inline_keyboard: [
             [{ text: '✅ نشر الإعلان الآن 🚀', callback_data: 'prod_confirm_publish' }],
             [{ text: '❌ إلغاء وبدء من جديد', callback_data: 'cancel_wizard' }]
@@ -4255,12 +4276,15 @@ serve(async (req) => {
           `📸 <b>الصور:</b> ${(d.images || []).length} صورة\n` +
           `📞 <b>الهاتف:</b> ${d.phone || '-'}\n\n` +
           `هل كل شيء صحيح؟ اضغط «✅ نشر الإعلان الآن» للنشر الفوري.`;
-        await sendMessage(chatId, reviewText, {
+        const revMarkup = {
           inline_keyboard: [
             [{ text: '✅ نشر الإعلان الآن 🚀', callback_data: 'prod_confirm_publish' }],
             [{ text: '❌ إلغاء وبدء من جديد', callback_data: 'cancel_wizard' }]
           ]
-        });
+        };
+        const wId = state.data?.wizardMsgId;
+        if (wId) { try { await editMessageText(chatId, wId, reviewText, revMarkup); } catch(e) { await sendMessage(chatId, reviewText, revMarkup); } }
+        else { await sendMessage(chatId, reviewText, revMarkup); }
       }
       else if (Object.keys(state).length > 0) {
         if (state.step === 'car_images' || state.step === 'product_images') {
