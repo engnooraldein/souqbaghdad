@@ -584,7 +584,7 @@ function formatTgPrice(val: any, currency = 'د.ع'): string {
   return isNaN(num) ? str : `${num.toLocaleString('en-US')} ${currency}`;
 }
 
-const generateSocialCaption = async (record: any, type: 'car' | 'product' | 'transport' | 'ad', link: string): Promise<string> => {
+const generateSocialCaption = async (record: any, type: 'car' | 'product' | 'transport' | 'ad', link: string, isHtml = false): Promise<string> => {
   let price = formatTgPrice(record.price, record.currency || 'د.ع');
 
   // --- 1. TRANSPORT LINES (خطوط النقل) ---
@@ -603,15 +603,17 @@ const generateSocialCaption = async (record: any, type: 'car' | 'product' | 'tra
     const days = descObj?.days || record.days || 'طيلة أيام الدوام';
     const shortId = record.short_id || record.id || '';
 
-    return `🚌 توفير نقل خط جديد — سوق بغداد\n\n` +
-           `🏢 الوجهة: ${destination}\n` +
-           `📍 مناطق الانطلاق: ${regions}\n` +
-           `👥 نوع الخط: ${audience}\n` +
-           `⏰ أوقات الدوام: ${shift}\n` +
-           `📅 أيام الدوام: ${days}\n` +
-           `💰 الأجرة: ${price}\n` +
-           (shortId ? `🆔 كود الإعلان: #${shortId}\n\n` : `\n`) +
-           `🔗 لمشاهدة تفاصيل الخط ورقم التواصل:\n${link}\n\n` +
+    const b = (txt: string) => isHtml ? `<b>${txt}</b>` : txt;
+
+    return `🚌 ${b('توفير نقل خط جديد — سوق بغداد')}\n\n` +
+           `🏢 ${b('الوجهة:')} ${destination}\n` +
+           `📍 ${b('مناطق الانطلاق:')} ${regions}\n` +
+           `👥 ${b('نوع الخط:')} ${audience}\n` +
+           `⏰ ${b('أوقات الدوام:')} ${shift}\n` +
+           `📅 ${b('أيام الدوام:')} ${days}\n` +
+           `💰 ${b('الأجرة:')} ${price}\n` +
+           (shortId ? `🆔 ${b('كود الإعلان:')} #${shortId}\n\n` : `\n`) +
+           `🔗 ${b('لمشاهدة تفاصيل الخط ورقم التواصل:')}\n${link}\n\n` +
            `💬 اكتب "تم" أو راسلنا بالتعليقات وتوصلك كافة تفاصيل الخط على الخاص 📩\n\n` +
            `#سوق_بغداد #خطوط_نقل #خط_جامعة #خطوط_بغداد #جامعة_الرافدين #باصات_بغداد #العراق`;
   }
@@ -621,21 +623,49 @@ const generateSocialCaption = async (record: any, type: 'car' | 'product' | 'tra
     let p: any = {};
     if (typeof record.description === 'string') {
       try { p = JSON.parse(record.description); } catch { p = { note: record.description }; }
+    } else if (typeof record.description === 'object' && record.description !== null) {
+      p = record.description;
     }
     const carTitle = `${p.brand || ''} ${p.model || ''} ${p.year || ''}`.trim() || record.title || 'سيارة للبيع';
     const gov = record.location || record.city || record.governorate || 'بغداد';
     const shortId = record.short_id || record.id || '';
 
-    return `🚗 سيارة مميزة معروضة للبيع — سوق بغداد\n\n` +
-           `📌 النوع والموديل: ${carTitle}\n` +
-           (p.year ? `📅 سنة الصنع: ${p.year}\n` : '') +
-           (p.mileage ? `🛣️ المسافة المقطوعة: ${parseInt(p.mileage).toLocaleString('en-US')} كم\n` : '') +
-           (p.origin ? `📋 المواصفات: ${p.origin}\n` : '') +
-           `📍 الموقع: ${gov}\n` +
-           `💰 السعر: ${price}\n` +
-           (shortId ? `🆔 كود الإعلان: #${shortId}\n\n` : `\n`) +
-           `🔗 لمشاهدة كافة الصور والتواصل مع البائع:\n${link}\n\n` +
-           `💬 اكتب "تم" أو "سعر" بالتعليقات وتوصلك كافة التفاصيل على الخاص 📩\n\n` +
+    let noteText = p.note || p.description || p.details || record.description || '';
+    if (typeof noteText === 'string') {
+      noteText = noteText.replace(/<[^>]*>?/gm, '').trim();
+      if (noteText.length > 500) noteText = noteText.substring(0, 500) + '...';
+    } else {
+      noteText = '';
+    }
+
+    const rawPhone = record.phone || p.phone || '';
+    let cleanPhone = String(rawPhone).replace(/[^0-9+]/g, '');
+    if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
+    else cleanPhone = cleanPhone.replace('+', '');
+
+    const b = (txt: string) => isHtml ? `<b>${txt}</b>` : txt;
+
+    let contactInfo = '';
+    if (rawPhone) {
+      if (isHtml) {
+        contactInfo = `📞 <a href="https://wa.me/${cleanPhone}">تواصل مباشر واتساب (${rawPhone})</a>`;
+      } else {
+        contactInfo = `📞 التواصل المباشر (هاتف / واتساب): ${rawPhone}\n💬 رابط الواتساب المباشر: https://wa.me/${cleanPhone}`;
+      }
+    } else {
+      contactInfo = `📞 التواصل المباشر: عبر الموقع أو الرسائل الخاصة`;
+    }
+
+    return `🚗 ${b(carTitle)}\n\n` +
+           `📅 ${b('سنة الصنع:')} ${p.year || 'غير محدد'}\n` +
+           `🛣️ ${b('المسافة المقطوعة:')} ${p.mileage ? parseInt(p.mileage).toLocaleString('en-US') + ' كم' : 'غير محدد'}\n` +
+           `📋 ${b('المواصفات:')} ${p.origin || 'وارد عام'}\n` +
+           `💰 ${b('السعر:')} ${price}\n` +
+           `📍 ${b('الموقع:')} ${gov}\n\n` +
+           (noteText ? `📝 ${b('تفاصيل إضافية:')}\n${noteText}\n\n` : '') +
+           `🆔 ${b('كود الإعلان:')} #${shortId}\n` +
+           `🔗 ${b('رابط المعاينة والتفاصيل:')}\n${link}\n\n` +
+           `${contactInfo}\n\n` +
            `#سوق_بغداد #سيارات_العراق #سيارات_للبيع #بغداد_سيارات #العراق`;
   }
 
@@ -644,7 +674,7 @@ const generateSocialCaption = async (record: any, type: 'car' | 'product' | 'tra
   const location = record.governorate || record.location || record.city || 'بغداد';
   const shortId = record.short_id || (record.id && String(record.id).length < 12 ? record.id : '');
   const condition = record.condition === 'new' ? '✨ جديد' : (record.condition === 'used' ? '👌 مستعمل' : '');
-  
+
   let descText = '';
   if (typeof record.description === 'string') {
     if (record.description.trim().startsWith('{')) {
@@ -659,17 +689,36 @@ const generateSocialCaption = async (record: any, type: 'car' | 'product' | 'tra
     descText = record.description.note || record.description.description || record.description.details || '';
   }
   descText = descText.replace(/<[^>]*>?/gm, '').trim();
-  if (descText.length > 250) descText = descText.substring(0, 250) + '...';
+  if (descText.length > 500) descText = descText.substring(0, 500) + '...';
 
-  return `🛍️ إعلان جديد في سوق بغداد\n\n` +
-         `📌 ${title}\n` +
-         (condition ? `🏷️ الحالة: ${condition}\n` : '') +
-         `💰 السعر: ${price}\n` +
-         `📍 الموقع: ${location}\n` +
-         (descText ? `📝 التفاصيل: ${descText}\n` : '') +
-         (shortId ? `🆔 كود الإعلان: #${shortId}\n\n` : `\n`) +
-         `🔗 تفاصيل الإعلان والتواصل مع البائع:\n${link}\n\n` +
-         `💬 اكتب "تم" أو "تواصل" بالتعليقات وتوصلك كافة التفاصيل على الخاص 📩\n\n` +
+  const rawPhone = record.phone || '';
+  let cleanPhone = String(rawPhone).replace(/[^0-9+]/g, '');
+  if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
+  else cleanPhone = cleanPhone.replace('+', '');
+
+  const b = (txt: string) => isHtml ? `<b>${txt}</b>` : txt;
+
+  let contactInfo = '';
+  if (rawPhone) {
+    if (isHtml) {
+      contactInfo = `📞 <a href="https://wa.me/${cleanPhone}">تواصل مباشر واتساب (${rawPhone})</a>`;
+    } else {
+      contactInfo = `📞 التواصل المباشر (هاتف / واتساب): ${rawPhone}\n💬 رابط الواتساب المباشر: https://wa.me/${cleanPhone}`;
+    }
+  } else {
+    contactInfo = `📞 التواصل المباشر: عبر الموقع أو الرسائل الخاصة`;
+  }
+
+  const emoji = type === 'product' ? '🛍️' : '📢';
+
+  return `${emoji} ${b(title)}\n\n` +
+         (condition ? `🏷️ ${b('الحالة:')} ${condition}\n` : '') +
+         `💰 ${b('السعر:')} ${price}\n` +
+         `📍 ${b('الموقع:')} ${location}\n\n` +
+         (descText ? `📝 ${b('التفاصيل الكاملة:')}\n${descText}\n\n` : '') +
+         `🆔 ${b('كود الإعلان:')} #${shortId}\n` +
+         `🔗 ${b('رابط المعاينة والتفاصيل:')}\n${link}\n\n` +
+         `${contactInfo}\n\n` +
          `#سوق_بغداد #تسوق_العراق #العراق #بغداد`;
 };
 
@@ -1216,25 +1265,13 @@ serve(async (req) => {
             carSpecs = { note: record.description };
           }
 
-          const currencySymbol = carSpecs.currency || (record.price && String(record.price).length < 7 ? '$' : 'د.ع');
-          const formattedPrice = formatTgPrice(record.price, currencySymbol);
-          
           const brand = carSpecs.brand || '';
           const model = carSpecs.model || '';
           const year = carSpecs.year || '';
-          const mileage = carSpecs.mileage ? `${parseInt(carSpecs.mileage).toLocaleString('en-US')} كم` : 'غير محدد';
-          const origin = carSpecs.origin || 'وارد عام';
-          const gov = record.location || record.city || 'العراق';
           const carTitle = `${brand} ${model} ${year}`.trim() || record.title || 'سيارة للبيع';
 
-          const caption = `🚗 <b>النوع:</b> ${carTitle}\n` +
-                          `📅 <b>السنة:</b> ${year || 'غير محدد'}\n` +
-                          `🛣️ <b>الكيلومتر:</b> ${mileage}\n` +
-                          `📍 <b>الموقع:</b> ${gov}\n` +
-                          `📋 <b>المواصفات:</b> ${origin}\n` +
-                          `💰 <b>السعر:</b> ${formattedPrice}\n` +
-                          (record.phone ? `📞 <b>التواصل:</b> ${record.phone}\n\n` : `\n`) +
-                          `📣 <b>#رقم_الإعلان_${adId}</b> | @${BOT_USERNAME}`;
+          // Call our unified HTML caption formatting
+          const caption = await generateSocialCaption(record, 'car', link, true);
 
           const imagesToPost = extractImages(record);
           const photoCount = imagesToPost.length;
@@ -1263,17 +1300,16 @@ serve(async (req) => {
 
           const replyMarkup = { inline_keyboard: inlineKeyboard };
 
-          const dynamicCarUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&category=cars&title=${encodeURIComponent(carTitle)}&subtitle=${encodeURIComponent(gov)}&subdesc=${encodeURIComponent(origin)}&fare=${encodeURIComponent(formattedPrice)}&regions=${encodeURIComponent(gov)}&destination=${encodeURIComponent(carTitle)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
-
           let res;
           if (publishTelegram) {
             const targetCarChannel = CAR_CHANNEL_ID || CAR_CHANNEL;
             if (imagesToPost.length > 1) {
               await sendMediaGroup(targetCarChannel, imagesToPost, caption);
               res = { ok: true, result: { message_id: Date.now() } };
+            } else if (imagesToPost.length === 1) {
+              res = await sendPhoto(targetCarChannel, imagesToPost[0], caption, replyMarkup);
             } else {
-              const mainPhoto = imagesToPost.length > 0 ? imagesToPost[0] : dynamicCarUrl;
-              res = await sendPhoto(targetCarChannel, mainPhoto, caption, replyMarkup);
+              res = await sendMessage(targetCarChannel, caption, replyMarkup);
             }
           }
 
@@ -1285,10 +1321,10 @@ serve(async (req) => {
              syncStatus.telegram = 'success';
           }
           
-          // Social Media Sync for Cars (All images)
-          const fbIgPhotoUrl = imagesToPost.length > 0 ? imagesToPost : [dynamicCarUrl];
+          // Social Media Sync for Cars (All images, no fallback to transit lines template)
+          const fbIgPhotoUrl = imagesToPost.length > 0 ? imagesToPost : null;
           const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
-            ? await generateSocialCaption(record, 'car', link)
+            ? await generateSocialCaption(record, 'car', link, false)
             : '';
 
           if (publishFacebook) {
@@ -1299,7 +1335,7 @@ serve(async (req) => {
             }
           }
 
-          if (publishInstagram) {
+          if (publishInstagram && fbIgPhotoUrl) {
             const igData = await postToInstagram(fbIgCaption, fbIgPhotoUrl);
             if (igData && (igData.id || igData.media_id)) {
               updates.instagram_post_id = igData.id || igData.media_id;
@@ -1307,7 +1343,7 @@ serve(async (req) => {
             }
           }
 
-          if (publishTiktok) {
+          if (publishTiktok && fbIgPhotoUrl) {
             const tkData = await postToTikTok(fbIgCaption, fbIgPhotoUrl, supabase);
             if (tkData?.data?.publish_id) {
               updates.tiktok_post_id = tkData.data.publish_id;
@@ -1340,19 +1376,8 @@ serve(async (req) => {
         else if (payload.table === 'products' && PRODUCT_CHANNEL) {
           const prodId = record.short_id || record.id;
           const link = `https://www.souqbaghdad.store/product/${prodId}`;
-          const condStr = record.condition === 'new' ? '✨ جديد' : '👌 مستعمل';
-          let safeDesc = (record.description || '').substring(0, 200);
-          if ((record.description || '').length > 200) safeDesc += '...';
 
-          const caption = `📦 <b>منتج جديد: ${record.title || ''}</b>\n\n` +
-                          `🏷️ <b>الحالة:</b> ${condStr}\n` +
-                          `💰 <b>السعر:</b> ${formatTgPrice(record.price)}\n` +
-                          `📍 <b>المحافظة:</b> ${record.governorate || 'بغداد'}\n` +
-                          `📝 <b>التفاصيل:</b> ${safeDesc}\n\n` +
-                          `👤 <b>البائع:</b> ${record.seller_name || 'بائع'}\n` +
-                          `📞 <b>التواصل:</b> عبر المنصة مباشرة\n` +
-                          `🔗 ${link}\n\n` +
-                          `📣 @${BOT_USERNAME}`;
+          const caption = await generateSocialCaption(record, 'product', link, true);
 
           const row1 = [{ text: 'عرض التفاصيل 🌐', url: link }];
           const row2 = [];
@@ -1367,17 +1392,16 @@ serve(async (req) => {
             inline_keyboard: row2.length > 0 ? [row1, row2] : [row1]
           };
 
-          const dynamicProductUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&category=products&title=${encodeURIComponent(record.title || 'منتج معروض')}&subtitle=${encodeURIComponent(condStr)}&subdesc=${encodeURIComponent((safeDesc || 'متوفر الآن للشراء').substring(0, 100))}&fare=${encodeURIComponent(formatTgPrice(record.price))}&regions=${encodeURIComponent(record.governorate || 'بغداد')}&destination=${encodeURIComponent(record.seller_name || 'بائع موثوق')}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(prodId)}`;
-
           const imagesToPost = extractImages(record);
           let res;
           if (publishTelegram) {
             if (imagesToPost.length > 1) {
               await sendMediaGroup(PRODUCT_CHANNEL, imagesToPost, caption);
               res = { ok: true, result: { message_id: Date.now() } };
+            } else if (imagesToPost.length === 1) {
+              res = await sendPhoto(PRODUCT_CHANNEL, imagesToPost[0], caption, replyMarkup);
             } else {
-              const mainPhoto = imagesToPost.length > 0 ? imagesToPost[0] : dynamicProductUrl;
-              res = await sendPhoto(PRODUCT_CHANNEL, mainPhoto, caption, replyMarkup);
+              res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
             }
           }
           const updates: any = {};
@@ -1388,9 +1412,9 @@ serve(async (req) => {
              syncStatus.telegram = 'success';
           }
           
-          const fbIgPhotoUrl = imagesToPost.length > 0 ? imagesToPost : [dynamicProductUrl];
+          const fbIgPhotoUrl = imagesToPost.length > 0 ? imagesToPost : null;
           const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
-            ? await generateSocialCaption(record, 'product', link)
+            ? await generateSocialCaption(record, 'product', link, false)
             : '';
                               
           if (publishFacebook) {
@@ -1401,7 +1425,7 @@ serve(async (req) => {
             }
           }
           
-          if (publishInstagram) {
+          if (publishInstagram && fbIgPhotoUrl) {
             const igData = await postToInstagram(fbIgCaption, fbIgPhotoUrl);
             if (igData && (igData.id || igData.media_id)) {
                updates.instagram_post_id = igData.id || igData.media_id;
@@ -1409,7 +1433,7 @@ serve(async (req) => {
             }
           }
           
-          if (publishTiktok) {
+          if (publishTiktok && fbIgPhotoUrl) {
             const tkData = await postToTikTok(fbIgCaption, fbIgPhotoUrl, supabase);
             if (tkData?.data?.publish_id) {
                updates.tiktok_post_id = tkData.data.publish_id;
@@ -1437,32 +1461,10 @@ serve(async (req) => {
         }
         // --- 3. GENERAL ADS ---
         else if (payload.table === 'ads' && record.category !== 'transport' && record.category !== 'vehicles' && record.category !== 'cars' && PRODUCT_CHANNEL) {
-          let descText = record.description || '';
-          if (typeof descText !== 'string') {
-            try { 
-              const parsed = descText;
-              descText = parsed.note || parsed.description || parsed.details || JSON.stringify(parsed); 
-            } catch(e){ descText = String(descText); }
-          } else if (descText.startsWith('{') || descText.startsWith('[')) {
-            try {
-              const parsed = JSON.parse(descText);
-              descText = parsed.note || parsed.description || parsed.details || '';
-            } catch(e){}
-          }
-          let safeDesc = descText.substring(0, 200);
-          if (descText.length > 200) safeDesc += '...';
-
           const adId = record.short_id || record.id;
           const link = `https://www.souqbaghdad.store/ad/${adId}`;
 
-          const caption = `📢 <b>إعلان جديد: ${record.title || ''}</b>\n\n` +
-                          `💰 <b>السعر:</b> ${formatTgPrice(record.price)}\n` +
-                          `📍 <b>المكان:</b> ${record.location || record.city || record.governorate || 'بغداد'}\n` +
-                          `📝 <b>التفاصيل:</b> ${safeDesc}\n\n` +
-                          `👤 <b>الناشر:</b> ${record.seller_name || 'مستخدم'}\n` +
-                          `📞 <b>التواصل:</b> عبر المنصة مباشرة\n` +
-                          `🔗 ${link}\n\n` +
-                          `📣 @${BOT_USERNAME}`;
+          const caption = await generateSocialCaption(record, 'ad', link, true);
 
           const row1 = [{ text: 'عرض التفاصيل 🌐', url: link }];
           const row2 = [];
@@ -1477,17 +1479,16 @@ serve(async (req) => {
             inline_keyboard: row2.length > 0 ? [row1, row2] : [row1]
           };
 
-          const dynamicAdUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&category=general&title=${encodeURIComponent(record.title || 'إعلان جديد')}&subtitle=${encodeURIComponent(record.location || 'بغداد')}&subdesc=${encodeURIComponent((safeDesc || 'متوفر للتواصل والشراء').substring(0, 100))}&fare=${encodeURIComponent(formatTgPrice(record.price))}&regions=${encodeURIComponent(record.location || 'بغداد')}&destination=${encodeURIComponent(record.seller_name || 'الناشر')}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}`;
-
           const imagesToPost = extractImages(record);
           let res;
           if (publishTelegram) {
             if (imagesToPost.length > 1) {
               await sendMediaGroup(PRODUCT_CHANNEL, imagesToPost, caption);
               res = { ok: true, result: { message_id: Date.now() } };
+            } else if (imagesToPost.length === 1) {
+              res = await sendPhoto(PRODUCT_CHANNEL, imagesToPost[0], caption, replyMarkup);
             } else {
-              const mainPhoto = imagesToPost.length > 0 ? imagesToPost[0] : dynamicAdUrl;
-              res = await sendPhoto(PRODUCT_CHANNEL, mainPhoto, caption, replyMarkup);
+              res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
             }
           }
           const updates: any = {};
@@ -1498,9 +1499,9 @@ serve(async (req) => {
              syncStatus.telegram = 'success';
           }
           
-          const fbIgPhotoUrl = imagesToPost.length > 0 ? imagesToPost : [dynamicAdUrl];
+          const fbIgPhotoUrl = imagesToPost.length > 0 ? imagesToPost : null;
           const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
-            ? await generateSocialCaption(record, 'ad', link)
+            ? await generateSocialCaption(record, 'ad', link, false)
             : '';
                               
           if (publishFacebook) {
@@ -1511,7 +1512,7 @@ serve(async (req) => {
             }
           }
           
-          if (publishInstagram) {
+          if (publishInstagram && fbIgPhotoUrl) {
             const igData = await postToInstagram(fbIgCaption, fbIgPhotoUrl);
             if (igData && (igData.id || igData.media_id)) {
               updates.instagram_post_id = igData.id || igData.media_id;
@@ -1519,7 +1520,7 @@ serve(async (req) => {
             }
           }
           
-          if (publishTiktok) {
+          if (publishTiktok && fbIgPhotoUrl) {
             const tkData = await postToTikTok(fbIgCaption, fbIgPhotoUrl, supabase);
             if (tkData?.data?.publish_id) {
                updates.tiktok_post_id = tkData.data.publish_id;
@@ -2259,14 +2260,7 @@ serve(async (req) => {
         const formattedPrice = formatTgPrice(state.data.price, currencySymbol);
 
         // Build caption for channel post
-        const channelCaption = `🚗 <b>${carTitle}</b>\n` +
-          `💰 <b>السعر:</b> ${formattedPrice}\n` +
-          `📍 <b>المحافظة:</b> ${state.data.governorate || 'بغداد'}\n` +
-          (state.data.year ? `📅 <b>السنة:</b> ${state.data.year}\n` : '') +
-          (state.data.mileage ? `🛣️ <b>الكيلومتر:</b> ${parseInt(state.data.mileage || '0').toLocaleString('en-US')} كم\n` : '') +
-          (state.data.origin ? `🌍 <b>المواصفات:</b> ${state.data.origin}\n` : '') +
-          (state.data.phone ? `📞 <b>التواصل:</b> ${state.data.phone}\n` : '') +
-          `\n📣 <b>#رقم_الإعلان_${adId}</b> | @${BOT_USERNAME}`;
+        const channelCaption = await generateSocialCaption(insertedCar, 'car', carLink, true);
 
         let cleanPhone = (state.data.phone || '').replace(/[^0-9+]/g, '');
         if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
@@ -2288,8 +2282,12 @@ serve(async (req) => {
         const carImages = insertedCar.images && insertedCar.images.length > 0 ? insertedCar.images : null;
         let tgMsgId: string | null = null;
         try {
-          const photoUrl = carImages ? carImages[0] : `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&category=cars&title=${encodeURIComponent(carTitle)}&fare=${encodeURIComponent(formattedPrice)}&regions=${encodeURIComponent(state.data.governorate || 'بغداد')}&link=${encodeURIComponent(carLink)}&short_id=${encodeURIComponent(adId)}`;
-          const carRes = await sendPhoto(CAR_CHANNEL_ID || CAR_CHANNEL, photoUrl, channelCaption, channelMarkup);
+          let carRes;
+          if (carImages && carImages.length > 0) {
+            carRes = await sendPhoto(CAR_CHANNEL_ID || CAR_CHANNEL, carImages[0], channelCaption, channelMarkup);
+          } else {
+            carRes = await sendMessage(CAR_CHANNEL_ID || CAR_CHANNEL, channelCaption, channelMarkup);
+          }
           if (carRes?.ok && carRes.result?.message_id) {
             tgMsgId = carRes.result.message_id.toString();
             await supabase.from('ads').update({ telegram_message_id: tgMsgId, sync_status: { telegram: 'success', facebook: 'pending', instagram: 'pending' } }).eq('id', insertedId);
@@ -3481,15 +3479,7 @@ serve(async (req) => {
             const catLabel = catLabels[stateData.category] || stateData.category || 'منتج';
 
             // 2. Telegram caption
-            const tgCaption =
-              `🛍️ <b>${stateData.title}</b>\n\n` +
-              `📑 <b>القسم:</b> ${catLabel}\n` +
-              `✨ <b>الحالة:</b> ${stateData.condition || 'مستعمل'}\n` +
-              `💰 <b>السعر:</b> ${priceFormatted}\n` +
-              `📍 <b>المحافظة:</b> ${stateData.governorate || 'بغداد'}\n` +
-              (stateData.description ? `\n📝 ${stateData.description}\n` : '') +
-              `\n📞 <b>للتواصل:</b> ${stateData.phone || phone || 'عبر الموقع'}\n\n` +
-              `🔗 <a href="${productLink}">عرض الإعلان كاملاً</a>`;
+            const tgCaption = await generateSocialCaption(inserted, 'product', productLink, true);
 
             const tgButtons = {
               inline_keyboard: [
@@ -3500,7 +3490,8 @@ serve(async (req) => {
 
             // 3. Send to Telegram product channel
             const updates: any = {};
-            const mainImage = stateData.images?.[0] || null;
+            const prodImages = extractImages(inserted);
+            const mainImage = prodImages && prodImages.length > 0 ? prodImages[0] : null;
             let tgMsgId: string | null = null;
 
             if (mainImage) {
@@ -3519,25 +3510,26 @@ serve(async (req) => {
 
             // 4. Social media caption
             const socialCaption = await generateSocialCaption(
-              { ...stateData, price: priceNum, governorate: stateData.governorate },
+              inserted,
               'product',
-              productLink
+              productLink,
+              false
             );
 
             // 5. Facebook
             if (META_PAGE_ACCESS_TOKEN) {
               try {
-                const fbData = await postToFacebook(socialCaption, mainImage);
+                const fbData = await postToFacebook(socialCaption, prodImages && prodImages.length > 0 ? prodImages : null);
                 if (fbData && (fbData.post_id || fbData.id)) {
                   updates.facebook_post_id = fbData.post_id || fbData.id;
                 }
               } catch(e) { console.error('[PROD] FB error:', e); }
             }
 
-            // 6. Instagram
+            // 6. Instagram (only if we have images)
             if (META_IG_ACCOUNT_ID && META_PAGE_ACCESS_TOKEN && mainImage) {
               try {
-                const igData = await postToInstagram(socialCaption, mainImage);
+                const igData = await postToInstagram(socialCaption, prodImages && prodImages.length > 0 ? prodImages : null);
                 if (igData && (igData.id || igData.media_id)) {
                   updates.instagram_post_id = igData.id || igData.media_id;
                 }
@@ -3547,7 +3539,7 @@ serve(async (req) => {
             // 7. Threads
             if (THREADS_ACCESS_TOKEN) {
               try {
-                const thData = await postToThreads(socialCaption, mainImage);
+                const thData = await postToThreads(socialCaption, prodImages && prodImages.length > 0 ? prodImages : null);
                 if (thData && thData.id) {
                   updates.threads_post_id = thData.id;
                 }

@@ -113,6 +113,35 @@ serve(async (req: any) => {
     for (const ad of topAds) {
       let smartCaption = `🚗 ${ad.title}\n💰 السعر: ${ad.price || 'حسب الاتفاق'} د.ع\n📍 ${ad.location || ad.city || 'بغداد'}\n\n🔗 تفاصيل الإعلان والتواصل مع البائع:\nhttps://www.souqbaghdad.store/product/${ad.short_id || ad.id}\n\n#سوق_بغداد #العراق #سيارات_للبيع #بغداد`;
       
+      let specsText = '';
+      let conditionText = '';
+      if (ad.category === 'vehicles' || ad.category === 'cars' || ad.category === 'car' || (ad.category || '').toLowerCase().includes('car')) {
+        let carSpecs: any = {};
+        try {
+          carSpecs = typeof ad.description === 'string' && ad.description.startsWith('{') 
+            ? JSON.parse(ad.description) 
+            : { note: ad.description };
+        } catch(e) {
+          carSpecs = { note: ad.description };
+        }
+        const year = carSpecs.year || '';
+        const mileage = carSpecs.mileage ? `${parseInt(carSpecs.mileage).toLocaleString('en-US')} كم` : '';
+        const origin = carSpecs.origin || '';
+        const note = carSpecs.note || carSpecs.description || '';
+        specsText = `سنة الصنع: ${year}\nالمسافة المقطوعة: ${mileage}\nالمواصفات: ${origin}\nالتفاصيل: ${note}`;
+      } else {
+        let descText = ad.description || '';
+        if (typeof descText === 'string' && descText.startsWith('{')) {
+          try {
+            const p = JSON.parse(descText);
+            descText = p.note || p.description || p.details || '';
+          } catch(e){}
+        }
+        conditionText = ad.condition === 'new' ? 'الحالة: جديد ✨' : (ad.condition === 'used' ? 'الحالة: مستعمل 👌' : '');
+        specsText = `التفاصيل: ${descText}`;
+      }
+      const rawPhone = ad.phone || '';
+
       // كتابة وصف تسويقي ذكي بالذكاء الاصطناعي
       if (GEMINI_API_KEY) {
         try {
@@ -129,11 +158,18 @@ serve(async (req: any) => {
                       {
                         text: `اكتب منشور تسويقي قصير وجذاب جداً بالعامية العراقية لمنصات التواصل الاجتماعي (Facebook, Threads, Telegram):
 العنوان: ${ad.title}
+${conditionText ? conditionText + '\n' : ''}${specsText}
 السعر: ${ad.price}
 الموقع: ${ad.city || ad.location || 'بغداد'}
 الرابط: https://www.souqbaghdad.store/product/${ad.short_id || ad.id}
+${rawPhone ? 'الهاتف للتواصل المباشر: ' + rawPhone : ''}
 
-الشروط: ضع هاشتاقات عراقية ذكية وضع الرابط في الأسفل، ولا تستخدم علامات النجمة (*).`
+الشروط:
+1. اذكر مواصفات المنتج أو السيارة والحالة بوضوح.
+2. ضع السعر والموقع والتفاصيل.
+3. ضع رابط المعاينة والتواصل المباشر في الأسفل.
+4. ضع هاشتاقات عراقية ذكية.
+5. لا تستخدم علامات النجمة (*).`
                       }
                     ]
                   }
@@ -144,7 +180,7 @@ serve(async (req: any) => {
           const aiData = await aiRes.json();
           const generatedCaption = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
           if (generatedCaption) {
-            smartCaption = generatedCaption.replace(/[*#]/g, '');
+            smartCaption = generatedCaption.replace(/[*]/g, '');
           }
         } catch (e) {
           console.error("AI Caption error:", e);
