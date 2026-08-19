@@ -151,25 +151,25 @@ serve(async (req) => {
         <div style="position: absolute; top: -50px; left: -50px; width: 350px; height: 350px; border-radius: 175px; background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, rgba(245,243,255,0) 70%); display: flex;"></div>
 
         <!-- 1. Top Header Row (Logo Left + Main Title Right) -->
-        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; width: 100%; position: relative; z-index: 10; margin-bottom: 15px;">
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; width: 100%; position: relative; z-index: 10; margin-bottom: 20px; margin-top: 8px;">
           
           <!-- Right side: Title & Headline -->
           <div style="display: flex; flex-direction: column; align-items: flex-start;">
             <!-- Badge "جديد" -->
-            <div style="display: flex; background: #2e0854; border-radius: 20px; padding: 6px 28px; margin-bottom: 10px;">
+            <div style="display: flex; background: #2e0854; border-radius: 20px; padding: 6px 28px; margin-bottom: 14px;">
               <span style="font-size: 24px; color: #ffffff; font-weight: bold;">${fixAr(badgeLabel)}</span>
             </div>
             <!-- Huge Title -->
-            <div style="display: flex; flex-direction: row; align-items: baseline; gap: 14px; margin-bottom: 2px;">
-              <span style="font-size: 70px; font-weight: bold; color: #1e1b4b; line-height: 1;">${fixAr(mainTitle1)}</span>
-              <span style="font-size: 70px; font-weight: bold; color: #7c3aed; line-height: 1;">${fixAr(mainTitle2)}</span>
+            <div style="display: flex; flex-direction: row; align-items: baseline; gap: 14px; margin-top: 6px; margin-bottom: 6px;">
+              <span style="font-size: 72px; font-weight: bold; color: #1e1b4b; line-height: 1;">${fixAr(mainTitle1)}</span>
+              <span style="font-size: 72px; font-weight: bold; color: #7c3aed; line-height: 1;">${fixAr(mainTitle2)}</span>
             </div>
             <!-- Subtitle -->
-            <span style="font-size: 26px; color: #4b5563; font-weight: bold; margin-top: 6px;">${fixAr(subHeadline)}</span>
+            <span style="font-size: 26px; color: #4b5563; font-weight: bold; margin-top: 8px;">${fixAr(subHeadline)}</span>
           </div>
 
           <!-- Left side: Brand Logo -->
-          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; background: #ffffff; padding: 10px 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(124,58,237,0.08); border: 1.5px solid #ede9fe;">
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; background: #ffffff; padding: 12px 22px; border-radius: 22px; box-shadow: 0 4px 15px rgba(124,58,237,0.08); border: 1.5px solid #ede9fe; margin-top: 4px;">
             <div style="display: flex; flex-direction: column; align-items: flex-end;">
               <span style="font-size: 26px; font-weight: bold; color: #1e1b4b; line-height: 1.1;">${fixAr('سوق بغداد')}</span>
               <span style="font-size: 13px; color: #6b7280; letter-spacing: 1.5px; font-weight: bold;">SOUQ BAGHDAD</span>
@@ -241,35 +241,35 @@ serve(async (req) => {
         <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 24px; padding: 18px 24px; box-shadow: 0 8px 20px rgba(76,29,149,0.04); position: relative; z-index: 10;">
           
           <!-- Column 1: نوع الخط -->
-          <div style="display: flex; flex-direction: row; align-items: center; gap: 14px; flex: 1;">
-            <div style="display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 25px;">
-              <img src="${svgImg(SVGS.bus)}" width="26" height="26" />
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; flex: 0.95;">
+            <div style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 24px;">
+              <img src="${svgImg(SVGS.bus)}" width="24" height="24" />
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-start;">
-              <span style="font-size: 18px; color: #6b7280; font-weight: bold;">${fixAr('نوع الخط')}</span>
-              <span style="font-size: 22px; color: #1e1b4b; font-weight: bold;">${fixAr(audience)}</span>
+              <span style="font-size: 17px; color: #6b7280; font-weight: bold;">${fixAr('نوع الخط')}</span>
+              <span style="font-size: 20px; color: #1e1b4b; font-weight: bold;">${fixAr(audience)}</span>
             </div>
           </div>
 
           <!-- Column 2: أيام الدوام -->
-          <div style="display: flex; flex-direction: row; align-items: center; gap: 14px; flex: 1.2; border-right: 1.5px solid #f3e8ff; border-left: 1.5px solid #f3e8ff; padding: 0 16px;">
-            <div style="display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 25px;">
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; flex: 1.15; border-right: 1.5px solid #f3e8ff; border-left: 1.5px solid #f3e8ff; padding: 0 16px;">
+            <div style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 24px;">
               <img src="${svgImg(SVGS.calendar)}" width="24" height="24" />
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-start;">
-              <span style="font-size: 18px; color: #6b7280; font-weight: bold;">${fixAr('أيام الدوام')}</span>
-              <span style="font-size: 22px; color: #1e1b4b; font-weight: bold;">${fixAr(workDays)}</span>
+              <span style="font-size: 17px; color: #6b7280; font-weight: bold;">${fixAr('أيام الدوام')}</span>
+              <span style="font-size: 20px; color: #1e1b4b; font-weight: bold;">${fixAr(workDays)}</span>
             </div>
           </div>
 
           <!-- Column 3: أوقات الدوام -->
-          <div style="display: flex; flex-direction: row; align-items: center; gap: 14px; flex: 1.2;">
-            <div style="display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 25px;">
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; flex: 1.4;">
+            <div style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 24px;">
               <img src="${svgImg(SVGS.clock)}" width="24" height="24" />
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-start;">
-              <span style="font-size: 18px; color: #6b7280; font-weight: bold;">${fixAr('أوقات الدوام')}</span>
-              <span style="font-size: 22px; color: #1e1b4b; font-weight: bold;">${fixAr(shiftTime)}</span>
+              <span style="font-size: 17px; color: #6b7280; font-weight: bold;">${fixAr('أوقات الدوام')}</span>
+              <span style="font-size: 18px; color: #1e1b4b; font-weight: bold; white-space: nowrap;">${fixAr(shiftTime)}</span>
             </div>
           </div>
         </div>
