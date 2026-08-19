@@ -22,13 +22,23 @@ function cleanText(val: string | null, fallback: string): string {
   return s.length > 0 ? s : fallback;
 }
 
-// Reshape Arabic letters to connect properly and fix word ordering in SVG renderer
+// Clean and reshape Arabic strings correctly (avoiding box-drawing artifacts and reversed parentheses)
 function fixAr(text: string): string {
   if (!text) return '';
   try {
+    // 1. Remove any unprintable characters or brackets that cause rendering squares
+    let clean = text
+      .replace(/[\[\]]/g, '')
+      .replace(/[\u200E\u200F\u202A-\u202E]/g, '')
+      .trim();
+
     const fn = (ArabicShaper as any).convertArabic || (ArabicShaper as any)?.ArabicShaper?.convertArabic || (ArabicShaper as any);
-    const reshaped = typeof fn === 'function' ? fn(text) : text;
-    // Reverse characters so SVG engines render right-to-left Arabic words correctly
+    if (typeof fn !== 'function') return clean;
+
+    // Reshape connected Arabic letters
+    const reshaped = fn(clean);
+    
+    // Reverse each token/character sequence so LTR engines display RTL sentences in natural reading order
     return reshaped.split('').reverse().join('');
   } catch (e) {
     return text;
