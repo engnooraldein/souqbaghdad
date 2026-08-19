@@ -584,6 +584,137 @@ function formatTgPrice(val: any, currency = 'د.ع'): string {
   return isNaN(num) ? str : `${num.toLocaleString('en-US')} ${currency}`;
 }
 
+function extractImagesRaw(record: any): string[] {
+  if (!record) return [];
+  let list: any[] = [];
+  if (Array.isArray(record.images)) {
+    list = record.images;
+  } else if (typeof record.images === 'string') {
+    try {
+      const parsed = JSON.parse(record.images);
+      if (Array.isArray(parsed)) list = parsed;
+      else if (typeof parsed === 'string') list = [parsed];
+    } catch {
+      if (record.images.startsWith('http') || record.images.startsWith('data:image/')) list = [record.images];
+    }
+  } else if (typeof record.image === 'string' && (record.image.startsWith('http') || record.image.startsWith('data:image/'))) {
+    list = [record.image];
+  } else if (Array.isArray(record.photos)) {
+    list = record.photos;
+  }
+  return list.filter(u => typeof u === 'string' && (u.startsWith('http') || u.startsWith('data:image/')));
+}
+
+async function ensurePublicImages(record: any, table: 'ads' | 'products', supabase: any): Promise<string[]> {
+  const rawImages = extractImagesRaw(record);
+  const publicUrls: string[] = [];
+  let updated = false;
+
+  for (const img of rawImages) {
+    if (typeof img === 'string' && img.startsWith('data:image/')) {
+      try {
+        const match = img.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+        if (match) {
+          const mimeType = match[1];
+          const base64Data = match[2];
+          const binaryString = atob(base64Data);
+          const len = binaryString.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const ext = mimeType.split('/')[1] || 'jpg';
+          const fileName = `social-${Math.random().toString(36).substring(2, 15)}-${Date.now()}.${ext}`;
+          
+          const { data, error } = await supabase.storage
+            .from('ad-images')
+            .upload(fileName, bytes, {
+              contentType: mimeType,
+              upsert: true
+            });
+          
+          if (error) {
+            console.error('Error uploading base64 to storage:', error);
+            continue;
+          }
+
+          if (data) {
+            const { data: publicUrlData } = supabase.storage
+              .from('ad-images')
+              .getPublicUrl(fileName);
+            publicUrls.push(publicUrlData.publicUrl);
+            updated = true;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to parse/upload base64 image:', err);
+      }
+    } else if (typeof img === 'string' && img.startsWith('http')) {
+      publicUrls.push(img);
+    }
+  }
+
+  if (updated) {
+    console.log(`[STORAGE] Uploaded base64 images and updating table ${table} ID ${record.id}`);
+    try {
+      await supabase.from(table).update({ images: publicUrls }).eq('id', record.id);
+    } catch (e) {
+      console.error('Failed to update record images array in DB:', e);
+    }
+  }
+
+  return publicUrls;
+}
+
+function getFallbackImage(record: any, type: 'car' | 'product' | 'ad'): string {
+  if (type === 'car') {
+    let p: any = {};
+    if (typeof record.description === 'string') {
+      try { p = JSON.parse(record.description); } catch {}
+    } else if (typeof record.description === 'object' && record.description !== null) {
+      p = record.description;
+    }
+    const brand = (p.brand || record.brand || '').toLowerCase().trim();
+    const model = (p.model || record.model || '').toLowerCase().trim();
+    const year = (p.year || record.year || '').trim();
+
+    if (brand || model) {
+      const tags = [brand, model, year, 'car'].filter(Boolean).map(t => t.replace(/[^a-zA-Z0-9]/g, '')).join(',');
+      return `https://loremflickr.com/1080/1080/${tags}`;
+    }
+    return 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=1080&h=1080&fit=crop';
+  }
+
+  const category = (record.category || '').toLowerCase().trim();
+  const title = (record.title || '').toLowerCase().trim();
+
+  if (category.includes('phone') || category.includes('mobile') || title.includes('موبايل') || title.includes('تلفون') || title.includes('ايفون') || title.includes('آيفون')) {
+    return 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=1080&h=1080&fit=crop';
+  }
+  if (category.includes('computer') || category.includes('laptop') || title.includes('كمبيوتر') || title.includes('حاسوب') || title.includes('لابتوب')) {
+    return 'https://images.unsplash.com/photo-1496181130204-7552cc14AC1A?w=1080&h=1080&fit=crop';
+  }
+  if (category.includes('estate') || category.includes('property') || category.includes('house') || title.includes('بيت') || title.includes('شقة') || title.includes('عقار') || title.includes('اراضي') || title.includes('أرض')) {
+    return 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1080&h=1080&fit=crop';
+  }
+  if (category.includes('fashion') || category.includes('cloth') || title.includes('ملابس') || title.includes('فستان') || title.includes('قميص') || title.includes('جاكيت') || title.includes('بدلة')) {
+    return 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1080&h=1080&fit=crop';
+  }
+  if (category.includes('watch') || title.includes('ساعة') || title.includes('ساعه')) {
+    return 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1080&h=1080&fit=crop';
+  }
+  if (category.includes('perfume') || title.includes('عطر') || title.includes('عطور')) {
+    return 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=1080&h=1080&fit=crop';
+  }
+
+  const englishTags = (category + ' ' + title).replace(/[^a-zA-Z]/g, ' ').split(/\s+/).filter(w => w.length > 2);
+  if (englishTags.length > 0) {
+    return `https://loremflickr.com/1080/1080/${englishTags.slice(0, 3).join(',')},product`;
+  }
+  
+  return 'https://images.unsplash.com/photo-1522204538064-f37f6c137f8e?w=1080&h=1080&fit=crop';
+}
+
 const generateSocialCaption = async (record: any, type: 'car' | 'product' | 'transport' | 'ad', link: string, isHtml = false): Promise<string> => {
   let price = formatTgPrice(record.price, record.currency || 'د.ع');
 
@@ -1273,7 +1404,10 @@ serve(async (req) => {
           // Call our unified HTML caption formatting
           const caption = await generateSocialCaption(record, 'car', link, true);
 
-          const imagesToPost = extractImages(record);
+          const imagesToPost = await ensurePublicImages(record, 'ads', supabase);
+          if (imagesToPost.length === 0) {
+            imagesToPost.push(getFallbackImage(record, 'car'));
+          }
           const photoCount = imagesToPost.length;
           const detailsButtonText = photoCount > 1 
             ? `📸 تصفح كافة الصور (${photoCount} صور) والتفاصيل 🌐` 
@@ -1304,8 +1438,12 @@ serve(async (req) => {
           if (publishTelegram) {
             const targetCarChannel = CAR_CHANNEL_ID || CAR_CHANNEL;
             if (imagesToPost.length > 1) {
-              await sendMediaGroup(targetCarChannel, imagesToPost, caption);
-              res = { ok: true, result: { message_id: Date.now() } };
+              let mediaGroupCaption = caption;
+              mediaGroupCaption += `\n\n🌐 <a href="${link}">عرض التفاصيل بالمنصة</a>`;
+              if (cleanPhone) {
+                mediaGroupCaption += `\n💬 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> | ✈️ <a href="https://t.me/+${cleanPhone}">تواصل تيليكرام</a>`;
+              }
+              res = await sendMediaGroup(targetCarChannel, imagesToPost, mediaGroupCaption);
             } else if (imagesToPost.length === 1) {
               res = await sendPhoto(targetCarChannel, imagesToPost[0], caption, replyMarkup);
             } else {
@@ -1392,12 +1530,22 @@ serve(async (req) => {
             inline_keyboard: row2.length > 0 ? [row1, row2] : [row1]
           };
 
-          const imagesToPost = extractImages(record);
+          const imagesToPost = await ensurePublicImages(record, 'products', supabase);
+          if (imagesToPost.length === 0) {
+            imagesToPost.push(getFallbackImage(record, 'product'));
+          }
           let res;
           if (publishTelegram) {
             if (imagesToPost.length > 1) {
-              await sendMediaGroup(PRODUCT_CHANNEL, imagesToPost, caption);
-              res = { ok: true, result: { message_id: Date.now() } };
+              let mediaGroupCaption = caption;
+              mediaGroupCaption += `\n\n🌐 <a href="${link}">عرض التفاصيل بالمنصة</a>`;
+              if (record.phone) {
+                let cleanPhone = record.phone.replace(/[^0-9+]/g, '');
+                if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
+                else cleanPhone = cleanPhone.replace('+', '');
+                mediaGroupCaption += `\n💬 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> | ✈️ <a href="https://t.me/+${cleanPhone}">تواصل تيليكرام</a>`;
+              }
+              res = await sendMediaGroup(PRODUCT_CHANNEL, imagesToPost, mediaGroupCaption);
             } else if (imagesToPost.length === 1) {
               res = await sendPhoto(PRODUCT_CHANNEL, imagesToPost[0], caption, replyMarkup);
             } else {
@@ -1479,7 +1627,10 @@ serve(async (req) => {
             inline_keyboard: row2.length > 0 ? [row1, row2] : [row1]
           };
 
-          const imagesToPost = extractImages(record);
+          const imagesToPost = await ensurePublicImages(record, 'ads', supabase);
+          if (imagesToPost.length === 0) {
+            imagesToPost.push(getFallbackImage(record, 'ad'));
+          }
           let res;
           if (publishTelegram) {
             if (imagesToPost.length > 1) {
@@ -1663,11 +1814,12 @@ serve(async (req) => {
           const updates: any = {};
           let syncStatus: any = { ...(record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' }) };
 
+          const imagesToPost = await ensurePublicImages(record, 'ads', supabase);
+          const transportPhoto = imagesToPost.length > 0 ? imagesToPost[0] : dynamicPostUrl;
+          const fbIgPhotoUrl = imagesToPost.length > 0 ? imagesToPost : [dynamicPostUrl];
+
           let res;
           if (publishTelegram) {
-            const transportPhoto = (record.images && Array.isArray(record.images) && record.images.length > 0)
-              ? record.images[0]
-              : dynamicPostUrl;
             // 1. Send to main transport channel: @souqbaghdad_lines
             const targetLinesChannel = LINES_CHANNEL_ID || LINES_CHANNEL;
             res = await sendPhoto(targetLinesChannel, transportPhoto, msg, replyMarkup);
@@ -1708,7 +1860,7 @@ serve(async (req) => {
             try {
               // 1. Post to Souq Baghdad Main Facebook Page
               console.log('[WEBHOOK SOCIAL] Posting transport to Souq Baghdad Main Facebook Page...');
-              const mainFbData = await postToFacebook(fbIgCaption, dynamicPostUrl);
+              const mainFbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl);
               console.log('[WEBHOOK SOCIAL] Main FB response:', JSON.stringify(mainFbData));
               if (mainFbData && (mainFbData.post_id || mainFbData.id)) {
                 updates.facebook_post_id = mainFbData.post_id || mainFbData.id;
@@ -1724,7 +1876,7 @@ serve(async (req) => {
                 const rafdainPageId = ALRAFDAIN_FB_PAGE_ID || '102975411515668';
                 if (rafdainToken && rafdainPageId && rafdainPageId !== META_PAGE_ID) {
                   console.log(`[WEBHOOK SOCIAL] Also posting transport to Al-Rafdain Facebook Page (${rafdainPageId})...`);
-                  const rafdainFbData = await postToFacebook(fbIgCaption, dynamicPostUrl, rafdainToken, rafdainPageId);
+                  const rafdainFbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl, rafdainToken, rafdainPageId);
                   console.log('[WEBHOOK SOCIAL] Al-Rafdain FB response:', JSON.stringify(rafdainFbData));
                   if (rafdainFbData && (rafdainFbData.post_id || rafdainFbData.id)) {
                     syncStatus.rafdain_facebook_post_id = rafdainFbData.post_id || rafdainFbData.id;
@@ -1751,7 +1903,7 @@ serve(async (req) => {
               }
               // 2. Post to Main Souq Baghdad Instagram Feed
               console.log('[WEBHOOK SOCIAL] Posting transport to Instagram Feed...');
-              const igData = await postToInstagram(fbIgCaption, dynamicPostUrl);
+              const igData = await postToInstagram(fbIgCaption, fbIgPhotoUrl);
               console.log('[WEBHOOK SOCIAL] IG response:', JSON.stringify(igData));
               if (igData && (igData.id || igData.media_id)) {
                 updates.instagram_post_id = igData.id || igData.media_id;
@@ -1768,7 +1920,7 @@ serve(async (req) => {
           
           if (publishTiktok) {
             try {
-              const tkData = await postToTikTok(fbIgCaption, dynamicPostUrl, supabase);
+              const tkData = await postToTikTok(fbIgCaption, fbIgPhotoUrl, supabase);
               if (tkData?.data?.publish_id) {
                 updates.tiktok_post_id = tkData.data.publish_id;
                 syncStatus.tiktok = 'success';
@@ -1781,7 +1933,7 @@ serve(async (req) => {
           if (publishThreads) {
             try {
               console.log('[WEBHOOK SOCIAL] Posting transport to Threads...');
-              const thData = await postToThreads(fbIgCaption, dynamicPostUrl);
+              const thData = await postToThreads(fbIgCaption, fbIgPhotoUrl);
               console.log('[WEBHOOK SOCIAL] Threads response:', JSON.stringify(thData));
               if (thData && (thData.id || thData.media_id)) {
                 updates.threads_post_id = thData.id || thData.media_id;
@@ -2228,6 +2380,13 @@ serve(async (req) => {
           note: state.data.note || ''
         });
 
+        const fallbackCarImage = getFallbackImage({
+          description: carDescriptionJson,
+          brand: state.data.brand,
+          model: state.data.model,
+          year: state.data.year
+        }, 'car');
+
         const { data: insertedCar, error: carInsertError } = await supabase.from('ads').insert({
           title: carTitle,
           price: state.data.price ? state.data.price.replace(/[^0-9]/g, '') : '0',
@@ -2235,7 +2394,7 @@ serve(async (req) => {
           category: 'vehicles',
           location: state.data.governorate || 'بغداد',
           city: state.data.model || 'بغداد',
-          images: state.data.images && state.data.images.length > 0 ? state.data.images : ['https://souqbaghdad.store/car-default.jpg?v=' + Date.now()],
+          images: state.data.images && state.data.images.length > 0 ? state.data.images : [fallbackCarImage],
           phone: state.data.phone || phone,
           seller_id: userId,
           seller_name: userProfile?.full_name || 'بائع سيارات',
@@ -3453,6 +3612,11 @@ serve(async (req) => {
             const priceNum = parseInt(rawPrice, 10) || 0;
             const catLabels: Record<string, string> = { electronics: 'إلكترونيات', fashion: 'أزياء وملابس', home: 'المنزل', vehicles: 'أوتو', other: 'أخرى' };
 
+            const fallbackProductImage = getFallbackImage({
+              category: stateData.category,
+              title: stateData.title
+            }, 'product');
+
             // 1. Insert to DB
             const { data: inserted } = await supabase.from('products').insert({
               title: stateData.title,
@@ -3462,7 +3626,7 @@ serve(async (req) => {
               category: stateData.category || 'other',
               condition: stateData.condition || 'مستعمل',
               phone: stateData.phone || phone,
-              images: stateData.images || [],
+              images: stateData.images && stateData.images.length > 0 ? stateData.images : [fallbackProductImage],
               seller_id: userId,
               seller_name: userProfile?.full_name || 'بائع',
               seller_avatar: userProfile?.avatar_url || '',

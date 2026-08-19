@@ -94,6 +94,137 @@ const sendTelegramPhoto = async (chatId: string, photoUrl: string, caption: stri
   }
 };
 
+function extractImagesRaw(record: any): string[] {
+  if (!record) return [];
+  let list: any[] = [];
+  if (Array.isArray(record.images)) {
+    list = record.images;
+  } else if (typeof record.images === 'string') {
+    try {
+      const parsed = JSON.parse(record.images);
+      if (Array.isArray(parsed)) list = parsed;
+      else if (typeof parsed === 'string') list = [parsed];
+    } catch {
+      if (record.images.startsWith('http') || record.images.startsWith('data:image/')) list = [record.images];
+    }
+  } else if (typeof record.image === 'string' && (record.image.startsWith('http') || record.image.startsWith('data:image/'))) {
+    list = [record.image];
+  } else if (Array.isArray(record.photos)) {
+    list = record.photos;
+  }
+  return list.filter(u => typeof u === 'string' && (u.startsWith('http') || u.startsWith('data:image/')));
+}
+
+async function ensurePublicImages(record: any, table: 'ads' | 'products', supabase: any): Promise<string[]> {
+  const rawImages = extractImagesRaw(record);
+  const publicUrls: string[] = [];
+  let updated = false;
+
+  for (const img of rawImages) {
+    if (typeof img === 'string' && img.startsWith('data:image/')) {
+      try {
+        const match = img.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+        if (match) {
+          const mimeType = match[1];
+          const base64Data = match[2];
+          const binaryString = atob(base64Data);
+          const len = binaryString.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const ext = mimeType.split('/')[1] || 'jpg';
+          const fileName = `social-${Math.random().toString(36).substring(2, 15)}-${Date.now()}.${ext}`;
+          
+          const { data, error } = await supabase.storage
+            .from('ad-images')
+            .upload(fileName, bytes, {
+              contentType: mimeType,
+              upsert: true
+            });
+          
+          if (error) {
+            console.error('Error uploading base64 to storage:', error);
+            continue;
+          }
+
+          if (data) {
+            const { data: publicUrlData } = supabase.storage
+              .from('ad-images')
+              .getPublicUrl(fileName);
+            publicUrls.push(publicUrlData.publicUrl);
+            updated = true;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to parse/upload base64 image:', err);
+      }
+    } else if (typeof img === 'string' && img.startsWith('http')) {
+      publicUrls.push(img);
+    }
+  }
+
+  if (updated) {
+    console.log(`[STORAGE] Uploaded base64 images and updating table ${table} ID ${record.id}`);
+    try {
+      await supabase.from(table).update({ images: publicUrls }).eq('id', record.id);
+    } catch (e) {
+      console.error('Failed to update record images array in DB:', e);
+    }
+  }
+
+  return publicUrls;
+}
+
+function getFallbackImage(record: any, type: 'car' | 'product' | 'ad'): string {
+  if (type === 'car') {
+    let p: any = {};
+    if (typeof record.description === 'string') {
+      try { p = JSON.parse(record.description); } catch {}
+    } else if (typeof record.description === 'object' && record.description !== null) {
+      p = record.description;
+    }
+    const brand = (p.brand || record.brand || '').toLowerCase().trim();
+    const model = (p.model || record.model || '').toLowerCase().trim();
+    const year = (p.year || record.year || '').trim();
+
+    if (brand || model) {
+      const tags = [brand, model, year, 'car'].filter(Boolean).map(t => t.replace(/[^a-zA-Z0-9]/g, '')).join(',');
+      return `https://loremflickr.com/1080/1080/${tags}`;
+    }
+    return 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=1080&h=1080&fit=crop';
+  }
+
+  const category = (record.category || '').toLowerCase().trim();
+  const title = (record.title || '').toLowerCase().trim();
+
+  if (category.includes('phone') || category.includes('mobile') || title.includes('موبايل') || title.includes('تلفون') || title.includes('ايفون') || title.includes('آيفون')) {
+    return 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=1080&h=1080&fit=crop';
+  }
+  if (category.includes('computer') || category.includes('laptop') || title.includes('كمبيوتر') || title.includes('حاسوب') || title.includes('لابتوب')) {
+    return 'https://images.unsplash.com/photo-1496181130204-7552cc14AC1A?w=1080&h=1080&fit=crop';
+  }
+  if (category.includes('estate') || category.includes('property') || category.includes('house') || title.includes('بيت') || title.includes('شقة') || title.includes('عقار') || title.includes('اراضي') || title.includes('أرض')) {
+    return 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1080&h=1080&fit=crop';
+  }
+  if (category.includes('fashion') || category.includes('cloth') || title.includes('ملابس') || title.includes('فستان') || title.includes('قميص') || title.includes('جاكيت') || title.includes('بدلة')) {
+    return 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1080&h=1080&fit=crop';
+  }
+  if (category.includes('watch') || title.includes('ساعة') || title.includes('ساعه')) {
+    return 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1080&h=1080&fit=crop';
+  }
+  if (category.includes('perfume') || title.includes('عطر') || title.includes('عطور')) {
+    return 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=1080&h=1080&fit=crop';
+  }
+
+  const englishTags = (category + ' ' + title).replace(/[^a-zA-Z]/g, ' ').split(/\s+/).filter(w => w.length > 2);
+  if (englishTags.length > 0) {
+    return `https://loremflickr.com/1080/1080/${englishTags.slice(0, 3).join(',')},product`;
+  }
+  
+  return 'https://images.unsplash.com/photo-1522204538064-f37f6c137f8e?w=1080&h=1080&fit=crop';
+}
+
 serve(async (req: any) => {
   try {
     console.log("Starting Auto Publisher across Telegram, Facebook & Threads...");
@@ -188,7 +319,12 @@ ${rawPhone ? 'الهاتف للتواصل المباشر: ' + rawPhone : ''}
       }
 
       // نشر المنشور مع الصورة على قنوات تيليكرام وفيسبوك وثريدز
-      const img = ad.images && ad.images.length > 0 ? ad.images[0] : undefined;
+      const rawImages = await ensurePublicImages(ad, ad.category === 'vehicles' ? 'ads' : 'products', supabase);
+      let img = rawImages && rawImages.length > 0 ? rawImages[0] : undefined;
+      if (!img) {
+        const isCar = ad.category === 'vehicles' || ad.category === 'cars' || ad.category === 'car' || (ad.category || '').toLowerCase().includes('car');
+        img = getFallbackImage(ad, isCar ? 'car' : 'product');
+      }
       if (img) {
         await sendTelegramPhoto(GENERAL_CHANNEL, img, smartCaption);
         await sendFacebookPost(smartCaption, img);
