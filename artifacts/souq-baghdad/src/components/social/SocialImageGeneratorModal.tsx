@@ -60,9 +60,9 @@ export const SocialImageGeneratorModal: React.FC<SocialImageGeneratorModalProps>
   } else if (ad.fare) {
     fare = `${ad.fare} د.ع`;
   }
+  const adType = ad.type === 'request' ? 'request' : 'offer';
   const link = `https://www.souqbaghdad.store/transport/card/${shortId}`;
-
-  const imageUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=${templateType}&title=${encodeURIComponent(title)}&subtitle=${encodeURIComponent(subtitle)}&subdesc=${encodeURIComponent(catType)}&regions=${encodeURIComponent(regions)}&destination=${encodeURIComponent(destination)}&fare=${encodeURIComponent(fare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}`;
+  const imageUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=${templateType}&ad_type=${adType}&title=${encodeURIComponent(title)}&subtitle=${encodeURIComponent(subtitle)}&subdesc=${encodeURIComponent(catType)}&regions=${encodeURIComponent(regions)}&destination=${encodeURIComponent(destination)}&fare=${encodeURIComponent(fare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}`;
 
   const handleDownload = async () => {
     try {
