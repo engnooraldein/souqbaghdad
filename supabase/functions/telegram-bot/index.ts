@@ -288,28 +288,41 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
     // 2. Single photo post
     const singleUrl = cleanUrls.length > 0 ? cleanUrls[0] : null;
     if (singleUrl) {
+      // Strip HTML tags because Facebook /photos API rejects HTML tags in captions
+      const cleanFbCaption = (text || '')
+        .replace(/<a\s+href="([^"]+)">([^<]+)<\/a>/gi, '$2 ($1)')
+        .replace(/<[^>]*>?/gm, '')
+        .trim();
+
       console.log(`[FB PHOTO] Posting single photo to Facebook Page ${pageId}...`);
+      
+      // Method A: URLSearchParams format (Official Facebook Graph API standard for /photos)
       try {
+        const params = new URLSearchParams();
+        params.append('url', singleUrl);
+        params.append('caption', cleanFbCaption);
+        params.append('access_token', token);
+
         const photoRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ caption: text, url: singleUrl, access_token: token })
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: params.toString()
         });
         const photoData = await photoRes.json();
-        console.log('[FB PHOTO] Response:', photoData);
+        console.log('[FB PHOTO URLSearchParams] Response:', photoData);
         if (photoData.id || photoData.post_id) return photoData;
       } catch (err) {
-        console.warn('FB Single photo url upload exception:', err);
+        console.warn('FB Single photo URLSearchParams exception:', err);
       }
 
-      // 2b. If URL upload failed (e.g. crawler rejected internal URL), fetch image directly and upload as FormData multipart
+      // Method B: Direct FormData binary upload fallback
       try {
         console.log(`[FB PHOTO MULTIPART] Fetching image binary from ${singleUrl.substring(0, 80)}...`);
         const imgFetch = await fetch(singleUrl);
         if (imgFetch.ok) {
           const imgBlob = await imgFetch.blob();
           const form = new FormData();
-          form.append('caption', text);
+          form.append('caption', cleanFbCaption);
           form.append('source', imgBlob, 'post.png');
           form.append('access_token', token);
 
