@@ -2353,6 +2353,19 @@ export default function App() {
       console.error(error);
       return;
     }
+
+    // Direct trigger to telegram-bot to update Telegram channels and Facebook immediately
+    try {
+      supabase.functions.invoke('telegram-bot', {
+        body: {
+          type: 'UPDATE',
+          table: 'ads',
+          record: { ...ad, status: dbStatus },
+          old_record: { ...ad, status: 'active' }
+        }
+      }).catch(e => console.error('Failed to notify telegram-bot for transport:', e));
+    } catch(e) {}
+
     setAllTransportAds(prev => prev.map(a => a.id === id ? { ...a, status: (status === 'published' || status === 'active') ? 'published' : (status as any) } : a));
     showToast('تم تحديث حالة الخط بنجاح ✅', 'success');
     fetchTransportAds(true);
@@ -2438,6 +2451,18 @@ export default function App() {
       console.error(error);
       return;
     }
+    // Direct trigger to telegram-bot to update Telegram channels and Facebook immediately
+    try {
+      supabase.functions.invoke('telegram-bot', {
+        body: {
+          type: 'UPDATE',
+          table: 'ads',
+          record: { ...ad, status: 'sold' },
+          old_record: { ...ad, status: 'active' }
+        }
+      }).catch(e => console.error('Failed to notify telegram-bot:', e));
+    } catch(e) {}
+
     setAllAds(prev => prev.map(a => a.id === ad.id ? { ...a, status: 'sold' } : a));
     playSound('success');
     setCongratulationsItem({ title: ad.title, type: 'ad' });
@@ -2452,6 +2477,18 @@ export default function App() {
       console.error(error);
       return;
     }
+    // Direct trigger to telegram-bot to update Telegram channels and Facebook immediately
+    try {
+      supabase.functions.invoke('telegram-bot', {
+        body: {
+          type: 'UPDATE',
+          table: 'products',
+          record: { ...p, status: 'sold' },
+          old_record: { ...p, status: 'active' }
+        }
+      }).catch(e => console.error('Failed to notify telegram-bot:', e));
+    } catch(e) {}
+
     setAllProducts(prev => prev.map(pr => pr.id === p.id ? { ...pr, status: 'sold' } : pr));
     playSound('success');
     setCongratulationsItem({ title: p.title, type: 'product' });

@@ -1069,23 +1069,31 @@ ${dbContext ? `معلومات حقيقية ومباشرة من قاعدة بيا
         systemInstruction: { parts: [{ text: systemInstruction }] }
       };
       
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        const generated = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (generated && generated.trim().length > 0) {
-          return generated.trim().replace(/[*#]/g, '');
+      // Try Gemini 2.0 Flash first, then fallback to 1.5 Flash
+      const geminiModels = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+      for (const model of geminiModels) {
+        try {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          
+          if (res.ok) {
+            const data = await res.json();
+            const generated = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (generated && generated.trim().length > 0) {
+              return generated.trim().replace(/[*#]/g, '');
+            }
+          } else {
+            console.error(`Gemini (${model}) API returned error:`, await res.text());
+          }
+        } catch(modelErr) {
+          console.error(`Gemini (${model}) Fetch Error:`, modelErr);
         }
-      } else {
-        console.error('Gemini API returned error:', await res.text());
       }
-    } catch (err) {
-      console.error('Gemini Fetch Error:', err);
+    } catch(err) {
+      console.error('Gemini General Error:', err);
     }
   }
 
@@ -4696,8 +4704,7 @@ serve(async (req) => {
               photoUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
             }
           }
-          
-          const caption = message?.caption || null;
+          const caption = update?.message?.caption || null;
           const userCaption = caption || text || null;
           const aiRes = await callGemini(userCaption, audioUrl, photoUrl);
           await showMainMenu(aiRes || undefined);
