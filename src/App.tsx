@@ -1577,7 +1577,9 @@ export default function App() {
         .from('ads')
         .select('*', { count: 'exact' })
         .eq('category', 'transport')
-        .eq('is_demo', false)
+        .neq('status', 'matched')
+        .neq('status', 'sold')
+        .neq('status', 'archived')
         .order('created_at', { ascending: false })
         .range(from, to);
         

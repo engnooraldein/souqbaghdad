@@ -133,9 +133,9 @@ const EXTRA_CHANNEL = '@souqbaghdad_iq';
 
 // Specialized channels
 const CAR_CHANNEL = '@souqbaghdad_car';           // Cars/Vehicles only
-const CAR_CHANNEL_ID = '-1004369757057';          // Cars channel exact ID
+const CAR_CHANNEL_ID = Deno.env.get('CAR_CHANNEL_ID') || '@souqbaghdad_car';          // Cars channel username/ID
 const LINES_CHANNEL = '@souqbaghdad_lines';       // Transport lines username
-const LINES_CHANNEL_ID = '-1004317618528';        // Transport lines ID
+const LINES_CHANNEL_ID = Deno.env.get('LINES_CHANNEL_ID') || '@souqbaghdad_lines';        // Transport lines username/ID
 
 // Facebook, Instagram & Threads Publishing
 const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || '';
@@ -1813,8 +1813,13 @@ serve(async (req) => {
               res = await sendPhoto(targetLinesChannel, transportPhoto, msg, replyMarkup);
             }
             if (res?.ok && res.result?.message_id) {
+              console.log('[TRANSPORT TG] Published successfully to', targetLinesChannel, 'msg_id:', res.result.message_id);
               updates.telegram_message_id = res.result.message_id.toString();
               syncStatus.telegram = 'success';
+            } else {
+              console.error('[TRANSPORT TG] Failed to publish to', targetLinesChannel, 'Response:', JSON.stringify(res));
+              syncStatus.telegram = 'failed';
+              syncStatus.telegram_error = res?.description || 'Telegram publish error';
             }
 
             // 2. If it is for Al-Rafdain, ALSO publish to @ruc_1
