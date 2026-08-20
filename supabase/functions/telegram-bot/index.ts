@@ -1658,6 +1658,13 @@ serve(async (req) => {
           if (publishTelegram && res?.ok && res.result?.message_id) {
              updates.telegram_message_id = res.result.message_id.toString();
              syncStatus.telegram = 'success';
+             try {
+               await supabase.from('products').update({ 
+                 telegram_message_id: updates.telegram_message_id,
+                 sync_status: { ...syncStatus, telegram: 'success' }
+               }).eq('id', record.id);
+               console.log(`[TG IMMEDIATE SAVE - PRODUCT] Saved telegram_message_id ${updates.telegram_message_id} for ID ${record.id}`);
+             } catch(e) {}
           }
           
           const fbIgPhotoUrl = imagesToPost.length > 0 ? imagesToPost : null;
@@ -1745,6 +1752,13 @@ serve(async (req) => {
           if (publishTelegram && res?.ok && res.result?.message_id) {
              updates.telegram_message_id = res.result.message_id.toString();
              syncStatus.telegram = 'success';
+             try {
+               await supabase.from('ads').update({ 
+                 telegram_message_id: updates.telegram_message_id,
+                 sync_status: { ...syncStatus, telegram: 'success' }
+               }).eq('id', record.id);
+               console.log(`[TG IMMEDIATE SAVE - GENERAL AD] Saved telegram_message_id ${updates.telegram_message_id} for ID ${record.id}`);
+             } catch(e) {}
           }
           
           const fbIgPhotoUrl = imagesToPost.length > 0 ? imagesToPost : null;
