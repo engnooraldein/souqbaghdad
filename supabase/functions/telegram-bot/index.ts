@@ -1287,35 +1287,71 @@ serve(async (req) => {
         }
       }
 
-      // Handle Sold / Matched status update on Telegram Channel
+      // Handle Sold / Matched status update on Telegram Channel & Facebook Pages across ALL categories
       if (shouldUpdateStatus) {
-        const isTransport = record.category === 'transport';
-        const isCar = record.category === 'vehicles' || record.category === 'cars' || record.category === 'car' || (record.category || '').toLowerCase().includes('car');
-        const msgId = record?.telegram_message_id || oldRecord?.telegram_message_id;
-        const rucMsgId = record?.sync_status?.ruc_telegram_message_id || oldRecord?.sync_status?.ruc_telegram_message_id;
+        const targetDbTable = (payload.table === 'products') ? 'products' : 'ads';
+        let actualAd = record;
+        if (record?.id) {
+          try {
+            const { data: dbAd } = await supabase.from(targetDbTable).select('*').eq('id', record.id).maybeSingle();
+            if (dbAd) {
+              actualAd = { ...dbAd, ...record };
+            }
+          } catch(e) {
+            console.error('Failed to fetch actual ad from DB in UPDATE webhook:', e);
+          }
+        }
 
-        const browseUrl = isCar ? 'https://www.souqbaghdad.store/vehicles' : (isTransport ? 'https://www.souqbaghdad.store/transport' : 'https://www.souqbaghdad.store');
-        const soldTag = isTransport ? '✅ <b>[اكتمل العدد / الخط مغلق]</b>' : (isCar ? '⚠️ <b>[تم البيع / مباعة]</b>' : '⚠️ <b>[تم البيع / غير متوفر]</b>');
+        const isTransport = actualAd.category === 'transport';
+        const isCar = actualAd.category === 'vehicles' || actualAd.category === 'cars' || actualAd.category === 'car' || (actualAd.category || '').toLowerCase().includes('car');
+        const isProduct = payload.table === 'products' || (!isTransport && !isCar);
+
+        const msgId = actualAd.telegram_message_id || record?.telegram_message_id || oldRecord?.telegram_message_id;
+        const rucMsgId = actualAd.sync_status?.ruc_telegram_message_id || record?.sync_status?.ruc_telegram_message_id || oldRecord?.sync_status?.ruc_telegram_message_id;
+
+        // Custom branding and links per category
+        const browseUrl = isCar 
+          ? 'https://www.souqbaghdad.store/vehicles' 
+          : (isTransport ? 'https://www.souqbaghdad.store/transport' : 'https://www.souqbaghdad.store/products');
+          
+        const soldTag = isTransport 
+          ? '✅ <b>[اكتمل العدد / الخط مغلق]</b>' 
+          : (isCar ? '⚠️ <b>[تم البيع / مباعة]</b>' : '⚠️ <b>[تم البيع / غير متوفر]</b>');
+
+        const buttonText = isTransport 
+          ? '🚌 تصفح خطوط أخرى متاحة 🌐' 
+          : (isCar ? '🚗 تم بيع هذه السيارة — تصفح المزيد 🔍' : '🛍️ تم البيع — تصفح أحدث العروض 🌐');
+
+        const postNewText = isTransport
+          ? '🚌 اعرض خطك مجاناً عبر البوت'
+          : (isCar ? '🚗 اعرض سيارتك للبيع مجاناً عبر البوت' : '📦 اعرض سلعتك مجاناً عبر البوت');
+
         const soldButtons = {
           inline_keyboard: [
-            [{ text: isTransport ? '🚌 تصفح خطوط أخرى متاحة 🌐' : '⚠️ تم البيع — تصفح المزيد 🛍️', url: browseUrl }],
-            [{ text: isTransport ? '🚌 اعرض خطك مجاناً عبر البوت' : '🚗 اعرض إعلانك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}` }]
+            [{ text: buttonText, url: browseUrl }],
+            [{ text: postNewText, url: `https://t.me/${BOT_USERNAME}` }]
           ]
         };
+
+        const iconType = isTransport ? '🚌' : (isCar ? '🚗' : '🛍️');
         const soldCaption = `${soldTag}\n\n` +
-                            `📌 <b>${record.title || 'إعلان'}</b>\n` +
+                            `${iconType} <b>${actualAd.title || 'إعلان'}</b>\n` +
                             `💰 <b>تمت العملية بنجاح عبر منصة سوق بغداد</b>\n` +
-                            `📍 ${record.location || record.city || 'العراق'}\n\n` +
+                            `📍 ${actualAd.location || actualAd.city || 'العراق'}\n\n` +
                             `📣 لم يعد هذا الإعلان متاحاً للتواصل. يمكنك تصفح العروض المشابهة عبر الزر أدناه 👇`;
 
-        // 1. Update main channel (souqbaghdad_lines or product/car channel)
+        // 1. Update main Telegram channel
         if (msgId) {
           const targetChannel = isTransport ? (LINES_CHANNEL_ID || LINES_CHANNEL) : (isCar ? (CAR_CHANNEL_ID || CAR_CHANNEL) : PRODUCT_CHANNEL);
           if (targetChannel) {
             try {
+              console.log(`[UPDATE WEBHOOK] Updating main channel ${targetChannel} with msgId ${msgId}`);
               let res = await editChannelMessage(targetChannel, parseInt(msgId, 10), soldCaption, soldButtons);
               if (!res?.ok && isTransport && LINES_CHANNEL && LINES_CHANNEL !== targetChannel) {
                 await editChannelMessage(LINES_CHANNEL, parseInt(msgId, 10), soldCaption, soldButtons);
+              }
+              if (EXTRA_CHANNEL && EXTRA_CHANNEL !== targetChannel && !isTransport) {
+                await editChannelMessage(EXTRA_CHANNEL, parseInt(msgId, 10), soldCaption, soldButtons);
               }
             } catch(e) {
               console.error('Failed to update caption in main channel:', e);
@@ -1325,14 +1361,14 @@ serve(async (req) => {
 
         // 2. If it's transport for Al-Rafdain, ALSO update @ruc_1
         if (isTransport) {
-          const descStr = typeof record.description === 'string' ? record.description : JSON.stringify(record.description || {});
+          const descStr = typeof actualAd.description === 'string' ? actualAd.description : JSON.stringify(actualAd.description || {});
           const isAlRafdain = ['الرافدين', 'الرفدين', 'ruc'].some(term => 
-            (record.city && record.city.toLowerCase().includes(term)) ||
-            (record.location && record.location.toLowerCase().includes(term)) ||
-            (record.title && record.title.toLowerCase().includes(term)) ||
-            (record.university && record.university.toLowerCase().includes(term)) ||
-            (record.destination && record.destination.toLowerCase().includes(term)) ||
-            (record.regions && record.regions.toLowerCase().includes(term)) ||
+            (actualAd.city && actualAd.city.toLowerCase().includes(term)) ||
+            (actualAd.location && actualAd.location.toLowerCase().includes(term)) ||
+            (actualAd.title && actualAd.title.toLowerCase().includes(term)) ||
+            (actualAd.university && actualAd.university.toLowerCase().includes(term)) ||
+            (actualAd.destination && actualAd.destination.toLowerCase().includes(term)) ||
+            (actualAd.regions && actualAd.regions.toLowerCase().includes(term)) ||
             descStr.toLowerCase().includes(term)
           );
 
@@ -1347,12 +1383,23 @@ serve(async (req) => {
         }
 
         // 3. Update Facebook post text if available
-        const fbPostId = record?.facebook_post_id || oldRecord?.facebook_post_id;
+        const fbPostId = actualAd.facebook_post_id || record?.facebook_post_id || oldRecord?.facebook_post_id;
+        const rafdainFbPostId = actualAd.sync_status?.rafdain_facebook_post_id || record?.sync_status?.rafdain_facebook_post_id || oldRecord?.sync_status?.rafdain_facebook_post_id;
+
+        const fbSoldText = isTransport 
+          ? `✅ [اكتمل العدد / الخط مغلق]\n\n🚌 ${actualAd.title || 'إعلان خط'}\n💰 تمت العملية بنجاح عبر منصة سوق بغداد\n\nلم يعد هذا الخط متاحاً للتسجيل. تصفح الخطوط المتاحة عبر:\nhttps://www.souqbaghdad.store/transport`
+          : (isCar
+            ? `⚠️ [تم البيع / مباعة]\n\n🚗 ${actualAd.title || 'سيارة للبيع'}\n💰 تم البيع بنجاح عبر منصة سوق بغداد\n\nتصفح المزيد من السيارات المتاحة عبر:\nhttps://www.souqbaghdad.store/vehicles`
+            : `⚠️ [تم البيع / غير متوفر]\n\n🛍️ ${actualAd.title || 'منتج'}\n💰 تم البيع بنجاح عبر منصة سوق بغداد\n\nتصفح المزيد من العروض عبر:\nhttps://www.souqbaghdad.store/products`);
+
         if (fbPostId) {
-          const fbSoldText = isTransport 
-            ? `✅ [اكتمل العدد / الخط مغلق]\n\n🚌 ${record.title || 'إعلان خط'}\n💰 تمت العملية بنجاح عبر منصة سوق بغداد\n\nلم يعد هذا الخط متاحاً للتسجيل. تصفح الخطوط المتاحة عبر:\nhttps://www.souqbaghdad.store/transport`
-            : `⚠️ [تم البيع / غير متوفر]\n\n${record.title || 'إعلان'}\n💰 تم البيع بنجاح عبر منصة سوق بغداد\n\nتصفح المزيد من العروض عبر:\nhttps://www.souqbaghdad.store`;
+          console.log(`[UPDATE WEBHOOK] Updating main FB post ${fbPostId}...`);
           await updateFacebookPost(fbPostId, fbSoldText);
+        }
+
+        if (rafdainFbPostId) {
+          console.log(`[UPDATE WEBHOOK] Updating Al-Rafdain FB post ${rafdainFbPostId}...`);
+          await updateFacebookPost(rafdainFbPostId, fbSoldText, ALRAFDAIN_FB_TOKEN);
         }
       }
       
@@ -2015,7 +2062,9 @@ serve(async (req) => {
           updates.sync_status = syncStatus;
           finalSyncStatus = syncStatus;
           if (Object.keys(updates).length > 0) {
-             await supabase.from(payload.table).update(updates).eq('id', record.id);
+             const targetTable = (payload.table === 'transport_ads' || payload.table === 'lines') ? 'ads' : payload.table;
+             console.log(`[SOCIAL WEBHOOK] Saving publish updates to table ${targetTable} for ID ${record.id}:`, JSON.stringify(updates));
+             await supabase.from(targetTable).update(updates).eq('id', record.id);
           }
           
           if (record.phone) {
