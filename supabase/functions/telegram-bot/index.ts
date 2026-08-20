@@ -3028,10 +3028,24 @@ serve(async (req) => {
         // Background task for publishing to channels and social media
         const publishBackground = async () => {
           try {
-            const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}`;
-            const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}`;
+            let rawPhone = stateData.phone || phone || '';
+            let cleanDisplayPhone = String(rawPhone).replace(/[^\d+]/g, '').trim();
+            if (cleanDisplayPhone.startsWith('964')) {
+              cleanDisplayPhone = '0' + cleanDisplayPhone.substring(3);
+            }
+            if (cleanDisplayPhone.startsWith('+964')) {
+              cleanDisplayPhone = '0' + cleanDisplayPhone.substring(4);
+            }
+            if (!cleanDisplayPhone) cleanDisplayPhone = '0770 000 0000';
 
-            const cleanPhone = (stateData.phone || phone || '').replace(/[^0-9+]/g, '');
+            const daysStr = stateData.days || 'الأحد إلى الخميس';
+            const shiftVal = stateData.shift || 'صباحي';
+            const targetAudienceVal = stateData.targetAudience || targetStr || 'الجميع';
+
+            const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(cleanDisplayPhone)}&audience=${encodeURIComponent(targetAudienceVal)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}`;
+            const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(cleanDisplayPhone)}&audience=${encodeURIComponent(targetAudienceVal)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}`;
+
+            const cleanPhone = cleanDisplayPhone;
             let formattedPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
 
             const contactRow = [];
