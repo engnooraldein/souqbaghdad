@@ -1823,8 +1823,40 @@ serve(async (req) => {
           let syncStatus: any = { ...(record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' }) };
 
           const imagesToPost = await ensurePublicImages(record, 'ads', supabase);
-          const transportPhoto = imagesToPost.length > 0 ? imagesToPost[0] : dynamicPostUrl;
-          const fbIgPhotoUrl = imagesToPost.length > 0 ? imagesToPost : [dynamicPostUrl];
+          
+          let finalPostPhotoUrl = dynamicPostUrl;
+          if (imagesToPost.length > 0) {
+            finalPostPhotoUrl = imagesToPost[0];
+          } else {
+            // Upload generated PNG card to Storage to guarantee Instagram and Facebook accept the direct image
+            try {
+              console.log(`[TRANSPORT CARD STORAGE] Generating and storing permanent PNG card for ad ${adId}...`);
+              const cardFetch = await fetch(dynamicPostUrl);
+              if (cardFetch.ok) {
+                const cardBlob = await cardFetch.blob();
+                const cardBytes = new Uint8Array(await cardBlob.arrayBuffer());
+                const cardFileName = `transport-card-${adId}-${Date.now()}.png`;
+                const { data: uploadResult, error: uploadErr } = await supabase.storage
+                  .from('ad-images')
+                  .upload(cardFileName, cardBytes, { contentType: 'image/png', upsert: true });
+
+                if (!uploadErr && uploadResult) {
+                  const { data: pubUrlData } = supabase.storage.from('ad-images').getPublicUrl(cardFileName);
+                  if (pubUrlData?.publicUrl) {
+                    finalPostPhotoUrl = pubUrlData.publicUrl;
+                    console.log('[TRANSPORT CARD STORAGE] Stored permanent image successfully:', finalPostPhotoUrl);
+                  }
+                } else {
+                  console.warn('Storage upload error for card image, using dynamic url fallback:', uploadErr);
+                }
+              }
+            } catch (storageException) {
+              console.error('Exception storing transport card image:', storageException);
+            }
+          }
+
+          const transportPhoto = finalPostPhotoUrl;
+          const fbIgPhotoUrl = imagesToPost.length > 0 ? imagesToPost : [finalPostPhotoUrl];
 
           let res;
           if (publishTelegram) {
