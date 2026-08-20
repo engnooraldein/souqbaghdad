@@ -149,6 +149,31 @@ const ALRAFDAIN_FB_PAGE_ID = Deno.env.get('ALRAFDAIN_FB_PAGE_ID') || '1029754115
 const ALRAFDAIN_IG_ID = Deno.env.get('ALRAFDAIN_IG_ID') || '17841404181680155';
 const ALRAFDAIN_TELEGRAM_CHANNEL = '@ruc_1';
 
+// Dynamic Database Social Settings Cache (Hot Reload from Owner Dashboard)
+let dynamicSocialCache: Record<string, any> = {};
+let lastSocialCacheTime = 0;
+
+async function getLiveSocialSetting(id: string): Promise<any> {
+  const now = Date.now();
+  if (now - lastSocialCacheTime < 20000 && dynamicSocialCache[id]) {
+    return dynamicSocialCache[id];
+  }
+  try {
+    const { data } = await supabase.from('social_settings').select('*');
+    if (data && data.length > 0) {
+      dynamicSocialCache = {};
+      for (const row of data) {
+        dynamicSocialCache[row.id] = row;
+      }
+      lastSocialCacheTime = now;
+      return dynamicSocialCache[id];
+    }
+  } catch (e) {
+    console.error('Failed to load live social setting from DB:', e);
+  }
+  return dynamicSocialCache[id] || null;
+}
+
 async function postToThreads(text: string, photoUrl: string | string[] | null) {
   if (!THREADS_ACCESS_TOKEN) return { error: { message: 'رمز الوصول لـ Threads مفقود أو غير صالح' } };
   const userId = THREADS_USER_ID || 'me';
@@ -242,8 +267,9 @@ function extractImages(record: any): string[] {
 }
 
 async function postToFacebook(text: string, photoUrl: string | string[] | null, customToken?: string, customPageId?: string) {
-  const token = customToken || META_PAGE_ACCESS_TOKEN;
-  const pageId = customPageId || META_PAGE_ID;
+  const dbSetting = (!customToken && !customPageId) ? await getLiveSocialSetting('fb_souq') : null;
+  const token = customToken || dbSetting?.access_token || META_PAGE_ACCESS_TOKEN;
+  const pageId = customPageId || dbSetting?.page_id || META_PAGE_ID;
   if (!token || !pageId) return { error: { message: 'رمز الوصول لفيسبوك مفقود أو غير صالح' } };
   try {
     const urls = Array.isArray(photoUrl) ? photoUrl : (photoUrl ? [photoUrl] : []);
