@@ -412,7 +412,7 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null)
     const rawUrls = Array.isArray(photoUrl) ? photoUrl : [photoUrl];
     // Instagram carousel supports a max of 10 items
     const originalUrls = rawUrls.slice(0, 10);
-    const urls = originalUrls.map(url => (url.includes('generate-story-image') || url.includes('supabase.co')) ? url : `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=1080&h=1080&fit=cover`);
+    const urls = originalUrls.map(url => `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=1080&h=1080&fit=cover&output=jpg`);
     
     if (urls.length > 1) {
       const containerIds = [];
