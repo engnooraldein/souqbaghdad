@@ -1,0 +1,2 @@
+3: import { User, Settings, Heart, ShoppingBag, MessageCircle, Bell, LogOut, Edit3, Camera, Share2, Star, MapPin, Calendar, Facebook, Twitter, Instagram, Check, Crown, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight } from 'lucide-react';
+516:                   <Facebook className="w-8 h-8" />

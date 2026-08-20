@@ -1,0 +1,23 @@
+152:           ctx.fillText('سوك بغداد | souqbaghdad.store', canvas.width - 20, canvas.height - 20);
+254: www.souqbaghdad.store
+265: // لتسهيل نشر الإعلانات والمنتجات في منصات أخرى.
+1068:       const itemUrl = d.url || (typeof window !== 'undefined' ? window.location.href : 'https://www.souqbaghdad.store');
+1560:       showToast('⚠️ لقد تجاوزت الحد المسموح به. يمكنك نشر إعلانين كحد أقصى في الدقيقة الواحدة. يرجى الانتظار قليلاً.', 'error');
+2221:           p_reason: 'خصم لنشر إعلان مبوب'
+2225:           showToast(deductData?.message || 'رصيد النقاط غير كافٍ لنشر إعلان. يرجى شحن المحفظة.', 'error');
+2242:       if (error) { showToast('حدث خطأ أثناء النشر', 'error'); console.error(error); return; }
+2251:       showToast('تم نشر إعلانك! 🎉', 'success');
+2293:         p_reason: 'خصم لنشر خط نقل'
+2318:     showToast('تم نشر الخط بنجاح ✅', 'success');
+2403:           p_reason: 'خصم لنشر منتج'
+2407:           showToast(deductData?.message || 'رصيد النقاط غير كافٍ لنشر منتج. يرجى شحن المحفظة.', 'error');
+2423:       if (error) { showToast('حدث خطأ أثناء النشر', 'error'); console.error(error); return; }
+2424:       showToast('تم نشر المنتج في متجرك! 🛍️', 'success');
+2519:   let pageImage = "https://souqbaghdad.store/opengraph.jpg";
+2520:   let canonicalUrl = "https://souqbaghdad.store/";
+2541:     canonicalUrl = `https://souqbaghdad.store/ad/${slug}-${selectedAd.short_id || selectedAd.id}`;
+2560:     canonicalUrl = `https://souqbaghdad.store/product/${slug}-${selectedProduct.short_id || selectedProduct.id}`;
+2564:     canonicalUrl = `https://souqbaghdad.store/seller/${selectedSellerPhone || selectedSellerId}`;
+2568:     canonicalUrl = `https://souqbaghdad.store/transport`;
+3002:                     navigator.clipboard.writeText("https://souqbaghdad.store");
+3031:             storeUrl={`https://www.souqbaghdad.store/seller/${user.id}`}
