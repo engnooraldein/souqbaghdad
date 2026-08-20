@@ -247,9 +247,7 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
   if (!token || !pageId) return { error: { message: 'رمز الوصول لفيسبوك مفقود أو غير صالح' } };
   try {
     const urls = Array.isArray(photoUrl) ? photoUrl : (photoUrl ? [photoUrl] : []);
-    const cleanUrls = urls
-      .filter(u => typeof u === 'string' && u.startsWith('http'))
-      .map(u => (u.includes('generate-story-image') && !u.includes('wsrv.nl')) ? `https://wsrv.nl/?url=${encodeURIComponent(u)}&output=jpg` : u);
+    const cleanUrls = urls.filter(u => typeof u === 'string' && u.startsWith('http'));
 
     // 1. Multiple photos -> Upload each photo unpublished, then publish album feed post with attached_media
     if (cleanUrls.length > 1) {
@@ -339,27 +337,12 @@ async function updateFacebookPost(postId: string, newText: string, customToken?:
   const token = customToken || META_PAGE_ACCESS_TOKEN;
   if (!token || !postId) return false;
   try {
-    // Try updating as post/feed message
     let res = await fetch(`https://graph.facebook.com/v20.0/${postId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: newText, access_token: token })
     });
     let data = await res.json();
-    console.log(`[FB UPDATE POST] Attempt 1 (message) for ${postId}:`, data);
-
-    // If failed, try updating as photo caption (for posts created via /photos endpoint)
-    if (!data.success && !data.id) {
-      res = await fetch(`https://graph.facebook.com/v20.0/${postId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caption: newText, access_token: token })
-      });
-      data = await res.json();
-      console.log(`[FB UPDATE POST] Attempt 2 (caption) for ${postId}:`, data);
-    }
-
-    // Fallback to Al-Rafdain token if configured and failed
     if (!data.success && !data.id && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_TOKEN !== token) {
       res = await fetch(`https://graph.facebook.com/v20.0/${postId}`, {
         method: 'POST',
@@ -367,14 +350,6 @@ async function updateFacebookPost(postId: string, newText: string, customToken?:
         body: JSON.stringify({ message: newText, access_token: ALRAFDAIN_FB_TOKEN })
       });
       data = await res.json();
-      if (!data.success && !data.id) {
-        res = await fetch(`https://graph.facebook.com/v20.0/${postId}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ caption: newText, access_token: ALRAFDAIN_FB_TOKEN })
-        });
-        data = await res.json();
-      }
     }
     return data;
   } catch (err) {
@@ -437,7 +412,7 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null)
     const rawUrls = Array.isArray(photoUrl) ? photoUrl : [photoUrl];
     // Instagram carousel supports a max of 10 items
     const originalUrls = rawUrls.slice(0, 10);
-    const urls = originalUrls.map(url => `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=1080&h=1080&fit=cover&output=jpg`);
+    const urls = originalUrls.map(url => (url.includes('generate-story-image') || url.includes('supabase.co')) ? url : `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=1080&h=1080&fit=cover`);
     
     if (urls.length > 1) {
       const containerIds = [];
@@ -1276,10 +1251,7 @@ serve(async (req) => {
       } else if (payload.type === 'DELETE') {
         shouldDelete = true;
       } else if (payload.type === 'UPDATE') {
-        // Trigger update whenever status changes TO matched/sold/inactive (from ANY previous status)
-        const newStatusIsSold = record.status === 'matched' || record.status === 'sold' || record.status === 'inactive';
-        const oldStatusWasNotSold = !oldRecord || (oldRecord.status !== 'matched' && oldRecord.status !== 'sold' && oldRecord.status !== 'inactive');
-        if (newStatusIsSold && oldStatusWasNotSold) {
+        if ((!oldRecord || oldRecord.status === 'active' || oldRecord.status === 'published') && (record.status === 'matched' || record.status === 'sold' || record.status === 'inactive')) {
           shouldUpdateStatus = true;
         }
         if (oldRecord && (oldRecord.status === 'matched' || oldRecord.status === 'sold' || oldRecord.status === 'inactive') && (record.status === 'active' || record.status === 'published')) {
@@ -1347,35 +1319,12 @@ serve(async (req) => {
         }
 
         // 3. Update Facebook post text if available
-        let fbPostId = record?.facebook_post_id || oldRecord?.facebook_post_id;
-        let rafdainFbPostId = record?.sync_status?.rafdain_facebook_post_id || oldRecord?.sync_status?.rafdain_facebook_post_id;
-        
-        // If IDs are missing from payload, query database directly to ensure we have them
-        if (!fbPostId || !rafdainFbPostId || !msgId) {
-          try {
-            const { data: dbItem } = await supabase.from(payload.table || 'ads').select('facebook_post_id, telegram_message_id, sync_status').eq('id', record.id).maybeSingle();
-            if (dbItem) {
-              if (!fbPostId) fbPostId = dbItem.facebook_post_id;
-              if (!rafdainFbPostId) rafdainFbPostId = dbItem.sync_status?.rafdain_facebook_post_id;
-            }
-          } catch(e) {
-            console.error('Failed to query db for social IDs:', e);
-          }
-        }
-
-        if (fbPostId || rafdainFbPostId) {
+        const fbPostId = record?.facebook_post_id || oldRecord?.facebook_post_id;
+        if (fbPostId) {
           const fbSoldText = isTransport 
             ? `✅ [اكتمل العدد / الخط مغلق]\n\n🚌 ${record.title || 'إعلان خط'}\n💰 تمت العملية بنجاح عبر منصة سوق بغداد\n\nلم يعد هذا الخط متاحاً للتسجيل. تصفح الخطوط المتاحة عبر:\nhttps://www.souqbaghdad.store/transport`
             : `⚠️ [تم البيع / غير متوفر]\n\n${record.title || 'إعلان'}\n💰 تم البيع بنجاح عبر منصة سوق بغداد\n\nتصفح المزيد من العروض عبر:\nhttps://www.souqbaghdad.store`;
-          if (fbPostId) {
-            console.log(`[STATUS UPDATE FB] Updating main FB post: ${fbPostId}`);
-            await updateFacebookPost(fbPostId, fbSoldText);
-          }
-          if (rafdainFbPostId) {
-            console.log(`[STATUS UPDATE FB] Updating Al-Rafdain FB post: ${rafdainFbPostId}`);
-            const rafdainToken = ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
-            await updateFacebookPost(rafdainFbPostId, fbSoldText, rafdainToken);
-          }
+          await updateFacebookPost(fbPostId, fbSoldText);
         }
       }
       
@@ -1419,22 +1368,6 @@ serve(async (req) => {
       let forceFacebookPage = payload.targets ? (payload.targets.forceFacebookPage || payload.targets.facebookPage) : null;
       let forceInstagramPage = payload.targets ? (payload.targets.forceInstagramPage || payload.targets.instagramPage) : null;
 
-      // Check existing sync_status from database to strictly prevent duplicate posts
-      if (!isManualExplicitPublish && record?.id) {
-        try {
-          const { data: dbItem } = await supabase.from(payload.table).select('telegram_message_id, facebook_post_id, instagram_post_id, sync_status').eq('id', record.id).maybeSingle();
-          if (dbItem) {
-            if (dbItem.telegram_message_id || dbItem.sync_status?.telegram === 'success') publishTelegram = false;
-            if (dbItem.facebook_post_id || dbItem.sync_status?.facebook === 'success') publishFacebook = false;
-            if (dbItem.instagram_post_id || dbItem.sync_status?.instagram === 'success') publishInstagram = false;
-            if (dbItem.sync_status?.tiktok === 'success') publishTiktok = false;
-            if (dbItem.sync_status?.threads === 'success') publishThreads = false;
-          }
-        } catch (e) {
-          console.error('Error fetching dbItem for duplicate prevention:', e);
-        }
-      }
-
       // Respect skip flags ONLY for automated background webhooks, NEVER for explicit manual modal publish
       if (!isManualExplicitPublish && record?.sync_status) {
         if (record.sync_status.telegram === 'skip' || record.sync_status.telegram === 'success') publishTelegram = false;
@@ -1450,7 +1383,7 @@ serve(async (req) => {
 
       if (shouldPublish) {
         // --- 1. CAR ADS (VEHICLES) ---
-        if (payload.table === 'ads' && (payload.targets?.telegramChannels?.souqCars || record.category === 'vehicles' || record.category === 'cars' || record.category === 'car' || record.category === 'سيارات' || (record.category || '').toLowerCase().includes('car'))) {
+        if (payload.table === 'ads' && (record.category === 'vehicles' || record.category === 'cars' || record.category === 'car' || (record.category || '').toLowerCase().includes('car'))) {
           const adId = record.short_id || record.id;
           const link = `https://www.souqbaghdad.store/ad/${adId}`;
           
@@ -1748,24 +1681,16 @@ serve(async (req) => {
           }
         }
         // --- 4. TRANSPORT ADS (خطوط النقل) ---
-        else if (payload.targets?.telegramChannels?.souqLines || payload.targets?.telegramChannels?.rafdainLines || (payload.table === 'ads' && record.category === 'transport') || payload.table === 'transport_ads') {
-          // Prevent duplicate execution if FULLY synced (only for automated background triggers, not manual modal publish)
+        else if ((payload.table === 'ads' && record.category === 'transport') || payload.table === 'transport_ads') {
+          // Prevent duplicate execution if already synced (only for automated background triggers, not manual modal publish)
           if (!isManualExplicitPublish && record.id && payload.table === 'ads') {
-            const { data: existingAd } = await supabase.from('ads').select('telegram_message_id, facebook_post_id, sync_status').eq('id', record.id).maybeSingle();
-            const alreadyTelegram = existingAd?.telegram_message_id || existingAd?.sync_status?.telegram === 'success';
-            const alreadyFacebook = existingAd?.facebook_post_id || existingAd?.sync_status?.facebook === 'success' || existingAd?.sync_status?.facebook === 'skip';
-            // Only skip if BOTH telegram AND facebook are done
-            if (alreadyTelegram && alreadyFacebook) {
-              console.log(`Transport ad ${record.id} already fully published, skipping duplicate.`);
+            const { data: existingAd } = await supabase.from('ads').select('telegram_message_id, sync_status').eq('id', record.id).maybeSingle();
+            if (existingAd?.telegram_message_id || existingAd?.sync_status?.telegram === 'success') {
+              console.log(`Transport ad ${record.id} already published to Telegram, skipping duplicate.`);
               return new Response(JSON.stringify({ ok: true, message: 'Already published' }), { 
                 status: 200, 
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
               });
-            }
-            // If telegram already done, skip telegram but still do facebook
-            if (alreadyTelegram) {
-              publishTelegram = false;
-              console.log(`Transport ad ${record.id}: Telegram already done, will only post to remaining platforms.`);
             }
           }
 
@@ -1833,12 +1758,6 @@ serve(async (req) => {
           }
 
           let rawPhone = record.phone || (desc && (desc.phone || desc.contact_phone || desc.whatsapp)) || '';
-          if (!rawPhone && record.user_id) {
-            const { data: userProfile } = await supabase.from('profiles').select('phone').eq('id', record.user_id).maybeSingle();
-            if (userProfile && userProfile.phone) {
-              rawPhone = userProfile.phone;
-            }
-          }
           let cleanDisplayPhone = String(rawPhone).replace(/[^\d+]/g, '').trim();
           if (cleanDisplayPhone.startsWith('964')) {
             cleanDisplayPhone = '0' + cleanDisplayPhone.substring(3);
@@ -1941,7 +1860,7 @@ serve(async (req) => {
               }
 
               // 2. ALSO post to Al-Rafdain University Facebook Page
-              if (isAlRafdain || useAlRafdainFb) {
+              if (isAlRafdain || useAlRafdainFb || ALRAFDAIN_FB_PAGE_ID) {
                 const rafdainToken = ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
                 const rafdainPageId = ALRAFDAIN_FB_PAGE_ID || '102975411515668';
                 if (rafdainToken && rafdainPageId && rafdainPageId !== META_PAGE_ID) {
@@ -1963,7 +1882,7 @@ serve(async (req) => {
           if (publishInstagram) {
             try {
               // 1. Post to Al-Rafdain IG Story / Feed if applicable
-              if (isAlRafdain || useAlRafdainIg) {
+              if (isAlRafdain || useAlRafdainIg || ALRAFDAIN_IG_ID) {
                 const igToken = ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
                 const igTargetId = ALRAFDAIN_IG_ID || '17841404181680155';
                 if (igToken && igTargetId) {
@@ -2860,19 +2779,11 @@ serve(async (req) => {
         // Background task for publishing to channels and social media
         const publishBackground = async () => {
           try {
+            const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}`;
+            const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}`;
+
             const cleanPhone = (stateData.phone || phone || '').replace(/[^0-9+]/g, '');
             let formattedPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
-            let displayPhoneForImage = formattedPhone;
-            if (displayPhoneForImage.startsWith('964')) {
-              displayPhoneForImage = '0' + displayPhoneForImage.substring(3);
-            }
-            if (!displayPhoneForImage) displayPhoneForImage = '0780 000 0000';
-
-            const daysStr = stateData.days || 'طيلة أيام الدوام';
-            const shiftVal = stateData.shift || 'من 08:00 ص إلى 02:00 م';
-
-            const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(displayPhoneForImage)}&audience=${encodeURIComponent(targetStr)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}`;
-            const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(displayPhoneForImage)}&audience=${encodeURIComponent(targetStr)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}`;
 
             const contactRow = [];
             if (formattedPhone) {
@@ -2938,25 +2849,21 @@ serve(async (req) => {
 
               // Facebook
               try {
-                console.log('[BOT SOCIAL] Posting to Main Facebook Page...');
-                const fbData = await postToFacebook(fbIgCaption, dynamicPostUrl);
-                console.log('[BOT SOCIAL] Main FB response:', JSON.stringify(fbData));
+                let fbData;
+                if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
+                  console.log('[BOT SOCIAL] Posting to Al-Rafdain Facebook Page...');
+                  fbData = await postToFacebook(fbIgCaption, dynamicPostUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID);
+                } else {
+                  console.log('[BOT SOCIAL] Posting to Main Facebook Page...');
+                  fbData = await postToFacebook(fbIgCaption, dynamicPostUrl);
+                }
+                console.log('[BOT SOCIAL] FB response:', JSON.stringify(fbData));
                 if (fbData && (fbData.post_id || fbData.id)) {
                   socialUpdates.facebook_post_id = fbData.post_id || fbData.id;
                   currentSync.facebook = 'success';
                 } else {
                   currentSync.facebook = 'failed';
                   currentSync.facebook_error = fbData?.error?.message || JSON.stringify(fbData);
-                }
-
-                if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
-                  console.log('[BOT SOCIAL] ALSO Posting to Al-Rafdain Facebook Page...');
-                  const rafdainFbData = await postToFacebook(fbIgCaption, dynamicPostUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID);
-                  console.log('[BOT SOCIAL] Al-Rafdain FB response:', JSON.stringify(rafdainFbData));
-                  if (rafdainFbData && (rafdainFbData.post_id || rafdainFbData.id)) {
-                    currentSync.rafdain_facebook_post_id = rafdainFbData.post_id || rafdainFbData.id;
-                    currentSync.rafdain_facebook = 'success';
-                  }
                 }
               } catch(fbErr: any) {
                 console.error('[BOT SOCIAL] FB Error:', fbErr);
@@ -3283,20 +3190,6 @@ serve(async (req) => {
             }
           }
 
-          // 3. Update Facebook post text directly
-          const fbPostId = updatedTrans.facebook_post_id;
-          const rafdainFbPostId = updatedTrans.sync_status?.rafdain_facebook_post_id;
-          if (fbPostId || rafdainFbPostId) {
-            const fbSoldText = `✅ [اكتمل العدد / الخط مغلق]\n\n🚌 ${updatedTrans.title || 'إعلان خط'}\n💰 تمت العملية بنجاح عبر منصة سوق بغداد\n\nلم يعد هذا الخط متاحاً للتسجيل. تصفح الخطوط المتاحة عبر:\nhttps://www.souqbaghdad.store/transport`;
-            if (fbPostId) {
-              await updateFacebookPost(fbPostId, fbSoldText);
-            }
-            if (rafdainFbPostId) {
-              const rafdainToken = ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
-              await updateFacebookPost(rafdainFbPostId, fbSoldText, rafdainToken);
-            }
-          }
-
           await updateOrSend('✅ <b>تم إغلاق الخط بنجاح!</b>\nتم تحديث المنشور في القنوات وتغيير الأزرار ليظهر للمشتركين أن العدد اكتمل.', {
             inline_keyboard: [[{ text: '🔙 العودة لخطوطي', callback_data: 'manage_cat_trans' }]]
           });
@@ -3360,17 +3253,6 @@ serve(async (req) => {
               console.error('Telegram caption update error:', e);
             }
           }
-
-          // 3. Update Facebook post text directly
-          const fbPostId = updatedAd.facebook_post_id;
-          if (fbPostId) {
-            const isCar = updatedAd.category === 'vehicles' || updatedAd.category === 'cars';
-            const fbSoldText = isCar 
-              ? `⚠️ [تم البيع / مباعة]\n\n🚗 ${updatedAd.title || 'إعلان'}\n💰 تم البيع بنجاح عبر منصة سوق بغداد\n\nتصفح أحدث المعروضات عبر:\nhttps://www.souqbaghdad.store/vehicles`
-              : `⚠️ [تم البيع / غير متوفر]\n\n${updatedAd.title || 'إعلان'}\n💰 تم البيع بنجاح عبر منصة سوق بغداد\n\nتصفح المزيد من العروض عبر:\nhttps://www.souqbaghdad.store`;
-            await updateFacebookPost(fbPostId, fbSoldText);
-          }
-
           await updateOrSend('✅ <b>تم تعليم الإعلان كمباع بنجاح!</b>\n\nتم تحديث المنشور في القناة تلقائياً وتغيير الأزرار إلى «تم بيع الإعلان — تصفح المزيد» لمنع إزعاجك بالمكالمات.', {
             inline_keyboard: [[{ text: '🔙 العودة لإعلاناتي', callback_data: 'manage_cat_cars' }]]
           });
