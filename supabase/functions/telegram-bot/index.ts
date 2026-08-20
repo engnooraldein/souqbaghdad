@@ -1758,6 +1758,12 @@ serve(async (req) => {
           }
 
           let rawPhone = record.phone || (desc && (desc.phone || desc.contact_phone || desc.whatsapp)) || '';
+          if (!rawPhone && record.user_id) {
+            const { data: userProfile } = await supabase.from('profiles').select('phone').eq('id', record.user_id).maybeSingle();
+            if (userProfile && userProfile.phone) {
+              rawPhone = userProfile.phone;
+            }
+          }
           let cleanDisplayPhone = String(rawPhone).replace(/[^\d+]/g, '').trim();
           if (cleanDisplayPhone.startsWith('964')) {
             cleanDisplayPhone = '0' + cleanDisplayPhone.substring(3);
@@ -2779,11 +2785,19 @@ serve(async (req) => {
         // Background task for publishing to channels and social media
         const publishBackground = async () => {
           try {
-            const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}`;
-            const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}`;
-
             const cleanPhone = (stateData.phone || phone || '').replace(/[^0-9+]/g, '');
             let formattedPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
+            let displayPhoneForImage = formattedPhone;
+            if (displayPhoneForImage.startsWith('964')) {
+              displayPhoneForImage = '0' + displayPhoneForImage.substring(3);
+            }
+            if (!displayPhoneForImage) displayPhoneForImage = '0780 000 0000';
+
+            const daysStr = stateData.days || 'طيلة أيام الدوام';
+            const shiftVal = stateData.shift || 'من 08:00 ص إلى 02:00 م';
+
+            const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(displayPhoneForImage)}&audience=${encodeURIComponent(targetStr)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}`;
+            const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(displayPhoneForImage)}&audience=${encodeURIComponent(targetStr)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}`;
 
             const contactRow = [];
             if (formattedPhone) {
