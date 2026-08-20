@@ -1276,7 +1276,10 @@ serve(async (req) => {
       } else if (payload.type === 'DELETE') {
         shouldDelete = true;
       } else if (payload.type === 'UPDATE') {
-        if ((!oldRecord || oldRecord.status === 'active' || oldRecord.status === 'published') && (record.status === 'matched' || record.status === 'sold' || record.status === 'inactive')) {
+        // Trigger update whenever status changes TO matched/sold/inactive (from ANY previous status)
+        const newStatusIsSold = record.status === 'matched' || record.status === 'sold' || record.status === 'inactive';
+        const oldStatusWasNotSold = !oldRecord || (oldRecord.status !== 'matched' && oldRecord.status !== 'sold' && oldRecord.status !== 'inactive');
+        if (newStatusIsSold && oldStatusWasNotSold) {
           shouldUpdateStatus = true;
         }
         if (oldRecord && (oldRecord.status === 'matched' || oldRecord.status === 'sold' || oldRecord.status === 'inactive') && (record.status === 'active' || record.status === 'published')) {
@@ -1746,15 +1749,23 @@ serve(async (req) => {
         }
         // --- 4. TRANSPORT ADS (خطوط النقل) ---
         else if (payload.targets?.telegramChannels?.souqLines || payload.targets?.telegramChannels?.rafdainLines || (payload.table === 'ads' && record.category === 'transport') || payload.table === 'transport_ads') {
-          // Prevent duplicate execution if already synced (only for automated background triggers, not manual modal publish)
+          // Prevent duplicate execution if FULLY synced (only for automated background triggers, not manual modal publish)
           if (!isManualExplicitPublish && record.id && payload.table === 'ads') {
-            const { data: existingAd } = await supabase.from('ads').select('telegram_message_id, sync_status').eq('id', record.id).maybeSingle();
-            if (existingAd?.telegram_message_id || existingAd?.sync_status?.telegram === 'success') {
-              console.log(`Transport ad ${record.id} already published to Telegram, skipping duplicate.`);
+            const { data: existingAd } = await supabase.from('ads').select('telegram_message_id, facebook_post_id, sync_status').eq('id', record.id).maybeSingle();
+            const alreadyTelegram = existingAd?.telegram_message_id || existingAd?.sync_status?.telegram === 'success';
+            const alreadyFacebook = existingAd?.facebook_post_id || existingAd?.sync_status?.facebook === 'success' || existingAd?.sync_status?.facebook === 'skip';
+            // Only skip if BOTH telegram AND facebook are done
+            if (alreadyTelegram && alreadyFacebook) {
+              console.log(`Transport ad ${record.id} already fully published, skipping duplicate.`);
               return new Response(JSON.stringify({ ok: true, message: 'Already published' }), { 
                 status: 200, 
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
               });
+            }
+            // If telegram already done, skip telegram but still do facebook
+            if (alreadyTelegram) {
+              publishTelegram = false;
+              console.log(`Transport ad ${record.id}: Telegram already done, will only post to remaining platforms.`);
             }
           }
 
