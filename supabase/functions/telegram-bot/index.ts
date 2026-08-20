@@ -421,6 +421,43 @@ async function deleteFromThreads(threadsMediaId: string) {
   }
 }
 
+async function postToFacebookStory(photoUrl: string, pageId: string, accessToken: string) {
+  if (!accessToken || !pageId || !photoUrl) return { error: { message: 'رمز الوصول لفيسبوك أو الصورة مفقودة' } };
+  try {
+    console.log(`[FB STORY] Publishing Story 9:16 to Facebook Page ${pageId}...`);
+    // Step 1: Upload photo as unpublished/temporary to get photo ID
+    const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: photoUrl,
+        published: false,
+        temporary: true,
+        access_token: accessToken
+      })
+    });
+    const uploadData = await uploadRes.json();
+    if (uploadData && uploadData.id) {
+      // Step 2: Publish photo story
+      const storyRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photo_stories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photo_id: uploadData.id,
+          access_token: accessToken
+        })
+      });
+      const storyData = await storyRes.json();
+      console.log(`[FB STORY] Result for page ${pageId}:`, JSON.stringify(storyData));
+      return storyData;
+    }
+    return uploadData;
+  } catch (err: any) {
+    console.error('FB Story Error:', err);
+    return { error: { message: err.message || 'خطأ في نشر ستوري فيسبوك' } };
+  }
+}
+
 async function postToInstagramStory(photoUrl: string, igAccountId: string, accessToken: string) {
   if (!accessToken || !igAccountId || !photoUrl) return { error: { message: 'رمز الوصول لانستكرام أو الصورة مفقودة' } };
   try {
@@ -2044,7 +2081,7 @@ serve(async (req) => {
                 syncStatus.facebook_error = mainFbData?.error?.message || JSON.stringify(mainFbData);
               }
 
-              // 2. ALSO post to Al-Rafdain University Facebook Page
+              // 2. ALSO post to Al-Rafdain University Facebook Page (Feed)
               if (isAlRafdain || useAlRafdainFb || ALRAFDAIN_FB_PAGE_ID) {
                 const rafdainToken = ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
                 const rafdainPageId = ALRAFDAIN_FB_PAGE_ID || '102975411515668';
@@ -2056,7 +2093,17 @@ serve(async (req) => {
                     syncStatus.rafdain_facebook_post_id = rafdainFbData.post_id || rafdainFbData.id;
                     syncStatus.rafdain_facebook = 'success';
                   }
+                  
+                  // 2b. Post Story (9:16) to Al-Rafdain Facebook Story
+                  console.log('[WEBHOOK SOCIAL] Posting Story (9:16) to Al-Rafdain Facebook Story...');
+                  await postToFacebookStory(dynamicStoryUrl, rafdainPageId, rafdainToken);
                 }
+              }
+
+              // 3. Post Story (9:16) to Souq Baghdad Main Facebook Story
+              if (META_PAGE_ID && META_PAGE_ACCESS_TOKEN) {
+                console.log('[WEBHOOK SOCIAL] Posting Story (9:16) to Souq Baghdad Facebook Story...');
+                await postToFacebookStory(dynamicStoryUrl, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
               }
             } catch(fbErr: any) {
               console.error('[WEBHOOK SOCIAL] FB Error:', fbErr);
