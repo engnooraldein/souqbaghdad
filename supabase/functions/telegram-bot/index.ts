@@ -247,7 +247,9 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
   if (!token || !pageId) return { error: { message: 'رمز الوصول لفيسبوك مفقود أو غير صالح' } };
   try {
     const urls = Array.isArray(photoUrl) ? photoUrl : (photoUrl ? [photoUrl] : []);
-    const cleanUrls = urls.filter(u => typeof u === 'string' && u.startsWith('http'));
+    const cleanUrls = urls
+      .filter(u => typeof u === 'string' && u.startsWith('http'))
+      .map(u => (u.includes('generate-story-image') && !u.includes('wsrv.nl')) ? `https://wsrv.nl/?url=${encodeURIComponent(u)}&output=jpg` : u);
 
     // 1. Multiple photos -> Upload each photo unpublished, then publish album feed post with attached_media
     if (cleanUrls.length > 1) {
@@ -337,12 +339,27 @@ async function updateFacebookPost(postId: string, newText: string, customToken?:
   const token = customToken || META_PAGE_ACCESS_TOKEN;
   if (!token || !postId) return false;
   try {
+    // Try updating as post/feed message
     let res = await fetch(`https://graph.facebook.com/v20.0/${postId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: newText, access_token: token })
     });
     let data = await res.json();
+    console.log(`[FB UPDATE POST] Attempt 1 (message) for ${postId}:`, data);
+
+    // If failed, try updating as photo caption (for posts created via /photos endpoint)
+    if (!data.success && !data.id) {
+      res = await fetch(`https://graph.facebook.com/v20.0/${postId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caption: newText, access_token: token })
+      });
+      data = await res.json();
+      console.log(`[FB UPDATE POST] Attempt 2 (caption) for ${postId}:`, data);
+    }
+
+    // Fallback to Al-Rafdain token if configured and failed
     if (!data.success && !data.id && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_TOKEN !== token) {
       res = await fetch(`https://graph.facebook.com/v20.0/${postId}`, {
         method: 'POST',
@@ -350,6 +367,14 @@ async function updateFacebookPost(postId: string, newText: string, customToken?:
         body: JSON.stringify({ message: newText, access_token: ALRAFDAIN_FB_TOKEN })
       });
       data = await res.json();
+      if (!data.success && !data.id) {
+        res = await fetch(`https://graph.facebook.com/v20.0/${postId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ caption: newText, access_token: ALRAFDAIN_FB_TOKEN })
+        });
+        data = await res.json();
+      }
     }
     return data;
   } catch (err) {
