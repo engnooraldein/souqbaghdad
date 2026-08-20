@@ -289,14 +289,42 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
     const singleUrl = cleanUrls.length > 0 ? cleanUrls[0] : null;
     if (singleUrl) {
       console.log(`[FB PHOTO] Posting single photo to Facebook Page ${pageId}...`);
-      const photoRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caption: text, url: singleUrl, access_token: token })
-      });
-      const photoData = await photoRes.json();
-      console.log('[FB PHOTO] Response:', photoData);
-      if (photoData.id || photoData.post_id) return photoData;
+      try {
+        const photoRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ caption: text, url: singleUrl, access_token: token })
+        });
+        const photoData = await photoRes.json();
+        console.log('[FB PHOTO] Response:', photoData);
+        if (photoData.id || photoData.post_id) return photoData;
+      } catch (err) {
+        console.warn('FB Single photo url upload exception:', err);
+      }
+
+      // 2b. If URL upload failed (e.g. crawler rejected internal URL), fetch image directly and upload as FormData multipart
+      try {
+        console.log(`[FB PHOTO MULTIPART] Fetching image binary from ${singleUrl.substring(0, 80)}...`);
+        const imgFetch = await fetch(singleUrl);
+        if (imgFetch.ok) {
+          const imgBlob = await imgFetch.blob();
+          const form = new FormData();
+          form.append('caption', text);
+          form.append('source', imgBlob, 'post.png');
+          form.append('access_token', token);
+
+          const multipartRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
+            method: 'POST',
+            body: form
+          });
+          const multipartData = await multipartRes.json();
+          console.log('[FB PHOTO MULTIPART] Response:', multipartData);
+          if (multipartData.id || multipartData.post_id) return multipartData;
+        }
+      } catch (e) {
+        console.error('FB Photo binary upload failed:', e);
+      }
+
       console.warn('FB Single photo post failed, trying feed text fallback...');
     }
 
@@ -3205,7 +3233,13 @@ serve(async (req) => {
             }
           }
 
-          await updateOrSend('✅ <b>تم إغلاق الخط بنجاح!</b>\nتم تحديث المنشور في القنوات وتغيير الأزرار ليظهر للمشتركين أن العدد اكتمل.', {
+          // 3. Update Facebook Post if exists
+          if (updatedTrans.facebook_post_id) {
+            const fbClosedText = `✅ [اكتمل العدد / الخط مغلق]\n\n🚌 ${updatedTrans.title || 'إعلان خط'}\n💰 تمت العملية بنجاح عبر منصة سوق بغداد\n\nلم يعد هذا الخط متاحاً للتسجيل. تصفح الخطوط المتاحة عبر:\nhttps://www.souqbaghdad.store/transport`;
+            await updateFacebookPost(updatedTrans.facebook_post_id, fbClosedText);
+          }
+
+          await updateOrSend('✅ <b>تم إغلاق الخط بنجاح!</b>\nتم تحديث المنشور في القنوات ومواقع التواصل ليظهر أن العدد اكتمل.', {
             inline_keyboard: [[{ text: '🔙 العودة لخطوطي', callback_data: 'manage_cat_trans' }]]
           });
         } else {
@@ -3243,14 +3277,16 @@ serve(async (req) => {
         
         if (updatedAd) {
           const msgId = updatedAd.telegram_message_id;
-          if (msgId && PRODUCT_CHANNEL) {
+          const isCar = updatedAd.category === 'vehicles' || updatedAd.category === 'cars' || updatedAd.category === 'car';
+          const targetChannel = isCar ? (CAR_CHANNEL_ID || CAR_CHANNEL) : PRODUCT_CHANNEL;
+
+          if (msgId && targetChannel) {
             try {
-              const isCar = updatedAd.category === 'vehicles' || updatedAd.category === 'cars';
               const browseUrl = isCar ? 'https://www.souqbaghdad.store/vehicles' : 'https://www.souqbaghdad.store';
               const soldButtons = {
                 inline_keyboard: [
                   [{ text: '⚠️ تم بيع هذا الإعلان — تصفح المزيد 🚗', url: browseUrl }],
-                  [{ text: '🚗 اعرض سيارتك للبيع مجاناً', url: `https://t.me/${BOT_USERNAME}` }]
+                  [{ text: '🚗 اعرض إعلانك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}` }]
                 ]
               };
               const soldTag = isCar ? '⚠️ <b>[تم البيع / مباعة]</b>' : '⚠️ <b>[تم البيع / غير متوفر]</b>';
@@ -3260,15 +3296,22 @@ serve(async (req) => {
                                   `📍 ${updatedAd.location || 'العراق'}\n\n` +
                                   `📣 لم يعد هذا الإعلان متاحاً للتواصل. يمكنك تصفح أحدث المعروضات بالضغط أدناه 👇`;
 
-              await editMessageCaption(PRODUCT_CHANNEL, parseInt(msgId, 10), soldCaption, soldButtons);
-              if (EXTRA_CHANNEL) {
-                await editMessageCaption(EXTRA_CHANNEL, parseInt(msgId, 10), soldCaption, soldButtons);
+              await editChannelMessage(targetChannel, parseInt(msgId, 10), soldCaption, soldButtons);
+              if (EXTRA_CHANNEL && EXTRA_CHANNEL !== targetChannel) {
+                await editChannelMessage(EXTRA_CHANNEL, parseInt(msgId, 10), soldCaption, soldButtons);
               }
             } catch(e) {
               console.error('Telegram caption update error:', e);
             }
           }
-          await updateOrSend('✅ <b>تم تعليم الإعلان كمباع بنجاح!</b>\n\nتم تحديث المنشور في القناة تلقائياً وتغيير الأزرار إلى «تم بيع الإعلان — تصفح المزيد» لمنع إزعاجك بالمكالمات.', {
+
+          // Update Facebook Post
+          if (updatedAd.facebook_post_id) {
+            const fbSoldText = `⚠️ [تم البيع / غير متوفر]\n\n${updatedAd.title || 'إعلان'}\n💰 تم البيع بنجاح عبر منصة سوق بغداد\n\nتصفح المزيد من العروض عبر:\nhttps://www.souqbaghdad.store`;
+            await updateFacebookPost(updatedAd.facebook_post_id, fbSoldText);
+          }
+
+          await updateOrSend('✅ <b>تم تعليم الإعلان كمباع بنجاح!</b>\n\nتم تحديث المنشور في القناة وفيسبوك تلقائياً وتغيير الأزرار إلى «تم بيع الإعلان — تصفح المزيد».', {
             inline_keyboard: [[{ text: '🔙 العودة لإعلاناتي', callback_data: 'manage_cat_cars' }]]
           });
         } else {
