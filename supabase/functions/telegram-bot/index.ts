@@ -3215,6 +3215,20 @@ serve(async (req) => {
             }
           }
 
+          // 3. Update Facebook post text directly
+          const fbPostId = updatedTrans.facebook_post_id;
+          const rafdainFbPostId = updatedTrans.sync_status?.rafdain_facebook_post_id;
+          if (fbPostId || rafdainFbPostId) {
+            const fbSoldText = `✅ [اكتمل العدد / الخط مغلق]\n\n🚌 ${updatedTrans.title || 'إعلان خط'}\n💰 تمت العملية بنجاح عبر منصة سوق بغداد\n\nلم يعد هذا الخط متاحاً للتسجيل. تصفح الخطوط المتاحة عبر:\nhttps://www.souqbaghdad.store/transport`;
+            if (fbPostId) {
+              await updateFacebookPost(fbPostId, fbSoldText);
+            }
+            if (rafdainFbPostId) {
+              const rafdainToken = ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
+              await updateFacebookPost(rafdainFbPostId, fbSoldText, rafdainToken);
+            }
+          }
+
           await updateOrSend('✅ <b>تم إغلاق الخط بنجاح!</b>\nتم تحديث المنشور في القنوات وتغيير الأزرار ليظهر للمشتركين أن العدد اكتمل.', {
             inline_keyboard: [[{ text: '🔙 العودة لخطوطي', callback_data: 'manage_cat_trans' }]]
           });
@@ -3278,6 +3292,17 @@ serve(async (req) => {
               console.error('Telegram caption update error:', e);
             }
           }
+
+          // 3. Update Facebook post text directly
+          const fbPostId = updatedAd.facebook_post_id;
+          if (fbPostId) {
+            const isCar = updatedAd.category === 'vehicles' || updatedAd.category === 'cars';
+            const fbSoldText = isCar 
+              ? `⚠️ [تم البيع / مباعة]\n\n🚗 ${updatedAd.title || 'إعلان'}\n💰 تم البيع بنجاح عبر منصة سوق بغداد\n\nتصفح أحدث المعروضات عبر:\nhttps://www.souqbaghdad.store/vehicles`
+              : `⚠️ [تم البيع / غير متوفر]\n\n${updatedAd.title || 'إعلان'}\n💰 تم البيع بنجاح عبر منصة سوق بغداد\n\nتصفح المزيد من العروض عبر:\nhttps://www.souqbaghdad.store`;
+            await updateFacebookPost(fbPostId, fbSoldText);
+          }
+
           await updateOrSend('✅ <b>تم تعليم الإعلان كمباع بنجاح!</b>\n\nتم تحديث المنشور في القناة تلقائياً وتغيير الأزرار إلى «تم بيع الإعلان — تصفح المزيد» لمنع إزعاجك بالمكالمات.', {
             inline_keyboard: [[{ text: '🔙 العودة لإعلاناتي', callback_data: 'manage_cat_cars' }]]
           });
