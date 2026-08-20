@@ -138,13 +138,13 @@ const LINES_CHANNEL = '@souqbaghdad_lines';       // Transport lines username
 const LINES_CHANNEL_ID = Deno.env.get('LINES_CHANNEL_ID') || '@souqbaghdad_lines';        // Transport lines username/ID
 
 // Facebook, Instagram & Threads Publishing
-const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || '';
+const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || 'EAAPXexo3QZCcBSS81SrUC8TbvBMUiMFUO2ZA1ZCqOIddaNXTywui05INE9gaY4tpFbVDKZCcz6kr9h9znXcHCPanKtLgRusGyjhUdtTR7aClqiUh9KaNWLBvXSZBiyHYUbCbZA2rEPLZBswlQanav0NZACnZAmz1M3K2uaaZAa6TZBEtXG0t5pLHu2JxpWXGoZC4vGMK8b2BJt0iOZBA6pVXtufmB3ZAaKnlzpoTuyHZBQzSVR1viqm2eIcw9lH2htZAOmoZD';
 const META_PAGE_ID = Deno.env.get('META_PAGE_ID') || '';
 const META_IG_ACCOUNT_ID = Deno.env.get('META_IG_ACCOUNT_ID') || '';
 const THREADS_USER_ID = Deno.env.get('THREADS_USER_ID') || '28119436894335542';
 const THREADS_ACCESS_TOKEN = Deno.env.get('THREADS_ACCESS_TOKEN') || '';
 
-const ALRAFDAIN_FB_TOKEN = Deno.env.get('ALRAFDAIN_FB_TOKEN') || '';
+const ALRAFDAIN_FB_TOKEN = Deno.env.get('ALRAFDAIN_FB_TOKEN') || 'EAAPXexo3QZCcBSUfbx2fDjECmq2KZCH6rKBmdOny9MyfQW3uQO61kV8piSUd4ZAA2bypIHWfPxjPGFqmhbDCFGRWtZCFZBJu9rMt6aH5Gvxy3OzAZBDUMZAxPaZCTVzPnU6O8OcshTQx25g4iJZCmiBFNnTZCro2QHjSMZBccXKgrsQBtUf1qE5pIhzUGiZAv0lWUyipr3eIXWKZCOqJPjL72S59mLVlK1drRIflymRiTEHN3LnmVoT2Ibtl3AazR2AZDZD';
 const ALRAFDAIN_FB_PAGE_ID = Deno.env.get('ALRAFDAIN_FB_PAGE_ID') || '102975411515668';
 const ALRAFDAIN_IG_ID = Deno.env.get('ALRAFDAIN_IG_ID') || '17841404181680155';
 const ALRAFDAIN_TELEGRAM_CHANNEL = '@ruc_1';
@@ -2096,12 +2096,12 @@ serve(async (req) => {
                 syncStatus.facebook_error = mainFbData?.error?.message || JSON.stringify(mainFbData);
               }
 
-              // 2. ALSO post to Al-Rafdain University Facebook Page (Feed)
-              if (isAlRafdain || useAlRafdainFb || ALRAFDAIN_FB_PAGE_ID) {
+              // 2. ALSO post to Al-Rafdain University Facebook Page (Feed & Story) ONLY if transport is for Al-Rafdain
+              if (isAlRafdain || useAlRafdainFb) {
                 const rafdainToken = ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
                 const rafdainPageId = ALRAFDAIN_FB_PAGE_ID || '102975411515668';
                 if (rafdainToken && rafdainPageId && rafdainPageId !== META_PAGE_ID) {
-                  console.log(`[WEBHOOK SOCIAL] Also posting transport to Al-Rafdain Facebook Page (${rafdainPageId})...`);
+                  console.log(`[WEBHOOK SOCIAL] Posting Al-Rafdain transport to Al-Rafdain Facebook Page (${rafdainPageId})...`);
                   const rafdainFbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl, rafdainToken, rafdainPageId);
                   console.log('[WEBHOOK SOCIAL] Al-Rafdain FB response:', JSON.stringify(rafdainFbData));
                   if (rafdainFbData && (rafdainFbData.post_id || rafdainFbData.id)) {
@@ -2128,8 +2128,8 @@ serve(async (req) => {
           
           if (publishInstagram) {
             try {
-              // 1. Post to Al-Rafdain IG Story / Feed if applicable
-              if (isAlRafdain || useAlRafdainIg || ALRAFDAIN_IG_ID) {
+              // 1. Post to Al-Rafdain IG Story ONLY if transport is for Al-Rafdain
+              if (isAlRafdain || useAlRafdainIg) {
                 const igToken = ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
                 const igTargetId = ALRAFDAIN_IG_ID || '17841404181680155';
                 if (igToken && igTargetId) {
@@ -3112,21 +3112,32 @@ serve(async (req) => {
 
               // Facebook
               try {
-                let fbData;
-                if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
-                  console.log('[BOT SOCIAL] Posting to Al-Rafdain Facebook Page...');
-                  fbData = await postToFacebook(fbIgCaption, dynamicPostUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID);
-                } else {
-                  console.log('[BOT SOCIAL] Posting to Main Facebook Page...');
-                  fbData = await postToFacebook(fbIgCaption, dynamicPostUrl);
-                }
-                console.log('[BOT SOCIAL] FB response:', JSON.stringify(fbData));
+                // 1. Post to Souq Baghdad Main Facebook Page
+                console.log('[BOT SOCIAL] Posting transport to Souq Baghdad Facebook Page...');
+                const fbData = await postToFacebook(fbIgCaption, dynamicPostUrl);
+                console.log('[BOT SOCIAL] Main FB response:', JSON.stringify(fbData));
                 if (fbData && (fbData.post_id || fbData.id)) {
                   socialUpdates.facebook_post_id = fbData.post_id || fbData.id;
                   currentSync.facebook = 'success';
-                } else {
-                  currentSync.facebook = 'failed';
-                  currentSync.facebook_error = fbData?.error?.message || JSON.stringify(fbData);
+                }
+                
+                // 1b. Post Story (9:16) to Souq Baghdad Facebook Story
+                if (META_PAGE_ID && META_PAGE_ACCESS_TOKEN) {
+                  await postToFacebookStory(dynamicStoryUrl, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
+                }
+
+                // 2. ALSO Post to Al-Rafdain Facebook Page ONLY if transport is for Al-Rafdain
+                if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
+                  console.log('[BOT SOCIAL] Posting transport to Al-Rafdain Facebook Page...');
+                  const rafdainFbData = await postToFacebook(fbIgCaption, dynamicPostUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID);
+                  console.log('[BOT SOCIAL] Al-Rafdain FB response:', JSON.stringify(rafdainFbData));
+                  if (rafdainFbData && (rafdainFbData.post_id || rafdainFbData.id)) {
+                    currentSync.rafdain_facebook_post_id = rafdainFbData.post_id || rafdainFbData.id;
+                    currentSync.rafdain_facebook = 'success';
+                  }
+
+                  // 2b. Post Story (9:16) to Al-Rafdain Facebook Story
+                  await postToFacebookStory(dynamicStoryUrl, ALRAFDAIN_FB_PAGE_ID, ALRAFDAIN_FB_TOKEN);
                 }
               } catch(fbErr: any) {
                 console.error('[BOT SOCIAL] FB Error:', fbErr);
