@@ -430,8 +430,10 @@ async function deleteFromThreads(threadsMediaId: string) {
 async function postToInstagramStory(photoUrl: string, igAccountId: string, accessToken: string) {
   if (!accessToken || !igAccountId || !photoUrl) return { error: { message: 'رمز الوصول لانستكرام أو الصورة مفقودة' } };
   try {
+    const formattedStoryUrl = `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&w=1080&h=1920&fit=cover&output=jpg`;
+    console.log('[IG STORY] Creating story container for IG ID:', igAccountId);
     const uploadBody = {
-      image_url: photoUrl,
+      image_url: formattedStoryUrl,
       media_type: 'STORIES',
       access_token: accessToken
     };
@@ -441,6 +443,7 @@ async function postToInstagramStory(photoUrl: string, igAccountId: string, acces
       body: JSON.stringify(uploadBody)
     });
     const uploadData = await uploadRes.json();
+    console.log('[IG STORY] Container creation response:', uploadData);
     
     if (uploadData && uploadData.id) {
        await new Promise(resolve => setTimeout(resolve, 5000));
@@ -453,7 +456,9 @@ async function postToInstagramStory(photoUrl: string, igAccountId: string, acces
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify(publishBody)
        });
-       return await publishRes.json();
+       const pubData = await publishRes.json();
+       console.log('[IG STORY] Publish response:', pubData);
+       return pubData;
     }
     return uploadData;
   } catch (err: any) {
@@ -465,10 +470,11 @@ async function postToInstagramStory(photoUrl: string, igAccountId: string, acces
 async function postToInstagram(text: string, photoUrl: string | string[] | null) {
   if (!META_PAGE_ACCESS_TOKEN || !META_IG_ACCOUNT_ID || !photoUrl) return { error: { message: 'رمز الوصول لانستكرام أو الصورة مفقودة' } };
   try {
+    const cleanCaption = (text || '').replace(/<[^>]*>?/gm, '').trim();
     const rawUrls = Array.isArray(photoUrl) ? photoUrl : [photoUrl];
-    // Instagram carousel supports a max of 10 items
     const originalUrls = rawUrls.slice(0, 10);
-    const urls = originalUrls.map(url => (url.includes('generate-story-image') || url.includes('supabase.co')) ? url : `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=1080&h=1080&fit=cover`);
+    // Format image with Instagram compliant 4:5 aspect ratio (1080x1350) and JPEG output
+    const urls = originalUrls.map(url => `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=1080&h=1350&fit=cover&output=jpg`);
     
     if (urls.length > 1) {
       const containerIds = [];
@@ -493,7 +499,7 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null)
         await new Promise(resolve => setTimeout(resolve, 5000));
         
         const carouselBody = {
-          caption: text,
+          caption: cleanCaption,
           media_type: 'CAROUSEL',
           children: containerIds.join(','),
           access_token: META_PAGE_ACCESS_TOKEN
@@ -525,11 +531,12 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null)
     }
     
     const singleUrl = urls[0];
+    console.log(`[IG FEED] Uploading single image to Instagram (${META_IG_ACCOUNT_ID}): ${singleUrl}`);
     const uploadUrl = `https://graph.facebook.com/v20.0/${META_IG_ACCOUNT_ID}/media`;
     
     const uploadBody = {
       image_url: singleUrl,
-      caption: text,
+      caption: cleanCaption,
       access_token: META_PAGE_ACCESS_TOKEN
     };
     const uploadRes = await fetch(uploadUrl, {
@@ -538,12 +545,14 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null)
       body: JSON.stringify(uploadBody)
     });
     const uploadData = await uploadRes.json();
+    console.log('[IG FEED] Media container response:', uploadData);
     
     if (!uploadData.id) {
       console.error('IG Upload Error:', uploadData);
       return { error: { message: `Media ID not available. URL: ${singleUrl}. Response: ${JSON.stringify(uploadData)}` } };
     }
     
+    console.log(`[IG FEED] Waiting 5s before publishing container ${uploadData.id}...`);
     await new Promise(resolve => setTimeout(resolve, 5000));
     
     const publishUrl = `https://graph.facebook.com/v20.0/${META_IG_ACCOUNT_ID}/media_publish`;
@@ -557,6 +566,7 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null)
       body: JSON.stringify(publishBody)
     });
     const data = await publishRes.json();
+    console.log('[IG FEED] Publish result:', data);
     return data;
   } catch (err: any) {
     console.error('IG Error:', err);
