@@ -1802,8 +1802,13 @@ serve(async (req) => {
           if (publishTelegram) {
             // 1. Send to main transport channel: @souqbaghdad_lines
             const targetLinesChannel = LINES_CHANNEL_ID || LINES_CHANNEL;
-            if (imagesToPost.length >= 1) {
-              res = await sendPhoto(targetLinesChannel, transportPhoto, msg, replyMarkup);
+            if (imagesToPost.length > 1) {
+              let mediaGroupCaption = msg;
+              mediaGroupCaption += `\n\n🌐 <a href="${link}">التفاصيل الكاملة وحجز المقعد</a>`;
+              if (cleanPhone) {
+                mediaGroupCaption += `\n💬 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> | ✈️ <a href="https://t.me/+${cleanPhone}">تواصل تيليكرام</a>`;
+              }
+              res = await sendMediaGroup(targetLinesChannel, imagesToPost, mediaGroupCaption);
             } else {
               res = await sendPhoto(targetLinesChannel, transportPhoto, msg, replyMarkup);
             }
@@ -1817,8 +1822,13 @@ serve(async (req) => {
               try {
                 console.log(`[RUC WEBHOOK] isAlRafdain=true, sending to ${ALRAFDAIN_TELEGRAM_CHANNEL}`);
                 let rucRes;
-                if (imagesToPost.length >= 1) {
-                  rucRes = await sendPhoto(ALRAFDAIN_TELEGRAM_CHANNEL, transportPhoto, msg, replyMarkup);
+                if (imagesToPost.length > 1) {
+                  let mediaGroupCaption = msg;
+                  mediaGroupCaption += `\n\n🌐 <a href="${link}">التفاصيل الكاملة وحجز المقعد</a>`;
+                  if (cleanPhone) {
+                    mediaGroupCaption += `\n💬 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> | ✈️ <a href="https://t.me/+${cleanPhone}">تواصل تيليكرام</a>`;
+                  }
+                  rucRes = await sendMediaGroup(ALRAFDAIN_TELEGRAM_CHANNEL, imagesToPost, mediaGroupCaption);
                 } else {
                   rucRes = await sendPhoto(ALRAFDAIN_TELEGRAM_CHANNEL, transportPhoto, msg, replyMarkup);
                 }
