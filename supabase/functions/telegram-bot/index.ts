@@ -1422,19 +1422,21 @@ serve(async (req) => {
 
         // 1. Update main Telegram channel
         if (msgId) {
-          const targetChannel = isTransport ? (LINES_CHANNEL_ID || LINES_CHANNEL) : (isCar ? (CAR_CHANNEL_ID || CAR_CHANNEL) : PRODUCT_CHANNEL);
-          if (targetChannel) {
+          const channelsToTry = isTransport 
+            ? Array.from(new Set([LINES_CHANNEL_ID, LINES_CHANNEL, '@souqbaghdad_lines', '@souqbaghdad_line'].filter(Boolean)))
+            : (isCar ? Array.from(new Set([CAR_CHANNEL_ID, CAR_CHANNEL, '@souqbaghdad_car'].filter(Boolean))) : Array.from(new Set([PRODUCT_CHANNEL, '@souqbaghdad_iq', EXTRA_CHANNEL].filter(Boolean))));
+
+          for (const ch of channelsToTry) {
             try {
-              console.log(`[UPDATE WEBHOOK] Updating main channel ${targetChannel} with msgId ${msgId}`);
-              let res = await editChannelMessage(targetChannel, parseInt(msgId, 10), soldCaption, soldButtons);
-              if (!res?.ok && isTransport && LINES_CHANNEL && LINES_CHANNEL !== targetChannel) {
-                await editChannelMessage(LINES_CHANNEL, parseInt(msgId, 10), soldCaption, soldButtons);
-              }
-              if (EXTRA_CHANNEL && EXTRA_CHANNEL !== targetChannel && !isTransport) {
-                await editChannelMessage(EXTRA_CHANNEL, parseInt(msgId, 10), soldCaption, soldButtons);
+              console.log(`[UPDATE WEBHOOK] Updating channel ${ch} with msgId ${msgId}`);
+              const res = await editChannelMessage(ch, parseInt(msgId, 10), soldCaption, soldButtons);
+              console.log(`[UPDATE WEBHOOK] Channel ${ch} update response:`, JSON.stringify(res));
+              if (res?.ok) {
+                console.log(`[UPDATE WEBHOOK] Successfully updated channel ${ch}`);
+                break;
               }
             } catch(e) {
-              console.error('Failed to update caption in main channel:', e);
+              console.error(`Failed to update caption in channel ${ch}:`, e);
             }
           }
         }
@@ -3402,14 +3404,14 @@ serve(async (req) => {
 
           // 1. Edit in main lines channel
           if (msgId) {
-            try {
-              const targetChannel = LINES_CHANNEL_ID || LINES_CHANNEL;
-              let res = await editChannelMessage(targetChannel, parseInt(msgId, 10), closedCaption, closedButtons);
-              if (!res?.ok && LINES_CHANNEL && LINES_CHANNEL !== targetChannel) {
-                await editChannelMessage(LINES_CHANNEL, parseInt(msgId, 10), closedCaption, closedButtons);
+            const channelsToTry = Array.from(new Set([LINES_CHANNEL_ID, LINES_CHANNEL, '@souqbaghdad_lines', '@souqbaghdad_line'].filter(Boolean)));
+            for (const ch of channelsToTry) {
+              try {
+                const res = await editChannelMessage(ch, parseInt(msgId, 10), closedCaption, closedButtons);
+                if (res?.ok) break;
+              } catch(e) {
+                console.error(`Transport caption update error in ${ch}:`, e);
               }
-            } catch(e) {
-              console.error('Transport caption update error in main channel:', e);
             }
           }
 
