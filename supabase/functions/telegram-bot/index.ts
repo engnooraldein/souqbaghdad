@@ -1790,7 +1790,14 @@ serve(async (req) => {
           updates.sync_status = syncStatus;
           finalSyncStatus = syncStatus;
           if (Object.keys(updates).length > 0) {
-             await supabase.from('ads').update(updates).eq('id', record.id);
+             const targetTable = (payload.table === 'products') ? 'products' : 'ads';
+             console.log(`[SOCIAL DB SAVE] Updating table ${targetTable} ID ${record.id}:`, JSON.stringify(updates));
+             const { error: updErr, data: updData } = await supabase.from(targetTable).update(updates).eq('id', record.id).select();
+             if (updErr) {
+               console.error(`[SOCIAL DB SAVE ERROR] Failed updating table ${targetTable}:`, updErr);
+             } else {
+               console.log(`[SOCIAL DB SAVE SUCCESS] Updated table ${targetTable} ID ${record.id} with rows:`, updData?.length);
+             }
           }
           
           if (record.phone) {
