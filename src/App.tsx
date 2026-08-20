@@ -2353,8 +2353,9 @@ export default function App() {
       console.error(error);
       return;
     }
+    setAllTransportAds(prev => prev.map(a => a.id === id ? { ...a, status: (status === 'published' || status === 'active') ? 'published' : (status as any) } : a));
     showToast('تم تحديث حالة الخط بنجاح ✅', 'success');
-    fetchAds();
+    fetchTransportAds(true);
   };
 
   const handleDeleteTransportAd = async (id: number) => {
@@ -2368,8 +2369,9 @@ export default function App() {
       console.error(error);
       return;
     }
+    setAllTransportAds(prev => prev.filter(a => a.id !== id));
     showToast('تم حذف الخط بنجاح', 'info');
-    fetchAds();
+    fetchTransportAds(true);
   };
 
   const handleAddOrEditProduct = async (p: Product) => {
