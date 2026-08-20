@@ -288,20 +288,29 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
     // 2. Single photo post
     const singleUrl = cleanUrls.length > 0 ? cleanUrls[0] : null;
     if (singleUrl) {
-      // Clean plain-text caption (strip any accidental HTML tags as Facebook rejects them in /photos)
-      const cleanCaption = (text || '').replace(/<[^>]*>?/gm, '').trim();
-
       console.log(`[FB PHOTO] Posting single photo to Facebook Page ${pageId}...`);
-      
-      // Strategy A: Direct FormData binary upload (Highest reliability - eliminates crawler errors)
       try {
-        console.log(`[FB PHOTO MULTIPART] Fetching image binary for direct upload...`);
+        const photoRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ caption: text, url: singleUrl, access_token: token })
+        });
+        const photoData = await photoRes.json();
+        console.log('[FB PHOTO] Response:', photoData);
+        if (photoData.id || photoData.post_id) return photoData;
+      } catch (err) {
+        console.warn('FB Single photo url upload exception:', err);
+      }
+
+      // 2b. If URL upload failed (e.g. crawler rejected internal URL), fetch image directly and upload as FormData multipart
+      try {
+        console.log(`[FB PHOTO MULTIPART] Fetching image binary from ${singleUrl.substring(0, 80)}...`);
         const imgFetch = await fetch(singleUrl);
         if (imgFetch.ok) {
           const imgBlob = await imgFetch.blob();
           const form = new FormData();
-          form.append('caption', cleanCaption);
-          form.append('source', imgBlob, 'card.png');
+          form.append('caption', text);
+          form.append('source', imgBlob, 'post.png');
           form.append('access_token', token);
 
           const multipartRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
@@ -311,24 +320,9 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
           const multipartData = await multipartRes.json();
           console.log('[FB PHOTO MULTIPART] Response:', multipartData);
           if (multipartData.id || multipartData.post_id) return multipartData;
-          console.warn('[FB PHOTO MULTIPART] Upload returned no post ID:', multipartData);
         }
       } catch (e) {
-        console.error('FB Photo binary upload failed, trying URL method:', e);
-      }
-
-      // Strategy B: Direct URL upload
-      try {
-        const photoRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ caption: cleanCaption, url: singleUrl, access_token: token })
-        });
-        const photoData = await photoRes.json();
-        console.log('[FB PHOTO URL] Response:', photoData);
-        if (photoData.id || photoData.post_id) return photoData;
-      } catch (err) {
-        console.warn('FB Single photo url upload exception:', err);
+        console.error('FB Photo binary upload failed:', e);
       }
 
       console.warn('FB Single photo post failed, trying feed text fallback...');
