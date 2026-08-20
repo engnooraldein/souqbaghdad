@@ -361,6 +361,28 @@ async function deleteFromFacebook(postId: string, customToken?: string) {
   }
 }
 
+async function findFacebookPostByQuery(query: string, customToken?: string, customPageId?: string): Promise<string | null> {
+  const token = customToken || META_PAGE_ACCESS_TOKEN;
+  const pageId = customPageId || META_PAGE_ID;
+  if (!token || !pageId || !query) return null;
+  try {
+    const res = await fetch(`https://graph.facebook.com/v20.0/${pageId}/published_posts?fields=id,message&limit=50&access_token=${token}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const cleanQuery = query.replace('#', '').trim().toLowerCase();
+    for (const post of data?.data || []) {
+      const msg = (post.message || '').toLowerCase();
+      if (cleanQuery.length >= 3 && msg.includes(cleanQuery)) {
+        console.log(`[FB SMART MATCH] Found matching Facebook post ${post.id} for query "${query}"`);
+        return post.id;
+      }
+    }
+  } catch(e) {
+    console.error('findFacebookPostByQuery error:', e);
+  }
+  return null;
+}
+
 async function updateFacebookPost(postId: string, newText: string, customToken?: string) {
   const token = customToken || META_PAGE_ACCESS_TOKEN;
   if (!token || !postId) return false;
@@ -1390,8 +1412,8 @@ serve(async (req) => {
           }
         }
 
-        // 3. Update Facebook post text if available
-        const fbPostId = actualAd.facebook_post_id || record?.facebook_post_id || oldRecord?.facebook_post_id;
+        // 3. Update Facebook post text (with smart lookup for unindexed/past posts)
+        let fbPostId = actualAd.facebook_post_id || record?.facebook_post_id || oldRecord?.facebook_post_id;
         const rafdainFbPostId = actualAd.sync_status?.rafdain_facebook_post_id || record?.sync_status?.rafdain_facebook_post_id || oldRecord?.sync_status?.rafdain_facebook_post_id;
 
         const fbSoldText = isTransport 
@@ -1399,6 +1421,18 @@ serve(async (req) => {
           : (isCar
             ? `⚠️ [تم البيع / مباعة]\n\n🚗 ${actualAd.title || 'سيارة للبيع'}\n💰 تم البيع بنجاح عبر منصة سوق بغداد\n\nتصفح المزيد من السيارات المتاحة عبر:\nhttps://www.souqbaghdad.store/vehicles`
             : `⚠️ [تم البيع / غير متوفر]\n\n🛍️ ${actualAd.title || 'منتج'}\n💰 تم البيع بنجاح عبر منصة سوق بغداد\n\nتصفح المزيد من العروض عبر:\nhttps://www.souqbaghdad.store/products`);
+
+        if (!fbPostId && (actualAd.short_id || actualAd.title || actualAd.phone)) {
+          const searchKey = actualAd.short_id || actualAd.phone || actualAd.title;
+          console.log(`[FB SMART LOOKUP] Searching Facebook feed for past post with key: "${searchKey}"...`);
+          const foundId = await findFacebookPostByQuery(searchKey);
+          if (foundId) {
+            fbPostId = foundId;
+            try {
+              await supabase.from(targetDbTable).update({ facebook_post_id: foundId }).eq('id', actualAd.id);
+            } catch(e) {}
+          }
+        }
 
         if (fbPostId) {
           console.log(`[UPDATE WEBHOOK] Updating main FB post ${fbPostId}...`);
