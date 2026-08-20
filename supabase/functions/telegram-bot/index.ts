@@ -1344,16 +1344,32 @@ serve(async (req) => {
         }
 
         // 3. Update Facebook post text if available
-        const fbPostId = record?.facebook_post_id || oldRecord?.facebook_post_id;
-        const rafdainFbPostId = record?.sync_status?.rafdain_facebook_post_id || oldRecord?.sync_status?.rafdain_facebook_post_id;
+        let fbPostId = record?.facebook_post_id || oldRecord?.facebook_post_id;
+        let rafdainFbPostId = record?.sync_status?.rafdain_facebook_post_id || oldRecord?.sync_status?.rafdain_facebook_post_id;
+        
+        // If IDs are missing from payload, query database directly to ensure we have them
+        if (!fbPostId || !rafdainFbPostId || !msgId) {
+          try {
+            const { data: dbItem } = await supabase.from(payload.table || 'ads').select('facebook_post_id, telegram_message_id, sync_status').eq('id', record.id).maybeSingle();
+            if (dbItem) {
+              if (!fbPostId) fbPostId = dbItem.facebook_post_id;
+              if (!rafdainFbPostId) rafdainFbPostId = dbItem.sync_status?.rafdain_facebook_post_id;
+            }
+          } catch(e) {
+            console.error('Failed to query db for social IDs:', e);
+          }
+        }
+
         if (fbPostId || rafdainFbPostId) {
           const fbSoldText = isTransport 
             ? `✅ [اكتمل العدد / الخط مغلق]\n\n🚌 ${record.title || 'إعلان خط'}\n💰 تمت العملية بنجاح عبر منصة سوق بغداد\n\nلم يعد هذا الخط متاحاً للتسجيل. تصفح الخطوط المتاحة عبر:\nhttps://www.souqbaghdad.store/transport`
             : `⚠️ [تم البيع / غير متوفر]\n\n${record.title || 'إعلان'}\n💰 تم البيع بنجاح عبر منصة سوق بغداد\n\nتصفح المزيد من العروض عبر:\nhttps://www.souqbaghdad.store`;
           if (fbPostId) {
+            console.log(`[STATUS UPDATE FB] Updating main FB post: ${fbPostId}`);
             await updateFacebookPost(fbPostId, fbSoldText);
           }
           if (rafdainFbPostId) {
+            console.log(`[STATUS UPDATE FB] Updating Al-Rafdain FB post: ${rafdainFbPostId}`);
             const rafdainToken = ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
             await updateFacebookPost(rafdainFbPostId, fbSoldText, rafdainToken);
           }
@@ -1399,6 +1415,22 @@ serve(async (req) => {
       
       let forceFacebookPage = payload.targets ? (payload.targets.forceFacebookPage || payload.targets.facebookPage) : null;
       let forceInstagramPage = payload.targets ? (payload.targets.forceInstagramPage || payload.targets.instagramPage) : null;
+
+      // Check existing sync_status from database to strictly prevent duplicate posts
+      if (!isManualExplicitPublish && record?.id) {
+        try {
+          const { data: dbItem } = await supabase.from(payload.table).select('telegram_message_id, facebook_post_id, instagram_post_id, sync_status').eq('id', record.id).maybeSingle();
+          if (dbItem) {
+            if (dbItem.telegram_message_id || dbItem.sync_status?.telegram === 'success') publishTelegram = false;
+            if (dbItem.facebook_post_id || dbItem.sync_status?.facebook === 'success') publishFacebook = false;
+            if (dbItem.instagram_post_id || dbItem.sync_status?.instagram === 'success') publishInstagram = false;
+            if (dbItem.sync_status?.tiktok === 'success') publishTiktok = false;
+            if (dbItem.sync_status?.threads === 'success') publishThreads = false;
+          }
+        } catch (e) {
+          console.error('Error fetching dbItem for duplicate prevention:', e);
+        }
+      }
 
       // Respect skip flags ONLY for automated background webhooks, NEVER for explicit manual modal publish
       if (!isManualExplicitPublish && record?.sync_status) {
