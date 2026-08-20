@@ -1797,6 +1797,11 @@ serve(async (req) => {
           const useAlRafdainFb = forceFacebookPage ? (forceFacebookPage === 'alrafdain') : isAlRafdain;
           const useAlRafdainIg = forceInstagramPage ? (forceInstagramPage === 'alrafdain') : isAlRafdain;
 
+          // Instagram is manual publish only for transport lines (as requested by user)
+          if (!isManualExplicitPublish) {
+            publishInstagram = false;
+          }
+
           const updates: any = {};
           let syncStatus: any = { ...(record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' }) };
 

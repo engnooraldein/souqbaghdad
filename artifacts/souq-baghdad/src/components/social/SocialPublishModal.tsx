@@ -320,19 +320,19 @@ export const SocialPublishModal: React.FC<SocialPublishModalProps> = ({
                   </span>
                 </label>
                 <span className="text-[11px] font-bold text-blue-400 bg-blue-500/15 border border-blue-500/30 px-2 py-0.5 rounded-full">
-                  🟢 متصل
+                  {publishTargets.facebookPage === 'alrafdain' ? '🟢 بوست (Post)' : '🟢 متصل'}
                 </span>
               </div>
               {publishTargets.facebook && (
                 <div className="mr-6 pt-2 border-t border-gray-800/80">
-                  <p className="text-[11px] font-bold text-gray-400 mb-1.5">الصفحة المستهدفة للنشر:</p>
+                  <p className="text-[11px] font-bold text-gray-400 mb-1.5">الصفحة المستهدفة للنشر (فيسبوك):</p>
                   <select 
                     value={publishTargets.facebookPage} 
                     onChange={e => setPublishTargets(p => ({ ...p, facebookPage: e.target.value }))} 
                     className="bg-gray-950 text-xs text-gray-200 p-2.5 rounded-xl border border-gray-800 outline-none w-full font-bold focus:border-blue-500"
                   >
-                    <option value="souqbaghdad">📘 صفحة سوق بغداد الرسمية (Souq Baghdad)</option>
-                    <option value="alrafdain">🎓 صفحة كلية الرافدين الجامعة (Al-Rafdain)</option>
+                    <option value="souqbaghdad">📘 بوست في صفحة سوق بغداد (Souq Baghdad)</option>
+                    <option value="alrafdain">🎓 بوست في صفحة الرافدين (@alrafdain1)</option>
                   </select>
                 </div>
               )}
@@ -354,19 +354,19 @@ export const SocialPublishModal: React.FC<SocialPublishModalProps> = ({
                   </span>
                 </label>
                 <span className="text-[11px] font-bold text-pink-400 bg-pink-500/15 border border-pink-500/30 px-2 py-0.5 rounded-full">
-                  🟢 بوست + ستوري
+                  {publishTargets.instagramPage === 'alrafdain' ? '🟢 ستوري فقط (Story)' : '🟢 بوست + ستوري'}
                 </span>
               </div>
               {publishTargets.instagram && (
                 <div className="mr-6 pt-2 border-t border-gray-800/80">
-                  <p className="text-[11px] font-bold text-gray-400 mb-1.5">الحساب المستهدف:</p>
+                  <p className="text-[11px] font-bold text-gray-400 mb-1.5">الحساب المستهدف (انستقرام):</p>
                   <select 
                     value={publishTargets.instagramPage} 
                     onChange={e => setPublishTargets(p => ({ ...p, instagramPage: e.target.value }))} 
                     className="bg-gray-950 text-xs text-gray-200 p-2.5 rounded-xl border border-gray-800 outline-none w-full font-bold focus:border-pink-500"
                   >
-                    <option value="souqbaghdad">📸 حساب سوق بغداد (@souqbaghdad.iq)</option>
-                    <option value="alrafdain">🎓 ستوري كلية الرافدين (@alrafdain_lines)</option>
+                    <option value="souqbaghdad">📸 بوست في حساب سوق بغداد (@souqbaghdad.iq)</option>
+                    <option value="alrafdain">🎓 ستوري في حساب الرافدين (@al_rafdain)</option>
                   </select>
                 </div>
               )}
