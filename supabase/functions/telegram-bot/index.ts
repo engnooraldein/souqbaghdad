@@ -887,9 +887,15 @@ const generateSocialCaption = async (record: any, type: 'car' | 'product' | 'tra
     const gov = record.location || record.city || record.governorate || 'بغداد';
     const shortId = record.short_id || record.id || '';
 
-    let noteText = p.note || p.description || p.details || record.description || '';
+    let noteText = '';
+    if (typeof p === 'object' && p !== null) {
+      noteText = p.note || p.description || p.details || '';
+    } else if (typeof record.description === 'string' && !record.description.trim().startsWith('{')) {
+      noteText = record.description;
+    }
     if (typeof noteText === 'string') {
       noteText = noteText.replace(/<[^>]*>?/gm, '').trim();
+      if (noteText.startsWith('{') && noteText.endsWith('}')) noteText = '';
       if (noteText.length > 500) noteText = noteText.substring(0, 500) + '...';
     } else {
       noteText = '';
@@ -938,15 +944,20 @@ const generateSocialCaption = async (record: any, type: 'car' | 'product' | 'tra
       try {
         const p = JSON.parse(record.description);
         descText = p.note || p.description || p.details || '';
-      } catch { descText = record.description; }
+      } catch { descText = ''; }
     } else {
       descText = record.description;
     }
   } else if (typeof record.description === 'object' && record.description !== null) {
     descText = record.description.note || record.description.description || record.description.details || '';
   }
-  descText = descText.replace(/<[^>]*>?/gm, '').trim();
-  if (descText.length > 500) descText = descText.substring(0, 500) + '...';
+  if (typeof descText === 'string') {
+    descText = descText.replace(/<[^>]*>?/gm, '').trim();
+    if (descText.startsWith('{') && descText.endsWith('}')) descText = '';
+    if (descText.length > 500) descText = descText.substring(0, 500) + '...';
+  } else {
+    descText = '';
+  }
 
   const rawPhone = record.phone || '';
   let cleanPhone = String(rawPhone).replace(/[^0-9+]/g, '');
