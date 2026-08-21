@@ -989,17 +989,37 @@ function generateHashtags(title: string, desc: string): string {
 
 async function sendWhatsAppWelcome(phone: string, title: string, link: string) {
   const token = Deno.env.get('WHATSAPP_TOKEN');
-  const phoneId = Deno.env.get('WHATSAPP_PHONE_ID');
+  const phoneId = Deno.env.get('WHATSAPP_PHONE_ID') || Deno.env.get('WHATSAPP_PHONE_NUMBER_ID');
   if (!token || !phoneId || !phone) return;
 
   let cleanPhone = phone.replace(/[^0-9]/g, '');
   if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
+  if (cleanPhone.startsWith('7') && cleanPhone.length === 10) cleanPhone = '964' + cleanPhone;
 
-  const msg = `أهلاً بك في منصة سوق بغداد الرقمي! 👋\n\nشكراً لنشر إعلانك: "${title}" في منصتنا.\n\n✅ لقد تم نشره بنجاح في الموقع وتيليكرام وفيسبوك وانستكرام.\n\nيمكنك متابعة إعلانك ورؤية التفاصيل عبر الرابط:\n🔗 ${link}\n\nنتمنى لك التوفيق! 🚀`;
+  const msg = 
+`🎉 أهلاً بك في منصة سوق بغداد الرقمي!
+
+تم بنجاح نشر إعلانك:
+📌 *"${title}"*
+
+🚀 *تم النشر تلقائياً على منصات التواصل التابعة لسوق بغداد:*
+🌐 *الموقع الرسمي:* ${link}
+✈️ *تيليكرام:* https://t.me/souqbaghdad_iq
+🚗 *قناة السيارات:* https://t.me/souqbaghdad_car
+🚌 *قناة خطوط النقل:* https://t.me/souqbaghdad_lines
+📘 *فيسبوك:* https://facebook.com/souqbaghdad.iq
+
+━━━━━━━━━━━━━━━
+⏳ *ملاحظة هامة حول النشر القادم:*
+• يمكنك نشر إعلان جديد إضافي بعد مرور *15 دقيقة*.
+• أو يمكنك *تعديل إعلانك الحالي* في أي وقت مجاناً من ملفك الشخصي.
+• في حال رغبت بالنشر الفوري وتجاوز مهلة الـ 15 دقيقة، يتوفر خيار النشر السريع بخصم ضعف النقاط (2x).
+
+شكراً لثقتكم بسوق بغداد! 🌟`;
 
   try {
     const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
-    await fetch(url, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -1007,11 +1027,14 @@ async function sendWhatsAppWelcome(phone: string, title: string, link: string) {
       },
       body: JSON.stringify({
         messaging_product: 'whatsapp',
+        recipient_type: 'individual',
         to: cleanPhone,
         type: 'text',
         text: { body: msg }
       })
     });
+    const data = await res.json();
+    console.log('WhatsApp API Response for', cleanPhone, ':', JSON.stringify(data));
   } catch(e) {
     console.error('WhatsApp Error:', e);
   }
@@ -1364,7 +1387,46 @@ serve(async (req) => {
 
   try {
     const payload = await req.json();
-    
+    // Direct WhatsApp Test Endpoint
+    if (payload.action === 'test_whatsapp' && payload.phone) {
+      const token = Deno.env.get('WHATSAPP_TOKEN');
+      const phoneId = Deno.env.get('WHATSAPP_PHONE_ID') || Deno.env.get('WHATSAPP_PHONE_NUMBER_ID');
+      
+      let cleanPhone = payload.phone.replace(/[^0-9]/g, '');
+      if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
+      if (cleanPhone.startsWith('7') && cleanPhone.length === 10) cleanPhone = '964' + cleanPhone;
+
+      const testMsg = `🎉 *تجربة إشعار وتساب سوق بغداد!* \n\nأهلاً بك يا غالي! هذا إشعار تجريبي مباشر من منصة سوق بغداد الرقمي للتأكد من وصول الإشعارات إلى رقمك: *${cleanPhone}*.\n\n🌐 الموقع: https://www.souqbaghdad.store\n✈️ القناة: @souqbaghdad_iq\n\nنظام الإشعارات شغال بنجاح 100%! 🚀`;
+
+      try {
+        const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
+        const fbRes = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            to: cleanPhone,
+            type: 'text',
+            text: { body: testMsg }
+          })
+        });
+        const fbData = await fbRes.json();
+        return new Response(JSON.stringify({ success: true, meta_response: fbData, phone: cleanPhone }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        });
+      } catch (err: any) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500
+        });
+      }
+    }
+
     // Check if it's a Supabase Database Webhook (pg_net)
     if ((payload.type === 'INSERT' || payload.type === 'UPDATE' || payload.type === 'DELETE') && payload.table) {
       const record = payload.record || payload.old_record;
@@ -2608,20 +2670,91 @@ serve(async (req) => {
         return new Response('OK', { status: 200 });
       }
 
-      if (action === 'car_confirm_publish') {
+      if (action === 'car_confirm_publish' || action === 'car_bypass_publish') {
         if (state.step === 'publishing' || !state.data || (!state.data.brand && !state.data.model)) {
           return new Response('OK', { status: 200 });
         }
+
+        const carTitle = `${state.data.brand || ''} ${state.data.model || ''} ${state.data.year || ''}`.trim() || 'سيارة للبيع';
+        const userPhone = state.data.phone || phone;
+        const { data: userProfile } = await supabase.from('profiles').select('points, role, full_name, avatar_url').eq('id', userId).single();
+        const isOwnerOrAdmin = userProfile?.role === 'admin' || userProfile?.role === 'owner';
+
+        // 1. فحص منع تكرار نفس الإعلان
+        if (!isOwnerOrAdmin) {
+          const { data: duplicateAds } = await supabase
+            .from('ads')
+            .select('id, title, short_id')
+            .eq('seller_id', userId)
+            .eq('status', 'active')
+            .eq('category', 'vehicles')
+            .ilike('title', `%${carTitle}%`)
+            .limit(1);
+
+          if (duplicateAds && duplicateAds.length > 0) {
+            await updateOrSend(
+              `⚠️ <b>عذراً، هذا الإعلان موجود لديك مسبقاً!</b> (#${duplicateAds[0].short_id || duplicateAds[0].id})\n\n` +
+              `نفس تفاصيل السيارة منشورة حالياً في المنصة. لمنع التكرار، يرجى <b>تعديل إعلانك السابق</b> أو <b>حذفه</b> إذا كنت ترغب بنشره من جديد.`,
+              {
+                inline_keyboard: [
+                  [{ text: '🚗 عرض وتعديل إعلاناتي', callback_data: 'my_ads' }],
+                  [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+                ]
+              }
+            );
+            state = {};
+            await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+            return new Response('OK', { status: 200 });
+          }
+        }
+
+        // 2. فحص مهلة الـ 15 دقيقة (Cooldown)
+        let costMultiplier = 1;
+        if (!isOwnerOrAdmin && action !== 'car_bypass_publish') {
+          const { data: recentAds } = await supabase
+            .from('ads')
+            .select('created_at')
+            .eq('seller_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (recentAds && recentAds.length > 0) {
+            const lastTime = new Date(recentAds[0].created_at).getTime();
+            const now = Date.now();
+            const elapsedMinutes = (now - lastTime) / (1000 * 60);
+
+            if (elapsedMinutes < 15) {
+              const remainingMinutes = Math.ceil(15 - elapsedMinutes);
+              await updateOrSend(
+                `⏳ <b>لديك إعلان تم نشره قبل قليل!</b>\n\n` +
+                `• يمكنك <b>الانتظار (${remainingMinutes} دقيقة)</b> للنشر بالتكلفة العادية (1 نقطة).\n` +
+                `• أو <b>النشر الفوري الآن</b> وتجاوز الوقت بخصم ضعف النقاط (<b>2 نقطة</b>).\n\n` +
+                `ماذا تفضل؟`,
+                {
+                  inline_keyboard: [
+                    [{ text: '⚡ نشر فوري الآن (خصم 2 نقطة)', callback_data: 'car_bypass_publish' }],
+                    [{ text: '⏳ انتظار وتعديل لاحقاً', callback_data: 'main_menu' }]
+                  ]
+                }
+              );
+              return new Response('OK', { status: 200 });
+            }
+          }
+        }
+
+        if (action === 'car_bypass_publish') {
+          costMultiplier = 2;
+        }
+
         state.step = 'publishing';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         await updateOrSend('⏳ جاري نشر إعلان سيارتك في المنصة وقناة التليكرام وشبكات التواصل...');
 
-        const cost = 1;
-        const { data: userProfile } = await supabase.from('profiles').select('points, role, full_name, avatar_url').eq('id', userId).single();
-        if (userProfile?.role !== 'admin' && userProfile?.role !== 'owner') {
+        const cost = 1 * costMultiplier;
+        if (!isOwnerOrAdmin && cost > 0) {
           if (!userProfile || (userProfile.points || 0) < cost) {
-            await updateOrSend('❌ عذراً، ليس لديك نقاط كافية. يرجى التوجه لزر "شراء نقاط".', {
+            await updateOrSend(`❌ عذراً، رصيدك غير كافٍ. التكلفة المطلوبة (${cost} نقطة). يرجى شحن المحفظة.`, {
                inline_keyboard: [[{ text: '💳 شراء نقاط', callback_data: 'buy_points' }], [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
             });
             state = {};
@@ -2631,7 +2764,6 @@ serve(async (req) => {
           await supabase.from('profiles').update({ points: userProfile.points - cost }).eq('id', userId);
         }
 
-        const carTitle = `${state.data.brand || ''} ${state.data.model || ''} ${state.data.year || ''}`.trim() || 'سيارة للبيع';
         const shortId = Math.random().toString(36).substring(2, 7).toUpperCase();
 
         const carDescriptionJson = JSON.stringify({
@@ -2948,20 +3080,93 @@ serve(async (req) => {
         return new Response('OK', { status: 200 });
       }
 
-      if (action === 'trans_confirm_publish') {
+      if (action === 'trans_confirm_publish' || action === 'trans_bypass_publish') {
         if (state.step === 'publishing' || !state.data || !state.data.destination) {
           return new Response('OK', { status: 200 });
         }
+
+        const transTitle = state.data.type === 'offer' 
+          ? `أوفر خط من ${state.data.regions} إلى ${state.data.destination}` 
+          : `أبحث عن خط من ${state.data.regions} إلى ${state.data.destination}`;
+        const userPhone = state.data.phone || phone;
+        const { data: userProfile } = await supabase.from('profiles').select('points, role, full_name, avatar_url').eq('id', userId).single();
+        const isOwnerOrAdmin = userProfile?.role === 'admin' || userProfile?.role === 'owner';
+
+        // 1. فحص منع تكرار نفس إعلان خط النقل
+        if (!isOwnerOrAdmin) {
+          const { data: duplicateAds } = await supabase
+            .from('ads')
+            .select('id, title, short_id')
+            .eq('seller_id', userId)
+            .eq('status', 'active')
+            .eq('category', 'transport')
+            .or(`location.ilike.%${state.data.regions}%,city.ilike.%${state.data.destination}%`)
+            .limit(1);
+
+          if (duplicateAds && duplicateAds.length > 0) {
+            await updateOrSend(
+              `⚠️ <b>عذراً، لديك إعلان خط مشابه منشور مسبقاً!</b> (#${duplicateAds[0].short_id || duplicateAds[0].id})\n\n` +
+              `خط النقل هذا مسجل لديك حالياً في المنصة. لمنع التكرار، يرجى <b>تعديل إعلانك الحالي</b> أو <b>حذفه</b> إذا كنت ترغب بنشر إعلان جديد.`,
+              {
+                inline_keyboard: [
+                  [{ text: '🚌 عرض وتعديل خطوطي', callback_data: 'my_ads' }],
+                  [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+                ]
+              }
+            );
+            state = {};
+            await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+            return new Response('OK', { status: 200 });
+          }
+        }
+
+        // 2. فحص مهلة الـ 15 دقيقة (Cooldown)
+        let costMultiplier = 1;
+        if (!isOwnerOrAdmin && action !== 'trans_bypass_publish') {
+          const { data: recentAds } = await supabase
+            .from('ads')
+            .select('created_at')
+            .eq('seller_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (recentAds && recentAds.length > 0) {
+            const lastTime = new Date(recentAds[0].created_at).getTime();
+            const now = Date.now();
+            const elapsedMinutes = (now - lastTime) / (1000 * 60);
+
+            if (elapsedMinutes < 15) {
+              const remainingMinutes = Math.ceil(15 - elapsedMinutes);
+              await updateOrSend(
+                `⏳ <b>لديك إعلان تم نشره قبل قليل!</b>\n\n` +
+                `• يمكنك <b>الانتظار (${remainingMinutes} دقيقة)</b> للنشر بالتكلفة العادية (1 نقطة).\n` +
+                `• أو <b>النشر الفوري الآن</b> وتجاوز الوقت بخصم ضعف النقاط (<b>2 نقطة</b>).\n\n` +
+                `ماذا تفضل؟`,
+                {
+                  inline_keyboard: [
+                    [{ text: '⚡ نشر فوري الآن (خصم 2 نقطة)', callback_data: 'trans_bypass_publish' }],
+                    [{ text: '⏳ انتظار وتعديل لاحقاً', callback_data: 'main_menu' }]
+                  ]
+                }
+              );
+              return new Response('OK', { status: 200 });
+            }
+          }
+        }
+
+        if (action === 'trans_bypass_publish') {
+          costMultiplier = 2;
+        }
+
         state.step = 'publishing';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         await updateOrSend('⏳ جاري نشر إعلان الخط في المنصة وقناة خطوط النقل...');
 
-        const cost = 1;
-        const { data: userProfile } = await supabase.from('profiles').select('points, role, full_name, avatar_url').eq('id', userId).single();
-        if (userProfile?.role !== 'admin' && userProfile?.role !== 'owner') {
+        const cost = 1 * costMultiplier;
+        if (!isOwnerOrAdmin && cost > 0) {
           if (!userProfile || (userProfile.points || 0) < cost) {
-            await updateOrSend('❌ عذراً، ليس لديك نقاط كافية. يرجى التوجه لزر "شراء نقاط".', {
+            await updateOrSend(`❌ عذراً، رصيدك غير كافٍ. التكلفة المطلوبة (${cost} نقطة). يرجى شحن المحفظة.`, {
                inline_keyboard: [[{ text: '💳 شراء نقاط', callback_data: 'buy_points' }], [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
             });
             state = {};
@@ -2972,9 +3177,6 @@ serve(async (req) => {
         }
 
         const shortId = Math.random().toString(36).substring(2, 7).toUpperCase();
-        const transTitle = state.data.type === 'offer' 
-          ? `أوفر خط من ${state.data.regions} إلى ${state.data.destination}` 
-          : `أبحث عن خط من ${state.data.regions} إلى ${state.data.destination}`;
 
         const transDescJson = JSON.stringify({
           shift: state.data.shift,

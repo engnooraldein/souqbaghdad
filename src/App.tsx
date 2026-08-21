@@ -1546,23 +1546,72 @@ export default function App() {
   }, [view, selectedAd, selectedProduct, selectedSellerId, selectedTransportAd, initialHashParsed, loadingRoute]);
   // ------------------------------------
 
-  // ── Rate Limit Helper ─────────────────────────
-  const checkPostRateLimit = (): boolean => {
+  // ── Rate Limit & Anti-Duplication Helper ─────────────────────────
+  const checkPostRateLimitAndCost = async (
+    title: string,
+    phone?: string,
+    itemCategory: 'ad' | 'transport' | 'product' = 'ad'
+  ): Promise<{ allowed: boolean; costMultiplier: number; reason?: string }> => {
+    // المالك والأدمن مستثنون بالكامل
+    if (user?.role === 'owner' || user?.role === 'admin') {
+      return { allowed: true, costMultiplier: 1 };
+    }
+
+    const trimmedTitle = (title || '').trim().toLowerCase();
+    const userPhone = phone || user?.phone || '';
+
+    // 1. فحص تكرار الإعلان (Anti-Duplication)
+    const existingSameAd = allAds.find(a => 
+      (a.postedBy === user?.id || (userPhone && a.phone === userPhone)) &&
+      a.status === 'active' &&
+      a.title.trim().toLowerCase() === trimmedTitle
+    );
+
+    const existingSameTrans = allTransportAds.find(t =>
+      (t.postedBy === user?.id || (userPhone && t.phone === userPhone)) &&
+      (t.status === 'published' || t.status === 'active') &&
+      ((t.regions && trimmedTitle.includes(t.regions.toLowerCase())) || t.title.trim().toLowerCase() === trimmedTitle)
+    );
+
+    if (existingSameAd || existingSameTrans) {
+      showToast('⚠️ هذا الإعلان منشور مسبقاً! يرجى تعديل إعلانك الحالي بدلاً من تكرار النشر، أو حذفه أولاً.', 'error');
+      return { allowed: false, costMultiplier: 1, reason: 'duplicate' };
+    }
+
+    // 2. فحص مهلة الـ 15 دقيقة (15 Minutes Cooldown)
+    const lastPostTime = parseInt(localStorage.getItem('souq_last_post_timestamp') || '0', 10);
     const now = Date.now();
-    let posts = [];
-    try {
-      posts = JSON.parse(localStorage.getItem('souq_post_timestamps') || '[]');
-    } catch {
-      posts = [];
+    const elapsedMinutes = (now - lastPostTime) / (1000 * 60);
+
+    if (lastPostTime && elapsedMinutes < 15) {
+      const remainingMinutes = Math.ceil(15 - elapsedMinutes);
+      const baseCost = itemCategory === 'transport' ? (adCosts.transport ?? 1) : (itemCategory === 'product' ? (adCosts.product ?? 1) : (adCosts.ad ?? 1));
+      const doubleCost = Math.max(2, baseCost * 2);
+
+      const confirmBypass = window.confirm(
+        `⏳ لديك إعلان تم نشره قبل قليل!\n\n` +
+        `• يمكنك الانتظار (${remainingMinutes} دقيقة) للنشر بالتكلفة العادية (${baseCost} نقطة).\n` +
+        `• أو النشر الفوري الآن بتجاوز الوقت مقابل ضعف النقاط (${doubleCost} نقطة).\n\n` +
+        `هل تريد المتابعة بالنشر الفوري وتجاوز الوقت بخصم (${doubleCost} نقطة)؟`
+      );
+
+      if (!confirmBypass) {
+        showToast(`يرجى الانتظار ${remainingMinutes} دقيقة أو تعديل إعلانك السابق.`, 'info');
+        return { allowed: false, costMultiplier: 1, reason: 'cooldown' };
+      }
+
+      return { allowed: true, costMultiplier: 2 };
     }
-    posts = posts.filter((t: number) => now - t < 60000);
-    if (posts.length >= 2) {
-      showToast('⚠️ لقد تجاوزت الحد المسموح به. يمكنك نشر إعلانين كحد أقصى في الدقيقة الواحدة. يرجى الانتظار قليلاً.', 'error');
-      return false;
-    }
-    posts.push(now);
-    localStorage.setItem('souq_post_timestamps', JSON.stringify(posts));
-    return true;
+
+    return { allowed: true, costMultiplier: 1 };
+  };
+
+  const markPostSuccess = () => {
+    localStorage.setItem('souq_last_post_timestamp', Date.now().toString());
+    // تنبيه المستخدم بعد انقضاء الـ 15 دقيقة
+    setTimeout(() => {
+      showToast('🎉 انتهت مهلة الـ 15 دقيقة! يمكنك الآن نشر إعلان جديد بالتكلفة العادية.', 'success');
+    }, 15 * 60 * 1000);
   };
 
   const fetchTransportAds = useCallback(async (reset = true) => {
@@ -2189,8 +2238,11 @@ export default function App() {
   const requireAuth = ()=>setShowAuth(true);
 
   const handleAddOrEditAd = async (ad: Ad) => {
+    let costMultiplier = 1;
     if (!editingAd) {
-      if (!checkPostRateLimit()) return;
+      const check = await checkPostRateLimitAndCost(ad.title, ad.phone, 'ad');
+      if (!check.allowed) return;
+      costMultiplier = check.costMultiplier;
     }
     const rowData = {
       seller_id: user?.id || '',
@@ -2215,12 +2267,13 @@ export default function App() {
       showToast('تم تعديل الإعلان ✅', 'success');
     } else {
       // Deduct points before publishing
-      const cost = adCosts.ad !== undefined ? adCosts.ad : 1;
+      const baseCost = adCosts.ad !== undefined ? adCosts.ad : 1;
+      const cost = baseCost * costMultiplier;
       if (user?.role !== 'admin' && user?.role !== 'owner' && cost > 0) {
         const { data: deductData, error: deductError } = await supabase.rpc('deduct_points', {
           p_user_id: user?.id,
           p_amount: cost,
-          p_reason: 'خصم لنشر إعلان مبوب'
+          p_reason: costMultiplier > 1 ? 'خصم مضاعف للنشر الفوري وتجاوز المهلة' : 'خصم لنشر إعلان مبوب'
         });
         
         if (deductError || !deductData?.success) {
@@ -2242,6 +2295,7 @@ export default function App() {
       const { data, error } = await supabase.from('ads').insert(rowData).select().single();
       triggerOnlineStatusesSync();
       if (error) { showToast('حدث خطأ أثناء النشر', 'error'); console.error(error); return; }
+      markPostSuccess();
       if (user && data) {
         setUser(prev => {
           if (!prev) return prev;
@@ -2256,10 +2310,14 @@ export default function App() {
   };
 
   const handlePostTransportAd = async (ad: TransportAd) => {
-    if (!checkPostRateLimit()) return;
+    const title = ad.type === 'offer' ? `أوفر خط إلى ${ad.university}` : `أبحث عن خط إلى ${ad.university}`;
+    const check = await checkPostRateLimitAndCost(title, ad.phone, 'transport');
+    if (!check.allowed) return;
+    const costMultiplier = check.costMultiplier;
+
     const rowData = {
       seller_id: user?.id || ad.postedBy || '',
-      title: ad.type === 'offer' ? `أوفر خط إلى ${ad.university}` : `أبحث عن خط إلى ${ad.university}`,
+      title: title,
       description: JSON.stringify({
         shift: ad.shift,
         seats: ad.seats,
@@ -2287,12 +2345,13 @@ export default function App() {
     };
 
     // Deduct points before publishing
-    const cost = adCosts.transport !== undefined ? adCosts.transport : 1;
+    const baseCost = adCosts.transport !== undefined ? adCosts.transport : 1;
+    const cost = baseCost * costMultiplier;
     if (user?.role !== 'admin' && user?.role !== 'owner' && cost > 0) {
       const { data: deductData, error: deductError } = await supabase.rpc('deduct_points', {
         p_user_id: user?.id,
         p_amount: cost,
-        p_reason: 'خصم لنشر خط نقل'
+        p_reason: costMultiplier > 1 ? 'خصم مضاعف للنشر الفوري وتجاوز المهلة' : 'خصم لنشر خط نقل'
       });
       
       if (deductError || !deductData?.success) {
@@ -2317,6 +2376,7 @@ export default function App() {
       console.error(error);
       return;
     }
+    markPostSuccess();
     showToast('تم نشر الخط بنجاح ✅', 'success');
     fetchAds();
   };
@@ -2388,8 +2448,11 @@ export default function App() {
   };
 
   const handleAddOrEditProduct = async (p: Product) => {
+    let costMultiplier = 1;
     if (!editingProduct) {
-      if (!checkPostRateLimit()) return;
+      const check = await checkPostRateLimitAndCost(p.title, p.phone, 'product');
+      if (!check.allowed) return;
+      costMultiplier = check.costMultiplier;
     }
     const rowData = {
       seller_id: user?.id || '',
@@ -2412,12 +2475,13 @@ export default function App() {
       showToast('تم تعديل المنتج ✅', 'success');
     } else {
       // Deduct points before publishing
-      const cost = adCosts.product !== undefined ? adCosts.product : 1;
+      const baseCost = adCosts.product !== undefined ? adCosts.product : 1;
+      const cost = baseCost * costMultiplier;
       if (user?.role !== 'admin' && user?.role !== 'owner' && cost > 0) {
         const { data: deductData, error: deductError } = await supabase.rpc('deduct_points', {
           p_user_id: user?.id,
           p_amount: cost,
-          p_reason: 'خصم لنشر منتج'
+          p_reason: costMultiplier > 1 ? 'خصم مضاعف للنشر الفوري وتجاوز المهلة' : 'خصم لنشر منتج'
         });
         
         if (deductError || !deductData?.success) {
@@ -2438,6 +2502,15 @@ export default function App() {
 
       const { error } = await supabase.from('products').insert(rowData);
       if (error) { showToast('حدث خطأ أثناء النشر', 'error'); console.error(error); return; }
+      markPostSuccess();
+      if (user) {
+        setUser(prev => {
+          if (!prev) return prev;
+          const u = { ...prev, stats: { ...prev.stats, products: (prev.stats.products || 0) + 1 } };
+          localStorage.setItem('souqUser', JSON.stringify(u));
+          return u;
+        });
+      }
       showToast('تم نشر المنتج في متجرك! 🛍️', 'success');
     }
     fetchProducts();
