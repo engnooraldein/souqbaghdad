@@ -137,7 +137,143 @@ const CAR_CHANNEL_ID = Deno.env.get('CAR_CHANNEL_ID') || '@souqbaghdad_car';    
 const LINES_CHANNEL = '@souqbaghdad_lines';       // Transport lines username
 const LINES_CHANNEL_ID = Deno.env.get('LINES_CHANNEL_ID') || '@souqbaghdad_lines';        // Transport lines username/ID
 
-// Facebook, Instagram & Threads Publishing
+// Check if Bot is Admin in a Channel
+async function checkBotIsAdmin(channelId: string | number): Promise<{ ok: boolean; title?: string; error?: string }> {
+  try {
+    const res = await fetch(`${tgUrl}/getChat?chat_id=${encodeURIComponent(String(channelId))}`);
+    const data = await res.json();
+    if (!data.ok) {
+      return { ok: false, error: data.description || 'لم يتم العثور على القناة' };
+    }
+    const chatTitle = data.result?.title || channelId;
+    
+    // Check bot member status
+    const botRes = await fetch(`${tgUrl}/getChatMember?chat_id=${encodeURIComponent(String(channelId))}&user_id=${botToken.split(':')[0]}`);
+    const botData = await botRes.json();
+    if (!botData.ok) {
+      return { ok: false, title: chatTitle, error: 'البوت ليس عضواً في القناة' };
+    }
+    const status = botData.result?.status;
+    if (status === 'administrator' || status === 'creator') {
+      return { ok: true, title: chatTitle };
+    }
+    return { ok: false, title: chatTitle, error: 'البوت ليس مشرفاً (Admin) في القناة' };
+  } catch (err: any) {
+    return { ok: false, error: err.message || 'فشل التحقق من القناة' };
+  }
+}
+
+// Broadcast Ad to Partner Channels Network
+async function broadcastToPartnerChannels(record: any, category: 'transport' | 'vehicles' | 'products', caption: string, photoUrl: string | string[], replyMarkup: any, supabaseClient: any) {
+  try {
+    const { data: partners } = await supabaseClient
+      .from('partner_channels')
+      .select('*')
+      .eq('is_active', true)
+      .or(`category.eq.${category},category.eq.all`);
+
+    if (!partners || partners.length === 0) return;
+
+    const recordTitle = (record.title || '').toLowerCase();
+    const recordDesc = typeof record.description === 'string' ? record.description.toLowerCase() : JSON.stringify(record.description || {}).toLowerCase();
+    const recordCity = (record.city || record.location || record.governorate || record.destination || '').toLowerCase();
+    const recordUni = (record.university || '').toLowerCase();
+
+    for (const partner of partners) {
+      try {
+        // Keyword Matcher Check
+        if (partner.filter_keywords && partner.filter_keywords.length > 0) {
+          const match = partner.filter_keywords.some((kw: string) => {
+            const cleanKw = kw.toLowerCase().trim();
+            return cleanKw && (
+              recordTitle.includes(cleanKw) || 
+              recordDesc.includes(cleanKw) || 
+              recordCity.includes(cleanKw) || 
+              recordUni.includes(cleanKw)
+            );
+          });
+          if (!match) continue; // Skip if no keyword matched
+        }
+
+        // Subcategory check for products
+        if (category === 'products' && partner.sub_category && partner.sub_category !== 'all') {
+          if (record.category !== partner.sub_category) continue;
+        }
+
+        // Send to partner channel
+        const targetPhoto = Array.isArray(photoUrl) ? photoUrl[0] : photoUrl;
+        if (targetPhoto) {
+          await sendPhoto(partner.channel_id, targetPhoto, caption, replyMarkup);
+        } else {
+          await sendMessage(partner.channel_id, caption, replyMarkup);
+        }
+        console.log(`[PARTNER SYNDICATION] Broadcasted ad #${record.short_id || record.id} to ${partner.channel_id} (${partner.channel_title})`);
+      } catch (pErr) {
+        console.error(`[PARTNER SYNDICATION ERROR] Failed to send to ${partner.channel_id}:`, pErr);
+      }
+    }
+  } catch (err) {
+    console.error('[PARTNER SYNDICATION FATAL ERROR]:', err);
+  }
+}
+
+// Finalize and Save Partner Channel
+async function finalizePartnerChannel(chatId: number, state: any, supabaseClient: any, updateOrSend: Function) {
+  const channelId = state.data.channel_id;
+  const channelTitle = state.data.channel_title || channelId;
+  const category = state.data.category || 'all';
+  const subCategory = state.data.sub_category || 'all';
+  const keywords = state.data.filter_keywords || [];
+
+  const { error } = await supabaseClient.from('partner_channels').upsert({
+    owner_telegram_id: chatId,
+    channel_id: channelId,
+    channel_title: channelTitle,
+    category: category,
+    sub_category: subCategory,
+    filter_keywords: keywords,
+    is_active: true,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'channel_id' });
+
+  if (error) {
+    console.error('Error saving partner channel:', error);
+    await updateOrSend('❌ حدث خطأ أثناء حفظ القناة، يرجى المحاولة لاحقاً.');
+    return new Response('OK', { status: 200 });
+  }
+
+  // Send test welcome message to the connected channel
+  try {
+    const catName = category === 'transport' ? '🚌 خطوط نقل' : (category === 'vehicles' ? '🚗 سيارات' : (category === 'products' ? '🛍️ منتجات ومتاجر' : '🌐 كل الإعلانات'));
+    const testMsg = 
+      `🎉 <b>تم ربط القناة بنجاح مع منصة سوق بغداد الرقمي!</b> 🇮🇶\n\n` +
+      `📌 <b>تخصص الإعلانات المعتمد:</b> ${catName}\n` +
+      `🚀 ستبدأ القناة باستلام أحدث الإعلانات المنسقة والمصممة تلقائياً لخدمة متابعيكم.\n\n` +
+      `🌐 <b>موقع المنصة:</b> https://www.souqbaghdad.store\n` +
+      `🤖 <b>البوت المعتمد:</b> @${BOT_USERNAME}`;
+
+    await sendMessage(channelId, testMsg);
+  } catch(e) {
+    console.warn('Welcome message to partner channel failed:', e);
+  }
+
+  state = {};
+  await supabaseClient.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+  await updateOrSend(
+    `✅ <b>تم ربط قناتك بنجاح!</b> 🎉\n\n` +
+    `📢 <b>القناة:</b> ${channelTitle} (${channelId})\n` +
+    `⚡ من الآن فصاعداً، أي إعلان يطابق تخصص قناتك سيتم نشره وتصميمه داخل قناتك تلقائياً وبأعلى جودة!\n\n` +
+    `شكراً لانضمامك إلى شبكة سوق بغداد الرقمي 🤝`,
+    {
+      inline_keyboard: [
+        [{ text: '📋 عرض قنواتي المربوطة', callback_data: 'partner_my_channels' }],
+        [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+      ]
+    }
+  );
+  return new Response('OK', { status: 200 });
+}
 const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || 'EAAPXexo3QZCcBSS81SrUC8TbvBMUiMFUO2ZA1ZCqOIddaNXTywui05INE9gaY4tpFbVDKZCcz6kr9h9znXcHCPanKtLgRusGyjhUdtTR7aClqiUh9KaNWLBvXSZBiyHYUbCbZA2rEPLZBswlQanav0NZACnZAmz1M3K2uaaZAa6TZBEtXG0t5pLHu2JxpWXGoZC4vGMK8b2BJt0iOZBA6pVXtufmB3ZAaKnlzpoTuyHZBQzSVR1viqm2eIcw9lH2htZAOmoZD';
 const META_PAGE_ID = Deno.env.get('META_PAGE_ID') || '';
 const META_IG_ACCOUNT_ID = Deno.env.get('META_IG_ACCOUNT_ID') || '';
@@ -1710,6 +1846,9 @@ serve(async (req) => {
             } else {
               res = await sendMessage(targetCarChannel, caption, replyMarkup);
             }
+
+            // Broadcast to Partner Channels Network (Cars/All)
+            EdgeRuntime.waitUntil(broadcastToPartnerChannels(record, 'vehicles', caption, imagesToPost, replyMarkup, supabase));
           }
 
           const updates: any = {};
@@ -1802,6 +1941,9 @@ serve(async (req) => {
             } else {
               res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
             }
+
+            // Broadcast to Partner Channels Network (Products/All)
+            EdgeRuntime.waitUntil(broadcastToPartnerChannels(record, 'products', caption, imagesToPost, replyMarkup, supabase));
           }
           const updates: any = {};
           let syncStatus = record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' };
@@ -2175,6 +2317,9 @@ serve(async (req) => {
             } else {
               console.log(`[RUC WEBHOOK] isAlRafdain=false — city="${record.city}", university="${record.university}", destination="${record.destination}"`);
             }
+
+            // 3. Broadcast to Partner Channels Network (Transport/Colleges/All)
+            EdgeRuntime.waitUntil(broadcastToPartnerChannels(record, 'transport', msg, transportPhoto, replyMarkup, supabase));
           }
           
           const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
@@ -2377,7 +2522,7 @@ serve(async (req) => {
         inline_keyboard: [
           [{ text: '🚗 اعرض سيارتك للبيع مجاناً', callback_data: 'publish_car' }],
           [{ text: '🚌 انشر خط نقل (سائق / راكب)', callback_data: 'publish_transport' }, { text: '📦 نشر منتج عام', callback_data: 'publish_product' }],
-          [{ text: '📋 إدارة إعلاناتي وخطوطي', callback_data: 'manage_my_ads' }],
+          [{ text: '📋 إدارة إعلاناتي وخطوطي', callback_data: 'manage_my_ads' }, { text: '🔗 ربط قناتك مع سوق بغداد', callback_data: 'partner_connect_start' }],
           [{ text: '🎟️ تعبئة بروموكود', callback_data: 'redeem_promo' }, { text: '💳 شراء نقاط', callback_data: 'buy_points' }],
           [{ text: '📖 كيفية التسجيل', callback_data: 'how_to_register' }, { text: '🔑 نسيت كلمة المرور', callback_data: 'forgot_password' }],
           [{ text: '❓ الأسئلة الشائعة', callback_data: 'faq' }, { text: '📞 الدعم الفني', callback_data: 'contact_support' }],
@@ -2525,6 +2670,150 @@ serve(async (req) => {
         }
         await showMainMenu(undefined, true);
         return new Response('OK', { status: 200 });
+      }
+
+      // ==========================================
+      // 🔗 PARTNER CHANNEL CONNECT WIZARD
+      // ==========================================
+      if (action === 'partner_connect_start') {
+        state = { step: 'partner_await_channel', data: {} };
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const guideMsg = 
+          `🔗 <b>ربط قناتك / مجموعتك مع منصة سوق بغداد</b> 🇮🇶\n\n` +
+          `انضم إلى شبكة قنوات سوق بغداد واحصل على إعلانات منسقة ومصممة تلقائياً لقناتك لزيادة التفاعل والنشاط!\n\n` +
+          `📌 <b>خطوات الربط البسيطة:</b>\n` +
+          `1️⃣ أضف البوت <b>@${BOT_USERNAME}</b> كمشرف (Admin) في قناتك مع صلاحية نشر الرسائل.\n` +
+          `2️⃣ أرسل معرف قناتك العام (مثال: <code>@my_channel</code>) أو رقم المعرف الخاص بها.\n\n` +
+          `👇 <b>أرسل معرف قناتك الآن للتحقق:</b>`;
+
+        await updateOrSend(guideMsg, {
+          inline_keyboard: [
+            [{ text: '📋 عرض قنواتي المربوطة', callback_data: 'partner_my_channels' }],
+            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+          ]
+        });
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'partner_my_channels') {
+        const { data: myChannels } = await supabase.from('partner_channels').select('*').eq('owner_telegram_id', chatId);
+        if (!myChannels || myChannels.length === 0) {
+          await updateOrSend('ليس لديك أي قنوات مربوطة حالياً.', {
+            inline_keyboard: [
+              [{ text: '➕ ربط قناة جديدة', callback_data: 'partner_connect_start' }],
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ]
+          });
+          return new Response('OK', { status: 200 });
+        }
+
+        let listText = `📋 <b>قنواتك المربوطة بشبكة سوق بغداد:</b>\n\n`;
+        const channelButtons: any[] = [];
+        myChannels.forEach((c: any, i: number) => {
+          const catName = c.category === 'transport' ? '🚌 خطوط نقل' : (c.category === 'vehicles' ? '🚗 سيارات' : (c.category === 'products' ? '🛍️ منتجات' : '🌐 الكل'));
+          const subInfo = c.filter_keywords && c.filter_keywords.length > 0 ? ` (${c.filter_keywords.join('، ')})` : '';
+          listText += `${i + 1}. <b>${c.channel_title || c.channel_id}</b>\n• التخصص: ${catName}${subInfo}\n• الحالة: ${c.is_active ? '✅ نشطة وتستلم الإعلانات' : '⏸️ متوقفة'}\n\n`;
+          channelButtons.push([{ text: `❌ حذف ${c.channel_title || c.channel_id}`, callback_data: `partner_delete_${c.id}` }]);
+        });
+
+        channelButtons.push([{ text: '➕ ربط قناة أخرى', callback_data: 'partner_connect_start' }]);
+        channelButtons.push([{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]);
+
+        await updateOrSend(listText, { inline_keyboard: channelButtons });
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action.startsWith('partner_delete_')) {
+        const channelDbId = action.replace('partner_delete_', '');
+        await supabase.from('partner_channels').delete().eq('id', channelDbId).eq('owner_telegram_id', chatId);
+        await updateOrSend('✅ تم فك ربط القناة بنجاح.');
+        await showMainMenu(undefined, true);
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action.startsWith('partner_cat_')) {
+        const selectedCat = action.replace('partner_cat_', '');
+        state.data.category = selectedCat;
+
+        if (selectedCat === 'transport') {
+          state.step = 'partner_transport_filter';
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+          await updateOrSend(
+            `🚌 <b>تحديد نطاق خطوط النقل لقناتك:</b>\n\n` +
+            `اختر ما يناسب قناتك: هل تريد استلام إعلانات كل الجامعات أم جامعة/كلية محددة؟`,
+            {
+              inline_keyboard: [
+                [{ text: '🎓 كل الجامعات والكليات في بغداد', callback_data: 'partner_trans_kw_all' }],
+                [{ text: '🏛️ كلية الرافدين الجامعة', callback_data: 'partner_trans_kw_alrafdain' }, { text: '🏛️ كلية الإسراء الجامعة', callback_data: 'partner_trans_kw_israa' }],
+                [{ text: '🏛️ جامعة بغداد (الجادرية / باب المعظم)', callback_data: 'partner_trans_kw_baghdad' }],
+                [{ text: '🏛️ الجامعة التكنولوجية', callback_data: 'partner_trans_kw_tech' }, { text: '🏛️ جامعة النهرين', callback_data: 'partner_trans_kw_nahrain' }],
+                [{ text: '✏️ كتابة اسم كلية / منطقة مخصصة', callback_data: 'partner_trans_kw_custom' }],
+                [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+              ]
+            }
+          );
+          return new Response('OK', { status: 200 });
+        }
+
+        if (selectedCat === 'products') {
+          state.step = 'partner_product_filter';
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+          await updateOrSend(
+            `🛍️ <b>تحديد تصنيف المنتجات لقناتك / متجرك:</b>\n\n` +
+            `اختر نوع المنتجات التي تود نشرها في قناتك تلقائياً:`,
+            {
+              inline_keyboard: [
+                [{ text: '💄 كوزمتك ومكياج وعناية', callback_data: 'partner_prod_cosmetics' }, { text: '📱 هواتف وإلكترونيات', callback_data: 'partner_prod_electronics' }],
+                [{ text: '👗 ملابس وأزياء', callback_data: 'partner_prod_fashion' }, { text: '🏠 عقارات ومنازل', callback_data: 'partner_prod_realestate' }],
+                [{ text: '🌐 كل تصنيفات المنتجات', callback_data: 'partner_prod_all' }],
+                [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+              ]
+            }
+          );
+          return new Response('OK', { status: 200 });
+        }
+
+        // Vehicles or All
+        state.data.filter_keywords = [];
+        state.data.sub_category = 'all';
+        return await finalizePartnerChannel(chatId, state, supabase, updateOrSend);
+      }
+
+      if (action.startsWith('partner_trans_kw_')) {
+        const choice = action.replace('partner_trans_kw_', '');
+        if (choice === 'all') {
+          state.data.filter_keywords = [];
+        } else if (choice === 'alrafdain') {
+          state.data.filter_keywords = ['الرافدين', 'الرفدين', 'ruc'];
+        } else if (choice === 'israa') {
+          state.data.filter_keywords = ['الإسراء', 'الاسراء'];
+        } else if (choice === 'baghdad') {
+          state.data.filter_keywords = ['جامعة بغداد', 'الجادرية', 'باب المعظم'];
+        } else if (choice === 'tech') {
+          state.data.filter_keywords = ['التكنولوجية'];
+        } else if (choice === 'nahrain') {
+          state.data.filter_keywords = ['النهرين'];
+        } else if (choice === 'custom') {
+          state.step = 'partner_trans_custom_input';
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+          await updateOrSend('✏️ اكتب اسم الكلية أو المناطق التي ترغب باستلام إعلاناتها حصراً في قناتك:');
+          return new Response('OK', { status: 200 });
+        }
+
+        return await finalizePartnerChannel(chatId, state, supabase, updateOrSend);
+      }
+
+      if (action.startsWith('partner_prod_')) {
+        const prodType = action.replace('partner_prod_', '');
+        state.data.sub_category = prodType;
+        if (prodType === 'cosmetics') state.data.filter_keywords = ['كوزمتك', 'مكياج', 'عطور', 'عناية', 'تجميل'];
+        else if (prodType === 'electronics') state.data.filter_keywords = ['هاتف', 'ايفون', 'سامسونج', 'لابتوب', 'اجهزة'];
+        else if (prodType === 'fashion') state.data.filter_keywords = ['ملابس', 'فستان', 'حقيبة', 'حذاء'];
+        else if (prodType === 'realestate') state.data.filter_keywords = ['عقار', 'بيت', 'شقة', 'ايجار', 'ارض'];
+        else state.data.filter_keywords = [];
+
+        return await finalizePartnerChannel(chatId, state, supabase, updateOrSend);
       }
 
       // ==========================================
@@ -3334,6 +3623,9 @@ serve(async (req) => {
                 console.error("Error sending to Al-Rafdain @ruc_1 from bot wizard:", err);
               }
             }
+
+            // 3. Broadcast to Partner Channels Network
+            EdgeRuntime.waitUntil(broadcastToPartnerChannels(insertedTrans, 'transport', channelMsg, dynamicPostUrl, { inline_keyboard: channelKeyboard }, supabase));
 
             // Save telegram_message_id and ruc_telegram_message_id to prevent DB webhook from publishing again (dedup)
             if (tgMsgId || rucMsgId) {
@@ -4189,6 +4481,9 @@ serve(async (req) => {
               updates.telegram_message_id = tgMsgId;
             }
 
+            // 3b. Broadcast to Partner Channels Network (Products/All)
+            EdgeRuntime.waitUntil(broadcastToPartnerChannels(inserted, 'products', tgCaption, prodImages, tgButtons, supabase));
+
             // 4. Social media caption
             const socialCaption = await generateSocialCaption(
               inserted,
@@ -4268,8 +4563,66 @@ serve(async (req) => {
         state.step.startsWith('edit_car_') || 
         state.step.startsWith('trans_') ||
         state.step.startsWith('edit_trans_') ||
-        state.step.startsWith('product_')
+        state.step.startsWith('product_') ||
+        state.step.startsWith('partner_')
       );
+
+      // --- Partner Channel Connect Text Inputs ---
+      if (state.step === 'partner_await_channel' && text) {
+        let channelInput = text.trim();
+        if (!channelInput.startsWith('@') && !channelInput.startsWith('-100') && !channelInput.startsWith('-')) {
+          channelInput = '@' + channelInput;
+        }
+
+        await updateOrSend(`⏳ جاري التحقق من وجود القناة وصلاحيات البوت المشرف فيها (${channelInput})...`);
+
+        const check = await checkBotIsAdmin(channelInput);
+        if (!check.ok) {
+          await updateOrSend(
+            `❌ <b>تعذر التحقق من القناة!</b>\n\n` +
+            `• السبب: ${check.error || 'البوت ليس مشرفاً (Admin)'}\n\n` +
+            `📌 <b>تأكد من:</b>\n` +
+            `1. إضافة البوت <b>@${BOT_USERNAME}</b> كمشرف (Admin) في القناة.\n` +
+            `2. منح البوت صلاحية نشر الرسائل (Post Messages).\n` +
+            `3. كتابة المعرف بشكل صحيح (مثال: <code>@my_channel</code>).\n\n` +
+            `👇 أعد إرسال معرف القناة بعد رفع البوت أدمن:`,
+            {
+              inline_keyboard: [
+                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+              ]
+            }
+          );
+          return new Response('OK', { status: 200 });
+        }
+
+        state.data.channel_id = channelInput;
+        state.data.channel_title = check.title || channelInput;
+        state.step = 'partner_choose_category';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        await updateOrSend(
+          `✅ <b>تم التحقق من القناة وصلاحية المشرف بنجاح!</b>\n\n` +
+          `📢 <b>اسم القناة:</b> ${check.title}\n` +
+          `🆔 <b>المعرف:</b> ${channelInput}\n\n` +
+          `👇 <b>حدد تخصص ونوع الإعلانات التي ترغب بنشرها في قناتك تلقائياً:</b>`,
+          {
+            inline_keyboard: [
+              [{ text: '🚌 خطوط نقل طلاب وموظفين', callback_data: 'partner_cat_transport' }],
+              [{ text: '🚗 سيارات ومحركات للبيع', callback_data: 'partner_cat_vehicles' }],
+              [{ text: '🛍️ منتجات ومتاجر وتسوق', callback_data: 'partner_cat_products' }],
+              [{ text: '🌐 كل الإعلانات العامة بالمنصة', callback_data: 'partner_cat_all' }],
+              [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+            ]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (state.step === 'partner_trans_custom_input' && text) {
+        const customKeywords = text.split(/[,،\n]/).map(k => k.trim()).filter(k => k.length > 0);
+        state.data.filter_keywords = customKeywords;
+        return await finalizePartnerChannel(chatId, state, supabase, updateOrSend);
+      }
 
       if (!isActivelyFilling && Object.keys(state).length > 0 && text && !text.startsWith('car_') && !text.startsWith('trans_') && !['تم', 'تم ✅'].includes(text.trim())) {
         const isInterruption = await checkInterruption(text);
