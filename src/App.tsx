@@ -173,7 +173,7 @@ export async function compressImage(file: File, maxPx = 900, quality = 0.78, add
 // آمن للتعديل:
 // بحذر، تأكد من سياسات الأمان (RLS) للـ Bucket.
 // ===========================================
-export async function uploadImageToStorage(fileOrBase64: File | string, bucket = 'ad-images', maxPx = 900, quality = 0.78, addWatermark = true): Promise<string> {
+export async function uploadImageToStorage(fileOrBase64: File | string, bucket = 'ad-images', maxPx = 800, quality = 0.72, addWatermark = true): Promise<string> {
   try {
     let base64Data: string;
     if (typeof fileOrBase64 === 'string') {
@@ -192,7 +192,7 @@ export async function uploadImageToStorage(fileOrBase64: File | string, bucket =
       .from(bucket)
       .upload(fileName, blob, {
         contentType: 'image/webp',
-        cacheControl: '3600',
+        cacheControl: '31536000, public, immutable', // 1 Year Browser & CDN Caching (Massive Egress Savings)
         upsert: false
       });
       
