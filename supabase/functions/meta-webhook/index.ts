@@ -284,28 +284,33 @@ serve(async (req) => {
           if (entry.changes && Array.isArray(entry.changes)) {
             for (const change of entry.changes) {
               const field = change.field;
+              const val = change.value;
+              if (!val) continue;
+
+              // دعم كافة حقول التعليقات والمنشورات لفيسبوك وإنستغرام وثريدز
+              const isCommentField = field === "feed" || field === "comments" || field === "live_comments" || field === "mention" || field === "threads" || field === "media";
               
-              if (field === "feed" || field === "comments" || field === "mention" || field === "threads") {
-                const val = change.value;
-                if (!val) continue;
-
-                // استخراج معرف التعليق ومعرف البوست والنص
+              if (isCommentField) {
+                // استخراج معرف التعليق ومعرف البوست والنص بدعم كافة البنى البرمجية لـ Meta
                 const commentId = val.comment_id || val.id;
-                const postId = val.post_id || val.media?.id || val.parent_id;
+                const postId = val.post_id || val.media?.id || val.parent_id || val.post?.id;
                 const commentText = (val.message || val.text || "").trim();
-                const fromId = val.from?.id;
+                const fromId = val.from?.id || val.user?.id;
 
-                // تجاهل التعليقات الفارغة أو تعليقات الصفحة نفسها
-                if (!commentText || !commentId || fromId === META_PAGE_ID || fromId === META_IG_ACCOUNT_ID || fromId === entryId) {
+                // تجاهل إذا لم يكن هناك معرف أو نص
+                if (!commentText || !commentId) continue;
+
+                // تجاهل التعليقات الصادرة من نفس حسابات الصفحة لمنع الحلقات
+                if (fromId === META_PAGE_ID || fromId === META_IG_ACCOUNT_ID || fromId === entryId || fromId === ALRAFDAIN_FB_PAGE_ID || fromId === ALRAFDAIN_IG_ID) {
                   continue;
                 }
 
-                // تجاهل إذا كان الحدث حذف تعليق أو تفاعل
-                if (val.verb && val.verb !== "add") continue;
-                if (val.item && val.item !== "comment") continue;
+                // تجاهل عمليات الحذف والتفاعلات
+                if (val.verb && (val.verb === "delete" || val.verb === "remove" || val.verb === "hide")) continue;
+                if (val.item && val.item !== "comment" && val.item !== "post" && val.item !== "media") continue;
 
                 const platformName = isInstagram ? "Instagram" : isThreads ? "Threads" : "Facebook";
-                console.log(`[${platformName} Comment] ID: ${commentId}, Post: ${postId}, Text: "${commentText}"`);
+                console.log(`[${platformName} Comment Event] ID: ${commentId}, Post: ${postId}, Text: "${commentText}"`);
 
                 // 1. توليد رد ذكي من الذكاء الاصطناعي
                 const aiData = await getAIReply("process_comment", platformName.toLowerCase(), commentText, fromId);
