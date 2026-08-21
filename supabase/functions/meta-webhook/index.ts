@@ -141,7 +141,7 @@ const notifyAdminTelegram = async (text: string) => {
 };
 
 // ── 6. استدعاء محرك الذكاء الاصطناعي ai-engine ──
-const getAIReply = async (action: 'process_message' | 'process_comment', platform: string, text: string, senderId?: string) => {
+const getAIReply = async (action: 'process_message' | 'process_comment', platform: string, text: string, senderId?: string, imageUrl?: string, audioUrl?: string) => {
   try {
     const aiRes = await fetch(`${SUPABASE_URL}/functions/v1/ai-engine`, {
       method: "POST",
@@ -153,7 +153,9 @@ const getAIReply = async (action: 'process_message' | 'process_comment', platfor
         action,
         platform,
         sender_id: senderId || 'meta_user',
-        text
+        text,
+        image_url: imageUrl,
+        audio_url: audioUrl
       })
     });
     if (aiRes.ok) {
@@ -191,13 +193,14 @@ serve(async (req) => {
 
       const isInstagram = body.object === "instagram";
       const isPage = body.object === "page";
+      const isThreads = body.object === "threads";
 
-      if (isPage || isInstagram) {
+      if (isPage || isInstagram || isThreads) {
         for (const entry of (body.entry || [])) {
           const entryId = entry.id;
           const currentToken = resolveAccessToken(entryId);
 
-          // ── أ. معالجة الرسائل الخاصة (Direct Messages & Messenger) ──
+          // ── أ. معالجة الرسائل الخاصة (Direct Messages, Messenger, Voice & Images) ──
           if (entry.messaging && Array.isArray(entry.messaging)) {
             for (const messagingEvent of entry.messaging) {
               const senderId = messagingEvent.sender?.id;
@@ -208,11 +211,25 @@ serve(async (req) => {
                 continue;
               }
 
-              if (messagingEvent.message && messagingEvent.message.text) {
-                const userText = messagingEvent.message.text.trim();
-                const platform = isInstagram ? "instagram" : "facebook";
+              if (messagingEvent.message) {
+                const userText = (messagingEvent.message.text || "").trim();
+                const platform = isInstagram ? "instagram" : isThreads ? "threads" : "facebook";
 
-                console.log(`[${platform} DM] From: ${senderId}, Text: "${userText}"`);
+                // استخراج المرفقات (صور أو بصمات صوتية)
+                let imageUrl: string | undefined = undefined;
+                let audioUrl: string | undefined = undefined;
+
+                if (messagingEvent.message.attachments && Array.isArray(messagingEvent.message.attachments)) {
+                  for (const att of messagingEvent.message.attachments) {
+                    if (att.type === "image" && att.payload?.url) {
+                      imageUrl = att.payload.url;
+                    } else if ((att.type === "audio" || att.type === "voice") && att.payload?.url) {
+                      audioUrl = att.payload.url;
+                    }
+                  }
+                }
+
+                console.log(`[${platform} DM] From: ${senderId}, Text: "${userText}", Image: ${!!imageUrl}, Audio: ${!!audioUrl}`);
 
                 // ── معالجة الردود على الستوري ──
                 let storyId = null;
@@ -224,30 +241,31 @@ serve(async (req) => {
                   console.log(`[Story Reply] Story ID: ${storyId}`);
                   const { data: adRecord } = await supabase
                     .from('ads')
-                    .select('id, short_id, title, category, description, university, destination')
+                    .select('id, short_id, title, category, description, university, destination, price')
                     .eq('instagram_post_id', storyId)
                     .single();
                   
                   if (adRecord) {
-                    const itemUrl = `https://www.souqbaghdad.store/ad/${adRecord.short_id || adRecord.id}`;
+                    const itemUrl = `https://www.souqbaghdad.store/product/${adRecord.short_id || adRecord.id}`;
                     let details = adRecord.title;
                     if (adRecord.category === 'transport') {
                       details = `خط نقل: ${adRecord.university || ''} - ${adRecord.destination || ''}`;
                     }
-                    const replyText = `أهلاً بك!\nبخصوص الإعلان الذي استفسرت عنه في الستوري (${details})، تفضل هذا الرابط المباشر للإعلان للتواصل مع المعلن:\n🔗 ${itemUrl}`;
+                    const replyText = `أهلاً بك عيوني 🌹\nبخصوص الإعلان اللي استفسرت عنه بالستوري (${details})${adRecord.price ? ` بالسعر: ${adRecord.price}` : ''}:\n🔗 تفضل الرابط المباشر للتواصل مع المعلن ومعاينة الإعلان:\n${itemUrl}`;
                     
                     await sendMetaMessage(senderId, replyText, currentToken);
-                    continue; // تجاوز الذكاء الاصطناعي لأننا ردينا بالفعل
+                    continue; // تم الرد بنجاح
                   }
                 }
 
-                const aiData = await getAIReply("process_message", platform, userText, senderId);
+                // استدعاء الذكاء الاصطناعي مع دعم النصوص والصوت والصور
+                const aiData = await getAIReply("process_message", platform, userText, senderId, imageUrl, audioUrl);
 
                 if (aiData?.reply) {
                   await sendMetaMessage(senderId, aiData.reply, currentToken);
                 }
 
-                // إذا كان هناك نتائج بحث ذات صلة
+                // إذا كان هناك نتائج بحث إضافية مطابقة
                 if (aiData?.searchResults && aiData.searchResults.length > 0) {
                   for (const item of aiData.searchResults) {
                     const itemUrl = `https://www.souqbaghdad.store/product/${item.short_id || item.id}`;
@@ -267,12 +285,13 @@ serve(async (req) => {
             for (const change of entry.changes) {
               const field = change.field;
               
-              if (field === "feed" || field === "comments" || field === "mention") {
+              if (field === "feed" || field === "comments" || field === "mention" || field === "threads") {
                 const val = change.value;
                 if (!val) continue;
 
-                // استخراج معرف التعليق والنص
+                // استخراج معرف التعليق ومعرف البوست والنص
                 const commentId = val.comment_id || val.id;
+                const postId = val.post_id || val.media?.id || val.parent_id;
                 const commentText = (val.message || val.text || "").trim();
                 const fromId = val.from?.id;
 
@@ -281,32 +300,53 @@ serve(async (req) => {
                   continue;
                 }
 
-                // تجاهل إذا كان الحدث حذف تعليق أو تفاعل (reaction)
+                // تجاهل إذا كان الحدث حذف تعليق أو تفاعل
                 if (val.verb && val.verb !== "add") continue;
                 if (val.item && val.item !== "comment") continue;
 
-                console.log(`[${isInstagram ? "Instagram" : "Facebook"} Comment] ID: ${commentId}, Text: "${commentText}"`);
+                const platformName = isInstagram ? "Instagram" : isThreads ? "Threads" : "Facebook";
+                console.log(`[${platformName} Comment] ID: ${commentId}, Post: ${postId}, Text: "${commentText}"`);
 
                 // 1. توليد رد ذكي من الذكاء الاصطناعي
-                const aiData = await getAIReply("process_comment", isInstagram ? "instagram" : "facebook", commentText, fromId);
-                const replyText = aiData?.reply || "أهلاً بك عيوني في سوق بغداد 🇮🇶 يسعدنا تواصلك، تفضل بزيارة موقعنا: https://www.souqbaghdad.store";
+                const aiData = await getAIReply("process_comment", platformName.toLowerCase(), commentText, fromId);
+                const replyText = aiData?.reply || "أهلاً بك عيوني في سوق بغداد 🇮🇶 دزينا لك التفاصيل على الخاص 📩";
 
-                // 2. نشر الرد على التعليق
+                // 2. نشر الرد على التعليق علناً
                 if (isInstagram) {
                   await replyToInstagramComment(commentId, replyText, currentToken);
                 } else {
                   await replyToFacebookComment(commentId, replyText, currentToken);
                 }
 
-                // 3. إرسال رابط المنصة والتفاصيل على الخاص دائماً
+                // 3. البحث عن الإعلان المرتبط بهذا المنشور وإرسال تفاصيله على الخاص
                 const cleanComment = commentText.toLowerCase();
                 const isGeneralPraise = ["ما شاء الله", "حلو", "بالتوفيق", "منورين", "تبارك"].some(k => cleanComment.includes(k)) && cleanComment.length < 20;
                 
                 if (!isGeneralPraise) {
-                  let pmText = "يا هلا بيك عيوني 👋 إليك الرابط المباشر للتصفح والنشر والتواصل مع البائعين في منصة سوق بغداد: https://www.souqbaghdad.store";
-                  if (entryId === ALRAFDAIN_FB_PAGE_ID || entryId === ALRAFDAIN_IG_ID) {
-                     pmText = "أهلاً بك في كلية الرافدين الجامعة 🎓 يسعدنا تواصلك معنا، لمزيد من التفاصيل ومعرفة الخطوط المتاحة تفضل بزيارة موقعنا: https://www.souqbaghdad.store/transport";
+                  let pmText = "يا هلا بيك عيوني 👋 إليك الرابط المباشر للتصفح والنشر والتواصل مع المعلنين في منصة سوق بغداد: https://www.souqbaghdad.store";
+                  
+                  // محاولة جلب الإعلان المرتبط بالبوست من قاعدة البيانات
+                  if (postId) {
+                    const { data: matchedAd } = await supabase
+                      .from('ads')
+                      .select('id, short_id, title, price, year, location, phone, category, university, destination')
+                      .or(`facebook_post_id.eq.${postId},instagram_post_id.eq.${postId},meta_post_id.eq.${postId}`)
+                      .single();
+
+                    if (matchedAd) {
+                      const adUrl = `https://www.souqbaghdad.store/product/${matchedAd.short_id || matchedAd.id}`;
+                      let adSummary = matchedAd.title;
+                      if (matchedAd.category === 'transport') {
+                        adSummary = `خط نقل: ${matchedAd.university || ''} - ${matchedAd.destination || ''}`;
+                      }
+                      pmText = `يا هلا بيك عيوني 🌹\nبخصوص المنشور اللي علقت عليه (${adSummary}):\n💰 السعر: ${matchedAd.price || 'تواصل لمعرفة السعر'}\n📍 الموقع: ${matchedAd.location || 'بغداد'}\n🔗 رابط المعاينة والتواصل مع صاحب الإعلان:\n${adUrl}`;
+                    }
                   }
+
+                  if (entryId === ALRAFDAIN_FB_PAGE_ID || entryId === ALRAFDAIN_IG_ID) {
+                    pmText = "أهلاً بك في كلية الرافدين الجامعة 🎓 يسعدنا تواصلك معنا، لمعرفة تفاصيل الخطوط والتسجيل تفضل بزيارة موقعنا: https://www.souqbaghdad.store/transport";
+                  }
+
                   await sendPrivateReplyToComment(
                     commentId,
                     pmText,
@@ -318,7 +358,7 @@ serve(async (req) => {
                 // 4. إشعار فوري للأدمن عند رصد أي بلاغ أو شكوى
                 if (["نصاب", "احتيال", "كذب", "حرامي", "اشتكي", "سرقة"].some(k => cleanComment.includes(k))) {
                   await notifyAdminTelegram(
-                    `🚨 <b>تنبيه شكوى/تعليق مشبوه على ${isInstagram ? "إنستغرام" : "فيسبوك"}!</b>\n\n💬 <b>التعليق:</b> "${commentText}"\n🆔 <b>المعرف:</b> <code>${commentId}</code>`
+                    `🚨 <b>تنبيه شكوى/تعليق مشبوه على ${platformName}!</b>\n\n💬 <b>التعليق:</b> "${commentText}"\n🆔 <b>المعرف:</b> <code>${commentId}</code>`
                   );
                 }
               }

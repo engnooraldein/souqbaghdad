@@ -88,16 +88,25 @@ function getLocalIraqiFallback(text: string, isComment: boolean = false, dbConte
     : "يا هلا بيك عيوني نورت سوق بغداد! 🇮🇶 شلون أقدر أساعدك بخصوص السيارات أو خطوط النقل أو المنتجات؟";
 }
 
-async function generateAIResponse(prompt: string, userText: string, isComment: boolean = false, imageUrl?: string): Promise<string> {
+async function generateAIResponse(prompt: string, userText: string, isComment: boolean = false, imageUrl?: string, audioUrl?: string): Promise<string> {
   const dbContext = await fetchDatabaseContext(userText);
-  const fullInstruction = `${SYSTEM_PROMPT}\n\n${dbContext ? `معلومات حقيقية من قاعدة بيانات سوق بغداد:\n${dbContext}\n` : ''}`;
+  const fullInstruction = `${SYSTEM_PROMPT}
 
-  // 1. Google Gemini
+إرشادات الموظف الذكي:
+1. أنت تمثل منصة "سوق بغداد" وتتصرف كموظف خدمة عملاء ومبيعات عراقي خبير ولبق جداً.
+2. هدفك توجيه الزبون بالرابط الصحيح دائماً ومساعدته في تحقيق هدفه (سواء شراء سيارة، العثور على خط نقل، أو نشر إعلانه مجاناً).
+3. لا تقم باختلاق أي أسعار أو أرقام هواتف غير موجودة في قاعدة البيانات المرفقة، وإذا لم تكن متوفرة، أرشده لزيارة المنصة وتصفح القسم المناسب.
+4. إذا أرسل المستخدم صوتاً أو صورة، اشرح له فهمك للصورة أو البصمة ثم أعطه الرد المناسب وروابط المنصة.
+
+${dbContext ? `معلومات حقيقية ومحدثة من قاعدة بيانات سوق بغداد:\n${dbContext}\n` : ''}`;
+
+  // 1. Google Gemini (2.0 Flash with 1.5 Flash fallback)
   if (GEMINI_API_KEY) {
     try {
       const parts: any[] = [];
       if (userText) parts.push({ text: `${prompt}\n\nنص المستخدم: "${userText}"` });
 
+      // معالجة الصور
       if (imageUrl) {
         try {
           const imgRes = await fetch(imageUrl);
@@ -113,24 +122,54 @@ async function generateAIResponse(prompt: string, userText: string, isComment: b
             inlineData: { mimeType, data: btoa(binaryString) }
           });
           if (!userText) {
-            parts.push({ text: "حلل هذه الصورة أو السكرين شوت واستخرج تفاصيل السيارة ورقم الهاتف أو الإعلان." });
+            parts.push({ text: "حلل هذه الصورة واستخرج تفاصيل السيارة أو المنتج وأجب الزبون بدقة بلهجة عراقية لطيفة." });
           }
         } catch (e) {
           console.error("Image processing error:", e);
         }
       }
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts }],
-            systemInstruction: { parts: [{ text: fullInstruction }] }
-          })
+      // معالجة البصمات والملفات الصوتية
+      if (audioUrl) {
+        try {
+          const audioRes = await fetch(audioUrl);
+          const mimeType = audioRes.headers.get("content-type") || "audio/mp4";
+          const arrayBuffer = await audioRes.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          let binaryString = "";
+          const chunkSize = 8192;
+          for (let i = 0; i < uint8Array.length; i += chunkSize) {
+            binaryString += String.fromCharCode.apply(null, Array.from(uint8Array.slice(i, i + chunkSize)));
+          }
+          parts.push({
+            inlineData: { mimeType, data: btoa(binaryString) }
+          });
+          parts.push({ text: "استمع للبصمة الصوتية للزبون وافهم طلبه العراقي بدقة، ثم أجب عليه كأفضل موظف مبيعات وخدمة عملاء." });
+        } catch (e) {
+          console.error("Audio processing error:", e);
         }
-      );
+      }
+
+      // محاولة استدعاء gemini-2.0-flash أولاً
+      const callGemini = async (model: string) => {
+        return await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts }],
+              systemInstruction: { parts: [{ text: fullInstruction }] }
+            })
+          }
+        );
+      };
+
+      let res = await callGemini("gemini-2.0-flash");
+      if (!res.ok) {
+        res = await callGemini("gemini-1.5-flash");
+      }
+
       if (res.ok) {
         const data = await res.json();
         const candidate = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
@@ -176,20 +215,20 @@ async function generateAIResponse(prompt: string, userText: string, isComment: b
 
 serve(async (req) => {
   try {
-    const { action, platform, sender_id, text, image_url } = await req.json();
+    const { action, platform, sender_id, text, image_url, audio_url } = await req.json();
 
     if (action === "process_message") {
       const userText = (text || "").trim();
-      let prompt = "رسالة خاصة من مستخدم في المحادثة.";
+      let prompt = "رسالة خاصة من زبون أو متابع في المحادثة.";
 
-      const aiReply = await generateAIResponse(prompt, userText, false, image_url);
+      const aiReply = await generateAIResponse(prompt, userText, false, image_url, audio_url);
 
       if (sender_id && platform) {
         try {
           await supabase.from("bot_conversations").upsert({
             platform,
             sender_id,
-            last_message: userText,
+            last_message: userText || (audio_url ? "[تسجيل صوتي]" : "[صورة]"),
             last_reply: aiReply,
             updated_at: new Date().toISOString()
           });
