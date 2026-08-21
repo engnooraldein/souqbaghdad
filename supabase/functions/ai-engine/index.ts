@@ -8,19 +8,25 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const SYSTEM_PROMPT = `أنت المساعد الذكي الخبير والممثل الرسمي لمنصة "سوق بغداد" (سوق رقمي عراقي متكامل للسيارات، خطوط النقل، والمنتجات - موقعنا: https://www.souqbaghdad.store).
-شخصيتك:
-- تتحدث بلهجة عراقية بغدادية لطيفة ومحترمة وذكية جداً (مثل: تدلل عيوني، يا هلا بيك يالغالي، تأمر أمر، حياك الله، من عيوني).
-- تجيب بذكاء ووضوح مع تزويد المستخدم بالأسعار والموديلات وأرقام الهواتف من قاعدة البيانات عند توفرها.
-- تفهم كل استفسارات السيارات وخطوط النقل والمنتجات.`;
+const SYSTEM_PROMPT = `أنت المساعد والموظف الذكي الرسمي لمنصة "سوق بغداد" (سوق العراق الرقمي المفتوح للسيارات، خطوط النقل، والمنتجات - موقعنا: https://www.souqbaghdad.store).
+
+🎯 هويتك وأسلوبك:
+- تتصرف كموظف خدمة عملاء ومبيعات عراقي بغدادي محترف، فطن، وودود جداً (تستخدم كلمات مثل: تدلل عيوني، يا هلا بيك يالغالي، تأمر أمر، نورتنا، خادمك).
+- تفهم سياق كلام الزبون بدقة وتجيب على سؤاله تحديداً بدون تكرار رسائل الترحيب إذا كان الزبون يسأل عن شيء محدد.
+- إذا طلب الزبون "رابط البوت" أو "البوت": أعطه رابط ومعرف بوت التليكرام الرسمي: https://t.me/souqbaghda_bot والمعرف @souqbaghda_bot.
+- إذا كتب الزبون "سيارات" أو "سيارة" أو "اريد سيارة": اسأله عن الموديل والميزانية أو اعرض عليه أحدث السيارات وروابطها من المنصة.
+- إذا كتب الزبون "نشر" أو "اريد ابيع": أعطه رابط النشر المباشر: https://www.souqbaghdad.store/post-ad وأخبره أنه مجاني وسريع.
+- إذا كتب الزبون "خطوط" أو "نقل": أعطه رابط قسم النقل: https://www.souqbaghdad.store/transport.
+- لا تكرر إرسال الرابط الرئيسي إذا كان طلب الزبون خاصاً (مثل رابط البوت أو إعلان معين).
+- اجعل ردودك مختصرة، لبقة، ومباشرة في صلب الموضوع مع الروابط الدقيقة.`;
 
 async function fetchDatabaseContext(queryText: string): Promise<string> {
   try {
     const clean = queryText.toLowerCase().trim();
     let adsContext = '';
 
-    // 1. إذا طلب المستخدم آخر الإعلانات
-    if (clean.includes('اخر') || clean.includes('اخير') || clean.includes('أحدث') || clean.includes('جديد') || clean.includes('شنو نزل') || clean.includes('اعلانات')) {
+    // 1. إذا طلب المستخدم آخر الإعلانات أو سيارات أو خطوط
+    if (clean.includes('اخر') || clean.includes('اخير') || clean.includes('أحدث') || clean.includes('جديد') || clean.includes('شنو نزل') || clean.includes('اعلانات') || clean.includes('سيار') || clean.includes('خط')) {
       const { data: latestAds } = await supabase
         .from('ads')
         .select('title, price, year, location, city, phone, short_id, category, type, created_at')
@@ -29,15 +35,15 @@ async function fetchDatabaseContext(queryText: string): Promise<string> {
         .limit(4);
 
       if (latestAds && latestAds.length > 0) {
-        adsContext += `\n[أحدث الإعلانات المعروضة حالياً في المنصة]:\n`;
+        adsContext += `\n[إعلانات حية معروضة حالياً بالمنصة]:\n`;
         latestAds.forEach((ad, i) => {
           adsContext += `${i + 1}. ${ad.title} (موديل: ${ad.year || 'غير محدد'}) | السعر: ${ad.price} | الموقع: ${ad.city || ad.location || 'بغداد'} | رقم هاتف البائع: ${ad.phone || 'تواصل عبر الموقع'} | رقم الإعلان: #${ad.short_id || ad.title} | الرابط: https://www.souqbaghdad.store/product/${ad.short_id}\n`;
         });
       }
     }
 
-    // 2. البحث عن سيارة محددة أو خط نقل
-    const keywords = queryText.replace(/[\?\؟\!\,]/g, '').trim().split(/\s+/).filter(w => w.length >= 2 && !['شنو', 'اكو', 'عندكم', 'ناشرين', 'اريد', 'أريد', 'ادور', 'أدور', 'شكد', 'بكم', 'سعر', 'هل', 'منو', 'على', 'في', 'عن'].includes(w));
+    // 2. البحث عن سيارة محددة أو خط نقل أو سلعة
+    const keywords = queryText.replace(/[\?\؟\!\,]/g, '').trim().split(/\s+/).filter(w => w.length >= 2 && !['شنو', 'اكو', 'عندكم', 'ناشرين', 'اريد', 'أريد', 'ادور', 'أدور', 'شكد', 'بكم', 'سعر', 'هل', 'منو', 'على', 'في', 'عن', 'رابط'].includes(w));
     
     if (keywords.length > 0) {
       const searchTerms = keywords.slice(0, 3);
@@ -47,7 +53,7 @@ async function fetchDatabaseContext(queryText: string): Promise<string> {
       const { data: searchAds } = await query.or(orConditions).order('created_at', { ascending: false }).limit(4);
 
       if (searchAds && searchAds.length > 0) {
-        adsContext += `\n[إعلانات مطابقة لبحث المستخدم في قاعدة البيانات]:\n`;
+        adsContext += `\n[إعلانات مطابقة لبحث الزبون]:\n`;
         searchAds.forEach((ad, i) => {
           adsContext += `${i + 1}. ${ad.title} (سنة: ${ad.year || 'غير محدد'}) | السعر: ${ad.price} | الموقع: ${ad.city || ad.location || 'بغداد'} | هاتف البائع: ${ad.phone || 'متوفر بالموقع'} | رقم الإعلان: #${ad.short_id} | الرابط: https://www.souqbaghdad.store/product/${ad.short_id}\n`;
         });
@@ -65,38 +71,68 @@ function getLocalIraqiFallback(text: string, isComment: boolean = false, dbConte
   if (dbContext) {
     return `يا هلا بيك عيوني! 🚗 بخصوص طلبك، هاي بعض الإعلانات المعروضة حالياً بالمنصة:\n${dbContext}\nوتكدر تشوف كل التفاصيل والصور من موقعنا: https://www.souqbaghdad.store`;
   }
-  const clean = text.toLowerCase().trim();
-  if (clean.includes("سعر") || clean.includes("بكم") || clean.includes("شكد") || clean.includes("بيش")) {
+  const clean = (text || "").toLowerCase().trim();
+
+  // 1. طلب رابط البوت
+  if (clean.includes("بوت") || clean.includes("تليكرام") || clean.includes("تيليجرام") || clean.includes("تليجرام") || clean.includes("تلي")) {
+    return `🤖 تفضل عيوني، هذا الرابط المباشر لبوت سوق بغداد على التيليكرام:
+👉 https://t.me/souqbaghda_bot
+المعرف: @souqbaghda_bot
+تكدر من خلاله تتصفح وتنشر إعلاناتك بكل سهولة وبشكل مجاني 🌹`;
+  }
+
+  // 2. نية النشر أو العرض أو البيع
+  if (clean.includes("نشر") || clean.includes("انشر") || clean.includes("أنشر") || clean.includes("ابيع") || clean.includes("أبيع") || clean.includes("اعرض") || clean.includes("أعرض") || clean.includes("اعلان") || clean.includes("إعلان")) {
+    return `🚗 تدلل عيوني! تكدر تنشر إعلانك (سيارة، خط نقل، أو منتج) مجاناً وبأقل من دقيقة:
+🔗 رابط النشر المباشر عبر الموقع: https://www.souqbaghdad.store/post-ad
+🤖 أو تكدر تنشر مباشرة عبر بوت التليكرام: @souqbaghda_bot`;
+  }
+
+  // 3. الاستفسار عن السيارات
+  if (clean.includes("سيار") || clean.includes("سياره") || clean.includes("سيارات")) {
+    return `🚗 يا هلا بيك يالغالي! عدنا قسم كامل للسيارات المعروضة للبيع في بغداد والعراق.
+تكدر تتصفح أحدث السيارات وأسعارها وأرقام هواتف أصحابها من هنا:
+🔗 https://www.souqbaghdad.store
+أو اكتبلي نوع السيارة والموديل اللي تدور عليه واني أساعدك من عيوني 🌹`;
+  }
+
+  // 4. الاستفسار عن الأسعار
+  if (clean.includes("سعر") || clean.includes("بكم") || clean.includes("شكد") || clean.includes("بيش") || clean.includes("السعر") || clean.includes("فلوس") || clean.includes("قسط")) {
     return isComment 
       ? "أهلاً بك عيوني 🌹 التفاصيل والأسعار معروضة بالكامل، وتكدر تتواصل مباشرة مع البائع عبر موقعنا: https://www.souqbaghdad.store"
-      : "يا هلا بيك يالغالي! تكدر تشوف كل الأسعار وتفاصيل الإعلانات والتواصل مع البائعين مباشرة من خلال منصتنا: https://www.souqbaghdad.store";
+      : "يا هلا بيك يالغالي! تكدر تشوف كل الأسعار الحية وتفاصيل الإعلانات وأرقام هواتف البائعين مباشرة من خلال منصتنا: https://www.souqbaghdad.store";
   }
-  if (clean.includes("سيار") || clean.includes("ابيع") || clean.includes("أبيع") || clean.includes("اعرض")) {
-    return "🚗 تدلل عيوني! تكدر تنشر سيارتك مجاناً وبدقائق عبر منصة سوق بغداد: https://www.souqbaghdad.store أو عبر بوت التليكرام @SouqBaghdad_bot وتوصل لآلاف المشترين فوراً.";
+
+  // 5. خطوط النقل والتوصيل للجامعات والموظفين
+  if (clean.includes("خط") || clean.includes("نقل") || clean.includes("جامع") || clean.includes("سايق") || clean.includes("طالب") || clean.includes("كوسية") || clean.includes("رافدين") || clean.includes("دجلة") || clean.includes("بغداد")) {
+    return "🚌 يا هلا بيك! عدنا قسم كامل مخصص لخطوط نقل الجامعات والمدارس والموظفين ببغداد، تكدر تبحث عن خط أو تنشر خطك كسايق مجاناً عبر الرابط:\nhttps://www.souqbaghdad.store/transport";
   }
-  if (clean.includes("خط") || clean.includes("نقل") || clean.includes("جامع") || clean.includes("سايق")) {
-    return "🚌 يا هلا بيك! عدنا قسم مخصص لخطوط نقل الجامعات والموظفين، تكدر تبحث عن خط أو تنشر خطك مجاناً عبر المنصة: https://www.souqbaghdad.store/transport";
+
+  // 6. طلب الروابط العامة للموقع
+  if (clean.includes("رابط") || clean.includes("موقع") || clean.includes("لينك") || clean.includes("وين") || clean.includes("عنوان") || clean.includes("صفحة")) {
+    return "تفضل رابط منصة سوق بغداد للتصفح المباشر ونشر الإعلانات مجاناً: https://www.souqbaghdad.store 🌐 نورتنا يالغالي!";
   }
-  if (clean.includes("رابط") || clean.includes("موقع") || clean.includes("لينك") || clean.includes("وين")) {
-    return "تفضل رابط منصة سوق بغداد للتصفح والنشر المباشر: https://www.souqbaghdad.store 🌐 نورتنا يالغالي!";
+
+  // 7. الاستفسار عن التوفر
+  if (clean.includes("متوفر") || clean.includes("موجود") || clean.includes("بعده") || clean.includes("اكو")) {
+    return "نعم عيوني متوفر ✅ تكدر تطلع على كامل التفاصيل والتواصل مباشرة مع صاحب الإعلان عبر المنصة: https://www.souqbaghdad.store";
   }
-  if (clean.includes("متوفر") || clean.includes("موجود")) {
-    return "نعم عيوني متوفر ✅ تكدر تطلع على كامل التفاصيل والتواصل مباشرة عبر المنصة: https://www.souqbaghdad.store";
+
+  // 8. التحيات
+  if (clean.includes("مرحبا") || clean.includes("مرحباً") || clean.includes("هلو") || clean.includes("سلام") || clean.includes("السلام") || clean.includes("مساء") || clean.includes("صباح")) {
+    return isComment
+      ? "أهلاً بك عيوني 🇮🇶 نورتنا في سوق بغداد! تفضل بزيارة المنصة: https://www.souqbaghdad.store"
+      : "يا هلا وكل الهلا بيك عيوني! نورت سوق بغداد 🇮🇶\nشلون أقدر أخدمك اليوم؟\n1️⃣ تبحث عن سيارة أو خط نقل أو منتج؟\n2️⃣ تحب تنشر إعلانك مجاناً وبسرعة؟\n(اكتبلي طلبك وتدلل من عيوني 🌹)";
   }
+
   return isComment
     ? "أهلاً بك في سوق بغداد 🇮🇶 نورتنا عيوني! للتفاصيل وزيارة المنصة: https://www.souqbaghdad.store"
-    : "يا هلا بيك عيوني نورت سوق بغداد! 🇮🇶 شلون أقدر أساعدك بخصوص السيارات أو خطوط النقل أو المنتجات؟";
+    : "يا هلا بيك عيوني نورت سوق بغداد! 🇮🇶 اكتبلي شنو طلبك (شراء، بيع، خط نقل، أو نشر إعلان) وحاضر أساعدك فوراً.";
 }
 
 async function generateAIResponse(prompt: string, userText: string, isComment: boolean = false, imageUrl?: string, audioUrl?: string): Promise<string> {
   const dbContext = await fetchDatabaseContext(userText);
   const fullInstruction = `${SYSTEM_PROMPT}
-
-إرشادات الموظف الذكي:
-1. أنت تمثل منصة "سوق بغداد" وتتصرف كموظف خدمة عملاء ومبيعات عراقي خبير ولبق جداً.
-2. هدفك توجيه الزبون بالرابط الصحيح دائماً ومساعدته في تحقيق هدفه (سواء شراء سيارة، العثور على خط نقل، أو نشر إعلانه مجاناً).
-3. لا تقم باختلاق أي أسعار أو أرقام هواتف غير موجودة في قاعدة البيانات المرفقة، وإذا لم تكن متوفرة، أرشده لزيارة المنصة وتصفح القسم المناسب.
-4. إذا أرسل المستخدم صوتاً أو صورة، اشرح له فهمك للصورة أو البصمة ثم أعطه الرد المناسب وروابط المنصة.
 
 ${dbContext ? `معلومات حقيقية ومحدثة من قاعدة بيانات سوق بغداد:\n${dbContext}\n` : ''}`;
 
@@ -104,7 +140,7 @@ ${dbContext ? `معلومات حقيقية ومحدثة من قاعدة بيان
   if (GEMINI_API_KEY) {
     try {
       const parts: any[] = [];
-      if (userText) parts.push({ text: `${prompt}\n\nنص المستخدم: "${userText}"` });
+      if (userText) parts.push({ text: `${prompt}\n\nرسالة الزبون: "${userText}"` });
 
       // معالجة الصور
       if (imageUrl) {
@@ -150,30 +186,29 @@ ${dbContext ? `معلومات حقيقية ومحدثة من قاعدة بيان
         }
       }
 
-      // محاولة استدعاء gemini-2.0-flash أولاً
-      const callGemini = async (model: string) => {
-        return await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ role: "user", parts }],
-              systemInstruction: { parts: [{ text: fullInstruction }] }
-            })
+      // محاولة استدعاء gemini-2.0-flash أولاً ثم gemini-1.5-flash
+      const geminiModels = ["gemini-2.0-flash", "gemini-1.5-flash"];
+      for (const model of geminiModels) {
+        try {
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ role: "user", parts }],
+                systemInstruction: { parts: [{ text: fullInstruction }] }
+              })
+            }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            const candidate = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+            if (candidate && candidate.length > 0) return candidate.replace(/[*#]/g, '');
           }
-        );
-      };
-
-      let res = await callGemini("gemini-2.0-flash");
-      if (!res.ok) {
-        res = await callGemini("gemini-1.5-flash");
-      }
-
-      if (res.ok) {
-        const data = await res.json();
-        const candidate = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-        if (candidate) return candidate.replace(/[*#]/g, '');
+        } catch(err) {
+          console.error(`Gemini model ${model} error:`, err);
+        }
       }
     } catch (e) {
       console.error("Gemini call exception:", e);
