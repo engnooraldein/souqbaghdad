@@ -170,7 +170,7 @@ async function broadcastToPartnerChannels(record: any, category: 'transport' | '
       .from('partner_channels')
       .select('*')
       .eq('is_active', true)
-      .or(`category.eq.${category},category.eq.all`);
+      .or(`category.eq.${category},category.eq.all,category.eq.my_store`);
 
     if (!partners || partners.length === 0) return;
 
@@ -178,9 +178,35 @@ async function broadcastToPartnerChannels(record: any, category: 'transport' | '
     const recordDesc = typeof record.description === 'string' ? record.description.toLowerCase() : JSON.stringify(record.description || {}).toLowerCase();
     const recordCity = (record.city || record.location || record.governorate || record.destination || '').toLowerCase();
     const recordUni = (record.university || '').toLowerCase();
+    const recordSellerId = record.seller_id || record.user_id;
 
     for (const partner of partners) {
       try {
+        // Mode: Only My Ads (متجري فقط)
+        if (partner.only_my_ads || partner.category === 'my_store') {
+          // Look up seller's telegram chat id from profiles/telegram_users
+          const { data: tgUser } = await supabaseClient.from('telegram_users').select('user_id').eq('telegram_chat_id', partner.owner_telegram_id).maybeSingle();
+          const partnerUserId = tgUser?.user_id;
+          
+          let isOwnerAd = false;
+          if (partnerUserId && recordSellerId && partnerUserId === recordSellerId) {
+            isOwnerAd = true;
+          }
+          if (partner.owner_telegram_id && record.telegram_chat_id && String(partner.owner_telegram_id) === String(record.telegram_chat_id)) {
+            isOwnerAd = true;
+          }
+          if (record.phone) {
+            const { data: prof } = await supabaseClient.from('profiles').select('phone').eq('id', partnerUserId).maybeSingle();
+            if (prof?.phone && record.phone.includes(prof.phone.slice(-8))) {
+              isOwnerAd = true;
+            }
+          }
+
+          if (!isOwnerAd) {
+            continue; // Skip because it's not the store owner's ad
+          }
+        }
+
         // Keyword Matcher Check
         if (partner.filter_keywords && partner.filter_keywords.length > 0) {
           const match = partner.filter_keywords.some((kw: string) => {
@@ -224,6 +250,7 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
   const category = state.data.category || 'all';
   const subCategory = state.data.sub_category || 'all';
   const keywords = state.data.filter_keywords || [];
+  const onlyMyAds = state.data.only_my_ads === true || category === 'my_store';
 
   const { error } = await supabaseClient.from('partner_channels').upsert({
     owner_telegram_id: chatId,
@@ -232,6 +259,7 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
     category: category,
     sub_category: subCategory,
     filter_keywords: keywords,
+    only_my_ads: onlyMyAds,
     is_active: true,
     updated_at: new Date().toISOString()
   }, { onConflict: 'channel_id' });
@@ -244,11 +272,14 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
 
   // Send test welcome message to the connected channel
   try {
-    const catName = category === 'transport' ? '🚌 خطوط نقل' : (category === 'vehicles' ? '🚗 سيارات' : (category === 'products' ? '🛍️ منتجات ومتاجر' : '🌐 كل الإعلانات'));
+    const catName = onlyMyAds 
+      ? '🛍️ إعلانات متجري / إعلاناتي الشخصية فقط'
+      : (category === 'transport' ? '🚌 خطوط نقل' : (category === 'vehicles' ? '🚗 سيارات' : (category === 'products' ? '🛍️ منتجات ومتاجر' : '🌐 كل الإعلانات')));
+    
     const testMsg = 
       `🎉 <b>تم ربط القناة بنجاح مع منصة سوق بغداد الرقمي!</b> 🇮🇶\n\n` +
       `📌 <b>تخصص الإعلانات المعتمد:</b> ${catName}\n` +
-      `🚀 ستبدأ القناة باستلام أحدث الإعلانات المنسقة والمصممة تلقائياً لخدمة متابعيكم.\n\n` +
+      (onlyMyAds ? `⚡ <b>الوضع:</b> أي إعلان أو منتج تنشره بحسابك في الموقع أو البوت سينزل هنا فوراً بتصميم احترافي!\n\n` : `🚀 ستبدأ القناة باستلام أحدث الإعلانات المنسقة والمصممة تلقائياً لخدمة متابعيكم.\n\n`) +
       `🌐 <b>موقع المنصة:</b> https://www.souqbaghdad.store\n` +
       `🤖 <b>البوت المعتمد:</b> @${BOT_USERNAME}`;
 
@@ -263,8 +294,9 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
   await updateOrSend(
     `✅ <b>تم ربط قناتك بنجاح!</b> 🎉\n\n` +
     `📢 <b>القناة:</b> ${channelTitle} (${channelId})\n` +
-    `⚡ من الآن فصاعداً، أي إعلان يطابق تخصص قناتك سيتم نشره وتصميمه داخل قناتك تلقائياً وبأعلى جودة!\n\n` +
-    `شكراً لانضمامك إلى شبكة سوق بغداد الرقمي 🤝`,
+    (onlyMyAds 
+      ? `👑 <b>الوضع المختار:</b> إعلانات متجرك الخاص فقط. أي منتج أو إعلان تنشره في الموقع أو البوت سينزل في قناتك فورياً وبتصميم مرتب!`
+      : `⚡ <b>الوضع المختار:</b> استلام إعلانات المنصة المطابقة لتخصص قناتك تلقائياً وبأعلى جودة!\n\nشكراً لانضمامك إلى شبكة سوق بغداد الرقمي 🤝`),
     {
       inline_keyboard: [
         [{ text: '📋 عرض قنواتي المربوطة', callback_data: 'partner_my_channels' }],
@@ -2711,7 +2743,9 @@ serve(async (req) => {
         let listText = `📋 <b>قنواتك المربوطة بشبكة سوق بغداد:</b>\n\n`;
         const channelButtons: any[] = [];
         myChannels.forEach((c: any, i: number) => {
-          const catName = c.category === 'transport' ? '🚌 خطوط نقل' : (c.category === 'vehicles' ? '🚗 سيارات' : (c.category === 'products' ? '🛍️ منتجات' : '🌐 الكل'));
+          const catName = c.only_my_ads || c.category === 'my_store'
+            ? '👑 إعلانات متجري / إعلاناتي الشخصية فقط'
+            : (c.category === 'transport' ? '🚌 خطوط نقل' : (c.category === 'vehicles' ? '🚗 سيارات' : (c.category === 'products' ? '🛍️ منتجات ومتاجر' : '🌐 الكل')));
           const subInfo = c.filter_keywords && c.filter_keywords.length > 0 ? ` (${c.filter_keywords.join('، ')})` : '';
           listText += `${i + 1}. <b>${c.channel_title || c.channel_id}</b>\n• التخصص: ${catName}${subInfo}\n• الحالة: ${c.is_active ? '✅ نشطة وتستلم الإعلانات' : '⏸️ متوقفة'}\n\n`;
           channelButtons.push([{ text: `❌ حذف ${c.channel_title || c.channel_id}`, callback_data: `partner_delete_${c.id}` }]);
@@ -4607,9 +4641,10 @@ serve(async (req) => {
           `👇 <b>حدد تخصص ونوع الإعلانات التي ترغب بنشرها في قناتك تلقائياً:</b>`,
           {
             inline_keyboard: [
+              [{ text: '👑 إعلانات متجري / إعلاناتي الشخصية فقط', callback_data: 'partner_cat_my_store' }],
               [{ text: '🚌 خطوط نقل طلاب وموظفين', callback_data: 'partner_cat_transport' }],
               [{ text: '🚗 سيارات ومحركات للبيع', callback_data: 'partner_cat_vehicles' }],
-              [{ text: '🛍️ منتجات ومتاجر وتسوق', callback_data: 'partner_cat_products' }],
+              [{ text: '🛍️ منتجات ومتاجر وتسوق عام', callback_data: 'partner_cat_products' }],
               [{ text: '🌐 كل الإعلانات العامة بالمنصة', callback_data: 'partner_cat_all' }],
               [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
             ]
