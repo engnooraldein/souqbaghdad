@@ -184,25 +184,42 @@ async function broadcastToPartnerChannels(record: any, category: 'transport' | '
       try {
         // Mode: Only My Ads (متجري فقط)
         if (partner.only_my_ads || partner.category === 'my_store') {
-          // Look up seller's telegram chat id from profiles/telegram_users
-          const { data: tgUser } = await supabaseClient.from('telegram_users').select('user_id').eq('telegram_chat_id', partner.owner_telegram_id).maybeSingle();
-          const partnerUserId = tgUser?.user_id;
-          
           let isOwnerAd = false;
-          if (partnerUserId && recordSellerId && partnerUserId === recordSellerId) {
-            isOwnerAd = true;
-          }
+
+          // 1. Match by Telegram Chat ID
           if (partner.owner_telegram_id && record.telegram_chat_id && String(partner.owner_telegram_id) === String(record.telegram_chat_id)) {
             isOwnerAd = true;
           }
-          if (record.phone) {
-            const { data: prof } = await supabaseClient.from('profiles').select('phone').eq('id', partnerUserId).maybeSingle();
-            if (prof?.phone && record.phone.includes(prof.phone.slice(-8))) {
+
+          // 2. Match by User ID
+          if (!isOwnerAd) {
+            const { data: tgUser } = await supabaseClient.from('telegram_users').select('user_id, phone_number').eq('telegram_chat_id', partner.owner_telegram_id).maybeSingle();
+            const partnerUserId = tgUser?.user_id;
+            const partnerTgPhone = tgUser?.phone_number;
+
+            if (partnerUserId && recordSellerId && String(partnerUserId) === String(recordSellerId)) {
               isOwnerAd = true;
+            }
+
+            // 3. Match by Phone Number
+            if (!isOwnerAd && record.phone) {
+              const cleanRecPhone = String(record.phone).replace(/[^0-9]/g, '');
+              if (partnerTgPhone) {
+                const cleanTgPhone = String(partnerTgPhone).replace(/[^0-9]/g, '');
+                if (cleanRecPhone.slice(-8) === cleanTgPhone.slice(-8)) isOwnerAd = true;
+              }
+              if (!isOwnerAd && partnerUserId) {
+                const { data: prof } = await supabaseClient.from('profiles').select('phone').eq('id', partnerUserId).maybeSingle();
+                if (prof?.phone) {
+                  const cleanProfPhone = String(prof.phone).replace(/[^0-9]/g, '');
+                  if (cleanRecPhone.slice(-8) === cleanProfPhone.slice(-8)) isOwnerAd = true;
+                }
+              }
             }
           }
 
           if (!isOwnerAd) {
+            console.log(`[PARTNER SYNDICATION] Skipping partner ${partner.channel_id} (not owner's ad)`);
             continue; // Skip because it's not the store owner's ad
           }
         }
@@ -2155,6 +2172,9 @@ serve(async (req) => {
             } else {
               res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
             }
+
+            // Broadcast to Partner Channels Network (General Ads/Products/All)
+            EdgeRuntime.waitUntil(broadcastToPartnerChannels(record, 'products', caption, imagesToPost, replyMarkup, supabase));
           }
           const updates: any = {};
           let syncStatus = record.sync_status || { facebook: 'pending', instagram: 'pending', telegram: 'pending' };
