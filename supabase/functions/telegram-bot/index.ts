@@ -3240,11 +3240,13 @@ serve(async (req) => {
         const cleanDestination = (stateData.destination || 'كلية الرافدين الجامعة').replace(/<[^>]*>?/gm, '').trim();
         const cleanFare = formatTgPrice(stateData.price);
 
-        const isAlRafdain = ['الرافدين', 'الرفدين', 'ruc'].some(term => 
+        const isAlRafdain = ['الرافدين', 'الرفدين', 'رافدين', 'رفدين', 'ruc'].some(term => 
           cleanDestination.toLowerCase().includes(term) || 
           targetStr.toLowerCase().includes(term) ||
           cleanRegions.toLowerCase().includes(term) ||
-          (stateData.university && stateData.university.toLowerCase().includes(term))
+          (transTitle && transTitle.toLowerCase().includes(term)) ||
+          (stateData.university && stateData.university.toLowerCase().includes(term)) ||
+          (stateData.destination && stateData.destination.toLowerCase().includes(term))
         );
         const channelLink = isAlRafdain && ALRAFDAIN_TELEGRAM_CHANNEL
           ? `https://t.me/${ALRAFDAIN_TELEGRAM_CHANNEL.replace('@', '')}`
