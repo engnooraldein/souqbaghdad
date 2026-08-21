@@ -279,11 +279,96 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
     const testMsg = 
       `🎉 <b>تم ربط القناة بنجاح مع منصة سوق بغداد الرقمي!</b> 🇮🇶\n\n` +
       `📌 <b>تخصص الإعلانات المعتمد:</b> ${catName}\n` +
-      (onlyMyAds ? `⚡ <b>الوضع:</b> أي إعلان أو منتج تنشره بحسابك في الموقع أو البوت سينزل هنا فوراً بتصميم احترافي!\n\n` : `🚀 ستبدأ القناة باستلام أحدث الإعلانات المنسقة والمصممة تلقائياً لخدمة متابعيكم.\n\n`) +
+      (onlyMyAds ? `⚡ <b>الوضع:</b> جاري مزامنة ونشر إعلانات متجرك السابقة في القناة...\n\n` : `🚀 ستبدأ القناة باستلام أحدث الإعلانات المنسقة والمصممة تلقائياً لخدمة متابعيكم.\n\n`) +
       `🌐 <b>موقع المنصة:</b> https://www.souqbaghdad.store\n` +
       `🤖 <b>البوت المعتمد:</b> @${BOT_USERNAME}`;
 
     await sendMessage(channelId, testMsg);
+
+    // Sync Existing / Past Active Ads to the newly connected channel
+    EdgeRuntime.waitUntil((async () => {
+      try {
+        console.log(`[PARTNER SYNC PAST ADS] Starting sync for ${channelId}, onlyMyAds=${onlyMyAds}, category=${category}`);
+        const { data: tgUser } = await supabaseClient.from('telegram_users').select('user_id').eq('telegram_chat_id', chatId).maybeSingle();
+        const sellerUserId = tgUser?.user_id;
+
+        // 1. Sync Products
+        if (category === 'products' || category === 'all' || onlyMyAds) {
+          let prodQuery = supabaseClient.from('products').select('*').eq('status', 'active');
+          if (onlyMyAds && sellerUserId) {
+            prodQuery = prodQuery.eq('seller_id', sellerUserId);
+          }
+          const { data: pastProducts } = await prodQuery.order('created_at', { ascending: true }).limit(15);
+          if (pastProducts && pastProducts.length > 0) {
+            for (const prod of pastProducts) {
+              try {
+                const prodLink = `https://www.souqbaghdad.store/product/${prod.short_id || prod.id}`;
+                const prodCaption = await generateSocialCaption(prod, 'product', prodLink, true);
+                const prodImages = await ensurePublicImages(prod, 'products', supabaseClient);
+                const pImg = prodImages.length > 0 ? prodImages[0] : getFallbackImage(prod, 'product');
+                const pButtons = {
+                  inline_keyboard: [
+                    [{ text: '🛒 عرض المنتج كاملاً', url: prodLink }],
+                    [{ text: '📢 انشر إعلانك مجاناً', url: `https://t.me/${BOT_USERNAME}` }]
+                  ]
+                };
+                await sendPhoto(channelId, pImg, prodCaption, pButtons);
+                await new Promise(r => setTimeout(r, 600)); // Rate limit pause
+              } catch(e) {
+                console.error('Error syncing past product:', e);
+              }
+            }
+          }
+        }
+
+        // 2. Sync Ads (Cars & Transport)
+        if (category !== 'products') {
+          let adsQuery = supabaseClient.from('ads').select('*').eq('status', 'active');
+          if (onlyMyAds && sellerUserId) {
+            adsQuery = adsQuery.eq('seller_id', sellerUserId);
+          } else if (category === 'transport') {
+            adsQuery = adsQuery.eq('category', 'transport');
+          } else if (category === 'vehicles') {
+            adsQuery = adsQuery.in('category', ['vehicles', 'cars', 'car']);
+          }
+
+          const { data: pastAds } = await adsQuery.order('created_at', { ascending: true }).limit(15);
+          if (pastAds && pastAds.length > 0) {
+            for (const ad of pastAds) {
+              try {
+                // Filter keyword check for transport
+                if (category === 'transport' && keywords.length > 0) {
+                  const adText = ((ad.title || '') + ' ' + (ad.destination || '') + ' ' + (ad.regions || '') + ' ' + (ad.university || '')).toLowerCase();
+                  const match = keywords.some((k: string) => adText.includes(k.toLowerCase().trim()));
+                  if (!match) continue;
+                }
+
+                const adType = ad.category === 'transport' ? 'transport' : 'car';
+                const adLink = adType === 'transport' 
+                  ? `https://www.souqbaghdad.store/transport/card/${ad.short_id || ad.id}`
+                  : `https://www.souqbaghdad.store/ad/${ad.short_id || ad.id}`;
+                
+                const adCaption = await generateSocialCaption(ad, adType, adLink, true);
+                const adImages = await ensurePublicImages(ad, 'ads', supabaseClient);
+                const adImg = adImages.length > 0 ? adImages[0] : getFallbackImage(ad, adType);
+                const adButtons = {
+                  inline_keyboard: [
+                    [{ text: adType === 'transport' ? '🌐 التفاصيل الكاملة وحجز المقعد' : '🚗 عرض التفاصيل بالمنصة', url: adLink }],
+                    [{ text: '📢 انشر إعلانك مجاناً', url: `https://t.me/${BOT_USERNAME}` }]
+                  ]
+                };
+                await sendPhoto(channelId, adImg, adCaption, adButtons);
+                await new Promise(r => setTimeout(r, 600)); // Rate limit pause
+              } catch(e) {
+                console.error('Error syncing past ad:', e);
+              }
+            }
+          }
+        }
+      } catch(syncErr) {
+        console.error('Error in past ads background sync:', syncErr);
+      }
+    })());
   } catch(e) {
     console.warn('Welcome message to partner channel failed:', e);
   }
