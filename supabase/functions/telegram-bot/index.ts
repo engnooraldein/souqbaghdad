@@ -408,9 +408,9 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
   );
   return new Response('OK', { status: 200 });
 }
-const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || 'EAAPXexo3QZCcBSS81SrUC8TbvBMUiMFUO2ZA1ZCqOIddaNXTywui05INE9gaY4tpFbVDKZCcz6kr9h9znXcHCPanKtLgRusGyjhUdtTR7aClqiUh9KaNWLBvXSZBiyHYUbCbZA2rEPLZBswlQanav0NZACnZAmz1M3K2uaaZAa6TZBEtXG0t5pLHu2JxpWXGoZC4vGMK8b2BJt0iOZBA6pVXtufmB3ZAaKnlzpoTuyHZBQzSVR1viqm2eIcw9lH2htZAOmoZD';
-const META_PAGE_ID = Deno.env.get('META_PAGE_ID') || '';
-const META_IG_ACCOUNT_ID = Deno.env.get('META_IG_ACCOUNT_ID') || '';
+const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || 'EAAPXexo3QZCcBSddpo1cV8uFEAQXDj0ZCiVogv09Se6ibfGtFxzBJfuOmudG42zyu3zK32ZC0MIgZCcZCc0atNp465bjRSYDerC9KIubuO8MrNl7duH6GZCZBmMUPP1N45ytZC8SsAHWo6bUvZBvQAeNuM5yUsyKstqWNz7eETTPjZAZBlr95eJikUdzpIsUMYnLYghwesir2hH6nOUojc7mdaitJd2JNmSWym5qvx05tXWKzfKzhgDHomqLiL4IwZDZD';
+const META_PAGE_ID = Deno.env.get('META_PAGE_ID') || '1088044114402452';
+const META_IG_ACCOUNT_ID = Deno.env.get('META_IG_ACCOUNT_ID') || '17841403127032930';
 const THREADS_USER_ID = Deno.env.get('THREADS_USER_ID') || '28119436894335542';
 const THREADS_ACCESS_TOKEN = Deno.env.get('THREADS_ACCESS_TOKEN') || '';
 
