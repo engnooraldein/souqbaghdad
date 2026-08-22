@@ -2697,10 +2697,16 @@ serve(async (req) => {
       voice = update.message.voice;
     } else if (update.callback_query) {
       callbackQuery = update.callback_query;
-      chatId = callbackQuery.message.chat.id;
+      chatId = callbackQuery.message?.chat?.id || callbackQuery.from?.id;
       text = callbackQuery.data;
     } else {
       return new Response('OK', { status: 200 });
+    }
+
+    const callbackQueryId = callbackQuery?.id;
+    if (callbackQueryId) {
+      // Dismiss Telegram loading spinner immediately so buttons never hang
+      try { await answerCallbackQuery(callbackQueryId); } catch(e) {}
     }
 
     const supabase = createClient(
@@ -4759,20 +4765,38 @@ serve(async (req) => {
             const priceFormatted = priceNum > 0 ? `${priceNum.toLocaleString('en-US')} د.ع` : 'حسب الاتفاق';
             const catLabel = catLabels[stateData.category] || stateData.category || 'منتج';
 
-            // 2. Telegram caption
+            // 2. Telegram caption & buttons (Matching unified 3-row logic)
             const tgCaption = await generateSocialCaption(inserted, 'product', productLink, true);
 
-            const tgButtons = {
-              inline_keyboard: [
-                [{ text: '🛒 عرض المنتج كاملاً', url: productLink }],
-                [{ text: '📢 انشر منتجك مجاناً', url: `https://t.me/${BOT_USERNAME}` }]
-              ]
-            };
+            const prodImages = await ensurePublicImages(inserted, 'products', supabase);
+            const mainImage = prodImages && prodImages.length > 0 ? prodImages[0] : null;
+            const photoCount = prodImages.length;
+            const detailsButtonText = photoCount > 1 
+              ? `📸 تصفح كافة الصور (${photoCount} صور) والتفاصيل 🌐` 
+              : `🌐 عرض التفاصيل والصور بالمنصة`;
+
+            let cleanPhone = (stateData.phone || phone || '').replace(/[^0-9+]/g, '');
+            if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
+            else cleanPhone = cleanPhone.replace('+', '');
+
+            const contactRow = [];
+            if (cleanPhone) {
+              contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
+              contactRow.push({ text: '✈️ تواصل تيليكرام', url: `https://t.me/+${cleanPhone}` });
+            }
+
+            const tgInlineKeyboard = [
+              [{ text: detailsButtonText, url: productLink }]
+            ];
+            if (contactRow.length > 0) {
+              tgInlineKeyboard.push(contactRow);
+            }
+            tgInlineKeyboard.push([{ text: '🛍️ اعرض منتجك للبيع مجاناً', url: `https://t.me/${BOT_USERNAME}` }]);
+
+            const tgButtons = { inline_keyboard: tgInlineKeyboard };
 
             // 3. Send to Telegram product channel
             const updates: any = {};
-            const prodImages = await ensurePublicImages(inserted, 'products', supabase);
-            const mainImage = prodImages && prodImages.length > 0 ? prodImages[0] : null;
             let tgMsgId: string | null = null;
 
             let tgRes;
@@ -4832,17 +4856,19 @@ serve(async (req) => {
               await supabase.from('products').update(updates).eq('id', inserted.id);
             }
 
-            // 9. Success message
-            const successLines = ['✅ <b>تم نشر إعلان منتجك بنجاح! 🎉</b>\n'];
-            if (updates.telegram_message_id) successLines.push('📢 تيليكرام ✅');
-            if (updates.facebook_post_id) successLines.push('🔵 فيسبوك ✅');
-            if (updates.instagram_post_id) successLines.push('📸 انستكرام ✅');
-            if (updates.threads_post_id) successLines.push('🧵 ثريدز ✅');
+            // 9. Success message with warm thank you note and action buttons
+            const successMsg = `🎉 <b>تم نشر إعلان منتجك بنجاح! شكراً لاختيارك منصة سوق بغداد 🤝</b>\n\n` +
+                               `🛍️ <b>${stateData.title}</b>\n` +
+                               `💰 <b>السعر:</b> ${priceFormatted}\n` +
+                               `📍 <b>المحافظة:</b> ${stateData.governorate || 'بغداد'}\n\n` +
+                               `📣 <b>إعلانك معروض الآن بالموقع وقناة السوق العام.</b>\n` +
+                               `✨ نتمنى لك دوام التوفيق والبركة في البيع!`;
 
-            await sendMessage(chatId, successLines.join('\n'), {
+            await sendMessage(chatId, successMsg, {
               inline_keyboard: [
-                [{ text: '🛒 عرض إعلانك', url: productLink }],
-                [{ text: '📦 نشر منتج آخر', callback_data: 'publish_product' }],
+                [{ text: '🌐 عرض بطاقتي بالموقع', url: productLink }, { text: '📢 شاهد بالقناة', url: `https://t.me/${PRODUCT_CHANNEL.replace('@', '')}` }],
+                [{ text: '⚠️ تم البيع (حصلت)', callback_data: `mark_sold_${inserted.id}` }, { text: '🗑️ حذف الإعلان نهائياً', callback_data: `del_prod_${inserted.id}` }],
+                [{ text: '🛍️ نشر منتج آخر', callback_data: 'publish_product' }, { text: '📦 إعلاناتي', callback_data: 'manage_cat_ads' }],
                 [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
               ]
             });
