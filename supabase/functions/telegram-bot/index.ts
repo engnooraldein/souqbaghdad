@@ -955,13 +955,20 @@ async function postToTikTok(text: string, photoUrl: string | string[] | null, su
   }
 }
 
-async function deleteFromInstagram(mediaId: string) {
-  if (!META_PAGE_ACCESS_TOKEN) return false;
+async function deleteFromInstagram(mediaId: string, customToken?: string) {
+  let token = customToken;
+  if (!token) {
+    const igSetting = await getLiveSocialSetting('ig_souq');
+    token = igSetting?.access_token || META_PAGE_ACCESS_TOKEN;
+  }
+  if (!token || !mediaId) return false;
   try {
-    const res = await fetch(`https://graph.facebook.com/v20.0/${mediaId}?access_token=${META_PAGE_ACCESS_TOKEN}`, {
+    const res = await fetch(`https://graph.facebook.com/v20.0/${mediaId}?access_token=${token}`, {
       method: 'DELETE'
     });
-    return res.ok;
+    const data = await res.json().catch(() => ({}));
+    console.log(`[IG DELETE] mediaId=${mediaId}, ok=${res.ok}`, data);
+    return res.ok || data?.success === true;
   } catch (err) {
     console.error('IG Delete Error:', err);
     return false;
@@ -1865,6 +1872,17 @@ serve(async (req) => {
           const rafdainSetting = await getLiveSocialSetting('fb_rafdain');
           const token = rafdainSetting?.access_token || ALRAFDAIN_FB_TOKEN;
           await updateFacebookPost(rafdainFbPostId, fbSoldText, token);
+        }
+
+        // 4. Delete Instagram post upon Sold / Completed (since IG API does not allow editing captions)
+        const igPostId = actualAd.instagram_post_id || record?.instagram_post_id || oldRecord?.instagram_post_id || actualAd.sync_status?.instagram_post_id || record?.sync_status?.instagram_post_id;
+        if (igPostId) {
+          console.log(`[SOLD WEBHOOK] Deleting Instagram post ${igPostId} since IG doesn't support edit...`);
+          try {
+            await deleteFromInstagram(igPostId);
+          } catch (igDelErr) {
+            console.error('[SOLD WEBHOOK] Error deleting IG post:', igDelErr);
+          }
         }
       }
       
@@ -4299,7 +4317,14 @@ serve(async (req) => {
             await updateFacebookPost(updatedTrans.facebook_post_id, fbClosedText);
           }
 
-          await updateOrSend('✅ <b>تم إغلاق الخط بنجاح! شكراً لاستخدامك منصة سوق بغداد 🤝</b>\n\nتم تحديث المنشور في القنوات ومواقع التواصل ليظهر أن العدد اكتمل.\nنتمنى لك رحلات موفقة وآمنة دائماً! ✨', {
+          // 4. Delete Instagram Post if exists (since IG API does not allow editing captions)
+          const transIgId = updatedTrans.instagram_post_id || updatedTrans.sync_status?.instagram_post_id;
+          if (transIgId) {
+            console.log(`[SOLVE TRANS] Deleting Instagram post ${transIgId}...`);
+            try { await deleteFromInstagram(transIgId); } catch(e) {}
+          }
+
+          await updateOrSend('✅ <b>تم إغلاق الخط بنجاح! شكراً لاستخدامك منصة سوق بغداد 🤝</b>\n\nتم تحديث المنشور في القنوات ومواقع التواصل وحذف بوست انستكرام تلقائياً.\nنتمنى لك رحلات موفقة وآمنة دائماً! ✨', {
             inline_keyboard: [
               [{ text: '🚌 نشر خط جديد', callback_data: 'publish_transport' }, { text: '📦 إدارة خطوطي', callback_data: 'manage_cat_trans' }],
               [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
@@ -4374,7 +4399,14 @@ serve(async (req) => {
             await updateFacebookPost(updatedAd.facebook_post_id, fbSoldText);
           }
 
-          await updateOrSend('✅ <b>تم تعليم الإعلان كمباع بنجاح! شكراً لاستخدامك منصة سوق بغداد 🤝</b>\n\nتم تحديث المنشور في القناة وفيسبوك تلقائياً وتغيير الأزرار إلى «تم بيع الإعلان — تصفح المزيد».\nنتمنى لك كل التوفيق والبركة! ✨', {
+          // Delete Instagram Post if exists (since IG API does not allow editing captions)
+          const adIgId = updatedAd.instagram_post_id || updatedAd.sync_status?.instagram_post_id;
+          if (adIgId) {
+            console.log(`[MARK SOLD] Deleting Instagram post ${adIgId}...`);
+            try { await deleteFromInstagram(adIgId); } catch(e) {}
+          }
+
+          await updateOrSend('✅ <b>تم تعليم الإعلان كمباع بنجاح! شكراً لاستخدامك منصة سوق بغداد 🤝</b>\n\nتم تحديث المنشور في القناة وفيسبوك وحذف بوست انستكرام تلقائياً.\nنتمنى لك كل التوفيق والبركة! ✨', {
             inline_keyboard: [
               [{ text: '🚗 عرض سيارة جديدة', callback_data: 'publish_car' }, { text: '📦 إدارة إعلاناتي', callback_data: 'manage_cat_cars' }],
               [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
