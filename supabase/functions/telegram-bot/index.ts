@@ -2060,23 +2060,35 @@ serve(async (req) => {
 
           const caption = await generateSocialCaption(record, 'product', link, true);
 
-          const row1 = [{ text: 'عرض التفاصيل 🌐', url: link }];
-          const row2 = [];
-          if (record.phone) {
-             let cleanPhone = record.phone.replace(/[^0-9+]/g, '');
-             if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
-             else cleanPhone = cleanPhone.replace('+', '');
-             row2.push({ text: 'واتساب 💬', url: `https://wa.me/${cleanPhone}` });
-             row2.push({ text: 'تيليكرام ✈️', url: `https://t.me/+${cleanPhone}` });
-          }
-          const replyMarkup = {
-            inline_keyboard: row2.length > 0 ? [row1, row2] : [row1]
-          };
-
           const imagesToPost = await ensurePublicImages(record, 'products', supabase);
           if (imagesToPost.length === 0) {
             imagesToPost.push(getFallbackImage(record, 'product'));
           }
+          const photoCount = imagesToPost.length;
+          const detailsButtonText = photoCount > 1 
+            ? `📸 تصفح كافة الصور (${photoCount} صور) والتفاصيل 🌐` 
+            : `🌐 عرض التفاصيل والصور بالمنصة`;
+
+          let cleanPhone = (record.phone || '').replace(/[^0-9+]/g, '');
+          if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
+          else cleanPhone = cleanPhone.replace('+', '');
+
+          const contactRow = [];
+          if (cleanPhone) {
+            contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
+            contactRow.push({ text: '✈️ تواصل تيليكرام', url: `https://t.me/+${cleanPhone}` });
+          }
+
+          const inlineKeyboard = [
+            [{ text: detailsButtonText, url: link }]
+          ];
+          if (contactRow.length > 0) {
+            inlineKeyboard.push(contactRow);
+          }
+          inlineKeyboard.push([{ text: '🛍️ اعرض منتجك للبيع مجاناً', url: `https://t.me/${BOT_USERNAME}` }]);
+
+          const replyMarkup = { inline_keyboard: inlineKeyboard };
+
           let res;
           if (publishTelegram) {
             if (imagesToPost.length >= 1) {
@@ -2157,23 +2169,35 @@ serve(async (req) => {
 
           const caption = await generateSocialCaption(record, 'ad', link, true);
 
-          const row1 = [{ text: 'عرض التفاصيل 🌐', url: link }];
-          const row2 = [];
-          if (record.phone) {
-             let cleanPhone = record.phone.replace(/[^0-9+]/g, '');
-             if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
-             else cleanPhone = cleanPhone.replace('+', '');
-             row2.push({ text: 'واتساب 💬', url: `https://wa.me/${cleanPhone}` });
-             row2.push({ text: 'تيليكرام ✈️', url: `https://t.me/+${cleanPhone}` });
-          }
-          const replyMarkup = {
-            inline_keyboard: row2.length > 0 ? [row1, row2] : [row1]
-          };
-
           const imagesToPost = await ensurePublicImages(record, 'ads', supabase);
           if (imagesToPost.length === 0) {
             imagesToPost.push(getFallbackImage(record, 'ad'));
           }
+          const photoCount = imagesToPost.length;
+          const detailsButtonText = photoCount > 1 
+            ? `📸 تصفح كافة الصور (${photoCount} صور) والتفاصيل 🌐` 
+            : `🌐 عرض التفاصيل بالمنصة`;
+
+          let cleanPhone = (record.phone || '').replace(/[^0-9+]/g, '');
+          if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
+          else cleanPhone = cleanPhone.replace('+', '');
+
+          const contactRow = [];
+          if (cleanPhone) {
+            contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
+            contactRow.push({ text: '✈️ تواصل تيليكرام', url: `https://t.me/+${cleanPhone}` });
+          }
+
+          const inlineKeyboard = [
+            [{ text: detailsButtonText, url: link }]
+          ];
+          if (contactRow.length > 0) {
+            inlineKeyboard.push(contactRow);
+          }
+          inlineKeyboard.push([{ text: '📢 انشر إعلانك الآن مجاناً', url: `https://t.me/${BOT_USERNAME}` }]);
+
+          const replyMarkup = { inline_keyboard: inlineKeyboard };
+
           let res;
           if (publishTelegram) {
             if (imagesToPost.length >= 1) {
