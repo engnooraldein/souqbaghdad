@@ -1890,6 +1890,13 @@ serve(async (req) => {
         // Delete from Social Media
         const fbPostId = record?.facebook_post_id || oldRecord?.facebook_post_id;
         if (fbPostId) await deleteFromFacebook(fbPostId);
+
+        const rafdainFbPostId = record?.sync_status?.rafdain_facebook_post_id || oldRecord?.sync_status?.rafdain_facebook_post_id || record?.sync_status?.platforms?.facebook?.post_id || oldRecord?.sync_status?.platforms?.facebook?.post_id;
+        if (rafdainFbPostId && rafdainFbPostId !== fbPostId) {
+          const rafdainSetting = await getLiveSocialSetting('fb_rafdain');
+          const token = rafdainSetting?.access_token || ALRAFDAIN_FB_TOKEN;
+          await deleteFromFacebook(rafdainFbPostId, token);
+        }
         
         const igPostId = record?.instagram_post_id || oldRecord?.instagram_post_id;
         if (igPostId) await deleteFromInstagram(igPostId);
@@ -4498,6 +4505,12 @@ serve(async (req) => {
         
         if (adToDelete) {
           if (adToDelete.facebook_post_id) await deleteFromFacebook(adToDelete.facebook_post_id);
+          const rafdainFbPostId = adToDelete.sync_status?.rafdain_facebook_post_id || adToDelete.sync_status?.platforms?.facebook?.post_id;
+          if (rafdainFbPostId && rafdainFbPostId !== adToDelete.facebook_post_id) {
+            const rafdainSetting = await getLiveSocialSetting('fb_rafdain');
+            const token = rafdainSetting?.access_token || ALRAFDAIN_FB_TOKEN;
+            await deleteFromFacebook(rafdainFbPostId, token);
+          }
           if (adToDelete.instagram_post_id) await deleteFromInstagram(adToDelete.instagram_post_id);
           if (adToDelete.threads_post_id) await deleteFromThreads(adToDelete.threads_post_id);
           
