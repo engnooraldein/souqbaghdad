@@ -2597,6 +2597,37 @@ serve(async (req) => {
             }
           }
           
+          syncStatus.last_sync_at = new Date().toISOString();
+          syncStatus.platforms = {
+            facebook: {
+              target: (isAlRafdain || useAlRafdainFb) ? 'alrafdain1' : 'souqbaghdad.iq',
+              page_name: (isAlRafdain || useAlRafdainFb) ? 'كلية الرافدين الجامعة' : 'سوق بغداد',
+              types: ['feed_post', 'story_9_16'],
+              post_id: syncStatus.rafdain_facebook_post_id || updates.facebook_post_id || null,
+              status: (syncStatus.rafdain_facebook === 'success' || syncStatus.facebook === 'success') ? 'success' : 'failed',
+              error: syncStatus.facebook_error || null
+            },
+            instagram: {
+              target: (isAlRafdain || useAlRafdainIg) ? '@al_rafdain' : '@souqbaghdad.iq',
+              account_name: (isAlRafdain || useAlRafdainIg) ? 'كلية الرافدين الجامعة' : 'سوق بغداد',
+              types: (isAlRafdain || useAlRafdainIg) ? ['story_9_16'] : ['feed_post'],
+              status: (syncStatus.rafdain_instagram_story === 'success' || syncStatus.instagram === 'success') ? 'success' : (syncStatus.instagram === 'failed' ? 'failed' : 'pending'),
+              error: syncStatus.instagram_error || null
+            },
+            threads: {
+              target: '@souqbaghdad.iq',
+              status: syncStatus.threads || 'pending',
+              error: syncStatus.threads_error || null
+            },
+            telegram: {
+              status: syncStatus.telegram || 'success',
+              channels: [
+                { username: '@souqbaghdad_lines', name: 'خطوط نقل سوق بغداد', message_id: updates.telegram_message_id || null },
+                ...((isAlRafdain) ? [{ username: '@ruc_1', name: 'كلية الرافدين', message_id: syncStatus.ruc_telegram_message_id || null }] : [])
+              ]
+            }
+          };
+
           updates.sync_status = syncStatus;
           finalSyncStatus = syncStatus;
           if (Object.keys(updates).length > 0) {

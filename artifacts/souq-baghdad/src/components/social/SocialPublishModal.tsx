@@ -126,16 +126,39 @@ export const SocialPublishModal: React.FC<SocialPublishModalProps> = ({
 
       if (error) throw error;
 
+      let detailMsg = '🎉 تم النشر وتوليد التصميم بنجاح!';
+      if (data?.syncStatus?.platforms) {
+        const p = data.syncStatus.platforms;
+        const parts: string[] = [];
+        if (p.facebook) {
+          parts.push(p.facebook.status === 'success' 
+            ? `📘 فيسبوك (${p.facebook.target}): ✅ بوست + ستوري` 
+            : `📘 فيسبوك (${p.facebook.target}): ❌ ${p.facebook.error || 'فشل'}`);
+        }
+        if (p.instagram) {
+          parts.push(p.instagram.status === 'success' 
+            ? `📸 انستغرام (${p.instagram.target}): ✅ ستوري` 
+            : `📸 انستغرام (${p.instagram.target}): ❌ ${p.instagram.error || 'فشل'}`);
+        }
+        if (p.telegram) {
+          const chList = p.telegram.channels?.map((c: any) => c.username).join(', ') || '@souqbaghdad_lines';
+          parts.push(`✈️ تيليجرام: ✅ (${chList})`);
+        }
+        if (parts.length > 0) {
+          detailMsg = parts.join(' | ');
+        }
+      }
+
       setPublishStatus({
         success: true,
-        message: '🎉 تم النشر بنجاح وتوليد التصميم على كافة القنوات والمنصات المحددة!'
+        message: detailMsg
       });
 
       if (onSuccess) onSuccess();
       setTimeout(() => {
         onClose();
         setPublishStatus(null);
-      }, 2500);
+      }, 3500);
     } catch (err: any) {
       console.error('Publish error:', err);
       setPublishStatus({
