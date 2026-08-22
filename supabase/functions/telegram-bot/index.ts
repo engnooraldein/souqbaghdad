@@ -3751,11 +3751,12 @@ serve(async (req) => {
           : `https://t.me/${LINES_CHANNEL.replace('@', '')}`;
 
         // Immediately send success message to user before heavy background tasks
-        await updateOrSend(`🎉 <b>تم نشر إعلان الخط بنجاح!</b>\n\n🚌 <b>${transTitle}</b>\n💰 <b>الأجرة:</b> ${cleanFare}\n📍 <b>المناطق:</b> ${stateData.regions}\n🏢 <b>الوجهة:</b> ${stateData.destination}\n\n📣 <b>الخط معروض الآن في المنصة وقناة خطوط النقل.</b>\nيمكنك إدارة خطك مباشرة عبر الأزرار أدناه:`, {
+        await updateOrSend(`🎉 <b>تم نشر إعلان الخط بنجاح! شكراً لاختيارك منصة سوق بغداد 🤝</b>\n\n🚌 <b>${transTitle}</b>\n💰 <b>الأجرة:</b> ${cleanFare}\n📍 <b>المناطق:</b> ${stateData.regions}\n🏢 <b>الوجهة:</b> ${stateData.destination}\n\n📣 <b>إعلانك معروض الآن بالموقع وقناة خطوط النقل.</b>\n✨ نتمنى لك دوام التوفيق والحصول على الركاب بأسرع وقت!`, {
           inline_keyboard: [
-            [{ text: '📢 شاهد الخط في القناة', url: channelLink }],
+            [{ text: '🌐 عرض بطاقتي بالموقع', url: link }, [{ text: '📢 شاهد بالقناة', url: channelLink }][0]],
             [{ text: '💰 تعديل الأجرة', callback_data: `edit_trans_price_${insertedId}` }, { text: '📞 تعديل الهاتف', callback_data: `edit_trans_phone_${insertedId}` }],
-            [{ text: '✅ إغلاق الخط (اكتمل العدد)', callback_data: `solve_trans_${insertedId}` }],
+            [{ text: '✅ إغلاق الخط (اكتمل العدد)', callback_data: `solve_trans_${insertedId}` }, { text: '🗑️ حذف الخط نهائياً', callback_data: `del_trans_${insertedId}` }],
+            [{ text: '🚌 نشر خط آخر', callback_data: 'publish_transport' }, { text: '📦 إدارة خطوطي', callback_data: 'manage_cat_trans' }],
             [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
           ]
         });
@@ -3965,17 +3966,21 @@ serve(async (req) => {
                   tgReport += ` + قناة <code>@ruc_1</code>`;
                 }
 
+                const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(`🚌 إعلان خط نقل: ${cleanRegions} إلى ${cleanDestination}`)}`;
+
                 const receiptMsg = `📊 <b>تقرير توثيق ونشر الإعلان على الشبكات</b>\n` +
                                    `🔖 <b>كود الإعلان:</b> <code>#${shortId}</code>\n\n` +
                                    `📘 <b>فيسبوك:</b> ${fbReport}\n` +
                                    `📸 <b>انستغرام:</b> ${igReport}\n` +
                                    `✈️ <b>تيليجرام:</b> ${tgReport}\n\n` +
-                                   `🔗 <i>تم توثيق وحفظ معرفات النشر بقاعدة البيانات بنجاح!</i>`;
+                                   `❤️ <b>شكراً لدعمك وثقتك بمنصة سوق بغداد الرقمي</b> 🤝\n` +
+                                   `<i>تم توثيق وحفظ معرفات النشر بقاعدة البيانات بنجاح!</i>`;
 
                 await sendMessage(chatId, receiptMsg, {
                   inline_keyboard: [
-                    [{ text: '🌐 عرض بطاقة الخط في الموقع', url: link }],
-                    [{ text: '📢 مشاهدة الإعلان بالقناة', url: channelLink }]
+                    [{ text: '🌐 عرض بطاقة الخط في الموقع', url: link }, [{ text: '📢 مشاهدة الإعلان بالقناة', url: channelLink }][0]],
+                    [{ text: '📲 مشاركة الرابط مع الأصدقاء', url: shareUrl }],
+                    [{ text: '📦 إدارة خطوطي', callback_data: 'manage_cat_trans' }, { text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
                   ]
                 });
               } catch (msgErr) {
@@ -4264,8 +4269,11 @@ serve(async (req) => {
             await updateFacebookPost(updatedTrans.facebook_post_id, fbClosedText);
           }
 
-          await updateOrSend('✅ <b>تم إغلاق الخط بنجاح!</b>\nتم تحديث المنشور في القنوات ومواقع التواصل ليظهر أن العدد اكتمل.', {
-            inline_keyboard: [[{ text: '🔙 العودة لخطوطي', callback_data: 'manage_cat_trans' }]]
+          await updateOrSend('✅ <b>تم إغلاق الخط بنجاح! شكراً لاستخدامك منصة سوق بغداد 🤝</b>\n\nتم تحديث المنشور في القنوات ومواقع التواصل ليظهر أن العدد اكتمل.\nنتمنى لك رحلات موفقة وآمنة دائماً! ✨', {
+            inline_keyboard: [
+              [{ text: '🚌 نشر خط جديد', callback_data: 'publish_transport' }, { text: '📦 إدارة خطوطي', callback_data: 'manage_cat_trans' }],
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ]
           });
         } else {
           await updateOrSend('❌ لم يتم العثور على الخط أو لا تملك صلاحية تعديله.');
@@ -4336,8 +4344,11 @@ serve(async (req) => {
             await updateFacebookPost(updatedAd.facebook_post_id, fbSoldText);
           }
 
-          await updateOrSend('✅ <b>تم تعليم الإعلان كمباع بنجاح!</b>\n\nتم تحديث المنشور في القناة وفيسبوك تلقائياً وتغيير الأزرار إلى «تم بيع الإعلان — تصفح المزيد».', {
-            inline_keyboard: [[{ text: '🔙 العودة لإعلاناتي', callback_data: 'manage_cat_cars' }]]
+          await updateOrSend('✅ <b>تم تعليم الإعلان كمباع بنجاح! شكراً لاستخدامك منصة سوق بغداد 🤝</b>\n\nتم تحديث المنشور في القناة وفيسبوك تلقائياً وتغيير الأزرار إلى «تم بيع الإعلان — تصفح المزيد».\nنتمنى لك كل التوفيق والبركة! ✨', {
+            inline_keyboard: [
+              [{ text: '🚗 عرض سيارة جديدة', callback_data: 'publish_car' }, { text: '📦 إدارة إعلاناتي', callback_data: 'manage_cat_cars' }],
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ]
           });
         } else {
           await updateOrSend('❌ لم يتم العثور على الإعلان أو لا تملك صلاحية تعديله.');
@@ -4527,8 +4538,11 @@ serve(async (req) => {
         }
         
         const returnCb = (adToDelete.category === 'vehicles' || adToDelete.category === 'cars') ? 'manage_cat_cars' : (adToDelete.category === 'transport' ? 'manage_cat_trans' : 'manage_my_ads');
-        await sendMessage(chatId, '✅ <b>تم حذف الإعلان نهائياً بنجاح!</b>\nتمت إزالة المنشور من كافة القنوات ومنصات التواصل وقاعدة البيانات.', {
-          inline_keyboard: [[{ text: '🔙 العودة لإعلاناتي', callback_data: returnCb }], [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
+        await sendMessage(chatId, '✅ <b>تم حذف الإعلان نهائياً بنجاح! شكراً لاستخدامك منصة سوق بغداد 🤝</b>\n\nتمت إزالة المنشور من كافة القنوات ومنصات التواصل وقاعدة البيانات بنجاح.\nيمكنك دائماً نشر إعلان جديد في أي وقت!', {
+          inline_keyboard: [
+            [{ text: '➕ نشر إعلان جديد', callback_data: (adToDelete.category === 'transport' ? 'publish_transport' : (adToDelete.category === 'vehicles' || adToDelete.category === 'cars' ? 'publish_car' : 'publish_product')) }, { text: '📦 إعلاناتي', callback_data: returnCb }],
+            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+          ]
         });
         return new Response('OK', { status: 200 });
       }
