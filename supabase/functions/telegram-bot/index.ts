@@ -4757,13 +4757,30 @@ serve(async (req) => {
             }).select().single();
 
             if (!inserted) {
-              await sendMessage(chatId, '❌ حدث خطأ أثناء حذف البيانات، يرجى المحاولة مرة أخرى.');
+              await sendMessage(chatId, '❌ حدث خطأ أثناء حفظ الإعلان، يرجى المحاولة مرة أخرى.');
               return;
             }
 
-            const productLink = `https://www.souqbaghdad.store/product/${inserted.id}`;
+            const prodId = inserted.short_id || inserted.id;
+            const productLink = `https://www.souqbaghdad.store/product/${prodId}`;
             const priceFormatted = priceNum > 0 ? `${priceNum.toLocaleString('en-US')} د.ع` : 'حسب الاتفاق';
-            const catLabel = catLabels[stateData.category] || stateData.category || 'منتج';
+
+            // Send instant success message with warm thank you note and action buttons
+            const successMsg = `🎉 <b>تم نشر إعلان منتجك بنجاح! شكراً لاختيارك منصة سوق بغداد 🤝</b>\n\n` +
+                               `🛍️ <b>${stateData.title}</b>\n` +
+                               `💰 <b>السعر:</b> ${priceFormatted}\n` +
+                               `📍 <b>المحافظة:</b> ${stateData.governorate || 'بغداد'}\n\n` +
+                               `📣 <b>إعلانك معروض الآن بالموقع وقناة السوق العام.</b>\n` +
+                               `✨ نتمنى لك دوام التوفيق والبركة في البيع!`;
+
+            await sendMessage(chatId, successMsg, {
+              inline_keyboard: [
+                [{ text: '🌐 عرض بطاقتي بالموقع', url: productLink }, { text: '📢 شاهد بالقناة', url: `https://t.me/${PRODUCT_CHANNEL.replace('@', '')}` }],
+                [{ text: '⚠️ تم البيع (حصلت)', callback_data: `mark_sold_${inserted.id}` }, { text: '🗑️ حذف الإعلان نهائياً', callback_data: `del_prod_${inserted.id}` }],
+                [{ text: '🛍️ نشر منتج آخر', callback_data: 'publish_product' }, { text: '📦 إعلاناتي', callback_data: 'manage_cat_ads' }],
+                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+              ]
+            });
 
             // 2. Telegram caption & buttons (Matching unified 3-row logic)
             const tgCaption = await generateSocialCaption(inserted, 'product', productLink, true);
@@ -4855,23 +4872,6 @@ serve(async (req) => {
             if (Object.keys(updates).length > 0) {
               await supabase.from('products').update(updates).eq('id', inserted.id);
             }
-
-            // 9. Success message with warm thank you note and action buttons
-            const successMsg = `🎉 <b>تم نشر إعلان منتجك بنجاح! شكراً لاختيارك منصة سوق بغداد 🤝</b>\n\n` +
-                               `🛍️ <b>${stateData.title}</b>\n` +
-                               `💰 <b>السعر:</b> ${priceFormatted}\n` +
-                               `📍 <b>المحافظة:</b> ${stateData.governorate || 'بغداد'}\n\n` +
-                               `📣 <b>إعلانك معروض الآن بالموقع وقناة السوق العام.</b>\n` +
-                               `✨ نتمنى لك دوام التوفيق والبركة في البيع!`;
-
-            await sendMessage(chatId, successMsg, {
-              inline_keyboard: [
-                [{ text: '🌐 عرض بطاقتي بالموقع', url: productLink }, { text: '📢 شاهد بالقناة', url: `https://t.me/${PRODUCT_CHANNEL.replace('@', '')}` }],
-                [{ text: '⚠️ تم البيع (حصلت)', callback_data: `mark_sold_${inserted.id}` }, { text: '🗑️ حذف الإعلان نهائياً', callback_data: `del_prod_${inserted.id}` }],
-                [{ text: '🛍️ نشر منتج آخر', callback_data: 'publish_product' }, { text: '📦 إعلاناتي', callback_data: 'manage_cat_ads' }],
-                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
-              ]
-            });
           } catch(err: any) {
             console.error('[PROD PUBLISH ERROR]', err);
             await sendMessage(chatId, '❌ حدث خطأ أثناء النشر. يرجى المحاولة مرة أخرى.', { inline_keyboard: [[{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]] });
