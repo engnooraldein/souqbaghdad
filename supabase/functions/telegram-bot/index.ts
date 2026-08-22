@@ -2836,6 +2836,106 @@ serve(async (req) => {
       return await sendMessage(chatId, msgText, markup);
     };
 
+    // 🔑 Automatic Token Receiver for Owner (Auto-detects Facebook & Instagram tokens)
+    const isOwner = String(chatId) === '6474465462' || tgUser?.role === 'owner' || tgUser?.role === 'admin';
+    const trimmedText = (text || '').trim();
+    if (isOwner && (trimmedText.startsWith('EAAP') || trimmedText.startsWith('EAA') || trimmedText.startsWith('IGAA') || (trimmedText.length > 100 && !trimmedText.includes(' ') && trimmedText.startsWith('E')))) {
+      console.log(`[OWNER TOKEN RECEIVED] ChatId: ${chatId}, token prefix: ${trimmedText.substring(0, 10)}...`);
+      await sendMessage(chatId, '⏳ <i>جاري فحص وتفعيل التوكن والتحقق من الصلاحيات...</i>');
+      
+      let detectedName = '';
+      let detectedId = '';
+      let targetSettingKey = '';
+      let tokenType = 'Facebook Page Token';
+
+      // 1. Test as Direct Instagram Token
+      if (trimmedText.startsWith('IGAA')) {
+        try {
+          const igRes = await fetch(`https://graph.instagram.com/v20.0/me?fields=id,username,name&access_token=${trimmedText}`);
+          const igData = await igRes.json();
+          if (igData && igData.id) {
+            detectedName = `انستغرام (@${igData.username || igData.name})`;
+            detectedId = igData.id;
+            targetSettingKey = 'ig_souq';
+            tokenType = 'Instagram Direct Graph API Token';
+          }
+        } catch(e) {
+          console.error('IG test failed:', e);
+        }
+      }
+
+      // 2. Test as Facebook Page Token if not direct IG
+      if (!detectedId) {
+        try {
+          const fbRes = await fetch(`https://graph.facebook.com/v20.0/me?access_token=${trimmedText}`);
+          const fbData = await fbRes.json();
+          if (fbData && fbData.id) {
+            detectedName = fbData.name || 'صفحة فيسبوك';
+            detectedId = fbData.id;
+            if (detectedId === '1088044114402452' || detectedName.includes('سوق بغداد')) {
+              targetSettingKey = 'fb_souq';
+            } else if (detectedId === '102975411515668' || detectedName.includes('الرافدين')) {
+              targetSettingKey = 'fb_rafdain';
+            } else {
+              targetSettingKey = `fb_${detectedId}`;
+            }
+          }
+        } catch(e) {
+          console.error('FB test failed:', e);
+        }
+      }
+
+      if (detectedId) {
+        // Save to database
+        await supabase.from('social_settings').upsert({
+          id: targetSettingKey,
+          name: detectedName,
+          category: tokenType.includes('Instagram') ? 'instagram' : 'facebook',
+          page_id: detectedId,
+          access_token: trimmedText,
+          is_active: true,
+          last_status: 'active',
+          last_error: null,
+          last_checked_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+        // If it's Souq Baghdad, also update ig_souq token if applicable
+        if (targetSettingKey === 'fb_souq') {
+          await supabase.from('social_settings').update({
+            access_token: trimmedText,
+            last_status: 'active',
+            last_checked_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }).eq('id', 'ig_souq');
+        } else if (targetSettingKey === 'fb_rafdain') {
+          await supabase.from('social_settings').update({
+            access_token: trimmedText,
+            last_status: 'active',
+            last_checked_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }).eq('id', 'ig_rafdain');
+        }
+
+        // Invalidate dynamic cache
+        dynamicSocialCache = {};
+        lastSocialCacheTime = 0;
+
+        await sendMessage(chatId, 
+          `🎉 <b>تم استلام وتفعيل التوكن بنجاح! 🎯</b>\n\n` +
+          `🏢 <b>الجهة:</b> ${detectedName}\n` +
+          `🆔 <b>معرف الصفحة/الحساب:</b> <code>${detectedId}</code>\n` +
+          `🔑 <b>نوع التوكن:</b> ${tokenType}\n` +
+          `📊 <b>الحالة:</b> نشط ومحفوظ في قاعدة البيانات ومفعل للنشر التلقائي فورياً ✅\n\n` +
+          `<i>تم ضبط وتحديث المنظومة بالكامل بنجاح.</i>`
+        );
+        return new Response('OK', { status: 200 });
+      } else {
+        await sendMessage(chatId, `❌ <b>تعذر التحقق من التوكن!</b>\n\nتأكد من نسخ التوكن كاملاً وتوفر صلاحيات النشر وإدارة الصفحات.`);
+        return new Response('OK', { status: 200 });
+      }
+    }
+
     // Helper: Reset & Show Main Menu
     const showMainMenu = async (aiText?: string, editCurrent = false) => {
       state = {};
