@@ -423,6 +423,64 @@ const ALRAFDAIN_TELEGRAM_CHANNEL = '@ruc_1';
 let dynamicSocialCache: Record<string, any> = {};
 let lastSocialCacheTime = 0;
 
+const OWNER_CHAT_ID = '6474465462';
+const ALERTS_CHANNEL_ID = '-1004369286694';
+const lastAlertTimes: Record<string, number> = {};
+
+async function checkAndAlertTokenError(platformName: string, responseData: any) {
+  if (!responseData?.error) return;
+  const err = responseData.error;
+  const errMsg = (err.message || JSON.stringify(err)).toLowerCase();
+  const errCode = err.code;
+  const errSubcode = err.error_subcode;
+
+  const isTokenError = 
+    errCode === 190 || 
+    errSubcode === 463 || 
+    errSubcode === 467 ||
+    errMsg.includes('expired') || 
+    errMsg.includes('session has expired') || 
+    errMsg.includes('access token') || 
+    errMsg.includes('invalid oauth') || 
+    errMsg.includes('validate access token');
+
+  if (isTokenError) {
+    const now = Date.now();
+    const lastTime = lastAlertTimes[platformName] || 0;
+    if (now - lastTime < 30 * 60 * 1000) {
+      return;
+    }
+    lastAlertTimes[platformName] = now;
+
+    console.warn(`[TOKEN ALERT TRIGGERED] ${platformName}: ${err.message || errMsg}`);
+
+    const alertMessage = 
+      `🚨 <b>تنبيه فوري: توقف توكن ${platformName} (انتهت الصلاحية)!</b>\n\n` +
+      `⚠️ <b>السبب:</b> <code>${err.message || 'Error validating access token'}</code>\n\n` +
+      `🛠️ <b>المطلوب:</b> يرجى فتح <b>Graph API Explorer</b> وتوليد توكن جديد للصفحة وإرساله للبوت لتحديث النشر التلقائي فوراً.\n\n` +
+      `⏰ <i>الوقت: ${new Date().toLocaleString('ar-IQ', { timeZone: 'Asia/Baghdad' })}</i>`;
+
+    const alertMarkup = {
+      inline_keyboard: [
+        [{ text: '🔑 فتح Graph API Explorer', url: 'https://developers.facebook.com/tools/explorer/' }],
+        [{ text: '⚙️ لوحة التحكم', url: 'https://www.souqbaghdad.store/admin' }]
+      ]
+    };
+
+    try {
+      await sendMessage(OWNER_CHAT_ID, alertMessage, alertMarkup);
+    } catch(e) {
+      console.error('Failed to send token alert to owner:', e);
+    }
+
+    try {
+      await sendMessage(ALERTS_CHANNEL_ID, alertMessage, alertMarkup);
+    } catch(e) {
+      console.error('Failed to send token alert to channel:', e);
+    }
+  }
+}
+
 async function getLiveSocialSetting(id: string): Promise<any> {
   const now = Date.now();
   if (now - lastSocialCacheTime < 20000 && dynamicSocialCache[id]) {
@@ -504,9 +562,11 @@ async function postToThreads(text: string, photoUrl: string | string[] | null) {
         pRes = await fetch(pUrl, { method: 'POST' });
         pData = await pRes.json();
       }
+      if (pData.error) await checkAndAlertTokenError('ثريدز (Threads)', pData);
       console.log('Threads Publish Response:', pData);
       return pData;
     }
+    if (cData.error) await checkAndAlertTokenError('ثريدز (Threads)', cData);
     console.error('Threads Container Creation Error:', cData);
     return cData;
   } catch (err: any) {
@@ -644,7 +704,12 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: text, access_token: token })
     });
-    return await feedRes.json();
+    const feedData = await feedRes.json();
+    if (feedData.error) {
+      const pageName = (pageId === ALRAFDAIN_FB_PAGE_ID || pageId === '102975411515668') ? 'فيسبوك كلية الرافدين' : 'فيسبوك سوق بغداد';
+      await checkAndAlertTokenError(pageName, feedData);
+    }
+    return feedData;
   } catch (err: any) {
     console.error('FB Fetch Error:', err);
     return { error: { message: err.message || 'خطأ في الاتصال بفيسبوك' } };
@@ -894,6 +959,7 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null,
     
     if (!uploadData.id) {
       console.error('IG Upload Error:', uploadData);
+      if (uploadData?.error) await checkAndAlertTokenError('انستكرام سوق بغداد (@souqbaghdad.iq)', uploadData);
       return { error: { message: `Media ID not available. URL: ${singleUrl}. Response: ${JSON.stringify(uploadData)}` } };
     }
     
@@ -910,6 +976,9 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null,
       body: JSON.stringify(publishBody)
     });
     const data = await publishRes.json();
+    if (data?.error) {
+      await checkAndAlertTokenError('انستكرام سوق بغداد (@souqbaghdad.iq)', data);
+    }
     return data;
   } catch (err: any) {
     console.error('IG Error:', err);
