@@ -414,7 +414,7 @@ const META_IG_ACCOUNT_ID = Deno.env.get('META_IG_ACCOUNT_ID') || '';
 const THREADS_USER_ID = Deno.env.get('THREADS_USER_ID') || '28119436894335542';
 const THREADS_ACCESS_TOKEN = Deno.env.get('THREADS_ACCESS_TOKEN') || '';
 
-const ALRAFDAIN_FB_TOKEN = Deno.env.get('ALRAFDAIN_FB_TOKEN') || 'EAAPXexo3QZCcBSQggpoeE43V2EBxtB71WBkk3ZAOTD2ij0qZB6JIZAgLqEuhJpkffLPvPAKHQay3mHNi55NwKvBPmPXdnwZBEQZC8DUheyaUdv1wWvCkgWANFE1Y2ZCuiwQLqeZAgpM52JdJnKzjl0Ip7Sf0DO7c4ZByyyGZAk1l4wYceKZAYJlwUnSZAoZBu8qqP5U5E7y8a2fNABzcJQnHtMY3ZBCBovby4ARruZBfPrf5e8PesuFj1gBaZCMWqgZDZD';
+const ALRAFDAIN_FB_TOKEN = Deno.env.get('ALRAFDAIN_FB_TOKEN') || 'EAAPXexo3QZCcBSSSrDeNvmUZBGDqeeOm2P2DHvS5659T1b5amxrky3iGjkDX7atXSNxajSIOvwfZAgbKvxN8Lx9zquWs3R6yt5iN5swCaicHjGKZCkyZCSKDNH475opHAqaNGKNG2Qa7FJQ2hYeRyfTbfNvwRfMpKZC8ljtvIePNXuHtO4axd6cWvEvfALialcBD1yYBJRZBVIWid8d8yQp4cBNirfAn28ZCWC3D0aeZBaKIer9dvGvO4bj8ZD';
 const ALRAFDAIN_FB_PAGE_ID = Deno.env.get('ALRAFDAIN_FB_PAGE_ID') || '102975411515668';
 const ALRAFDAIN_IG_ID = Deno.env.get('ALRAFDAIN_IG_ID') || '17841404181680155';
 const ALRAFDAIN_TELEGRAM_CHANNEL = '@ruc_1';
@@ -1862,7 +1862,9 @@ serve(async (req) => {
 
         if (rafdainFbPostId) {
           console.log(`[UPDATE WEBHOOK] Updating Al-Rafdain FB post ${rafdainFbPostId}...`);
-          await updateFacebookPost(rafdainFbPostId, fbSoldText, ALRAFDAIN_FB_TOKEN);
+          const rafdainSetting = await getLiveSocialSetting('fb_rafdain');
+          const token = rafdainSetting?.access_token || ALRAFDAIN_FB_TOKEN;
+          await updateFacebookPost(rafdainFbPostId, fbSoldText, token);
         }
       }
       
@@ -2395,6 +2397,30 @@ serve(async (req) => {
             }
           }
 
+          let finalStoryPhotoUrl = dynamicStoryUrl;
+          try {
+            console.log(`[TRANSPORT STORY STORAGE] Generating and storing permanent Story PNG for ad ${adId}...`);
+            const storyFetch = await fetch(dynamicStoryUrl);
+            if (storyFetch.ok) {
+              const storyBlob = await storyFetch.blob();
+              const storyBytes = new Uint8Array(await storyBlob.arrayBuffer());
+              const storyFileName = `transport-story-${adId}-${Date.now()}.png`;
+              const { data: storyUploadResult, error: storyUploadErr } = await supabase.storage
+                .from('ad-images')
+                .upload(storyFileName, storyBytes, { contentType: 'image/png', upsert: true });
+
+              if (!storyUploadErr && storyUploadResult) {
+                const { data: storyPubUrlData } = supabase.storage.from('ad-images').getPublicUrl(storyFileName);
+                if (storyPubUrlData?.publicUrl) {
+                  finalStoryPhotoUrl = storyPubUrlData.publicUrl;
+                  console.log('[TRANSPORT STORY STORAGE] Stored permanent story successfully:', finalStoryPhotoUrl);
+                }
+              }
+            }
+          } catch (storyStorageErr) {
+            console.error('Exception storing transport story image:', storyStorageErr);
+          }
+
           const transportPhoto = finalPostPhotoUrl;
           const fbIgPhotoUrl = imagesToPost.length > 0 ? imagesToPost : [finalPostPhotoUrl];
 
@@ -2479,8 +2505,9 @@ serve(async (req) => {
 
               // 2. ALSO post to Al-Rafdain University Facebook Page (Feed & Story) ONLY if transport is for Al-Rafdain
               if (isAlRafdain || useAlRafdainFb) {
-                const rafdainToken = ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
-                const rafdainPageId = ALRAFDAIN_FB_PAGE_ID || '102975411515668';
+                const rafdainSetting = await getLiveSocialSetting('fb_rafdain');
+                const rafdainToken = rafdainSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
+                const rafdainPageId = rafdainSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
                 if (rafdainToken && rafdainPageId && rafdainPageId !== META_PAGE_ID) {
                   console.log(`[WEBHOOK SOCIAL] Posting Al-Rafdain transport to Al-Rafdain Facebook Page (${rafdainPageId})...`);
                   const rafdainFbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl, rafdainToken, rafdainPageId);
@@ -2492,14 +2519,14 @@ serve(async (req) => {
                   
                   // 2b. Post Story (9:16) to Al-Rafdain Facebook Story
                   console.log('[WEBHOOK SOCIAL] Posting Story (9:16) to Al-Rafdain Facebook Story...');
-                  await postToFacebookStory(dynamicStoryUrl, rafdainPageId, rafdainToken);
+                  await postToFacebookStory(finalStoryPhotoUrl, rafdainPageId, rafdainToken);
                 }
               }
 
               // 3. Post Story (9:16) to Souq Baghdad Main Facebook Story
               if (META_PAGE_ID && META_PAGE_ACCESS_TOKEN) {
                 console.log('[WEBHOOK SOCIAL] Posting Story (9:16) to Souq Baghdad Facebook Story...');
-                await postToFacebookStory(dynamicStoryUrl, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
+                await postToFacebookStory(finalStoryPhotoUrl, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
               }
             } catch(fbErr: any) {
               console.error('[WEBHOOK SOCIAL] FB Error:', fbErr);
@@ -2511,11 +2538,16 @@ serve(async (req) => {
             try {
               // 1. Post to Al-Rafdain IG Story ONLY if transport is for Al-Rafdain
               if (isAlRafdain || useAlRafdainIg) {
-                const igToken = ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
-                const igTargetId = ALRAFDAIN_IG_ID || '17841404181680155';
+                const rafdainIgSetting = await getLiveSocialSetting('ig_rafdain');
+                const igToken = rafdainIgSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
+                const igTargetId = rafdainIgSetting?.page_id || rafdainIgSetting?.extra_id || ALRAFDAIN_IG_ID || '17841404181680155';
                 if (igToken && igTargetId) {
-                  console.log('[WEBHOOK SOCIAL] Posting transport to Al-Rafdain IG Story...');
-                  await postToInstagramStory(dynamicStoryUrl, igTargetId, igToken);
+                  console.log(`[WEBHOOK SOCIAL] Posting transport to Al-Rafdain IG Story (@al_rafdain / ${igTargetId})...`);
+                  const igStoryRes = await postToInstagramStory(finalStoryPhotoUrl, igTargetId, igToken);
+                  console.log('[WEBHOOK SOCIAL] Al-Rafdain IG Story result:', JSON.stringify(igStoryRes));
+                  if (igStoryRes && (igStoryRes.id || igStoryRes.creation_id)) {
+                    syncStatus.rafdain_instagram_story = 'success';
+                  }
                 }
               }
               // 2. Post to Main Souq Baghdad Instagram Feed
@@ -3799,17 +3831,22 @@ serve(async (req) => {
                 }
 
                 // 2. ALSO Post to Al-Rafdain Facebook Page ONLY if transport is for Al-Rafdain
-                if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_PAGE_ID) {
-                  console.log('[BOT SOCIAL] Posting transport to Al-Rafdain Facebook Page...');
-                  const rafdainFbData = await postToFacebook(fbIgCaption, dynamicPostUrl, ALRAFDAIN_FB_TOKEN, ALRAFDAIN_FB_PAGE_ID);
-                  console.log('[BOT SOCIAL] Al-Rafdain FB response:', JSON.stringify(rafdainFbData));
-                  if (rafdainFbData && (rafdainFbData.post_id || rafdainFbData.id)) {
-                    currentSync.rafdain_facebook_post_id = rafdainFbData.post_id || rafdainFbData.id;
-                    currentSync.rafdain_facebook = 'success';
-                  }
+                if (isAlRafdain) {
+                  const rafdainSetting = await getLiveSocialSetting('fb_rafdain');
+                  const rafdainToken = rafdainSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
+                  const rafdainPageId = rafdainSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
+                  if (rafdainToken && rafdainPageId) {
+                    console.log('[BOT SOCIAL] Posting transport to Al-Rafdain Facebook Page...');
+                    const rafdainFbData = await postToFacebook(fbIgCaption, dynamicPostUrl, rafdainToken, rafdainPageId);
+                    console.log('[BOT SOCIAL] Al-Rafdain FB response:', JSON.stringify(rafdainFbData));
+                    if (rafdainFbData && (rafdainFbData.post_id || rafdainFbData.id)) {
+                      currentSync.rafdain_facebook_post_id = rafdainFbData.post_id || rafdainFbData.id;
+                      currentSync.rafdain_facebook = 'success';
+                    }
 
-                  // 2b. Post Story (9:16) to Al-Rafdain Facebook Story
-                  await postToFacebookStory(dynamicStoryUrl, ALRAFDAIN_FB_PAGE_ID, ALRAFDAIN_FB_TOKEN);
+                    // 2b. Post Story (9:16) to Al-Rafdain Facebook Story
+                    await postToFacebookStory(dynamicStoryUrl, rafdainPageId, rafdainToken);
+                  }
                 }
               } catch(fbErr: any) {
                 console.error('[BOT SOCIAL] FB Error:', fbErr);
@@ -3819,9 +3856,14 @@ serve(async (req) => {
 
               // Instagram
               try {
-                if (isAlRafdain && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_IG_ID) {
-                  console.log('[BOT SOCIAL] Posting to Al-Rafdain IG Story...');
-                  await postToInstagramStory(dynamicStoryUrl, ALRAFDAIN_IG_ID, ALRAFDAIN_FB_TOKEN);
+                if (isAlRafdain) {
+                  const rafdainIgSetting = await getLiveSocialSetting('ig_rafdain');
+                  const igToken = rafdainIgSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
+                  const igTargetId = rafdainIgSetting?.page_id || rafdainIgSetting?.extra_id || ALRAFDAIN_IG_ID || '17841404181680155';
+                  if (igToken && igTargetId) {
+                    console.log(`[BOT SOCIAL] Posting to Al-Rafdain IG Story (@al_rafdain / ${igTargetId})...`);
+                    await postToInstagramStory(dynamicStoryUrl, igTargetId, igToken);
+                  }
                 }
                 console.log('[BOT SOCIAL] Posting to Instagram Feed...');
                 const igData = await postToInstagram(fbIgCaption, dynamicPostUrl);
