@@ -3932,6 +3932,48 @@ serve(async (req) => {
 
               socialUpdates.sync_status = currentSync;
               await supabase.from('ads').update(socialUpdates).eq('id', insertedTrans.id);
+
+              // Send rich verification report back to user in Telegram
+              try {
+                let fbReport = '⚪ غير مفعل';
+                if (isAlRafdain) {
+                  fbReport = currentSync.rafdain_facebook === 'success' 
+                    ? '✅ <b>بوست (Feed) + ستوري (9:16)</b> على صفحة <code>alrafdain1</code>' 
+                    : `❌ فشل (${currentSync.facebook_error || currentSync.rafdain_facebook_error || 'خطأ'})`;
+                } else {
+                  fbReport = currentSync.facebook === 'success' 
+                    ? '✅ <b>بوست + ستوري</b> على صفحة <code>souqbaghdad.iq</code>' 
+                    : `❌ فشل (${currentSync.facebook_error || 'خطأ'})`;
+                }
+
+                let igReport = '⚪ غير مفعل';
+                if (isAlRafdain) {
+                  igReport = (currentSync.rafdain_instagram_story === 'success' || currentSync.instagram === 'success')
+                    ? '✅ <b>ستوري (Story 9:16)</b> على حساب <code>@al_rafdain</code>'
+                    : (currentSync.instagram === 'failed' ? `❌ فشل (${currentSync.instagram_error || 'خطأ'})` : '⚪ قيد المعالجة');
+                }
+
+                let tgReport = `✅ قناة <code>@souqbaghdad_lines</code>`;
+                if (isAlRafdain) {
+                  tgReport += ` + قناة <code>@ruc_1</code>`;
+                }
+
+                const receiptMsg = `📊 <b>تقرير توثيق ونشر الإعلان على الشبكات</b>\n` +
+                                   `🔖 <b>كود الإعلان:</b> <code>#${shortId}</code>\n\n` +
+                                   `📘 <b>فيسبوك:</b> ${fbReport}\n` +
+                                   `📸 <b>انستغرام:</b> ${igReport}\n` +
+                                   `✈️ <b>تيليجرام:</b> ${tgReport}\n\n` +
+                                   `🔗 <i>تم توثيق وحفظ معرفات النشر بقاعدة البيانات بنجاح!</i>`;
+
+                await sendMessage(chatId, receiptMsg, {
+                  inline_keyboard: [
+                    [{ text: '🌐 عرض بطاقة الخط في الموقع', url: link }],
+                    [{ text: '📢 مشاهدة الإعلان بالقناة', url: channelLink }]
+                  ]
+                });
+              } catch (msgErr) {
+                console.error('Error sending social receipt to chat:', msgErr);
+              }
             } catch (err) {
               console.error("Error auto publishing transport to social media:", err);
             }
