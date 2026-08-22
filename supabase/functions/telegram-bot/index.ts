@@ -408,13 +408,13 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
   );
   return new Response('OK', { status: 200 });
 }
-const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || 'EAAPXexo3QZCcBSddpo1cV8uFEAQXDj0ZCiVogv09Se6ibfGtFxzBJfuOmudG42zyu3zK32ZC0MIgZCcZCc0atNp465bjRSYDerC9KIubuO8MrNl7duH6GZCZBmMUPP1N45ytZC8SsAHWo6bUvZBvQAeNuM5yUsyKstqWNz7eETTPjZAZBlr95eJikUdzpIsUMYnLYghwesir2hH6nOUojc7mdaitJd2JNmSWym5qvx05tXWKzfKzhgDHomqLiL4IwZDZD';
+const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || 'EAAPXexo3QZCcBSeSAZCgPPa4CrvBE0Sq91qShCB4ZAkQAQt3ZAvF0XXZBpHEtYhT6u5jY6DkPUcGcBWZATkhzAwWhmYPNTXtNURJ2CPCc9quKJl5NeD75abfVq0aE2Xo5PZA3r3EUqtjdxvHChFnQwYXkL1lK537C9vqGbLTWHpGULfltjOAmUf8VMpPKH6d1ydi0FETRQsBzvV2A0QVb0cqrrAjFsqUZAQi3WaV8EV6ZAfJ4DW31NZCCAxbxJSEoZD';
 const META_PAGE_ID = Deno.env.get('META_PAGE_ID') || '1088044114402452';
 const META_IG_ACCOUNT_ID = Deno.env.get('META_IG_ACCOUNT_ID') || '17841403127032930';
 const THREADS_USER_ID = Deno.env.get('THREADS_USER_ID') || '28119436894335542';
 const THREADS_ACCESS_TOKEN = Deno.env.get('THREADS_ACCESS_TOKEN') || '';
 
-const ALRAFDAIN_FB_TOKEN = Deno.env.get('ALRAFDAIN_FB_TOKEN') || 'EAAPXexo3QZCcBSQ09z6AAeL7BbCY46sDyy8eVGDJMZAdwh3M1o50XUGnxFhqVNB6hgkLdH2fJc1z3ZCRKimbFeUTAIN6Dgov9QOzCwOwa9jZB9ZBzMFWcaUxwWpPPkZCShZC86HU6ZBmIbnT0otgrY9ZAmL5SZBJM5izKTwvVlHSH9aYCNXfERjkbKr6P0VYjsZBtODpoaDXBUZAZCAlOQB6fjeFM92JGeTSvNttzoz0Yi5x2matOrzUWEWnyLwZDZD';
+const ALRAFDAIN_FB_TOKEN = Deno.env.get('ALRAFDAIN_FB_TOKEN') || 'EAAPXexo3QZCcBSXkjKJTYOwaEHpn9rvbC7cb8wrTXhZC2WYMwFBQuee7Xd1gSKHw1ofPHjbGjZBq0ahl8tOUrn6FFky5XEyUbJqWswOAy756hwOWhorHniYzBIUbMfEAa1ku4oOkERrSbeVZAZA5HSvFpfsjANsRat7HPG5RZBDnmSFp72ZCcOmstZAcGCHO8NxAbuQl8ITBDJSC7IkRzQo2s776sbWmoygzGe9p8SjbZCZB1uivO5PtNQZBZBeZAuQZDZD';
 const ALRAFDAIN_FB_PAGE_ID = Deno.env.get('ALRAFDAIN_FB_PAGE_ID') || '102975411515668';
 const ALRAFDAIN_IG_ID = Deno.env.get('ALRAFDAIN_IG_ID') || '17841404181680155';
 const ALRAFDAIN_TELEGRAM_CHANNEL = '@ruc_1';
@@ -802,8 +802,21 @@ async function postToInstagramStory(photoUrl: string, igAccountId: string, acces
   }
 }
 
-async function postToInstagram(text: string, photoUrl: string | string[] | null) {
-  if (!META_PAGE_ACCESS_TOKEN || !META_IG_ACCOUNT_ID || !photoUrl) return { error: { message: 'رمز الوصول لانستكرام أو الصورة مفقودة' } };
+async function postToInstagram(text: string, photoUrl: string | string[] | null, customToken?: string, customAccountId?: string) {
+  let token = customToken;
+  let accountId = customAccountId;
+  
+  if (!token || !accountId) {
+    const igSetting = await getLiveSocialSetting('ig_souq');
+    token = token || igSetting?.access_token || META_PAGE_ACCESS_TOKEN;
+    accountId = accountId || igSetting?.page_id || igSetting?.extra_id || META_IG_ACCOUNT_ID;
+  }
+  
+  if (!token || !accountId || !photoUrl) return { error: { message: 'رمز الوصول لانستكرام أو الصورة مفقودة' } };
+  
+  const isDirectIg = token.startsWith('IGAA');
+  const apiBase = isDirectIg ? 'https://graph.instagram.com/v20.0' : 'https://graph.facebook.com/v20.0';
+  
   try {
     const rawUrls = Array.isArray(photoUrl) ? photoUrl : [photoUrl];
     // Instagram carousel supports a max of 10 items
@@ -816,9 +829,9 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null)
         const uploadBody = {
           image_url: url,
           is_carousel_item: true,
-          access_token: META_PAGE_ACCESS_TOKEN
+          access_token: token
         };
-        const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${META_IG_ACCOUNT_ID}/media`, {
+        const uploadRes = await fetch(`${apiBase}/${accountId}/media`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(uploadBody)
@@ -836,10 +849,10 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null)
           caption: text,
           media_type: 'CAROUSEL',
           children: containerIds.join(','),
-          access_token: META_PAGE_ACCESS_TOKEN
+          access_token: token
         };
         
-        const carouselRes = await fetch(`https://graph.facebook.com/v20.0/${META_IG_ACCOUNT_ID}/media`, {
+        const carouselRes = await fetch(`${apiBase}/${accountId}/media`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(carouselBody)
@@ -850,9 +863,9 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null)
            await new Promise(resolve => setTimeout(resolve, 5000));
            const publishBody = {
              creation_id: carouselData.id,
-             access_token: META_PAGE_ACCESS_TOKEN
+             access_token: token
            };
-           const publishRes = await fetch(`https://graph.facebook.com/v20.0/${META_IG_ACCOUNT_ID}/media_publish`, {
+           const publishRes = await fetch(`${apiBase}/${accountId}/media_publish`, {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
              body: JSON.stringify(publishBody)
@@ -865,12 +878,12 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null)
     }
     
     const singleUrl = urls[0];
-    const uploadUrl = `https://graph.facebook.com/v20.0/${META_IG_ACCOUNT_ID}/media`;
+    const uploadUrl = `${apiBase}/${accountId}/media`;
     
     const uploadBody = {
       image_url: singleUrl,
       caption: text,
-      access_token: META_PAGE_ACCESS_TOKEN
+      access_token: token
     };
     const uploadRes = await fetch(uploadUrl, {
       method: 'POST',
@@ -886,10 +899,10 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null)
     
     await new Promise(resolve => setTimeout(resolve, 5000));
     
-    const publishUrl = `https://graph.facebook.com/v20.0/${META_IG_ACCOUNT_ID}/media_publish`;
+    const publishUrl = `${apiBase}/${accountId}/media_publish`;
     const publishBody = {
       creation_id: uploadData.id,
-      access_token: META_PAGE_ACCESS_TOKEN
+      access_token: token
     };
     const publishRes = await fetch(publishUrl, {
       method: 'POST',
@@ -3859,9 +3872,46 @@ serve(async (req) => {
                                (cleanPhone ? `📞 <b>التواصل:</b> ${cleanPhone}\n\n` : `\n`) +
                                `📣 <b>#رقم_الخط_${shortId}</b> | @${BOT_USERNAME}`;
 
+            // 0. Generate and save permanent PNG card & story in Storage for robust social posting
+            let finalPostPhotoUrl = dynamicPostUrl;
+            try {
+              const cardFetch = await fetch(dynamicPostUrl);
+              if (cardFetch.ok) {
+                const cardBlob = await cardFetch.blob();
+                const cardBytes = new Uint8Array(await cardBlob.arrayBuffer());
+                const cardFileName = `transport-card-${shortId}-${Date.now()}.png`;
+                const { data: uploadResult, error: uploadErr } = await supabase.storage
+                  .from('ad-images')
+                  .upload(cardFileName, cardBytes, { contentType: 'image/png', upsert: true });
+
+                if (!uploadErr && uploadResult) {
+                  const { data: pubUrlData } = supabase.storage.from('ad-images').getPublicUrl(cardFileName);
+                  if (pubUrlData?.publicUrl) finalPostPhotoUrl = pubUrlData.publicUrl;
+                }
+              }
+            } catch(e) { console.error('Error saving transport card PNG:', e); }
+
+            let finalStoryPhotoUrl = dynamicStoryUrl;
+            try {
+              const storyFetch = await fetch(dynamicStoryUrl);
+              if (storyFetch.ok) {
+                const storyBlob = await storyFetch.blob();
+                const storyBytes = new Uint8Array(await storyBlob.arrayBuffer());
+                const storyFileName = `transport-story-${shortId}-${Date.now()}.png`;
+                const { data: storyUploadResult, error: storyUploadErr } = await supabase.storage
+                  .from('ad-images')
+                  .upload(storyFileName, storyBytes, { contentType: 'image/png', upsert: true });
+
+                if (!storyUploadErr && storyUploadResult) {
+                  const { data: storyPubUrlData } = supabase.storage.from('ad-images').getPublicUrl(storyFileName);
+                  if (storyPubUrlData?.publicUrl) finalStoryPhotoUrl = storyPubUrlData.publicUrl;
+                }
+              }
+            } catch(e) { console.error('Error saving transport story PNG:', e); }
+
             // 1. Post to @souqbaghdad_lines
             const targetLinesChannel = LINES_CHANNEL_ID || LINES_CHANNEL;
-            const linesRes = await sendPhoto(targetLinesChannel, dynamicPostUrl, channelMsg, { inline_keyboard: channelKeyboard });
+            const linesRes = await sendPhoto(targetLinesChannel, finalPostPhotoUrl, channelMsg, { inline_keyboard: channelKeyboard });
             let tgMsgId: string | null = null;
             if (linesRes?.ok && linesRes.result?.message_id) {
               tgMsgId = linesRes.result.message_id.toString();
@@ -3872,7 +3922,7 @@ serve(async (req) => {
             if (isAlRafdain) {
               try {
                 console.log(`[BOT RUC] isAlRafdain=true, sending to ${ALRAFDAIN_TELEGRAM_CHANNEL}`);
-                const rucRes = await sendPhoto(ALRAFDAIN_TELEGRAM_CHANNEL, dynamicPostUrl, channelMsg, { inline_keyboard: channelKeyboard });
+                const rucRes = await sendPhoto(ALRAFDAIN_TELEGRAM_CHANNEL, finalPostPhotoUrl, channelMsg, { inline_keyboard: channelKeyboard });
                 if (rucRes?.ok && rucRes.result?.message_id) {
                   rucMsgId = rucRes.result.message_id.toString();
                   console.log(`[BOT RUC] sendPhoto success, message_id: ${rucMsgId}`);
@@ -3883,7 +3933,7 @@ serve(async (req) => {
             }
 
             // 3. Broadcast to Partner Channels Network
-            EdgeRuntime.waitUntil(broadcastToPartnerChannels(insertedTrans, 'transport', channelMsg, dynamicPostUrl, { inline_keyboard: channelKeyboard }, supabase));
+            EdgeRuntime.waitUntil(broadcastToPartnerChannels(insertedTrans, 'transport', channelMsg, finalPostPhotoUrl, { inline_keyboard: channelKeyboard }, supabase));
 
             // Save telegram_message_id and ruc_telegram_message_id to prevent DB webhook from publishing again (dedup)
             if (tgMsgId || rucMsgId) {
@@ -3905,16 +3955,19 @@ serve(async (req) => {
               try {
                 // 1. Post to Souq Baghdad Main Facebook Page
                 console.log('[BOT SOCIAL] Posting transport to Souq Baghdad Facebook Page...');
-                const fbData = await postToFacebook(fbIgCaption, dynamicPostUrl);
+                const fbData = await postToFacebook(fbIgCaption, finalPostPhotoUrl);
                 console.log('[BOT SOCIAL] Main FB response:', JSON.stringify(fbData));
                 if (fbData && (fbData.post_id || fbData.id)) {
                   socialUpdates.facebook_post_id = fbData.post_id || fbData.id;
                   currentSync.facebook = 'success';
+                } else {
+                  currentSync.facebook = 'failed';
+                  currentSync.facebook_error = fbData?.error?.message || JSON.stringify(fbData);
                 }
                 
                 // 1b. Post Story (9:16) to Souq Baghdad Facebook Story
                 if (META_PAGE_ID && META_PAGE_ACCESS_TOKEN) {
-                  await postToFacebookStory(dynamicStoryUrl, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
+                  await postToFacebookStory(finalStoryPhotoUrl, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
                 }
 
                 // 2. ALSO Post to Al-Rafdain Facebook Page ONLY if transport is for Al-Rafdain
@@ -3924,15 +3977,18 @@ serve(async (req) => {
                   const rafdainPageId = rafdainSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
                   if (rafdainToken && rafdainPageId) {
                     console.log('[BOT SOCIAL] Posting transport to Al-Rafdain Facebook Page...');
-                    const rafdainFbData = await postToFacebook(fbIgCaption, dynamicPostUrl, rafdainToken, rafdainPageId);
+                    const rafdainFbData = await postToFacebook(fbIgCaption, finalPostPhotoUrl, rafdainToken, rafdainPageId);
                     console.log('[BOT SOCIAL] Al-Rafdain FB response:', JSON.stringify(rafdainFbData));
                     if (rafdainFbData && (rafdainFbData.post_id || rafdainFbData.id)) {
                       currentSync.rafdain_facebook_post_id = rafdainFbData.post_id || rafdainFbData.id;
                       currentSync.rafdain_facebook = 'success';
+                    } else {
+                      currentSync.rafdain_facebook = 'failed';
+                      currentSync.rafdain_facebook_error = rafdainFbData?.error?.message || JSON.stringify(rafdainFbData);
                     }
 
                     // 2b. Post Story (9:16) to Al-Rafdain Facebook Story
-                    await postToFacebookStory(dynamicStoryUrl, rafdainPageId, rafdainToken);
+                    await postToFacebookStory(finalStoryPhotoUrl, rafdainPageId, rafdainToken);
                   }
                 }
               } catch(fbErr: any) {
@@ -3949,11 +4005,12 @@ serve(async (req) => {
                   const igTargetId = rafdainIgSetting?.page_id || rafdainIgSetting?.extra_id || ALRAFDAIN_IG_ID || '17841404181680155';
                   if (igToken && igTargetId) {
                     console.log(`[BOT SOCIAL] Posting to Al-Rafdain IG Story (@al_rafdain / ${igTargetId})...`);
-                    await postToInstagramStory(dynamicStoryUrl, igTargetId, igToken);
+                    await postToInstagramStory(finalStoryPhotoUrl, igTargetId, igToken);
+                    currentSync.rafdain_instagram_story = 'success';
                   }
                 }
                 console.log('[BOT SOCIAL] Posting to Instagram Feed...');
-                const igData = await postToInstagram(fbIgCaption, dynamicPostUrl);
+                const igData = await postToInstagram(fbIgCaption, finalPostPhotoUrl);
                 console.log('[BOT SOCIAL] IG response:', JSON.stringify(igData));
                 if (igData && (igData.id || igData.media_id)) {
                   socialUpdates.instagram_post_id = igData.id || igData.media_id;
@@ -3971,7 +4028,7 @@ serve(async (req) => {
               // Threads
               try {
                 console.log('[BOT SOCIAL] Posting to Threads...');
-                const thData = await postToThreads(fbIgCaption, dynamicPostUrl);
+                const thData = await postToThreads(fbIgCaption, finalPostPhotoUrl);
                 console.log('[BOT SOCIAL] Threads response:', JSON.stringify(thData));
                 if (thData && (thData.id || thData.media_id)) {
                   socialUpdates.threads_post_id = thData.id || thData.media_id;
@@ -3991,23 +4048,27 @@ serve(async (req) => {
 
               // Send rich verification report back to user in Telegram
               try {
-                let fbReport = '⚪ غير مفعل';
-                if (isAlRafdain) {
-                  fbReport = currentSync.rafdain_facebook === 'success' 
-                    ? '✅ <b>بوست (Feed) + ستوري (9:16)</b> على صفحة <code>alrafdain1</code>' 
-                    : `❌ فشل (${currentSync.facebook_error || currentSync.rafdain_facebook_error || 'خطأ'})`;
-                } else {
-                  fbReport = currentSync.facebook === 'success' 
-                    ? '✅ <b>بوست + ستوري</b> على صفحة <code>souqbaghdad.iq</code>' 
-                    : `❌ فشل (${currentSync.facebook_error || 'خطأ'})`;
+                const fbItems: string[] = [];
+                if (currentSync.facebook === 'success') {
+                  fbItems.push('✅ صفحة سوق بغداد (بوست + ستوري)');
                 }
+                if (isAlRafdain) {
+                  if (currentSync.rafdain_facebook === 'success') {
+                    fbItems.push('✅ صفحة كلية الرافدين (بوست + ستوري)');
+                  } else {
+                    fbItems.push(`❌ صفحة كلية الرافدين (${currentSync.rafdain_facebook_error?.includes('expired') ? 'انتهت صلاحية الرمز' : 'فشل الربط'})`);
+                  }
+                }
+                const fbReport = fbItems.length > 0 ? fbItems.join('\n') : `❌ فشل (${currentSync.facebook_error || 'خطأ'})`;
 
-                let igReport = '⚪ غير مفعل';
-                if (isAlRafdain) {
-                  igReport = (currentSync.rafdain_instagram_story === 'success' || currentSync.instagram === 'success')
-                    ? '✅ <b>ستوري (Story 9:16)</b> على حساب <code>@al_rafdain</code>'
-                    : (currentSync.instagram === 'failed' ? `❌ فشل (${currentSync.instagram_error || 'خطأ'})` : '⚪ قيد المعالجة');
+                const igItems: string[] = [];
+                if (currentSync.instagram === 'success') {
+                  igItems.push('✅ بوست فيد سوق بغداد (@souqbaghdad.iq)');
                 }
+                if (isAlRafdain && currentSync.rafdain_instagram_story === 'success') {
+                  igItems.push('✅ ستوري (Story 9:16) @al_rafdain');
+                }
+                const igReport = igItems.length > 0 ? igItems.join('\n') : (currentSync.instagram === 'failed' ? `❌ فشل (${currentSync.instagram_error || 'خطأ'})` : '⚪ قيد المعالجة');
 
                 let tgReport = `✅ قناة <code>@souqbaghdad_lines</code>`;
                 if (isAlRafdain) {
@@ -4018,10 +4079,10 @@ serve(async (req) => {
 
                 const receiptMsg = `📊 <b>تقرير توثيق ونشر الإعلان على الشبكات</b>\n` +
                                    `🔖 <b>كود الإعلان:</b> <code>#${shortId}</code>\n\n` +
-                                   `📘 <b>فيسبوك:</b> ${fbReport}\n` +
-                                   `📸 <b>انستغرام:</b> ${igReport}\n` +
-                                   `✈️ <b>تيليجرام:</b> ${tgReport}\n\n` +
-                                   `❤️ <b>شكراً لدعمك وثقتك بمنصة سوق بغداد الرقمي</b> 🤝\n` +
+                                   `📘 <b>فيسبوك:</b>\n${fbReport}\n\n` +
+                                   `📸 <b>انستغرام:</b>\n${igReport}\n\n` +
+                                   `✈️ <b>تيليجرام:</b>\n${tgReport}\n\n` +
+                                   `❤️ <b>شكراً لدعمك وثقتك بمنصة سوق بغداد الرقمي 🤝</b>\n` +
                                    `<i>تم توثيق وحفظ معرفات النشر بقاعدة البيانات بنجاح!</i>`;
 
                 await sendMessage(chatId, receiptMsg, {
