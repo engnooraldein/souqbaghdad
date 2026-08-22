@@ -436,41 +436,12 @@ async function getLiveSocialSetting(id: string): Promise<any> {
         dynamicSocialCache[row.id] = row;
       }
       lastSocialCacheTime = now;
-      return dynamicSocialCache[id] || null;
+      return dynamicSocialCache[id];
     }
   } catch (e) {
     console.error('Failed to load live social setting from DB:', e);
   }
   return dynamicSocialCache[id] || null;
-}
-
-async function sendSystemAlert(adInfo: { id?: string; title?: string; shortId?: string; link?: string; category?: string }, platform: string, errorMsg: string) {
-  try {
-    const alertSetting = await getLiveSocialSetting('system_alerts');
-    const targetChat = alertSetting?.page_id || alertSetting?.extra_id || Deno.env.get('ADMIN_CHAT_ID');
-    if (!targetChat) return;
-
-    const adCode = adInfo.shortId || (adInfo.id ? adInfo.id.substring(0, 8) : '—');
-    const adTitle = adInfo.title || 'إعلان بدون عنوان';
-    const alertText = 
-      `🚨 <b>تنبيه نظام: تعثر نشر إعلان تلقائي</b>\n\n` +
-      `📌 <b>كود الإعلان:</b> <code>#${adCode}</code>\n` +
-      `🏷️ <b>العنوان:</b> ${adTitle}\n` +
-      `⚠️ <b>المنصة المتعثرة:</b> <b>${platform}</b>\n` +
-      `❌ <b>السبب الفني:</b> <code>${String(errorMsg).replace(/<[^>]*>?/gm, '').substring(0, 250)}</code>\n\n` +
-      `🔗 <a href="${adInfo.link || 'https://www.souqbaghdad.store'}">معاينة وفحص الإعلان</a>`;
-
-    const retryKeyboard = adInfo.id ? {
-      inline_keyboard: [
-        [{ text: '🔁 إعادة النشر الآن', callback_data: `retry_social_${adInfo.id}` }],
-        [{ text: '🌐 فتح الإعلان بالموقع', url: adInfo.link || 'https://www.souqbaghdad.store' }]
-      ]
-    } : undefined;
-
-    await sendMessage(targetChat, alertText, retryKeyboard);
-  } catch (alertErr) {
-    console.error('Failed to dispatch system alert:', alertErr);
-  }
 }
 
 async function postToThreads(text: string, photoUrl: string | string[] | null) {
@@ -2560,8 +2531,6 @@ serve(async (req) => {
             } catch(fbErr: any) {
               console.error('[WEBHOOK SOCIAL] FB Error:', fbErr);
               syncStatus.facebook = syncStatus.facebook || 'failed';
-              syncStatus.facebook_error = fbErr?.message || String(fbErr);
-              EdgeRuntime.waitUntil(sendSystemAlert({ id: record.id, shortId: record.short_id || adId, title: record.title, link }, 'فيسبوك (Facebook)', syncStatus.facebook_error));
             }
           }
           
@@ -2578,8 +2547,6 @@ serve(async (req) => {
                   console.log('[WEBHOOK SOCIAL] Al-Rafdain IG Story result:', JSON.stringify(igStoryRes));
                   if (igStoryRes && (igStoryRes.id || igStoryRes.creation_id)) {
                     syncStatus.rafdain_instagram_story = 'success';
-                  } else if (igStoryRes?.error) {
-                    EdgeRuntime.waitUntil(sendSystemAlert({ id: record.id, shortId: record.short_id || adId, title: record.title, link }, 'انستغرام ستوري الرافدين (@al_rafdain)', igStoryRes.error.message || JSON.stringify(igStoryRes)));
                   }
                 }
               }
@@ -2593,13 +2560,10 @@ serve(async (req) => {
               } else {
                 syncStatus.instagram = syncStatus.instagram || 'failed';
                 syncStatus.instagram_error = igData?.error?.message || JSON.stringify(igData);
-                EdgeRuntime.waitUntil(sendSystemAlert({ id: record.id, shortId: record.short_id || adId, title: record.title, link }, 'انستغرام سوق بغداد (@souqbaghdad.iq)', syncStatus.instagram_error));
               }
             } catch(igErr: any) {
               console.error('[WEBHOOK SOCIAL] IG Error:', igErr);
               syncStatus.instagram = syncStatus.instagram || 'failed';
-              syncStatus.instagram_error = igErr?.message || String(igErr);
-              EdgeRuntime.waitUntil(sendSystemAlert({ id: record.id, shortId: record.short_id || adId, title: record.title, link }, 'انستغرام (Instagram)', syncStatus.instagram_error));
             }
           }
           
@@ -2754,33 +2718,6 @@ serve(async (req) => {
         one_time_keyboard: true,
         resize_keyboard: true
       });
-      return new Response('OK', { status: 200 });
-    }
-
-    // --- One-Click Retry Handler for Failed Social Posts ---
-    if (text && text.startsWith('retry_social_')) {
-      const adIdToRetry = text.replace('retry_social_', '').trim();
-      if (callbackQuery) await answerCallbackQuery(callbackQuery.id, '⏳ جاري إعادة النشر على كافة المنصات...');
-      
-      const { data: adRecord } = await supabase.from('ads').select('*').eq('id', adIdToRetry).maybeSingle();
-      if (!adRecord) {
-        await sendMessage(chatId, '❌ لم يتم العثور على الإعلان المطلوب.');
-        return new Response('OK', { status: 200 });
-      }
-      
-      try {
-        const { data: pubRes, error: pubErr } = await supabase.functions.invoke('telegram-bot', {
-          body: {
-            type: 'INSERT',
-            table: 'ads',
-            record: adRecord
-          }
-        });
-        if (pubErr) throw pubErr;
-        await sendMessage(chatId, `✅ <b>تمت إعادة النشر بنجاح!</b>\nالإعلان: <code>${adRecord.title}</code> تم تعميمه على كافة القنوات والمنصات.`);
-      } catch (err: any) {
-        await sendMessage(chatId, `❌ <b>تعذر إعادة النشر:</b> ${err.message || String(err)}`);
-      }
       return new Response('OK', { status: 200 });
     }
 
