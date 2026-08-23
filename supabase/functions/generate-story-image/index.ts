@@ -333,6 +333,29 @@ serve(async (req) => {
           </div>
         </div>
 
+        ${mode === 'story' ? html`
+        <!-- 6b. SPECIAL INTERACTIVE STORY CTA BOX (Only for Story 9:16) -->
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: linear-gradient(135deg, #2e0854 0%, #4c1d95 100%); border-radius: 28px; padding: 24px 32px; box-shadow: 0 12px 30px rgba(46,8,84,0.35); position: relative; z-index: 10; border: 2px solid #a855f7;">
+          
+          <!-- Left: Big High-Contrast QR Code -->
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; background: #ffffff; padding: 10px; border-radius: 20px; box-shadow: 0 6px 20px rgba(0,0,0,0.2);">
+            <img src="${qrUrl}" width="130" height="130" style="border-radius: 12px;" />
+            <span style="font-size: 15px; color: #4c1d95; font-weight: bold;">${fixAr('امسح لفتح الخط')}</span>
+          </div>
+
+          <!-- Right: Smart DM & Bio Action Prompt -->
+          <div style="display: flex; flex-direction: column; align-items: flex-end; flex: 1; padding-left: 24px; gap: 10px;">
+            <div style="display: flex; background: #a855f7; border-radius: 14px; padding: 6px 20px;">
+              <span style="font-size: 20px; color: #ffffff; font-weight: bold;">${fixAr('📲 لحجز مقعدك بالخط فوراً')}</span>
+            </div>
+            <span style="font-size: 23px; color: #f3e8ff; font-weight: bold; text-align: right; line-height: 1.3;">${fixAr('امسح الباركود أو افتح الرابط في البايو')}</span>
+            <div style="display: flex; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 12px; padding: 6px 18px;">
+              <span style="font-size: 19px; color: #ffffff; font-weight: bold;">${fixAr(`💬 أو دز #${cleanShortId} بالخاص ونرسلك الرابط`)}</span>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+
         <!-- 7. Bottom Dark Purple Footer Bar -->
         <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #1e0836; border-radius: 24px; padding: 18px 30px; position: relative; z-index: 10;">
           
