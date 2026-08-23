@@ -384,11 +384,18 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   let origin = '';
   let destination = '';
 
-  const fromMatch = norm.match(/من\s+([^\s\-\–\,\.\،\إلى\الي\لـ\ل]+(?:\s+[^\s\-\–\,\.\،\إلى\الي\لـ\ل]+)?)/i);
-  const toMatch = norm.match(/(?:إلى|الي|لـ|الى|ل)\s+([^\s\-\–\,\.\،]+(?:\s+[^\s\-\–\,\.\،]+)?)/i);
+  // Extract "من [origin] الى/لـ [destination]" accurately
+  const routeMatch = norm.match(/من\s+(.+?)\s+(?:إلى|الي|الى|لـ|ل)\s+(.+)/i);
+  if (routeMatch) {
+    origin = routeMatch[1].trim().replace(/^(منطقة|حي|شارع)\s+/, '');
+    destination = routeMatch[2].trim();
+  } else {
+    const fromMatch = norm.match(/من\s+([^\,\.\،\n\r]+)/i);
+    if (fromMatch) origin = fromMatch[1].trim().replace(/^(منطقة|حي|شارع)\s+/, '');
 
-  if (fromMatch) origin = fromMatch[1].trim();
-  if (toMatch) destination = toMatch[1].trim();
+    const toMatch = norm.match(/(?:إلى|الي|الى|لـ)\s+([^\,\.\،\n\r]+)/i);
+    if (toMatch) destination = toMatch[1].trim();
+  }
 
   if (!origin && !destination) {
     const cleanWords = norm.split(/\s+/).filter(w => !['اريد', 'محتاج', 'ادور', 'ابحث', 'خط', 'نقل', 'من', 'الى', 'كلية', 'جامعة'].includes(w));
@@ -415,18 +422,24 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   let matchedLines: any[] = [];
   if (activeDriverLines.length > 0) {
     if (origin && destination) {
+      // Must match ORIGIN area AND DESTINATION
       matchedLines = activeDriverLines.filter((ad: any) => {
         const fullAdText = `${ad.title || ''} ${ad.location || ''} ${ad.description || ''}`.toLowerCase();
         return fullAdText.includes(origin.toLowerCase()) && fullAdText.includes(destination.toLowerCase());
       }).slice(0, 3);
-    }
 
-    if (matchedLines.length === 0 && (origin || destination)) {
+      // If strict both not found, check if line at least covers student's ORIGIN area
+      if (matchedLines.length === 0 && origin) {
+        matchedLines = activeDriverLines.filter((ad: any) => {
+          const fullAdText = `${ad.title || ''} ${ad.location || ''} ${ad.description || ''}`.toLowerCase();
+          return fullAdText.includes(origin.toLowerCase());
+        }).slice(0, 3);
+      }
+    } else if (origin) {
+      // User specified origin only (e.g. محتاج خط من البنوك)
       matchedLines = activeDriverLines.filter((ad: any) => {
         const fullAdText = `${ad.title || ''} ${ad.location || ''} ${ad.description || ''}`.toLowerCase();
-        if (origin && fullAdText.includes(origin.toLowerCase())) return true;
-        if (destination && fullAdText.includes(destination.toLowerCase())) return true;
-        return false;
+        return fullAdText.includes(origin.toLowerCase());
       }).slice(0, 3);
     }
   }
@@ -3800,8 +3813,6 @@ Deno.serve(async (req: any) => {
 
         // --- /start or /help Command in Group ---
         if (cmd === '/start' || cmd === '/help') {
-          if (messageId) deleteMessage(chatId, messageId);
-
           const isTransport = chatTitle.includes('خط') || chatTitle.includes('نقل') || chatTitle.includes('رافدين') || chatTitle.includes('جامع') || chatTitle.includes('كلية');
           
           let introMsg = `👋 <b>يا هلا بيكم في ${chatTitle}! 🇮🇶✨</b>\n` +
@@ -3897,7 +3908,6 @@ Deno.serve(async (req: any) => {
 
         // --- /seats Command (Driver seats alert) ---
         if (cmd === '/seats') {
-          if (messageId) deleteMessage(chatId, messageId);
           const routeInfo = cmdParts.slice(1).join(' ') || 'خط نقل بغداد';
           await sendOrReplaceGroupMessage(chatId, 
             `💺 <b>تنبيه مقاعد شاغرة في خط نقل!</b>\n\n` +
@@ -3916,7 +3926,6 @@ Deno.serve(async (req: any) => {
 
         // --- /car Command (Quick Car Search) ---
         if (cmd === '/car') {
-          if (messageId) deleteMessage(chatId, messageId);
           const carQuery = cmdParts.slice(1).join(' ');
           let query = supabase.from('ads').select('*').in('category', ['vehicles', 'cars', 'car']).eq('status', 'active');
           if (carQuery) {
@@ -3938,7 +3947,6 @@ Deno.serve(async (req: any) => {
 
         // --- /line or \line Command (Quick Transport Line Search) ---
         if (cmd === '/line' || cmd === '/lines' || cmd === '\\line' || cmd === '\\lines') {
-          if (messageId) deleteMessage(chatId, messageId);
           await sendChatAction(chatId, 'typing');
           await handleSmartTransportSearch(chatId, trimmedText, fromUser, supabase, true);
           return new Response('OK', { status: 200 });
