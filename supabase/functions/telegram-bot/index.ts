@@ -408,7 +408,7 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
   );
   return new Response('OK', { status: 200 });
 }
-const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || 'EAAPXexo3QZCcBSeSAZCgPPa4CrvBE0Sq91qShCB4ZAkQAQt3ZAvF0XXZBpHEtYhT6u5jY6DkPUcGcBWZATkhzAwWhmYPNTXtNURJ2CPCc9quKJl5NeD75abfVq0aE2Xo5PZA3r3EUqtjdxvHChFnQwYXkL1lK537C9vqGbLTWHpGULfltjOAmUf8VMpPKH6d1ydi0FETRQsBzvV2A0QVb0cqrrAjFsqUZAQi3WaV8EV6ZAfJ4DW31NZCCAxbxJSEoZD';
+const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || 'EAAPXexo3QZCcBSUZC5hitFDZASpAMcE52ETtcrZBtYfoRClK1KG4uEbMSSu3VFDoP0mqscDVHxsu2j7C3TJrEgBibzzwG125rCeFUhs9bgzeGxjkiOP1ZB9ZCmexBwrqrEQ9esGsZCE6CeCDyH2Py5kVi0vziujShnepE94m8jmTr5wjjJzBkL1ZCOuRMKgCQY17zxWBfIeBzTzo8T6n2o4eWitUqNMRSI0YsrFLcUxSFh4SdujfuzAMBsEZD';
 const META_PAGE_ID = Deno.env.get('META_PAGE_ID') || '1088044114402452';
 const META_IG_ACCOUNT_ID = Deno.env.get('META_IG_ACCOUNT_ID') || '17841403127032930';
 const THREADS_USER_ID = Deno.env.get('THREADS_USER_ID') || '28119436894335542';
@@ -655,6 +655,11 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
 
       console.log(`[FB PHOTO] Posting single photo to Facebook Page ${pageId}...`);
       
+      // Warm CDN cache if using wsrv.nl proxy so Meta gets instantaneous 200 response
+      if (singleUrl.includes('wsrv.nl')) {
+        try { await fetch(singleUrl); } catch(e) {}
+      }
+
       // Method A: URLSearchParams format (Official Facebook Graph API standard for /photos)
       try {
         const params = new URLSearchParams();
@@ -801,6 +806,9 @@ async function deleteFromThreads(threadsMediaId: string) {
 async function postToFacebookStory(photoUrl: string, pageId: string, accessToken: string) {
   if (!accessToken || !pageId || !photoUrl) return { error: { message: 'رمز الوصول لفيسبوك أو الصورة مفقودة' } };
   const targetPhotoUrl = photoUrl.includes('generate-story-image') ? `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&output=png` : photoUrl;
+  if (targetPhotoUrl.includes('wsrv.nl')) {
+    try { await fetch(targetPhotoUrl); } catch(e) {}
+  }
   try {
     console.log(`[FB STORY] Publishing Story 9:16 to Facebook Page ${pageId}...`);
     // Step 1: Upload photo as unpublished/temporary to get photo ID
@@ -839,6 +847,9 @@ async function postToFacebookStory(photoUrl: string, pageId: string, accessToken
 async function postToInstagramStory(photoUrl: string, igAccountId: string, accessToken: string) {
   if (!accessToken || !igAccountId || !photoUrl) return { error: { message: 'رمز الوصول لانستكرام أو الصورة مفقودة' } };
   const targetPhotoUrl = photoUrl.includes('generate-story-image') ? `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&output=png` : photoUrl;
+  if (targetPhotoUrl.includes('wsrv.nl')) {
+    try { await fetch(targetPhotoUrl); } catch(e) {}
+  }
   const isDirectIg = accessToken.startsWith('IGAA');
   const apiBase = isDirectIg ? 'https://graph.instagram.com/v20.0' : 'https://graph.facebook.com/v20.0';
 
@@ -895,6 +906,11 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null,
     // Instagram carousel supports a max of 10 items
     const originalUrls = rawUrls.slice(0, 10);
     const urls = originalUrls.map(url => url.includes('generate-story-image') ? `https://wsrv.nl/?url=${encodeURIComponent(url)}&output=png` : (url.includes('supabase.co') ? url : `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=1080&h=1080&fit=cover`));
+    for (const u of urls) {
+      if (u.includes('wsrv.nl')) {
+        try { await fetch(u); } catch(e) {}
+      }
+    }
     
     if (urls.length > 1) {
       const containerIds = [];
