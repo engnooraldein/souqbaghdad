@@ -25,11 +25,96 @@ async function sendMessage(chatId: string | number, text: string, replyMarkup?: 
 }
 
 async function answerCallbackQuery(callbackQueryId: string, text: string = '', showAlert = false) {
-  await fetch(`${tgUrl}/answerCallbackQuery`, {
+  fetch(`${tgUrl}/answerCallbackQuery`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ callback_query_id: callbackQueryId, text, show_alert: showAlert })
-  });
+  }).catch(() => {});
+}
+
+async function sendChatAction(chatId: string | number, action = 'typing') {
+  fetch(`${tgUrl}/sendChatAction`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, action })
+  }).catch(() => {});
+}
+
+async function callAiEngine(userText: string | null, audioUrl: string | null, photoUrl: string | null): Promise<string> {
+  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
+
+  // 1. If we have text, call Gemini 2.0 Flash with low latency
+  if (GEMINI_API_KEY && userText) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            role: 'user',
+            parts: [{ text: `أنت موظف خدمة عملاء رسمي في منصة سوق بغداد (https://www.souqbaghdad.store). أجب بلهجة عراقية لطيفة ومختصرة جداً وبحد أقصى سطرين على رسالة الزبون: "${userText}"` }]
+          }],
+          generationConfig: { maxOutputTokens: 180, temperature: 0.7 }
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      const data = await resp.json();
+      const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (aiText) return aiText.trim();
+    } catch(e) {
+      console.warn('Gemini call failed or timed out:', e);
+    }
+  }
+
+  // 2. Fallback to OpenAI GPT-4o-mini
+  if (OPENAI_API_KEY && userText) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: 'أنت موظف خدمة عملاء في منصة سوق بغداد بالعراق. أجب بلهجة عراقية لطيفة ومختصرة جداً.' },
+            { role: 'user', content: userText }
+          ],
+          max_tokens: 150
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      const data = await resp.json();
+      const aiText = data.choices?.[0]?.message?.content;
+      if (aiText) return aiText.trim();
+    } catch(e) {
+      console.warn('OpenAI fallback failed:', e);
+    }
+  }
+
+  // 3. Ultra-fast Smart Local Iraqi Fallback
+  const clean = (userText || '').toLowerCase().trim();
+  if (clean.includes('بوت') || clean.includes('تلي')) {
+    return '🤖 تفضل عيوني، هذا رابط بوت سوق بغداد الرسمي: @souqbaghda_bot';
+  }
+  if (clean.includes('سيار')) {
+    return '🚗 يا هلا بيك يالغالي! تكدر تتصفح أحدث السيارات المعروضة للبيع بأسعارها المباشرة من موقعنا: https://www.souqbaghdad.store';
+  }
+  if (clean.includes('خط') || clean.includes('نقل') || clean.includes('جامع') || clean.includes('سايق')) {
+    return '🚌 يا هلا بيك! عدنا قسم كامل لخطوط نقل الكليات والجامعات والموظفين، تصفح أو انشر خطك مجاناً: https://www.souqbaghdad.store/transport';
+  }
+  if (clean.includes('نشر') || clean.includes('ابيع') || clean.includes('اعلان')) {
+    return '🚗 تدلل عيوني! تكدر تنشر إعلانك مجاناً عبر البوت مباشرة من الأزرار أدناه، أو عبر الموقع: https://www.souqbaghdad.store/post-ad';
+  }
+  if (clean.includes('مرحبا') || clean.includes('هلو') || clean.includes('سلام')) {
+    return 'يا هلا وكل الهلا بيك عيوني! نورت سوق بغداد 🇮🇶 شلون أقدر أخدمك اليوم؟';
+  }
+  return 'يا هلا بيك عيوني نورت سوق بغداد! 🇮🇶 اختر ما تريد من القائمة أدناه وتدلل من عيوني 🌹';
 }
 
 async function sendPhoto(chatId: string | number, photoUrl: string, caption: string, replyMarkup?: any) {
@@ -3123,7 +3208,7 @@ Deno.serve(async (req: any) => {
     const callbackQueryId = callbackQuery?.id;
     if (callbackQueryId) {
       // Dismiss Telegram loading spinner immediately so buttons never hang
-      try { await answerCallbackQuery(callbackQueryId); } catch(e) {}
+      answerCallbackQuery(callbackQueryId);
     }
 
     const supabase = createClient(
@@ -3132,7 +3217,7 @@ Deno.serve(async (req: any) => {
     );
 
     // Fetch user and state
-    const { data: tgUser } = await supabase.from('telegram_users').select('*').eq('telegram_chat_id', chatId).single();
+    const { data: tgUser } = await supabase.from('telegram_users').select('*').eq('telegram_chat_id', chatId).maybeSingle();
     let state = tgUser?.bot_state || {};
     const userId = tgUser?.user_id;
     const phone = tgUser?.phone_number;
@@ -3154,7 +3239,9 @@ Deno.serve(async (req: any) => {
     };
 
     // 🔑 Automatic Token Receiver for Owner (Auto-detects Facebook & Instagram tokens)
-    const isOwner = String(chatId) === '6474465462' || tgUser?.role === 'owner' || tgUser?.role === 'admin';
+    const isOwner = String(chatId) === '6474465462' || 
+      (phone && (phone.includes('7701109692') || phone.includes('7700028170'))) ||
+      tgUser?.role === 'owner' || tgUser?.role === 'admin';
     const trimmedText = (text || '').trim();
     if (isOwner && (trimmedText.startsWith('EAAP') || trimmedText.startsWith('EAA') || trimmedText.startsWith('IGAA') || (trimmedText.length > 100 && !trimmedText.includes(' ') && trimmedText.startsWith('E')))) {
       console.log(`[OWNER TOKEN RECEIVED] ChatId: ${chatId}, token prefix: ${trimmedText.substring(0, 10)}...`);
@@ -6971,7 +7058,8 @@ Deno.serve(async (req: any) => {
           }
           const caption = update?.message?.caption || null;
           const userCaption = caption || text || null;
-          const aiRes = await callGemini(userCaption, audioUrl, photoUrl);
+          sendChatAction(chatId, 'typing');
+          const aiRes = await callAiEngine(userCaption, audioUrl, photoUrl);
           await showMainMenu(aiRes || undefined);
         } else {
           await showMainMenu();
