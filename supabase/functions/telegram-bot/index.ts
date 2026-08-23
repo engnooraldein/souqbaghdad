@@ -142,6 +142,7 @@ async function callGroupAiEngine(userText: string, userName: string, groupTitle?
 1. الرد قصير جداً ومختصر (سطرين كحد أقصى) بدون أي إطالة أو حشو.
 2. لهجة عراقية بغدادية لطيفة ومباشرة.
 3. وجّه السائل للخطوة التالية فوراً مع رابط مختصر إذا لزم.
+4. ممنوع منعاً باتاً ذكر أي بوتات خارجية أو كتابة groupanonymousbot أو أي يوزر مجهول نهائياً. استخدم حصراً @${BOT_USERNAME} ورابط https://www.souqbaghdad.store فقط.
 ${contextInfo ? `بيانات حية:\n${contextInfo}` : ''}`;
 
   if (GEMINI_API_KEY) {
@@ -275,6 +276,35 @@ async function getChatMember(chatId: string | number, userId: number | string) {
     if (data.ok) return data.result;
   } catch(e) {}
   return null;
+}
+
+async function sendOrReplaceGroupMessage(chatId: string | number, text: string, markup?: any, supabase?: any) {
+  if (supabase) {
+    try {
+      const { data: lastRecord } = await supabase.from('group_warnings').select('last_reason').eq('chat_id', String(chatId)).eq('user_id', 'BOT_LAST_MSG').maybeSingle();
+      if (lastRecord && lastRecord.last_reason) {
+        const oldMsgId = parseInt(lastRecord.last_reason);
+        if (!isNaN(oldMsgId)) {
+          deleteMessage(chatId, oldMsgId);
+        }
+      }
+    } catch(e) {}
+  }
+
+  const res = await sendMessage(chatId, text, markup);
+  if (res && res.result && res.result.message_id && supabase) {
+    try {
+      await supabase.from('group_warnings').upsert({
+        chat_id: String(chatId),
+        user_id: 'BOT_LAST_MSG',
+        username: 'BOT',
+        warning_count: 0,
+        last_reason: String(res.result.message_id),
+        updated_at: new Date().toISOString()
+      });
+    } catch(e) {}
+  }
+  return res;
 }
 
 async function sendMediaGroup(chatId: string | number, photoUrls: string[], caption: string) {
@@ -3415,7 +3445,17 @@ Deno.serve(async (req: any) => {
     if (isGroup) {
       const fromUser = update.message?.from || update.callback_query?.from;
       const fromId = fromUser?.id;
-      const fromUsername = fromUser?.username ? `@${fromUser.username}` : (fromUser?.first_name || 'العضو');
+      
+      let fromUsername = fromUser?.first_name || 'عزيزنا';
+      if (fromUser?.username) {
+        const u = fromUser.username.toLowerCase();
+        if (u.includes('anonymous') || u.includes('groupanonymous') || u.includes('bot')) {
+          fromUsername = 'مديرنا العزيز';
+        } else {
+          fromUsername = fromUser.first_name || `@${fromUser.username}`;
+        }
+      }
+
       const chatTitle = update.message?.chat?.title || update.callback_query?.message?.chat?.title || 'الكروب';
       const messageId = update.message?.message_id;
 
@@ -3423,7 +3463,7 @@ Deno.serve(async (req: any) => {
       if (update.message?.new_chat_members && update.message.new_chat_members.length > 0) {
         for (const newMember of update.message.new_chat_members) {
           if (newMember.is_bot && (newMember.username === BOT_USERNAME || newMember.username?.includes('souqbaghda'))) {
-            await sendMessage(chatId, 
+            await sendOrReplaceGroupMessage(chatId, 
               `👋 <b>يا هلا وكل الهلا بيكم في كروبكم! 🇮🇶✨</b>\n\n` +
               `🤖 أنا <b>مساعد سوق بغداد وشبكة النقل الذكي</b>.\n` +
               `تم تفعيل الحماية والمساعد الذكي تلقائياً:\n\n` +
@@ -3436,14 +3476,17 @@ Deno.serve(async (req: any) => {
                   [{ text: '🚗 سيارات سوق بغداد', url: 'https://www.souqbaghdad.store' }, { text: '🚌 خطوط النقل', url: 'https://www.souqbaghdad.store/transport' }],
                   [{ text: '🤖 فتح محادثة خاصة مع البوت', url: `https://t.me/${BOT_USERNAME}` }]
                 ]
-              }
+              },
+              supabase
             );
           } else if (!newMember.is_bot) {
             const memberName = newMember.first_name || 'عزيزنا';
-            await sendMessage(chatId, 
+            await sendOrReplaceGroupMessage(chatId, 
               `👋 يا هلا بيك <b>${memberName}</b> نورت الكروب 🌹\n` +
               `هنا تكدر تبحث عن سيارة أو خط نقل أو تعرض إعلاناتك مجاناً عبر سوق بغداد.\n` +
-              `🤖 للاستفادة من البوت: @${BOT_USERNAME}`
+              `🤖 للاستفادة من البوت: @${BOT_USERNAME}`,
+              undefined,
+              supabase
             );
           }
         }
@@ -3491,12 +3534,12 @@ Deno.serve(async (req: any) => {
 
           introMsg += `• أو سوّي (رد / Reply) على رسالتي وسأجيبك فوراً 🌹`;
 
-          await sendMessage(chatId, introMsg, {
+          await sendOrReplaceGroupMessage(chatId, introMsg, {
             inline_keyboard: [
               [{ text: '🚗 سيارات سوق بغداد', url: 'https://www.souqbaghdad.store' }, { text: '🚌 خطوط النقل', url: 'https://www.souqbaghdad.store/transport' }],
               [{ text: '🤖 فتح محادثة خاصة مع البوت', url: `https://t.me/${BOT_USERNAME}` }]
             ]
-          });
+          }, supabase);
           return new Response('OK', { status: 200 });
         }
 
@@ -3523,13 +3566,13 @@ Deno.serve(async (req: any) => {
             if (replyTo.message_id) await deleteMessage(chatId, replyTo.message_id);
 
             if (count === 1) {
-              await sendMessage(chatId, `⚠️ <b>تحذير يدوي (1/3) لـ ${targetName}:</b> يرجى الالتزام بقوانين الكروب وعدم تكرار المخالفة.`);
+              await sendOrReplaceGroupMessage(chatId, `⚠️ <b>تحذير يدوي (1/3) لـ ${targetName}:</b> يرجى الالتزام بقوانين الكروب وعدم تكرار المخالفة.`, undefined, supabase);
             } else if (count === 2) {
               await restrictChatMember(chatId, targetId, { can_send_messages: false }, Math.floor(Date.now()/1000) + 3600);
-              await sendMessage(chatId, `⚠️ <b>تحذير (2/3) لـ ${targetName}:</b> تم كتمك لمدة ساعة بسبب تكرار المخالفة! 🔇`);
+              await sendOrReplaceGroupMessage(chatId, `⚠️ <b>تحذير (2/3) لـ ${targetName}:</b> تم كتمك لمدة ساعة بسبب تكرار المخالفة! 🔇`, undefined, supabase);
             } else {
               await banChatMember(chatId, targetId);
-              await sendMessage(chatId, `🚫 <b>تم طرد وحظر ${targetName} نهائياً (3/3) لتكرار المخالفات لحماية الكروب.</b>`);
+              await sendOrReplaceGroupMessage(chatId, `🚫 <b>تم طرد وحظر ${targetName} نهائياً (3/3) لتكرار المخالفات لحماية الكروب.</b>`, undefined, supabase);
             }
             return new Response('OK', { status: 200 });
           }
@@ -3542,7 +3585,7 @@ Deno.serve(async (req: any) => {
           if (targetUser) {
             await supabase.from('group_warnings').delete().eq('chat_id', String(chatId)).eq('user_id', String(targetUser.id));
             await unbanChatMember(chatId, targetUser.id);
-            await sendMessage(chatId, `✅ <b>تم تصفير جميع إنذارات ${targetUser.first_name} بنجاح!</b>`);
+            await sendOrReplaceGroupMessage(chatId, `✅ <b>تم تصفير جميع إنذارات ${targetUser.first_name} بنجاح!</b>`, undefined, supabase);
             return new Response('OK', { status: 200 });
           }
         }
@@ -3552,7 +3595,7 @@ Deno.serve(async (req: any) => {
           const replyTo = update.message?.reply_to_message;
           if (replyTo?.from) {
             await banChatMember(chatId, replyTo.from.id);
-            await sendMessage(chatId, `🚫 <b>تم طرد وحظر ${replyTo.from.first_name} من الكروب بواسطة الأدمن.</b>`);
+            await sendOrReplaceGroupMessage(chatId, `🚫 <b>تم طرد وحظر ${replyTo.from.first_name} من الكروب بواسطة الأدمن.</b>`, undefined, supabase);
             return new Response('OK', { status: 200 });
           }
         }
@@ -3562,15 +3605,16 @@ Deno.serve(async (req: any) => {
           const replyTo = update.message?.reply_to_message;
           if (replyTo?.from) {
             await restrictChatMember(chatId, replyTo.from.id, { can_send_messages: false }, Math.floor(Date.now()/1000) + 7200);
-            await sendMessage(chatId, `🔇 <b>تم كتم ${replyTo.from.first_name} لمدة ساعتين بواسطة الأدمن.</b>`);
+            await sendOrReplaceGroupMessage(chatId, `🔇 <b>تم كتم ${replyTo.from.first_name} لمدة ساعتين بواسطة الأدمن.</b>`, undefined, supabase);
             return new Response('OK', { status: 200 });
           }
         }
 
         // --- /seats Command (Driver seats alert) ---
         if (cmd === '/seats') {
+          if (messageId) deleteMessage(chatId, messageId);
           const routeInfo = cmdParts.slice(1).join(' ') || 'خط نقل بغداد';
-          await sendMessage(chatId, 
+          await sendOrReplaceGroupMessage(chatId, 
             `💺 <b>تنبيه مقاعد شاغرة في خط نقل!</b>\n\n` +
             `🚌 <b>المسار:</b> ${routeInfo}\n` +
             `👤 <b>السائق:</b> ${fromUsername}\n\n` +
@@ -3579,13 +3623,15 @@ Deno.serve(async (req: any) => {
               inline_keyboard: [
                 [{ text: '🚌 تصفح جميع خطوط سوق بغداد', url: 'https://www.souqbaghdad.store/transport' }]
               ]
-            }
+            },
+            supabase
           );
           return new Response('OK', { status: 200 });
         }
 
         // --- /car Command (Quick Car Search) ---
         if (cmd === '/car') {
+          if (messageId) deleteMessage(chatId, messageId);
           const carQuery = cmdParts.slice(1).join(' ');
           let query = supabase.from('ads').select('*').in('category', ['vehicles', 'cars', 'car']).eq('status', 'active');
           if (carQuery) {
@@ -3594,19 +3640,20 @@ Deno.serve(async (req: any) => {
           const { data: matchedCars } = await query.order('created_at', { ascending: false }).limit(3);
 
           if (!matchedCars || matchedCars.length === 0) {
-            await sendMessage(chatId, `🚗 لم يتم العثور على سيارات مطابقة لـ «${carQuery}» حالياً، تكدر تتصفح أحدث السيارات من هنا: https://www.souqbaghdad.store`);
+            await sendOrReplaceGroupMessage(chatId, `🚗 لم يتم العثور على سيارات مطابقة لـ «${carQuery}» حالياً، تكدر تتصفح أحدث السيارات من هنا: https://www.souqbaghdad.store`, undefined, supabase);
           } else {
             let carMsg = `🚗 <b>أحدث سيارات ${carQuery ? '«' + carQuery + '»' : ''} في سوق بغداد:</b>\n\n`;
             for (const c of matchedCars) {
               carMsg += `• <b>${c.title}</b>\n  💰 السعر: <b>${c.price || 'اتصال'}</b> | 📍 ${c.location || 'بغداد'}\n  🔗 https://www.souqbaghdad.store/ad/${c.short_id || c.id}\n\n`;
             }
-            await sendMessage(chatId, carMsg);
+            await sendOrReplaceGroupMessage(chatId, carMsg, undefined, supabase);
           }
           return new Response('OK', { status: 200 });
         }
 
         // --- /line Command (Quick Transport Line Search) ---
         if (cmd === '/line' || cmd === '/lines') {
+          if (messageId) deleteMessage(chatId, messageId);
           const lineQuery = cmdParts.slice(1).join(' ');
           let query = supabase.from('ads').select('*').eq('category', 'transport').eq('status', 'active');
           if (lineQuery) {
@@ -3615,13 +3662,13 @@ Deno.serve(async (req: any) => {
           const { data: matchedLines } = await query.order('created_at', { ascending: false }).limit(3);
 
           if (!matchedLines || matchedLines.length === 0) {
-            await sendMessage(chatId, `🚌 لم يتم العثور على خطوط نقل مطابقة لـ «${lineQuery}» حالياً، تكدر تتصفح كافة الخطوط عبر: https://www.souqbaghdad.store/transport`);
+            await sendOrReplaceGroupMessage(chatId, `🚌 لم يتم العثور على خطوط نقل مطابقة لـ «${lineQuery}» حالياً، تكدر تتصفح كافة الخطوط عبر: https://www.souqbaghdad.store/transport`, undefined, supabase);
           } else {
             let lineMsg = `🚌 <b>خطوط نقل متوفرة ${lineQuery ? 'إلى «' + lineQuery + '»' : ''}:</b>\n\n`;
             for (const l of matchedLines) {
               lineMsg += `• <b>${l.title}</b>\n  📍 المسار: ${l.location || 'بغداد'} | 📞 هاتف: <code>${l.phone || 'متوفر بالموقع'}</code>\n  🔗 https://www.souqbaghdad.store/transport\n\n`;
             }
-            await sendMessage(chatId, lineMsg);
+            await sendOrReplaceGroupMessage(chatId, lineMsg, undefined, supabase);
           }
           return new Response('OK', { status: 200 });
         }
@@ -3655,13 +3702,13 @@ Deno.serve(async (req: any) => {
           });
 
           if (count === 1) {
-            await sendMessage(chatId, `⚠️ <b>تحذير (1/3) لـ ${fromUsername}:</b> يمنع ${reason} في الكروب.`);
+            await sendOrReplaceGroupMessage(chatId, `⚠️ <b>تحذير (1/3) لـ ${fromUsername}:</b> يمنع ${reason} في الكروب.`, undefined, supabase);
           } else if (count === 2) {
             await restrictChatMember(chatId, fromId, { can_send_messages: false }, Math.floor(Date.now()/1000) + 3600);
-            await sendMessage(chatId, `⚠️ <b>تحذير (2/3) لـ ${fromUsername}:</b> تم كتمك لمدة ساعة بسبب تكرار ${reason}! 🔇`);
+            await sendOrReplaceGroupMessage(chatId, `⚠️ <b>تحذير (2/3) لـ ${fromUsername}:</b> تم كتمك لمدة ساعة بسبب تكرار ${reason}! 🔇`, undefined, supabase);
           } else {
             await banChatMember(chatId, fromId);
-            await sendMessage(chatId, `🚫 <b>تم طرد وحظر ${fromUsername} نهائياً (3/3) لتكرار المخالفات لحماية الكروب.</b>`);
+            await sendOrReplaceGroupMessage(chatId, `🚫 <b>تم طرد وحظر ${fromUsername} نهائياً (3/3) لتكرار المخالفات لحماية الكروب.</b>`, undefined, supabase);
           }
           return new Response('OK', { status: 200 });
         }
@@ -3686,7 +3733,7 @@ Deno.serve(async (req: any) => {
               replyMsg += `• <b>${l.title}</b> (${l.location || 'بغداد'})\n  📞 هاتف السائق: <code>${l.phone || 'متوفر بالموقع'}</code>\n\n`;
             }
             replyMsg += `🔗 <i>تصفح المزيد أو انشر خطك مجاناً: https://www.souqbaghdad.store/transport</i>`;
-            await sendMessage(chatId, replyMsg);
+            await sendOrReplaceGroupMessage(chatId, replyMsg, undefined, supabase);
             return new Response('OK', { status: 200 });
           }
         }
@@ -3695,7 +3742,7 @@ Deno.serve(async (req: any) => {
         if (isBotMentioned || cleanMsg.includes('شلون انشر') || cleanMsg.includes('شلون اشتري') || cleanMsg.includes('شلون ابيع') || cleanMsg.includes('رابط الموقع')) {
           await sendChatAction(chatId, 'typing');
           const groupAiReply = await callGroupAiEngine(text, fromUsername, chatTitle);
-          await sendMessage(chatId, groupAiReply);
+          await sendOrReplaceGroupMessage(chatId, groupAiReply, undefined, supabase);
           return new Response('OK', { status: 200 });
         }
       }
