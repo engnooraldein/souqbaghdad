@@ -58,7 +58,7 @@ async function sendChatAction(chatId: string | number, action = 'typing') {
   }).catch(() => {});
 }
 
-async function callAiEngine(userText: string | null, audioUrl: string | null, photoUrl: string | null, userName?: string, supabase?: any, history?: any[]): Promise<string> {
+async function callAiEngine(userText: string | null, audioUrl: string | null, photoUrl: string | null, userName?: string, supabase?: any, history?: any[], audioBase64?: string): Promise<string> {
   const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
   const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 
@@ -104,12 +104,12 @@ async function callAiEngine(userText: string | null, audioUrl: string | null, ph
 4. الربط الذكي مع خدمات سوق بغداد: عندما يكون السؤال متعلقاً بالسيارات أو الخطوط أو البيع، دله بلباقة على خدمات وبوت سوق بغداد المجانية.
 ${dbContext ? `\n[بيانات حية من قاعدة بيانات سوق بغداد]:\n${dbContext}\n` : ''}`;
 
-  // 1. Google Gemini 2.0 Flash (with multi-turn conversational memory)
-  if (GEMINI_API_KEY && (userText || audioUrl || photoUrl)) {
+  // 1. Google Gemini 2.0 Flash (with multi-turn conversational memory + native audio support)
+  if (GEMINI_API_KEY && (userText || audioUrl || photoUrl || audioBase64)) {
     for (const model of ['gemini-2.0-flash', 'gemini-1.5-flash']) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 7000);
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
 
         const contents: any[] = [];
         if (history && Array.isArray(history)) {
@@ -119,7 +119,21 @@ ${dbContext ? `\n[بيانات حية من قاعدة بيانات سوق بغد
             }
           }
         }
-        contents.push({ role: 'user', parts: [{ text: `${systemPrompt}\n\nالمستخدم (${name}) يكتب:\n"${userText || 'أرسل ملف وسائط'}"` }] });
+
+        const userParts: any[] = [
+          { text: `${systemPrompt}\n\nالمستخدم (${name}) يكتب/يتحدث:\n"${userText || 'أرسل بصمة صوتية'}"` }
+        ];
+
+        if (audioBase64) {
+          userParts.push({
+            inlineData: {
+              mimeType: "audio/ogg",
+              data: audioBase64
+            }
+          });
+        }
+
+        contents.push({ role: 'user', parts: userParts });
 
         const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
           method: 'POST',
@@ -312,6 +326,20 @@ async function deleteMessage(chatId: string | number, messageId: number | string
   } catch(e) {}
 }
 
+async function getChatMember(chatId: string | number, userId: number | string) {
+  try {
+    const res = await fetch(`${tgUrl}/getChatMember`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, user_id: userId })
+    });
+    const data = await res.json();
+    return data.ok ? data.result : null;
+  } catch(e) {
+    return null;
+  }
+}
+
 async function restrictChatMember(chatId: string | number, userId: number | string, permissions: any, untilDate?: number) {
   try {
     const body: any = { chat_id: chatId, user_id: userId, permissions };
@@ -362,25 +390,25 @@ async function getTelegramFileUrl(fileId: string): Promise<string | null> {
   return null;
 }
 
-async function transcribeVoiceWithAi(fileUrl: string): Promise<string | null> {
+async function transcribeVoiceWithAi(fileUrl: string): Promise<{ text: string | null, base64: string | null }> {
   const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
   const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 
   try {
     const audioFetch = await fetch(fileUrl);
-    if (!audioFetch.ok) return null;
+    if (!audioFetch.ok) return { text: null, base64: null };
     const arrayBuffer = await audioFetch.arrayBuffer();
     const uint8 = new Uint8Array(arrayBuffer);
     
-    // Convert to base64 in chunks to prevent call stack overflow
+    // Reliable base64 conversion
     let binary = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < uint8.length; i += chunkSize) {
-      binary += String.fromCharCode.apply(null, Array.from(uint8.subarray(i, i + chunkSize)));
+    const len = uint8.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(uint8[i]);
     }
     const base64Audio = btoa(binary);
 
-    // 1. Google Gemini 2.0 Flash Multimodal Audio Understanding
+    // 1. Google Gemini 2.0 Flash Multimodal Audio Transcription
     if (GEMINI_API_KEY) {
       try {
         const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
@@ -407,7 +435,7 @@ async function transcribeVoiceWithAi(fileUrl: string): Promise<string | null> {
         const data = await resp.json();
         const transcription = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (transcription && transcription.trim()) {
-          return transcription.trim().replace(/^["']|["']$/g, '');
+          return { text: transcription.trim().replace(/^["']|["']$/g, ''), base64: base64Audio };
         }
       } catch(e) {
         console.warn('Gemini voice transcription failed:', e);
@@ -418,8 +446,8 @@ async function transcribeVoiceWithAi(fileUrl: string): Promise<string | null> {
     if (OPENAI_API_KEY) {
       try {
         const formData = new FormData();
-        const blob = new Blob([uint8], { type: 'audio/ogg' });
-        formData.append('file', blob, 'voice.ogg');
+        const file = new File([uint8], 'voice.ogg', { type: 'audio/ogg' });
+        formData.append('file', file);
         formData.append('model', 'whisper-1');
         formData.append('language', 'ar');
 
@@ -430,16 +458,18 @@ async function transcribeVoiceWithAi(fileUrl: string): Promise<string | null> {
         });
         const whisperData = await whisperResp.json();
         if (whisperData?.text) {
-          return whisperData.text.trim();
+          return { text: whisperData.text.trim(), base64: base64Audio };
         }
       } catch(e) {
         console.warn('Whisper voice transcription failed:', e);
       }
     }
+
+    return { text: null, base64: base64Audio };
   } catch(e) {
     console.error('transcribeVoiceWithAi exception:', e);
   }
-  return null;
+  return { text: null, base64: null };
 }
 
 async function scheduleMessageDeletion(chatId: string | number, messageId: number, delayMs = 45000) {
@@ -698,28 +728,51 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
 
   // If matched active driver lines found -> return them
   if (matchedLines && matchedLines.length > 0) {
-    let fullMsg = `🚌 <b>يا هلا بيك ${fromName}! وجدنا لك خطوط نشطة متوفرة:</b>\n\n`;
-    for (const l of matchedLines) {
-      fullMsg += `• <b>${l.title}</b>\n  📍 المسار: ${l.location || 'بغداد'} | 📞 هاتف السائق: <code>${l.phone || 'متوفر بالموقع'}</code>\n  🔗 https://www.souqbaghdad.store/transport\n\n`;
+    let fullMsg = `🚌 <b>يا هلا بيك ${fromName}! 🌹 وجدنا لك (${matchedLines.length}) خطوط نشطة متوفرة لمسارك:</b>\n\n`;
+    
+    const inlineButtons: any[] = [];
+
+    for (let i = 0; i < matchedLines.length; i++) {
+      const l = matchedLines[i];
+      const fareText = formatTgPrice(l.price);
+      const cleanPhone = (l.phone || '').replace(/[^0-9+]/g, '');
+      let waPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
+
+      fullMsg += 
+        `<b>${i + 1}. ${l.title}</b> [🟢 نشط]\n` +
+        `📍 <b>المسار:</b> ${l.location || 'بغداد'} ⬅️ ${l.city || destination || 'الجامعة'}\n` +
+        `💰 <b>الأجرة:</b> ${fareText}\n` +
+        (cleanPhone ? `📞 <b>هاتف السائق:</b> <code>${cleanPhone}</code>\n` : '') +
+        `🔗 https://www.souqbaghdad.store/transport\n\n`;
+
+      const row: any[] = [];
+      if (waPhone) {
+        row.push({ text: `💬 تواصل واتساب (${i + 1}) 🟢`, url: `https://wa.me/${waPhone}` });
+      }
+      if (cleanPhone) {
+        row.push({ text: `📞 اتصال (${i + 1})`, url: `https://t.me/+${waPhone || cleanPhone}` });
+      }
+      if (row.length > 0) inlineButtons.push(row);
     }
-    fullMsg += `<i>تصفح المزيد مباشرة عبر منصة سوق بغداد 🌹</i>`;
-    const fullMarkup = {
-      inline_keyboard: [[{ text: '🚌 تصفح جميع الخطوط النشطة', url: 'https://www.souqbaghdad.store/transport' }]]
-    };
+
+    fullMsg += `💡 <i>تواصل مع السائقين مباشرة لحجز مقعدك، وإذا اتفقت وياهم اضغط «🛑 لكيت خط خلاص» أدناه لإيقاف التنبيهات ✨</i>`;
+
+    inlineButtons.push([{ text: '🛑 لكيت خط خلاص / إيقاف التنبيهات', callback_data: 'stop_alert_user' }]);
+    inlineButtons.push([{ text: '🚌 تصفح جميع الخطوط النشطة بالموقع', url: 'https://www.souqbaghdad.store/transport' }]);
+
+    const fullMarkup = { inline_keyboard: inlineButtons };
 
     if (isGroup) {
-      // Try sending full details to user in private
       if (fromUser?.id) {
         try {
           await sendMessage(fromUser.id, fullMsg, fullMarkup);
         } catch(e) {}
       }
 
-      // Ultra-short 1-line response in group
-      const shortGroupMsg = `🚌 <b>يا هلا ${fromName} 🌹</b> دزيتلك تفاصيل الخطوط المتوفرة بالخاص حتى لا نزعج الكروب ✨`;
+      const shortGroupMsg = `🚌 <b>يا هلا ${fromName} 🌹</b> دزيتلك تفاصيل الخطوط المتوفرة وأرقام السائقين بالخاص ✨`;
       const shortMarkup = {
         inline_keyboard: [
-          [{ text: '💬 فتح التفاصيل بالخاص مع البوت 🌹', url: `https://t.me/${BOT_USERNAME}?start=group_help` }],
+          [{ text: '💬 فتح تفاصيل السائقين بالخاص 🌹', url: `https://t.me/${BOT_USERNAME}?start=group_help` }],
           [{ text: '🚌 تصفح الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }]
         ]
       };
@@ -3936,6 +3989,7 @@ Deno.serve(async (req: any) => {
 
     let isVoiceInput = false;
     let originalVoiceText = '';
+    let voiceBase64: string | null = null;
 
     if (update.message) {
       chatId = update.message.chat.id;
@@ -3950,12 +4004,15 @@ Deno.serve(async (req: any) => {
           await sendChatAction(chatId, 'typing');
           const voiceUrl = await getTelegramFileUrl(voice.file_id);
           if (voiceUrl) {
-            const transcribed = await transcribeVoiceWithAi(voiceUrl);
-            if (transcribed) {
-              text = transcribed;
+            const result = await transcribeVoiceWithAi(voiceUrl);
+            voiceBase64 = result.base64;
+            if (result.text && result.text.trim().length > 0) {
+              text = result.text.trim();
               isVoiceInput = true;
-              originalVoiceText = transcribed;
-              console.log(`[VOICE TRANSCRIBED] (${chatId}): "${transcribed}"`);
+              originalVoiceText = text;
+              console.log(`[VOICE TRANSCRIBED] (${chatId}): "${text}"`);
+            } else if (voiceBase64) {
+              isVoiceInput = true;
             }
           }
         } catch(e) {
@@ -4344,29 +4401,45 @@ Deno.serve(async (req: any) => {
         }
       }
 
-      // 4. Smart Group Contextual Matcher (for transport & car queries)
+      // 4. Smart Group Contextual Matcher (for transport & car queries & conversation)
       if (text && !trimmedText.startsWith('/')) {
         const cleanMsg = text.toLowerCase().trim();
+        const isReplyToBot = update.message?.reply_to_message?.from?.is_bot === true;
         const isBotMentioned = 
           text.includes('@' + BOT_USERNAME) || 
           text.includes('سوق بغداد') || 
           text.includes('يا بوت') ||
+          text.includes('البوت') ||
           (cleanMsg.startsWith('بوت ') || cleanMsg === 'بوت') ||
-          (update.message?.reply_to_message?.from?.is_bot && update.message?.reply_to_message?.from?.username === BOT_USERNAME);
+          isReplyToBot;
 
-        // A. Specific Transport search intent (handles typos like خك, جميله, الرفدين)
+        // A. Transport search intent (handles typos like خك, جميله, الرفدين)
         const isTransportIntent = 
           cleanMsg.includes('خط') || cleanMsg.includes('خك') || cleanMsg.includes('حط') || cleanMsg.includes('نقل') || cleanMsg.includes('سايق') ||
           ((cleanMsg.includes('من ') || cleanMsg.includes('الى ') || cleanMsg.includes('إلى ') || cleanMsg.includes('لـ')) && (cleanMsg.includes('رافدين') || cleanMsg.includes('رفدين') || cleanMsg.includes('جامع') || cleanMsg.includes('كلية') || cleanMsg.includes('دورة') || cleanMsg.includes('جميل') || cleanMsg.includes('سيدي') || cleanMsg.includes('منصور') || cleanMsg.includes('شعب') || cleanMsg.includes('كراد') || cleanMsg.includes('بياع') || cleanMsg.includes('يرموك')));
 
-        if (isTransportIntent && (cleanMsg.includes('اريد') || cleanMsg.includes('محتاج') || cleanMsg.includes('ادور') || cleanMsg.includes('اكو') || cleanMsg.includes('متوفر') || cleanMsg.includes('من') || cleanMsg.includes('الى') || cleanMsg.includes('لـ'))) {
+        if (isTransportIntent && (cleanMsg.includes('اريد') || cleanMsg.includes('محتاج') || cleanMsg.includes('ادور') || cleanMsg.includes('اكو') || cleanMsg.includes('متوفر') || cleanMsg.includes('من') || cleanMsg.includes('الى') || cleanMsg.includes('لـ') || cleanMsg.includes('سعر'))) {
           await sendChatAction(chatId, 'typing');
           await handleSmartTransportSearch(chatId, text, fromUser, supabase, true);
           return new Response('OK', { status: 200 });
         }
 
-        // B. Sequential Group Conversational AI (Mentions / Inquiries / General Help)
-        if (isBotMentioned || cleanMsg.includes('شلون انشر') || cleanMsg.includes('شلون اشتري') || cleanMsg.includes('شلون ابيع') || cleanMsg.includes('رابط الموقع')) {
+        // B. Car prices & vehicle questions in group
+        const isCarIntent = 
+          cleanMsg.includes('سعر') || cleanMsg.includes('بيش') || cleanMsg.includes('سيار') ||
+          cleanMsg.includes('توسان') || cleanMsg.includes('النترا') || cleanMsg.includes('كورولا') || 
+          cleanMsg.includes('سبورتاج') || cleanMsg.includes('سنتافي') || cleanMsg.includes('تاهو') || 
+          cleanMsg.includes('اوباما') || cleanMsg.includes('شارجر') || cleanMsg.includes('كامري');
+
+        if (isCarIntent && (cleanMsg.includes('سعر') || cleanMsg.includes('بيش') || cleanMsg.includes('موديل') || cleanMsg.includes('وارد') || cleanMsg.includes('معروض') || cleanMsg.includes('للبيع') || cleanMsg.includes('شراء') || cleanMsg.includes('شراي'))) {
+          await sendChatAction(chatId, 'typing');
+          const groupAiReply = await callGroupAiEngine(text, fromUsername, chatTitle);
+          await sendOrReplaceGroupMessage(chatId, groupAiReply, undefined, supabase);
+          return new Response('OK', { status: 200 });
+        }
+
+        // C. Conversational AI (Direct Mentions / Replies / Inquiries / General Help)
+        if (isBotMentioned || cleanMsg.includes('شلون انشر') || cleanMsg.includes('شلون اشتري') || cleanMsg.includes('شلون ابيع') || cleanMsg.includes('رابط الموقع') || cleanMsg.includes('ساعدني') || cleanMsg.includes('شعندك')) {
           await sendChatAction(chatId, 'typing');
           const groupAiReply = await callGroupAiEngine(text, fromUsername, chatTitle);
           await sendOrReplaceGroupMessage(chatId, groupAiReply, undefined, supabase);
@@ -5560,6 +5633,31 @@ Deno.serve(async (req: any) => {
         else state.data.filter_keywords = [];
 
         return await finalizePartnerChannel(chatId, state, supabase, updateOrSend);
+      }
+
+      // ==========================================
+      // 📣 GENERAL AD PUBLISH CHOOSER MENU
+      // ==========================================
+      if (action === 'publish_choose' || action === 'publish_select') {
+        const chooseMsg = 
+          `📣 <b>نشر إعلان جديد مجاناً في سوق بغداد 🇮🇶✨</b>\n\n` +
+          `اختر القسم المناسب لإعلانك:\n\n` +
+          `🚌 <b>خطوط النقل:</b> إذا كنت سائقاً توفر خطاً، أو راكباً/طالباً تبحث عن خط نقل.\n` +
+          `🚗 <b>السيارات:</b> لعرض سيارتك للبيع في معارض وسوق بغداد.\n` +
+          `🛍️ <b>المنتجات والسوق العام:</b> لبيع الهواتف، الأجهزة، والأغراض الشخصية.\n\n` +
+          `👇 <b>اضغط على القسم المطلوب للبدء:</b>`;
+
+        const chooseMarkup = {
+          inline_keyboard: [
+            [{ text: '🚌 نشر خط نقل (أوفر خط / أبحث عن خط) 🟢', callback_data: 'publish_transport' }],
+            [{ text: '🚗 عرض سيارة للبيع مجاناً', callback_data: 'publish_car' }],
+            [{ text: '🛍️ نشر منتج أو سلعة عامة', callback_data: 'publish_product' }],
+            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+          ]
+        };
+
+        await updateOrSend(chooseMsg, chooseMarkup);
+        return new Response('OK', { status: 200 });
       }
 
       // ==========================================
@@ -8711,6 +8809,38 @@ Deno.serve(async (req: any) => {
             }
           }
 
+          // 2.5 Check if user found a line or wants to cancel/stop alerts (لكيت خط، حصلت خط، لغيت الطلب، وقف التنبيهات)
+          const isCancelAlertIntent = 
+            cleanP.includes('لكيت خط') || cleanP.includes('لقيت خط') || cleanP.includes('حصلت خط') ||
+            cleanP.includes('ما اريد خط') || cleanP.includes('ما اريد بعد') || cleanP.includes('وقف التنبيهات') ||
+            cleanP.includes('وقف التنبيه') || cleanP.includes('الغاء الطلب') || cleanP.includes('لغيت الطلب') ||
+            cleanP.includes('شكرا لكيت') || cleanP.includes('شكراً لكيت') || cleanP.includes('لقيت سايق') || cleanP.includes('لكيت سايق') ||
+            cleanP.includes('حصلت سايق') || cleanP.includes('ما محتاج خط') || cleanP.includes('ما احتاج خط') || cleanP.includes('حصلت سيارة');
+
+          if (isCancelAlertIntent) {
+            sendChatAction(chatId, 'typing');
+            await supabase
+              .from('transport_requests')
+              .update({ status: 'matched' })
+              .or(`telegram_chat_id.eq.${chatId},telegram_user_id.eq.${fromUser?.id || chatId}`);
+
+            const cancelConfirmMsg = 
+              `🎉 <b>ألف مبروك يالغالي! 🌹✨</b>\n\n` +
+              `✅ <b>تم إيقاف التنبيهات وإلغاء طلبك من قائمة الانتظار بنجاح.</b>\n` +
+              `نتمنى لك دوام التوفيق ورحلات يومية مريحة وآمنة دائماً 🤝\n\n` +
+              `إذا احتجت أي شيء مستقبلاً بسيارة أو خط نقل، نحن بالخدمة دائماً في سوق بغداد 🇮🇶`;
+
+            const cancelConfirmMarkup = {
+              inline_keyboard: [
+                [{ text: '🚗 تصفح سيارات سوق بغداد', url: 'https://www.souqbaghdad.store' }, { text: '🚌 خطوط النقل', url: 'https://www.souqbaghdad.store/transport' }],
+                [{ text: '📋 القائمة الرئيسية', callback_data: 'main_menu' }]
+              ]
+            };
+
+            await sendMessage(chatId, cancelConfirmMsg, cancelConfirmMarkup);
+            return new Response('OK', { status: 200 });
+          }
+
           // 3. Check if user wants another / alternative driver or encountered issues (مقبط، ما اتفقنا، سجل طلبي، بلغني من تلكه خط)
           const isAlternativeDriverIntent = 
             cleanP.includes('غير سايق') || cleanP.includes('غيره') || cleanP.includes('غير خط') || 
@@ -8843,10 +8973,10 @@ Deno.serve(async (req: any) => {
 
           sendChatAction(chatId, 'typing');
           const chatHistory = state.chat_history || [];
-          const aiRes = await callAiEngine(userCaption, audioUrl, photoUrl, fromUser?.first_name, supabase, chatHistory);
+          const aiRes = await callAiEngine(userCaption, audioUrl, photoUrl, fromUser?.first_name, supabase, chatHistory, voiceBase64 || undefined);
 
           // Update conversational history
-          chatHistory.push({ role: 'user', text: userCaption });
+          chatHistory.push({ role: 'user', text: userCaption || 'بصمة صوتية' });
           chatHistory.push({ role: 'model', text: aiRes });
           state.chat_history = chatHistory.slice(-6);
           await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
@@ -8855,15 +8985,19 @@ Deno.serve(async (req: any) => {
           const cleanInput = (userCaption || '').toLowerCase();
           const smartButtons: any[] = [];
           if (cleanInput.includes('سيار') || cleanInput.includes('سعر') || cleanInput.includes('توسان') || cleanInput.includes('النترا') || cleanInput.includes('كورولا') || cleanInput.includes('بيع') || cleanInput.includes('شراء')) {
-            smartButtons.push([{ text: '🚗 نشر إعلان سيارة مجاناً', callback_data: 'publish_car' }, { text: '🌐 تصفح سيارات الموقع', url: 'https://www.souqbaghdad.store' }]);
+            smartButtons.push([{ text: '🚗 عرض سيارة للبيع مجاناً', callback_data: 'publish_car' }, { text: '🌐 تصفح سيارات الموقع', url: 'https://www.souqbaghdad.store' }]);
           } else if (cleanInput.includes('خط') || cleanInput.includes('نقل') || cleanInput.includes('رافدين') || cleanInput.includes('جامع') || cleanInput.includes('كلية') || cleanInput.includes('سايق')) {
-            smartButtons.push([{ text: '🚌 تصفح خطوط النقل النشطة', url: 'https://www.souqbaghdad.store/transport' }, { text: '➕ نشر إعلان خط كسائق', callback_data: 'publish_transport' }]);
+            smartButtons.push([{ text: '🚌 تصفح خطوط النقل النشطة', url: 'https://www.souqbaghdad.store/transport' }, { text: '➕ نشر خط نقل (أوفر / أطلب)', callback_data: 'publish_transport' }]);
           } else {
-            smartButtons.push([{ text: '🌐 تصفح منصة سوق بغداد', url: 'https://www.souqbaghdad.store' }, { text: '➕ نشر إعلان مجاني', callback_data: 'publish_car' }]);
+            smartButtons.push([{ text: '🌐 تصفح منصة سوق بغداد', url: 'https://www.souqbaghdad.store' }, { text: '➕ نشر إعلان جديد مجاناً', callback_data: 'publish_choose' }]);
           }
           smartButtons.push([{ text: '📋 القائمة الرئيسية للخدمات', callback_data: 'main_menu' }]);
 
-          await sendMessage(chatId, aiRes, { inline_keyboard: smartButtons });
+          const finalReply = isVoiceInput && originalVoiceText
+            ? `🎙️ <i>سمعت رسالتك الصوتية:</i> «<b>${originalVoiceText}</b>»\n\n${aiRes}`
+            : aiRes;
+
+          await sendMessage(chatId, finalReply, { inline_keyboard: smartButtons });
         } else {
           await showMainMenu();
         }
