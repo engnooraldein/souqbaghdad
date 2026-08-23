@@ -3327,6 +3327,42 @@ Deno.serve(async (req: any) => {
     let voice = null;
     let callbackQuery = null;
 
+    if (update.my_chat_member) {
+      const myChat = update.my_chat_member.chat;
+      const newStatus = update.my_chat_member.new_chat_member?.status;
+      if (myChat && (newStatus === 'administrator' || newStatus === 'member')) {
+        const title = myChat.title || 'الكروب';
+        const isTransport = title.includes('خط') || title.includes('نقل') || title.includes('رافدين') || title.includes('جامع') || title.includes('كلية');
+        
+        let introText = `👋 <b>يا هلا وكل الهلا بيكم في "${title}"! 🇮🇶✨</b>\n\n` +
+          `🤖 أنا <b>مساعد سوق بغداد وشبكة النقل الذكي</b>.\n` +
+          `تم تفعيل حماية الكروب والمساعد الذكي بنجاح:\n\n`;
+
+        if (isTransport) {
+          introText += 
+            `🚌 <b>مطابق خطوط النقل:</b> اكتب طلبك (مثال: محتاج خط للرافدين) وسأعرض لك خطوط النقل المتوفرة فوراً.\n` +
+            `💺 <b>تنبيه مقاعد شاغرة:</b> السائق يكتب <code>/seats 2 المنصور الرافدين</code> لنشر بطاقة المقاعد.\n`;
+        } else {
+          introText += 
+            `🚗 <b>رادار السيارات:</b> اكتب <code>/car النترا</code> للبحث عن سيارات معروضة.\n` +
+            `💰 <b>استعلام الأسعار:</b> اكتب <code>/price توسان 2020</code> للحصول على متوسط السعر بالسوق.\n`;
+        }
+
+        introText += 
+          `🛡️ <b>نظام الحماية:</b> منع الروابط الإعلانية والسبام بنظام الإنذارات الثلاثية.\n` +
+          `💬 <b>للتحدث معي:</b> فقط سوّي (Reply / رد) على أي رسالة مني وسأجيبك فوراً!\n\n` +
+          `<i>نتشرف بخدمتكم جميعاً 🌹</i>`;
+
+        await sendMessage(myChat.id, introText, {
+          inline_keyboard: [
+            [{ text: '🚗 سيارات سوق بغداد', url: 'https://www.souqbaghdad.store' }, { text: '🚌 خطوط النقل', url: 'https://www.souqbaghdad.store/transport' }],
+            [{ text: '🤖 فتح محادثة خاصة مع البوت', url: `https://t.me/${BOT_USERNAME}` }]
+          ]
+        });
+        return new Response('OK', { status: 200 });
+      }
+    }
+
     if (update.message) {
       chatId = update.message.chat.id;
       text = update.message.text || '';
