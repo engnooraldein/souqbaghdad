@@ -3423,17 +3423,20 @@ Deno.serve(async (req: any) => {
       if (aiText) {
         messageToSend = aiText + `\n\n${userInfo}👇 <b>القائمة الرئيسية:</b>`;
       }
-      const menuMarkup = {
-        inline_keyboard: [
-          [{ text: '🚗 اعرض سيارتك للبيع مجاناً', callback_data: 'publish_car' }],
-          [{ text: '🚌 انشر خط نقل (سائق / راكب)', callback_data: 'publish_transport' }, { text: '📦 نشر منتج عام', callback_data: 'publish_product' }],
-          [{ text: '📋 إدارة إعلاناتي وخطوطي', callback_data: 'manage_my_ads' }, { text: '🔗 ربط قناتك مع سوق بغداد', callback_data: 'partner_connect_start' }],
-          [{ text: '🎟️ تعبئة بروموكود', callback_data: 'redeem_promo' }, { text: '💳 شراء نقاط', callback_data: 'buy_points' }],
-          [{ text: '📖 كيفية التسجيل', callback_data: 'how_to_register' }, { text: '🔑 نسيت كلمة المرور', callback_data: 'forgot_password' }],
-          [{ text: '❓ الأسئلة الشائعة', callback_data: 'faq' }, { text: '📞 الدعم الفني', callback_data: 'contact_support' }],
-          [{ text: '🔔 إدارة إشعاراتي', callback_data: 'manage_alerts' }, { text: '🔌 تحديث/إعادة ربط الحساب', callback_data: 'relink_account' }],
-        ]
-      };
+
+      const menuRows: any[] = [];
+      if (isOwner) {
+        menuRows.push([{ text: '👑 لوحة تحكم المالك (Owner Hub)', callback_data: 'owner_hub_main' }]);
+      }
+      menuRows.push([{ text: '🚗 اعرض سيارتك للبيع مجاناً', callback_data: 'publish_car' }]);
+      menuRows.push([{ text: '🚌 انشر خط نقل (سائق / راكب)', callback_data: 'publish_transport' }, { text: '📦 نشر منتج عام', callback_data: 'publish_product' }]);
+      menuRows.push([{ text: '📋 إدارة إعلاناتي وخطوطي', callback_data: 'manage_my_ads' }, { text: '🔗 ربط قناتك مع سوق بغداد', callback_data: 'partner_connect_start' }]);
+      menuRows.push([{ text: '🎟️ تعبئة بروموكود', callback_data: 'redeem_promo' }, { text: '💳 شراء نقاط', callback_data: 'buy_points' }]);
+      menuRows.push([{ text: '📖 كيفية التسجيل', callback_data: 'how_to_register' }, { text: '🔑 نسيت كلمة المرور', callback_data: 'forgot_password' }]);
+      menuRows.push([{ text: '❓ الأسئلة الشائعة', callback_data: 'faq' }, { text: '📞 الدعم الفني', callback_data: 'contact_support' }]);
+      menuRows.push([{ text: '🔔 إدارة إشعاراتي', callback_data: 'manage_alerts' }, { text: '🔌 تحديث/إعادة ربط الحساب', callback_data: 'relink_account' }]);
+
+      const menuMarkup = { inline_keyboard: menuRows };
 
       if (editCurrent && callbackMsgId) {
         try {
@@ -3443,6 +3446,182 @@ Deno.serve(async (req: any) => {
       }
       return await sendMessage(chatId, messageToSend, menuMarkup);
     };
+
+    // ==========================================
+    // 👑 OWNER CONTROL HUB (لوحة تحكم المالك)
+    // ==========================================
+    if (isOwner && (trimmedText === 'owner_hub_main' || trimmedText === '/owner' || trimmedText === '/admin' || trimmedText === 'المالك')) {
+      const ownerMsg = 
+        `👑 <b>مرحباً بك في لوحة تحكم المالك — سوق بغداد الرقمي</b> 🇮🇶\n\n` +
+        `اختر الإجراء المطلوب من الأزرار السريعة أدناه:`;
+      
+      const ownerMarkup = {
+        inline_keyboard: [
+          [{ text: '📡 إدارة قنوات السوشيال ميديا', callback_data: '/social' }, { text: '⚡ فحص ومزامنة الإعلانات', callback_data: 'owner_sync_ads' }],
+          [{ text: '📊 إحصائيات المنصة الحية', callback_data: 'owner_stats' }, { text: '🎁 توليد بروموكود نقاط', callback_data: 'owner_gen_promo' }],
+          [{ text: '📣 إذاعة رسالة جماعية (Broadcast)', callback_data: 'owner_broadcast_prompt' }, { text: '🔍 كشف مستخدم أو إعلان', callback_data: 'owner_lookup_prompt' }],
+          [{ text: '🌐 فتح لوحة الويب الكاملة', url: 'https://www.souqbaghdad.store' }],
+          [{ text: '🔙 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]
+        ]
+      };
+
+      return await updateOrSend(ownerMsg, ownerMarkup);
+    }
+
+    // --- Owner Action: Sync Ads ---
+    if (isOwner && trimmedText === 'owner_sync_ads') {
+      await sendMessage(chatId, '⏳ <i>جاري فحص ومزامنة الإعلانات النشطة...</i>');
+      const { data: recentAds } = await supabase.from('ads').select('*').order('created_at', { ascending: false }).limit(20);
+      let healedCount = 0;
+      for (const ad of recentAds || []) {
+        const res = await syncAndHealAd(ad, supabase);
+        if (res.healed) healedCount++;
+      }
+      const syncReport = `✅ <b>تم فحص ومزامنة ${recentAds?.length || 0} إعلان!</b>\n\n🛠️ تم تصحيح: ${healedCount} إعلان بنجاح.`;
+      return await sendMessage(chatId, syncReport, {
+        inline_keyboard: [[{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]]
+      });
+    }
+
+    // --- Owner Action: Platform Stats ---
+    if (isOwner && trimmedText === 'owner_stats') {
+      const [usersCount, activeAds, transportCount, carsCount, prodCount] = await Promise.all([
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+        supabase.from('ads').select('*', { count: 'exact', head: true }).eq('category', 'transport'),
+        supabase.from('ads').select('*', { count: 'exact', head: true }).in('category', ['vehicles', 'cars', 'car']),
+        supabase.from('products').select('*', { count: 'exact', head: true })
+      ]);
+
+      const statsMsg = 
+        `📊 <b>إحصائيات المنصة الحية الآن:</b>\n\n` +
+        `👥 <b>المستخدمين المسجلين:</b> ${usersCount.count || 0}\n` +
+        `📢 <b>الإعلانات النشطة:</b> ${activeAds.count || 0}\n` +
+        `🚌 <b>خطوط النقل المسجلة:</b> ${transportCount.count || 0}\n` +
+        `🚗 <b>سيارات معروضة:</b> ${carsCount.count || 0}\n` +
+        `🛍️ <b>المنتجات المعروضة:</b> ${prodCount.count || 0}\n\n` +
+        `⏰ <i>${new Date().toLocaleString('ar-IQ', { timeZone: 'Asia/Baghdad' })}</i>`;
+
+      return await updateOrSend(statsMsg, {
+        inline_keyboard: [
+          [{ text: '🔄 تحديث الإحصائيات', callback_data: 'owner_stats' }],
+          [{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
+        ]
+      });
+    }
+
+    // --- Owner Action: Generate Promo Code ---
+    if (isOwner && trimmedText === 'owner_gen_promo') {
+      const randStr = Math.random().toString(36).substring(2, 6).toUpperCase();
+      const promoCode = `BAGHDAD-50PTS-${randStr}`;
+      await supabase.from('promo_codes').insert({
+        code: promoCode,
+        points: 50,
+        is_used: false,
+        max_uses: 1
+      });
+
+      const promoMsg = 
+        `🎁 <b>تم إنشاء بروموكود نقاط جديد بنجاح!</b>\n\n` +
+        `🎟️ <b>الكود (اضغط للنسخ):</b> <code>${promoCode}</code>\n` +
+        `🪙 <b>النقاط:</b> 50 نقطة\n\n` +
+        `<i>يمكنك إرسال هذا الكود لأي مستخدم لتعبئته فوراً عبر البوت!</i>`;
+
+      return await updateOrSend(promoMsg, {
+        inline_keyboard: [
+          [{ text: '🎁 إنشاء كود آخر', callback_data: 'owner_gen_promo' }],
+          [{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
+        ]
+      });
+    }
+
+    // --- Owner Action: Broadcast Prompt ---
+    if (isOwner && trimmedText === 'owner_broadcast_prompt') {
+      state = { step: 'owner_broadcasting' };
+      if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+      return await updateOrSend(
+        `📣 <b>الإذاعة الجماعية لجميع مستخدمي البوت</b>\n\n` +
+        `أرسل الآن الرسالة أو الصورة مع النص التي ترغب بإرسالها لجميع المشتركين:`,
+        { inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'owner_hub_main' }]] }
+      );
+    }
+
+    // --- Owner Action: Handle Broadcast Input ---
+    if (isOwner && state?.step === 'owner_broadcasting') {
+      state = {};
+      if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+      
+      const { data: allUsers } = await supabase.from('telegram_users').select('telegram_chat_id');
+      const targetIds = (allUsers || []).map((u: any) => u.telegram_chat_id).filter(Boolean);
+
+      await sendMessage(chatId, `⏳ <i>جاري إرسال الرسالة إلى ${targetIds.length} مستخدم...</i>`);
+      
+      let sentSuccess = 0;
+      for (const targetChatId of targetIds) {
+        try {
+          if (photo && photo.length > 0) {
+            const fileId = photo[photo.length - 1].file_id;
+            await sendPhoto(targetChatId, fileId, text || '');
+          } else {
+            await sendMessage(targetChatId, `📢 <b>تنبيه من إدارة سوق بغداد:</b>\n\n${text}`);
+          }
+          sentSuccess++;
+        } catch(e) {}
+      }
+
+      return await sendMessage(chatId, `🎉 <b>تمت الإذاعة بنجاح!</b>\n\nتم تسليم الرسالة إلى: <b>${sentSuccess}</b> مستخدم.`, {
+        inline_keyboard: [[{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]]
+      });
+    }
+
+    // --- Owner Action: Lookup Prompt ---
+    if (isOwner && trimmedText === 'owner_lookup_prompt') {
+      state = { step: 'owner_lookup_waiting' };
+      if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+      return await updateOrSend(
+        `🔍 <b>كشف واستعلام ذكي</b>\n\n` +
+        `أرسل رقم هاتف المستخدم (مثال: 0770xxxxxxx) أو كود الإعلان (مثال: #GVR37):`,
+        { inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'owner_hub_main' }]] }
+      );
+    }
+
+    // --- Owner Action: Handle Lookup Input ---
+    if (isOwner && state?.step === 'owner_lookup_waiting') {
+      state = {};
+      if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+      const queryTerm = trimmedText.replace('#', '').trim();
+      const { data: matchedAds } = await supabase.from('ads').select('*').or(`short_id.ilike.%${queryTerm}%,phone.ilike.%${queryTerm}%,title.ilike.%${queryTerm}%`).limit(3);
+      const { data: matchedProfiles } = await supabase.from('profiles').select('*').or(`phone.ilike.%${queryTerm}%,full_name.ilike.%${queryTerm}%`).limit(3);
+
+      let lookupMsg = `🔍 <b>نتائج البحث عن «${queryTerm}»:</b>\n\n`;
+
+      if ((!matchedAds || matchedAds.length === 0) && (!matchedProfiles || matchedProfiles.length === 0)) {
+        lookupMsg += `<i>لم يتم العثور على أي نتائج مطابقة.</i>`;
+      } else {
+        if (matchedProfiles && matchedProfiles.length > 0) {
+          lookupMsg += `👤 <b>المستخدمين:</b>\n`;
+          for (const p of matchedProfiles) {
+            lookupMsg += `• <b>${p.full_name || 'بدون اسم'}</b> | هاتف: <code>${p.phone || 'غير مسجل'}</code> | نقاط: <b>${p.points || 0}</b> | الرتبة: <b>${p.role || 'user'}</b>\n`;
+          }
+          lookupMsg += `\n`;
+        }
+
+        if (matchedAds && matchedAds.length > 0) {
+          lookupMsg += `📢 <b>الإعلانات والخطوط:</b>\n`;
+          for (const a of matchedAds) {
+            lookupMsg += `• <b>#${a.short_id || a.id}</b>: ${a.title} (${a.price || 'بدون سعر'}) - الحالة: <b>${a.status}</b>\n`;
+          }
+        }
+      }
+
+      return await sendMessage(chatId, lookupMsg, {
+        inline_keyboard: [
+          [{ text: '🔍 بحث آخر', callback_data: 'owner_lookup_prompt' }],
+          [{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
+        ]
+      });
+    }
 
     // --- Start / Register Command ---
     if (text === '/start' || text === '/relink') {
