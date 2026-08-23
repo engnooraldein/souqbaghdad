@@ -642,7 +642,10 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
     }
 
     // 2. Single photo post
-    const singleUrl = cleanUrls.length > 0 ? cleanUrls[0] : null;
+    const rawSingleUrl = cleanUrls.length > 0 ? cleanUrls[0] : null;
+    const singleUrl = rawSingleUrl 
+      ? (rawSingleUrl.includes('generate-story-image') ? `https://wsrv.nl/?url=${encodeURIComponent(rawSingleUrl)}&output=png` : rawSingleUrl)
+      : null;
     if (singleUrl) {
       // Strip HTML tags because Facebook /photos API rejects HTML tags in captions
       const cleanFbCaption = (text || '')
@@ -797,6 +800,7 @@ async function deleteFromThreads(threadsMediaId: string) {
 
 async function postToFacebookStory(photoUrl: string, pageId: string, accessToken: string) {
   if (!accessToken || !pageId || !photoUrl) return { error: { message: 'رمز الوصول لفيسبوك أو الصورة مفقودة' } };
+  const targetPhotoUrl = photoUrl.includes('generate-story-image') ? `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&output=png` : photoUrl;
   try {
     console.log(`[FB STORY] Publishing Story 9:16 to Facebook Page ${pageId}...`);
     // Step 1: Upload photo as unpublished/temporary to get photo ID
@@ -804,7 +808,7 @@ async function postToFacebookStory(photoUrl: string, pageId: string, accessToken
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        url: photoUrl,
+        url: targetPhotoUrl,
         published: false,
         temporary: true,
         access_token: accessToken
@@ -834,13 +838,17 @@ async function postToFacebookStory(photoUrl: string, pageId: string, accessToken
 
 async function postToInstagramStory(photoUrl: string, igAccountId: string, accessToken: string) {
   if (!accessToken || !igAccountId || !photoUrl) return { error: { message: 'رمز الوصول لانستكرام أو الصورة مفقودة' } };
+  const targetPhotoUrl = photoUrl.includes('generate-story-image') ? `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&output=png` : photoUrl;
+  const isDirectIg = accessToken.startsWith('IGAA');
+  const apiBase = isDirectIg ? 'https://graph.instagram.com/v20.0' : 'https://graph.facebook.com/v20.0';
+
   try {
     const uploadBody = {
-      image_url: photoUrl,
+      image_url: targetPhotoUrl,
       media_type: 'STORIES',
       access_token: accessToken
     };
-    const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${igAccountId}/media`, {
+    const uploadRes = await fetch(`${apiBase}/${igAccountId}/media`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(uploadBody)
@@ -853,7 +861,7 @@ async function postToInstagramStory(photoUrl: string, igAccountId: string, acces
          creation_id: uploadData.id,
          access_token: accessToken
        };
-       const publishRes = await fetch(`https://graph.facebook.com/v20.0/${igAccountId}/media_publish`, {
+       const publishRes = await fetch(`${apiBase}/${igAccountId}/media_publish`, {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify(publishBody)
@@ -886,7 +894,7 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null,
     const rawUrls = Array.isArray(photoUrl) ? photoUrl : [photoUrl];
     // Instagram carousel supports a max of 10 items
     const originalUrls = rawUrls.slice(0, 10);
-    const urls = originalUrls.map(url => (url.includes('generate-story-image') || url.includes('supabase.co')) ? url : `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=1080&h=1080&fit=cover`);
+    const urls = originalUrls.map(url => url.includes('generate-story-image') ? `https://wsrv.nl/?url=${encodeURIComponent(url)}&output=png` : (url.includes('supabase.co') ? url : `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=1080&h=1080&fit=cover`));
     
     if (urls.length > 1) {
       const containerIds = [];
