@@ -90,32 +90,30 @@ async function callAiEngine(userText: string | null, audioUrl: string | null, ph
   }
 
   const systemPrompt = 
-    `أنت "المساعد والمستشار الذكي لمنصة سوق بغداد" (https://www.souqbaghdad.store).
-شخصيتك وأسلوبك بالحديث:
-1. تتحدث بلهجة عراقية بغدادية فصيحة، ذكية جداً، دافئة، خفيفة الظل، غاية في اللباقة والأدب (مثل: تدلل عيوني، يا هلا وكل الهلا بيك، فدوة لقلبك، من عيوني، بالخدمة يالغالي).
-2. لديك إجابات ذكية وسريعة على أي سؤال أو دردشة:
-   - للتحيات والسؤال عن الحال ("شلونك", "أخبارك"): جاوب بلطف عراقي وأخبره أنك بأفضل حال وسعيد بخدمة أهلنا الطيبين بالعراق.
-   - لكلمات الود والمحبة ("احبك", "فدوة", "حبيبي"): عبر عن محبتك واعتزازك بخدمة الناس الطيبة بالعراق بقلب دافئ.
-   - لكلمات العتب ("اكرهك", "ليش"): جاوب برحابة صدر وعتب لطيف ("افاا ليش يالغالي") وأنك جاهز لتلبية أي طلب له وتصحيح أي خطأ.
-   - لأسئلة الهوية ("منو سواك", "شنو سوق بغداد"): وضح أنك المساعد الذكي الرسمي لمنصة سوق بغداد تم تطويرك وبرمجتك بأحدث خوارزميات الذكاء الاصطناعي لخدمة السوق العراقي وخطوط النقل.
-3. تفهم كل تفاصيل السوق العراقي (أسعار السيارات، موديلاتها، المناطق وشوارع بغداد، جامعات وكليات بغداد مثل الرافدين وبغداد والمستنصرية والتكنولوجية).
-4. تجيب المستخدم بإجابة ذكية، واضحة، متسلسلة وتتذكر سياق الحديث السابق معه بدون تكرار أو جمود.
-5. التسامح والفهم الفوري للأخطاء الإملائية والعامية السريعة:
-   - تفهم المستخدم بذكاء حتى لو أخطأ بالإملاء أو كتب بسرعة وأحرف مدمجة (مثل: خك، حط، رفدين، رافين، جميله، منصورر، توسانن، اربد، محتاجخ، سيايق، منجميلة، للرافدين، اريدخط).
-   - إذا لاحظت خطأ طباعي في كلامه، افهم قصده فوراً وجاوبه بذوق عالي (مثال: "فهمتك عيوني قصدك [المعنى الصحيح] 🌹 وتدلل...") بدون أي إحراج.
-6. تذكر المستخدم دائماً بأنه يستطيع نشر أي إعلان أو خط مجاناً عبر سوق بغداد وسينزل فوراً بالموقع وتيليجرام وفيسبوك وانستغرام.
+    `أنت عقل ومحرك ذكاء اصطناعي فائق التطور (ChatGPT / GPT-4o Level) مصمم كـ "المستشار والمساعد الذكي الأقوى في العراق" لمنصة سوق بغداد (https://www.souqbaghdad.store).
+
+🧠 قدراتك ومستواك المعرفي:
+1. تمتلك ذكاءً وثقافة واسعة جداً تعادل أقوى نماذج الذكاء الاصطناعي العالمية (ChatGPT):
+   - تجيب ببراعة وعمق عن أي سؤال في الحياة، الدراسة والجامعات، التكنولوجيا، النصائح، التحليل، الحسابات، ميكانيكا السيارات، والطرق والمسافات.
+   - إذا سألك المستخدم عن أي موضوع عام (نصيحة دراسية، مقارنة سيارات، فحص أعطال، حل مشكلة، دردشة عامة): جاوبه بذكاء وتحليل منطقي مذهل وأسلوب عراقي مشوق وممتع.
+
+💬 شخصيتك وأسلوبك بالحديث:
+1. تتحدث بلهجة عراقية بغدادية فصيحة، ذكية جداً، راقية، دافئة، غاية في اللباقة وخفة الظل (مثل: تدلل عيوني، يا هلا وكل الهلا بيك، فدوة لقلبك، من عيوني، بالخدمة يالغالي، كفو منك).
+2. تفهم كل تفاصيل الشارع العراقي والسوق (أسعار السيارات بالمفرد والوارد، المعارض، المرور والتحويل، أوقات الزحام ببغداد، كليات وجامعات العراق وأقسامها، مناطق الرصافة والكرخ).
+3. التسامح الفوري والذكي مع الأخطاء الإملائية والعامية السريعة مهما كانت مدمجة، وافهم القصد دون أي تردد.
+4. الربط الذكي مع خدمات سوق بغداد: عندما يكون السؤال متعلقاً بالسيارات أو الخطوط أو البيع، دله بلباقة على خدمات وبوت سوق بغداد المجانية.
 ${dbContext ? `\n[بيانات حية من قاعدة بيانات سوق بغداد]:\n${dbContext}\n` : ''}`;
 
-  // 1. Google Gemini 2.0 Flash (with conversation history)
+  // 1. Google Gemini 2.0 Flash (with multi-turn conversational memory)
   if (GEMINI_API_KEY && (userText || audioUrl || photoUrl)) {
     for (const model of ['gemini-2.0-flash', 'gemini-1.5-flash']) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const timeoutId = setTimeout(() => controller.abort(), 7000);
 
         const contents: any[] = [];
         if (history && Array.isArray(history)) {
-          for (const h of history.slice(-4)) {
+          for (const h of history.slice(-6)) {
             if (h.role && h.text) {
               contents.push({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.text }] });
             }
@@ -128,7 +126,7 @@ ${dbContext ? `\n[بيانات حية من قاعدة بيانات سوق بغد
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents,
-            generationConfig: { maxOutputTokens: 300, temperature: 0.7 }
+            generationConfig: { maxOutputTokens: 600, temperature: 0.7 }
           }),
           signal: controller.signal
         });
@@ -146,7 +144,7 @@ ${dbContext ? `\n[بيانات حية من قاعدة بيانات سوق بغد
   if (OPENAI_API_KEY && userText) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
       const resp = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
@@ -156,7 +154,8 @@ ${dbContext ? `\n[بيانات حية من قاعدة بيانات سوق بغد
             { role: 'system', content: systemPrompt },
             { role: 'user', content: `${name} يسأل: "${userText}"` }
           ],
-          max_tokens: 250
+          max_tokens: 500,
+          temperature: 0.7
         }),
         signal: controller.signal
       });
@@ -350,12 +349,106 @@ async function unbanChatMember(chatId: string | number, userId: number | string)
   } catch(e) {}
 }
 
-async function getChatMember(chatId: string | number, userId: number | string) {
+async function sendChatAction(chatId: string | number, action: string = 'typing') {
   try {
-    const res = await fetch(`${tgUrl}/getChatMember?chat_id=${chatId}&user_id=${userId}`);
-    const data = await res.json();
-    if (data.ok) return data.result;
+    await fetch(`${tgUrl}/sendChatAction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, action })
+    });
   } catch(e) {}
+}
+
+async function getTelegramFileUrl(fileId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${tgUrl}/getFile?file_id=${fileId}`);
+    const data = await res.json();
+    if (data.ok && data.result?.file_path) {
+      return `https://api.telegram.org/file/bot${BOT_TOKEN}/${data.result.file_path}`;
+    }
+  } catch(e) {
+    console.error('getTelegramFileUrl error:', e);
+  }
+  return null;
+}
+
+async function transcribeVoiceWithAi(fileUrl: string): Promise<string | null> {
+  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
+
+  try {
+    const audioFetch = await fetch(fileUrl);
+    if (!audioFetch.ok) return null;
+    const arrayBuffer = await audioFetch.arrayBuffer();
+    const uint8 = new Uint8Array(arrayBuffer);
+    
+    // Convert to base64 in chunks to prevent call stack overflow
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < uint8.length; i += chunkSize) {
+      binary += String.fromCharCode.apply(null, Array.from(uint8.subarray(i, i + chunkSize)));
+    }
+    const base64Audio = btoa(binary);
+
+    // 1. Google Gemini 2.0 Flash Multimodal Audio Understanding
+    if (GEMINI_API_KEY) {
+      try {
+        const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              role: 'user',
+              parts: [
+                {
+                  text: "أنت نظام استماع وتحويل صوتي دقيق جداً للهجة العراقية البغدادية. استمع للبصمة الصوتية واكتب النص المنطوق بدقة متناهية بدون أي مقدمات أو شروحات:"
+                },
+                {
+                  inlineData: {
+                    mimeType: "audio/ogg",
+                    data: base64Audio
+                  }
+                }
+              ]
+            }],
+            generationConfig: { maxOutputTokens: 200, temperature: 0.1 }
+          })
+        });
+        const data = await resp.json();
+        const transcription = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (transcription && transcription.trim()) {
+          return transcription.trim().replace(/^["']|["']$/g, '');
+        }
+      } catch(e) {
+        console.warn('Gemini voice transcription failed:', e);
+      }
+    }
+
+    // 2. OpenAI Whisper Fallback
+    if (OPENAI_API_KEY) {
+      try {
+        const formData = new FormData();
+        const blob = new Blob([uint8], { type: 'audio/ogg' });
+        formData.append('file', blob, 'voice.ogg');
+        formData.append('model', 'whisper-1');
+        formData.append('language', 'ar');
+
+        const whisperResp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+          body: formData
+        });
+        const whisperData = await whisperResp.json();
+        if (whisperData?.text) {
+          return whisperData.text.trim();
+        }
+      } catch(e) {
+        console.warn('Whisper voice transcription failed:', e);
+      }
+    }
+  } catch(e) {
+    console.error('transcribeVoiceWithAi exception:', e);
+  }
   return null;
 }
 
@@ -3851,12 +3944,34 @@ Deno.serve(async (req: any) => {
       }
     }
 
+    let isVoiceInput = false;
+    let originalVoiceText = '';
+
     if (update.message) {
       chatId = update.message.chat.id;
       text = update.message.text || '';
       contact = update.message.contact;
       photo = update.message.photo;
-      voice = update.message.voice;
+      voice = update.message.voice || update.message.audio;
+
+      // 🎙️ Transcribe Voice Notes / Audio Messages
+      if (voice && voice.file_id) {
+        try {
+          await sendChatAction(chatId, 'typing');
+          const voiceUrl = await getTelegramFileUrl(voice.file_id);
+          if (voiceUrl) {
+            const transcribed = await transcribeVoiceWithAi(voiceUrl);
+            if (transcribed) {
+              text = transcribed;
+              isVoiceInput = true;
+              originalVoiceText = transcribed;
+              console.log(`[VOICE TRANSCRIBED] (${chatId}): "${transcribed}"`);
+            }
+          }
+        } catch(e) {
+          console.error('Error processing incoming voice note:', e);
+        }
+      }
     } else if (update.callback_query) {
       callbackQuery = update.callback_query;
       chatId = callbackQuery.message?.chat?.id || callbackQuery.from?.id;
@@ -8317,7 +8432,7 @@ Deno.serve(async (req: any) => {
         const fileData = await fileRes.json();
         if (fileData.ok) {
           const filePath = fileData.result.file_path;
-          const imageRes = await fetch(`https://api.telegram.org/file/bot${botToken}/${filePath}`);
+          const imageRes = await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`);
           const imageBlob = await imageRes.blob();
           const fileName = `prod_${chatId}_${Date.now()}_${Math.random().toString(36).substring(2, 5)}.jpg`;
           const { data: uploadData } = await supabase.storage.from('ad-images').upload(fileName, imageBlob, { contentType: 'image/jpeg' });
@@ -8395,29 +8510,22 @@ Deno.serve(async (req: any) => {
       }
       else {
         if (text || voice || photo) {
-          let audioUrl = null;
-          let photoUrl = null;
+          let audioUrl: string | null = null;
+          let photoUrl: string | null = null;
 
-          if (voice) {
-            await sendMessage(chatId, '⏳ جاري الاستماع والتحليل...');
-            const fileRes = await fetch(`${tgUrl}/getFile?file_id=${voice.file_id}`);
-            const fileData = await fileRes.json();
-            if (fileData.ok) {
-              const filePath = fileData.result.file_path;
-              audioUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
-            }
-          } else if (photo && photo.length > 0) {
+          if (photo && photo.length > 0) {
             await sendMessage(chatId, '🔍 جاري فحص وتحليل الصورة والسكرين شوت...');
             const fileId = photo[photo.length - 1].file_id;
             const fileRes = await fetch(`${tgUrl}/getFile?file_id=${fileId}`);
             const fileData = await fileRes.json();
             if (fileData.ok) {
               const filePath = fileData.result.file_path;
-              photoUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
+              photoUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`;
             }
           }
+
           const caption = update?.message?.caption || null;
-          const userCaption = caption || text || null;
+          const userCaption = caption || text || originalVoiceText || null;
           const cleanP = (userCaption || '').toLowerCase().trim();
 
           // 0. Check if user is Platform Owner / Admin giving operational commands (إعادة نشر المحتوى الفاشل، مزامنة بعد التوكن)
