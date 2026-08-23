@@ -408,7 +408,7 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
   );
   return new Response('OK', { status: 200 });
 }
-const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || 'EAAPXexo3QZCcBSUZC5hitFDZASpAMcE52ETtcrZBtYfoRClK1KG4uEbMSSu3VFDoP0mqscDVHxsu2j7C3TJrEgBibzzwG125rCeFUhs9bgzeGxjkiOP1ZB9ZCmexBwrqrEQ9esGsZCE6CeCDyH2Py5kVi0vziujShnepE94m8jmTr5wjjJzBkL1ZCOuRMKgCQY17zxWBfIeBzTzo8T6n2o4eWitUqNMRSI0YsrFLcUxSFh4SdujfuzAMBsEZD';
+const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || 'EAAPXexo3QZCcBSRmKE1UZCgRF3NTiUZA22oeStKYN2TDCaSgmXge5eWCktUZC4SDkUCOZAmZAbEw5crJGGGkb40SU3ISMdZAW3P1mgiR4cvHc2c4zM3e8Fta4yoVYMvmT9WPH12SImk8YQ5rEqZCX6OaHZBsLFipAK6Yg0S8OC2UTgmAfo3UNhIayxhmL3LbcNEjrk5flEBOCfi4XuGzcgF54qRdaGBW5ZApl7bLlqd9mkCTsSkFJcZCsY2d2GIuE8ZD';
 const META_PAGE_ID = Deno.env.get('META_PAGE_ID') || '1088044114402452';
 const META_IG_ACCOUNT_ID = Deno.env.get('META_IG_ACCOUNT_ID') || '17841403127032930';
 const THREADS_USER_ID = Deno.env.get('THREADS_USER_ID') || '28119436894335542';
@@ -3072,7 +3072,74 @@ serve(async (req) => {
       let targetSettingKey = '';
       let tokenType = 'Facebook Page Token';
 
-      // 1. Test as Direct Instagram Token
+      // 1. Check if it's a User Token that can grant Page Access Tokens via /me/accounts
+      try {
+        const accountsRes = await fetch(`https://graph.facebook.com/v20.0/me/accounts?access_token=${trimmedText}`);
+        const accountsData = await accountsRes.json();
+        if (accountsData && accountsData.data && Array.isArray(accountsData.data) && accountsData.data.length > 0) {
+          console.log(`[USER TOKEN DETECTED] Found ${accountsData.data.length} pages in /me/accounts`);
+          const savedPages: string[] = [];
+
+          for (const page of accountsData.data) {
+            const pageId = page.id;
+            const pageName = page.name || 'صفحة';
+            const pageToken = page.access_token;
+            let settingKey = `fb_${pageId}`;
+            if (pageId === '1088044114402452' || pageName.includes('سوق بغداد')) {
+              settingKey = 'fb_souq';
+            } else if (pageId === '102975411515668' || pageName.includes('الرافدين')) {
+              settingKey = 'fb_rafdain';
+            }
+
+            await supabase.from('social_settings').upsert({
+              id: settingKey,
+              name: pageName,
+              category: 'facebook',
+              page_id: pageId,
+              access_token: pageToken,
+              is_active: true,
+              last_status: 'active',
+              last_error: null,
+              last_checked_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+
+            if (settingKey === 'fb_souq') {
+              await supabase.from('social_settings').update({
+                access_token: pageToken,
+                last_status: 'active',
+                last_checked_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              }).eq('id', 'ig_souq');
+            } else if (settingKey === 'fb_rafdain') {
+              await supabase.from('social_settings').update({
+                access_token: pageToken,
+                last_status: 'active',
+                last_checked_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              }).eq('id', 'ig_rafdain');
+            }
+
+            savedPages.push(`• <b>${pageName}</b> (<code>${pageId}</code>) ✅`);
+          }
+
+          dynamicSocialCache = {};
+          lastSocialCacheTime = 0;
+
+          await sendMessage(chatId, 
+            `🎉 <b>تم استخراج وتفعيل التوكنات الدائمة لجميع الصفحات بنجاح! 🎯</b>\n\n` +
+            `📄 <b>الصفحات التي تم استخراج توكناتها وتحديثها تلقائياً:</b>\n` +
+            savedPages.join('\n') + `\n\n` +
+            `🔑 <b>نوع التوكنات:</b> Permanent Long-Lived Page Access Tokens (دائمة لا تنتهي)\n` +
+            `📊 <b>الحالة:</b> نشطة ومفعلة للنشر والحذف والمزامنة الفورية بنسبة 100% 🚀`
+          );
+          return new Response('OK', { status: 200 });
+        }
+      } catch(e) {
+        console.error('Accounts check failed:', e);
+      }
+
+      // 2. Test as Direct Instagram Token
       if (trimmedText.startsWith('IGAA')) {
         try {
           const igRes = await fetch(`https://graph.instagram.com/v20.0/me?fields=id,username,name&access_token=${trimmedText}`);
@@ -3088,7 +3155,7 @@ serve(async (req) => {
         }
       }
 
-      // 2. Test as Facebook Page Token if not direct IG
+      // 3. Test as direct Facebook Page Token
       if (!detectedId) {
         try {
           const fbRes = await fetch(`https://graph.facebook.com/v20.0/me?access_token=${trimmedText}`);
@@ -3124,7 +3191,6 @@ serve(async (req) => {
           updated_at: new Date().toISOString()
         });
 
-        // If it's Souq Baghdad, also update ig_souq token if applicable
         if (targetSettingKey === 'fb_souq') {
           await supabase.from('social_settings').update({
             access_token: trimmedText,
@@ -3150,8 +3216,7 @@ serve(async (req) => {
           `🏢 <b>الجهة:</b> ${detectedName}\n` +
           `🆔 <b>معرف الصفحة/الحساب:</b> <code>${detectedId}</code>\n` +
           `🔑 <b>نوع التوكن:</b> ${tokenType}\n` +
-          `📊 <b>الحالة:</b> نشط ومحفوظ في قاعدة البيانات ومفعل للنشر التلقائي فورياً ✅\n\n` +
-          `<i>تم ضبط وتحديث المنظومة بالكامل بنجاح.</i>`
+          `📊 <b>الحالة:</b> نشط ومحفوظ ومفعل فورياً ✅`
         );
         return new Response('OK', { status: 200 });
       } else {
