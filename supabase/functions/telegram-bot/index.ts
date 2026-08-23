@@ -1,7 +1,6 @@
 // @ts-nocheck
 declare const Deno: any;
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN') || '';
@@ -1974,7 +1973,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
+Deno.serve(async (req: any) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -3354,6 +3353,54 @@ serve(async (req) => {
         `⏰ <i>${new Date().toLocaleString('ar-IQ', { timeZone: 'Asia/Baghdad' })}</i>`;
 
       await sendMessage(chatId, report);
+      return new Response('OK', { status: 200 });
+    }
+
+    // ⚙️ Owner Command: /social or /control or /channels
+    if (isOwner && (trimmedText === '/social' || trimmedText === '/control' || trimmedText === '/channels' || trimmedText.startsWith('toggle_social_') || trimmedText === 'social_refresh')) {
+      // Handle Toggle Callback
+      if (trimmedText.startsWith('toggle_social_')) {
+        const toggleKey = trimmedText.replace('toggle_social_', '');
+        const { data: curSetting } = await supabase.from('social_settings').select('is_active').eq('id', toggleKey).maybeSingle();
+        if (curSetting) {
+          await supabase.from('social_settings').update({
+            is_active: !curSetting.is_active,
+            updated_at: new Date().toISOString()
+          }).eq('id', toggleKey);
+        }
+      }
+
+      const { data: allSettings } = await supabase.from('social_settings').select('*').order('id');
+      let msg = `📡 <b>لوحة تحكم الأونر في قنوات ومنصات النشر</b> 🇮🇶\n\n`;
+      msg += `اضغط على أي زر أدناه لتشغيل أو إيقاف المنصة فورياً:\n\n`;
+
+      const keyboard: any[] = [];
+      for (const s of allSettings || []) {
+        if (s.id === 'system_alerts' || s.id === 'whatsapp') continue;
+        const icon = s.category === 'facebook' ? '🔵' : s.category === 'instagram' ? '📸' : s.category === 'telegram' ? '✈️' : '🧵';
+        const statusIcon = s.is_active !== false ? '🟢 [مفعل]' : '🔴 [معطل]';
+        const postPrice = s.post_price ? `${s.post_price} د.ع` : 'مجاني';
+        const storyPrice = s.story_price ? `${s.story_price} د.ع` : 'مجاني';
+        
+        msg += `${icon} <b>${s.name}</b>\n`;
+        msg += `  ├ الحالة: ${statusIcon}\n`;
+        msg += `  ├ بوست: ${s.post_enabled !== false ? '✅' : '❌'} (${postPrice})\n`;
+        msg += `  └ ستوري: ${s.story_enabled !== false ? '✅' : '❌'} (${storyPrice})\n\n`;
+
+        const btnLabel = `${s.is_active !== false ? '🟢 إيقاف' : '🔴 تشغيل'} ${s.name.substring(0, 18)}`;
+        keyboard.push([{ text: btnLabel, callback_data: `toggle_social_${s.id}` }]);
+      }
+
+      keyboard.push([{ text: '🔄 تحديث الحالة', callback_data: 'social_refresh' }]);
+      const markup = { inline_keyboard: keyboard };
+
+      if (callbackMsgId) {
+        try {
+          await editMessageText(chatId, callbackMsgId, msg, markup);
+          return new Response('OK', { status: 200 });
+        } catch(e) {}
+      }
+      await sendMessage(chatId, msg, markup);
       return new Response('OK', { status: 200 });
     }
 

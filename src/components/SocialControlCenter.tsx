@@ -3,17 +3,24 @@ import { supabase } from '../lib/supabase';
 import { 
   Share2, CheckCircle2, AlertTriangle, RefreshCw, Save, 
   ExternalLink, Key, ShieldCheck, ShieldAlert, 
-  Eye, EyeOff, Radio, Check, Globe
+  Eye, EyeOff, Radio, Check, Globe, DollarSign, ToggleLeft, ToggleRight, Sparkles
 } from 'lucide-react';
 
 interface SocialSetting {
   id: string;
   name: string;
-  category: 'facebook' | 'instagram' | 'telegram' | 'threads' | 'whatsapp';
+  category: 'facebook' | 'instagram' | 'telegram' | 'threads' | 'whatsapp' | string;
   page_id?: string;
   access_token?: string;
   extra_id?: string;
   is_active: boolean;
+  post_enabled: boolean;
+  story_enabled: boolean;
+  reels_enabled: boolean;
+  post_price: number;
+  story_price: number;
+  reels_price: number;
+  currency?: string;
   last_status?: string;
   last_error?: string;
   last_checked_at?: string;
@@ -42,7 +49,16 @@ export const SocialControlCenter: React.FC = () => {
         .order('id');
       
       if (!error && data) {
-        setSettings(data);
+        setSettings(data.map(d => ({
+          ...d,
+          is_active: d.is_active !== false,
+          post_enabled: d.post_enabled !== false,
+          story_enabled: d.story_enabled !== false,
+          reels_enabled: d.reels_enabled || false,
+          post_price: parseFloat(d.post_price || 0),
+          story_price: parseFloat(d.story_price || 0),
+          reels_price: parseFloat(d.reels_price || 0),
+        })));
       }
     } catch (e) {
       console.error('Failed to load social settings:', e);
@@ -67,12 +83,18 @@ export const SocialControlCenter: React.FC = () => {
           access_token: setting.access_token,
           extra_id: setting.extra_id,
           is_active: setting.is_active,
+          post_enabled: setting.post_enabled,
+          story_enabled: setting.story_enabled,
+          reels_enabled: setting.reels_enabled,
+          post_price: setting.post_price,
+          story_price: setting.story_price,
+          reels_price: setting.reels_price,
           updated_at: new Date().toISOString()
         })
         .eq('id', setting.id);
 
       if (error) throw error;
-      setStatusMessage({ id: setting.id, text: '✅ تم حفظ الإعدادات بنجاح!', type: 'success' });
+      setStatusMessage({ id: setting.id, text: '✅ تم حفظ التعديلات والأسعار بنجاح!', type: 'success' });
       setTimeout(() => setStatusMessage(null), 4000);
     } catch (err: any) {
       setStatusMessage({ id: setting.id, text: `❌ فشل الحفظ: ${err.message}`, type: 'error' });
@@ -92,7 +114,9 @@ export const SocialControlCenter: React.FC = () => {
         const token = setting.access_token;
         if (!token) throw new Error('رمز الوصول (Token) مفقود');
         
-        const res = await fetch(`https://graph.facebook.com/v20.0/me?access_token=${encodeURIComponent(token)}`);
+        const isDirectIg = token.startsWith('IGAA');
+        const apiBase = isDirectIg ? 'https://graph.instagram.com/v20.0' : 'https://graph.facebook.com/v20.0';
+        const res = await fetch(`${apiBase}/me?access_token=${encodeURIComponent(token)}`);
         const data = await res.json();
         
         if (data.error) {
@@ -200,7 +224,7 @@ export const SocialControlCenter: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-right" dir="rtl">
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-purple-900 rounded-3xl p-6 border border-amber-500/30 shadow-2xl relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -210,8 +234,15 @@ export const SocialControlCenter: React.FC = () => {
                 <Share2 className="w-6 h-6" />
               </span>
               <div>
-                <h2 className="text-2xl font-black text-white">مركز قيادة النشر والسوشيال ميديا 📡</h2>
-                <p className="text-gray-300 text-sm">مراقبة التوكنات، فحص الاتصال المباشر، والتحكم بنشر الخطوط والإعلانات</p>
+                <h2 className="text-2xl font-black text-white flex items-center gap-2">
+                  مركز قيادة النشر والترويج 📡
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    تحكم ذكي بالصفحات
+                  </span>
+                </h2>
+                <p className="text-gray-300 text-sm">
+                  التحكم بتشغيل وإطفاء النشر (بوست / ستوري / ريلز) وتحديد أسعار الترويج لكل منصة
+                </p>
               </div>
             </div>
           </div>
@@ -258,9 +289,11 @@ export const SocialControlCenter: React.FC = () => {
           return (
             <div 
               key={setting.id}
-              className="bg-gray-900/90 border border-gray-800 rounded-2xl p-5 shadow-xl space-y-4 hover:border-gray-700 transition-all"
+              className={`bg-gray-900/90 border rounded-3xl p-5 shadow-xl space-y-4 transition-all ${
+                setting.is_active ? 'border-gray-800 hover:border-gray-700' : 'border-red-900/40 opacity-75 bg-gray-950/90'
+              }`}
             >
-              {/* Card Header */}
+              {/* Card Header & Master Switch */}
               <div className="flex items-center justify-between border-b border-gray-800 pb-3">
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">
@@ -275,22 +308,85 @@ export const SocialControlCenter: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                {/* Master Platform Switch */}
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateField(setting.id, 'is_active', !setting.is_active)}
+                    className={`px-3 py-1 rounded-full text-xs font-black flex items-center gap-1.5 transition-all ${
+                      setting.is_active 
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' 
+                        : 'bg-red-500/20 text-red-400 border border-red-500/40'
+                    }`}
+                  >
+                    {setting.is_active ? '🟢 تشغيل' : '🔴 إيقاف'}
+                  </button>
+
                   {isConnected && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-full text-xs font-bold">
-                      <ShieldCheck className="w-3.5 h-3.5" /> متصل وصالح
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-emerald-400 font-bold">
+                      <ShieldCheck className="w-3.5 h-3.5" /> متصل
                     </span>
                   )}
-                  {isError && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-500/10 text-red-400 border border-red-500/30 rounded-full text-xs font-bold">
-                      <ShieldAlert className="w-3.5 h-3.5" /> يحتاج تجديد
-                    </span>
-                  )}
-                  {!isConnected && !isError && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-700/50 text-gray-300 border border-gray-600 rounded-full text-xs">
-                      جاهز للفحص
-                    </span>
-                  )}
+                </div>
+              </div>
+
+              {/* Publication Types Matrix & Pricing */}
+              <div className="bg-gray-950/80 border border-gray-800/80 rounded-2xl p-3.5 space-y-3">
+                <div className="text-xs font-bold text-amber-400 flex items-center justify-between">
+                  <span>أنواع النشر والتسعير لهذه المنصة:</span>
+                  <span className="text-[10px] text-gray-400 font-normal">0 = مجاني</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {/* Post Control */}
+                  <div className="p-2.5 bg-gray-900 border border-gray-800 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-300 font-bold">📝 منشور (Feed Post)</span>
+                      <input 
+                        type="checkbox"
+                        checked={setting.post_enabled}
+                        onChange={e => handleUpdateField(setting.id, 'post_enabled', e.target.checked)}
+                        className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <label className="text-[11px] text-gray-400 shrink-0">السعر:</label>
+                      <input 
+                        type="number"
+                        min="0"
+                        step="500"
+                        value={setting.post_price || 0}
+                        onChange={e => handleUpdateField(setting.id, 'post_price', parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 py-1 bg-gray-950 border border-gray-800 rounded-lg text-white text-xs font-mono text-center focus:border-amber-500 focus:outline-none"
+                      />
+                      <span className="text-[10px] text-gray-400">د.ع</span>
+                    </div>
+                  </div>
+
+                  {/* Story Control */}
+                  <div className="p-2.5 bg-gray-900 border border-gray-800 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-300 font-bold">📸 ستوري (Story 9:16)</span>
+                      <input 
+                        type="checkbox"
+                        checked={setting.story_enabled}
+                        onChange={e => handleUpdateField(setting.id, 'story_enabled', e.target.checked)}
+                        className="w-4 h-4 accent-purple-500 rounded cursor-pointer"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <label className="text-[11px] text-gray-400 shrink-0">السعر:</label>
+                      <input 
+                        type="number"
+                        min="0"
+                        step="500"
+                        value={setting.story_price || 0}
+                        onChange={e => handleUpdateField(setting.id, 'story_price', parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 py-1 bg-gray-950 border border-gray-800 rounded-lg text-white text-xs font-mono text-center focus:border-amber-500 focus:outline-none"
+                      />
+                      <span className="text-[10px] text-gray-400">د.ع</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -381,54 +477,15 @@ export const SocialControlCenter: React.FC = () => {
                   type="button"
                   onClick={() => handleSaveSetting(setting)}
                   disabled={isSaving}
-                  className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-md disabled:opacity-50"
+                  className="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black text-xs font-black rounded-xl shadow-lg flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  <Save className="w-3.5 h-3.5" />
-                  {isSaving ? 'جاري الحفظ...' : '💾 حفظ التعديل'}
+                  <Save className={`w-4 h-4 ${isSaving ? 'animate-spin' : ''}`} />
+                  {isSaving ? 'جاري الحفظ...' : '💾 حفظ الإعدادات والأسعار'}
                 </button>
               </div>
             </div>
           );
         })}
-      </div>
-
-      {/* Useful Links & Graph Explorer Guide */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-3">
-        <h4 className="text-white font-bold text-sm flex items-center gap-2">
-          <Globe className="w-4 h-4 text-amber-400" />
-          روابط وأدوات سريعة لإدارة الرموز والصلاحيات:
-        </h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <a
-            href="https://developers.facebook.com/tools/explorer/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-3 bg-gray-950 border border-gray-800 rounded-xl hover:border-blue-500 text-gray-300 text-xs flex items-center justify-between group"
-          >
-            <span>🔗 Meta Graph API Explorer</span>
-            <ExternalLink className="w-3.5 h-3.5 text-gray-500 group-hover:text-blue-400" />
-          </a>
-
-          <a
-            href="https://business.facebook.com/latest/settings"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-3 bg-gray-950 border border-gray-800 rounded-xl hover:border-purple-500 text-gray-300 text-xs flex items-center justify-between group"
-          >
-            <span>🏢 Meta Business Suite Settings</span>
-            <ExternalLink className="w-3.5 h-3.5 text-gray-500 group-hover:text-purple-400" />
-          </a>
-
-          <a
-            href="https://t.me/BotFather"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-3 bg-gray-950 border border-gray-800 rounded-xl hover:border-sky-500 text-gray-300 text-xs flex items-center justify-between group"
-          >
-            <span>🤖 Telegram BotFather</span>
-            <ExternalLink className="w-3.5 h-3.5 text-gray-500 group-hover:text-sky-400" />
-          </a>
-        </div>
       </div>
     </div>
   );
