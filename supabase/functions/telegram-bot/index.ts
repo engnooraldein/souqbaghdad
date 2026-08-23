@@ -3474,10 +3474,40 @@ Deno.serve(async (req: any) => {
 
       const trimmedText = (text || '').trim();
 
-      // 2. Group Admin Commands (/warn, /unwarn, /mute, /ban, /seats, /car, /line, /price)
+      // 2. Group Admin Commands (/warn, /unwarn, /mute, /ban, /seats, /car, /line, /price, /start, /help)
       if (trimmedText.startsWith('/')) {
         const cmdParts = trimmedText.split(/\s+/);
         const cmd = cmdParts[0].toLowerCase().replace('@' + BOT_USERNAME.toLowerCase(), '');
+
+        // --- /start or /help Command in Group ---
+        if (cmd === '/start' || cmd === '/help') {
+          const isTransport = chatTitle.includes('خط') || chatTitle.includes('نقل') || chatTitle.includes('رافدين') || chatTitle.includes('جامع') || chatTitle.includes('كلية');
+          let introMsg = `👋 <b>يا هلا وكل الهلا بيكم في "${chatTitle}"! 🇮🇶✨</b>\n\n` +
+            `🤖 أنا <b>مساعد وحارس الكروب الذكي</b> من منصة سوق بغداد.\n\n`;
+
+          if (isTransport) {
+            introMsg += 
+              `🚌 <b>البحث عن خطوط:</b> اكتب <code>/line المنصور</code> أو اكتب طلبك بالكروب (مثال: محتاج خط للرافدين).\n` +
+              `💺 <b>تنبيه مقاعد شاغرة:</b> السائق يكتب <code>/seats 2 الدورة الرافدين</code>.\n`;
+          } else {
+            introMsg += 
+              `🚗 <b>البحث عن سيارة:</b> اكتب <code>/car النترا</code>.\n` +
+              `💰 <b>معرفة أسعار السوق:</b> اكتب <code>/price توسان 2020</code>.\n`;
+          }
+
+          introMsg += 
+            `🛡️ <b>حماية الكروب:</b> نظام إنذارات تلقائي لمنع الروابط والسبام (3 مخالفات = كتم ثم حظر).\n` +
+            `💬 <b>للتحدث معي:</b> فقط سوّي (Reply / رد) على أي رسالة مني وسأجيبك فوراً!\n\n` +
+            `<i>أهلاً وسهلاً بالجميع، بالخدمة دائماً! 🌹</i>`;
+
+          await sendMessage(chatId, introMsg, {
+            inline_keyboard: [
+              [{ text: '🚗 سيارات سوق بغداد', url: 'https://www.souqbaghdad.store' }, { text: '🚌 خطوط النقل', url: 'https://www.souqbaghdad.store/transport' }],
+              [{ text: '🤖 فتح محادثة خاصة مع البوت', url: `https://t.me/${BOT_USERNAME}` }]
+            ]
+          });
+          return new Response('OK', { status: 200 });
+        }
 
         // --- /warn Command (Admin only) ---
         if (cmd === '/warn' && isSenderAdmin) {
