@@ -797,10 +797,178 @@ async function deleteFromThreads(threadsMediaId: string) {
       method: 'DELETE'
     });
     return res.ok;
-  } catch(err) {
+  } catch (err) {
     console.error('Threads Delete Error:', err);
     return false;
   }
+}
+
+async function findInstagramPostByQuery(query: string, customToken?: string, customAccountId?: string): Promise<string | null> {
+  let token = customToken;
+  let accountId = customAccountId;
+  if (!token || !accountId) {
+    const igSetting = await getLiveSocialSetting('ig_souq');
+    token = token || igSetting?.access_token || META_PAGE_ACCESS_TOKEN;
+    accountId = accountId || igSetting?.page_id || igSetting?.extra_id || META_IG_ACCOUNT_ID;
+  }
+  if (!token || !accountId || !query) return null;
+  const isDirectIg = token.startsWith('IGAA');
+  const apiBase = isDirectIg ? 'https://graph.instagram.com/v20.0' : 'https://graph.facebook.com/v20.0';
+  try {
+    const res = await fetch(`${apiBase}/${accountId}/media?fields=id,caption&limit=50&access_token=${token}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const cleanQuery = query.replace('#', '').trim().toLowerCase();
+    for (const post of data?.data || []) {
+      const cap = (post.caption || '').toLowerCase();
+      if (cleanQuery.length >= 3 && cap.includes(cleanQuery)) {
+        console.log(`[IG SMART MATCH] Found matching Instagram post ${post.id} for query "${query}"`);
+        return post.id;
+      }
+    }
+  } catch(e) {
+    console.error('findInstagramPostByQuery error:', e);
+  }
+  return null;
+}
+
+async function syncAndHealAd(ad: any, supabaseClient: any): Promise<{ healed: boolean; details: Record<string, string> }> {
+  const shortId = ad.short_id || ad.id;
+  const isSoldOrArchived = ad.status === 'sold' || ad.status === 'archived' || ad.status === 'deleted' || ad.status === 'inactive';
+  let syncStatus = typeof ad.sync_status === 'object' && ad.sync_status ? { ...ad.sync_status } : {};
+  const details: Record<string, string> = {};
+  let changed = false;
+
+  // 1. If Sold / Archived / Inactive -> Ensure proper mark sold / deletion across all platforms
+  if (isSoldOrArchived) {
+    const igId = syncStatus.instagram_post_id || ad.instagram_post_id;
+    if (igId) {
+      const delSuccess = await deleteFromInstagram(igId);
+      if (delSuccess) {
+        delete syncStatus.instagram_post_id;
+        changed = true;
+        details.instagram = 'deleted_sold';
+      }
+    }
+    const fbId = syncStatus.facebook_post_id || ad.facebook_post_id;
+    if (fbId) {
+      await updateFacebookPost(fbId, `⚠️ [تم البيع / مباعة / مغلق] — إعلان #${shortId}\n\nشكراً لتعاملكم مع منصة سوق بغداد الرقمي.`);
+      details.facebook = 'updated_sold';
+    }
+    const rucFbId = syncStatus.rafdain_facebook_post_id;
+    if (rucFbId) {
+      const rafdainSetting = await getLiveSocialSetting('fb_rafdain');
+      await updateFacebookPost(rucFbId, `⚠️ [اكتمل العدد / الخط مغلق] — إعلان خط #${shortId}\n\nشكراً لتعاملكم مع كلية الرافدين الجامعة وسوق بغداد.`, rafdainSetting?.access_token);
+      details.rafdain_facebook = 'updated_sold';
+    }
+    if (changed) {
+      await supabaseClient.from('ads').update({ sync_status: syncStatus }).eq('id', ad.id);
+    }
+    return { healed: changed, details };
+  }
+
+  // 2. Active Ads: Smart Search to link existing posts and prevent duplicates
+  // Check Souq Facebook
+  if (syncStatus.facebook !== 'success' || !syncStatus.facebook_post_id) {
+    const existingFbPostId = await findFacebookPostByQuery(shortId);
+    if (existingFbPostId) {
+      console.log(`[WATCHDOG] Found existing Facebook post for #${shortId}: ${existingFbPostId}`);
+      syncStatus.facebook = 'success';
+      syncStatus.facebook_post_id = existingFbPostId;
+      changed = true;
+      details.facebook = 'recovered_existing';
+    }
+  }
+
+  // Check Al-Rafdain Facebook (if applicable)
+  const isRafdain = (ad.category === 'transport') && (
+    (ad.title && ad.title.includes('الرافدين')) || 
+    (ad.city && ad.city.includes('الرافدين')) || 
+    (ad.location && ad.location.includes('الرافدين')) ||
+    (ad.description && JSON.stringify(ad.description).includes('الرافدين'))
+  );
+
+  if (isRafdain && (syncStatus.rafdain_facebook !== 'success' || !syncStatus.rafdain_facebook_post_id)) {
+    const rafdainSetting = await getLiveSocialSetting('fb_rafdain');
+    const existingRucPostId = await findFacebookPostByQuery(shortId, rafdainSetting?.access_token, rafdainSetting?.page_id || '102975411515668');
+    if (existingRucPostId) {
+      console.log(`[WATCHDOG] Found existing Al-Rafdain Facebook post for #${shortId}: ${existingRucPostId}`);
+      syncStatus.rafdain_facebook = 'success';
+      syncStatus.rafdain_facebook_post_id = existingRucPostId;
+      changed = true;
+      details.rafdain_facebook = 'recovered_existing';
+    }
+  }
+
+  // Check Instagram
+  if (syncStatus.instagram !== 'success' || !syncStatus.instagram_post_id) {
+    const existingIgPostId = await findInstagramPostByQuery(shortId);
+    if (existingIgPostId) {
+      console.log(`[WATCHDOG] Found existing Instagram post for #${shortId}: ${existingIgPostId}`);
+      syncStatus.instagram = 'success';
+      syncStatus.instagram_post_id = existingIgPostId;
+      changed = true;
+      details.instagram = 'recovered_existing';
+    }
+  }
+
+  // 3. Republish any missing platforms safely
+  const needsFb = syncStatus.facebook !== 'success' && !syncStatus.facebook_post_id;
+  const needsRucFb = isRafdain && syncStatus.rafdain_facebook !== 'success' && !syncStatus.rafdain_facebook_post_id;
+  const needsIg = syncStatus.instagram !== 'success' && !syncStatus.instagram_post_id;
+
+  if (needsFb || needsRucFb || needsIg) {
+    console.log(`[WATCHDOG HEAL] Retrying missing platforms for ad #${shortId}: FB=${needsFb}, RucFB=${needsRucFb}, IG=${needsIg}`);
+    
+    let photoUrl: any = null;
+    if (ad.category === 'transport') {
+      const dynUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(ad.title)}&regions=${encodeURIComponent(ad.location || '')}&destination=${encodeURIComponent(ad.city || '')}&short_id=${shortId}&phone=${encodeURIComponent(ad.phone || '')}`;
+      photoUrl = `https://wsrv.nl/?url=${encodeURIComponent(dynUrl)}&output=png`;
+    } else {
+      photoUrl = extractImages(ad);
+    }
+
+    const link = ad.category === 'transport' ? `https://www.souqbaghdad.store/transport/card/${shortId}` : `https://www.souqbaghdad.store/ad/${shortId}`;
+    const caption = await generateSocialCaption(ad, ad.category, link);
+
+    if (needsFb) {
+      const fbData = await postToFacebook(caption, photoUrl);
+      if (fbData && (fbData.post_id || fbData.id)) {
+        syncStatus.facebook = 'success';
+        syncStatus.facebook_post_id = fbData.post_id || fbData.id;
+        changed = true;
+        details.facebook = 'republished';
+      }
+    }
+
+    if (needsRucFb) {
+      const rafdainSetting = await getLiveSocialSetting('fb_rafdain');
+      const rucData = await postToFacebook(caption, photoUrl, rafdainSetting?.access_token, rafdainSetting?.page_id || '102975411515668');
+      if (rucData && (rucData.post_id || rucData.id)) {
+        syncStatus.rafdain_facebook = 'success';
+        syncStatus.rafdain_facebook_post_id = rucData.post_id || rucData.id;
+        changed = true;
+        details.rafdain_facebook = 'republished';
+      }
+    }
+
+    if (needsIg) {
+      const igData = await postToInstagram(caption, photoUrl);
+      if (igData && (igData.id || igData.media_id)) {
+        syncStatus.instagram = 'success';
+        syncStatus.instagram_post_id = igData.id || igData.media_id;
+        changed = true;
+        details.instagram = 'republished';
+      }
+    }
+  }
+
+  if (changed) {
+    syncStatus.last_healed_at = new Date().toISOString();
+    await supabaseClient.from('ads').update({ sync_status: syncStatus }).eq('id', ad.id);
+  }
+
+  return { healed: changed, details };
 }
 
 async function postToFacebookStory(photoUrl: string, pageId: string, accessToken: string) {
@@ -1819,6 +1987,38 @@ serve(async (req) => {
           status: 500
         });
       }
+    }
+
+    // Check if it's a manual or cron Sync Watchdog call
+    if (payload.action === 'sync_watchdog' || payload.action === 'sync_all' || payload.action === 'heal_ad') {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      let adsToProcess: any[] = [];
+      if (payload.ad_id) {
+        const { data: singleAd } = await supabase.from('ads').select('*').eq('id', payload.ad_id).maybeSingle();
+        if (singleAd) adsToProcess.push(singleAd);
+      } else {
+        const limit = payload.limit || 25;
+        const { data: recentAds } = await supabase.from('ads').select('*').order('created_at', { ascending: false }).limit(limit);
+        adsToProcess = recentAds || [];
+      }
+
+      let healedCount = 0;
+      const results: any[] = [];
+
+      for (const ad of adsToProcess) {
+        const healRes = await syncAndHealAd(ad, supabase);
+        if (healRes.healed) healedCount++;
+        results.push({ id: ad.id, short_id: ad.short_id, healed: healRes.healed, details: healRes.details });
+      }
+
+      return new Response(JSON.stringify({ success: true, processed: adsToProcess.length, healed: healedCount, results }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      });
     }
 
     // Check if it's a Supabase Database Webhook (pg_net)
@@ -2958,6 +3158,44 @@ serve(async (req) => {
         await sendMessage(chatId, `❌ <b>تعذر التحقق من التوكن!</b>\n\nتأكد من نسخ التوكن كاملاً وتوفر صلاحيات النشر وإدارة الصفحات.`);
         return new Response('OK', { status: 200 });
       }
+    }
+
+    // 🔄 Owner Command: /sync_all or /sync_health or /heal
+    if (isOwner && (trimmedText === '/sync_all' || trimmedText === '/sync_health' || trimmedText === '/heal' || trimmedText === 'مزامنة')) {
+      await sendMessage(chatId, '⏳ <b>جاري فحص ومزامنة الإعلانات النشطة على كافة المنصات والتحقق من عدم التكرار...</b>\n\nقد تستغرق العملية بضع ثوانٍ.');
+      
+      const { data: recentAds } = await supabase.from('ads')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      let healedCount = 0;
+      let existingRecovered = 0;
+      let republishedCount = 0;
+      const logs: string[] = [];
+
+      for (const ad of recentAds || []) {
+        const res = await syncAndHealAd(ad, supabase);
+        if (res.healed) {
+          healedCount++;
+          const actions = Object.entries(res.details).map(([p, a]) => `${p}: ${a}`).join(', ');
+          logs.push(`• <b>#${ad.short_id || ad.id}</b> (${ad.title?.substring(0, 20)}...): <i>${actions}</i>`);
+          if (actions.includes('recovered_existing')) existingRecovered++;
+          if (actions.includes('republished')) republishedCount++;
+        }
+      }
+
+      const report = 
+        `📊 <b>تقرير فحص وصيانة المزامنة الذاتية (Watchdog):</b>\n\n` +
+        `✅ <b>عدد الإعلانات المفحوصة:</b> ${recentAds?.length || 0}\n` +
+        `🛠️ <b>الإعلانات التي تم تصحيحها ومزامنتها:</b> ${healedCount}\n` +
+        `🔍 <b>منشورات تم اكتشافها وربطها (منع تكرار):</b> ${existingRecovered}\n` +
+        `🚀 <b>منصات أعيد نشرها بنجاح:</b> ${republishedCount}\n\n` +
+        (logs.length > 0 ? `<b>تفاصيل العمليات:</b>\n${logs.join('\n')}\n\n` : `<i>جميع الإعلانات متزامنة 100% ولا توجد أي مشاكل معلقة! 🎉</i>`) +
+        `⏰ <i>${new Date().toLocaleString('ar-IQ', { timeZone: 'Asia/Baghdad' })}</i>`;
+
+      await sendMessage(chatId, report);
+      return new Response('OK', { status: 200 });
     }
 
     // Helper: Reset & Show Main Menu
