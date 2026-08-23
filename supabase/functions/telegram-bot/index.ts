@@ -349,16 +349,6 @@ async function unbanChatMember(chatId: string | number, userId: number | string)
   } catch(e) {}
 }
 
-async function sendChatAction(chatId: string | number, action: string = 'typing') {
-  try {
-    await fetch(`${tgUrl}/sendChatAction`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, action })
-    });
-  } catch(e) {}
-}
-
 async function getTelegramFileUrl(fileId: string): Promise<string | null> {
   try {
     const res = await fetch(`${tgUrl}/getFile?file_id=${fileId}`);
