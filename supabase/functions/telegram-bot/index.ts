@@ -16,12 +16,30 @@ async function sendMessage(chatId: string | number, text: string, replyMarkup?: 
     link_preview_options: { is_disabled: true }
   };
   if (replyMarkup) body.reply_markup = replyMarkup;
-  const res = await fetch(`${tgUrl}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  return res.json();
+  try {
+    const res = await fetch(`${tgUrl}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      console.warn('sendMessage HTML parse failed, retrying as plain text:', data.description);
+      delete body.parse_mode;
+      const cleanPlain = text.replace(/<[^>]*>?/gm, '');
+      body.text = cleanPlain;
+      const resPlain = await fetch(`${tgUrl}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      return await resPlain.json();
+    }
+    return data;
+  } catch (e) {
+    console.error('sendMessage fetch exception:', e);
+    return { ok: false, error: String(e) };
+  }
 }
 
 async function answerCallbackQuery(callbackQueryId: string, text: string = '', showAlert = false) {
@@ -337,14 +355,7 @@ async function editChannelMessage(chatId: string | number, messageId: number, ca
   }
 }
 
-async function deleteMessage(chatId: string | number, messageId: number) {
-  const res = await fetch(`${tgUrl}/deleteMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, message_id: messageId })
-  });
-  return res.json();
-}
+
 
 // Channel IDs from environment variables
 const PRODUCT_CHANNEL = Deno.env.get('PRODUCT_CHANNEL_ID') || '@souqbaghdad_iq';
@@ -3477,7 +3488,7 @@ Deno.serve(async (req: any) => {
       // 2. Group Admin Commands (/warn, /unwarn, /mute, /ban, /seats, /car, /line, /price, /start, /help)
       if (trimmedText.startsWith('/')) {
         const cmdParts = trimmedText.split(/\s+/);
-        const cmd = cmdParts[0].toLowerCase().replace('@' + BOT_USERNAME.toLowerCase(), '');
+        const cmd = cmdParts[0].toLowerCase().split('@')[0];
 
         // --- /start or /help Command in Group ---
         if (cmd === '/start' || cmd === '/help') {
