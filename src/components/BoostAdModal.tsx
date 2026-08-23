@@ -217,41 +217,62 @@ export const BoostAdModal: React.FC<BoostAdModalProps> = ({
         <div className="absolute top-0 right-1/4 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/4 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-800/80 pb-4 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/40 rounded-2xl text-amber-400">
-              <Rocket className="w-6 h-6 animate-pulse" />
+        {/* Header with Warm Welcome */}
+        <div className="border-b border-gray-800/80 pb-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/40 rounded-2xl text-amber-400">
+                <Rocket className="w-6 h-6 animate-pulse" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white flex items-center gap-2">
+                  ترويج الإعلان على مواقع التواصل 🚀
+                </h3>
+                <p className="text-xs text-emerald-400 font-medium">
+                  🎉 شكراً لاختيارك منصة سوق بغداد! تم حفظ إعلانك بنجاح.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-xl font-black text-white flex items-center gap-2">
-                ترويج الإعلان على مواقع التواصل 🚀
-              </h3>
-              <p className="text-xs text-gray-400">
-                اختر المنصات التي تريد نشر إعلانك فيها لزيادة التفاعل والمشاهدات
-              </p>
-            </div>
+            <button 
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-white rounded-xl bg-gray-900 border border-gray-800 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white rounded-xl bg-gray-900 border border-gray-800 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
 
-        {/* Special Story Promo Banner */}
-        <div className="mb-4 p-2.5 bg-gradient-to-r from-purple-900/40 via-indigo-900/40 to-purple-900/40 border border-purple-500/40 rounded-2xl flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-bold text-purple-300">
-            <Gift className="w-4 h-4 text-purple-400 shrink-0" />
-            <span>الستوري الطولي (9:16) مجاني دائماً 100% لجميع المعلنين! 🎁</span>
-          </div>
-          {currentUserId && (
-            <div className="flex items-center gap-1 text-xs font-mono font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-xl border border-amber-500/20">
-              <Coins className="w-3.5 h-3.5" />
-              <span>رصيدك: {userPoints} نقطة</span>
+        {/* Informative Guidance & Free Story Banner */}
+        <div className="mb-4 space-y-2.5">
+          {/* Free Story Gift Banner */}
+          <div className="p-3 bg-gradient-to-r from-purple-950/60 via-indigo-950/60 to-purple-950/60 border border-purple-500/40 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-lg">
+            <div className="flex items-center gap-2.5 text-xs font-bold text-purple-200">
+              <span className="p-1.5 bg-purple-500/20 rounded-xl text-purple-400 shrink-0">
+                <Gift className="w-4 h-4" />
+              </span>
+              <div>
+                <div className="text-amber-300 font-black">🎁 هدية سوق بغداد لجميع المعلنين:</div>
+                <div className="text-gray-300 text-[11px] font-normal">نشر الستوري الطولي (9:16) على فيسبوك وانستغرام مجاني 100% (0 نقطة)!</div>
+              </div>
             </div>
-          )}
+            {currentUserId && (
+              <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/20 shrink-0 self-start sm:self-auto">
+                <Coins className="w-4 h-4" />
+                <span>رصيدك: {userPoints} نقطة</span>
+              </div>
+            )}
+          </div>
+
+          {/* Explanation of Boost Button */}
+          <div className="p-3 bg-gray-900/70 border border-gray-800 rounded-2xl text-[11.5px] text-gray-300 space-y-1">
+            <div className="font-bold text-white flex items-center gap-1.5">
+              <span>💡</span>
+              <span>ما هي ميزة الترويج (Boost)؟</span>
+            </div>
+            <p className="leading-relaxed text-gray-400 text-[11px]">
+              تتيح لك نشر إعلانك فورياً كمنشور دائم (Feed Post) في صفحاتنا وقنواتنا الرسمية الموثقة مقابل <b className="text-amber-400">1 نقطة فقط</b> لكل منصة، لتصل لآلاف المشاهدين والمشترين فوراً.
+            </p>
+          </div>
         </div>
 
         {/* Success View */}

@@ -3357,7 +3357,7 @@ Deno.serve(async (req: any) => {
     }
 
     // ⚙️ Owner Command: /social or /control or /channels
-    if (isOwner && (trimmedText === '/social' || trimmedText === '/control' || trimmedText === '/channels' || trimmedText.startsWith('toggle_social_') || trimmedText === 'social_refresh')) {
+    if (isOwner && (trimmedText === '/social' || trimmedText === '/control' || trimmedText === '/channels' || trimmedText.startsWith('toggle_social_') || trimmedText === 'social_refresh' || trimmedText.startsWith('set_post_price_'))) {
       // Handle Toggle Callback
       if (trimmedText.startsWith('toggle_social_')) {
         const toggleKey = trimmedText.replace('toggle_social_', '');
@@ -3370,28 +3370,54 @@ Deno.serve(async (req: any) => {
         }
       }
 
+      // Handle Quick Point Price Presets
+      if (trimmedText.startsWith('set_post_price_')) {
+        const priceVal = parseInt(trimmedText.replace('set_post_price_', ''));
+        if (!isNaN(priceVal)) {
+          await supabase.from('social_settings').update({
+            post_price: priceVal,
+            currency: 'نقطة',
+            updated_at: new Date().toISOString()
+          }).neq('id', 'temp_placeholder');
+          await sendMessage(chatId, `✅ <b>تم تحديث تسعير البوست لجميع المنصات إلى: ${priceVal === 0 ? 'مجاني 🎁' : priceVal + ' نقطة'} بنجاح!</b>`);
+        }
+      }
+
       const { data: allSettings } = await supabase.from('social_settings').select('*').order('id');
-      let msg = `📡 <b>لوحة تحكم الأونر في قنوات ومنصات النشر</b> 🇮🇶\n\n`;
-      msg += `اضغط على أي زر أدناه لتشغيل أو إيقاف المنصة فورياً:\n\n`;
+      let msg = `📡 <b>لوحة تحكم الأونر في قنوات ومنصات النشر والتسعير</b> 🇮🇶\n\n`;
+      msg += `🔘 <i>الستوري مجاني دائماً (0 نقطة 🎁). يمكنك تعديل سعر البوست وتشغيل/إيقاف الصفحات أدناه:</i>\n\n`;
 
       const keyboard: any[] = [];
       for (const s of allSettings || []) {
         if (s.id === 'system_alerts' || s.id === 'whatsapp') continue;
         const icon = s.category === 'facebook' ? '🔵' : s.category === 'instagram' ? '📸' : s.category === 'telegram' ? '✈️' : '🧵';
         const statusIcon = s.is_active !== false ? '🟢 [مفعل]' : '🔴 [معطل]';
-        const postPrice = s.post_price ? `${s.post_price} د.ع` : 'مجاني';
-        const storyPrice = s.story_price ? `${s.story_price} د.ع` : 'مجاني';
+        const postPrice = s.post_price && s.post_price > 0 ? `${s.post_price} نقطة` : 'مجاني 🎁';
+        const storyPrice = 'مجاني 🎁';
         
         msg += `${icon} <b>${s.name}</b>\n`;
         msg += `  ├ الحالة: ${statusIcon}\n`;
-        msg += `  ├ بوست: ${s.post_enabled !== false ? '✅' : '❌'} (${postPrice})\n`;
-        msg += `  └ ستوري: ${s.story_enabled !== false ? '✅' : '❌'} (${storyPrice})\n\n`;
+        msg += `  ├ بوست (Feed): ${s.post_enabled !== false ? '✅' : '❌'} (<b>${postPrice}</b>)\n`;
+        msg += `  └ ستوري (Story): ${s.story_enabled !== false ? '✅' : '❌'} (<b>${storyPrice}</b>)\n\n`;
 
         const btnLabel = `${s.is_active !== false ? '🟢 إيقاف' : '🔴 تشغيل'} ${s.name.substring(0, 18)}`;
         keyboard.push([{ text: btnLabel, callback_data: `toggle_social_${s.id}` }]);
       }
 
-      keyboard.push([{ text: '🔄 تحديث الحالة', callback_data: 'social_refresh' }]);
+      // Quick point pricing buttons for the owner
+      keyboard.push([
+        { text: '🪙 البوست مجاني (0)', callback_data: 'set_post_price_0' },
+        { text: '🪙 البوست = 1 نقطة', callback_data: 'set_post_price_1' }
+      ]);
+      keyboard.push([
+        { text: '🪙 البوست = 2 نقطة', callback_data: 'set_post_price_2' },
+        { text: '🪙 البوست = 5 نقاط', callback_data: 'set_post_price_5' }
+      ]);
+
+      keyboard.push([
+        { text: '🔄 تحديث الحالة', callback_data: 'social_refresh' },
+        { text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }
+      ]);
       const markup = { inline_keyboard: keyboard };
 
       if (callbackMsgId) {
@@ -3453,14 +3479,17 @@ Deno.serve(async (req: any) => {
     if (isOwner && (trimmedText === 'owner_hub_main' || trimmedText === '/owner' || trimmedText === '/admin' || trimmedText === 'المالك')) {
       const ownerMsg = 
         `👑 <b>مرحباً بك في لوحة تحكم المالك — سوق بغداد الرقمي</b> 🇮🇶\n\n` +
-        `اختر الإجراء المطلوب من الأزرار السريعة أدناه:`;
+        `<i>إدارة المنصة بالكامل بذكاء من التيليجرام دون الحاجة لفتح الموقع:</i>\n\n` +
+        `اختر القسم أو الإجراء المطلوب أدناه:`;
       
       const ownerMarkup = {
         inline_keyboard: [
-          [{ text: '📡 إدارة قنوات السوشيال ميديا', callback_data: '/social' }, { text: '⚡ فحص ومزامنة الإعلانات', callback_data: 'owner_sync_ads' }],
-          [{ text: '📊 إحصائيات المنصة الحية', callback_data: 'owner_stats' }, { text: '🎁 توليد بروموكود نقاط', callback_data: 'owner_gen_promo' }],
-          [{ text: '📣 إذاعة رسالة جماعية (Broadcast)', callback_data: 'owner_broadcast_prompt' }, { text: '🔍 كشف مستخدم أو إعلان', callback_data: 'owner_lookup_prompt' }],
-          [{ text: '🌐 فتح لوحة الويب الكاملة', url: 'https://www.souqbaghdad.store' }],
+          [{ text: '📡 قنوات السوشيال والتسعير', callback_data: '/social' }, { text: '📊 إحصائيات ونبض المنصة', callback_data: 'owner_stats' }],
+          [{ text: '🪪 توثيق هويات السائقين', callback_data: 'owner_verifications' }, { text: '🔑 طلبات استرجاع الرمز', callback_data: 'owner_recoveries' }],
+          [{ text: '🚩 البلاغات ومراجعة الإعلانات', callback_data: 'owner_reports' }, { text: '🪙 إهداء/خصم نقاط لمستخدم', callback_data: 'owner_gift_points_prompt' }],
+          [{ text: '⭐ تثبيت إعلان كـ VIP', callback_data: 'owner_vip_ad_prompt' }, { text: '🎁 توليد كود نقاط جديد', callback_data: 'owner_gen_promo' }],
+          [{ text: '📣 إذاعة رسالة جماعية (Broadcast)', callback_data: 'owner_broadcast_prompt' }, { text: '⚡ فحص وصيانة الإعلانات', callback_data: 'owner_sync_ads' }],
+          [{ text: '🔍 كشف مستخدم أو إعلان', callback_data: 'owner_lookup_prompt' }, { text: '🌐 فتح لوحة الويب', url: 'https://www.souqbaghdad.store' }],
           [{ text: '🔙 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]
         ]
       };
@@ -3646,6 +3675,240 @@ Deno.serve(async (req: any) => {
           [{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
         ]
       });
+    }
+
+    // ==========================================
+    // 🪪 OWNER ACTION: VERIFICATIONS (توثيق الهويات)
+    // ==========================================
+    if (isOwner && (trimmedText === 'owner_verifications' || trimmedText.startsWith('approve_ver_') || trimmedText.startsWith('reject_ver_'))) {
+      if (trimmedText.startsWith('approve_ver_')) {
+        const parts = trimmedText.replace('approve_ver_', '').split('_');
+        const reqId = parts[0];
+        const targetUserId = parts[1];
+        await supabase.from('verification_requests').update({ status: 'approved', reviewed_at: new Date().toISOString() }).eq('id', reqId);
+        if (targetUserId) {
+          await supabase.from('profiles').update({ is_verified: true, role: 'verified' }).eq('id', targetUserId);
+        }
+        await sendMessage(chatId, '✅ <b>تم قبول طلب التوثيق ومنح الشارة الزرقاء بنجاح! 🪪✓</b>');
+      }
+
+      if (trimmedText.startsWith('reject_ver_')) {
+        const reqId = trimmedText.replace('reject_ver_', '');
+        await supabase.from('verification_requests').update({ status: 'rejected', reviewed_at: new Date().toISOString() }).eq('id', reqId);
+        await sendMessage(chatId, '❌ <b>تم رفض طلب التوثيق.</b>');
+      }
+
+      const { data: pendingVer } = await supabase.from('verification_requests').select('*, profiles(full_name, phone, city)').eq('status', 'pending').limit(5);
+
+      if (!pendingVer || pendingVer.length === 0) {
+        return await updateOrSend('🪪 <b>توثيق الهويات والسنويات</b>\n\n<i>✅ لا توجد طلبات توثيق معلقة حالياً. كل شيء مكتمل!</i>', {
+          inline_keyboard: [[{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]]
+        });
+      }
+
+      for (const req of pendingVer) {
+        const p = req.profiles || {};
+        const cap = `🪪 <b>طلب توثيق جديد:</b>\n\n👤 <b>الاسم:</b> ${p.full_name || 'بدون اسم'}\n📞 <b>الهاتف:</b> <code>${p.phone || 'غير مسجل'}</code>\n📍 <b>المدينة:</b> ${p.city || 'بغداد'}\n\n<i>هل توافق على منح هذا السائق/المعلن التوثيق الأزرق المعتمد؟</i>`;
+        const kb = [
+          [
+            { text: '✅ قبول وتوثيق الحساب', callback_data: `approve_ver_${req.id}_${req.user_id}` },
+            { text: '❌ رفض', callback_data: `reject_ver_${req.id}` }
+          ],
+          [{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
+        ];
+
+        if (req.id_image_url) {
+          try {
+            await sendPhoto(chatId, req.id_image_url, cap, { inline_keyboard: kb });
+          } catch(e) {
+            await sendMessage(chatId, cap + `\n\n🖼️ <a href="${req.id_image_url}">رابط الصورة المرفوعة</a>`, { inline_keyboard: kb });
+          }
+        } else {
+          await sendMessage(chatId, cap, { inline_keyboard: kb });
+        }
+      }
+      return new Response('OK', { status: 200 });
+    }
+
+    // ==========================================
+    // 🔑 OWNER ACTION: RECOVERIES (استرجاع الحسابات)
+    // ==========================================
+    if (isOwner && (trimmedText === 'owner_recoveries' || trimmedText.startsWith('resolve_rec_'))) {
+      if (trimmedText.startsWith('resolve_rec_')) {
+        const recId = trimmedText.replace('resolve_rec_', '');
+        await supabase.from('recovery_requests').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', recId);
+        await sendMessage(chatId, '✅ <b>تم تعليم طلب الاسترجاع كمكتمل ومحلول بنجاح! 🔑</b>');
+      }
+
+      const { data: recList } = await supabase.from('recovery_requests').select('*, profiles(full_name, phone)').eq('status', 'pending').limit(5);
+
+      if (!recList || recList.length === 0) {
+        return await updateOrSend('🔑 <b>طلبات استرجاع الرمز (Forgot Password)</b>\n\n<i>✅ لا توجد طلبات استرجاع معلقة حالياً.</i>', {
+          inline_keyboard: [[{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]]
+        });
+      }
+
+      let recMsg = `🔑 <b>طلبات استرجاع الرمز المعلقة (${recList.length}):</b>\n\n`;
+      const recButtons: any[] = [];
+
+      for (const r of recList) {
+        const p = r.profiles || {};
+        let ph = p.phone || '';
+        if (ph.startsWith('07')) ph = '964' + ph.substring(1);
+        recMsg += `• 👤 <b>${p.full_name || 'مستخدم'}</b> (<code>${p.phone}</code>)\n  └ تاريخ الطلب: ${new Date(r.request_time || r.created_at).toLocaleDateString('ar-IQ')}\n\n`;
+        
+        recButtons.push([
+          { text: `💬 واتساب ${p.full_name?.substring(0, 10) || ''}`, url: `https://wa.me/${ph}` },
+          { text: `✅ تم الحل`, callback_data: `resolve_rec_${r.id}` }
+        ]);
+      }
+      recButtons.push([{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]);
+
+      return await updateOrSend(recMsg, { inline_keyboard: recButtons });
+    }
+
+    // ==========================================
+    // 🚩 OWNER ACTION: REPORTS (مراجعة البلاغات)
+    // ==========================================
+    if (isOwner && (trimmedText === 'owner_reports' || trimmedText.startsWith('close_rep_') || trimmedText.startsWith('del_rep_ad_'))) {
+      if (trimmedText.startsWith('close_rep_')) {
+        const repId = trimmedText.replace('close_rep_', '');
+        await supabase.from('support_messages').delete().eq('id', repId);
+        await sendMessage(chatId, '✅ <b>تم إغلاق البلاغ بنجاح.</b>');
+      }
+
+      if (trimmedText.startsWith('del_rep_ad_')) {
+        const adId = trimmedText.replace('del_rep_ad_', '');
+        await supabase.from('ads').update({ status: 'archived' }).eq('id', adId);
+        await sendMessage(chatId, '🗑️ <b>تم أرشفة وحذف الإعلان المخالف بنجاح!</b>');
+      }
+
+      const { data: repList } = await supabase.from('support_messages').select('*').ilike('name', 'REPORT:%').limit(5);
+
+      if (!repList || repList.length === 0) {
+        return await updateOrSend('🚩 <b>البلاغات والشكاوى</b>\n\n<i>✅ المنصة نظيفة ولا توجد أي بلاغات معلقة! 🎉</i>', {
+          inline_keyboard: [[{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]]
+        });
+      }
+
+      let repMsg = `🚩 <b>البلاغات والشكاوى الحالية:</b>\n\n`;
+      const repButtons: any[] = [];
+
+      for (const rep of repList) {
+        repMsg += `• <b>${rep.name}</b>\n  ├ البلاغ: <i>${rep.message}</i>\n  └ الهاتف: <code>${rep.email || 'غير مسجل'}</code>\n\n`;
+        const matchId = rep.message?.match(/#([A-Za-z0-9_-]+)/);
+        const reportedCode = matchId ? matchId[1] : null;
+
+        const row: any[] = [{ text: '🟢 إغلاق البلاغ', callback_data: `close_rep_${rep.id}` }];
+        if (reportedCode) {
+          row.unshift({ text: '🗑️ حذف الإعلان', callback_data: `del_rep_ad_${reportedCode}` });
+        }
+        repButtons.push(row);
+      }
+      repButtons.push([{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]);
+
+      return await updateOrSend(repMsg, { inline_keyboard: repButtons });
+    }
+
+    // ==========================================
+    // 🪙 OWNER ACTION: GIFT / DEDUCT POINTS
+    // ==========================================
+    if (isOwner && trimmedText === 'owner_gift_points_prompt') {
+      state = { step: 'owner_gift_points_waiting' };
+      if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+      return await updateOrSend(
+        `🪙 <b>إهداء أو خصم نقاط لمستخدم</b>\n\n` +
+        `أرسل رقم هاتف المستخدم ثم مسافة ثم عدد النقاط:\n\n` +
+        `<i>أمثلة:</i>\n` +
+        `• <code>07701234567 50</code> (لإضافة 50 نقطة)\n` +
+        `• <code>07701234567 -20</code> (لخصم 20 نقطة)`,
+        { inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'owner_hub_main' }]] }
+      );
+    }
+
+    if (isOwner && state?.step === 'owner_gift_points_waiting') {
+      state = {};
+      if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+      const parts = trimmedText.split(/\s+/);
+      const targetPhone = parts[0]?.trim();
+      const pointsDelta = parseInt(parts[1]);
+
+      if (!targetPhone || isNaN(pointsDelta)) {
+        return await sendMessage(chatId, '❌ <b>صيغة غير صحيحة!</b> يرجى إرسال رقم الهاتف متبوعاً بمسافة ثم عدد النقاط (مثال: 07701234567 50)', {
+          inline_keyboard: [[{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]]
+        });
+      }
+
+      const { data: userProfile } = await supabase.from('profiles').select('id, full_name, phone, points').or(`phone.eq.${targetPhone},phone.eq.+964${targetPhone.replace(/^0/, '')}`).maybeSingle();
+
+      if (!userProfile) {
+        return await sendMessage(chatId, `❌ لم يتم العثور على مستخدم مسجل بالرقم <code>${targetPhone}</code>`, {
+          inline_keyboard: [[{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]]
+        });
+      }
+
+      const oldPoints = userProfile.points || 0;
+      const newPoints = Math.max(0, oldPoints + pointsDelta);
+
+      await supabase.from('profiles').update({ points: newPoints }).eq('id', userProfile.id);
+
+      return await sendMessage(chatId, 
+        `🎉 <b>تم تحديث النقاط بنجاح!</b>\n\n` +
+        `👤 <b>المستخدم:</b> ${userProfile.full_name || 'بدون اسم'}\n` +
+        `📞 <b>الهاتف:</b> <code>${userProfile.phone}</code>\n` +
+        `🪙 <b>الرصيد السابق:</b> ${oldPoints} نقطة\n` +
+        `➕ <b>العملية:</b> ${pointsDelta > 0 ? '+' + pointsDelta : pointsDelta} نقطة\n` +
+        `✨ <b>الرصيد الجديد:</b> <b>${newPoints}</b> نقطة`,
+        {
+          inline_keyboard: [
+            [{ text: '🪙 عملية نقاط أخرى', callback_data: 'owner_gift_points_prompt' }],
+            [{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
+          ]
+        }
+      );
+    }
+
+    // ==========================================
+    // ⭐ OWNER ACTION: VIP FEATURE AD
+    // ==========================================
+    if (isOwner && trimmedText === 'owner_vip_ad_prompt') {
+      state = { step: 'owner_vip_waiting' };
+      if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+      return await updateOrSend(
+        `⭐ <b>تثبيت وتمييز إعلان VIP في الموقع</b>\n\n` +
+        `أرسل كود الإعلان الذي تريد تثبيته كإعلان VIP مميز (مثال: #GVR37 أو GVR37):`,
+        { inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'owner_hub_main' }]] }
+      );
+    }
+
+    if (isOwner && state?.step === 'owner_vip_waiting') {
+      state = {};
+      if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+      const adCode = trimmedText.replace('#', '').trim();
+      const { data: matchedAd } = await supabase.from('ads').select('*').or(`short_id.ilike.%${adCode}%,id.eq.${adCode}`).maybeSingle();
+
+      if (!matchedAd) {
+        return await sendMessage(chatId, `❌ لم يتم العثور على إعلان بالكود «${adCode}».`, {
+          inline_keyboard: [[{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]]
+        });
+      }
+
+      await supabase.from('ads').update({ is_featured: true, is_vip: true, updated_at: new Date().toISOString() }).eq('id', matchedAd.id);
+
+      return await sendMessage(chatId, 
+        `⭐ <b>تم تثبيت الإعلان كـ VIP بنجاح!</b>\n\n` +
+        `📢 <b>العنوان:</b> ${matchedAd.title}\n` +
+        `🔖 <b>الكود:</b> #${matchedAd.short_id || matchedAd.id}\n` +
+        `✨ <i>سيظهر الآن في أول كروت الواجهة الرئيسية للموقع كإعلان مميز.</i>`,
+        {
+          inline_keyboard: [
+            [{ text: '⭐ تمييز إعلان آخر', callback_data: 'owner_vip_ad_prompt' }],
+            [{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
+          ]
+        }
+      );
     }
 
     // --- Start / Register Command ---
