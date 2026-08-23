@@ -3485,21 +3485,46 @@ Deno.serve(async (req: any) => {
 
     // --- Owner Action: Platform Stats ---
     if (isOwner && trimmedText === 'owner_stats') {
-      const [usersCount, activeAds, transportCount, carsCount, prodCount] = await Promise.all([
+      const todayIso = new Date().toISOString().split('T')[0];
+
+      const [
+        usersTotal, usersToday,
+        activeAdsTotal, adsToday,
+        transTotal, transToday,
+        carsTotal, carsToday,
+        prodTotal,
+        recoveriesPending, verificationsPending, reportsPending
+      ] = await Promise.all([
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', todayIso),
         supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+        supabase.from('ads').select('*', { count: 'exact', head: true }).gte('created_at', todayIso),
         supabase.from('ads').select('*', { count: 'exact', head: true }).eq('category', 'transport'),
+        supabase.from('ads').select('*', { count: 'exact', head: true }).eq('category', 'transport').gte('created_at', todayIso),
         supabase.from('ads').select('*', { count: 'exact', head: true }).in('category', ['vehicles', 'cars', 'car']),
-        supabase.from('products').select('*', { count: 'exact', head: true })
+        supabase.from('ads').select('*', { count: 'exact', head: true }).in('category', ['vehicles', 'cars', 'car']).gte('created_at', todayIso),
+        supabase.from('products').select('*', { count: 'exact', head: true }),
+        supabase.from('recovery_requests').select('*', { count: 'exact', head: true }),
+        supabase.from('verification_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('support_messages').select('*', { count: 'exact', head: true }).ilike('name', 'REPORT:%')
       ]);
 
       const statsMsg = 
-        `📊 <b>إحصائيات المنصة الحية الآن:</b>\n\n` +
-        `👥 <b>المستخدمين المسجلين:</b> ${usersCount.count || 0}\n` +
-        `📢 <b>الإعلانات النشطة:</b> ${activeAds.count || 0}\n` +
-        `🚌 <b>خطوط النقل المسجلة:</b> ${transportCount.count || 0}\n` +
-        `🚗 <b>سيارات معروضة:</b> ${carsCount.count || 0}\n` +
-        `🛍️ <b>المنتجات المعروضة:</b> ${prodCount.count || 0}\n\n` +
+        `📊 <b>نبض المنصة والتقرير الإداري الشامل:</b>\n\n` +
+        `📅 <b>حركة ونشاط اليوم (${todayIso}):</b>\n` +
+        `  ├ 📢 إعلانات اليوم: <b>${adsToday.count || 0}</b> إعلان\n` +
+        `  ├ 🚗 سيارات جديدة: <b>${carsToday.count || 0}</b>\n` +
+        `  ├ 🚌 خطوط نقل جديدة: <b>${transToday.count || 0}</b>\n` +
+        `  └ 👤 مستخدمين جدد: <b>${usersToday.count || 0}</b>\n\n` +
+        `🛡️ <b>العمليات والأمان المعلقة:</b>\n` +
+        `  ├ 🔑 طلبات استرجاع الرمز: <b>${recoveriesPending.count || 0}</b>\n` +
+        `  ├ 🪪 طلبات توثيق السائقين: <b>${verificationsPending.count || 0}</b>\n` +
+        `  └ 🚩 البلاغات والشكاوى: <b>${reportsPending.count || 0}</b>\n\n` +
+        `🌐 <b>الإجمالي الكلي بالمنصة:</b>\n` +
+        `  ├ 👥 إجمالي المستخدمين: <b>${usersTotal.count || 0}</b>\n` +
+        `  ├ 🚗 إجمالي السيارات: <b>${carsTotal.count || 0}</b>\n` +
+        `  ├ 🚌 إجمالي الخطوط: <b>${transTotal.count || 0}</b>\n` +
+        `  └ 🛍️ إجمالي المنتجات: <b>${prodTotal.count || 0}</b>\n\n` +
         `⏰ <i>${new Date().toLocaleString('ar-IQ', { timeZone: 'Asia/Baghdad' })}</i>`;
 
       return await updateOrSend(statsMsg, {

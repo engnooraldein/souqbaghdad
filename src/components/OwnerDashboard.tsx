@@ -277,6 +277,14 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
   ads.forEach(a=>{catMap[a.category]=(catMap[a.category]||0)+1;});
   const topCategory = Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'لا يوجد';
 
+  // Live Daily Pulse Calculations
+  const todayDateStr = new Date().toDateString();
+  const adsTodayList = ads.filter(a => new Date(a.created_at || (a as any).createdAt || Date.now()).toDateString() === todayDateStr);
+  const carsTodayCount = adsTodayList.filter(a => a.category === 'vehicles' || a.category === 'cars' || a.category === 'car' || (a.category || '').toLowerCase().includes('car')).length;
+  const transTodayCount = transportAds.filter(t => new Date((t as any).created_at || Date.now()).toDateString() === todayDateStr).length;
+  const adsTodayCount = adsTodayList.length + transTodayCount;
+  const usersTodayCount = dbUsers.filter(u => new Date((u as any).created_at || Date.now()).toDateString() === todayDateStr).length;
+
   // Actions
   const toggleBan = async (id: string) => {
     const user = dbUsers.find(u => u.id === id);
@@ -455,6 +463,67 @@ export default function OwnerDashboard({ ads, products, transportAds, onDeleteAd
         
         {tab==='overview'&&(
           <div className="space-y-5">
+            {/* 🌟 1. Live Pulse Grid (نبض المنصة المباشر واليومي) */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {/* Online Now */}
+              <div className="bg-emerald-950/40 border border-emerald-500/30 rounded-2xl p-3.5 flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden">
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span className="text-emerald-400 mb-1"><Users className="w-5 h-5"/></span>
+                <p className="text-gray-300 text-[11px] font-bold">المتواجدون الآن</p>
+                <h4 className="text-white text-xl font-black">{Object.keys(onlineStatuses || {}).length || 1}</h4>
+                <span className="text-emerald-400 text-[10px] font-bold">متصل بلحظتها 🟢</span>
+              </div>
+
+              {/* Today's New Ads */}
+              <div className="bg-amber-950/40 border border-amber-500/30 rounded-2xl p-3.5 flex flex-col items-center justify-center text-center shadow-lg">
+                <span className="text-amber-400 mb-1"><Sparkles className="w-5 h-5"/></span>
+                <p className="text-gray-300 text-[11px] font-bold">إعلانات اليوم</p>
+                <h4 className="text-white text-xl font-black">{adsTodayCount}</h4>
+                <span className="text-amber-400 text-[10px]">🚗 {carsTodayCount} • 🚌 {transTodayCount}</span>
+              </div>
+
+              {/* Today's New Users */}
+              <div className="bg-indigo-950/40 border border-indigo-500/30 rounded-2xl p-3.5 flex flex-col items-center justify-center text-center shadow-lg">
+                <span className="text-indigo-400 mb-1"><UserCheck className="w-5 h-5"/></span>
+                <p className="text-gray-300 text-[11px] font-bold">مستخدمين جدد اليوم</p>
+                <h4 className="text-white text-xl font-black">{usersTodayCount}</h4>
+                <span className="text-indigo-400 text-[10px]">إجمالي: {dbUsers.length}</span>
+              </div>
+
+              {/* Password & Security Actions */}
+              <div 
+                onClick={() => setTab('recovery')}
+                className="bg-purple-950/40 border border-purple-500/30 rounded-2xl p-3.5 flex flex-col items-center justify-center text-center shadow-lg cursor-pointer hover:border-purple-400 hover:scale-105 transition-all"
+              >
+                <span className="text-purple-400 mb-1"><Key className="w-5 h-5"/></span>
+                <p className="text-gray-300 text-[11px] font-bold">استرجاع وتغيير رمز</p>
+                <h4 className="text-white text-xl font-black">{recoveryRequests.length}</h4>
+                <span className="text-purple-300 text-[10px]">متابعة وفحص 🔑</span>
+              </div>
+
+              {/* Verification Requests */}
+              <div 
+                onClick={() => setTab('verification')}
+                className="bg-blue-950/40 border border-blue-500/30 rounded-2xl p-3.5 flex flex-col items-center justify-center text-center shadow-lg cursor-pointer hover:border-blue-400 hover:scale-105 transition-all"
+              >
+                <span className="text-blue-400 mb-1"><ShieldCheck className="w-5 h-5"/></span>
+                <p className="text-gray-300 text-[11px] font-bold">توثيق السائقين</p>
+                <h4 className="text-white text-xl font-black">{verificationRequests.filter(v => v.status === 'pending').length}</h4>
+                <span className="text-blue-300 text-[10px]">طلبات معلقة 🪪</span>
+              </div>
+
+              {/* Reports & Complaints */}
+              <div 
+                onClick={() => setTab('reports')}
+                className="bg-red-950/40 border border-red-500/30 rounded-2xl p-3.5 flex flex-col items-center justify-center text-center shadow-lg cursor-pointer hover:border-red-400 hover:scale-105 transition-all"
+              >
+                <span className="text-red-400 mb-1"><ShieldAlert className="w-5 h-5"/></span>
+                <p className="text-gray-300 text-[11px] font-bold">البلاغات والشكاوى</p>
+                <h4 className="text-white text-xl font-black">{reports.length}</h4>
+                <span className="text-red-300 text-[10px]">مراجعة وفحص 🚩</span>
+              </div>
+            </div>
+
             {/* Value Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-gradient-to-r from-amber-500/20 to-yellow-600/10 border border-amber-500/30 rounded-2xl p-5 flex flex-col items-center justify-center text-center">
