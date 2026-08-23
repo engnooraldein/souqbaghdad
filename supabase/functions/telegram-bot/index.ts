@@ -1012,40 +1012,55 @@ async function postToFacebookStory(photoUrl: string, pageId: string, accessToken
   }
 }
 
-async function postToInstagramStory(photoUrl: string, igAccountId: string, accessToken: string) {
-  if (!accessToken || !igAccountId || !photoUrl) return { error: { message: 'رمز الوصول لانستكرام أو الصورة مفقودة' } };
-  const targetPhotoUrl = photoUrl.includes('generate-story-image') ? `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&output=png` : photoUrl;
+async function postToInstagramStory(photoUrl: string, igAccountId?: string, accessToken?: string) {
+  let token = accessToken;
+  let accountId = igAccountId;
+  if (!token || !accountId) {
+    const igSetting = await getLiveSocialSetting('ig_souq');
+    token = token || igSetting?.access_token || META_PAGE_ACCESS_TOKEN;
+    accountId = accountId || igSetting?.page_id || igSetting?.extra_id || META_IG_ACCOUNT_ID;
+  }
+  if (!token || !accountId || !photoUrl) return { error: { message: 'رمز الوصول لانستكرام أو الصورة مفقودة' } };
+  
+  // Instagram Stories strictly require JPG / JPEG format
+  const targetPhotoUrl = photoUrl.includes('generate-story-image') 
+    ? `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&output=jpg` 
+    : (photoUrl.includes('wsrv.nl') ? photoUrl : `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&output=jpg`);
+    
   if (targetPhotoUrl.includes('wsrv.nl')) {
     try { await fetch(targetPhotoUrl); } catch(e) {}
   }
-  const isDirectIg = accessToken.startsWith('IGAA');
+  const isDirectIg = token.startsWith('IGAA');
   const apiBase = isDirectIg ? 'https://graph.instagram.com/v20.0' : 'https://graph.facebook.com/v20.0';
 
   try {
     const uploadBody = {
       image_url: targetPhotoUrl,
       media_type: 'STORIES',
-      access_token: accessToken
+      access_token: token
     };
-    const uploadRes = await fetch(`${apiBase}/${igAccountId}/media`, {
+    const uploadRes = await fetch(`${apiBase}/${accountId}/media`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(uploadBody)
     });
     const uploadData = await uploadRes.json();
+    console.log(`[IG STORY] Container creation result for ${accountId}:`, JSON.stringify(uploadData));
     
     if (uploadData && uploadData.id) {
-       await new Promise(resolve => setTimeout(resolve, 5000));
+       await new Promise(resolve => setTimeout(resolve, 4000));
        const publishBody = {
          creation_id: uploadData.id,
-         access_token: accessToken
+         access_token: token
        };
-       const publishRes = await fetch(`${apiBase}/${igAccountId}/media_publish`, {
+       const publishRes = await fetch(`${apiBase}/${accountId}/media_publish`, {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify(publishBody)
        });
-       return await publishRes.json();
+       const pubResult = await publishRes.json();
+       console.log(`[IG STORY] Published successfully to ${accountId}:`, JSON.stringify(pubResult));
+       return pubResult;
     }
     return uploadData;
   } catch (err: any) {
@@ -2915,6 +2930,14 @@ serve(async (req) => {
               } else {
                 syncStatus.instagram = syncStatus.instagram || 'failed';
                 syncStatus.instagram_error = igData?.error?.message || JSON.stringify(igData);
+              }
+
+              // 3. Post to Main Souq Baghdad Instagram Story (9:16)
+              console.log('[WEBHOOK SOCIAL] Posting transport to Souq Baghdad Instagram Story...');
+              const souqIgStory = await postToInstagramStory(finalStoryPhotoUrl);
+              console.log('[WEBHOOK SOCIAL] Souq Baghdad IG Story result:', JSON.stringify(souqIgStory));
+              if (souqIgStory && (souqIgStory.id || souqIgStory.creation_id)) {
+                syncStatus.instagram_story = 'success';
               }
             } catch(igErr: any) {
               console.error('[WEBHOOK SOCIAL] IG Error:', igErr);
