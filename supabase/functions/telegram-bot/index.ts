@@ -117,6 +117,86 @@ async function callAiEngine(userText: string | null, audioUrl: string | null, ph
   return 'يا هلا بيك عيوني نورت سوق بغداد! 🇮🇶 اختر ما تريد من القائمة أدناه وتدلل من عيوني 🌹';
 }
 
+async function callGroupAiEngine(userText: string, userName: string, groupTitle?: string, contextInfo?: string): Promise<string> {
+  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
+
+  const title = groupTitle || 'كروب سوق بغداد';
+  const isTransportGroup = title.includes('خط') || title.includes('نقل') || title.includes('رافدين') || title.includes('جامع') || title.includes('كلية');
+  const isCarsGroup = title.includes('سوق') || title.includes('سيار') || title.includes('معارض') || title.includes('بيع') || title.includes('شراء');
+
+  let groupPurposeDesc = `أنت الآن المساعد الذكي الرسمي داخل كروب تيليجرام اسمه: "${title}".`;
+  if (isTransportGroup) {
+    groupPurposeDesc += `\nهدفه واختصاصه: (خطوط نقل الطلاب، خطوط طالبات وطلاب الجامعات، نقل الموظفين، توصيل الكليات في بغداد، وتنسيق المقاعد الشاغرة مع السائقين الموثقين). ركّز ردودك دائماً على مسارات الخطوط، أمان التوصيل، مواعيد الكليات، وأرقام السائقين.`;
+  } else if (isCarsGroup) {
+    groupPurposeDesc += `\nهدفه واختصاصه: (سوق ومعارض السيارات في بغداد والعراق، البيع والشراء المباشر، الاستفسار عن الموديلات والأسعار الحية وفحص السيارات). ركّز ردودك على أسعار ومواصفات السيارات.`;
+  } else {
+    groupPurposeDesc += `\nهدفه: مساعدة الأعضاء في البيع والشراء وخطوط النقل والإعلانات المفتوحة.`;
+  }
+
+  const systemPrompt = `أنت المساعد الذكي الرسمي لمنصة "سوق بغداد وشبكة خطوط النقل" (https://www.souqbaghdad.store).
+${groupPurposeDesc}
+
+تعليمات شخصيتك وطريقة ردك:
+1. الرد حصراً باللهجة العراقية البغدادية المهذبة والمحترمة جداً والودودة.
+2. رتب إجابتك بتسلسل واضح ومنظم جداً (مثال: نقاط 1️⃣, 2️⃣, 3️⃣) حتى يستفيد العضو فوراً بدون إطالة أو حشو.
+3. التزم تماماً بروح الكروب واختصاصه.
+4. إذا كان السؤال عن كيفية النشر: وضّح له أن النشر مجاني 100% وبدون عمولة عبر البوت أو الموقع.
+${contextInfo ? `بيانات حية من قاعدة بيانات الإعلانات:\n${contextInfo}` : ''}`;
+
+  if (GEMINI_API_KEY) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4500);
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            { role: 'user', parts: [{ text: `${systemPrompt}\n\nالسائل (${userName}) في كروب "${title}" يكتب: "${userText}"` }] }
+          ],
+          generationConfig: { maxOutputTokens: 250, temperature: 0.7 }
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      const data = await resp.json();
+      const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (aiText) return aiText.trim();
+    } catch(e) {}
+  }
+
+  if (OPENAI_API_KEY) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4500);
+      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `[في كروب: ${title}] ${userName} يكتب: "${userText}"` }
+          ],
+          max_tokens: 220
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      const data = await resp.json();
+      const aiText = data.choices?.[0]?.message?.content;
+      if (aiText) return aiText.trim();
+    } catch(e) {}
+  }
+
+  return `يا هلا بيك عيوني ${userName} في ${title} 🌹\n\n` +
+         `1️⃣ <b>تصفح خطوط النقل:</b> https://www.souqbaghdad.store/transport\n` +
+         `2️⃣ <b>تصفح سوق السيارات:</b> https://www.souqbaghdad.store\n` +
+         `3️⃣ <b>للنشر المجاني بالبوت:</b> افتح محادثة خاصة مع @${BOT_USERNAME}\n\n` +
+         `تدلل بأي وقت، بالخدمة دائماً! ✨`;
+}
+
 async function sendPhoto(chatId: string | number, photoUrl: string, caption: string, replyMarkup?: any) {
   try {
     const body: any = { 
@@ -3309,6 +3389,7 @@ Deno.serve(async (req: any) => {
       const fromUser = update.message?.from || update.callback_query?.from;
       const fromId = fromUser?.id;
       const fromUsername = fromUser?.username ? `@${fromUser.username}` : (fromUser?.first_name || 'العضو');
+      const chatTitle = update.message?.chat?.title || update.callback_query?.message?.chat?.title || 'الكروب';
       const messageId = update.message?.message_id;
 
       // 1. Welcome New Members or Bot Added to Group
@@ -3532,19 +3613,33 @@ Deno.serve(async (req: any) => {
       // 4. Smart Group Contextual Matcher (for transport & car queries)
       if (text && !trimmedText.startsWith('/')) {
         const cleanMsg = text.toLowerCase().trim();
+        const isBotMentioned = 
+          text.includes('@' + BOT_USERNAME) || 
+          text.includes('سوق بغداد') || 
+          text.includes('يا بوت') ||
+          (cleanMsg.startsWith('بوت ') || cleanMsg === 'بوت') ||
+          (update.message?.reply_to_message?.from?.is_bot && update.message?.reply_to_message?.from?.username === BOT_USERNAME);
 
-        // Transport search intent
+        // A. Specific Transport search intent
         if ((cleanMsg.includes('محتاج خط') || cleanMsg.includes('اريد خط') || cleanMsg.includes('ادور خط') || cleanMsg.includes('سايق خط')) && (cleanMsg.includes('من') || cleanMsg.includes('الى') || cleanMsg.includes('لـ') || cleanMsg.includes('رافدين') || cleanMsg.includes('جامع') || cleanMsg.includes('دورة') || cleanMsg.includes('سيدية') || cleanMsg.includes('منصور') || cleanMsg.includes('شعب') || cleanMsg.includes('كرادة'))) {
           const { data: matchedLines } = await supabase.from('ads').select('*').eq('category', 'transport').eq('status', 'active').order('created_at', { ascending: false }).limit(2);
           if (matchedLines && matchedLines.length > 0) {
-            let replyMsg = `🚌 <b>يا هلا بيك! وجدنا لك خطوط نقل متوفرة في سوق بغداد:</b>\n\n`;
+            let replyMsg = `🚌 <b>يا هلا بيك يالغالي! وجدنا لك خطوط متوفرة تناسب طلبك:</b>\n\n`;
             for (const l of matchedLines) {
               replyMsg += `• <b>${l.title}</b> (${l.location || 'بغداد'})\n  📞 هاتف السائق: <code>${l.phone || 'متوفر بالموقع'}</code>\n\n`;
             }
-            replyMsg += `🔗 <i>تصفح أو انشر خطك مجاناً: https://www.souqbaghdad.store/transport</i>`;
+            replyMsg += `🔗 <i>تصفح المزيد أو انشر خطك مجاناً: https://www.souqbaghdad.store/transport</i>`;
             await sendMessage(chatId, replyMsg);
             return new Response('OK', { status: 200 });
           }
+        }
+
+        // B. Sequential Group Conversational AI (Mentions / Inquiries / General Help)
+        if (isBotMentioned || cleanMsg.includes('شلون انشر') || cleanMsg.includes('شلون اشتري') || cleanMsg.includes('شلون ابيع') || cleanMsg.includes('رابط الموقع')) {
+          await sendChatAction(chatId, 'typing');
+          const groupAiReply = await callGroupAiEngine(text, fromUsername, chatTitle);
+          await sendMessage(chatId, groupAiReply);
+          return new Response('OK', { status: 200 });
         }
       }
 
