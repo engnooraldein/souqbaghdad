@@ -100,7 +100,10 @@ async function callAiEngine(userText: string | null, audioUrl: string | null, ph
    - لأسئلة الهوية ("منو سواك", "شنو سوق بغداد"): وضح أنك المساعد الذكي الرسمي لمنصة سوق بغداد تم تطويرك وبرمجتك بأحدث خوارزميات الذكاء الاصطناعي لخدمة السوق العراقي وخطوط النقل.
 3. تفهم كل تفاصيل السوق العراقي (أسعار السيارات، موديلاتها، المناطق وشوارع بغداد، جامعات وكليات بغداد مثل الرافدين وبغداد والمستنصرية والتكنولوجية).
 4. تجيب المستخدم بإجابة ذكية، واضحة، متسلسلة وتتذكر سياق الحديث السابق معه بدون تكرار أو جمود.
-5. تذكر المستخدم دائماً بأنه يستطيع نشر أي إعلان أو خط مجاناً عبر سوق بغداد وسينزل فوراً بالموقع وتيليجرام وفيسبوك وانستغرام.
+5. التسامح والفهم الفوري للأخطاء الإملائية والعامية السريعة:
+   - تفهم المستخدم بذكاء حتى لو أخطأ بالإملاء أو كتب بسرعة وأحرف مدمجة (مثل: خك، حط، رفدين، رافين، جميله، منصورر، توسانن، اربد، محتاجخ، سيايق، منجميلة، للرافدين، اريدخط).
+   - إذا لاحظت خطأ طباعي في كلامه، افهم قصده فوراً وجاوبه بذوق عالي (مثال: "فهمتك عيوني قصدك [المعنى الصحيح] 🌹 وتدلل...") بدون أي إحراج.
+6. تذكر المستخدم دائماً بأنه يستطيع نشر أي إعلان أو خط مجاناً عبر سوق بغداد وسينزل فوراً بالموقع وتيليجرام وفيسبوك وانستغرام.
 ${dbContext ? `\n[بيانات حية من قاعدة بيانات سوق بغداد]:\n${dbContext}\n` : ''}`;
 
   // 1. Google Gemini 2.0 Flash (with conversation history)
@@ -170,18 +173,56 @@ ${dbContext ? `\n[بيانات حية من قاعدة بيانات سوق بغد
   return `يا هلا بيك عيوني ${name} 🌹 أنا في خدمتك دائماً في منصة سوق بغداد. تكدر تبحث عن سيارة أو خط نقل أو تنشر إعلانك مجاناً عبر الأزرار أدناه 👇`;
 }
 
+function detectGroupCategory(title: string, desc?: string): 'university' | 'cars' | 'market' | 'general' {
+  const t = (title + ' ' + (desc || '')).toLowerCase();
+  
+  if (
+    t.includes('جامع') || t.includes('كلية') || t.includes('قسم ') || t.includes('مرحل') ||
+    t.includes('رافدين') || t.includes('مستنصري') || t.includes('تكنولوجي') || t.includes('دكتور') ||
+    t.includes('طالب') || t.includes('طلاب') || t.includes('طالبات') || t.includes('نقل') || t.includes('خطوط') || t.includes('خط') || t.includes('باص')
+  ) {
+    return 'university';
+  }
+
+  if (
+    t.includes('سيار') || t.includes('سوق السيار') || t.includes('معارض') || t.includes('معرض') ||
+    t.includes('وارد') || t.includes('كوريات') || t.includes('توسان') || t.includes('النترا') ||
+    t.includes('كيا') || t.includes('هيونداي') || t.includes('تويوتا') || t.includes('شفر') || t.includes('دوج')
+  ) {
+    return 'cars';
+  }
+
+  if (
+    t.includes('سوق') || t.includes('بيع') || t.includes('شراء') || t.includes('عقار') ||
+    t.includes('موبايل') || t.includes('تجارة') || t.includes('اعلانات') || t.includes('إعلانات')
+  ) {
+    return 'market';
+  }
+
+  return 'general';
+}
+
 async function callGroupAiEngine(userText: string, userName: string, groupTitle?: string, contextInfo?: string): Promise<string> {
   const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
   const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 
   const title = groupTitle || 'الكروب';
-  const isTransportGroup = title.includes('خط') || title.includes('نقل') || title.includes('رافدين') || title.includes('جامع') || title.includes('كلية');
+  const category = detectGroupCategory(title);
 
-  const systemPrompt = `أنت موظف خدمة ودعم رسمي من منصة "سوق بغداد" (https://www.souqbaghdad.store) متواجد داخل كروب "${title}" لخدمة ومساعدة الناس والأعضاء 24 ساعة.
+  let groupSpecialty = 'مساعد وخدمة الكروب وحمايته من السبام والإعلانات المزعجة';
+  if (category === 'university') {
+    groupSpecialty = 'مساعد طلاب وأساتذة الجامعات وخطوط النقل وتوصيل الطلاب والسائقين وحجز المقاعد بدقة';
+  } else if (category === 'cars') {
+    groupSpecialty = 'خبير سوق ومعارض السيارات وأسعارها وموديلاتها ومساعدة الأعضاء في تقييم وبيع وشراء السيارات';
+  } else if (category === 'market') {
+    groupSpecialty = 'مساعد البيع والشراء والسوق المفتوح وتسهيل التجارة الآمنة بين الأعضاء';
+  }
+
+  const systemPrompt = `أنت المساعد والمستشار الذكي الرسمي من منصة "سوق بغداد" (https://www.souqbaghdad.store) متواجد داخل كروب "${title}" (تخصص الكروب: ${groupSpecialty}).
 طريقتك وأسلوبك بالرد:
-1. تصرف كـ (موظف عراقي شاطر، خلوق، محترم، وودود جداً) بلهجة بغدادية لطيفة (مثال: تدلل عيوني، بالخدمة يالغالي، يا هلا بيك).
-2. افهم سؤال العضو فوراً وأعطه الجواب المفيد أو الخطوة التالية بدقة.
-3. الرد قصير وواضح (سطرين كحد أقصى) بدون كلام زايد.
+1. تصرف كـ (موظف ومستشار عراقي شاطر، خلوق، محترم، وخفيف الظل) بلهجة بغدادية لطيفة (مثال: تدلل عيوني، بالخدمة يالغالي، يا هلا بيك).
+2. افهم طبيعة ونوع الكروب واجعل جوابك مناسباً جداً لتخصص المجموعة (جامعات/سيارات/سوق عام).
+3. الرد قصير ومفيد (سطرين إلى 3 أسطر كحد أقصى) بدون إطالة أو حشو.
 4. استخدم حصراً روابط سوق بغداد الرسمية وبوت @${BOT_USERNAME}، وممنوع ذكر أي جهات أو بوتات خارجية نهائياً.
 ${contextInfo ? `بيانات حية من المنصة:\n${contextInfo}` : ''}`;
 
@@ -366,16 +407,28 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   // 1. Normalize Iraqi Arabic and common typos
   const norm = rawText
     .replace(/[\\\/](line|lines|خط|خطوط)/gi, '')
-    .replace(/خك|حط|خظ|خيط/gi, 'خط')
-    .replace(/جميله/gi, 'جميلة')
-    .replace(/الرفدين/gi, 'الرافدين')
-    .replace(/سيديه/gi, 'سيدية')
-    .replace(/دوره/gi, 'دورة')
-    .replace(/جامعه/gi, 'جامعة')
-    .replace(/كليه/gi, 'كلية')
-    .replace(/شعله/gi, 'شعلة')
-    .replace(/حريه/gi, 'حرية')
-    .replace(/غزاليه/gi, 'غزالية')
+    .replace(/\b(خك|حط|خظ|خيط|خـط|خطط)\b/gi, 'خط')
+    .replace(/\b(سيايق|سياق|سايقق|سواق)\b/gi, 'سايق')
+    .replace(/\b(اربد|اريدد|ادورر|ابحثث|محتاجج|محتاجه)\b/gi, 'محتاج')
+    .replace(/\b(جميله|جميلهه)\b/gi, 'جميلة')
+    .replace(/\b(الرفدين|الرافين|رافدين|لرافدين|للرافدين)\b/gi, 'كلية الرافدين')
+    .replace(/\b(المستنصريه|مستنصريه|للمستنصرية)\b/gi, 'الجامعة المستنصرية')
+    .replace(/\b(التكنولوجيه|تكنولوجيه)\b/gi, 'الجامعة التكنولوجية')
+    .replace(/\b(سيديه|سيدية)\b/gi, 'السيدية')
+    .replace(/\b(دوره|الدوره)\b/gi, 'الدورة')
+    .replace(/\b(جامعه|الجامعه)\b/gi, 'جامعة')
+    .replace(/\b(كليه|الكليه)\b/gi, 'كلية')
+    .replace(/\b(شعله|الشعله)\b/gi, 'الشعلة')
+    .replace(/\b(حريه|الحريه)\b/gi, 'الحرية')
+    .replace(/\b(غزاليه|الغزاليه)\b/gi, 'الغزالية')
+    .replace(/\b(منصور|المنصورر)\b/gi, 'المنصور')
+    .replace(/\b(بنوك|البنوكك)\b/gi, 'البنوك')
+    .replace(/\b(شعب|الشعبب)\b/gi, 'الشعب')
+    .replace(/\b(كراده|الكراده)\b/gi, 'الكرادة')
+    .replace(/\b(زعفرانيه|الزعفرانيه)\b/gi, 'الزعفرانية')
+    .replace(/\b(كاظميه|الكاظميه)\b/gi, 'الكاظمية')
+    .replace(/\b(اعظميه|الاعظميه)\b/gi, 'الأعظمية')
+    .replace(/\b(يرموك|اليرموك)\b/gi, 'اليرموك')
     .trim();
 
   const lowerRaw = rawText.toLowerCase();
@@ -441,17 +494,24 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
 
   const INVALID_ORIGIN_PHRASES = [
     'اني مو سايق', 'انا مو سايق', 'مو سايق', 'اني طالب', 'انا طالب', 'طالب', 'طالبة', 
-    'محتاج خط', 'اريد خط', 'ابحث عن خط', 'ادور خط', 'سايق', 'سائق', 'تكسي', 'خط', 'نقل'
+    'محتاج خط', 'محتاجة خط', 'اريد خط', 'ابحث عن خط', 'ادور خط', 'سايق', 'سائق', 'تكسي', 'خط', 'نقل',
+    'تلكه خط', 'ينزل خط', 'يجي خط', 'يتوفر خط', 'انشر خط', 'تسجيل خط'
+  ];
+
+  const INVALID_ORIGIN_WORDS = [
+    'اني', 'انا', 'مو', 'سايق', 'سائق', 'طالب', 'طالبة', 'محتاج', 'محتاجة', 'اريد', 'أريد', 
+    'ادور', 'أدور', 'ابحث', 'خط', 'نقل', 'هذا', 'نفسه', 'غير', 'خلاص', 'شكرا', 'تلكه', 'تلقى', 
+    'الكه', 'ينزل', 'يجي', 'يصير', 'يتوفر', 'بلغني', 'نبهني', 'اشوف', 'رخصتك', 'فضلك', 'بعد', 
+    'اكو', 'كلية', 'جامعة', 'دوام', 'صباحي', 'مسائي', 'انشر', 'تسجيل'
   ];
 
   function isValidLocation(str: string): boolean {
     if (!str) return false;
     const s = str.trim().toLowerCase();
     if (s.length < 3) return false;
-    if (INVALID_ORIGIN_PHRASES.some(p => s === p || s.includes('مو سايق') || s.includes('اني مو') || s.includes('انا مو'))) return false;
+    if (INVALID_ORIGIN_PHRASES.some(p => s === p || s.includes('مو سايق') || s.includes('اني مو') || s.includes('تلكه') || s.includes('بلغني') || s.includes('انشر خط'))) return false;
     const words = s.split(/\s+/);
-    const stopWords = ['اني', 'انا', 'مو', 'سايق', 'سائق', 'طالب', 'طالبة', 'محتاج', 'اريد', 'أريد', 'ادور', 'أدور', 'خط', 'نقل', 'هذا', 'نفسه', 'غير', 'خلاص', 'شكرا'];
-    const nonStop = words.filter(w => !stopWords.includes(w));
+    const nonStop = words.filter(w => !INVALID_ORIGIN_WORDS.includes(w));
     return nonStop.length > 0;
   }
 
@@ -471,21 +531,14 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   // Extract "من [origin] الى/لـ [destination]" accurately
   const routeMatch = norm.match(/من\s+(.+?)\s+(?:إلى|الي|الى|لـ|ل)\s+(.+)/i);
   if (routeMatch) {
-    origin = routeMatch[1].trim().replace(/^(منطقة|حي|شارع)\s+/, '');
+    const rawOrigin = routeMatch[1].trim().replace(/^(منطقة|حي|شارع)\s+/, '');
+    if (isValidLocation(rawOrigin)) {
+      origin = rawOrigin;
+    }
     destination = routeMatch[2].trim();
-  } else {
-    const fromMatch = norm.match(/من\s+([^\,\.\،\n\r]+)/i);
-    if (fromMatch) origin = fromMatch[1].trim().replace(/^(منطقة|حي|شارع)\s+/, '');
-
-    const toMatch = norm.match(/(?:إلى|الي|الى|لـ)\s+([^\,\.\،\n\r]+)/i);
-    if (toMatch) destination = toMatch[1].trim();
   }
 
-  // Validate extracted locations
-  if (!isValidLocation(origin)) origin = '';
-  if (!isValidLocation(destination)) destination = '';
-
-  // Match known area if origin is still empty
+  // If origin not yet found via routeMatch, check IRAQI_AREAS
   if (!origin) {
     for (const a of IRAQI_AREAS) {
       if (norm.toLowerCase().includes(a.toLowerCase())) {
@@ -493,6 +546,15 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
         break;
       }
     }
+  }
+
+  // Parse destination (colleges & universities)
+  if (!destination) {
+    if (norm.includes('رافدين') || norm.includes('رفدين')) destination = 'كلية الرافدين الجامعة';
+    else if (norm.includes('مستنصرية')) destination = 'الجامعة المستنصرية';
+    else if (norm.includes('تكنولوجية')) destination = 'الجامعة التكنولوجية';
+    else if (norm.includes('نهرين')) destination = 'جامعة النهرين';
+    else if (norm.includes('بغداد')) destination = 'جامعة بغداد';
   }
 
   // 1. Fetch strictly ACTIVE driver line offers (exclude completed, sold, matched, or student search ads)
@@ -3828,13 +3890,15 @@ Deno.serve(async (req: any) => {
       if (callbackMsgId) {
         try {
           const editRes = await editMessageText(chatId, callbackMsgId, msgText, markup);
-          if (editRes?.ok) return editRes;
-          if (editRes?.description?.includes('message is not modified')) return editRes;
+          if (editRes?.ok || editRes?.description?.includes('message is not modified')) {
+            return new Response('OK', { status: 200 });
+          }
         } catch(e) {
           console.error('editMessageText failed, sending new:', e);
         }
       }
-      return await sendMessage(chatId, msgText, markup);
+      await sendMessage(chatId, msgText, markup);
+      return new Response('OK', { status: 200 });
     };
 
     // 🛑 Stop Transport Alert Handler (زر «لكيت خط خلاص / إيقاف التنبيهات»)
@@ -3894,33 +3958,70 @@ Deno.serve(async (req: any) => {
 
       // 1. Welcome New Members or Bot Added to Group
       if (update.message?.new_chat_members && update.message.new_chat_members.length > 0) {
+        const groupCat = detectGroupCategory(chatTitle);
+
         for (const newMember of update.message.new_chat_members) {
           if (newMember.is_bot && (newMember.username === BOT_USERNAME || newMember.username?.includes('souqbaghda'))) {
-            await sendOrReplaceGroupMessage(chatId, 
-              `👋 <b>يا هلا وكل الهلا بيكم في كروبكم! 🇮🇶✨</b>\n\n` +
-              `🤖 أنا <b>مساعد سوق بغداد وشبكة النقل الذكي</b>.\n` +
-              `تم تفعيل الحماية والمساعد الذكي تلقائياً:\n\n` +
-              `🛡️ <b>نظام الحماية:</b> منع الروابط والسبام والألفاظ غير اللائقة بنظام الإنذارات الثلاثية.\n` +
-              `🚌 <b>مطابق الخطوط:</b> اكتب طلبك (مثال: محتاج خط للرافدين) وسأعرض لك الخطوط المتوفرة فوراً.\n` +
-              `🚗 <b>رادار السيارات:</b> اكتب (سعر النترا 2019) وسأعطيك متوسط أسعار السوق.\n\n` +
-              `<i>أهلاً وسهلاً بالجميع، نسعد بخدمتكم! 🌹</i>`,
-              {
-                inline_keyboard: [
-                  [{ text: '🚗 سيارات سوق بغداد', url: 'https://www.souqbaghdad.store' }, { text: '🚌 خطوط النقل', url: 'https://www.souqbaghdad.store/transport' }],
-                  [{ text: '🤖 فتح محادثة خاصة مع البوت', url: `https://t.me/${BOT_USERNAME}` }]
-                ]
-              },
-              supabase
-            );
+            let welcomeCard = '';
+            let buttons: any[] = [];
+
+            if (groupCat === 'university') {
+              welcomeCard = 
+                `👋 <b>يا هلا وكل الهلا بطلاب وأساتذة وإدارة «${chatTitle}»! 🎓🚌✨</b>\n\n` +
+                `🤖 أنا <b>مساعد الكروب الذكي لخدمات النقل والجامعات</b> (سوق بغداد).\n` +
+                `تم تفعيل المساعد والخدمات التلقائية لأعضاء الكروب:\n\n` +
+                `🚌 <b>البحث عن خطوط النقل:</b> اكتب (محتاج خط من منطقتك) وسأجد لك السائقين المتوفرين فوراً.\n` +
+                `🚗 <b>للسائقين:</b> اكتب (عندي خط من... إلى...) أو <code>/seats 2 منطقتك</code> لربطك بالطلاب مجاناً.\n` +
+                `🛡️ <b>نظام الحماية:</b> حظر السبام والروابط والإعلانات المكررة تلقائياً.\n\n` +
+                `<i>نتمنى لكم دوام التوفيق والنجاح بدوامكم! 🌹</i>`;
+
+              buttons = [
+                [{ text: '🚌 تصفح خطوط النقل المتاحة 🌐', url: 'https://www.souqbaghdad.store/transport' }],
+                [{ text: '🤖 فتح محادثة خاصة مع البوت', url: `https://t.me/${BOT_USERNAME}` }],
+                [{ text: '➕ إضافة البوت لمجموعات أخرى 🛡️', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }]
+              ];
+            } else if (groupCat === 'cars') {
+              welcomeCard = 
+                `👋 <b>يا هلا وكل الهلا بأهل وتجار وعشاق السيارات في «${chatTitle}»! 🚗🇮🇶✨</b>\n\n` +
+                `🤖 أنا <b>رادار السيارات والمساعد الذكي لسوق بغداد</b>.\n` +
+                `تم تفعيل الخدمات التلقائية لخدمة أعضاء الكروب:\n\n` +
+                `💰 <b>رادار الأسعار الحية:</b> اكتب (سعر النترا 2020 أو سعر توسان 2019) وسأعطيك متوسط أسعار السوق الحقيقية فوراً.\n` +
+                `🚗 <b>بيع وشراء السيارات:</b> اعرض سيارتك لتنزل تلقائياً بالموقع وقنوات التليكرام والفيسبوك.\n` +
+                `🛡️ <b>حماية الكروب:</b> فلترة الروابط الخارجية والسبام تلقائياً.\n\n` +
+                `<i>أهلاً وسهلاً بالجميع، نسعد بخدمتكم وتجارتكم دائماً! 🌹</i>`;
+
+              buttons = [
+                [{ text: '🚗 معرض سيارات سوق بغداد 🌐', url: 'https://www.souqbaghdad.store' }],
+                [{ text: '🤖 فتح محادثة خاصة مع البوت', url: `https://t.me/${BOT_USERNAME}` }],
+                [{ text: '➕ إضافة البوت لمجموعات أخرى 🛡️', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }]
+              ];
+            } else {
+              welcomeCard = 
+                `👋 <b>يا هلا وكل الهلا بأعضاء وإدارة «${chatTitle}»! 🇮🇶✨</b>\n\n` +
+                `🤖 أنا <b>المساعد الذكي وحامي الكروب الرسمي</b> من منصة سوق بغداد.\n` +
+                `تم تفعيل خدمات المجموعة الذكية والحماية 24/7:\n\n` +
+                `🛡️ <b>حماية الكروب:</b> منع الروابط والسبام والألفاظ غير اللائقة بنظام الإنذارات الثلاثية.\n` +
+                `🔍 <b>استعلام وبحث:</b> اسألني عن أي سيارة أو خط نقل أو سلعة وسأجيبك فوراً.\n` +
+                `🚗 <b>عرض إعلان:</b> افتح الخاص وانشر إعلاناتك مجاناً لتصل لآلاف المشترين.\n\n` +
+                `<i>نتشرف بخدمتكم جميعاً بكل محبة وتقدير 🌹</i>`;
+
+              buttons = [
+                [{ text: '🚗 سيارات سوق بغداد', url: 'https://www.souqbaghdad.store' }, { text: '🚌 خطوط النقل', url: 'https://www.souqbaghdad.store/transport' }],
+                [{ text: '🤖 فتح محادثة خاصة مع البوت', url: `https://t.me/${BOT_USERNAME}` }],
+                [{ text: '➕ إضافة البوت لمجموعات أخرى 🛡️', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }]
+              ];
+            }
+
+            await sendOrReplaceGroupMessage(chatId, welcomeCard, { inline_keyboard: buttons }, supabase);
           } else if (!newMember.is_bot) {
             const memberName = newMember.first_name || 'عزيزنا';
-            await sendOrReplaceGroupMessage(chatId, 
-              `👋 يا هلا بيك <b>${memberName}</b> نورت الكروب 🌹\n` +
-              `هنا تكدر تبحث عن سيارة أو خط نقل أو تعرض إعلاناتك مجاناً عبر سوق بغداد.\n` +
-              `🤖 للاستفادة من البوت: @${BOT_USERNAME}`,
-              undefined,
-              supabase
-            );
+            const welcomeText = groupCat === 'university'
+              ? `👋 يا هلا بيك <b>${memberName}</b> نورت الكروب 🎓🌹\nتكدر تبحث عن خط نقل لدوامك أو تستفسر عن أي شيء بالكروب.\n🤖 لمحادثة المساعد: @${BOT_USERNAME}`
+              : groupCat === 'cars'
+              ? `👋 يا هلا بيك <b>${memberName}</b> نورت كروب السيارات 🚗🌹\nتكدر تسأل عن أسعار أي سيارة أو تبحث عن سيارة معروضة.\n🤖 لمحادثة المساعد: @${BOT_USERNAME}`
+              : `👋 يا هلا بيك <b>${memberName}</b> نورت الكروب 🌹\nهنا تكدر تبحث عن سيارة أو خط نقل أو تعرض إعلاناتك مجاناً عبر سوق بغداد.\n🤖 للاستفادة من البوت: @${BOT_USERNAME}`;
+
+            await sendOrReplaceGroupMessage(chatId, welcomeText, undefined, supabase);
           }
         }
         return new Response('OK', { status: 200 });
@@ -3948,27 +4049,36 @@ Deno.serve(async (req: any) => {
 
         // --- /start or /help Command in Group ---
         if (cmd === '/start' || cmd === '/help') {
-          const isTransport = chatTitle.includes('خط') || chatTitle.includes('نقل') || chatTitle.includes('رافدين') || chatTitle.includes('جامع') || chatTitle.includes('كلية');
-          
-          let introMsg = `👋 <b>يا هلا بيكم في ${chatTitle}! 🇮🇶✨</b>\n` +
+          const groupCat = detectGroupCategory(chatTitle);
+          let introMsg = `👋 <b>يا هلا بيكم في «${chatTitle}»! 🇮🇶✨</b>\n` +
             `🤖 أنا مساعد الكروب الذكي لخدمتكم 24/7:\n\n`;
 
-          if (isTransport) {
+          if (groupCat === 'university') {
             introMsg += 
+              `🎓 <b>لخدمات النقل والجامعات:</b>\n` +
               `• اكتب طلبك بالكروب (مثال: <i>محتاج خط للرافدين</i>) لأجد لك السائقين فوراً.\n` +
-              `• السائق يكتب <code>/seats 2 المنصور</code> لنشر مقاعد شاغرة.\n`;
+              `• السائق يكتب <code>/seats 2 المنصور</code> لنشر مقاعد شاغرة.\n` +
+              `• أو سوّي رد (Reply) على رسالتي وسأجيبك فوراً.\n`;
+          } else if (groupCat === 'cars') {
+            introMsg += 
+              `🚗 <b>لخدمات سوق ومعارض السيارات:</b>\n` +
+              `• اكتب <code>/price النترا 2020</code> أو <code>سعر توسان 2019</code> لمعرفة أسعار السوق الحية.\n` +
+              `• اكتب <code>/car سبورتج</code> للبحث عن سيارات معروضة.\n` +
+              `• أو سوّي رد (Reply) على رسالتي وسأجيبك فوراً.\n`;
           } else {
             introMsg += 
-              `• اكتب <code>/car النترا</code> للبحث عن سيارات معروضة.\n` +
-              `• اكتب <code>/price توسان 2020</code> لمعرفة أسعار السوق الحية.\n`;
+              `• اكتب <code>/price توسان 2020</code> لمعرفة أسعار السوق الحية.\n` +
+              `• اكتب <code>محتاج خط للجامعة</code> للبحث عن خطوط نقل.\n` +
+              `• أو سوّي رد (Reply) على رسالتي وسأجيبك فوراً.\n`;
           }
 
-          introMsg += `• أو سوّي (رد / Reply) على رسالتي وسأجيبك فوراً 🌹`;
+          introMsg += `\n🛡️ <i>الكروب محمي بالكامل من الروابط والإعلانات المكررة.</i>`;
 
           await sendOrReplaceGroupMessage(chatId, introMsg, {
             inline_keyboard: [
               [{ text: '🚗 سيارات سوق بغداد', url: 'https://www.souqbaghdad.store' }, { text: '🚌 خطوط النقل', url: 'https://www.souqbaghdad.store/transport' }],
-              [{ text: '🤖 فتح محادثة خاصة مع البوت', url: `https://t.me/${BOT_USERNAME}` }]
+              [{ text: '🤖 فتح محادثة خاصة مع البوت', url: `https://t.me/${BOT_USERNAME}` }],
+              [{ text: '➕ إضافة البوت لكروب آخر 🛡️', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }]
             ]
           }, supabase);
           return new Response('OK', { status: 200 });
@@ -4362,8 +4472,16 @@ Deno.serve(async (req: any) => {
       return new Response('OK', { status: 200 });
     }
 
-    // ⚙️ Owner Command: /social or /control or /channels
-    if (isOwner && (trimmedText === '/social' || trimmedText === '/control' || trimmedText === '/channels' || trimmedText.startsWith('toggle_social_') || trimmedText === 'social_refresh' || trimmedText.startsWith('set_post_price_'))) {
+    // ⚙️ Owner Command: /social, /control, /channels, social_management, التسعيرة, لوحة تحكم المنصات
+    const isSocialManagementIntent = isOwner && (
+      trimmedText === '/social' || trimmedText === '/control' || trimmedText === '/channels' || trimmedText === '/pricing' ||
+      trimmedText === 'social_management' || trimmedText === 'social_refresh' || trimmedText === 'التسعيرة' || trimmedText === 'تسعيرة' ||
+      trimmedText === 'لوحة تحكم المنصات والتسعير' || trimmedText === 'لوحة تحكم المنصات' || trimmedText === 'لوحة المنصات' ||
+      trimmedText === 'المنصات' || trimmedText === 'تسعير' || trimmedText.startsWith('toggle_social_') || trimmedText.startsWith('set_post_price_') ||
+      trimmedText === 'set_custom_price_prompt'
+    );
+
+    if (isSocialManagementIntent) {
       // Handle Toggle Callback
       if (trimmedText.startsWith('toggle_social_')) {
         const toggleKey = trimmedText.replace('toggle_social_', '');
@@ -4387,6 +4505,17 @@ Deno.serve(async (req: any) => {
           }).neq('id', 'temp_placeholder');
           await sendMessage(chatId, `✅ <b>تم تحديث تسعير البوست لجميع المنصات إلى: ${priceVal === 0 ? 'مجاني 🎁' : priceVal + ' نقطة'} بنجاح!</b>`);
         }
+      }
+
+      // Handle Custom Price Prompt
+      if (trimmedText === 'set_custom_price_prompt') {
+        state = { step: 'owner_custom_price_waiting' };
+        if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        return await updateOrSend(
+          `🪙 <b>تحديد سعر مخصص بالنقاط لنشر البوست:</b>\n\n` +
+          `أرسل رقم النقاط المطلوب لكل بوست (مثال: <code>3</code> أو <code>7</code> أو <code>10</code>):`,
+          { inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'social_management' }]] }
+        );
       }
 
       const { data: allSettings } = await supabase.from('social_settings').select('*').order('id');
@@ -4419,9 +4548,13 @@ Deno.serve(async (req: any) => {
         { text: '🪙 البوست = 2 نقطة', callback_data: 'set_post_price_2' },
         { text: '🪙 البوست = 5 نقاط', callback_data: 'set_post_price_5' }
       ]);
+      keyboard.push([
+        { text: '🪙 البوست = 10 نقاط', callback_data: 'set_post_price_10' },
+        { text: '✏️ سعر مخصص', callback_data: 'set_custom_price_prompt' }
+      ]);
 
       keyboard.push([
-        { text: '🔄 تحديث الحالة', callback_data: 'social_refresh' },
+        { text: '🔄 تحديث الحالة', callback_data: 'social_management' },
         { text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }
       ]);
       const markup = { inline_keyboard: keyboard };
@@ -4433,6 +4566,29 @@ Deno.serve(async (req: any) => {
         } catch(e) {}
       }
       await sendMessage(chatId, msg, markup);
+      return new Response('OK', { status: 200 });
+    }
+
+    // Handle Custom Price Input
+    if (isOwner && state?.step === 'owner_custom_price_waiting') {
+      state = {};
+      if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+      const customPrice = parseInt(trimmedText.replace(/[^0-9]/g, ''));
+      if (!isNaN(customPrice) && customPrice >= 0) {
+        await supabase.from('social_settings').update({
+          post_price: customPrice,
+          currency: 'نقطة',
+          updated_at: new Date().toISOString()
+        }).neq('id', 'temp_placeholder');
+        await sendMessage(chatId, `✅ <b>تم تحديث تسعير البوست لجميع المنصات إلى: ${customPrice === 0 ? 'مجاني 🎁' : customPrice + ' نقطة'} بنجاح!</b>`, {
+          inline_keyboard: [[{ text: '📡 لوحة المنصات والتسعير', callback_data: 'social_management' }]]
+        });
+      } else {
+        await sendMessage(chatId, `⚠️ يرجى إدخال رقم صحيح (مثال: 5).`, {
+          inline_keyboard: [[{ text: '🔙 عودة للوحة المنصات', callback_data: 'social_management' }]]
+        });
+      }
       return new Response('OK', { status: 200 });
     }
 
@@ -4923,25 +5079,28 @@ Deno.serve(async (req: any) => {
     if (trimmedText === 'invite_and_earn') {
       const myRefCode = userId || String(chatId);
       const inviteLink = `https://t.me/${BOT_USERNAME}?start=ref_${myRefCode}`;
-      const shareText = encodeURIComponent(`🚗 انضم الآن لبوت سوق بغداد وسجل حسابك مجاناً لتصفح ونشر السيارات وخطوط النقل!\n👉 ${inviteLink}`);
+      const shortShare = encodeURIComponent(`🚗 انضم لبوت سوق بغداد وتصفح السيارات وخطوط النقل مجاناً واحصل على 10 نقاط هدية 🎁`);
 
       const refMsg = 
         `🎁 <b>برنامج المكافآت ودعوة الأصدقاء — سوق بغداد</b> 🇮🇶\n\n` +
-        `ادعُ أصدقاءك في الجامعة أو الكروبات واكسب نقاطاً مجانية لترويج إعلاناتك!\n\n` +
+        `شارك رابطك في كروبات الجامعة والواتساب وتيليجرام واكسب نقاطاً مجانية لترويج إعلاناتك!\n\n` +
         `💰 <b>مكافأة الدعوة:</b>\n` +
-        `• كل صديق يسجل عن طريقك يحصل على <b>10 نقاط ترحيبية</b> 🎁\n` +
+        `• كل صديق ينضم عبر رابطك يحصل على <b>10 نقاط ترحيبية</b> 🎁\n` +
         `• وأنت تحصل على <b>15 نقطة مجانية</b> في محفظتك فوراً! 🪙\n\n` +
         `🔗 <b>رابط الدعوة الخاص بك (اضغط للنسخ):</b>\n` +
         `<code>${inviteLink}</code>`;
 
       const refMarkup = {
         inline_keyboard: [
-          [{ text: '📢 مشاركة في التيليجرام الآن', url: `https://t.me/share/url?url=${inviteLink}&text=${shareText}` }],
+          [{ text: '📢 مشاركة في كروبات التلغرام 🚀', url: `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${shortShare}` }],
+          [{ text: '💬 مشاركة في واتساب 🟢', url: `https://api.whatsapp.com/send?text=${shortShare}%0A${encodeURIComponent(inviteLink)}` }],
+          [{ text: '➕ إضافة البوت إلى كروبك مجاناً 🛡️', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }],
           [{ text: '🔙 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]
         ]
       };
 
-      return await updateOrSend(refMsg, refMarkup);
+      await updateOrSend(refMsg, refMarkup);
+      return new Response('OK', { status: 200 });
     }
 
     // --- Deep-Link Concierge (تحويل المستخدم من الكروب إلى الخاص) ---
@@ -4968,12 +5127,25 @@ Deno.serve(async (req: any) => {
       return new Response('OK', { status: 200 });
     }
 
-    // --- Start / Register Command ---
+    // --- Start / Register Command (Captures Referral Code) ---
     if (text === '/start' || text.startsWith('/start ') || text === '/relink') {
       if (text === '/relink') {
         await supabase.from('telegram_users').delete().eq('telegram_chat_id', chatId);
       }
-      await sendMessage(chatId, 'مرحباً بك في بوت <b>سوق بغداد الرقمي</b>! 🇮🇶🚗🚌\n\nسوق السيارات والمنتجات وخطوط النقل الأول في العراق.\nيرجى مشاركة رقم هاتفك للتحقق من حسابك والبدء بالنشر فوراً.', {
+
+      // Capture referrer code if passed (e.g. /start ref_USERID or /start _tgr_CODE)
+      if (text.startsWith('/start ref_') || text.startsWith('/start _tgr_')) {
+        const refCode = text.replace('/start ref_', '').replace('/start _tgr_', '').trim();
+        if (refCode) {
+          state.referrer = refCode;
+          await supabase.from('telegram_users').upsert({
+            telegram_chat_id: chatId,
+            bot_state: state
+          }, { onConflict: 'telegram_chat_id' });
+        }
+      }
+
+      await sendMessage(chatId, 'مرحباً بك في بوت <b>سوق بغداد الرقمي</b>! 🇮🇶🚗🚌\n\nسوق السيارات والمنتجات وخطوط النقل الأول في العراق.\nيرجى مشاركة رقم هاتفك للتحقق من حسابك وتفعيل هديتك والبدء فوراً 🎁', {
         keyboard: [[{ text: '📱 مشاركة رقم الهاتف', request_contact: true }]],
         one_time_keyboard: true,
         resize_keyboard: true
@@ -5053,6 +5225,44 @@ Deno.serve(async (req: any) => {
         if (curProf && (curProf.points === null || curProf.points === 0)) {
           await supabase.from('profiles').update({ points: 10 }).eq('id', matchedUserId);
           isNewAccount = true;
+        }
+      }
+
+      // 🎁 Award +15 Points to the Referrer if user came via referral link
+      if (isNewAccount && state?.referrer) {
+        try {
+          const refTarget = String(state.referrer);
+          let referrerProfile: any = null;
+          let referrerChatId: string | null = null;
+
+          const { data: byId } = await supabase.from('profiles').select('id, points').eq('id', refTarget).maybeSingle();
+          if (byId) {
+            referrerProfile = byId;
+            const { data: tgU } = await supabase.from('telegram_users').select('telegram_chat_id').eq('user_id', byId.id).maybeSingle();
+            referrerChatId = tgU?.telegram_chat_id || null;
+          } else {
+            const { data: byChat } = await supabase.from('telegram_users').select('user_id, telegram_chat_id').eq('telegram_chat_id', refTarget).maybeSingle();
+            if (byChat && byChat.user_id) {
+              referrerChatId = byChat.telegram_chat_id;
+              const { data: prof } = await supabase.from('profiles').select('id, points').eq('id', byChat.user_id).maybeSingle();
+              referrerProfile = prof;
+            }
+          }
+
+          if (referrerProfile) {
+            const updatedPts = (referrerProfile.points || 0) + 15;
+            await supabase.from('profiles').update({ points: updatedPts }).eq('id', referrerProfile.id);
+            if (referrerChatId) {
+              await sendMessage(referrerChatId, 
+                `🎉 <b>مبروك يالغالي! 🪙✨</b>\n\n` +
+                `انضم صديق جديد إلى سوق بغداد عبر رابط دعوتك!\n` +
+                `🎁 تمت إضافة <b>+15 نقطة مجانية</b> إلى محفظتك بنجاح.\n` +
+                `رصيدك الجديد: <b>${updatedPts}</b> نقطة 🚀`
+              );
+            }
+          }
+        } catch(e) {
+          console.error('[REFERRAL REWARD ERROR]', e);
         }
       }
 
@@ -6421,11 +6631,19 @@ Deno.serve(async (req: any) => {
         for (const t of activeTrans) {
           const typeText = t.type === 'offer' ? 'أوفر خط' : 'أبحث عن خط';
           const priceText = formatTgPrice(t.price);
-          const transCardText = `🚌 <b>${t.title}</b> (${typeText}) [🟢 نشط]\n💰 <b>الأجرة:</b> ${priceText}\n📍 <b>المناطق:</b> ${t.location || 'غير محدد'}\n🏢 <b>الوجهة:</b> ${t.city || 'غير محدد'}\n📞 <b>الهاتف:</b> ${t.phone || 'غير مسجل'}`;
+          const isVip = t.is_vip || t.is_featured;
+          const transCardText = 
+            `🚌 <b>${t.title}</b> (${typeText}) [🟢 نشط${isVip ? ' ⭐ مميز VIP' : ''}]\n` +
+            `💰 <b>الأجرة:</b> ${priceText}\n` +
+            `📍 <b>المناطق:</b> ${t.location || 'غير محدد'}\n` +
+            `🏢 <b>الوجهة:</b> ${t.city || 'غير محدد'}\n` +
+            `📞 <b>الهاتف:</b> <code>${t.phone || 'غير مسجل'}</code>`;
 
           const buttons = [
+            [{ text: '👥 عرض الطلاب المحتاجين لخطك فوراً 🎯', callback_data: `match_students_${t.id}` }],
+            [{ text: '🚀 ترويج وتمييز الخط (5 نقاط)', callback_data: `boost_ad_${t.id}` }],
             [{ text: '💰 تعديل الأجرة', callback_data: `edit_trans_price_${t.id}` }, { text: '📞 تعديل الهاتف', callback_data: `edit_trans_phone_${t.id}` }],
-            [{ text: '✅ إغلاق الخط (اكتمل العدد)', callback_data: `solve_trans_${t.id}` }],
+            [{ text: '🔒 إغلاق الخط (اكتمل العدد)', callback_data: `solve_trans_${t.id}` }],
             [{ text: '🗑️ حذف الخط نهائياً', callback_data: `del_trans_${t.id}` }]
           ];
 
@@ -6442,7 +6660,7 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
-      // Submenu: Transport Archive
+      // Submenu: Transport Archive (With 1-click Reactivation)
       if (action === 'manage_trans_archive') {
         const { data: closedTrans } = await supabase.from('ads')
           .select('*')
@@ -6462,16 +6680,188 @@ Deno.serve(async (req: any) => {
 
         for (const t of closedTrans) {
           const typeText = t.type === 'offer' ? 'أوفر خط' : 'أبحث عن خط';
-          const transCardText = `🚌 <b>${t.title}</b> (${typeText}) [✅ مكتمل ومغلق]\n💰 <b>الأجرة:</b> ${formatTgPrice(t.price)}\n📍 <b>المناطق:</b> ${t.location}\n🏢 <b>الوجهة:</b> ${t.city}`;
+          const transCardText = `🚌 <b>${t.title}</b> (${typeText}) [🔒 مكتمل ومغلق]\n💰 <b>الأجرة:</b> ${formatTgPrice(t.price)}\n📍 <b>المناطق:</b> ${t.location}\n🏢 <b>الوجهة:</b> ${t.city}`;
 
           await sendMessage(chatId, transCardText, {
-            inline_keyboard: [[{ text: '🗑️ حذف من الأرشيف', callback_data: `del_trans_${t.id}` }]]
+            inline_keyboard: [
+              [{ text: '🔄 إعادة فتح وتفعيل الخط 🟢', callback_data: `reactivate_trans_${t.id}` }],
+              [{ text: '🗑️ حذف من الأرشيف', callback_data: `del_trans_${t.id}` }]
+            ]
           });
         }
 
-        await sendMessage(chatId, 'نهاية أرشيف الخطوط.', {
+        await sendMessage(chatId, 'نهاية أرشيف الخطوط. يمكنك إعادة تفعيل أي خط بضغطة زر واحدة 👆', {
           inline_keyboard: [[{ text: '🔙 العودة لخطوطي النشطة', callback_data: 'manage_cat_trans' }]]
         });
+        return new Response('OK', { status: 200 });
+      }
+
+      // Reactivate Transport Line (إعادة تفعيل الخط)
+      if (action.startsWith('reactivate_trans_')) {
+        const transId = action.replace('reactivate_trans_', '');
+        await supabase.from('ads').update({ status: 'active', updated_at: new Date().toISOString() }).eq('id', transId).eq('seller_id', userId);
+        
+        await sendMessage(chatId, `✅ <b>تمت إعادة فتح وتفعيل خطك بنجاح! 🟢</b>\n\nأصبح الآن نشطاً بالموقع وقنوات التيليجرام ويستطيع الركاب والطلاب التواصل معك مباشرة 🤝`, {
+          inline_keyboard: [
+            [{ text: '👥 عرض الطلاب المحتاجين للخط فوراً', callback_data: `match_students_${transId}` }],
+            [{ text: '📋 إدارة خطوطي', callback_data: 'manage_cat_trans' }]
+          ]
+        });
+        return new Response('OK', { status: 200 });
+      }
+
+      // Boost Ad with Points (ترويج الإعلان بالنقاط مع منع التكرار وحذف البوست القديم وتجديده)
+      if (action.startsWith('boost_ad_')) {
+        const adId = action.replace('boost_ad_', '');
+        const { data: targetAd } = await supabase.from('ads').select('*').eq('id', adId).eq('seller_id', userId).maybeSingle();
+
+        if (!targetAd) {
+          await sendMessage(chatId, `❌ لم يتم العثور على الإعلان المطلوب.`);
+          return new Response('OK', { status: 200 });
+        }
+
+        // 1. Check 24-hour Cooldown
+        const lastBoost = targetAd.last_boosted_at || targetAd.sync_status?.last_boosted_at;
+        if (lastBoost && !isOwner) {
+          const elapsedMs = Date.now() - new Date(lastBoost).getTime();
+          const elapsedHours = elapsedMs / (1000 * 60 * 60);
+          if (elapsedHours < 24) {
+            const remainingHours = Math.ceil(24 - elapsedHours);
+            await sendMessage(chatId, 
+              `⏳ <b>إعلانك مروّج ومميز حالياً في الصدارة! ⭐</b>\n\n` +
+              `📌 <b>النظام:</b> يُسمح بالترويج وإعادة التجديد مرة واحدة كل <b>24 ساعة</b> لضمان عدم إزعاج الأعضاء.\n` +
+              `⏱️ الوقت المتبقي لإعادة الترويج: <b>${remainingHours} ساعة</b>.`,
+              {
+                inline_keyboard: [[{ text: '📋 عرض خطوطي النشطة', callback_data: 'manage_cat_trans' }]]
+              }
+            );
+            return new Response('OK', { status: 200 });
+          }
+        }
+
+        // 2. Check User Balance
+        const { data: userProf } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
+        const currentPoints = userProf?.points || 0;
+        const boostCost = 5;
+
+        if (currentPoints < boostCost && !isOwner) {
+          await sendMessage(chatId, `❌ <b>رصيدك غير كافٍ لترويج الإعلان!</b>\n\nتكلفة التمييز: <b>${boostCost} نقاط</b>\nرصيدك الحالي: <b>${currentPoints} نقطة</b>\n\n💡 يمكنك شحن المحفظة أو دعوة أصدقائك للحصول على نقاط مجانية.`, {
+            inline_keyboard: [
+              [{ text: '🎁 كسب نقاط مجانية بالدعوة', callback_data: 'invite_and_earn' }],
+              [{ text: '💳 شراء نقاط', callback_data: 'buy_points' }],
+              [{ text: '🔙 عودة', callback_data: 'manage_cat_trans' }]
+            ]
+          });
+          return new Response('OK', { status: 200 });
+        }
+
+        // 3. Deduct Points
+        if (!isOwner) {
+          await supabase.from('profiles').update({ points: currentPoints - boostCost }).eq('id', userId);
+        }
+
+        // 4. Delete Old Post from Telegram Channels (منع تكرار وحذف البوست القديم)
+        if (targetAd.telegram_message_id) {
+          const oldMsgId = parseInt(targetAd.telegram_message_id, 10);
+          const channelList = [LINES_CHANNEL_ID, LINES_CHANNEL, '@souqbaghdad_lines', CAR_CHANNEL_ID, CAR_CHANNEL, '@souqbaghdad_car', PRODUCT_CHANNEL_ID, PRODUCT_CHANNEL, '@souqbaghdad_iq'];
+          for (const ch of channelList) {
+            if (ch) {
+              try { await deleteMessage(ch, oldMsgId); } catch(e) {}
+            }
+          }
+        }
+
+        // 5. Publish Fresh VIP Post to Channel
+        const isTransport = targetAd.category === 'transport';
+        const targetChannel = isTransport ? (LINES_CHANNEL_ID || LINES_CHANNEL || '@souqbaghdad_lines') : (CAR_CHANNEL_ID || CAR_CHANNEL || '@souqbaghdad_car');
+        const adLink = `https://www.souqbaghdad.store/${isTransport ? 'ad' : 'product'}/${targetAd.short_id || targetAd.id}`;
+        
+        let vipCaption = `⭐ <b>[إعلان مميز VIP — متصدر الصدارة]</b>\n\n` +
+          `🚌 <b>${targetAd.title}</b>\n` +
+          `📍 <b>المسار:</b> ${targetAd.location || 'بغداد'}\n` +
+          `💰 <b>الأجرة / السعر:</b> ${formatTgPrice(targetAd.price)}\n` +
+          (targetAd.phone ? `📞 <b>هاتف التواصل:</b> <code>${targetAd.phone}</code>\n\n` : '\n') +
+          `✨ <i>تم تجديد وترويج هذا الإعلان ليتصدر نتائج البحث</i>\n` +
+          `🔗 <b>#كود_${targetAd.short_id || targetAd.id}</b> | @${BOT_USERNAME}`;
+
+        const vipMarkup = {
+          inline_keyboard: [
+            [{ text: '🌐 التفاصيل الكاملة بالمنصة', url: adLink }],
+            [{ text: '🚌 انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}` }]
+          ]
+        };
+
+        let newMsgId: string | null = null;
+        try {
+          const imgs = (targetAd.images && targetAd.images.length > 0) ? targetAd.images[0] : null;
+          if (imgs) {
+            const sendRes = await sendPhoto(targetChannel, imgs, vipCaption, vipMarkup);
+            if (sendRes?.ok && sendRes.result?.message_id) newMsgId = String(sendRes.result.message_id);
+          } else {
+            const sendRes = await sendMessage(targetChannel, vipCaption, vipMarkup);
+            if (sendRes?.ok && sendRes.result?.message_id) newMsgId = String(sendRes.result.message_id);
+          }
+        } catch(e) {
+          console.error('[BOOST PUBLISH ERROR]', e);
+        }
+
+        // 6. Update Database
+        const nowIso = new Date().toISOString();
+        await supabase.from('ads').update({
+          is_vip: true,
+          is_featured: true,
+          last_boosted_at: nowIso,
+          updated_at: nowIso,
+          telegram_message_id: newMsgId || targetAd.telegram_message_id
+        }).eq('id', adId).eq('seller_id', userId);
+
+        await sendMessage(chatId, 
+          `🚀 <b>تم ترويج وتجديد إعلانك بنجاح! ⭐</b>\n\n` +
+          `✨ <b>ماذا حدث الآن؟</b>\n` +
+          `1️⃣ تم حذف البوست القديم تلقائياً لمنع التكرار.\n` +
+          `2️⃣ نزل بوست جديد في صدارة قنوات التيليجرام بـ Badge مميز VIP.\n` +
+          `3️⃣ تصدر إعلانك الصفحة الأولى في موقع سوق بغداد.\n\n` +
+          `⏱️ <b>موعد الترويج القادم:</b> بعد 24 ساعة.\n` +
+          `🪙 الرصيد المتبقي بمحفظتك: <b>${isOwner ? 'غير محدود (المالك)' : currentPoints - boostCost}</b> نقطة.`,
+          {
+            inline_keyboard: [[{ text: '📋 عرض خطوطي النشطة', callback_data: 'manage_cat_trans' }]]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      // Match Students for Specific Line (مطابقة الطلاب مع الخط فوراً)
+      if (action.startsWith('match_students_')) {
+        const transId = action.replace('match_students_', '');
+        const { data: myAd } = await supabase.from('ads').select('*').eq('id', transId).maybeSingle();
+
+        if (myAd) {
+          const searchLoc = (myAd.location || myAd.city || '').toLowerCase();
+          const { data: waitingList } = await supabase.from('transport_requests').select('*').eq('status', 'pending').order('created_at', { ascending: false }).limit(30);
+
+          const matched = (waitingList || []).filter((r: any) => {
+            const full = `${r.origin || ''} ${r.destination || ''} ${r.raw_query || ''}`.toLowerCase();
+            return searchLoc.split(/[\s,،-]+/).some(w => w.length > 2 && full.includes(w));
+          });
+
+          if (matched.length > 0) {
+            let msg = `🎯 <b>وجدنا لك (${matched.length}) ركاب وطلاب يبحثون عن خط بمسارك (${myAd.location || 'بغداد'}):</b>\n\n`;
+            for (const s of matched.slice(0, 5)) {
+              msg += `• 👤 <b>${s.user_name || 'طالب/طالبة'}</b>\n  📍 المسار: ${s.origin} ⬅️ ${s.destination}\n  ⏰ طلب قبل قليل\n\n`;
+            }
+            msg += `💡 <i>سيارتك وخطك معروضة لهم حالياً، ويمكنك مشاركة إعلانك معهم مباشرة!</i>`;
+            await sendMessage(chatId, msg, {
+              inline_keyboard: [
+                [{ text: '🚀 ترويج خطك ليصلهم إشعار', callback_data: `boost_ad_${transId}` }],
+                [{ text: '🔙 عودة لخطوطي', callback_data: 'manage_cat_trans' }]
+              ]
+            });
+          } else {
+            await sendMessage(chatId, `ℹ️ <b>لا توجد طلبات انتظار جديدة حالياً لمسار (${myAd.location || 'بغداد'}).</b>\n\nخطك نشط ومتاح وأول ما يطلب أي طالب بهذا المسار سنقوم بربطه بك فوراً! 🤝`, {
+              inline_keyboard: [[{ text: '🔙 عودة لخطوطي', callback_data: 'manage_cat_trans' }]]
+            });
+          }
+        }
         return new Response('OK', { status: 200 });
       }
 
@@ -8030,6 +8420,68 @@ Deno.serve(async (req: any) => {
           const userCaption = caption || text || null;
           const cleanP = (userCaption || '').toLowerCase().trim();
 
+          // 0. Check if user is Platform Owner / Admin giving operational commands (إعادة نشر المحتوى الفاشل، مزامنة بعد التوكن)
+          const isOwnerCommand = isOwner && (
+            cleanP.includes('اعادة نشر') || cleanP.includes('إعادة نشر') || cleanP.includes('نشر المحتوى') ||
+            cleanP.includes('صار بي فشل') || cleanP.includes('الفاشل') || cleanP.includes('فاشلة') ||
+            cleanP.includes('مزامنة') || cleanP.includes('سوي مزامنة') || cleanP.includes('انشر الاعلانات') ||
+            cleanP.includes('انشر الإعلانات') || cleanP.includes('retry') || cleanP.includes('sync_all') ||
+            cleanP.includes('بعد ارسال توكن') || cleanP.includes('بعد التوكن') || cleanP.includes('توكن جديد')
+          );
+
+          if (isOwnerCommand) {
+            sendChatAction(chatId, 'typing');
+            await sendMessage(chatId, `🫡 <b>يا هلا بمديرنا الغالي نورالدين 🌹!</b>\n⏳ <b>جاري فحص وإعادة نشر الإعلانات والمحتوى المتعثر إلى جميع الصفحات والقنوات الآن...</b>`);
+
+            try {
+              // 1. Trigger auto-publisher Edge Function
+              const autoPubUrl = `${SUPABASE_URL}/functions/v1/auto-publisher`;
+              await fetch(autoPubUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+                },
+                body: JSON.stringify({ trigger: 'owner_manual_resync', chatId })
+              });
+            } catch(e) {
+              console.error('[OWNER RESYNC] Failed invoking auto-publisher:', e);
+            }
+
+            // 2. Fetch active ads and social settings
+            const { data: activeAds } = await supabase
+              .from('ads')
+              .select('*')
+              .eq('status', 'active')
+              .order('created_at', { ascending: false })
+              .limit(10);
+
+            const { data: settings } = await supabase
+              .from('social_settings')
+              .select('*')
+              .eq('is_active', true);
+
+            const activePages = (settings || []).map((s: any) => `• ${s.name} (${s.category}) 🟢`).join('\n');
+
+            const summaryMsg = 
+              `✅ <b>تمت عملية إعادة المزامنة والنشر بنجاح يا مديرنا الغالي! 🎯🚀</b>\n\n` +
+              `📊 <b>ملخص العملية:</b>\n` +
+              `• تم فحص وتوجيه (<b>${(activeAds || []).length}</b>) إعلان نشط للنشر الفوري.\n` +
+              `• المنصات والصفحات المفعلة الحالية:\n${activePages || '• قنوات تيليجرام وصفحات فيسبوك'}\n\n` +
+              `🔗 تصفح المنصة مباشرة: https://www.souqbaghdad.store`;
+
+            const summaryMarkup = {
+              inline_keyboard: [
+                [{ text: '📡 لوحة تحكم المنصات والتسعير', callback_data: 'social_management' }],
+                [{ text: '🌐 تصفح الموقع', url: 'https://www.souqbaghdad.store' }],
+                [{ text: '👑 لوحة المالك الرئيسية', callback_data: 'owner_hub_main' }]
+              ]
+            };
+
+            await sendMessage(chatId, summaryMsg, summaryMarkup);
+            return new Response('OK', { status: 200 });
+          }
+
           // 1. Check if user is a Channel / Group Owner requesting bot services
           const isChannelOwnerIntent = 
             cleanP.includes('صاحب قناة') || cleanP.includes('صاحب كروب') || cleanP.includes('عندي قناة') || 
@@ -8161,23 +8613,13 @@ Deno.serve(async (req: any) => {
             }
           }
 
-          // 3. Check if user is searching for transport line in private chat
-          const isTransportIntentP = 
-            cleanP.startsWith('/line') || cleanP.startsWith('\\line') || cleanP.includes('خط') || cleanP.includes('خك') || cleanP.includes('حط') || cleanP.includes('نقل') ||
-            ((cleanP.includes('من ') || cleanP.includes('الى ') || cleanP.includes('إلى ') || cleanP.includes('لـ')) && (cleanP.includes('رافدين') || cleanP.includes('رفدين') || cleanP.includes('جامع') || cleanP.includes('كلية') || cleanP.includes('دورة') || cleanP.includes('جميل') || cleanP.includes('سيدي') || cleanP.includes('منصور')));
-
-          if (isTransportIntentP && (cleanP.includes('اريد') || cleanP.includes('محتاج') || cleanP.includes('ادور') || cleanP.includes('اكو') || cleanP.includes('من') || cleanP.includes('الى') || cleanP.startsWith('/line') || cleanP.startsWith('\\line'))) {
-            sendChatAction(chatId, 'typing');
-            await handleSmartTransportSearch(chatId, userCaption, fromUser, supabase, false);
-            return new Response('OK', { status: 200 });
-          }
-
-          // Check if user wants another / alternative driver or encountered issues (مقبط، ما اتفقنا، سجل طلبي)
+          // 3. Check if user wants another / alternative driver or encountered issues (مقبط، ما اتفقنا، سجل طلبي، بلغني من تلكه خط)
           const isAlternativeDriverIntent = 
             cleanP.includes('غير سايق') || cleanP.includes('غيره') || cleanP.includes('غير خط') || 
             cleanP.includes('بديل') || cleanP.includes('ما ناسبني') || cleanP.includes('سائق ثاني') || 
             cleanP.includes('اكو غير') || cleanP.includes('هذا نفسه') || cleanP.includes('نفس السايق') ||
-            cleanP.includes('بلغني من يجي') || cleanP.includes('بلغني اذا') || cleanP.includes('بلغني لما') || 
+            cleanP.includes('بلغني') || cleanP.includes('نبهني') || cleanP.includes('من تلكه') || cleanP.includes('من ينزل') ||
+            cleanP.includes('من يجي') || cleanP.includes('من يتوفر') || cleanP.includes('خط بعد') ||
             cleanP.includes('ما موجد') || cleanP.includes('ما متوفر') || cleanP.includes('غير هذا') ||
             cleanP.includes('مقبط') || cleanP.includes('مفول') || cleanP.includes('ماكو مقاعد') || cleanP.includes('ماكو مجال') ||
             cleanP.includes('ما اتفقت') || cleanP.includes('ماتفقت') || cleanP.includes('ما اتفقنا') || cleanP.includes('ماتفقنا') ||
@@ -8276,7 +8718,29 @@ Deno.serve(async (req: any) => {
                 await sendMessage(chatId, onlyMsg, onlyMarkup);
                 return new Response('OK', { status: 200 });
               }
+            } else {
+              const askFormMsg = 
+                `🚌 <b>يا هلا بيك عيوني ${fromUser?.first_name || 'الغالي'} 🌹</b>\n\n` +
+                `لتسجيل طلبك بدقة، يرجى كتابة المسار المطلوب:\n` +
+                `📍 <b>المنطقة (من أين):</b> (مثال: جميلة، الشعب، البنوك، المنصور...)\n` +
+                `🏛️ <b>الكلية أو الوجهة (إلى أين):</b> (مثال: كلية الرافدين، المستنصرية، بغداد...)\n\n` +
+                `اكتب مسارك برسالة واحدة (مثال: <i>محتاجة خط من جميلة إلى الرافدين</i>) وسأسجله لك برادار التنبيهات فوراً! ✨`;
+              await sendMessage(chatId, askFormMsg, {
+                inline_keyboard: [[{ text: '🚌 تصفح خطوط الموقع', url: 'https://www.souqbaghdad.store/transport' }]]
+              });
+              return new Response('OK', { status: 200 });
             }
+          }
+
+          // 4. Check if user is searching for transport line in private chat
+          const isTransportIntentP = 
+            cleanP.startsWith('/line') || cleanP.startsWith('\\line') || cleanP.includes('خط') || cleanP.includes('خك') || cleanP.includes('حط') || cleanP.includes('نقل') ||
+            ((cleanP.includes('من ') || cleanP.includes('الى ') || cleanP.includes('إلى ') || cleanP.includes('لـ')) && (cleanP.includes('رافدين') || cleanP.includes('رفدين') || cleanP.includes('جامع') || cleanP.includes('كلية') || cleanP.includes('دورة') || cleanP.includes('جميل') || cleanP.includes('سيدي') || cleanP.includes('منصور')));
+
+          if (isTransportIntentP && (cleanP.includes('اريد') || cleanP.includes('محتاج') || cleanP.includes('ادور') || cleanP.includes('اكو') || cleanP.includes('من') || cleanP.includes('الى') || cleanP.startsWith('/line') || cleanP.startsWith('\\line'))) {
+            sendChatAction(chatId, 'typing');
+            await handleSmartTransportSearch(chatId, userCaption, fromUser, supabase, false);
+            return new Response('OK', { status: 200 });
           }
 
           sendChatAction(chatId, 'typing');
