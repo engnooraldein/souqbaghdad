@@ -278,6 +278,13 @@ async function getChatMember(chatId: string | number, userId: number | string) {
   return null;
 }
 
+async function scheduleMessageDeletion(chatId: string | number, messageId: number, delayMs = 45000) {
+  try {
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+    await deleteMessage(chatId, messageId);
+  } catch(e) {}
+}
+
 async function sendOrReplaceGroupMessage(chatId: string | number, text: string, markup?: any, supabase?: any) {
   if (supabase) {
     try {
@@ -292,17 +299,25 @@ async function sendOrReplaceGroupMessage(chatId: string | number, text: string, 
   }
 
   const res = await sendMessage(chatId, text, markup);
-  if (res && res.result && res.result.message_id && supabase) {
-    try {
-      await supabase.from('group_warnings').upsert({
-        chat_id: String(chatId),
-        user_id: 'BOT_LAST_MSG',
-        username: 'BOT',
-        warning_count: 0,
-        last_reason: String(res.result.message_id),
-        updated_at: new Date().toISOString()
-      });
-    } catch(e) {}
+  if (res && res.result && res.result.message_id) {
+    const newMsgId = res.result.message_id;
+    if (supabase) {
+      try {
+        await supabase.from('group_warnings').upsert({
+          chat_id: String(chatId),
+          user_id: 'BOT_LAST_MSG',
+          username: 'BOT',
+          warning_count: 0,
+          last_reason: String(newMsgId),
+          updated_at: new Date().toISOString()
+        });
+      } catch(e) {}
+    }
+
+    // Auto-delete bot notice after 45 seconds so the group stays 100% clean
+    if (typeof (globalThis as any).EdgeRuntime?.waitUntil === 'function') {
+      (globalThis as any).EdgeRuntime.waitUntil(scheduleMessageDeletion(chatId, newMsgId, 45000));
+    }
   }
   return res;
 }
@@ -446,33 +461,53 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
 
   // If matched active driver lines found -> return them
   if (matchedLines && matchedLines.length > 0) {
-    let msg = `🚌 <b>يا هلا بيك ${fromName}! وجدنا لك خطوط نشطة متوفرة:</b>\n\n`;
+    let fullMsg = `🚌 <b>يا هلا بيك ${fromName}! وجدنا لك خطوط نشطة متوفرة:</b>\n\n`;
     for (const l of matchedLines) {
-      msg += `• <b>${l.title}</b>\n  📍 المسار: ${l.location || 'بغداد'} | 📞 هاتف السائق: <code>${l.phone || 'متوفر بالموقع'}</code>\n  🔗 https://www.souqbaghdad.store/transport\n\n`;
+      fullMsg += `• <b>${l.title}</b>\n  📍 المسار: ${l.location || 'بغداد'} | 📞 هاتف السائق: <code>${l.phone || 'متوفر بالموقع'}</code>\n  🔗 https://www.souqbaghdad.store/transport\n\n`;
     }
-    msg += `<i>تصفح المزيد مباشرة عبر منصة سوق بغداد 🌹</i>`;
-    const markup = {
+    fullMsg += `<i>تصفح المزيد مباشرة عبر منصة سوق بغداد 🌹</i>`;
+    const fullMarkup = {
       inline_keyboard: [[{ text: '🚌 تصفح جميع الخطوط النشطة', url: 'https://www.souqbaghdad.store/transport' }]]
     };
+
     if (isGroup) {
-      await sendOrReplaceGroupMessage(chatId, msg, markup, supabase);
+      // Try sending full details to user in private
+      if (fromUser?.id) {
+        try {
+          await sendMessage(fromUser.id, fullMsg, fullMarkup);
+        } catch(e) {}
+      }
+
+      // Ultra-short 1-line response in group
+      const shortGroupMsg = `🚌 <b>يا هلا ${fromName} 🌹</b> دزيتلك تفاصيل الخطوط المتوفرة بالخاص حتى لا نزعج الكروب ✨`;
+      const shortMarkup = {
+        inline_keyboard: [
+          [{ text: '💬 فتح التفاصيل بالخاص مع البوت 🌹', url: `https://t.me/${BOT_USERNAME}?start=group_help` }],
+          [{ text: '🚌 تصفح الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }]
+        ]
+      };
+      await sendOrReplaceGroupMessage(chatId, shortGroupMsg, shortMarkup, supabase);
     } else {
-      await sendMessage(chatId, msg, markup);
+      await sendMessage(chatId, fullMsg, fullMarkup);
     }
     return;
   }
 
   // If user only wrote "محتاج خط" without specifying origin or destination
   if (!origin && !destination) {
-    const askMsg = 
-      `👋 <b>يا هلا بيك عيوني ${fromName} 🚌✨</b>\n` +
-      `اكتب مسارك بالضبط (مثال: <i>محتاج خط من الدورة إلى كلية الرافدين</i>) لأجد لك السائقين المتوفرين فوراً 🌹`;
-    const askMarkup = {
-      inline_keyboard: [[{ text: '🚌 تصفح جميع الخطوط النشطة', url: 'https://www.souqbaghdad.store/transport' }]]
-    };
     if (isGroup) {
+      const askMsg = `👋 <b>يا هلا ${fromName} 🌹</b> راسلني بالخاص وحدد مسارك لأجد لك السائقين فوراً ✨`;
+      const askMarkup = {
+        inline_keyboard: [[{ text: '💬 محادثة البوت بالخاص 🌹', url: `https://t.me/${BOT_USERNAME}?start=group_help` }]]
+      };
       await sendOrReplaceGroupMessage(chatId, askMsg, askMarkup, supabase);
     } else {
+      const askMsg = 
+        `👋 <b>يا هلا بيك عيوني ${fromName} 🚌✨</b>\n` +
+        `اكتب مسارك بالضبط (مثال: <i>محتاج خط من الدورة إلى كلية الرافدين</i>) لأجد لك السائقين المتوفرين فوراً 🌹`;
+      const askMarkup = {
+        inline_keyboard: [[{ text: '🚌 تصفح جميع الخطوط النشطة', url: 'https://www.souqbaghdad.store/transport' }]]
+      };
       await sendMessage(chatId, askMsg, askMarkup);
     }
     return;
@@ -496,22 +531,29 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     console.error('Error saving transport request:', e);
   }
 
-  const waitlistMsg = 
-    `📝 <b>تم تسجيل طلبك بنجاح يالغالي! ✨</b>\n\n` +
-    `📍 <b>المسار المطلوب:</b> من <b>${finalOrigin}</b> ⬅️ إلى <b>${finalDest}</b>\n` +
-    `👤 <b>صاحب الطلب:</b> ${fromName}\n\n` +
-    `🔔 <i>حالياً لا يوجد سائق مسجل بهذا الخط، لكن <b>سجلت طلبك بالنظام</b>، وأول ما يتوفر سائق أو ينزل خط نشط جديد بهذا المسار راح أنبهك فوراً! 🌹</i>`;
-
-  const markup = {
-    inline_keyboard: [
-      [{ text: '🚌 تصفح خطوط سوق بغداد الحالية', url: 'https://www.souqbaghdad.store/transport' }],
-      [{ text: '➕ نشر إعلان خط كسائق', url: 'https://www.souqbaghdad.store/post-ad' }]
-    ]
-  };
-
   if (isGroup) {
-    await sendOrReplaceGroupMessage(chatId, waitlistMsg, markup, supabase);
+    // Ultra-short 1-line confirmation in group
+    const shortWaitlistMsg = `📝 <b>يا هلا ${fromName} 🌹</b> سجلت طلبك لمسار (<b>${finalOrigin} ⬅️ ${finalDest}</b>)، وراح أدزلك تنبيه بالخاص أول ما يتوفر سائق ✨`;
+    const shortMarkup = {
+      inline_keyboard: [
+        [{ text: '💬 التحدث مع البوت بالخاص 🌹', url: `https://t.me/${BOT_USERNAME}?start=group_help` }],
+        [{ text: '🚌 تصفح خطوط الموقع', url: 'https://www.souqbaghdad.store/transport' }]
+      ]
+    };
+    await sendOrReplaceGroupMessage(chatId, shortWaitlistMsg, shortMarkup, supabase);
   } else {
+    const waitlistMsg = 
+      `📝 <b>تم تسجيل طلبك بنجاح يالغالي! ✨</b>\n\n` +
+      `📍 <b>المسار المطلوب:</b> من <b>${finalOrigin}</b> ⬅️ إلى <b>${finalDest}</b>\n` +
+      `👤 <b>صاحب الطلب:</b> ${fromName}\n\n` +
+      `🔔 <i>حالياً لا يوجد سائق مسجل بهذا الخط، لكن <b>سجلت طلبك بالنظام</b>، وأول ما يتوفر سائق أو ينزل خط نشط جديد بهذا المسار راح أنبهك فوراً! 🌹</i>`;
+
+    const markup = {
+      inline_keyboard: [
+        [{ text: '🚌 تصفح خطوط سوق بغداد الحالية', url: 'https://www.souqbaghdad.store/transport' }],
+        [{ text: '➕ نشر إعلان خط كسائق', url: 'https://www.souqbaghdad.store/post-ad' }]
+      ]
+    };
     await sendMessage(chatId, waitlistMsg, markup);
   }
 }
@@ -4807,6 +4849,30 @@ Deno.serve(async (req: any) => {
       };
 
       return await updateOrSend(refMsg, refMarkup);
+    }
+
+    // --- Deep-Link Concierge (تحويل المستخدم من الكروب إلى الخاص) ---
+    if (text.startsWith('/start group_help') || text.startsWith('/start line')) {
+      const fromName = update.message?.from?.first_name || 'عزيزنا';
+      const welcomeMsg = 
+        `👋 <b>يا هلا وكل الهلا بيك عيوني ${fromName}! 🇮🇶✨</b>\n\n` +
+        `🤖 أنا <b>المساعد الذكي لمنصة سوق بغداد</b>.\n` +
+        `شفتك بالكروب وجيت وياك بالخاص حتى أساعدك بكل هدوء وخصوصية 🌹\n\n` +
+        `<i>شنو تحب أساعدك اليوم؟</i>\n` +
+        `• 🚌 <b>مطابقة وبحث خطوط النقل وحجز المقاعد</b>\n` +
+        `• ➕ <b>نشر إعلان جديد مجاناً (خط / سيارة / منتج)</b>\n` +
+        `• 🚗 <b>معرفة أسعار السيارات بالسوق العراقي</b>\n` +
+        `• 💬 <b>اكتبلي أي سؤال أو طلب وسأجيبك فوراً!</b>`;
+
+      const welcomeMarkup = {
+        inline_keyboard: [
+          [{ text: '🚌 مطابقة وبحث خطوط النقل', url: 'https://www.souqbaghdad.store/transport' }, { text: '➕ نشر إعلان خط كسائق', callback_data: 'publish_transport' }],
+          [{ text: '🚗 سيارات سوق بغداد', callback_data: 'publish_car' }, { text: '🛍️ عروض السوق العام', callback_data: 'publish_product' }],
+          [{ text: '📋 القائمة الرئيسية للخدمات', callback_data: 'main_menu' }]
+        ]
+      };
+      await sendMessage(chatId, welcomeMsg, welcomeMarkup);
+      return new Response('OK', { status: 200 });
     }
 
     // --- Start / Register Command ---
