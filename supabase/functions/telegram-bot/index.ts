@@ -143,6 +143,62 @@ async function sendPhoto(chatId: string | number, photoUrl: string, caption: str
   }
 }
 
+async function deleteMessage(chatId: string | number, messageId: number | string) {
+  try {
+    await fetch(`${tgUrl}/deleteMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, message_id: messageId })
+    });
+  } catch(e) {}
+}
+
+async function restrictChatMember(chatId: string | number, userId: number | string, permissions: any, untilDate?: number) {
+  try {
+    const body: any = { chat_id: chatId, user_id: userId, permissions };
+    if (untilDate) body.until_date = untilDate;
+    const res = await fetch(`${tgUrl}/restrictChatMember`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    return await res.json();
+  } catch(e) {}
+}
+
+async function banChatMember(chatId: string | number, userId: number | string, untilDate?: number) {
+  try {
+    const body: any = { chat_id: chatId, user_id: userId };
+    if (untilDate) body.until_date = untilDate;
+    const res = await fetch(`${tgUrl}/banChatMember`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    return await res.json();
+  } catch(e) {}
+}
+
+async function unbanChatMember(chatId: string | number, userId: number | string) {
+  try {
+    const res = await fetch(`${tgUrl}/unbanChatMember`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, user_id: userId, only_if_banned: true })
+    });
+    return await res.json();
+  } catch(e) {}
+}
+
+async function getChatMember(chatId: string | number, userId: number | string) {
+  try {
+    const res = await fetch(`${tgUrl}/getChatMember?chat_id=${chatId}&user_id=${userId}`);
+    const data = await res.json();
+    if (data.ok) return data.result;
+  } catch(e) {}
+  return null;
+}
+
 async function sendMediaGroup(chatId: string | number, photoUrls: string[], caption: string) {
   const media = photoUrls.slice(0, 10).map((url, index) => {
     const item: any = { type: 'photo', media: url };
@@ -3242,6 +3298,258 @@ Deno.serve(async (req: any) => {
     const isOwner = String(chatId) === '6474465462' || 
       (phone && (phone.includes('7701109692') || phone.includes('7700028170'))) ||
       tgUser?.role === 'owner' || tgUser?.role === 'admin';
+
+    // =========================================================================
+    // 👥 SMART GROUP MODE & 3-STRIKE DEFENDER (نظام حماية ومساعد الكروبات الذكي)
+    // =========================================================================
+    const chatType = update.message?.chat?.type || update.callback_query?.message?.chat?.type || 'private';
+    const isGroup = chatType === 'group' || chatType === 'supergroup';
+
+    if (isGroup) {
+      const fromUser = update.message?.from || update.callback_query?.from;
+      const fromId = fromUser?.id;
+      const fromUsername = fromUser?.username ? `@${fromUser.username}` : (fromUser?.first_name || 'العضو');
+      const messageId = update.message?.message_id;
+
+      // 1. Welcome New Members or Bot Added to Group
+      if (update.message?.new_chat_members && update.message.new_chat_members.length > 0) {
+        for (const newMember of update.message.new_chat_members) {
+          if (newMember.is_bot && (newMember.username === BOT_USERNAME || newMember.username?.includes('souqbaghda'))) {
+            await sendMessage(chatId, 
+              `👋 <b>يا هلا وكل الهلا بيكم في كروبكم! 🇮🇶✨</b>\n\n` +
+              `🤖 أنا <b>مساعد سوق بغداد وشبكة النقل الذكي</b>.\n` +
+              `تم تفعيل الحماية والمساعد الذكي تلقائياً:\n\n` +
+              `🛡️ <b>نظام الحماية:</b> منع الروابط والسبام والألفاظ غير اللائقة بنظام الإنذارات الثلاثية.\n` +
+              `🚌 <b>مطابق الخطوط:</b> اكتب طلبك (مثال: محتاج خط للرافدين) وسأعرض لك الخطوط المتوفرة فوراً.\n` +
+              `🚗 <b>رادار السيارات:</b> اكتب (سعر النترا 2019) وسأعطيك متوسط أسعار السوق.\n\n` +
+              `<i>أهلاً وسهلاً بالجميع، نسعد بخدمتكم! 🌹</i>`,
+              {
+                inline_keyboard: [
+                  [{ text: '🚗 سيارات سوق بغداد', url: 'https://www.souqbaghdad.store' }, { text: '🚌 خطوط النقل', url: 'https://www.souqbaghdad.store/transport' }],
+                  [{ text: '🤖 فتح محادثة خاصة مع البوت', url: `https://t.me/${BOT_USERNAME}` }]
+                ]
+              }
+            );
+          } else if (!newMember.is_bot) {
+            const memberName = newMember.first_name || 'عزيزنا';
+            await sendMessage(chatId, 
+              `👋 يا هلا بيك <b>${memberName}</b> نورت الكروب 🌹\n` +
+              `هنا تكدر تبحث عن سيارة أو خط نقل أو تعرض إعلاناتك مجاناً عبر سوق بغداد.\n` +
+              `🤖 للاستفادة من البوت: @${BOT_USERNAME}`
+            );
+          }
+        }
+        return new Response('OK', { status: 200 });
+      }
+
+      // Check if Sender is Group Admin or Owner
+      let isSenderAdmin = false;
+      if (fromId) {
+        if (String(fromId) === '6474465462' || isOwner) {
+          isSenderAdmin = true;
+        } else {
+          const chatMember = await getChatMember(chatId, fromId);
+          if (chatMember && (chatMember.status === 'creator' || chatMember.status === 'administrator')) {
+            isSenderAdmin = true;
+          }
+        }
+      }
+
+      const trimmedText = (text || '').trim();
+
+      // 2. Group Admin Commands (/warn, /unwarn, /mute, /ban, /seats, /car, /line, /price)
+      if (trimmedText.startsWith('/')) {
+        const cmdParts = trimmedText.split(/\s+/);
+        const cmd = cmdParts[0].toLowerCase().replace('@' + BOT_USERNAME.toLowerCase(), '');
+
+        // --- /warn Command (Admin only) ---
+        if (cmd === '/warn' && isSenderAdmin) {
+          const replyTo = update.message?.reply_to_message;
+          const targetUser = replyTo?.from;
+          if (targetUser && !targetUser.is_bot) {
+            const targetId = targetUser.id;
+            const targetName = targetUser.username ? `@${targetUser.username}` : targetUser.first_name;
+            
+            const { data: curWarn } = await supabase.from('group_warnings').select('warning_count').eq('chat_id', String(chatId)).eq('user_id', String(targetId)).maybeSingle();
+            const count = (curWarn?.warning_count || 0) + 1;
+            
+            await supabase.from('group_warnings').upsert({
+              chat_id: String(chatId),
+              user_id: String(targetId),
+              username: targetName,
+              warning_count: count,
+              last_reason: 'تحذير يدوي من الأدمن',
+              updated_at: new Date().toISOString()
+            });
+
+            if (replyTo.message_id) await deleteMessage(chatId, replyTo.message_id);
+
+            if (count === 1) {
+              await sendMessage(chatId, `⚠️ <b>تحذير يدوي (1/3) لـ ${targetName}:</b> يرجى الالتزام بقوانين الكروب وعدم تكرار المخالفة.`);
+            } else if (count === 2) {
+              await restrictChatMember(chatId, targetId, { can_send_messages: false }, Math.floor(Date.now()/1000) + 3600);
+              await sendMessage(chatId, `⚠️ <b>تحذير (2/3) لـ ${targetName}:</b> تم كتمك لمدة ساعة بسبب تكرار المخالفة! 🔇`);
+            } else {
+              await banChatMember(chatId, targetId);
+              await sendMessage(chatId, `🚫 <b>تم طرد وحظر ${targetName} نهائياً (3/3) لتكرار المخالفات لحماية الكروب.</b>`);
+            }
+            return new Response('OK', { status: 200 });
+          }
+        }
+
+        // --- /unwarn Command (Admin only) ---
+        if (cmd === '/unwarn' && isSenderAdmin) {
+          const replyTo = update.message?.reply_to_message;
+          const targetUser = replyTo?.from;
+          if (targetUser) {
+            await supabase.from('group_warnings').delete().eq('chat_id', String(chatId)).eq('user_id', String(targetUser.id));
+            await unbanChatMember(chatId, targetUser.id);
+            await sendMessage(chatId, `✅ <b>تم تصفير جميع إنذارات ${targetUser.first_name} بنجاح!</b>`);
+            return new Response('OK', { status: 200 });
+          }
+        }
+
+        // --- /ban /kick Command (Admin only) ---
+        if ((cmd === '/ban' || cmd === '/kick') && isSenderAdmin) {
+          const replyTo = update.message?.reply_to_message;
+          if (replyTo?.from) {
+            await banChatMember(chatId, replyTo.from.id);
+            await sendMessage(chatId, `🚫 <b>تم طرد وحظر ${replyTo.from.first_name} من الكروب بواسطة الأدمن.</b>`);
+            return new Response('OK', { status: 200 });
+          }
+        }
+
+        // --- /mute Command (Admin only) ---
+        if (cmd === '/mute' && isSenderAdmin) {
+          const replyTo = update.message?.reply_to_message;
+          if (replyTo?.from) {
+            await restrictChatMember(chatId, replyTo.from.id, { can_send_messages: false }, Math.floor(Date.now()/1000) + 7200);
+            await sendMessage(chatId, `🔇 <b>تم كتم ${replyTo.from.first_name} لمدة ساعتين بواسطة الأدمن.</b>`);
+            return new Response('OK', { status: 200 });
+          }
+        }
+
+        // --- /seats Command (Driver seats alert) ---
+        if (cmd === '/seats') {
+          const routeInfo = cmdParts.slice(1).join(' ') || 'خط نقل بغداد';
+          await sendMessage(chatId, 
+            `💺 <b>تنبيه مقاعد شاغرة في خط نقل!</b>\n\n` +
+            `🚌 <b>المسار:</b> ${routeInfo}\n` +
+            `👤 <b>السائق:</b> ${fromUsername}\n\n` +
+            `📞 <i>للحجز أو الاستفسار، تواصل مباشرة مع صاحب الرسالة.</i>`,
+            {
+              inline_keyboard: [
+                [{ text: '🚌 تصفح جميع خطوط سوق بغداد', url: 'https://www.souqbaghdad.store/transport' }]
+              ]
+            }
+          );
+          return new Response('OK', { status: 200 });
+        }
+
+        // --- /car Command (Quick Car Search) ---
+        if (cmd === '/car') {
+          const carQuery = cmdParts.slice(1).join(' ');
+          let query = supabase.from('ads').select('*').in('category', ['vehicles', 'cars', 'car']).eq('status', 'active');
+          if (carQuery) {
+            query = query.or(`title.ilike.%${carQuery}%,description.ilike.%${carQuery}%`);
+          }
+          const { data: matchedCars } = await query.order('created_at', { ascending: false }).limit(3);
+
+          if (!matchedCars || matchedCars.length === 0) {
+            await sendMessage(chatId, `🚗 لم يتم العثور على سيارات مطابقة لـ «${carQuery}» حالياً، تكدر تتصفح أحدث السيارات من هنا: https://www.souqbaghdad.store`);
+          } else {
+            let carMsg = `🚗 <b>أحدث سيارات ${carQuery ? '«' + carQuery + '»' : ''} في سوق بغداد:</b>\n\n`;
+            for (const c of matchedCars) {
+              carMsg += `• <b>${c.title}</b>\n  💰 السعر: <b>${c.price || 'اتصال'}</b> | 📍 ${c.location || 'بغداد'}\n  🔗 https://www.souqbaghdad.store/ad/${c.short_id || c.id}\n\n`;
+            }
+            await sendMessage(chatId, carMsg);
+          }
+          return new Response('OK', { status: 200 });
+        }
+
+        // --- /line Command (Quick Transport Line Search) ---
+        if (cmd === '/line' || cmd === '/lines') {
+          const lineQuery = cmdParts.slice(1).join(' ');
+          let query = supabase.from('ads').select('*').eq('category', 'transport').eq('status', 'active');
+          if (lineQuery) {
+            query = query.or(`title.ilike.%${lineQuery}%,description.ilike.%${lineQuery}%,location.ilike.%${lineQuery}%`);
+          }
+          const { data: matchedLines } = await query.order('created_at', { ascending: false }).limit(3);
+
+          if (!matchedLines || matchedLines.length === 0) {
+            await sendMessage(chatId, `🚌 لم يتم العثور على خطوط نقل مطابقة لـ «${lineQuery}» حالياً، تكدر تتصفح كافة الخطوط عبر: https://www.souqbaghdad.store/transport`);
+          } else {
+            let lineMsg = `🚌 <b>خطوط نقل متوفرة ${lineQuery ? 'إلى «' + lineQuery + '»' : ''}:</b>\n\n`;
+            for (const l of matchedLines) {
+              lineMsg += `• <b>${l.title}</b>\n  📍 المسار: ${l.location || 'بغداد'} | 📞 هاتف: <code>${l.phone || 'متوفر بالموقع'}</code>\n  🔗 https://www.souqbaghdad.store/transport\n\n`;
+            }
+            await sendMessage(chatId, lineMsg);
+          }
+          return new Response('OK', { status: 200 });
+        }
+      }
+
+      // 3. Prohibited Content Check & 3-Strike System (Anti-Link & Bad Words)
+      if (!isSenderAdmin && text) {
+        // Link patterns (external links, channels, joinchat)
+        const hasForbiddenLink = 
+          /(https?:\/\/|t\.me\/|telegram\.me\/|bit\.ly|joinchat|\.xyz|\.top|\.ru|wa\.me\/\+|chat\.whatsapp\.com)/i.test(text) &&
+          !text.includes('souqbaghdad.store') &&
+          !text.includes('t.me/souqbaghda');
+
+        // Bad words & insult patterns (Iraqi & Arabic vulgar terms)
+        const hasBadWords = /(كحبه|منيوك|قندرة|ساقط|كس|طيز|فرخ|ديوث|شرموط|عير|نعل|زب|مفرخة|دعارة|اباحي|بنات ليل|سكس|sex|porn|1xbet|betting)/i.test(text);
+
+        if (hasForbiddenLink || hasBadWords) {
+          if (messageId) await deleteMessage(chatId, messageId);
+
+          const reason = hasForbiddenLink ? 'نشر روابط إعلانية خارجية' : 'استخدام ألفاظ غير لائقة';
+          const { data: curWarn } = await supabase.from('group_warnings').select('warning_count').eq('chat_id', String(chatId)).eq('user_id', String(fromId)).maybeSingle();
+          const count = (curWarn?.warning_count || 0) + 1;
+
+          await supabase.from('group_warnings').upsert({
+            chat_id: String(chatId),
+            user_id: String(fromId),
+            username: fromUsername,
+            warning_count: count,
+            last_reason: reason,
+            updated_at: new Date().toISOString()
+          });
+
+          if (count === 1) {
+            await sendMessage(chatId, `⚠️ <b>تحذير (1/3) لـ ${fromUsername}:</b> يمنع ${reason} في الكروب.`);
+          } else if (count === 2) {
+            await restrictChatMember(chatId, fromId, { can_send_messages: false }, Math.floor(Date.now()/1000) + 3600);
+            await sendMessage(chatId, `⚠️ <b>تحذير (2/3) لـ ${fromUsername}:</b> تم كتمك لمدة ساعة بسبب تكرار ${reason}! 🔇`);
+          } else {
+            await banChatMember(chatId, fromId);
+            await sendMessage(chatId, `🚫 <b>تم طرد وحظر ${fromUsername} نهائياً (3/3) لتكرار المخالفات لحماية الكروب.</b>`);
+          }
+          return new Response('OK', { status: 200 });
+        }
+      }
+
+      // 4. Smart Group Contextual Matcher (for transport & car queries)
+      if (text && !trimmedText.startsWith('/')) {
+        const cleanMsg = text.toLowerCase().trim();
+
+        // Transport search intent
+        if ((cleanMsg.includes('محتاج خط') || cleanMsg.includes('اريد خط') || cleanMsg.includes('ادور خط') || cleanMsg.includes('سايق خط')) && (cleanMsg.includes('من') || cleanMsg.includes('الى') || cleanMsg.includes('لـ') || cleanMsg.includes('رافدين') || cleanMsg.includes('جامع') || cleanMsg.includes('دورة') || cleanMsg.includes('سيدية') || cleanMsg.includes('منصور') || cleanMsg.includes('شعب') || cleanMsg.includes('كرادة'))) {
+          const { data: matchedLines } = await supabase.from('ads').select('*').eq('category', 'transport').eq('status', 'active').order('created_at', { ascending: false }).limit(2);
+          if (matchedLines && matchedLines.length > 0) {
+            let replyMsg = `🚌 <b>يا هلا بيك! وجدنا لك خطوط نقل متوفرة في سوق بغداد:</b>\n\n`;
+            for (const l of matchedLines) {
+              replyMsg += `• <b>${l.title}</b> (${l.location || 'بغداد'})\n  📞 هاتف السائق: <code>${l.phone || 'متوفر بالموقع'}</code>\n\n`;
+            }
+            replyMsg += `🔗 <i>تصفح أو انشر خطك مجاناً: https://www.souqbaghdad.store/transport</i>`;
+            await sendMessage(chatId, replyMsg);
+            return new Response('OK', { status: 200 });
+          }
+        }
+      }
+
+      return new Response('OK', { status: 200 });
+    }
     const trimmedText = (text || '').trim();
     if (isOwner && (trimmedText.startsWith('EAAP') || trimmedText.startsWith('EAA') || trimmedText.startsWith('IGAA') || (trimmedText.length > 100 && !trimmedText.includes(' ') && trimmedText.startsWith('E')))) {
       console.log(`[OWNER TOKEN RECEIVED] ChatId: ${chatId}, token prefix: ${trimmedText.substring(0, 10)}...`);
@@ -3543,10 +3851,10 @@ Deno.serve(async (req: any) => {
       }
       menuRows.push([{ text: '🚗 اعرض سيارتك للبيع مجاناً', callback_data: 'publish_car' }]);
       menuRows.push([{ text: '🚌 انشر خط نقل (سائق / راكب)', callback_data: 'publish_transport' }, { text: '📦 نشر منتج عام', callback_data: 'publish_product' }]);
-      menuRows.push([{ text: '📋 إدارة إعلاناتي وخطوطي', callback_data: 'manage_my_ads' }, { text: '🔗 ربط قناتك مع سوق بغداد', callback_data: 'partner_connect_start' }]);
-      menuRows.push([{ text: '🎟️ تعبئة بروموكود', callback_data: 'redeem_promo' }, { text: '💳 شراء نقاط', callback_data: 'buy_points' }]);
-      menuRows.push([{ text: '📖 كيفية التسجيل', callback_data: 'how_to_register' }, { text: '🔑 نسيت كلمة المرور', callback_data: 'forgot_password' }]);
-      menuRows.push([{ text: '❓ الأسئلة الشائعة', callback_data: 'faq' }, { text: '📞 الدعم الفني', callback_data: 'contact_support' }]);
+      menuRows.push([{ text: '🎁 شارك واكسب نقاط مجانية', callback_data: 'invite_and_earn' }, { text: '📋 إدارة إعلاناتي وخطوطي', callback_data: 'manage_my_ads' }]);
+      menuRows.push([{ text: '🔗 ربط قناتك مع سوق بغداد', callback_data: 'partner_connect_start' }, { text: '🎟️ تعبئة بروموكود', callback_data: 'redeem_promo' }]);
+      menuRows.push([{ text: '💳 شراء نقاط', callback_data: 'buy_points' }, { text: '📖 كيفية التسجيل', callback_data: 'how_to_register' }]);
+      menuRows.push([{ text: '🔑 نسيت كلمة المرور', callback_data: 'forgot_password' }, { text: '❓ الأسئلة الشائعة', callback_data: 'faq' }]);
       menuRows.push([{ text: '🔔 إدارة إشعاراتي', callback_data: 'manage_alerts' }, { text: '🔌 تحديث/إعادة ربط الحساب', callback_data: 'relink_account' }]);
 
       const menuMarkup = { inline_keyboard: menuRows };
@@ -3998,8 +4306,35 @@ Deno.serve(async (req: any) => {
       );
     }
 
+    // ==========================================
+    // 🎁 VIRAL REFERRAL SYSTEM (شارك واكسب نقاط)
+    // ==========================================
+    if (trimmedText === 'invite_and_earn') {
+      const myRefCode = userId || String(chatId);
+      const inviteLink = `https://t.me/${BOT_USERNAME}?start=ref_${myRefCode}`;
+      const shareText = encodeURIComponent(`🚗 انضم الآن لبوت سوق بغداد وسجل حسابك مجاناً لتصفح ونشر السيارات وخطوط النقل!\n👉 ${inviteLink}`);
+
+      const refMsg = 
+        `🎁 <b>برنامج المكافآت ودعوة الأصدقاء — سوق بغداد</b> 🇮🇶\n\n` +
+        `ادعُ أصدقاءك في الجامعة أو الكروبات واكسب نقاطاً مجانية لترويج إعلاناتك!\n\n` +
+        `💰 <b>مكافأة الدعوة:</b>\n` +
+        `• كل صديق يسجل عن طريقك يحصل على <b>10 نقاط ترحيبية</b> 🎁\n` +
+        `• وأنت تحصل على <b>15 نقطة مجانية</b> في محفظتك فوراً! 🪙\n\n` +
+        `🔗 <b>رابط الدعوة الخاص بك (اضغط للنسخ):</b>\n` +
+        `<code>${inviteLink}</code>`;
+
+      const refMarkup = {
+        inline_keyboard: [
+          [{ text: '📢 مشاركة في التيليجرام الآن', url: `https://t.me/share/url?url=${inviteLink}&text=${shareText}` }],
+          [{ text: '🔙 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]
+        ]
+      };
+
+      return await updateOrSend(refMsg, refMarkup);
+    }
+
     // --- Start / Register Command ---
-    if (text === '/start' || text === '/relink') {
+    if (text === '/start' || text.startsWith('/start ') || text === '/relink') {
       if (text === '/relink') {
         await supabase.from('telegram_users').delete().eq('telegram_chat_id', chatId);
       }
