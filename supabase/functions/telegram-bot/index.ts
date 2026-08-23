@@ -971,9 +971,26 @@ async function syncAndHealAd(ad: any, supabaseClient: any): Promise<{ healed: bo
   return { healed: changed, details };
 }
 
+function buildStoryImageUrl(record: any, category: string, primaryImage?: string): string {
+  const shortId = record.short_id || record.id || '';
+  if (category === 'transport') {
+    const dynUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(record.title || '')}&regions=${encodeURIComponent(record.location || record.regions || '')}&destination=${encodeURIComponent(record.city || record.destination || '')}&fare=${encodeURIComponent(record.price || '')}&phone=${encodeURIComponent(record.phone || '')}&short_id=${shortId}`;
+    return `https://wsrv.nl/?url=${encodeURIComponent(dynUrl)}&output=jpg`;
+  }
+  
+  if (primaryImage) {
+    return `https://wsrv.nl/?url=${encodeURIComponent(primaryImage)}&w=1080&h=1920&fit=contain&cbg=1e0836&output=jpg`;
+  }
+  
+  const dynUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(record.title || 'إعلان سوق بغداد')}&regions=${encodeURIComponent(record.city || record.location || 'بغداد')}&short_id=${shortId}&fare=${encodeURIComponent(record.price ? `${record.price} ${record.currency || 'د.ع'}` : '')}&phone=${encodeURIComponent(record.phone || '')}`;
+  return `https://wsrv.nl/?url=${encodeURIComponent(dynUrl)}&output=jpg`;
+}
+
 async function postToFacebookStory(photoUrl: string, pageId: string, accessToken: string) {
   if (!accessToken || !pageId || !photoUrl) return { error: { message: 'رمز الوصول لفيسبوك أو الصورة مفقودة' } };
-  const targetPhotoUrl = photoUrl.includes('generate-story-image') ? `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&output=png` : photoUrl;
+  const targetPhotoUrl = photoUrl.includes('generate-story-image') 
+    ? `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&output=jpg` 
+    : (photoUrl.includes('wsrv.nl') ? photoUrl : `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&output=jpg`);
   if (targetPhotoUrl.includes('wsrv.nl')) {
     try { await fetch(targetPhotoUrl); } catch(e) {}
   }
@@ -2346,6 +2363,7 @@ serve(async (req) => {
           const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
             ? await generateSocialCaption(record, 'car', link, false)
             : '';
+          const carStoryImg = buildStoryImageUrl(record, 'car', imagesToPost[0]);
 
           if (publishFacebook) {
             const fbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl);
@@ -2353,14 +2371,31 @@ serve(async (req) => {
               updates.facebook_post_id = fbData.post_id || fbData.id;
               syncStatus.facebook = 'success';
             }
+            try {
+              const fbSetting = await getLiveSocialSetting('fb_souq');
+              const fbToken = fbSetting?.access_token || META_PAGE_ACCESS_TOKEN;
+              const fbPageId = fbSetting?.page_id || META_PAGE_ID;
+              if (fbToken && fbPageId) {
+                console.log('[WEBHOOK SOCIAL] Posting Car to Facebook Story...');
+                const fbStoryRes = await postToFacebookStory(carStoryImg, fbPageId, fbToken);
+                if (fbStoryRes && (fbStoryRes.id || fbStoryRes.post_id)) syncStatus.facebook_story = 'success';
+              }
+            } catch(e) { console.error('Car FB Story error:', e); }
           }
 
-          if (publishInstagram && fbIgPhotoUrl) {
-            const igData = await postToInstagram(fbIgCaption, fbIgPhotoUrl);
-            if (igData && (igData.id || igData.media_id)) {
-              updates.instagram_post_id = igData.id || igData.media_id;
-              syncStatus.instagram = 'success';
+          if (publishInstagram) {
+            if (fbIgPhotoUrl) {
+              const igData = await postToInstagram(fbIgCaption, fbIgPhotoUrl);
+              if (igData && (igData.id || igData.media_id)) {
+                updates.instagram_post_id = igData.id || igData.media_id;
+                syncStatus.instagram = 'success';
+              }
             }
+            try {
+              console.log('[WEBHOOK SOCIAL] Posting Car to Instagram Story...');
+              const igStoryRes = await postToInstagramStory(carStoryImg);
+              if (igStoryRes && (igStoryRes.id || igStoryRes.creation_id)) syncStatus.instagram_story = 'success';
+            } catch(e) { console.error('Car IG Story error:', e); }
           }
 
           if (publishTiktok && fbIgPhotoUrl) {
@@ -2458,6 +2493,7 @@ serve(async (req) => {
           const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
             ? await generateSocialCaption(record, 'product', link, false)
             : '';
+          const prodStoryImg = buildStoryImageUrl(record, 'product', imagesToPost[0]);
                               
           if (publishFacebook) {
             const fbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl);
@@ -2465,14 +2501,31 @@ serve(async (req) => {
               updates.facebook_post_id = fbData.post_id || fbData.id;
               syncStatus.facebook = 'success';
             }
+            try {
+              const fbSetting = await getLiveSocialSetting('fb_souq');
+              const fbToken = fbSetting?.access_token || META_PAGE_ACCESS_TOKEN;
+              const fbPageId = fbSetting?.page_id || META_PAGE_ID;
+              if (fbToken && fbPageId) {
+                console.log('[WEBHOOK SOCIAL] Posting Product to Facebook Story...');
+                const fbStoryRes = await postToFacebookStory(prodStoryImg, fbPageId, fbToken);
+                if (fbStoryRes && (fbStoryRes.id || fbStoryRes.post_id)) syncStatus.facebook_story = 'success';
+              }
+            } catch(e) { console.error('Product FB Story error:', e); }
           }
           
-          if (publishInstagram && fbIgPhotoUrl) {
-            const igData = await postToInstagram(fbIgCaption, fbIgPhotoUrl);
-            if (igData && (igData.id || igData.media_id)) {
-               updates.instagram_post_id = igData.id || igData.media_id;
-               syncStatus.instagram = 'success';
+          if (publishInstagram) {
+            if (fbIgPhotoUrl) {
+              const igData = await postToInstagram(fbIgCaption, fbIgPhotoUrl);
+              if (igData && (igData.id || igData.media_id)) {
+                updates.instagram_post_id = igData.id || igData.media_id;
+                syncStatus.instagram = 'success';
+              }
             }
+            try {
+              console.log('[WEBHOOK SOCIAL] Posting Product to Instagram Story...');
+              const igStoryRes = await postToInstagramStory(prodStoryImg);
+              if (igStoryRes && (igStoryRes.id || igStoryRes.creation_id)) syncStatus.instagram_story = 'success';
+            } catch(e) { console.error('Product IG Story error:', e); }
           }
           
           if (publishTiktok && fbIgPhotoUrl) {
@@ -2567,6 +2620,7 @@ serve(async (req) => {
           const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
             ? await generateSocialCaption(record, 'ad', link, false)
             : '';
+          const generalStoryImg = buildStoryImageUrl(record, 'ad', imagesToPost[0]);
                               
           if (publishFacebook) {
             const fbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl);
@@ -2574,14 +2628,31 @@ serve(async (req) => {
               updates.facebook_post_id = fbData.post_id || fbData.id;
               syncStatus.facebook = 'success';
             }
+            try {
+              const fbSetting = await getLiveSocialSetting('fb_souq');
+              const fbToken = fbSetting?.access_token || META_PAGE_ACCESS_TOKEN;
+              const fbPageId = fbSetting?.page_id || META_PAGE_ID;
+              if (fbToken && fbPageId) {
+                console.log('[WEBHOOK SOCIAL] Posting General Ad to Facebook Story...');
+                const fbStoryRes = await postToFacebookStory(generalStoryImg, fbPageId, fbToken);
+                if (fbStoryRes && (fbStoryRes.id || fbStoryRes.post_id)) syncStatus.facebook_story = 'success';
+              }
+            } catch(e) { console.error('General Ad FB Story error:', e); }
           }
           
-          if (publishInstagram && fbIgPhotoUrl) {
-            const igData = await postToInstagram(fbIgCaption, fbIgPhotoUrl);
-            if (igData && (igData.id || igData.media_id)) {
-              updates.instagram_post_id = igData.id || igData.media_id;
-              syncStatus.instagram = 'success';
+          if (publishInstagram) {
+            if (fbIgPhotoUrl) {
+              const igData = await postToInstagram(fbIgCaption, fbIgPhotoUrl);
+              if (igData && (igData.id || igData.media_id)) {
+                updates.instagram_post_id = igData.id || igData.media_id;
+                syncStatus.instagram = 'success';
+              }
             }
+            try {
+              console.log('[WEBHOOK SOCIAL] Posting General Ad to Instagram Story...');
+              const igStoryRes = await postToInstagramStory(generalStoryImg);
+              if (igStoryRes && (igStoryRes.id || igStoryRes.creation_id)) syncStatus.instagram_story = 'success';
+            } catch(e) { console.error('General Ad IG Story error:', e); }
           }
           
           if (publishTiktok && fbIgPhotoUrl) {
