@@ -307,6 +307,121 @@ async function sendOrReplaceGroupMessage(chatId: string | number, text: string, 
   return res;
 }
 
+async function handleSmartTransportSearch(chatId: string | number, rawText: string, fromUser: any, supabase: any, isGroup = false) {
+  // 1. Normalize Iraqi Arabic and common typos
+  const norm = rawText
+    .replace(/[\\\/](line|lines|خط|خطوط)/gi, '')
+    .replace(/خك|حط|خظ|خيط/gi, 'خط')
+    .replace(/جميله/gi, 'جميلة')
+    .replace(/الرفدين/gi, 'الرافدين')
+    .replace(/سيديه/gi, 'سيدية')
+    .replace(/دوره/gi, 'دورة')
+    .replace(/جامعه/gi, 'جامعة')
+    .replace(/كليه/gi, 'كلية')
+    .trim();
+
+  // 2. Extract origin and destination
+  let origin = '';
+  let destination = '';
+
+  const fromMatch = norm.match(/من\s+([^\s\-\–\,\.\،\إلى\الي\لـ\ل]+(?:\s+[^\s\-\–\,\.\،\إلى\الي\لـ\ل]+)?)/i);
+  const toMatch = norm.match(/(?:إلى|الي|لـ|الى|ل)\s+([^\s\-\–\,\.\،]+(?:\s+[^\s\-\–\,\.\،]+)?)/i);
+
+  if (fromMatch) origin = fromMatch[1].trim();
+  if (toMatch) destination = toMatch[1].trim();
+
+  if (!origin && !destination) {
+    const cleanWords = norm.split(/\s+/).filter(w => !['اريد', 'محتاج', 'ادور', 'خط', 'نقل', 'من', 'الى', 'كلية', 'جامعة'].includes(w));
+    if (cleanWords.length > 0) origin = cleanWords.join(' ');
+  }
+
+  // 3. Search database for active transport lines
+  const { data: allActiveLines } = await supabase.from('ads').select('*').eq('category', 'transport').eq('status', 'active').order('created_at', { ascending: false }).limit(50);
+  
+  let matchedLines: any[] = [];
+  if (allActiveLines && allActiveLines.length > 0) {
+    if (origin && destination) {
+      matchedLines = allActiveLines.filter((ad: any) => {
+        const fullAdText = `${ad.title || ''} ${ad.location || ''} ${ad.description || ''}`.toLowerCase();
+        return fullAdText.includes(origin.toLowerCase()) && fullAdText.includes(destination.toLowerCase());
+      }).slice(0, 3);
+    }
+
+    if (matchedLines.length === 0 && (origin || destination)) {
+      matchedLines = allActiveLines.filter((ad: any) => {
+        const fullAdText = `${ad.title || ''} ${ad.location || ''} ${ad.description || ''}`.toLowerCase();
+        if (origin && fullAdText.includes(origin.toLowerCase())) return true;
+        if (destination && fullAdText.includes(destination.toLowerCase())) return true;
+        return false;
+      }).slice(0, 3);
+    }
+  }
+
+  let fromName = fromUser?.first_name || 'عزيزنا';
+  if (fromUser?.username) {
+    const u = fromUser.username.toLowerCase();
+    if (u.includes('anonymous') || u.includes('bot')) {
+      fromName = 'مديرنا العزيز';
+    } else {
+      fromName = fromUser.first_name || `@${fromUser.username}`;
+    }
+  }
+
+  if (matchedLines && matchedLines.length > 0) {
+    let msg = `🚌 <b>يا هلا بيك ${fromName}! وجدنا لك خطوط متوفرة:</b>\n\n`;
+    for (const l of matchedLines) {
+      msg += `• <b>${l.title}</b>\n  📍 المسار: ${l.location || 'بغداد'} | 📞 هاتف: <code>${l.phone || 'متوفر بالموقع'}</code>\n  🔗 https://www.souqbaghdad.store/transport\n\n`;
+    }
+    msg += `<i>تصفح المزيد مباشرة عبر منصة سوق بغداد 🌹</i>`;
+    const markup = {
+      inline_keyboard: [[{ text: '🚌 تصفح جميع الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }]]
+    };
+    if (isGroup) {
+      await sendOrReplaceGroupMessage(chatId, msg, markup, supabase);
+    } else {
+      await sendMessage(chatId, msg, markup);
+    }
+    return;
+  }
+
+  // 4. If NOT found: Register in transport_requests waitlist & send smart notification confirmation
+  const finalOrigin = origin || (norm.includes('جميل') ? 'جميلة' : 'بغداد');
+  const finalDest = destination || (norm.includes('رافدين') || norm.includes('رفدين') ? 'كلية الرافدين' : 'الجامعة');
+
+  try {
+    await supabase.from('transport_requests').insert({
+      telegram_chat_id: String(chatId),
+      telegram_user_id: fromUser?.id ? String(fromUser.id) : null,
+      user_name: fromName,
+      origin: finalOrigin,
+      destination: finalDest,
+      raw_query: rawText,
+      status: 'pending'
+    });
+  } catch(e) {
+    console.error('Error saving transport request:', e);
+  }
+
+  const waitlistMsg = 
+    `📝 <b>تم تسجيل طلبك بنجاح يالغالي! ✨</b>\n\n` +
+    `📍 <b>المسار المطلوب:</b> من <b>${finalOrigin}</b> ⬅️ إلى <b>${finalDest}</b>\n` +
+    `👤 <b>صاحب الطلب:</b> ${fromName}\n\n` +
+    `🔔 <i>حالياً لا يوجد سائق بهذا الخط، لكن <b>سجلت طلبك بالنظام</b>، وأول ما يتوفر سائق أو ينزل خط جديد بهذا المسار راح أنبهك فوراً! 🌹</i>`;
+
+  const markup = {
+    inline_keyboard: [
+      [{ text: '🚌 تصفح خطوط سوق بغداد الحالية', url: 'https://www.souqbaghdad.store/transport' }],
+      [{ text: '➕ نشر إعلان خط كسائق', url: 'https://www.souqbaghdad.store/post-ad' }]
+    ]
+  };
+
+  if (isGroup) {
+    await sendOrReplaceGroupMessage(chatId, waitlistMsg, markup, supabase);
+  } else {
+    await sendMessage(chatId, waitlistMsg, markup);
+  }
+}
+
 async function sendMediaGroup(chatId: string | number, photoUrls: string[], caption: string) {
   const media = photoUrls.slice(0, 10).map((url, index) => {
     const item: any = { type: 'photo', media: url };
@@ -3651,25 +3766,11 @@ Deno.serve(async (req: any) => {
           return new Response('OK', { status: 200 });
         }
 
-        // --- /line Command (Quick Transport Line Search) ---
-        if (cmd === '/line' || cmd === '/lines') {
+        // --- /line or \line Command (Quick Transport Line Search) ---
+        if (cmd === '/line' || cmd === '/lines' || cmd === '\\line' || cmd === '\\lines') {
           if (messageId) deleteMessage(chatId, messageId);
-          const lineQuery = cmdParts.slice(1).join(' ');
-          let query = supabase.from('ads').select('*').eq('category', 'transport').eq('status', 'active');
-          if (lineQuery) {
-            query = query.or(`title.ilike.%${lineQuery}%,description.ilike.%${lineQuery}%,location.ilike.%${lineQuery}%`);
-          }
-          const { data: matchedLines } = await query.order('created_at', { ascending: false }).limit(3);
-
-          if (!matchedLines || matchedLines.length === 0) {
-            await sendOrReplaceGroupMessage(chatId, `🚌 لم يتم العثور على خطوط نقل مطابقة لـ «${lineQuery}» حالياً، تكدر تتصفح كافة الخطوط عبر: https://www.souqbaghdad.store/transport`, undefined, supabase);
-          } else {
-            let lineMsg = `🚌 <b>خطوط نقل متوفرة ${lineQuery ? 'إلى «' + lineQuery + '»' : ''}:</b>\n\n`;
-            for (const l of matchedLines) {
-              lineMsg += `• <b>${l.title}</b>\n  📍 المسار: ${l.location || 'بغداد'} | 📞 هاتف: <code>${l.phone || 'متوفر بالموقع'}</code>\n  🔗 https://www.souqbaghdad.store/transport\n\n`;
-            }
-            await sendOrReplaceGroupMessage(chatId, lineMsg, undefined, supabase);
-          }
+          await sendChatAction(chatId, 'typing');
+          await handleSmartTransportSearch(chatId, trimmedText, fromUser, supabase, true);
           return new Response('OK', { status: 200 });
         }
       }
@@ -3724,18 +3825,15 @@ Deno.serve(async (req: any) => {
           (cleanMsg.startsWith('بوت ') || cleanMsg === 'بوت') ||
           (update.message?.reply_to_message?.from?.is_bot && update.message?.reply_to_message?.from?.username === BOT_USERNAME);
 
-        // A. Specific Transport search intent
-        if ((cleanMsg.includes('محتاج خط') || cleanMsg.includes('اريد خط') || cleanMsg.includes('ادور خط') || cleanMsg.includes('سايق خط')) && (cleanMsg.includes('من') || cleanMsg.includes('الى') || cleanMsg.includes('لـ') || cleanMsg.includes('رافدين') || cleanMsg.includes('جامع') || cleanMsg.includes('دورة') || cleanMsg.includes('سيدية') || cleanMsg.includes('منصور') || cleanMsg.includes('شعب') || cleanMsg.includes('كرادة'))) {
-          const { data: matchedLines } = await supabase.from('ads').select('*').eq('category', 'transport').eq('status', 'active').order('created_at', { ascending: false }).limit(2);
-          if (matchedLines && matchedLines.length > 0) {
-            let replyMsg = `🚌 <b>يا هلا بيك يالغالي! وجدنا لك خطوط متوفرة تناسب طلبك:</b>\n\n`;
-            for (const l of matchedLines) {
-              replyMsg += `• <b>${l.title}</b> (${l.location || 'بغداد'})\n  📞 هاتف السائق: <code>${l.phone || 'متوفر بالموقع'}</code>\n\n`;
-            }
-            replyMsg += `🔗 <i>تصفح المزيد أو انشر خطك مجاناً: https://www.souqbaghdad.store/transport</i>`;
-            await sendOrReplaceGroupMessage(chatId, replyMsg, undefined, supabase);
-            return new Response('OK', { status: 200 });
-          }
+        // A. Specific Transport search intent (handles typos like خك, جميله, الرفدين)
+        const isTransportIntent = 
+          cleanMsg.includes('خط') || cleanMsg.includes('خك') || cleanMsg.includes('حط') || cleanMsg.includes('نقل') || cleanMsg.includes('سايق') ||
+          ((cleanMsg.includes('من ') || cleanMsg.includes('الى ') || cleanMsg.includes('إلى ') || cleanMsg.includes('لـ')) && (cleanMsg.includes('رافدين') || cleanMsg.includes('رفدين') || cleanMsg.includes('جامع') || cleanMsg.includes('كلية') || cleanMsg.includes('دورة') || cleanMsg.includes('جميل') || cleanMsg.includes('سيدي') || cleanMsg.includes('منصور') || cleanMsg.includes('شعب') || cleanMsg.includes('كراد') || cleanMsg.includes('بياع') || cleanMsg.includes('يرموك')));
+
+        if (isTransportIntent && (cleanMsg.includes('اريد') || cleanMsg.includes('محتاج') || cleanMsg.includes('ادور') || cleanMsg.includes('اكو') || cleanMsg.includes('متوفر') || cleanMsg.includes('من') || cleanMsg.includes('الى') || cleanMsg.includes('لـ'))) {
+          await sendChatAction(chatId, 'typing');
+          await handleSmartTransportSearch(chatId, text, fromUser, supabase, true);
+          return new Response('OK', { status: 200 });
         }
 
         // B. Sequential Group Conversational AI (Mentions / Inquiries / General Help)
@@ -7592,6 +7690,19 @@ Deno.serve(async (req: any) => {
           }
           const caption = update?.message?.caption || null;
           const userCaption = caption || text || null;
+
+          // Check if user is searching for transport line in private chat
+          const cleanP = (userCaption || '').toLowerCase().trim();
+          const isTransportIntentP = 
+            cleanP.startsWith('/line') || cleanP.startsWith('\\line') || cleanP.includes('خط') || cleanP.includes('خك') || cleanP.includes('حط') || cleanP.includes('نقل') ||
+            ((cleanP.includes('من ') || cleanP.includes('الى ') || cleanP.includes('إلى ') || cleanP.includes('لـ')) && (cleanP.includes('رافدين') || cleanP.includes('رفدين') || cleanP.includes('جامع') || cleanP.includes('كلية') || cleanP.includes('دورة') || cleanP.includes('جميل') || cleanP.includes('سيدي') || cleanP.includes('منصور')));
+
+          if (isTransportIntentP && (cleanP.includes('اريد') || cleanP.includes('محتاج') || cleanP.includes('ادور') || cleanP.includes('اكو') || cleanP.includes('من') || cleanP.includes('الى') || cleanP.startsWith('/line') || cleanP.startsWith('\\line'))) {
+            sendChatAction(chatId, 'typing');
+            await handleSmartTransportSearch(chatId, userCaption, fromUser, supabase, false);
+            return new Response('OK', { status: 200 });
+          }
+
           sendChatAction(chatId, 'typing');
           const aiRes = await callAiEngine(userCaption, audioUrl, photoUrl);
           await showMainMenu(aiRes || undefined);
