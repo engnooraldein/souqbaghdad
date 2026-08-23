@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { 
   Rocket, Check, AlertCircle, Sparkles, X, 
   Send, ShieldCheck, DollarSign, CheckCircle2,
-  Share2, Radio, Instagram, MessageCircle, Globe
+  Share2, Radio, Instagram, MessageCircle, Globe, Coins, Gift
 } from 'lucide-react';
 
 interface BoostAdModalProps {
@@ -37,18 +37,35 @@ export const BoostAdModal: React.FC<BoostAdModalProps> = ({
   const [publishing, setPublishing] = useState(false);
   const [successResult, setSuccessResult] = useState<any | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [userPoints, setUserPoints] = useState<number>(0);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      loadChannels();
+      loadUserDataAndChannels();
       setSuccessResult(null);
       setErrorMsg(null);
     }
   }, [isOpen, ad]);
 
-  const loadChannels = async () => {
+  const loadUserDataAndChannels = async () => {
     setLoading(true);
     try {
+      // 1. Fetch User Points
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData?.user) {
+        setCurrentUserId(authData.user.id);
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('points')
+          .eq('id', authData.user.id)
+          .maybeSingle();
+        if (profile) {
+          setUserPoints(profile.points || 0);
+        }
+      }
+
+      // 2. Fetch Channels
       const { data, error } = await supabase
         .from('social_settings')
         .select('*')
@@ -73,7 +90,7 @@ export const BoostAdModal: React.FC<BoostAdModalProps> = ({
           })
           .map(item => {
             const postPrice = parseFloat(item.post_price || 0);
-            const storyPrice = parseFloat(item.story_price || 0);
+            const storyPrice = parseFloat(item.story_price || 0); // 0 by default for stories
             
             // Auto-select active channels initially
             initialSelected[item.id] = {
@@ -89,7 +106,7 @@ export const BoostAdModal: React.FC<BoostAdModalProps> = ({
               post_enabled: item.post_enabled !== false,
               story_enabled: item.story_enabled !== false,
               post_price: postPrice,
-              story_price: storyPrice,
+              story_price: 0, // Story is strictly always 0 points (Free)
               icon: item.category === 'facebook' ? '🔵' :
                     item.category === 'instagram' ? '📸' :
                     item.category === 'telegram' ? '✈️' :
@@ -120,12 +137,11 @@ export const BoostAdModal: React.FC<BoostAdModalProps> = ({
     });
   };
 
-  // Compute Total Price
-  const totalPrice = channels.reduce((sum, ch) => {
+  // Compute Total Required Points (Posts only, Stories are always 0)
+  const totalRequiredPoints = channels.reduce((sum, ch) => {
     const sel = selectedChannels[ch.id];
     let chSum = 0;
     if (sel?.post && ch.post_enabled) chSum += ch.post_price;
-    if (sel?.story && ch.story_enabled) chSum += ch.story_price;
     return sum + chSum;
   }, 0);
 
@@ -135,6 +151,13 @@ export const BoostAdModal: React.FC<BoostAdModalProps> = ({
     setErrorMsg(null);
 
     try {
+      // 1. Verify Points if total points > 0
+      if (totalRequiredPoints > 0) {
+        if (userPoints < totalRequiredPoints) {
+          throw new Error(`رصيد نقاطك (${userPoints}) غير كافٍ. تحتاج إلى ${totalRequiredPoints} نقطة لنشر البوستات المختارة.`);
+        }
+      }
+
       const isPostTelegram = selectedChannels['tg_channels']?.post;
       const isPostFb = selectedChannels['fb_souq']?.post || selectedChannels['fb_rafdain']?.post;
       const isPostIg = selectedChannels['ig_souq']?.post || selectedChannels['ig_rafdain']?.post;
@@ -164,6 +187,17 @@ export const BoostAdModal: React.FC<BoostAdModalProps> = ({
       });
 
       const resData = await response.json();
+
+      // 2. Deduct Points on Success
+      if (totalRequiredPoints > 0 && currentUserId) {
+        const newBalance = userPoints - totalRequiredPoints;
+        await supabase
+          .from('profiles')
+          .update({ points: newBalance })
+          .eq('id', currentUserId);
+        setUserPoints(newBalance);
+      }
+
       setSuccessResult(resData);
       if (onSuccess) onSuccess();
     } catch (err: any) {
@@ -184,20 +218,17 @@ export const BoostAdModal: React.FC<BoostAdModalProps> = ({
         <div className="absolute bottom-0 left-1/4 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-800/80 pb-4 mb-5">
+        <div className="flex items-center justify-between border-b border-gray-800/80 pb-4 mb-4">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/40 rounded-2xl text-amber-400">
               <Rocket className="w-6 h-6 animate-pulse" />
             </div>
             <div>
               <h3 className="text-xl font-black text-white flex items-center gap-2">
-                روّج إعلانك على السوشيال ميديا 🚀
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                  فوري
-                </span>
+                ترويج الإعلان على مواقع التواصل 🚀
               </h3>
               <p className="text-xs text-gray-400">
-                اختر القنوات والمنصات التي تريد نشر إعلانك فيها لزيادة المشاهدات والوصول
+                اختر المنصات التي تريد نشر إعلانك فيها لزيادة التفاعل والمشاهدات
               </p>
             </div>
           </div>
@@ -209,6 +240,20 @@ export const BoostAdModal: React.FC<BoostAdModalProps> = ({
           </button>
         </div>
 
+        {/* Special Story Promo Banner */}
+        <div className="mb-4 p-2.5 bg-gradient-to-r from-purple-900/40 via-indigo-900/40 to-purple-900/40 border border-purple-500/40 rounded-2xl flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-bold text-purple-300">
+            <Gift className="w-4 h-4 text-purple-400 shrink-0" />
+            <span>الستوري الطولي (9:16) مجاني دائماً 100% لجميع المعلنين! 🎁</span>
+          </div>
+          {currentUserId && (
+            <div className="flex items-center gap-1 text-xs font-mono font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-xl border border-amber-500/20">
+              <Coins className="w-3.5 h-3.5" />
+              <span>رصيدك: {userPoints} نقطة</span>
+            </div>
+          )}
+        </div>
+
         {/* Success View */}
         {successResult ? (
           <div className="py-8 text-center space-y-4">
@@ -217,7 +262,7 @@ export const BoostAdModal: React.FC<BoostAdModalProps> = ({
             </div>
             <h4 className="text-2xl font-black text-white">تم ترويج ونشر إعلانك بنجاح! 🎉</h4>
             <p className="text-sm text-gray-300 max-w-md mx-auto">
-              إعلانك الآن منشور وحي في المنصات المختارة مع الباركود التفاعلي وروابط التواصل المباشر.
+              إعلانك الآن منشور وحي في المنصات والستوريات المختارة مع الباركود التفاعلي وروابط التواصل المباشر.
             </p>
             <div className="pt-4">
               <button
@@ -237,7 +282,7 @@ export const BoostAdModal: React.FC<BoostAdModalProps> = ({
                 <p className="text-xs">جاري تجهيز خيارات النشر والترويج المتاحة...</p>
               </div>
             ) : (
-              <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-1">
+              <div className="space-y-3.5 max-h-[50vh] overflow-y-auto pr-1">
                 
                 {/* Ad Mini Preview */}
                 {ad && (
@@ -260,7 +305,7 @@ export const BoostAdModal: React.FC<BoostAdModalProps> = ({
                     return (
                       <div 
                         key={channel.id}
-                        className="p-4 bg-gray-900/80 border border-gray-800 hover:border-gray-700 rounded-2xl transition-all space-y-3"
+                        className="p-3.5 bg-gray-900/80 border border-gray-800 hover:border-gray-700 rounded-2xl transition-all space-y-2.5"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2.5">
@@ -296,7 +341,7 @@ export const BoostAdModal: React.FC<BoostAdModalProps> = ({
                               منشور (Feed)
                             </span>
                             <span className="text-[11px] font-normal">
-                              {channel.post_enabled ? (channel.post_price === 0 ? 'مجاناً 🎁' : `${channel.post_price} د.ع`) : 'غير متوفر'}
+                              {channel.post_enabled ? (channel.post_price === 0 ? 'مجاناً 🎁' : `${channel.post_price} نقطة`) : 'غير متوفر'}
                             </span>
                           </button>
 
@@ -319,8 +364,8 @@ export const BoostAdModal: React.FC<BoostAdModalProps> = ({
                               </span>
                               ستوري (Story 9:16)
                             </span>
-                            <span className="text-[11px] font-normal">
-                              {channel.story_enabled ? (channel.story_price === 0 ? 'مجاناً 🎁' : `${channel.story_price} د.ع`) : 'غير متوفر'}
+                            <span className="text-[11px] font-bold text-emerald-400">
+                              مجاناً 🎁
                             </span>
                           </button>
                         </div>
@@ -340,11 +385,11 @@ export const BoostAdModal: React.FC<BoostAdModalProps> = ({
             )}
 
             {/* Footer Summary & Action */}
-            <div className="pt-4 border-t border-gray-800/80 flex items-center justify-between gap-4 mt-4">
+            <div className="pt-3.5 border-t border-gray-800/80 flex items-center justify-between gap-4 mt-3">
               <div>
-                <div className="text-[11px] text-gray-400">إجمالي تكلفة الترويج</div>
-                <div className="text-lg font-black text-amber-400">
-                  {totalPrice === 0 ? '0 د.ع (مجاناً لفترة محدودة 🎁)' : `${totalPrice.toLocaleString()} د.ع`}
+                <div className="text-[11px] text-gray-400">تكلفة منشورات الفيد المطلوبة:</div>
+                <div className="text-base font-black text-amber-400">
+                  {totalRequiredPoints === 0 ? '0 نقاط (مجاناً 🎁)' : `${totalRequiredPoints} نقطة`}
                 </div>
               </div>
 
@@ -352,7 +397,7 @@ export const BoostAdModal: React.FC<BoostAdModalProps> = ({
                 type="button"
                 onClick={handlePublishNow}
                 disabled={publishing || loading}
-                className="px-6 py-3 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-400 text-black font-black text-sm rounded-2xl shadow-xl shadow-amber-500/20 flex items-center gap-2 disabled:opacity-50 transition-all"
+                className="px-6 py-3 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-400 text-black font-black text-xs sm:text-sm rounded-2xl shadow-xl shadow-amber-500/20 flex items-center gap-2 disabled:opacity-50 transition-all"
               >
                 <Rocket className={`w-4 h-4 ${publishing ? 'animate-spin' : ''}`} />
                 {publishing ? 'جاري النشر في المنصات...' : '🚀 انشر وروّج إعلاني الآن'}
