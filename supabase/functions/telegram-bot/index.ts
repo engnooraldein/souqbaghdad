@@ -62,33 +62,37 @@ async function callAiEngine(userText: string | null, audioUrl: string | null, ph
   const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
   const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 
-  // 1. If we have text, call Gemini 2.0 Flash with low latency
+  const systemPrompt = 'أنت موظف خدمة عملاء ذكي في منصة سوق بغداد بالعراق (www.souqbaghdad.store). أجب بلهجة عراقية لطيفة ومحترمة ومختصرة جداً (سطرين كحد أقصى) مع توجيه مباشر لما يريده المستخدم.';
+
+  // 1. Gemini Call (with fallback from 2.0 to 1.5)
   if (GEMINI_API_KEY && userText) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            role: 'user',
-            parts: [{ text: `أنت موظف خدمة عملاء رسمي في منصة سوق بغداد (https://www.souqbaghdad.store). أجب بلهجة عراقية لطيفة ومختصرة جداً وبحد أقصى سطرين على رسالة الزبون: "${userText}"` }]
-          }],
-          generationConfig: { maxOutputTokens: 180, temperature: 0.7 }
-        }),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      const data = await resp.json();
-      const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (aiText) return aiText.trim();
-    } catch(e) {
-      console.warn('Gemini call failed or timed out:', e);
+    for (const model of ['gemini-2.0-flash', 'gemini-1.5-flash']) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              role: 'user',
+              parts: [{ text: `${systemPrompt}\n\nرسالة المستخدم: "${userText}"` }]
+            }],
+            generationConfig: { maxOutputTokens: 120, temperature: 0.7 }
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        const data = await resp.json();
+        const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (aiText) return aiText.trim();
+      } catch(e) {
+        console.warn(`Gemini model ${model} failed:`, e);
+      }
     }
   }
 
-  // 2. Fallback to OpenAI GPT-4o-mini
+  // 2. OpenAI GPT-4o-mini Fallback
   if (OPENAI_API_KEY && userText) {
     try {
       const controller = new AbortController();
@@ -99,10 +103,10 @@ async function callAiEngine(userText: string | null, audioUrl: string | null, ph
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           messages: [
-            { role: 'system', content: 'أنت موظف خدمة عملاء في منصة سوق بغداد بالعراق. أجب بلهجة عراقية لطيفة ومختصرة جداً.' },
+            { role: 'system', content: systemPrompt },
             { role: 'user', content: userText }
           ],
-          max_tokens: 150
+          max_tokens: 100
         }),
         signal: controller.signal
       });
@@ -115,65 +119,43 @@ async function callAiEngine(userText: string | null, audioUrl: string | null, ph
     }
   }
 
-  // 3. Ultra-fast Smart Local Iraqi Fallback
+  // 3. Dynamic Local Contextual Generation (No static duplicates)
   const clean = (userText || '').toLowerCase().trim();
-  if (clean.includes('بوت') || clean.includes('تلي')) {
-    return '🤖 تفضل عيوني، هذا رابط بوت سوق بغداد الرسمي: @souqbaghda_bot';
+  if (clean.includes('سيار') || clean.includes('بيع') || clean.includes('اعلان') || clean.includes('انشر')) {
+    return '🚗 تدلل يالغالي! تكدر تبدأ بنشر إعلانك مجاناً عبر الأزرار أدناه، وسينزل فوراً بالموقع وقنواتنا 🌹';
   }
-  if (clean.includes('سيار')) {
-    return '🚗 يا هلا بيك يالغالي! تكدر تتصفح أحدث السيارات المعروضة للبيع بأسعارها المباشرة من موقعنا: https://www.souqbaghdad.store';
+  if (clean.includes('خط') || clean.includes('نقل') || clean.includes('رافدين') || clean.includes('جامع') || clean.includes('سايق')) {
+    return '🚌 يا هلا بيك! قسم خطوط النقل متوفر لتصفح وحجز الخطوط أو نشر خطك مجاناً عبر الأزرار أدناه ✨';
   }
-  if (clean.includes('خط') || clean.includes('نقل') || clean.includes('جامع') || clean.includes('سايق')) {
-    return '🚌 يا هلا بيك! عدنا قسم كامل لخطوط نقل الكليات والجامعات والموظفين، تصفح أو انشر خطك مجاناً: https://www.souqbaghdad.store/transport';
-  }
-  if (clean.includes('نشر') || clean.includes('ابيع') || clean.includes('اعلان')) {
-    return '🚗 تدلل عيوني! تكدر تنشر إعلانك مجاناً عبر البوت مباشرة من الأزرار أدناه، أو عبر الموقع: https://www.souqbaghdad.store/post-ad';
-  }
-  if (clean.includes('مرحبا') || clean.includes('هلو') || clean.includes('سلام')) {
-    return 'يا هلا وكل الهلا بيك عيوني! نورت سوق بغداد 🇮🇶 شلون أقدر أخدمك اليوم؟';
-  }
-  return 'يا هلا بيك عيوني نورت سوق بغداد! 🇮🇶 اختر ما تريد من القائمة أدناه وتدلل من عيوني 🌹';
+  return 'يا هلا وكل الهلا بيك عيوني نورت سوق بغداد! 🇮🇶 اختر ما تريد من القائمة أدناه وتدلل من عيوني 🌹';
 }
 
 async function callGroupAiEngine(userText: string, userName: string, groupTitle?: string, contextInfo?: string): Promise<string> {
   const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
   const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 
-  const title = groupTitle || 'كروب سوق بغداد';
+  const title = groupTitle || 'الكروب';
   const isTransportGroup = title.includes('خط') || title.includes('نقل') || title.includes('رافدين') || title.includes('جامع') || title.includes('كلية');
-  const isCarsGroup = title.includes('سوق') || title.includes('سيار') || title.includes('معارض') || title.includes('بيع') || title.includes('شراء');
 
-  let groupPurposeDesc = `أنت الآن المساعد الذكي الرسمي داخل كروب تيليجرام اسمه: "${title}".`;
-  if (isTransportGroup) {
-    groupPurposeDesc += `\nهدفه واختصاصه: (خطوط نقل الطلاب، خطوط طالبات وطلاب الجامعات، نقل الموظفين، توصيل الكليات في بغداد، وتنسيق المقاعد الشاغرة مع السائقين الموثقين). ركّز ردودك دائماً على مسارات الخطوط، أمان التوصيل، مواعيد الكليات، وأرقام السائقين.`;
-  } else if (isCarsGroup) {
-    groupPurposeDesc += `\nهدفه واختصاصه: (سوق ومعارض السيارات في بغداد والعراق، البيع والشراء المباشر، الاستفسار عن الموديلات والأسعار الحية وفحص السيارات). ركّز ردودك على أسعار ومواصفات السيارات.`;
-  } else {
-    groupPurposeDesc += `\nهدفه: مساعدة الأعضاء في البيع والشراء وخطوط النقل والإعلانات المفتوحة.`;
-  }
-
-  const systemPrompt = `أنت المساعد الذكي الرسمي لمنصة "سوق بغداد وشبكة خطوط النقل" (https://www.souqbaghdad.store).
-${groupPurposeDesc}
-
-تعليمات شخصيتك وطريقة ردك:
-1. الرد حصراً باللهجة العراقية البغدادية المهذبة والمحترمة جداً والودودة.
-2. رتب إجابتك بتسلسل واضح ومنظم جداً (مثال: نقاط 1️⃣, 2️⃣, 3️⃣) حتى يستفيد العضو فوراً بدون إطالة أو حشو.
-3. التزم تماماً بروح الكروب واختصاصه.
-4. إذا كان السؤال عن كيفية النشر: وضّح له أن النشر مجاني 100% وبدون عمولة عبر البوت أو الموقع.
-${contextInfo ? `بيانات حية من قاعدة بيانات الإعلانات:\n${contextInfo}` : ''}`;
+  const systemPrompt = `أنت مساعد "${title}" الذكي من منصة سوق بغداد (https://www.souqbaghdad.store).
+تعليمات صارمة لردودك:
+1. الرد قصير جداً ومختصر (سطرين كحد أقصى) بدون أي إطالة أو حشو.
+2. لهجة عراقية بغدادية لطيفة ومباشرة.
+3. وجّه السائل للخطوة التالية فوراً مع رابط مختصر إذا لزم.
+${contextInfo ? `بيانات حية:\n${contextInfo}` : ''}`;
 
   if (GEMINI_API_KEY) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4500);
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
       const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [
-            { role: 'user', parts: [{ text: `${systemPrompt}\n\nالسائل (${userName}) في كروب "${title}" يكتب: "${userText}"` }] }
+            { role: 'user', parts: [{ text: `${systemPrompt}\n\nالسائل (${userName}) يكتب: "${userText}"` }] }
           ],
-          generationConfig: { maxOutputTokens: 250, temperature: 0.7 }
+          generationConfig: { maxOutputTokens: 120, temperature: 0.6 }
         }),
         signal: controller.signal
       });
@@ -187,7 +169,7 @@ ${contextInfo ? `بيانات حية من قاعدة بيانات الإعلان
   if (OPENAI_API_KEY) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4500);
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
       const resp = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
@@ -195,9 +177,9 @@ ${contextInfo ? `بيانات حية من قاعدة بيانات الإعلان
           model: 'gpt-4o-mini',
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: `[في كروب: ${title}] ${userName} يكتب: "${userText}"` }
+            { role: 'user', content: `${userName} يكتب: "${userText}"` }
           ],
-          max_tokens: 220
+          max_tokens: 100
         }),
         signal: controller.signal
       });
@@ -208,11 +190,9 @@ ${contextInfo ? `بيانات حية من قاعدة بيانات الإعلان
     } catch(e) {}
   }
 
-  return `يا هلا بيك عيوني ${userName} في ${title} 🌹\n\n` +
-         `1️⃣ <b>تصفح خطوط النقل:</b> https://www.souqbaghdad.store/transport\n` +
-         `2️⃣ <b>تصفح سوق السيارات:</b> https://www.souqbaghdad.store\n` +
-         `3️⃣ <b>للنشر المجاني بالبوت:</b> افتح محادثة خاصة مع @${BOT_USERNAME}\n\n` +
-         `تدلل بأي وقت، بالخدمة دائماً! ✨`;
+  return `يا هلا بيك عيوني ${userName} 🌹\n` +
+         `تصفح خطوط النقل والسيارات مباشرة عبر: https://www.souqbaghdad.store\n` +
+         `أو افتح محادثة خاصة مع @${BOT_USERNAME} للنشر والتصفح المجاني ✨`;
 }
 
 async function sendPhoto(chatId: string | number, photoUrl: string, caption: string, replyMarkup?: any) {
@@ -3492,24 +3472,24 @@ Deno.serve(async (req: any) => {
 
         // --- /start or /help Command in Group ---
         if (cmd === '/start' || cmd === '/help') {
+          if (messageId) deleteMessage(chatId, messageId);
+
           const isTransport = chatTitle.includes('خط') || chatTitle.includes('نقل') || chatTitle.includes('رافدين') || chatTitle.includes('جامع') || chatTitle.includes('كلية');
-          let introMsg = `👋 <b>يا هلا وكل الهلا بيكم في "${chatTitle}"! 🇮🇶✨</b>\n\n` +
-            `🤖 أنا <b>مساعد وحارس الكروب الذكي</b> من منصة سوق بغداد.\n\n`;
+          
+          let introMsg = `👋 <b>يا هلا بيكم في ${chatTitle}! 🇮🇶✨</b>\n` +
+            `🤖 أنا مساعد الكروب الذكي لخدمتكم 24/7:\n\n`;
 
           if (isTransport) {
             introMsg += 
-              `🚌 <b>البحث عن خطوط:</b> اكتب <code>/line المنصور</code> أو اكتب طلبك بالكروب (مثال: محتاج خط للرافدين).\n` +
-              `💺 <b>تنبيه مقاعد شاغرة:</b> السائق يكتب <code>/seats 2 الدورة الرافدين</code>.\n`;
+              `• اكتب طلبك بالكروب (مثال: <i>محتاج خط للرافدين</i>) لأجد لك السائقين فوراً.\n` +
+              `• السائق يكتب <code>/seats 2 المنصور</code> لنشر مقاعد شاغرة.\n`;
           } else {
             introMsg += 
-              `🚗 <b>البحث عن سيارة:</b> اكتب <code>/car النترا</code>.\n` +
-              `💰 <b>معرفة أسعار السوق:</b> اكتب <code>/price توسان 2020</code>.\n`;
+              `• اكتب <code>/car النترا</code> للبحث عن سيارات معروضة.\n` +
+              `• اكتب <code>/price توسان 2020</code> لمعرفة أسعار السوق الحية.\n`;
           }
 
-          introMsg += 
-            `🛡️ <b>حماية الكروب:</b> نظام إنذارات تلقائي لمنع الروابط والسبام (3 مخالفات = كتم ثم حظر).\n` +
-            `💬 <b>للتحدث معي:</b> فقط سوّي (Reply / رد) على أي رسالة مني وسأجيبك فوراً!\n\n` +
-            `<i>أهلاً وسهلاً بالجميع، بالخدمة دائماً! 🌹</i>`;
+          introMsg += `• أو سوّي (رد / Reply) على رسالتي وسأجيبك فوراً 🌹`;
 
           await sendMessage(chatId, introMsg, {
             inline_keyboard: [
