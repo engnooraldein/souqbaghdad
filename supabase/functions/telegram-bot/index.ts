@@ -1920,24 +1920,51 @@ async function postToFacebookStory(photoUrl: string, pageId: string, accessToken
   const targetPhotoUrl = photoUrl.includes('generate-story-image') 
     ? `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&output=jpg` 
     : (photoUrl.includes('wsrv.nl') ? photoUrl : `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&output=jpg`);
-  if (targetPhotoUrl.includes('wsrv.nl')) {
-    try { await fetch(targetPhotoUrl); } catch(e) {}
-  }
+  
   try {
     console.log(`[FB STORY] Publishing Story 9:16 to Facebook Page ${pageId}...`);
-    // Step 1: Upload photo as unpublished/temporary to get photo ID
-    const uploadParams = new URLSearchParams();
-    uploadParams.append('url', targetPhotoUrl);
-    uploadParams.append('published', 'false');
-    uploadParams.append('temporary', 'true');
-    uploadParams.append('access_token', accessToken);
+    
+    // Upload photo via binary multipart
+    let imgBlob: Blob | null = null;
+    try {
+      const imgFetch = await fetch(targetPhotoUrl);
+      if (imgFetch.ok) {
+        imgBlob = await imgFetch.blob();
+      }
+    } catch(e) {
+      console.warn('[FB STORY] Direct blob fetch failed, falling back to url parameter:', e);
+    }
 
-    const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: uploadParams.toString()
-    });
-    const uploadData = await uploadRes.json();
+    let uploadData: any = null;
+    if (imgBlob) {
+      const form = new FormData();
+      form.append('source', imgBlob, 'story.jpg');
+      form.append('published', 'false');
+      form.append('temporary', 'true');
+      form.append('access_token', accessToken);
+
+      const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
+        method: 'POST',
+        body: form
+      });
+      uploadData = await uploadRes.json();
+    } else {
+      const uploadParams = new URLSearchParams();
+      uploadParams.append('url', targetPhotoUrl);
+      uploadParams.append('published', 'false');
+      uploadParams.append('temporary', 'true');
+      uploadParams.append('access_token', accessToken);
+
+      const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: uploadParams.toString()
+      });
+      uploadData = await uploadRes.json();
+    }
+
+    console.log(`[FB STORY UPLOAD] Result:`, JSON.stringify(uploadData));
+
     if (uploadData && uploadData.id) {
       // Step 2: Publish photo story
       const storyRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photo_stories`, {
@@ -1965,7 +1992,9 @@ async function postToInstagramStory(photoUrl: string, igAccountId?: string, acce
   if (!token || !accountId) {
     const igSetting = await getLiveSocialSetting('ig_souq');
     token = token || igSetting?.access_token || META_PAGE_ACCESS_TOKEN;
-    accountId = accountId || igSetting?.page_id || igSetting?.extra_id || META_IG_ACCOUNT_ID;
+    const rawId = igSetting?.extra_id || igSetting?.page_id || META_IG_ACCOUNT_ID;
+    // Always choose Instagram Professional Account ID (starting with 1784...)
+    accountId = (rawId && rawId.startsWith('1784')) ? rawId : (igSetting?.extra_id || META_IG_ACCOUNT_ID || '17841403127032930');
   }
   if (!token || !accountId || !photoUrl) return { error: { message: 'رمز الوصول لانستكرام أو الصورة مفقودة' } };
   
@@ -2023,7 +2052,8 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null,
   if (!token || !accountId) {
     const igSetting = await getLiveSocialSetting('ig_souq');
     token = token || igSetting?.access_token || META_PAGE_ACCESS_TOKEN;
-    accountId = accountId || igSetting?.page_id || igSetting?.extra_id || META_IG_ACCOUNT_ID;
+    const rawId = igSetting?.extra_id || igSetting?.page_id || META_IG_ACCOUNT_ID;
+    accountId = (rawId && rawId.startsWith('1784')) ? rawId : (igSetting?.extra_id || META_IG_ACCOUNT_ID || '17841403127032930');
   }
   
   if (!token || !accountId || !photoUrl) return { error: { message: 'رمز الوصول لانستكرام أو الصورة مفقودة' } };
@@ -6096,10 +6126,11 @@ Deno.serve(async (req: any) => {
           console.error('Car channel publish error:', e);
         }
 
-        // Success message with full management buttons
-        await updateOrSend(`🎉 <b>تم نشر إعلان سيارتك بنجاح!</b>\n\n🚗 <b>${carTitle}</b>\n💰 <b>السعر:</b> ${formattedPrice}\n📍 <b>المحافظة:</b> ${state.data.governorate || 'بغداد'}\n\n📣 <b>إعلانك معروض الآن في المنصة وقناة سيارات سوق بغداد.</b>\nيمكنك إدارة إعلانك مباشرة عبر الأزرار أدناه:`, {
+        // Success message with full management buttons + VIP Promotion button
+        await updateOrSend(`🎉 <b>تم نشر إعلان سيارتك بنجاح! 🚗✨</b>\n\n🚗 <b>${carTitle}</b>\n💰 <b>السعر:</b> ${formattedPrice}\n📍 <b>المحافظة:</b> ${state.data.governorate || 'بغداد'}\n\n📣 <b>إعلانك نزل تلقائياً في المنصة وقناة التيليكرام وفيسبوك والستوريات!</b>\n👇 يمكنك مشاركة الإعلان أو ترويجه في صدارة فيسبوك وانستغرام:`, {
           inline_keyboard: [
-            [{ text: '📢 شاهد إعلانك في قناة السيارات', url: carChannelLink }],
+            [{ text: '🌐 عرض بطاقة السيارة بالموقع', url: carLink }, { text: '📢 شاهد بالقناة', url: carChannelLink }],
+            [{ text: '🚀 ترويج البوست في صدارة فيسبوك وانستغرام (VIP)', callback_data: `promo_menu_${insertedId}` }],
             [{ text: '💰 تعديل السعر', callback_data: `edit_car_price_${insertedId}` }, { text: '📞 تعديل الهاتف', callback_data: `edit_car_phone_${insertedId}` }],
             [{ text: '⚠️ تم بيع السيارة (تعليم كمباعة)', callback_data: `mark_sold_${insertedId}` }],
             [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
@@ -6107,6 +6138,27 @@ Deno.serve(async (req: any) => {
         });
         state = {};
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        // Background Auto-sync for Cars: Facebook Feed, Instagram Feed + Stories
+        EdgeRuntime.waitUntil((async () => {
+          try {
+            const resolvedImages = await ensurePublicImages(insertedCar, 'ads', supabase);
+            const carPhotoPayload = resolvedImages.length > 0 ? resolvedImages : fallbackCarImage;
+            const carStoryPayload = buildStoryImageUrl(insertedCar, 'car', resolvedImages.length > 0 ? resolvedImages[0] : '');
+
+            // 1. Souq Baghdad Facebook Post
+            await postToFacebook(channelCaption, carPhotoPayload);
+
+            // 2. Souq Baghdad Facebook Story
+            await postToFacebookStory(carStoryPayload, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
+
+            // 3. Instagram Story
+            await postToInstagramStory(carStoryPayload);
+          } catch(err) {
+            console.error('Car social auto-broadcast background error:', err);
+          }
+        })());
+
         return new Response('OK', { status: 200 });
       }
 
@@ -6486,9 +6538,10 @@ Deno.serve(async (req: any) => {
           : `https://t.me/${LINES_CHANNEL.replace('@', '')}`;
 
         // Immediately send success message to user before heavy background tasks
-        await updateOrSend(`🎉 <b>تم نشر إعلان الخط بنجاح! شكراً لاختيارك منصة سوق بغداد 🤝</b>\n\n🚌 <b>${transTitle}</b>\n💰 <b>الأجرة:</b> ${cleanFare}\n📍 <b>المناطق:</b> ${stateData.regions}\n🏢 <b>الوجهة:</b> ${stateData.destination}\n\n📣 <b>إعلانك معروض الآن بالموقع وقناة خطوط النقل.</b>\n✨ نتمنى لك دوام التوفيق والحصول على الركاب بأسرع وقت!`, {
+        await updateOrSend(`🎉 <b>تم نشر إعلان الخط بنجاح! شكراً لاختيارك منصة سوق بغداد 🤝</b>\n\n🚌 <b>${transTitle}</b>\n💰 <b>الأجرة:</b> ${cleanFare}\n📍 <b>المناطق:</b> ${stateData.regions}\n🏢 <b>الوجهة:</b> ${stateData.destination}\n\n📣 <b>إعلانك معروض الآن بالموقع وقناة خطوط النقل واستوري المنصات.</b>\n👇 هل ترغب بمضاعفة المشاهدات بنشره في بوست صدارة فيسبوك؟`, {
           inline_keyboard: [
             [{ text: '🌐 عرض بطاقتي بالموقع', url: link }, [{ text: '📢 شاهد بالقناة', url: channelLink }][0]],
+            [{ text: '🚀 ترويج البوست في صدارة فيسبوك وانستغرام (VIP)', callback_data: `promo_menu_${insertedId}` }],
             [{ text: '💰 تعديل الأجرة', callback_data: `edit_trans_price_${insertedId}` }, { text: '📞 تعديل الهاتف', callback_data: `edit_trans_phone_${insertedId}` }],
             [{ text: '✅ إغلاق الخط (اكتمل العدد)', callback_data: `solve_trans_${insertedId}` }, { text: '🗑️ حذف الخط نهائياً', callback_data: `del_trans_${insertedId}` }],
             [{ text: '🚌 نشر خط آخر', callback_data: 'publish_transport' }, { text: '📦 إدارة خطوطي', callback_data: 'manage_cat_trans' }],
@@ -7180,16 +7233,19 @@ Deno.serve(async (req: any) => {
           await supabase.from('profiles').update({ points: currentPoints - cost }).eq('id', userId);
         }
 
-        await sendMessage(chatId, `⏳ <b>جاري فحص وحذف المنشورات القديمة ثم النشر الجديد في الصدارة...</b>`);
-
         const isTransport = targetAd.category === 'transport';
         const shortId = targetAd.short_id || targetAd.id;
         const adLink = isTransport 
           ? `https://www.souqbaghdad.store/transport/card/${shortId}` 
           : `https://www.souqbaghdad.store/ad/${shortId}`;
 
-        const primaryImg = (targetAd.images && targetAd.images.length > 0) ? targetAd.images[0] : '';
-        const postImg = primaryImg || `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&category=${encodeURIComponent(targetAd.category || 'transport')}&title=${encodeURIComponent(targetAd.title)}&regions=${encodeURIComponent(targetAd.location || '')}&destination=${encodeURIComponent(targetAd.city || '')}&fare=${encodeURIComponent(targetAd.price || '')}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(targetAd.phone || '')}`;
+        const allImages = (targetAd.images && Array.isArray(targetAd.images) && targetAd.images.length > 0) 
+          ? targetAd.images 
+          : [];
+        const primaryImg = allImages.length > 0 ? allImages[0] : '';
+        const postImg: string | string[] = allImages.length > 0 
+          ? allImages 
+          : `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&category=${encodeURIComponent(targetAd.category || 'transport')}&title=${encodeURIComponent(targetAd.title)}&regions=${encodeURIComponent(targetAd.location || '')}&destination=${encodeURIComponent(targetAd.city || '')}&fare=${encodeURIComponent(targetAd.price || '')}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(targetAd.phone || '')}`;
 
         const storyImg = buildStoryImageUrl(targetAd, targetAd.category || (isTransport ? 'transport' : 'car'), primaryImg);
 
@@ -7305,24 +7361,36 @@ Deno.serve(async (req: any) => {
             const rucFbSetting = await getLiveSocialSetting('fb_rafdain');
             const rucToken = rucFbSetting?.access_token || ALRAFDAIN_FB_TOKEN;
             const rucPageId = rucFbSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
-            await postToFacebookStory(storyImg, rucPageId, rucToken);
-            directPostUrl = `https://www.facebook.com/${rucPageId}`;
-            directButtonLabel = '📘 فتح صفحة كلية الرافدين لمشاهدة الستوري';
-            successReport = `📘 <b>تم نشر ستوري 9:16 على صفحة كلية الرافدين الجامعة بنجاح! ✅</b>\n🔗 <a href="${directPostUrl}">اضغط هنا لفتح الصفحة والستوري</a>`;
+            const storyRes = await postToFacebookStory(storyImg, rucPageId, rucToken);
+            if (storyRes?.error) {
+              successReport = `⚠️ <b>تنبيه ستوري فيسبوك:</b> ${storyRes.error.message || 'لم يكتمل نشر الستوري'}`;
+            } else {
+              directPostUrl = `https://www.facebook.com/${rucPageId}`;
+              directButtonLabel = '📘 فتح صفحة كلية الرافدين لمشاهدة الستوري';
+              successReport = `📘 <b>تم نشر ستوري 9:16 على صفحة كلية الرافدين الجامعة بنجاح! ✅</b>\n🔗 <a href="${directPostUrl}">اضغط هنا لفتح الصفحة والستوري</a>`;
+            }
           }
           // 6. Facebook Story: Souq Baghdad
           else if (platformType === 'fb_story_souq' || platformType === 'fb_story') {
-            await postToFacebookStory(storyImg, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
-            directPostUrl = `https://www.facebook.com/${META_PAGE_ID}`;
-            directButtonLabel = '📘 فتح صفحة سوق بغداد لمشاهدة الستوري';
-            successReport = `📘 <b>تم نشر ستوري 9:16 على صفحة سوق بغداد الرسمية بنجاح! ✅</b>\n🔗 <a href="${directPostUrl}">اضغط هنا لفتح الصفحة والستوري</a>`;
+            const storyRes = await postToFacebookStory(storyImg, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
+            if (storyRes?.error) {
+              successReport = `⚠️ <b>تنبيه ستوري فيسبوك:</b> ${storyRes.error.message || 'لم يكتمل نشر الستوري'}`;
+            } else {
+              directPostUrl = `https://www.facebook.com/${META_PAGE_ID}`;
+              directButtonLabel = '📘 فتح صفحة سوق بغداد لمشاهدة الستوري';
+              successReport = `📘 <b>تم نشر ستوري 9:16 على صفحة سوق بغداد الرسمية بنجاح! ✅</b>\n🔗 <a href="${directPostUrl}">اضغط هنا لفتح الصفحة والستوري</a>`;
+            }
           }
           // 7. Instagram Story
           else if (platformType === 'ig_story') {
-            await postToInstagramStory(storyImg);
-            directPostUrl = 'https://www.instagram.com/souqbaghdad.iq/';
-            directButtonLabel = '📸 فتح حساب انستغرام لمشاهدة الستوري';
-            successReport = `📸 <b>تم نشر ستوري 9:16 على انستغرام بنجاح! ✅</b>\n🔗 <a href="${directPostUrl}">اضغط هنا لفتح الحساب والستوري</a>`;
+            const storyRes = await postToInstagramStory(storyImg);
+            if (storyRes?.error) {
+              successReport = `⚠️ <b>تنبيه ستوري انستغرام:</b> ${storyRes.error.message || 'لم يكتمل نشر الستوري'}`;
+            } else {
+              directPostUrl = 'https://www.instagram.com/souqbaghdad.iq/';
+              directButtonLabel = '📸 فتح حساب انستغرام لمشاهدة الستوري';
+              successReport = `📸 <b>تم نشر ستوري 9:16 على انستغرام بنجاح! ✅</b>\n🔗 <a href="${directPostUrl}">اضغط هنا لفتح الحساب والستوري</a>`;
+            }
           }
 
           syncStatus.last_promoted_at = new Date().toISOString();
