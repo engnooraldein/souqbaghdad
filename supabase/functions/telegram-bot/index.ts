@@ -1902,15 +1902,16 @@ async function postToFacebookStory(photoUrl: string, pageId: string, accessToken
   try {
     console.log(`[FB STORY] Publishing Story 9:16 to Facebook Page ${pageId}...`);
     // Step 1: Upload photo as unpublished/temporary to get photo ID
+    const uploadParams = new URLSearchParams();
+    uploadParams.append('url', targetPhotoUrl);
+    uploadParams.append('published', 'false');
+    uploadParams.append('temporary', 'true');
+    uploadParams.append('access_token', accessToken);
+
     const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url: targetPhotoUrl,
-        published: false,
-        temporary: true,
-        access_token: accessToken
-      })
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: uploadParams.toString()
     });
     const uploadData = await uploadRes.json();
     if (uploadData && uploadData.id) {
