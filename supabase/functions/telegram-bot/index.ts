@@ -7,7 +7,7 @@ const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN') || '';
 const tgUrl = `https://api.telegram.org/bot${botToken}`;
 const BOT_USERNAME = 'souqbaghda_bot';
 
-async function sendMessage(chatId: string | number, text: string, replyMarkup?: any, disableWebPagePreview = true) {
+async function sendMessage(chatId: string | number, text: string, replyMarkup?: any, disableWebPagePreview = true, replyToMessageId?: number | string) {
   const body: any = { 
     chat_id: chatId, 
     text, 
@@ -16,6 +16,7 @@ async function sendMessage(chatId: string | number, text: string, replyMarkup?: 
     link_preview_options: { is_disabled: true }
   };
   if (replyMarkup) body.reply_markup = replyMarkup;
+  if (replyToMessageId) body.reply_to_message_id = replyToMessageId;
   try {
     const res = await fetch(`${tgUrl}/sendMessage`, {
       method: 'POST',
@@ -472,14 +473,15 @@ async function transcribeVoiceWithAi(fileUrl: string): Promise<{ text: string | 
   return { text: null, base64: null };
 }
 
-async function scheduleMessageDeletion(chatId: string | number, messageId: number, delayMs = 45000) {
+async function scheduleMessageDeletion(chatId: string | number, botMessageId: number, userMessageId?: number | string, delayMs = 3600000) {
   try {
     await new Promise(resolve => setTimeout(resolve, delayMs));
-    await deleteMessage(chatId, messageId);
+    if (botMessageId) await deleteMessage(chatId, botMessageId);
+    if (userMessageId) await deleteMessage(chatId, userMessageId);
   } catch(e) {}
 }
 
-async function sendOrReplaceGroupMessage(chatId: string | number, text: string, markup?: any, supabase?: any) {
+async function sendOrReplaceGroupMessage(chatId: string | number, text: string, markup?: any, supabase?: any, replyToUserMsgId?: number | string) {
   if (supabase) {
     try {
       const { data: lastRecord } = await supabase.from('group_warnings').select('last_reason').eq('chat_id', String(chatId)).eq('user_id', 'BOT_LAST_MSG').maybeSingle();
@@ -492,7 +494,7 @@ async function sendOrReplaceGroupMessage(chatId: string | number, text: string, 
     } catch(e) {}
   }
 
-  const res = await sendMessage(chatId, text, markup);
+  const res = await sendMessage(chatId, text, markup, true, replyToUserMsgId);
   if (res && res.result && res.result.message_id) {
     const newMsgId = res.result.message_id;
     if (supabase) {
@@ -508,15 +510,15 @@ async function sendOrReplaceGroupMessage(chatId: string | number, text: string, 
       } catch(e) {}
     }
 
-    // Auto-delete bot notice after 45 seconds so the group stays 100% clean
+    // Keep response visible in group for 1 hour (3600000ms), then delete both bot reply and user question
     if (typeof (globalThis as any).EdgeRuntime?.waitUntil === 'function') {
-      (globalThis as any).EdgeRuntime.waitUntil(scheduleMessageDeletion(chatId, newMsgId, 45000));
+      (globalThis as any).EdgeRuntime.waitUntil(scheduleMessageDeletion(chatId, newMsgId, replyToUserMsgId, 3600000));
     }
   }
   return res;
 }
 
-async function handleSmartTransportSearch(chatId: string | number, rawText: string, fromUser: any, supabase: any, isGroup = false) {
+async function handleSmartTransportSearch(chatId: string | number, rawText: string, fromUser: any, supabase: any, isGroup = false, userMessageId?: number | string) {
   // 1. Normalize Iraqi Arabic and common typos
   const norm = rawText
     .replace(/[\\\/](line|lines|خط|خطوط)/gi, '')
@@ -572,27 +574,101 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   // --------------------------------------------------------------------------
   // 🚗 CASE 1: DRIVER / LINE PROVIDER (صاحب خط / سائق يعرض خطه ومقاعده)
   // --------------------------------------------------------------------------
-  const isProvider = 
-    lowerRaw.includes('متوفر خط') || lowerRaw.includes('يوجد خط') || lowerRaw.includes('اوفر خط') || lowerRaw.includes('أوفر خط') ||
-    lowerRaw.includes('عندي خط') || lowerRaw.includes('خط متوفر') || lowerRaw.includes('متوفر مقاعد') || lowerRaw.includes('يوجد مقاعد') ||
-    lowerRaw.includes('شاغر') || lowerRaw.includes('مقاعد شاغرة') || lowerRaw.includes('خط صباحي') || lowerRaw.includes('خط مسائي') ||
-    lowerRaw.includes('نوع السيارة') || lowerRaw.includes('ستاركس') || lowerRaw.includes('كوستر') || lowerRaw.includes('كيا') ||
-    lowerRaw.includes('الاستفسار على') || lowerRaw.includes('للحجز') || lowerRaw.includes('للاستفسار');
+  const isDriverKeywords = 
+    lowerRaw.includes('يتوفر خط') || lowerRaw.includes('متوفر خط') || lowerRaw.includes('يوجد خط') || 
+    lowerRaw.includes('اوفر خط') || lowerRaw.includes('أوفر خط') || lowerRaw.includes('عندي خط') || 
+    lowerRaw.includes('خط متوفر') || lowerRaw.includes('متوفر مقاعد') || lowerRaw.includes('يوجد مقاعد') || 
+    lowerRaw.includes('شاغر') || lowerRaw.includes('مقاعد شاغرة') || lowerRaw.includes('خط صباحي') || 
+    lowerRaw.includes('خط مسائي') || lowerRaw.includes('نوع السياره') || lowerRaw.includes('نوع السيارة') || 
+    lowerRaw.includes('ستاركس') || lowerRaw.includes('كوستر') || lowerRaw.includes('كيا') || 
+    lowerRaw.includes('اوبترا') || lowerRaw.includes('أوبترا') || lowerRaw.includes('النترا') || 
+    lowerRaw.includes('توسان') || lowerRaw.includes('طيبة') || lowerRaw.includes('سايبا') ||
+    lowerRaw.includes('يمر من المناطق') || lowerRaw.includes('يمر بـ') || lowerRaw.includes('يمر في') ||
+    lowerRaw.includes('المناطق المجاوره') || lowerRaw.includes('المناطق المجاورة') ||
+    lowerRaw.includes('الاستفسار اكثر') || lowerRaw.includes('الاستفسار أكثر') || lowerRaw.includes('للحجز والاستفسار') ||
+    lowerRaw.includes('للحجز') || lowerRaw.includes('للاستفسار') || lowerRaw.includes('متواجد على تلي') ||
+    (lowerRaw.includes('خط') && (lowerRaw.includes('تبريد') || lowerRaw.includes('تدفئة') || lowerRaw.includes('انترنت') || lowerRaw.includes('واي فاي')));
+
+  const isSeekerExplicit = 
+    lowerRaw.includes('محتاج خط') || lowerRaw.includes('محتاجة خط') || lowerRaw.includes('اريد خط') || 
+    lowerRaw.includes('أريد خط') || lowerRaw.includes('ادور خط') || lowerRaw.includes('أدور خط') || 
+    lowerRaw.includes('ابحث عن خط') || lowerRaw.includes('طالبة محتاجة') || lowerRaw.includes('طالب محتاج');
+
+  const isProvider = isDriverKeywords && !isSeekerExplicit;
 
   if (isProvider) {
+    // Check if driver phone is blacklisted / banned
+    if (extractedPhone) {
+      const { data: isBanned } = await supabase.from('group_warnings').select('user_id').eq('chat_id', 'BANNED_DRIVERS').eq('user_id', extractedPhone).maybeSingle();
+      if (isBanned) {
+        console.warn(`[BLOCKED DRIVER ATTEMPT] Banned phone ${extractedPhone} tried to post.`);
+        return;
+      }
+    }
+
+    // 1. Save driver active offer into transport_requests or match against waiting students
+    let driverDest = norm.includes('رافدين') || norm.includes('رفدين') ? 'كلية الرافدين الجامعة' : 'الجامعة';
+    
+    // Find waiting students whose origin appears in the driver's message
+    let matchedStudentCount = 0;
+    try {
+      const { data: waitingStudents } = await supabase
+        .from('transport_requests')
+        .select('*')
+        .eq('status', 'pending');
+
+      if (waitingStudents && waitingStudents.length > 0) {
+        for (const st of waitingStudents) {
+          const stOrig = (st.origin || '').toLowerCase().trim();
+          if (stOrig && lowerRaw.includes(stOrig)) {
+            matchedStudentCount++;
+            // Notify waiting student privately about this newly spotted driver
+            if (st.telegram_chat_id) {
+              const driverContact = extractedPhone ? `📞 <code>${extractedPhone}</code>` : (contactHandle ? `👤 ${contactHandle}` : 'عبر الكروب');
+              const studentAlert = 
+                `🔔 <b>بشرى سارة! توفر سائق يمر بمنطقتك (${st.origin}) 🚌✨</b>\n\n` +
+                `👤 <b>السائق:</b> ${fromName}\n` +
+                `📍 <b>مسار الخط:</b> يمر بـ ${st.origin} ⬅️ إلى ${driverDest}\n` +
+                `📱 <b>للتواصل والحجز:</b> ${driverContact}\n\n` +
+                `💡 <i>إذا اتفقت وياه واكتفيت، اضغط على «✅ اتفقت ولكيت خط خلاص» أدناه:</i>`;
+
+              const reportData = `rep_drv_${encodeURIComponent(fromName.substring(0,20))}_${extractedPhone || 'nophone'}`;
+              const studentMarkup = {
+                inline_keyboard: [
+                  contactHandle && contactHandle.startsWith('@') ? [{ text: '💬 مراسلة السائق تليكرام 🌹', url: `https://t.me/${contactHandle.replace('@','')}` }] : [],
+                  extractedPhone ? [{ text: `📞 اتصال: ${extractedPhone}`, url: `tel:${extractedPhone}` }] : [],
+                  [{ text: '✅ اتفقت ولكيت خط خلاص (إيقاف)', callback_data: `stop_alert_${st.id}` }],
+                  [{ text: '⚠️ إبلاغ عن مشكلة مع الكابتن', callback_data: reportData }],
+                  [{ text: '🚌 تصفح جميع الخطوط', url: 'https://www.souqbaghdad.store/transport' }]
+                ].filter(r => r.length > 0)
+              };
+
+              try {
+                await sendMessage(st.telegram_chat_id, studentAlert, studentMarkup);
+              } catch(e) {}
+            }
+          }
+        }
+      }
+    } catch(err) {
+      console.error('Error auto-matching driver with waiting students:', err);
+    }
+
     const driverMsg = 
       `👋 <b>يا هلا بالسائق العزيز كابتن ${fromName} 🚌✨</b>\n` +
-      `عاشت إيدك، تكدر تنشر إعلان خطك مجاناً 100% عبر <b>البوت</b> أو <b>الموقع</b> ليصل إعلانك لآلاف الطلاب بالقنوات والموقع فوراً 🌹`;
+      `عاشت إيدك، تم رصد خطك وسنقوم بربط وإرسال أي طالب أو طالبة يبحث عن هذا المسار إلى خاصك فوراً 🤝\n` +
+      (matchedStudentCount > 0 ? `🎯 <i>(تم إشعار ${matchedStudentCount} طلاب مسجلين بقائمة الانتظار بمناطق خطك فوراً!)</i>\n` : '') +
+      `💡 لنشر خطك ببوست وستوري رسمي بالموقع والقنوات مجاناً، اضغط أدناه:`;
 
     const providerMarkup = {
       inline_keyboard: [
-        [{ text: '🚀 انشر خطك بالموقع مجاناً', url: 'https://www.souqbaghdad.store/post-ad' }],
-        [{ text: '🤖 فتح محادثة خاصة مع البوت للنشر', url: `https://t.me/${BOT_USERNAME}` }]
+        [{ text: '🚀 انشر خطك بالموقع والقنوات مجاناً', url: 'https://www.souqbaghdad.store/post-ad' }],
+        [{ text: '🤖 فتح محادثة خاصة مع البوت', url: `https://t.me/${BOT_USERNAME}` }]
       ]
     };
 
     if (isGroup) {
-      await sendOrReplaceGroupMessage(chatId, driverMsg, providerMarkup, supabase);
+      await sendOrReplaceGroupMessage(chatId, driverMsg, providerMarkup, supabase, userMessageId);
     } else {
       await sendMessage(chatId, driverMsg, providerMarkup);
     }
@@ -758,6 +834,14 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     fullMsg += `💡 <i>تواصل مع السائقين مباشرة لحجز مقعدك، وإذا اتفقت وياهم اضغط «🛑 لكيت خط خلاص» أدناه لإيقاف التنبيهات ✨</i>`;
 
     inlineButtons.push([{ text: '🛑 لكيت خط خلاص / إيقاف التنبيهات', callback_data: 'stop_alert_user' }]);
+    
+    // Add report button if there's at least one matched line with phone
+    if (matchedLines.length > 0 && matchedLines[0].phone) {
+      const firstDrvPhone = matchedLines[0].phone.replace(/[^0-9]/g, '');
+      const firstDrvName = encodeURIComponent((matchedLines[0].title || 'سائق خط').substring(0, 20));
+      inlineButtons.push([{ text: '⚠️ إبلاغ عن مشكلة مع سائق', callback_data: `rep_drv_${firstDrvName}_${firstDrvPhone}` }]);
+    }
+
     inlineButtons.push([{ text: '🚌 تصفح جميع الخطوط النشطة بالموقع', url: 'https://www.souqbaghdad.store/transport' }]);
 
     const fullMarkup = { inline_keyboard: inlineButtons };
@@ -776,7 +860,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
           [{ text: '🚌 تصفح الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }]
         ]
       };
-      await sendOrReplaceGroupMessage(chatId, shortGroupMsg, shortMarkup, supabase);
+      await sendOrReplaceGroupMessage(chatId, shortGroupMsg, shortMarkup, supabase, userMessageId);
     } else {
       await sendMessage(chatId, fullMsg, fullMarkup);
     }
@@ -790,7 +874,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
       const askMarkup = {
         inline_keyboard: [[{ text: '💬 محادثة البوت بالخاص 🌹', url: `https://t.me/${BOT_USERNAME}?start=group_help` }]]
       };
-      await sendOrReplaceGroupMessage(chatId, askMsg, askMarkup, supabase);
+      await sendOrReplaceGroupMessage(chatId, askMsg, askMarkup, supabase, userMessageId);
     } else {
       const askMsg = 
         `👋 <b>يا هلا بيك عيوني ${fromName} 🚌✨</b>\n` +
@@ -830,7 +914,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
         [{ text: '🚌 تصفح خطوط الموقع', url: 'https://www.souqbaghdad.store/transport' }]
       ]
     };
-    await sendOrReplaceGroupMessage(chatId, shortWaitlistMsg, shortMarkup, supabase);
+    await sendOrReplaceGroupMessage(chatId, shortWaitlistMsg, shortMarkup, supabase, userMessageId);
   } else {
     const waitlistMsg = 
       `📝 <b>تم تسجيل طلبك بنجاح يالغالي! ✨</b>\n\n` +
@@ -882,10 +966,13 @@ async function notifyWaitingStudents(ad: any, supabase: any) {
           `📞 <b>هاتف السائق:</b> <code>${ad.phone || 'متوفر بالموقع'}</code>\n\n` +
           `🔗 <i>تصفح الخط وتواصل مع السائق مباشرة: https://www.souqbaghdad.store/transport</i>`;
 
+        const drvRepPhone = (ad.phone || '').replace(/[^0-9]/g, '') || 'nophone';
+        const drvRepTitle = encodeURIComponent((ad.title || 'سائق خط').substring(0, 20));
         const markup = {
           inline_keyboard: [
             [{ text: '🚌 عرض تفاصيل الخط والحجز', url: 'https://www.souqbaghdad.store/transport' }],
-            [{ text: '✅ لكيت خط خلاص (إيقاف التنبيهات)', callback_data: `stop_alert_${req.id}` }]
+            [{ text: '✅ لكيت خط خلاص (إيقاف التنبيهات)', callback_data: `stop_alert_${req.id}` }],
+            [{ text: '⚠️ إبلاغ عن مشكلة مع الكابتن', callback_data: `rep_drv_${drvRepTitle}_${drvRepPhone}` }]
           ]
         };
 
@@ -4420,7 +4507,7 @@ Deno.serve(async (req: any) => {
 
         if (isTransportIntent && (cleanMsg.includes('اريد') || cleanMsg.includes('محتاج') || cleanMsg.includes('ادور') || cleanMsg.includes('اكو') || cleanMsg.includes('متوفر') || cleanMsg.includes('من') || cleanMsg.includes('الى') || cleanMsg.includes('لـ') || cleanMsg.includes('سعر'))) {
           await sendChatAction(chatId, 'typing');
-          await handleSmartTransportSearch(chatId, text, fromUser, supabase, true);
+          await handleSmartTransportSearch(chatId, text, fromUser, supabase, true, messageId);
           return new Response('OK', { status: 200 });
         }
 
@@ -4434,7 +4521,7 @@ Deno.serve(async (req: any) => {
         if (isCarIntent && (cleanMsg.includes('سعر') || cleanMsg.includes('بيش') || cleanMsg.includes('موديل') || cleanMsg.includes('وارد') || cleanMsg.includes('معروض') || cleanMsg.includes('للبيع') || cleanMsg.includes('شراء') || cleanMsg.includes('شراي'))) {
           await sendChatAction(chatId, 'typing');
           const groupAiReply = await callGroupAiEngine(text, fromUsername, chatTitle);
-          await sendOrReplaceGroupMessage(chatId, groupAiReply, undefined, supabase);
+          await sendOrReplaceGroupMessage(chatId, groupAiReply, undefined, supabase, messageId);
           return new Response('OK', { status: 200 });
         }
 
@@ -4442,7 +4529,7 @@ Deno.serve(async (req: any) => {
         if (isBotMentioned || cleanMsg.includes('شلون انشر') || cleanMsg.includes('شلون اشتري') || cleanMsg.includes('شلون ابيع') || cleanMsg.includes('رابط الموقع') || cleanMsg.includes('ساعدني') || cleanMsg.includes('شعندك')) {
           await sendChatAction(chatId, 'typing');
           const groupAiReply = await callGroupAiEngine(text, fromUsername, chatTitle);
-          await sendOrReplaceGroupMessage(chatId, groupAiReply, undefined, supabase);
+          await sendOrReplaceGroupMessage(chatId, groupAiReply, undefined, supabase, messageId);
           return new Response('OK', { status: 200 });
         }
       }
@@ -4794,6 +4881,7 @@ Deno.serve(async (req: any) => {
       if (isOwner) {
         menuRows.push([{ text: '👑 لوحة تحكم المالك (Owner Hub)', callback_data: 'owner_hub_main' }]);
       }
+      menuRows.push([{ text: '🚀 ترويج ونشر إعلاناتي بالمنصات (بالنقاط) ⭐', callback_data: 'promo_select_ad' }]);
       menuRows.push([{ text: '🚗 اعرض سيارتك للبيع مجاناً', callback_data: 'publish_car' }]);
       menuRows.push([{ text: '🚌 انشر خط نقل (سائق / راكب)', callback_data: 'publish_transport' }, { text: '📦 نشر منتج عام', callback_data: 'publish_product' }]);
       menuRows.push([{ text: '🎁 شارك واكسب نقاط مجانية', callback_data: 'invite_and_earn' }, { text: '📋 إدارة إعلاناتي وخطوطي', callback_data: 'manage_my_ads' }]);
@@ -6518,103 +6606,82 @@ Deno.serve(async (req: any) => {
               await supabase.from('ads').update(updateData).eq('id', insertedTrans.id);
             }
 
-            // 3. Social Media
+            // 3. Social Media Publishing (Free Tier: 9:16 Stories on Facebook & Instagram + Telegram Channels)
             try {
               const fbIgCaption = await generateSocialCaption(insertedTrans, 'transport', link);
               const socialUpdates: any = {};
               const currentSync: any = { telegram: 'success', facebook: 'pending', instagram: 'pending', threads: 'pending' };
               if (rucMsgId) currentSync.ruc_telegram_message_id = rucMsgId;
 
-              // Facebook
+              // Facebook Story (Free tier: 9:16 Story on Souq Baghdad + Al-Rafdain)
               try {
-                // 1. Post to Souq Baghdad Main Facebook Page
-                console.log('[BOT SOCIAL] Posting transport to Souq Baghdad Facebook Page...');
-                const fbData = await postToFacebook(fbIgCaption, finalPostPhotoUrl);
-                console.log('[BOT SOCIAL] Main FB response:', JSON.stringify(fbData));
-                if (fbData && (fbData.post_id || fbData.id)) {
-                  socialUpdates.facebook_post_id = fbData.post_id || fbData.id;
+                // 1. Souq Baghdad Facebook Story
+                console.log('[BOT SOCIAL] Publishing 9:16 Story to Souq Baghdad Facebook Page...');
+                const fbStoryRes = await postToFacebookStory(finalStoryPhotoUrl, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
+                if (fbStoryRes && (fbStoryRes.id || fbStoryRes.post_id || !fbStoryRes.error)) {
+                  currentSync.facebook_story = 'success';
                   currentSync.facebook = 'success';
                 } else {
-                  currentSync.facebook = 'failed';
-                  currentSync.facebook_error = fbData?.error?.message || JSON.stringify(fbData);
-                }
-                
-                // 1b. Post Story (9:16) to Souq Baghdad Facebook Story
-                if (META_PAGE_ID && META_PAGE_ACCESS_TOKEN) {
-                  await postToFacebookStory(finalStoryPhotoUrl, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
+                  currentSync.facebook_story = 'failed';
+                  currentSync.facebook_error = fbStoryRes?.error?.message || JSON.stringify(fbStoryRes);
                 }
 
-                // 2. ALSO Post to Al-Rafdain Facebook Page ONLY if transport is for Al-Rafdain
+                // 2. Al-Rafdain Facebook Story (if related to Al-Rafdain)
                 if (isAlRafdain) {
                   const rafdainSetting = await getLiveSocialSetting('fb_rafdain');
                   const rafdainToken = rafdainSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
                   const rafdainPageId = rafdainSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
                   if (rafdainToken && rafdainPageId) {
-                    console.log('[BOT SOCIAL] Posting transport to Al-Rafdain Facebook Page...');
-                    const rafdainFbData = await postToFacebook(fbIgCaption, finalPostPhotoUrl, rafdainToken, rafdainPageId);
-                    console.log('[BOT SOCIAL] Al-Rafdain FB response:', JSON.stringify(rafdainFbData));
-                    if (rafdainFbData && (rafdainFbData.post_id || rafdainFbData.id)) {
-                      currentSync.rafdain_facebook_post_id = rafdainFbData.post_id || rafdainFbData.id;
+                    console.log('[BOT SOCIAL] Publishing 9:16 Story to Al-Rafdain Facebook Page...');
+                    const rucFbStoryRes = await postToFacebookStory(finalStoryPhotoUrl, rafdainPageId, rafdainToken);
+                    if (rucFbStoryRes && (rucFbStoryRes.id || rucFbStoryRes.post_id || !rucFbStoryRes.error)) {
+                      currentSync.rafdain_facebook_story = 'success';
                       currentSync.rafdain_facebook = 'success';
                     } else {
-                      currentSync.rafdain_facebook = 'failed';
-                      currentSync.rafdain_facebook_error = rafdainFbData?.error?.message || JSON.stringify(rafdainFbData);
+                      currentSync.rafdain_facebook_story = 'failed';
+                      currentSync.rafdain_facebook_error = rucFbStoryRes?.error?.message || JSON.stringify(rucFbStoryRes);
                     }
-
-                    // 2b. Post Story (9:16) to Al-Rafdain Facebook Story
-                    await postToFacebookStory(finalStoryPhotoUrl, rafdainPageId, rafdainToken);
                   }
                 }
               } catch(fbErr: any) {
-                console.error('[BOT SOCIAL] FB Error:', fbErr);
-                currentSync.facebook = 'failed';
+                console.error('[BOT SOCIAL] FB Story Error:', fbErr);
+                currentSync.facebook_story = 'failed';
                 currentSync.facebook_error = fbErr?.message || String(fbErr);
               }
 
-              // Instagram
+              // Instagram Story (Free tier: 9:16 Story on Souq Baghdad + Al-Rafdain)
               try {
+                // 1. Souq Baghdad Instagram Story
+                console.log('[BOT SOCIAL] Publishing 9:16 Story to Souq Baghdad Instagram...');
+                const igStoryRes = await postToInstagramStory(finalStoryPhotoUrl);
+                if (igStoryRes && (igStoryRes.id || !igStoryRes.error)) {
+                  currentSync.instagram_story = 'success';
+                  currentSync.instagram = 'success';
+                } else {
+                  currentSync.instagram_story = 'failed';
+                  currentSync.instagram_error = igStoryRes?.error?.message || JSON.stringify(igStoryRes);
+                }
+
+                // 2. Al-Rafdain Instagram Story
                 if (isAlRafdain) {
                   const rafdainIgSetting = await getLiveSocialSetting('ig_rafdain');
                   const igToken = rafdainIgSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
                   const igTargetId = rafdainIgSetting?.page_id || rafdainIgSetting?.extra_id || ALRAFDAIN_IG_ID || '17841404181680155';
                   if (igToken && igTargetId) {
-                    console.log(`[BOT SOCIAL] Posting to Al-Rafdain IG Story (@al_rafdain / ${igTargetId})...`);
-                    await postToInstagramStory(finalStoryPhotoUrl, igTargetId, igToken);
-                    currentSync.rafdain_instagram_story = 'success';
+                    console.log(`[BOT SOCIAL] Publishing 9:16 Story to Al-Rafdain Instagram (@al_rafdain / ${igTargetId})...`);
+                    const rucIgRes = await postToInstagramStory(finalStoryPhotoUrl, igTargetId, igToken);
+                    if (rucIgRes && (rucIgRes.id || !rucIgRes.error)) {
+                      currentSync.rafdain_instagram_story = 'success';
+                    } else {
+                      currentSync.rafdain_instagram_story = 'failed';
+                      currentSync.rafdain_instagram_error = rucIgRes?.error?.message || JSON.stringify(rucIgRes);
+                    }
                   }
                 }
-                console.log('[BOT SOCIAL] Posting to Instagram Feed...');
-                const igData = await postToInstagram(fbIgCaption, finalPostPhotoUrl);
-                console.log('[BOT SOCIAL] IG response:', JSON.stringify(igData));
-                if (igData && (igData.id || igData.media_id)) {
-                  socialUpdates.instagram_post_id = igData.id || igData.media_id;
-                  currentSync.instagram = 'success';
-                } else {
-                  currentSync.instagram = 'failed';
-                  currentSync.instagram_error = igData?.error?.message || JSON.stringify(igData);
-                }
               } catch(igErr: any) {
-                console.error('[BOT SOCIAL] IG Error:', igErr);
-                currentSync.instagram = 'failed';
+                console.error('[BOT SOCIAL] IG Story Error:', igErr);
+                currentSync.instagram_story = 'failed';
                 currentSync.instagram_error = igErr?.message || String(igErr);
-              }
-
-              // Threads
-              try {
-                console.log('[BOT SOCIAL] Posting to Threads...');
-                const thData = await postToThreads(fbIgCaption, finalPostPhotoUrl);
-                console.log('[BOT SOCIAL] Threads response:', JSON.stringify(thData));
-                if (thData && (thData.id || thData.media_id)) {
-                  socialUpdates.threads_post_id = thData.id || thData.media_id;
-                  currentSync.threads = 'success';
-                } else {
-                  currentSync.threads = 'failed';
-                  currentSync.threads_error = thData?.error?.message || JSON.stringify(thData);
-                }
-              } catch(thErr: any) {
-                console.error('[BOT SOCIAL] Threads Error:', thErr);
-                currentSync.threads = 'failed';
-                currentSync.threads_error = thErr?.message || String(thErr);
               }
 
               socialUpdates.sync_status = currentSync;
@@ -6623,45 +6690,54 @@ Deno.serve(async (req: any) => {
               // Send rich verification report back to user in Telegram
               try {
                 const fbItems: string[] = [];
-                if (currentSync.facebook === 'success') {
-                  fbItems.push('✅ صفحة سوق بغداد (بوست + ستوري)');
+                if (currentSync.facebook_story === 'success' || currentSync.facebook === 'success') {
+                  fbItems.push('  • ستوري صفحة سوق بغداد الرسمية ✅');
                 }
                 if (isAlRafdain) {
-                  if (currentSync.rafdain_facebook === 'success') {
-                    fbItems.push('✅ صفحة كلية الرافدين (بوست + ستوري)');
+                  if (currentSync.rafdain_facebook_story === 'success' || currentSync.rafdain_facebook === 'success') {
+                    fbItems.push('  • ستوري صفحة كلية الرافدين الجامعة ✅');
                   } else {
-                    fbItems.push(`❌ صفحة كلية الرافدين (${currentSync.rafdain_facebook_error?.includes('expired') ? 'انتهت صلاحية الرمز' : 'فشل الربط'})`);
+                    fbItems.push(`  • صفحة كلية الرافدين ⚠️ (${currentSync.rafdain_facebook_error || 'جاري التحديث'})`);
                   }
                 }
-                const fbReport = fbItems.length > 0 ? fbItems.join('\n') : `❌ فشل (${currentSync.facebook_error || 'خطأ'})`;
+                const fbReport = fbItems.length > 0 ? fbItems.join('\n') : '⚪ قيد المعالجة';
 
                 const igItems: string[] = [];
-                if (currentSync.instagram === 'success') {
-                  igItems.push('✅ بوست فيد سوق بغداد (@souqbaghdad.iq)');
+                if (currentSync.instagram_story === 'success' || currentSync.instagram === 'success') {
+                  igItems.push('  • ستوري (Story 9:16) سوق بغداد @souqbaghdad.iq ✅');
                 }
-                if (isAlRafdain && currentSync.rafdain_instagram_story === 'success') {
-                  igItems.push('✅ ستوري (Story 9:16) @al_rafdain');
-                }
-                const igReport = igItems.length > 0 ? igItems.join('\n') : (currentSync.instagram === 'failed' ? `❌ فشل (${currentSync.instagram_error || 'خطأ'})` : '⚪ قيد المعالجة');
-
-                let tgReport = `✅ قناة <code>@souqbaghdad_lines</code>`;
                 if (isAlRafdain) {
-                  tgReport += ` + قناة <code>@ruc_1</code>`;
+                  if (currentSync.rafdain_instagram_story === 'success') {
+                    igItems.push('  • ستوري (Story 9:16) كلية الرافدين @al_rafdain ✅');
+                  } else {
+                    igItems.push(`  • ستوري كلية الرافدين ⚠️ (${currentSync.rafdain_instagram_error || 'جاري التحديث'})`);
+                  }
+                }
+                const igReport = igItems.length > 0 ? igItems.join('\n') : '⚪ قيد المعالجة';
+
+                let tgReport = `  • قناة الخطوط الرسمية: <code>@souqbaghdad_lines</code> ✅`;
+                if (isAlRafdain) {
+                  tgReport += `\n  • قناة كلية الرافدين: <code>@ruc_1</code> ✅`;
                 }
 
                 const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(`🚌 إعلان خط نقل: ${cleanRegions} إلى ${cleanDestination}`)}`;
 
-                const receiptMsg = `📊 <b>تقرير توثيق ونشر الإعلان على الشبكات</b>\n` +
-                                   `🔖 <b>كود الإعلان:</b> <code>#${shortId}</code>\n\n` +
-                                   `📘 <b>فيسبوك:</b>\n${fbReport}\n\n` +
-                                   `📸 <b>انستغرام:</b>\n${igReport}\n\n` +
-                                   `✈️ <b>تيليجرام:</b>\n${tgReport}\n\n` +
-                                   `❤️ <b>شكراً لدعمك وثقتك بمنصة سوق بغداد الرقمي 🤝</b>\n` +
-                                   `<i>تم توثيق وحفظ معرفات النشر بقاعدة البيانات بنجاح!</i>`;
+                const receiptMsg = `📊 <b>تقرير توثيق ونشر إعلان الخط على الشبكات 🚀</b>\n\n` +
+                                   `🔖 <b>كود الإعلان:</b> <code>#${shortId}</code>\n` +
+                                   `📍 <b>المسار:</b> ${cleanRegions} ⬅️ ${cleanDestination}\n` +
+                                   `💰 <b>الأجرة:</b> ${cleanFare}\n\n` +
+                                   `📘 <b>فيسبوك (Facebook Stories):</b>\n${fbReport}\n\n` +
+                                   `📸 <b>انستغرام (Instagram Stories):</b>\n${igReport}\n\n` +
+                                   `✈️ <b>تيليجرام (Telegram Channels):</b>\n${tgReport}\n\n` +
+                                   `🌐 <b>موقع ومنصة سوق بغداد:</b>\n  • بطاقة تفاعلية كاملة مع زر اتصال وواتساب مباشر ✅\n\n` +
+                                   `💡 <b>ميزة الترويج المميز (VIP):</b>\n` +
+                                   `تكدر تضغط على <b>«🚀 ترويج وتمييز الخط»</b> لنشر <b>بوست دائم فيسبوك + انستا فيد</b> وتثبيت إعلانك بالصدارة بالنقاط!\n\n` +
+                                   `❤️ <i>شكراً لثقتك بمنصة سوق بغداد الرقمي 🤝</i>`;
 
                 await sendMessage(chatId, receiptMsg, {
                   inline_keyboard: [
                     [{ text: '🌐 عرض بطاقة الخط في الموقع', url: link }, [{ text: '📢 مشاهدة الإعلان بالقناة', url: channelLink }][0]],
+                    [{ text: '🚀 ترويج وتمييز الخط (بوست دائم FB+IG)', callback_data: `boost_ad_${insertedTrans.id}` }],
                     [{ text: '📲 مشاركة الرابط مع الأصدقاء', url: shareUrl }],
                     [{ text: '📦 إدارة خطوطي', callback_data: 'manage_cat_trans' }, { text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
                   ]
@@ -6742,6 +6818,8 @@ Deno.serve(async (req: any) => {
           const carText = `🚗 <b>${car.title}</b> [🟢 معروضة للبيع]\n💰 <b>السعر:</b> ${priceText}\n📍 <b>المحافظة:</b> ${car.location || 'بغداد'}\n📞 <b>الهاتف:</b> ${car.phone || 'غير مسجل'}`;
 
           const buttons = [
+            [{ text: '📢 ترويج ونشر مخصص بالمنصات (بالنقاط) 🎯', callback_data: `promo_menu_${car.id}` }],
+            [{ text: '🚀 ترويج وتمييز شامل VIP (5 نقاط) ⭐', callback_data: `boost_ad_${car.id}` }],
             [{ text: '💰 تعديل السعر', callback_data: `edit_car_price_${car.id}` }, { text: '📞 تعديل الهاتف', callback_data: `edit_car_phone_${car.id}` }],
             [{ text: '⚠️ تعليم الإعلان كمباع', callback_data: `mark_sold_${car.id}` }],
             [{ text: '🗑️ حذف الإعلان نهائياً', callback_data: `del_trans_${car.id}` }]
@@ -6844,7 +6922,8 @@ Deno.serve(async (req: any) => {
 
           const buttons = [
             [{ text: '👥 عرض الطلاب المحتاجين لخطك فوراً 🎯', callback_data: `match_students_${t.id}` }],
-            [{ text: '🚀 ترويج وتمييز الخط (5 نقاط)', callback_data: `boost_ad_${t.id}` }],
+            [{ text: '📢 ترويج ونشر مخصص بالمنصات (بالنقاط) 🎯', callback_data: `promo_menu_${t.id}` }],
+            [{ text: '🚀 ترويج وتمييز شامل VIP (5 نقاط) ⭐', callback_data: `boost_ad_${t.id}` }],
             [{ text: '💰 تعديل الأجرة', callback_data: `edit_trans_price_${t.id}` }, { text: '📞 تعديل الهاتف', callback_data: `edit_trans_phone_${t.id}` }],
             [{ text: '🔒 إغلاق الخط (اكتمل العدد)', callback_data: `solve_trans_${t.id}` }],
             [{ text: '🗑️ حذف الخط نهائياً', callback_data: `del_trans_${t.id}` }]
@@ -6913,6 +6992,218 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
+      // ==========================================
+      // 📢 PROMO SELECT AD (من القائمة الرئيسية)
+      // ==========================================
+      if (action === 'promo_select_ad') {
+        const { data: myActiveAds } = await supabase.from('ads')
+          .select('*')
+          .eq('seller_id', userId)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false });
+
+        if (!myActiveAds || myActiveAds.length === 0) {
+          await sendMessage(chatId, 
+            `📭 <b>ليس لديك إعلانات نشطة حالياً لترويجها!</b>\n\n` +
+            `يمكنك نشر خط نقل أو سيارة أو منتج مجاناً أولاً، ثم ترويجه بالنقاط على المنصات 👇`,
+            {
+              inline_keyboard: [
+                [{ text: '🚌 انشر خط نقل الآن', callback_data: 'publish_transport' }],
+                [{ text: '🚗 اعرض سيارة للبيع', callback_data: 'publish_car' }],
+                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+              ]
+            }
+          );
+          return new Response('OK', { status: 200 });
+        }
+
+        const { data: userProf } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
+        const curPts = userProf?.points || 0;
+
+        let promoSelectMsg = 
+          `🚀 <b>لوحة الترويج والنشر بالمنصات — سوق بغداد</b> 🇮🇶\n\n` +
+          `🪙 <b>رصيدك الحالي:</b> <b>${isOwner ? 'غير محدود (المالك)' : curPts} نقطة</b>\n\n` +
+          `اختر الإعلان أو الخط الذي ترغب بنشره وترويجه على فيسبوك وانستغرام وتيليجرام 👇:`;
+
+        const adBtns: any[] = [];
+        for (const ad of myActiveAds) {
+          const icon = ad.category === 'transport' ? '🚌' : '🚗';
+          const title = ad.title || 'إعلان بدون عنوان';
+          const shortId = ad.short_id || ad.id;
+          adBtns.push([{ text: `${icon} ${title.substring(0, 32)} (#${shortId})`, callback_data: `promo_menu_${ad.id}` }]);
+        }
+
+        adBtns.push([
+          { text: '💳 شراء نقاط', callback_data: 'buy_points' },
+          { text: '🎁 كسب نقاط مجانية', callback_data: 'invite_and_earn' }
+        ]);
+        adBtns.push([{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]);
+
+        await sendMessage(chatId, promoSelectMsg, { inline_keyboard: adBtns });
+        return new Response('OK', { status: 200 });
+      }
+
+      // ==========================================
+      // 📢 CUSTOM PLATFORM PROMOTION HUB (بالنقاط)
+      // ==========================================
+      if (action.startsWith('promo_menu_')) {
+        const adId = action.replace('promo_menu_', '');
+        const { data: targetAd } = await supabase.from('ads').select('*').eq('id', adId).eq('seller_id', userId).maybeSingle();
+
+        if (!targetAd) {
+          await sendMessage(chatId, `❌ لم يتم العثور على الإعلان المطلوب.`);
+          return new Response('OK', { status: 200 });
+        }
+
+        const { data: userProf } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
+        const currentPoints = userProf?.points || 0;
+        const shortId = targetAd.short_id || targetAd.id;
+        const isTrans = targetAd.category === 'transport';
+
+        const promoMenuText = 
+          `📢 <b>لوحة النشر والترويج المخصص بالمنصات 🎯</b>\n\n` +
+          `🔖 <b>الإعلان:</b> <b>${targetAd.title}</b> (<code>#${shortId}</code>)\n` +
+          `🪙 <b>رصيدك الحالي:</b> <b>${isOwner ? 'غير محدود (المالك)' : currentPoints} نقطة</b>\n\n` +
+          `اختر المنصة ونوع المنشور الذي ترغب بنشره وترويجه فوراً 👇`;
+
+        const menuKeyboard = [
+          [{ text: '📘 بوست دائم فيسبوك Feed (5 نقاط)', callback_data: `promo_act_fb_feed_${adId}` }],
+          [{ text: '📸 بوست دائم انستغرام Feed (5 نقاط)', callback_data: `promo_act_ig_feed_${adId}` }],
+          [{ text: '📘 ستوري إضافي فيسبوك Story 9:16 (2 نقطة)', callback_data: `promo_act_fb_story_${adId}` }],
+          [{ text: '📸 ستوري إضافي انستغرام Story 9:16 (2 نقطة)', callback_data: `promo_act_ig_story_${adId}` }],
+          [{ text: '👑 الباقة الشاملة VIP لكل المنصات (10 نقاط)', callback_data: `boost_ad_${adId}` }],
+          [{ text: '💳 شراء نقاط', callback_data: 'buy_points' }, { text: '🎁 كسب نقاط مجانية', callback_data: 'invite_and_earn' }],
+          [{ text: '🔙 العودة لقائمة الإعلانات', callback_data: isTrans ? 'manage_cat_trans' : 'manage_cat_cars' }]
+        ];
+
+        await sendMessage(chatId, promoMenuText, { inline_keyboard: menuKeyboard });
+        return new Response('OK', { status: 200 });
+      }
+
+      // Execute Custom Single Platform Promotion
+      if (action.startsWith('promo_act_')) {
+        // format: promo_act_[platform]_[adId]
+        const parts = action.split('_');
+        const platformType = `${parts[2]}_${parts[3]}`; // fb_feed, ig_feed, fb_story, ig_story
+        const adId = parts.slice(4).join('_');
+
+        const { data: targetAd } = await supabase.from('ads').select('*').eq('id', adId).eq('seller_id', userId).maybeSingle();
+        if (!targetAd) {
+          await sendMessage(chatId, `❌ لم يتم العثور على الإعلان المطلوب.`);
+          return new Response('OK', { status: 200 });
+        }
+
+        const pointCosts: Record<string, number> = {
+          fb_feed: 5,
+          ig_feed: 5,
+          fb_story: 2,
+          ig_story: 2
+        };
+
+        const cost = pointCosts[platformType] || 5;
+        const { data: userProf } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
+        const currentPoints = userProf?.points || 0;
+
+        if (currentPoints < cost && !isOwner) {
+          await sendMessage(chatId, 
+            `❌ <b>رصيدك غير كافٍ لهذا الإجراء!</b>\n\n` +
+            `التكلفة المطلوبة: <b>${cost} نقاط</b>\n` +
+            `رصيدك الحالي: <b>${currentPoints} نقطة</b>\n\n` +
+            `💡 يمكنك شحن محفظتك أو كسب نقاط مجاناً عبر دعوة أصدقائك.`,
+            {
+              inline_keyboard: [
+                [{ text: '🎁 كسب نقاط مجانية بالدعوة', callback_data: 'invite_and_earn' }],
+                [{ text: '💳 شراء نقاط', callback_data: 'buy_points' }],
+                [{ text: '🔙 عودة للقائمة', callback_data: `promo_menu_${adId}` }]
+              ]
+            }
+          );
+          return new Response('OK', { status: 200 });
+        }
+
+        // Deduct points
+        if (!isOwner) {
+          await supabase.from('profiles').update({ points: currentPoints - cost }).eq('id', userId);
+        }
+
+        await sendMessage(chatId, `⏳ <b>جاري النشر والتوليد الفوري على المنصة المختارة...</b>`);
+
+        const isTransport = targetAd.category === 'transport';
+        const shortId = targetAd.short_id || targetAd.id;
+        const adLink = isTransport 
+          ? `https://www.souqbaghdad.store/transport/card/${shortId}` 
+          : `https://www.souqbaghdad.store/ad/${shortId}`;
+
+        const postImg = (targetAd.images && targetAd.images.length > 0) 
+          ? targetAd.images[0] 
+          : `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(targetAd.title)}&regions=${encodeURIComponent(targetAd.location || '')}&destination=${encodeURIComponent(targetAd.city || '')}&fare=${encodeURIComponent(targetAd.price || '')}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(targetAd.phone || '')}`;
+
+        const storyImg = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(targetAd.title)}&regions=${encodeURIComponent(targetAd.location || '')}&destination=${encodeURIComponent(targetAd.city || '')}&fare=${encodeURIComponent(targetAd.price || '')}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(targetAd.phone || '')}`;
+
+        const isRafdainAd = (targetAd.title + ' ' + (targetAd.location || '') + ' ' + (targetAd.city || '')).includes('الرافدين');
+        let successReport = '';
+
+        try {
+          if (platformType === 'fb_feed') {
+            const caption = await generateSocialCaption(targetAd, isTransport ? 'transport' : 'car', adLink);
+            const fbRes = await postToFacebook(caption, postImg);
+            if (isRafdainAd) {
+              const rucFbSetting = await getLiveSocialSetting('fb_rafdain');
+              const rucToken = rucFbSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
+              const rucPageId = rucFbSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
+              if (rucToken && rucPageId) {
+                await postToFacebook(caption, postImg, rucToken, rucPageId);
+              }
+            }
+            successReport = `📘 <b>تم نشر بوست دائم في الفيد على صفحة فيسبوك بنجاح! ✅</b>\n(صفحة سوق بغداد الرسمية${isRafdainAd ? ' + صفحة كلية الرافدين' : ''})`;
+          } else if (platformType === 'ig_feed') {
+            const caption = await generateSocialCaption(targetAd, isTransport ? 'transport' : 'car', adLink);
+            await postToInstagram(caption, postImg);
+            successReport = `📸 <b>تم نشر بوست دائم في فيد انستغرام بنجاح! ✅</b>\n(حساب سوق بغداد الرسمي @souqbaghdad.iq)`;
+          } else if (platformType === 'fb_story') {
+            await postToFacebookStory(storyImg, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
+            if (isRafdainAd) {
+              const rucFbSetting = await getLiveSocialSetting('fb_rafdain');
+              const rucToken = rucFbSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
+              const rucPageId = rucFbSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
+              if (rucToken && rucPageId) {
+                await postToFacebookStory(storyImg, rucPageId, rucToken);
+              }
+            }
+            successReport = `📘 <b>تم نشر ستوري إضافي (Story 9:16) على فيسبوك بنجاح! ✅</b>`;
+          } else if (platformType === 'ig_story') {
+            await postToInstagramStory(storyImg);
+            if (isRafdainAd) {
+              const rafdainIgSetting = await getLiveSocialSetting('ig_rafdain');
+              const igToken = rafdainIgSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
+              const igTargetId = rafdainIgSetting?.page_id || rafdainIgSetting?.extra_id || ALRAFDAIN_IG_ID || '17841404181680155';
+              if (igToken && igTargetId) {
+                await postToInstagramStory(storyImg, igTargetId, igToken);
+              }
+            }
+            successReport = `📸 <b>تم نشر ستوري إضافي (Story 9:16) على انستغرام بنجاح! ✅</b>`;
+          }
+        } catch(actErr) {
+          console.error('[PROMO ACTION ERROR]', actErr);
+          successReport = `⚠️ تم تنفيذ طلب النشر وخصم النقاط وسيظهر على المنصة خلال لحظات.`;
+        }
+
+        const remainingPts = isOwner ? 'غير محدود (المالك)' : currentPoints - cost;
+        await sendMessage(chatId, 
+          `🎉 <b>مبروك! تم ترويج إعلانك بنجاح 🚀</b>\n\n` +
+          `${successReport}\n\n` +
+          `🪙 النقاط المخصومة: <b>${cost} نقاط</b>\n` +
+          `💳 رصيدك المتبقي: <b>${remainingPts} نقطة</b>`,
+          {
+            inline_keyboard: [
+              [{ text: '📢 ترويج إضافي للمنصات', callback_data: `promo_menu_${adId}` }],
+              [{ text: '📦 العودة لإعلاناتي', callback_data: isTransport ? 'manage_cat_trans' : 'manage_cat_cars' }]
+            ]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
       // Boost Ad with Points (ترويج الإعلان بالنقاط مع منع التكرار وحذف البوست القديم وتجديده)
       if (action.startsWith('boost_ad_')) {
         const adId = action.replace('boost_ad_', '');
@@ -6974,7 +7265,7 @@ Deno.serve(async (req: any) => {
           }
         }
 
-        // 5. Publish Fresh VIP Post to Channel
+        // 5. Publish Fresh VIP Post to Channel + Facebook & Instagram Feed (VIP Promotion via points)
         const isTransport = targetAd.category === 'transport';
         const targetChannel = isTransport ? (LINES_CHANNEL_ID || LINES_CHANNEL || '@souqbaghdad_lines') : (CAR_CHANNEL_ID || CAR_CHANNEL || '@souqbaghdad_car');
         const adLink = `https://www.souqbaghdad.store/${isTransport ? 'ad' : 'product'}/${targetAd.short_id || targetAd.id}`;
@@ -7008,6 +7299,41 @@ Deno.serve(async (req: any) => {
           console.error('[BOOST PUBLISH ERROR]', e);
         }
 
+        // 5b. Publish Permanent Feed Post to Facebook & Instagram (VIP Promotion Feature)
+        let fbFeedPublished = false;
+        let igFeedPublished = false;
+        try {
+          const feedCaption = await generateSocialCaption(targetAd, isTransport ? 'transport' : 'car', adLink);
+          const postImg = (targetAd.images && targetAd.images.length > 0) 
+            ? targetAd.images[0] 
+            : `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(targetAd.title)}&regions=${encodeURIComponent(targetAd.location || '')}&destination=${encodeURIComponent(targetAd.city || '')}&fare=${encodeURIComponent(targetAd.price || '')}&short_id=${encodeURIComponent(targetAd.short_id || targetAd.id)}&phone=${encodeURIComponent(targetAd.phone || '')}`;
+
+          // Facebook Feed Post
+          const fbFeedRes = await postToFacebook(feedCaption, postImg);
+          if (fbFeedRes && (fbFeedRes.id || fbFeedRes.post_id)) {
+            fbFeedPublished = true;
+          }
+
+          // Al-Rafdain Facebook Feed Post (if transport is for Al-Rafdain)
+          const isRafdainAd = (targetAd.title + ' ' + (targetAd.location || '') + ' ' + (targetAd.city || '')).includes('الرافدين');
+          if (isRafdainAd) {
+            const rucFbSetting = await getLiveSocialSetting('fb_rafdain');
+            const rucToken = rucFbSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
+            const rucPageId = rucFbSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
+            if (rucToken && rucPageId) {
+              await postToFacebook(feedCaption, postImg, rucToken, rucPageId);
+            }
+          }
+
+          // Instagram Feed Post
+          const igFeedRes = await postToInstagram(feedCaption, postImg);
+          if (igFeedRes && (igFeedRes.id || igFeedRes.media_id)) {
+            igFeedPublished = true;
+          }
+        } catch(socialFeedErr) {
+          console.error('[BOOST SOCIAL FEED ERROR]', socialFeedErr);
+        }
+
         // 6. Update Database
         const nowIso = new Date().toISOString();
         await supabase.from('ads').update({
@@ -7020,10 +7346,11 @@ Deno.serve(async (req: any) => {
 
         await sendMessage(chatId, 
           `🚀 <b>تم ترويج وتجديد إعلانك بنجاح! ⭐</b>\n\n` +
-          `✨ <b>ماذا حدث الآن؟</b>\n` +
-          `1️⃣ تم حذف البوست القديم تلقائياً لمنع التكرار.\n` +
-          `2️⃣ نزل بوست جديد في صدارة قنوات التيليجرام بـ Badge مميز VIP.\n` +
-          `3️⃣ تصدر إعلانك الصفحة الأولى في موقع سوق بغداد.\n\n` +
+          `✨ <b>المزايا التي تم تفعيلها فوراً:</b>\n` +
+          `1️⃣ <b>تيليجرام:</b> حذف البوست القديم تلقائياً ونزول بوست جديد مميز VIP في صدارة القناة ✅\n` +
+          `2️⃣ <b>فيسبوك:</b> نشر بوست دائم في الفيد للصفحة الرسمية ✅\n` +
+          `3️⃣ <b>انستغرام:</b> نشر بوست فيد دائم بالحساب الرسمي ✅\n` +
+          `4️⃣ <b>الموقع الإلكتروني:</b> تصدر الصفحة الأولى بشارة VIP الذهبية ⭐\n\n` +
           `⏱️ <b>موعد الترويج القادم:</b> بعد 24 ساعة.\n` +
           `🪙 الرصيد المتبقي بمحفظتك: <b>${isOwner ? 'غير محدود (المالك)' : currentPoints - boostCost}</b> نقطة.`,
           {
@@ -7147,6 +7474,96 @@ Deno.serve(async (req: any) => {
           });
         } else {
           await updateOrSend('❌ لم يتم العثور على الخط أو لا تملك صلاحية تعديله.');
+        }
+        return new Response('OK', { status: 200 });
+      }
+
+      // Stop Transport Request Alerts (لما الراكب يحصل خط خلاص)
+      if (action.startsWith('stop_alert_')) {
+        const reqId = action.replace('stop_alert_', '');
+        if (reqId === 'user') {
+          // Stop all active requests for this telegram user / chat
+          await supabase
+            .from('transport_requests')
+            .update({ status: 'completed' })
+            .or(`telegram_chat_id.eq.${chatId},telegram_user_id.eq.${userId}`);
+
+          await updateOrSend(
+            `🎉 <b>ألف مبروك حصولك على الخط وبالتوفيق في دوامك! 🌹✨</b>\n\n` +
+            `تم إيقاف جميع التنبيهات ولن نرسل لك إشعارات أخرى.\n` +
+            `إذا بطلت من هذا الخط أو احتجت خط جديد بأي وقت، تكدر تطلب مرة ثانية بضغطة زر واحدة 👇`,
+            {
+              inline_keyboard: [
+                [{ text: '🔄 البحث عن خط جديد أو طلب خط', callback_data: 'search_transport_interactive' }],
+                [{ text: '🚌 تصفح جميع الخطوط', url: 'https://www.souqbaghdad.store/transport' }],
+                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+              ]
+            }
+          );
+        } else {
+          await supabase
+            .from('transport_requests')
+            .update({ status: 'completed' })
+            .eq('id', reqId);
+
+          await updateOrSend(
+            `🎉 <b>ألف مبروك حصولك على الخط وبالتوفيق في دوامك! 🌹✨</b>\n\n` +
+            `تم إيقاف التنبيهات لهذا الطلب بنجاح.\n` +
+            `إذا بطلت من الخط أو غيرت منطقتك وتريد خط جديد، راسلني بأي وقت وراح أساعدك فوراً 🤝`,
+            {
+              inline_keyboard: [
+                [{ text: '🔄 البحث عن خط جديد', callback_data: 'search_transport_interactive' }],
+                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+              ]
+            }
+          );
+        }
+        return new Response('OK', { status: 200 });
+      }
+
+      // Report Driver (إبلاغ عن كابتن يوصل للمالك فوراً مع إمكانية الحظر)
+      if (action.startsWith('rep_drv_')) {
+        const parts = action.split('_');
+        const driverName = decodeURIComponent(parts[2] || 'كابتن');
+        const driverPhone = parts[3] || 'غير متوفر';
+
+        state = { 
+          step: 'report_driver_reason', 
+          driverName, 
+          driverPhone 
+        };
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        await updateOrSend(
+          `⚠️ <b>إبلاغ عن مشكلة مع الكابتن (${driverName})</b>\n` +
+          `📞 هاتف السائق: <code>${driverPhone}</code>\n\n` +
+          `يرجى كتابة <b>تفاصيل المشكلة أو الشكوى</b> في رسالة، وسيقوم فريق الإدارة بمراجعتها واتخاذ الإجراء الفوري بحق السائق 🛡️`,
+          {
+            inline_keyboard: [[{ text: '❌ إلغاء الإبلاغ', callback_data: 'cancel_wizard' }]]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      // Admin Ban Driver by Phone (حظر السائق برقم الهاتف من لوحة المالك)
+      if (action.startsWith('ban_drv_') && isOwner) {
+        const banPhone = action.replace('ban_drv_', '');
+        if (banPhone && banPhone !== 'nophone') {
+          // 1. Deactivate all ads with this phone
+          await supabase.from('ads').update({ status: 'banned' }).eq('phone', banPhone);
+          // 2. Add to banned phones / blacklist in profiles or group_warnings
+          await supabase.from('group_warnings').upsert({
+            chat_id: 'BANNED_DRIVERS',
+            user_id: banPhone,
+            username: `Banned Driver (${banPhone})`,
+            warning_count: 99,
+            last_reason: 'تم حظر السائق بواسطة الإدارة لمخالفة القوانين',
+            updated_at: new Date().toISOString()
+          });
+
+          await updateOrSend(`🚫 <b>تم حظر السائق صاحب الرقم (${banPhone}) بنجاح!</b>\nتم إيقاف جميع إعلاناته وحظره من المنصة.`);
+        } else {
+          await updateOrSend(`⚠️ لا يوجد رقم هاتف مسجل لهذا السائق ليتم حظره تلقائياً.`);
         }
         return new Response('OK', { status: 200 });
       }
@@ -7744,6 +8161,66 @@ Deno.serve(async (req: any) => {
         state.step.startsWith('product_') ||
         state.step.startsWith('partner_')
       );
+
+      // --- Report Driver Reason Input Handler ---
+      if (state.step === 'report_driver_reason' && text) {
+        const reportReason = text.trim();
+        const drvName = state.driverName || 'غير معروف';
+        const drvPhone = state.driverPhone || 'غير متوفر';
+        const reporterName = userProfile?.full_name || fromUser?.first_name || 'مستخدم';
+        const reporterPhone = phone || userProfile?.phone || 'غير مسجل';
+
+        // 1. Save Report to support_messages / reports table
+        try {
+          await supabase.from('support_messages').insert({
+            user_id: userId,
+            telegram_chat_id: String(chatId),
+            name: reporterName,
+            phone: reporterPhone,
+            message: `[بلاغ عن كابتن/سائق] الاسم: ${drvName} | الهاتف: ${drvPhone} | الشكوى: ${reportReason}`,
+            category: 'driver_report',
+            status: 'pending'
+          });
+        } catch(e) {
+          console.error('Error saving driver report:', e);
+        }
+
+        // 2. Notify Owner (@nooraldein / OWNER_CHAT_ID) immediately with One-Click Ban Button
+        if (OWNER_CHAT_ID) {
+          const banBtnData = drvPhone && drvPhone !== 'nophone' && drvPhone !== 'غير متوفر' ? `ban_drv_${drvPhone}` : 'ban_drv_nophone';
+          const ownerAlertMsg = 
+            `🚨 <b>بلاغ وشكوى جديدة عن كابتن / سائق!</b>\n\n` +
+            `👤 <b>اسم الكابتن:</b> ${drvName}\n` +
+            `📞 <b>هاتف الكابتن:</b> <code>${drvPhone}</code>\n\n` +
+            `📝 <b>نص الشكوى والمشكلة:</b>\n<i>«${reportReason}»</i>\n\n` +
+            `👤 <b>صاحب البلاغ (الراكب):</b> ${reporterName} (<code>${reporterPhone}</code>)\n` +
+            `⏰ <b>الوقت:</b> ${new Date().toLocaleString('ar-IQ', { timeZone: 'Asia/Baghdad' })}`;
+
+          const ownerAlertButtons = [
+            [{ text: `🚫 حظر هذا السائق فوراً بالرقم (${drvPhone})`, callback_data: banBtnData }],
+            [{ text: `💬 محادثة الراكب واتساب`, url: `https://wa.me/${reporterPhone.replace(/[^0-9]/g, '')}` }]
+          ];
+
+          await sendMessage(OWNER_CHAT_ID, ownerAlertMsg, { inline_keyboard: ownerAlertButtons });
+        }
+
+        // 3. Confirm to user & reset state
+        state = {};
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        await updateOrSend(
+          `✅ <b>تم استلام بلاغك بنجاح وسنقوم بالتدقيق فوراً 🛡️</b>\n\n` +
+          `شكراً لحرصك ومساعدتنا في الحفاظ على أمان وراحة جميع الطلاب والركاب.\n` +
+          `سيتم اتخاذ الإجراء الإداري الرادع بحق السائق إذا ثبتت مخالفته. 🌹`,
+          {
+            inline_keyboard: [
+              [{ text: '🔄 البحث عن خط بديل', callback_data: 'search_transport_interactive' }],
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
 
       // --- Partner Channel Connect Text Inputs ---
       if (state.step === 'partner_await_channel' && text) {
