@@ -1617,10 +1617,17 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
     });
     const feedData = await feedRes.json();
     console.log('[FB FEED] Response:', feedData);
+    if (feedData && feedData.id) {
+      const pId = feedData.id;
+      const cleanPostId = pId.includes('_') ? pId.split('_')[1] : pId;
+      feedData.url = `https://www.facebook.com/${cleanPostId}`;
+      return feedData;
+    }
     if (feedData.error) {
-      // Don't alert if it's not a real auth error
       const pageName = isRafdainPage ? 'فيسبوك كلية الرافدين' : 'فيسبوك سوق بغداد';
-      await checkAndAlertTokenError(pageName, feedData);
+      if (!isRafdainPage) {
+        await checkAndAlertTokenError(pageName, feedData);
+      }
     }
     return feedData;
   } catch (err: any) {
@@ -7043,25 +7050,25 @@ Deno.serve(async (req: any) => {
           `📢 <b>لوحة النشر والترويج وإعادة النشر بالمنصات 🎯</b>\n\n` +
           `🔖 <b>الإعلان:</b> <b>${targetAd.title}</b> (<code>#${shortId}</code>)\n` +
           `🪙 <b>رصيدك الحالي:</b> <b>${isOwner ? 'غير محدود (المالك)' : currentPoints} نقطة</b>\n\n` +
-          `💡 <i>ملاحظة: عند إعادة النشر، يحذف النظام المنشور القديم تلقائياً وينشر البوست الجديد في صدارة الصفحة.</i>\n\n` +
-          `اختر المنصة والصفحة التي ترغب بنشر إعلانك عليها بالتحديد 👇`;
+          `💡 <i>عند الترويج، يحذف النظام المنشور القديم تلقائياً وينشر البوست الجديد في صدارة الصفحة مع تزويدك برابط مباشر لمعاينته!</i>\n\n` +
+          `اختر المنصة والصفحة التي ترغب بالنشر عليها بالتحديد 👇`;
 
         const menuKeyboard: any[] = [];
 
         if (isRafdain) {
-          menuKeyboard.push([{ text: '📘 بوست فيسبوك: كلية الرافدين فقط (5 نقاط)', callback_data: `promo_act_fb_rafdain_${adId}` }]);
-          menuKeyboard.push([{ text: '📘 بوست فيسبوك: سوق بغداد فقط (5 نقاط)', callback_data: `promo_act_fb_souq_${adId}` }]);
+          menuKeyboard.push([{ text: '📘 بوست فيسبوك: صفحة كلية الرافدين (5 نقاط)', callback_data: `promo_act_fb_rafdain_${adId}` }]);
+          menuKeyboard.push([{ text: '📘 بوست فيسبوك: صفحة سوق بغداد الرسمية (5 نقاط)', callback_data: `promo_act_fb_souq_${adId}` }]);
           menuKeyboard.push([{ text: '📘 بوست فيسبوك: الرافدين + سوق بغداد معاً (7 نقاط)', callback_data: `promo_act_fb_both_${adId}` }]);
           menuKeyboard.push([{ text: '📸 بوست انستغرام: @souqbaghdad.iq (5 نقاط)', callback_data: `promo_act_ig_feed_${adId}` }]);
-          menuKeyboard.push([{ text: '📘 ستوري 9:16: صفحة كلية الرافدين (2 نقطة)', callback_data: `promo_act_fb_story_rafdain_${adId}` }]);
-          menuKeyboard.push([{ text: '📘 ستوري 9:16: صفحة سوق بغداد (2 نقطة)', callback_data: `promo_act_fb_story_souq_${adId}` }]);
-          menuKeyboard.push([{ text: '📸 ستوري 9:16: انستغرام (2 نقطة)', callback_data: `promo_act_ig_story_${adId}` }]);
+          menuKeyboard.push([{ text: '📘 ستوري فيسبوك 9:16: صفحة كلية الرافدين (2 نقطة)', callback_data: `promo_act_fb_story_rafdain_${adId}` }]);
+          menuKeyboard.push([{ text: '📘 ستوري فيسبوك 9:16: صفحة سوق بغداد (2 نقطة)', callback_data: `promo_act_fb_story_souq_${adId}` }]);
+          menuKeyboard.push([{ text: '📸 ستوري انستغرام 9:16: @souqbaghdad.iq (2 نقطة)', callback_data: `promo_act_ig_story_${adId}` }]);
           menuKeyboard.push([{ text: '👑 الباقة الشاملة VIP لكل الصفحات والقنوات (10 نقاط)', callback_data: `boost_ad_${adId}` }]);
         } else {
-          menuKeyboard.push([{ text: '📘 بوست فيسبوك Feed: سوق بغداد (5 نقاط)', callback_data: `promo_act_fb_souq_${adId}` }]);
-          menuKeyboard.push([{ text: '📸 بوست انستغرام Feed (5 نقاط)', callback_data: `promo_act_ig_feed_${adId}` }]);
-          menuKeyboard.push([{ text: '📘 ستوري فيسبوك Story 9:16 (2 نقطة)', callback_data: `promo_act_fb_story_souq_${adId}` }]);
-          menuKeyboard.push([{ text: '📸 ستوري انستغرام Story 9:16 (2 نقطة)', callback_data: `promo_act_ig_story_${adId}` }]);
+          menuKeyboard.push([{ text: '📘 بوست فيسبوك: صفحة سوق بغداد (5 نقاط)', callback_data: `promo_act_fb_souq_${adId}` }]);
+          menuKeyboard.push([{ text: '📸 بوست انستغرام: @souqbaghdad.iq (5 نقاط)', callback_data: `promo_act_ig_feed_${adId}` }]);
+          menuKeyboard.push([{ text: '📘 ستوري فيسبوك 9:16: صفحة سوق بغداد (2 نقطة)', callback_data: `promo_act_fb_story_souq_${adId}` }]);
+          menuKeyboard.push([{ text: '📸 ستوري انستغرام 9:16: @souqbaghdad.iq (2 نقطة)', callback_data: `promo_act_ig_story_${adId}` }]);
           menuKeyboard.push([{ text: '👑 الباقة الشاملة VIP لجميع المنصات (10 نقاط)', callback_data: `boost_ad_${adId}` }]);
         }
 
@@ -7078,13 +7085,33 @@ Deno.serve(async (req: any) => {
       // Execute Custom Single Platform Promotion
       if (action.startsWith('promo_act_')) {
         // format: promo_act_[platformType]_[adId]
-        const remainingStr = action.replace('promo_act_', '');
-        const targetAdId = remainingStr.substring(remainingStr.indexOf('_', remainingStr.indexOf('_') + 1) + 1);
-        const platformType = remainingStr.substring(0, remainingStr.length - targetAdId.length - 1);
+        const prefixMatch = action.match(/^promo_act_(fb_rafdain|fb_souq|fb_both|fb_feed|ig_feed|fb_story_rafdain|fb_story_souq|fb_story|ig_story)_(.+)$/);
+        let platformType = '';
+        let targetAdId = '';
 
-        const { data: targetAd } = await supabase.from('ads').select('*').eq('id', targetAdId).eq('seller_id', userId).maybeSingle();
+        if (prefixMatch) {
+          platformType = prefixMatch[1];
+          targetAdId = prefixMatch[2];
+        } else {
+          const rawParts = action.split('_');
+          platformType = `${rawParts[2]}_${rawParts[3]}`;
+          targetAdId = rawParts.slice(4).join('_');
+        }
+
+        let adQuery = supabase.from('ads').select('*');
+        if (targetAdId.length >= 30) {
+          adQuery = adQuery.eq('id', targetAdId);
+        } else {
+          adQuery = adQuery.or(`short_id.eq.${targetAdId},id.eq.${targetAdId}`);
+        }
+
+        if (!isOwner) {
+          adQuery = adQuery.eq('seller_id', userId);
+        }
+
+        const { data: targetAd } = await adQuery.maybeSingle();
         if (!targetAd) {
-          await sendMessage(chatId, `❌ لم يتم العثور على الإعلان المطلوب.`);
+          await sendMessage(chatId, `❌ لم يتم العثور على الإعلان المطلوب (كود: ${targetAdId}).`);
           return new Response('OK', { status: 200 });
         }
 
@@ -7142,6 +7169,8 @@ Deno.serve(async (req: any) => {
 
         let syncStatus = typeof targetAd.sync_status === 'object' && targetAd.sync_status ? { ...targetAd.sync_status } : {};
         let successReport = '';
+        let directPostUrl: string | null = null;
+        let directButtonLabel = '🌐 مشاهدة الإعلان في المنصة';
 
         try {
           const caption = await generateSocialCaption(targetAd, isTransport ? 'transport' : 'car', adLink);
@@ -7155,12 +7184,17 @@ Deno.serve(async (req: any) => {
             const rucFbSetting = await getLiveSocialSetting('fb_rafdain');
             const rucToken = rucFbSetting?.access_token || ALRAFDAIN_FB_TOKEN;
             const rucPageId = rucFbSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
-            const rucRes = await postToFacebook(caption, postImg, rucToken, rucPageId);
+            const rucRes = await postToFacebook(caption, null, rucToken, rucPageId);
             if (rucRes?.id || rucRes?.post_id) {
+              const pid = rucRes.id || rucRes.post_id;
               syncStatus.rafdain_facebook = 'success';
-              syncStatus.rafdain_facebook_post_id = rucRes.id || rucRes.post_id;
+              syncStatus.rafdain_facebook_post_id = pid;
+              const cleanId = pid.includes('_') ? pid.split('_')[1] : pid;
+              directPostUrl = `https://www.facebook.com/${cleanId}`;
+              directButtonLabel = '📘 مشاهدة البوست على صفحة كلية الرافدين';
             }
-            successReport = `📘 <b>تم حذف المنشور القديم ونشر بوست جديد في صدارة صفحة كلية الرافدين بنجاح! ✅</b>`;
+            successReport = `📘 <b>تم نشر البوست في صدارة صفحة كلية الرافدين بنجاح! ✅</b>` + 
+              (directPostUrl ? `\n🔗 <b>رابط البوست المباشر:</b> <a href="${directPostUrl}">${directPostUrl}</a>` : '');
           } 
           // 2. Facebook: Souq Baghdad Only
           else if (platformType === 'fb_souq' || platformType === 'fb_feed') {
@@ -7168,12 +7202,17 @@ Deno.serve(async (req: any) => {
             if (oldFbPostId) {
               await deleteFromFacebook(oldFbPostId, META_PAGE_ACCESS_TOKEN);
             }
-            const fbRes = await postToFacebook(caption, postImg);
+            const fbRes = await postToFacebook(caption, null);
             if (fbRes?.id || fbRes?.post_id) {
+              const pid = fbRes.id || fbRes.post_id;
               syncStatus.facebook = 'success';
-              syncStatus.facebook_post_id = fbRes.id || fbRes.post_id;
+              syncStatus.facebook_post_id = pid;
+              const cleanId = pid.includes('_') ? pid.split('_')[1] : pid;
+              directPostUrl = `https://www.facebook.com/${cleanId}`;
+              directButtonLabel = '📘 مشاهدة البوست على صفحة سوق بغداد';
             }
-            successReport = `📘 <b>تم حذف المنشور القديم ونشر بوست جديد في صدارة صفحة سوق بغداد الرسمية بنجاح! ✅</b>`;
+            successReport = `📘 <b>تم نشر البوست في صدارة صفحة سوق بغداد الرسمية بنجاح! ✅</b>` + 
+              (directPostUrl ? `\n🔗 <b>رابط البوست المباشر:</b> <a href="${directPostUrl}">${directPostUrl}</a>` : '');
           }
           // 3. Facebook: Both Pages
           else if (platformType === 'fb_both') {
@@ -7181,7 +7220,7 @@ Deno.serve(async (req: any) => {
             if (syncStatus.facebook_post_id) await deleteFromFacebook(syncStatus.facebook_post_id, META_PAGE_ACCESS_TOKEN);
             if (syncStatus.rafdain_facebook_post_id) await deleteFromFacebook(syncStatus.rafdain_facebook_post_id, ALRAFDAIN_FB_TOKEN);
 
-            const fbRes = await postToFacebook(caption, postImg);
+            const fbRes = await postToFacebook(caption, null);
             if (fbRes?.id || fbRes?.post_id) {
               syncStatus.facebook = 'success';
               syncStatus.facebook_post_id = fbRes.id || fbRes.post_id;
@@ -7189,12 +7228,16 @@ Deno.serve(async (req: any) => {
             const rucFbSetting = await getLiveSocialSetting('fb_rafdain');
             const rucToken = rucFbSetting?.access_token || ALRAFDAIN_FB_TOKEN;
             const rucPageId = rucFbSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
-            const rucRes = await postToFacebook(caption, postImg, rucToken, rucPageId);
+            const rucRes = await postToFacebook(caption, null, rucToken, rucPageId);
             if (rucRes?.id || rucRes?.post_id) {
               syncStatus.rafdain_facebook = 'success';
               syncStatus.rafdain_facebook_post_id = rucRes.id || rucRes.post_id;
+              const cleanId = (rucRes.id || rucRes.post_id).split('_')[1] || (rucRes.id || rucRes.post_id);
+              directPostUrl = `https://www.facebook.com/${cleanId}`;
+              directButtonLabel = '📘 مشاهدة البوست على صفحة كلية الرافدين';
             }
-            successReport = `📘 <b>تم تجديد ونشر البوست على صفحة كلية الرافدين + صفحة سوق بغداد معاً بنجاح! ✅</b>`;
+            successReport = `📘 <b>تم تجديد ونشر البوست على صفحة كلية الرافدين + صفحة سوق بغداد معاً بنجاح! ✅</b>` +
+              (directPostUrl ? `\n🔗 <b>رابط المنشور:</b> <a href="${directPostUrl}">${directPostUrl}</a>` : '');
           }
           // 4. Instagram Feed
           else if (platformType === 'ig_feed') {
@@ -7207,6 +7250,8 @@ Deno.serve(async (req: any) => {
               syncStatus.instagram = 'success';
               syncStatus.instagram_post_id = igRes.id || igRes.media_id;
             }
+            directPostUrl = 'https://www.instagram.com/souqbaghdad.iq/';
+            directButtonLabel = '📸 مشاهدة البوست على انستغرام';
             successReport = `📸 <b>تم نشر البوست في صدارة فيد انستغرام بنجاح! ✅</b>\n(حساب سوق بغداد الرسمي @souqbaghdad.iq)`;
           }
           // 5. Facebook Story: Al-Rafdain
@@ -7215,16 +7260,22 @@ Deno.serve(async (req: any) => {
             const rucToken = rucFbSetting?.access_token || ALRAFDAIN_FB_TOKEN;
             const rucPageId = rucFbSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
             await postToFacebookStory(storyImg, rucPageId, rucToken);
+            directPostUrl = 'https://www.facebook.com/102975411515668';
+            directButtonLabel = '📘 فتح صفحة كلية الرافدين لمشاهدة الستوري';
             successReport = `📘 <b>تم نشر ستوري 9:16 على صفحة كلية الرافدين الجامعة بنجاح! ✅</b>`;
           }
           // 6. Facebook Story: Souq Baghdad
           else if (platformType === 'fb_story_souq' || platformType === 'fb_story') {
             await postToFacebookStory(storyImg, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
+            directPostUrl = 'https://www.facebook.com/1088044114402452';
+            directButtonLabel = '📘 فتح صفحة سوق بغداد لمشاهدة الستوري';
             successReport = `📘 <b>تم نشر ستوري 9:16 على صفحة سوق بغداد الرسمية بنجاح! ✅</b>`;
           }
           // 7. Instagram Story
           else if (platformType === 'ig_story') {
             await postToInstagramStory(storyImg);
+            directPostUrl = 'https://www.instagram.com/souqbaghdad.iq/';
+            directButtonLabel = '📸 فتح حساب انستغرام لمشاهدة الستوري';
             successReport = `📸 <b>تم نشر ستوري 9:16 على انستغرام بنجاح! ✅</b>`;
           }
 
@@ -7237,16 +7288,22 @@ Deno.serve(async (req: any) => {
         }
 
         const remainingPts = isOwner ? 'غير محدود (المالك)' : currentPoints - cost;
+        const promoActionKeyboard: any[] = [];
+        if (directPostUrl) {
+          promoActionKeyboard.push([{ text: directButtonLabel, url: directPostUrl }]);
+        }
+        promoActionKeyboard.push([{ text: '🌐 عرض بطاقة الإعلان بالموقع', url: adLink }]);
+        promoActionKeyboard.push([{ text: '📢 ترويج لمنصة أو صفحة أخرى', callback_data: `promo_menu_${targetAdId}` }]);
+        promoActionKeyboard.push([{ text: '📦 العودة لإعلاناتي', callback_data: isTransport ? 'manage_cat_trans' : 'manage_cat_cars' }]);
+
         await sendMessage(chatId, 
-          `🎉 <b>مبروك! تم ترويج وتجديد إعلانك بنجاح 🚀</b>\n\n` +
+          `🎉 <b>مبروك! تم ترويج ونشر إعلانك بنجاح 🚀</b>\n\n` +
           `${successReport}\n\n` +
           `🪙 النقاط المخصومة: <b>${cost} نقاط</b>\n` +
-          `💳 رصيدك المتبقي: <b>${remainingPts} نقطة</b>`,
+          `💳 رصيدك المتبقي: <b>${remainingPts} نقطة</b>\n\n` +
+          `👇 <i>يمكنك الضغط على الزر أدناه لمعاينة منشورك مباشرة على الصفحة ومشاركته:</i>`,
           {
-            inline_keyboard: [
-              [{ text: '📢 ترويج لمنصة أو صفحة أخرى', callback_data: `promo_menu_${targetAdId}` }],
-              [{ text: '📦 العودة لإعلاناتي', callback_data: isTransport ? 'manage_cat_trans' : 'manage_cat_cars' }]
-            ]
+            inline_keyboard: promoActionKeyboard
           }
         );
         return new Response('OK', { status: 200 });
@@ -7255,7 +7312,16 @@ Deno.serve(async (req: any) => {
       // Boost Ad with Points (ترويج الإعلان بالنقاط مع منع التكرار وحذف البوست القديم وتجديده)
       if (action.startsWith('boost_ad_')) {
         const adId = action.replace('boost_ad_', '');
-        const { data: targetAd } = await supabase.from('ads').select('*').eq('id', adId).eq('seller_id', userId).maybeSingle();
+        let adQuery = supabase.from('ads').select('*');
+        if (adId.length >= 30) {
+          adQuery = adQuery.eq('id', adId);
+        } else {
+          adQuery = adQuery.or(`short_id.eq.${adId},id.eq.${adId}`);
+        }
+        if (!isOwner) {
+          adQuery = adQuery.eq('seller_id', userId);
+        }
+        const { data: targetAd } = await adQuery.maybeSingle();
 
         if (!targetAd) {
           await sendMessage(chatId, `❌ لم يتم العثور على الإعلان المطلوب.`);
@@ -7427,10 +7493,11 @@ Deno.serve(async (req: any) => {
             for (const s of matched.slice(0, 5)) {
               msg += `• 👤 <b>${s.user_name || 'طالب/طالبة'}</b>\n  📍 المسار: ${s.origin} ⬅️ ${s.destination}\n  ⏰ طلب قبل قليل\n\n`;
             }
-            msg += `💡 <i>سيارتك وخطك معروضة لهم حالياً، ويمكنك مشاركة إعلانك معهم مباشرة!</i>`;
+            msg += `💡 <i>يمكنك إرسال إشعار مباشر لجميع هؤلاء الطلاب على الخاص بتفاصيل خطك وسيارتك للتواصل معك فوراً!</i>`;
             await sendMessage(chatId, msg, {
               inline_keyboard: [
-                [{ text: '🚀 ترويج خطك ليصلهم إشعار', callback_data: `boost_ad_${transId}` }],
+                [{ text: `📢 إرسال إشعار فوري لـ (${matched.length}) طلاب على الخاص 🚀`, callback_data: `notify_matched_students_${transId}` }],
+                [{ text: '🚀 ترويج وتمييز بالمنصات VIP', callback_data: `boost_ad_${transId}` }],
                 [{ text: '🔙 عودة لخطوطي', callback_data: 'manage_cat_trans' }]
               ]
             });
@@ -7440,6 +7507,85 @@ Deno.serve(async (req: any) => {
             });
           }
         }
+        return new Response('OK', { status: 200 });
+      }
+
+      // Notify Matched Waiting Students on Private Message
+      if (action.startsWith('notify_matched_students_')) {
+        const transId = action.replace('notify_matched_students_', '');
+        const { data: myAd } = await supabase.from('ads').select('*').eq('id', transId).maybeSingle();
+
+        if (!myAd) {
+          await sendMessage(chatId, '❌ تعذر العثور على بيانات الخط.');
+          return new Response('OK', { status: 200 });
+        }
+
+        await sendMessage(chatId, '⏳ <i>جاري إرسال إشعارات وتفاصيل خطك للطلاب على الخاص...</i>');
+
+        const searchLoc = (myAd.location || myAd.city || '').toLowerCase();
+        const { data: waitingList } = await supabase.from('transport_requests').select('*').eq('status', 'pending').order('created_at', { ascending: false }).limit(30);
+
+        const matched = (waitingList || []).filter((r: any) => {
+          const full = `${r.origin || ''} ${r.destination || ''} ${r.raw_query || ''}`.toLowerCase();
+          return searchLoc.split(/[\s,،-]+/).some(w => w.length > 2 && full.includes(w));
+        });
+
+        let sentCount = 0;
+        const shortId = myAd.short_id || myAd.id;
+        const driverName = myAd.contact_name || myAd.title || 'كابتن';
+        const driverPhone = myAd.phone || '';
+        const repDrvCb = `rep_drv_${encodeURIComponent(driverName.substring(0, 15))}_${driverPhone || 'nophone'}`;
+
+        for (const student of matched) {
+          const studentChatId = student.telegram_chat_id || student.telegram_user_id;
+          if (studentChatId && studentChatId !== chatId) {
+            try {
+              const studentAlertMsg = 
+                `🔔 <b>إشعار خط نقل يطابق طلبك! 🚌✨</b>\n\n` +
+                `قام الكابتن (<b>${driverName}</b>) بتوفير خط يمر من منطقتك:\n` +
+                `📍 <b>مسار الخط:</b> ${myAd.location || 'مسار مطابق'}\n` +
+                `🏢 <b>الوجهة:</b> ${myAd.city || student.destination || 'الجامعة'}\n` +
+                `💰 <b>الأجرة:</b> ${formatTgPrice(myAd.price)}\n\n` +
+                (driverPhone ? `📞 <b>هاتف الكابتن:</b> <code>${driverPhone}</code>\n\n` : '') +
+                `سارع بالتواصل مع السائق وحجز مقعدك قبل اكتمال العدد 🤝`;
+
+              const studentAlertMarkup: any = {
+                inline_keyboard: []
+              };
+
+              if (driverPhone) {
+                const cleanPhone = driverPhone.replace(/[^0-9]/g, '');
+                const waPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone;
+                studentAlertMarkup.inline_keyboard.push([
+                  { text: '💬 تواصل واتساب مع السائق', url: `https://wa.me/${waPhone}` },
+                  { text: '📞 اتصال بالسائق', url: `tel:${driverPhone}` }
+                ]);
+              }
+
+              studentAlertMarkup.inline_keyboard.push([
+                { text: '✅ اتفقت ولكيت خط خلاص (إيقاف)', callback_data: `stop_alert_${student.id}` },
+                { text: '⚠️ إبلاغ عن مشكلة مع الكابتن', callback_data: repDrvCb }
+              ]);
+
+              await sendMessage(studentChatId, studentAlertMsg, studentAlertMarkup);
+              sentCount++;
+            } catch(sendErr) {
+              console.warn(`Failed to send alert to student ${studentChatId}:`, sendErr);
+            }
+          }
+        }
+
+        await sendMessage(chatId, 
+          `🎉 <b>تم إرسال إشعار خطك بنجاح لـ (${sentCount}) طلاب! 🚀</b>\n\n` +
+          `وصلتهم بطاقة خطك ورقم هاتفك مع زر واتساب مباشر للتواصل معك وحجز المقاعد.\n\n` +
+          `💡 سيصلك إشعار فور موافقة أي طالب واكتمال عدد الركاب.`,
+          {
+            inline_keyboard: [
+              [{ text: '📋 إدارة خطوطي النشطة', callback_data: 'manage_cat_trans' }],
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ]
+          }
+        );
         return new Response('OK', { status: 200 });
       }
 
