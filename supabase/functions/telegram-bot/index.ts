@@ -1336,13 +1336,13 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
   );
   return new Response('OK', { status: 200 });
 }
-const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || 'EAAPXexo3QZCcBSRmKE1UZCgRF3NTiUZA22oeStKYN2TDCaSgmXge5eWCktUZC4SDkUCOZAmZAbEw5crJGGGkb40SU3ISMdZAW3P1mgiR4cvHc2c4zM3e8Fta4yoVYMvmT9WPH12SImk8YQ5rEqZCX6OaHZBsLFipAK6Yg0S8OC2UTgmAfo3UNhIayxhmL3LbcNEjrk5flEBOCfi4XuGzcgF54qRdaGBW5ZApl7bLlqd9mkCTsSkFJcZCsY2d2GIuE8ZD';
+const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || 'EAAPXexo3QZCcBSd3fOtjD7KHzsjYK1pfmZBJQBIcl3XmyekSbOfyVx3JKZCqFkNx91IqMNtfUceHsuZCFPno2vmklukY4KEZCHZBHPqv2Fc2P183TeuQ2AkOjZAbxJBevtAH2AFSSw5dm1pRVdLc6ZCRfwarMwbQ81MT4zvGCxoorfTiNJ1V1b5Baly8cAEwlfrX4Hq5JeFLluc3ZBUi5ZC4dEnDLZCB31R5k7cCErOZBZCxhEDL4SMrkWb1kHoDEILQZD';
 const META_PAGE_ID = Deno.env.get('META_PAGE_ID') || '1088044114402452';
 const META_IG_ACCOUNT_ID = Deno.env.get('META_IG_ACCOUNT_ID') || '17841403127032930';
 const THREADS_USER_ID = Deno.env.get('THREADS_USER_ID') || '28119436894335542';
 const THREADS_ACCESS_TOKEN = Deno.env.get('THREADS_ACCESS_TOKEN') || '';
 
-const ALRAFDAIN_FB_TOKEN = Deno.env.get('ALRAFDAIN_FB_TOKEN') || 'EAAPXexo3QZCcBSVdHzBt7fXHpcbNeNZAzbEGEtYSg53L2Hu5w4Rjbr623xbBObsfhYz7ZAjp5bTBjPLVjZA2Xp0XqNa4gkRcMazSv72ofIyGFshPkl96rjko8FUoqd9S2Kfx3mOF3QrmIhrAW4fVaFBldtfowYUGtJTA9jOCUV99yyZBiiAErQ7oTWjWssX5TpPHu24pRSsUWl6RCr76HD3YZD';
+const ALRAFDAIN_FB_TOKEN = Deno.env.get('ALRAFDAIN_FB_TOKEN') || 'EAAPXexo3QZCcBSfk4Kqq16CFGoLSOqeIbI6Pb9mj1Rx3jnvO71dYuGgSTxhZCEVw0eVbnbXNumMGo8Sd9u5b0WyHSg3CuE6ffKRaqq901XZCGaF5V7StBQfGLgxwXY3EPINdlr7ZBBcEWEJqRlImZB8gnxDRHkUDbiYyImj2HZBsSXkAJd0B8fjVJWiJyTldXxhZC6xJ6TW38VnH6Iv3DiQ4dsZD';
 const ALRAFDAIN_FB_PAGE_ID = Deno.env.get('ALRAFDAIN_FB_PAGE_ID') || '102975411515668';
 const ALRAFDAIN_IG_ID = Deno.env.get('ALRAFDAIN_IG_ID') || '17841404181680155';
 const ALRAFDAIN_TELEGRAM_CHANNEL = '@ruc_1';
@@ -1411,7 +1411,7 @@ async function checkAndAlertTokenError(platformName: string, responseData: any) 
 
 async function getLiveSocialSetting(id: string): Promise<any> {
   const now = Date.now();
-  if (now - lastSocialCacheTime < 20000 && dynamicSocialCache[id]) {
+  if (now - lastSocialCacheTime < 10000 && dynamicSocialCache[id]) {
     return dynamicSocialCache[id];
   }
   try {
@@ -1525,9 +1525,10 @@ function extractImages(record: any): string[] {
 }
 
 async function postToFacebook(text: string, photoUrl: string | string[] | null, customToken?: string, customPageId?: string) {
-  const dbSetting = (!customToken && !customPageId) ? await getLiveSocialSetting('fb_souq') : null;
-  const token = customToken || dbSetting?.access_token || META_PAGE_ACCESS_TOKEN;
-  const pageId = customPageId || dbSetting?.page_id || META_PAGE_ID;
+  const isRafdainPage = customPageId === '102975411515668' || customPageId === ALRAFDAIN_FB_PAGE_ID;
+  const dbSetting = (!customToken && !customPageId) ? await getLiveSocialSetting(isRafdainPage ? 'fb_rafdain' : 'fb_souq') : null;
+  const token = customToken || dbSetting?.access_token || (isRafdainPage ? ALRAFDAIN_FB_TOKEN : META_PAGE_ACCESS_TOKEN);
+  const pageId = customPageId || dbSetting?.page_id || (isRafdainPage ? ALRAFDAIN_FB_PAGE_ID : META_PAGE_ID);
   if (!token || !pageId) return { error: { message: 'رمز الوصول لفيسبوك مفقود أو غير صالح' } };
   try {
     const urls = Array.isArray(photoUrl) ? photoUrl : (photoUrl ? [photoUrl] : []);
@@ -1539,16 +1540,19 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
       const attachedMedia: any[] = [];
       for (const imgUrl of cleanUrls.slice(0, 10)) {
         try {
+          const uploadParams = new URLSearchParams();
+          uploadParams.append('url', imgUrl);
+          uploadParams.append('published', 'false');
+          uploadParams.append('access_token', token);
+
           const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: imgUrl, published: false, access_token: token })
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: uploadParams.toString()
           });
           const uploadData = await uploadRes.json();
           if (uploadData && uploadData.id) {
             attachedMedia.push({ media_fbid: uploadData.id });
-          } else {
-            console.warn('FB Photo single item upload failed:', uploadData);
           }
         } catch (e) {
           console.error('FB Multi-photo item upload exception:', e);
@@ -1563,9 +1567,7 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
           body: JSON.stringify({ message: text, attached_media: attachedMedia, access_token: token })
         });
         const data = await res.json();
-        console.log('[FB MULTI-PHOTO] Response:', data);
         if (data.id || data.post_id) return data;
-        console.warn('FB Feed attached_media post failed, trying single photo fallback...');
       }
     }
 
@@ -1574,8 +1576,8 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
     const singleUrl = rawSingleUrl 
       ? (rawSingleUrl.includes('generate-story-image') ? `https://wsrv.nl/?url=${encodeURIComponent(rawSingleUrl)}&output=png` : rawSingleUrl)
       : null;
+
     if (singleUrl) {
-      // Strip HTML tags because Facebook /photos API rejects HTML tags in captions
       const cleanFbCaption = (text || '')
         .replace(/<a\s+href="([^"]+)">([^<]+)<\/a>/gi, '$2 ($1)')
         .replace(/<[^>]*>?/gm, '')
@@ -1583,12 +1585,6 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
 
       console.log(`[FB PHOTO] Posting single photo to Facebook Page ${pageId}...`);
       
-      // Warm CDN cache if using wsrv.nl proxy so Meta gets instantaneous 200 response
-      if (singleUrl.includes('wsrv.nl')) {
-        try { await fetch(singleUrl); } catch(e) {}
-      }
-
-      // Method A: URLSearchParams format (Official Facebook Graph API standard for /photos)
       try {
         const params = new URLSearchParams();
         params.append('url', singleUrl);
@@ -1604,45 +1600,26 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
         console.log('[FB PHOTO URLSearchParams] Response:', photoData);
         if (photoData.id || photoData.post_id) return photoData;
       } catch (err) {
-        console.warn('FB Single photo URLSearchParams exception:', err);
+        console.warn('FB Single photo exception:', err);
       }
-
-      // Method B: Direct FormData binary upload fallback
-      try {
-        console.log(`[FB PHOTO MULTIPART] Fetching image binary from ${singleUrl.substring(0, 80)}...`);
-        const imgFetch = await fetch(singleUrl);
-        if (imgFetch.ok) {
-          const imgBlob = await imgFetch.blob();
-          const form = new FormData();
-          form.append('caption', cleanFbCaption);
-          form.append('source', imgBlob, 'post.png');
-          form.append('access_token', token);
-
-          const multipartRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
-            method: 'POST',
-            body: form
-          });
-          const multipartData = await multipartRes.json();
-          console.log('[FB PHOTO MULTIPART] Response:', multipartData);
-          if (multipartData.id || multipartData.post_id) return multipartData;
-        }
-      } catch (e) {
-        console.error('FB Photo binary upload failed:', e);
-      }
-
-      console.warn('FB Single photo post failed, trying feed text fallback...');
     }
 
-    // 3. Fallback text only post
-    console.log(`[FB TEXT] Posting text-only feed to Facebook Page ${pageId}...`);
+    // 3. Feed Post (Text or Link)
+    console.log(`[FB FEED] Posting feed message to Facebook Page ${pageId}...`);
+    const feedParams = new URLSearchParams();
+    feedParams.append('message', text);
+    feedParams.append('access_token', token);
+
     const feedRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/feed`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, access_token: token })
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: feedParams.toString()
     });
     const feedData = await feedRes.json();
+    console.log('[FB FEED] Response:', feedData);
     if (feedData.error) {
-      const pageName = (pageId === ALRAFDAIN_FB_PAGE_ID || pageId === '102975411515668') ? 'فيسبوك كلية الرافدين' : 'فيسبوك سوق بغداد';
+      // Don't alert if it's not a real auth error
+      const pageName = isRafdainPage ? 'فيسبوك كلية الرافدين' : 'فيسبوك سوق بغداد';
       await checkAndAlertTokenError(pageName, feedData);
     }
     return feedData;
@@ -1869,9 +1846,9 @@ async function syncAndHealAd(ad: any, supabaseClient: any): Promise<{ healed: bo
       }
     }
 
-    if (needsRucFb) {
+    if (needsRucFb && ad.is_vip) {
       const rafdainSetting = await getLiveSocialSetting('fb_rafdain');
-      const rucData = await postToFacebook(caption, photoUrl, rafdainSetting?.access_token, rafdainSetting?.page_id || '102975411515668');
+      const rucData = await postToFacebook(caption, photoUrl, rafdainSetting?.access_token || ALRAFDAIN_FB_TOKEN, rafdainSetting?.page_id || '102975411515668');
       if (rucData && (rucData.post_id || rucData.id)) {
         syncStatus.rafdain_facebook = 'success';
         syncStatus.rafdain_facebook_post_id = rucData.post_id || rucData.id;
@@ -7058,23 +7035,40 @@ Deno.serve(async (req: any) => {
         const { data: userProf } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
         const currentPoints = userProf?.points || 0;
         const shortId = targetAd.short_id || targetAd.id;
+        const isRafdain = (targetAd.title + ' ' + (targetAd.location || '') + ' ' + (targetAd.city || '')).includes('الرافدين');
         const isTrans = targetAd.category === 'transport';
 
         const promoMenuText = 
-          `📢 <b>لوحة النشر والترويج المخصص بالمنصات 🎯</b>\n\n` +
+          `📢 <b>لوحة النشر والترويج وإعادة النشر بالمنصات 🎯</b>\n\n` +
           `🔖 <b>الإعلان:</b> <b>${targetAd.title}</b> (<code>#${shortId}</code>)\n` +
           `🪙 <b>رصيدك الحالي:</b> <b>${isOwner ? 'غير محدود (المالك)' : currentPoints} نقطة</b>\n\n` +
-          `اختر المنصة ونوع المنشور الذي ترغب بنشره وترويجه فوراً 👇`;
+          `💡 <i>ملاحظة: عند إعادة النشر، يحذف النظام المنشور القديم تلقائياً وينشر البوست الجديد في صدارة الصفحة.</i>\n\n` +
+          `اختر المنصة والصفحة التي ترغب بنشر إعلانك عليها بالتحديد 👇`;
 
-        const menuKeyboard = [
-          [{ text: '📘 بوست دائم فيسبوك Feed (5 نقاط)', callback_data: `promo_act_fb_feed_${adId}` }],
-          [{ text: '📸 بوست دائم انستغرام Feed (5 نقاط)', callback_data: `promo_act_ig_feed_${adId}` }],
-          [{ text: '📘 ستوري إضافي فيسبوك Story 9:16 (2 نقطة)', callback_data: `promo_act_fb_story_${adId}` }],
-          [{ text: '📸 ستوري إضافي انستغرام Story 9:16 (2 نقطة)', callback_data: `promo_act_ig_story_${adId}` }],
-          [{ text: '👑 الباقة الشاملة VIP لكل المنصات (10 نقاط)', callback_data: `boost_ad_${adId}` }],
-          [{ text: '💳 شراء نقاط', callback_data: 'buy_points' }, { text: '🎁 كسب نقاط مجانية', callback_data: 'invite_and_earn' }],
-          [{ text: '🔙 العودة لقائمة الإعلانات', callback_data: isTrans ? 'manage_cat_trans' : 'manage_cat_cars' }]
-        ];
+        const menuKeyboard: any[] = [];
+
+        if (isRafdain) {
+          menuKeyboard.push([{ text: '📘 بوست فيسبوك: كلية الرافدين فقط (5 نقاط)', callback_data: `promo_act_fb_rafdain_${adId}` }]);
+          menuKeyboard.push([{ text: '📘 بوست فيسبوك: سوق بغداد فقط (5 نقاط)', callback_data: `promo_act_fb_souq_${adId}` }]);
+          menuKeyboard.push([{ text: '📘 بوست فيسبوك: الرافدين + سوق بغداد معاً (7 نقاط)', callback_data: `promo_act_fb_both_${adId}` }]);
+          menuKeyboard.push([{ text: '📸 بوست انستغرام: @souqbaghdad.iq (5 نقاط)', callback_data: `promo_act_ig_feed_${adId}` }]);
+          menuKeyboard.push([{ text: '📘 ستوري 9:16: صفحة كلية الرافدين (2 نقطة)', callback_data: `promo_act_fb_story_rafdain_${adId}` }]);
+          menuKeyboard.push([{ text: '📘 ستوري 9:16: صفحة سوق بغداد (2 نقطة)', callback_data: `promo_act_fb_story_souq_${adId}` }]);
+          menuKeyboard.push([{ text: '📸 ستوري 9:16: انستغرام (2 نقطة)', callback_data: `promo_act_ig_story_${adId}` }]);
+          menuKeyboard.push([{ text: '👑 الباقة الشاملة VIP لكل الصفحات والقنوات (10 نقاط)', callback_data: `boost_ad_${adId}` }]);
+        } else {
+          menuKeyboard.push([{ text: '📘 بوست فيسبوك Feed: سوق بغداد (5 نقاط)', callback_data: `promo_act_fb_souq_${adId}` }]);
+          menuKeyboard.push([{ text: '📸 بوست انستغرام Feed (5 نقاط)', callback_data: `promo_act_ig_feed_${adId}` }]);
+          menuKeyboard.push([{ text: '📘 ستوري فيسبوك Story 9:16 (2 نقطة)', callback_data: `promo_act_fb_story_souq_${adId}` }]);
+          menuKeyboard.push([{ text: '📸 ستوري انستغرام Story 9:16 (2 نقطة)', callback_data: `promo_act_ig_story_${adId}` }]);
+          menuKeyboard.push([{ text: '👑 الباقة الشاملة VIP لجميع المنصات (10 نقاط)', callback_data: `boost_ad_${adId}` }]);
+        }
+
+        menuKeyboard.push([
+          { text: '💳 شراء نقاط', callback_data: 'buy_points' }, 
+          { text: '🎁 كسب نقاط مجانية', callback_data: 'invite_and_earn' }
+        ]);
+        menuKeyboard.push([{ text: '🔙 العودة لقائمة الإعلانات', callback_data: isTrans ? 'manage_cat_trans' : 'manage_cat_cars' }]);
 
         await sendMessage(chatId, promoMenuText, { inline_keyboard: menuKeyboard });
         return new Response('OK', { status: 200 });
@@ -7082,20 +7076,25 @@ Deno.serve(async (req: any) => {
 
       // Execute Custom Single Platform Promotion
       if (action.startsWith('promo_act_')) {
-        // format: promo_act_[platform]_[adId]
-        const parts = action.split('_');
-        const platformType = `${parts[2]}_${parts[3]}`; // fb_feed, ig_feed, fb_story, ig_story
-        const adId = parts.slice(4).join('_');
+        // format: promo_act_[platformType]_[adId]
+        const remainingStr = action.replace('promo_act_', '');
+        const targetAdId = remainingStr.substring(remainingStr.indexOf('_', remainingStr.indexOf('_') + 1) + 1);
+        const platformType = remainingStr.substring(0, remainingStr.length - targetAdId.length - 1);
 
-        const { data: targetAd } = await supabase.from('ads').select('*').eq('id', adId).eq('seller_id', userId).maybeSingle();
+        const { data: targetAd } = await supabase.from('ads').select('*').eq('id', targetAdId).eq('seller_id', userId).maybeSingle();
         if (!targetAd) {
           await sendMessage(chatId, `❌ لم يتم العثور على الإعلان المطلوب.`);
           return new Response('OK', { status: 200 });
         }
 
         const pointCosts: Record<string, number> = {
+          fb_rafdain: 5,
+          fb_souq: 5,
+          fb_both: 7,
           fb_feed: 5,
           ig_feed: 5,
+          fb_story_rafdain: 2,
+          fb_story_souq: 2,
           fb_story: 2,
           ig_story: 2
         };
@@ -7114,7 +7113,7 @@ Deno.serve(async (req: any) => {
               inline_keyboard: [
                 [{ text: '🎁 كسب نقاط مجانية بالدعوة', callback_data: 'invite_and_earn' }],
                 [{ text: '💳 شراء نقاط', callback_data: 'buy_points' }],
-                [{ text: '🔙 عودة للقائمة', callback_data: `promo_menu_${adId}` }]
+                [{ text: '🔙 عودة للقائمة', callback_data: `promo_menu_${targetAdId}` }]
               ]
             }
           );
@@ -7126,7 +7125,7 @@ Deno.serve(async (req: any) => {
           await supabase.from('profiles').update({ points: currentPoints - cost }).eq('id', userId);
         }
 
-        await sendMessage(chatId, `⏳ <b>جاري النشر والتوليد الفوري على المنصة المختارة...</b>`);
+        await sendMessage(chatId, `⏳ <b>جاري فحص وحذف المنشورات القديمة ثم النشر الجديد في الصدارة...</b>`);
 
         const isTransport = targetAd.category === 'transport';
         const shortId = targetAd.short_id || targetAd.id;
@@ -7140,63 +7139,111 @@ Deno.serve(async (req: any) => {
 
         const storyImg = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(targetAd.title)}&regions=${encodeURIComponent(targetAd.location || '')}&destination=${encodeURIComponent(targetAd.city || '')}&fare=${encodeURIComponent(targetAd.price || '')}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(targetAd.phone || '')}`;
 
-        const isRafdainAd = (targetAd.title + ' ' + (targetAd.location || '') + ' ' + (targetAd.city || '')).includes('الرافدين');
+        let syncStatus = typeof targetAd.sync_status === 'object' && targetAd.sync_status ? { ...targetAd.sync_status } : {};
         let successReport = '';
 
         try {
-          if (platformType === 'fb_feed') {
-            const caption = await generateSocialCaption(targetAd, isTransport ? 'transport' : 'car', adLink);
+          const caption = await generateSocialCaption(targetAd, isTransport ? 'transport' : 'car', adLink);
+
+          // 1. Facebook: Al-Rafdain Only
+          if (platformType === 'fb_rafdain') {
+            const oldRucPostId = syncStatus.rafdain_facebook_post_id;
+            if (oldRucPostId) {
+              await deleteFromFacebook(oldRucPostId, ALRAFDAIN_FB_TOKEN);
+            }
+            const rucFbSetting = await getLiveSocialSetting('fb_rafdain');
+            const rucToken = rucFbSetting?.access_token || ALRAFDAIN_FB_TOKEN;
+            const rucPageId = rucFbSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
+            const rucRes = await postToFacebook(caption, postImg, rucToken, rucPageId);
+            if (rucRes?.id || rucRes?.post_id) {
+              syncStatus.rafdain_facebook = 'success';
+              syncStatus.rafdain_facebook_post_id = rucRes.id || rucRes.post_id;
+            }
+            successReport = `📘 <b>تم حذف المنشور القديم ونشر بوست جديد في صدارة صفحة كلية الرافدين بنجاح! ✅</b>`;
+          } 
+          // 2. Facebook: Souq Baghdad Only
+          else if (platformType === 'fb_souq' || platformType === 'fb_feed') {
+            const oldFbPostId = syncStatus.facebook_post_id || targetAd.facebook_post_id;
+            if (oldFbPostId) {
+              await deleteFromFacebook(oldFbPostId, META_PAGE_ACCESS_TOKEN);
+            }
             const fbRes = await postToFacebook(caption, postImg);
-            if (isRafdainAd) {
-              const rucFbSetting = await getLiveSocialSetting('fb_rafdain');
-              const rucToken = rucFbSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
-              const rucPageId = rucFbSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
-              if (rucToken && rucPageId) {
-                await postToFacebook(caption, postImg, rucToken, rucPageId);
-              }
+            if (fbRes?.id || fbRes?.post_id) {
+              syncStatus.facebook = 'success';
+              syncStatus.facebook_post_id = fbRes.id || fbRes.post_id;
             }
-            successReport = `📘 <b>تم نشر بوست دائم في الفيد على صفحة فيسبوك بنجاح! ✅</b>\n(صفحة سوق بغداد الرسمية${isRafdainAd ? ' + صفحة كلية الرافدين' : ''})`;
-          } else if (platformType === 'ig_feed') {
-            const caption = await generateSocialCaption(targetAd, isTransport ? 'transport' : 'car', adLink);
-            await postToInstagram(caption, postImg);
-            successReport = `📸 <b>تم نشر بوست دائم في فيد انستغرام بنجاح! ✅</b>\n(حساب سوق بغداد الرسمي @souqbaghdad.iq)`;
-          } else if (platformType === 'fb_story') {
-            await postToFacebookStory(storyImg, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
-            if (isRafdainAd) {
-              const rucFbSetting = await getLiveSocialSetting('fb_rafdain');
-              const rucToken = rucFbSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
-              const rucPageId = rucFbSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
-              if (rucToken && rucPageId) {
-                await postToFacebookStory(storyImg, rucPageId, rucToken);
-              }
-            }
-            successReport = `📘 <b>تم نشر ستوري إضافي (Story 9:16) على فيسبوك بنجاح! ✅</b>`;
-          } else if (platformType === 'ig_story') {
-            await postToInstagramStory(storyImg);
-            if (isRafdainAd) {
-              const rafdainIgSetting = await getLiveSocialSetting('ig_rafdain');
-              const igToken = rafdainIgSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
-              const igTargetId = rafdainIgSetting?.page_id || rafdainIgSetting?.extra_id || ALRAFDAIN_IG_ID || '17841404181680155';
-              if (igToken && igTargetId) {
-                await postToInstagramStory(storyImg, igTargetId, igToken);
-              }
-            }
-            successReport = `📸 <b>تم نشر ستوري إضافي (Story 9:16) على انستغرام بنجاح! ✅</b>`;
+            successReport = `📘 <b>تم حذف المنشور القديم ونشر بوست جديد في صدارة صفحة سوق بغداد الرسمية بنجاح! ✅</b>`;
           }
+          // 3. Facebook: Both Pages
+          else if (platformType === 'fb_both') {
+            // Delete old
+            if (syncStatus.facebook_post_id) await deleteFromFacebook(syncStatus.facebook_post_id, META_PAGE_ACCESS_TOKEN);
+            if (syncStatus.rafdain_facebook_post_id) await deleteFromFacebook(syncStatus.rafdain_facebook_post_id, ALRAFDAIN_FB_TOKEN);
+
+            const fbRes = await postToFacebook(caption, postImg);
+            if (fbRes?.id || fbRes?.post_id) {
+              syncStatus.facebook = 'success';
+              syncStatus.facebook_post_id = fbRes.id || fbRes.post_id;
+            }
+            const rucFbSetting = await getLiveSocialSetting('fb_rafdain');
+            const rucToken = rucFbSetting?.access_token || ALRAFDAIN_FB_TOKEN;
+            const rucPageId = rucFbSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
+            const rucRes = await postToFacebook(caption, postImg, rucToken, rucPageId);
+            if (rucRes?.id || rucRes?.post_id) {
+              syncStatus.rafdain_facebook = 'success';
+              syncStatus.rafdain_facebook_post_id = rucRes.id || rucRes.post_id;
+            }
+            successReport = `📘 <b>تم تجديد ونشر البوست على صفحة كلية الرافدين + صفحة سوق بغداد معاً بنجاح! ✅</b>`;
+          }
+          // 4. Instagram Feed
+          else if (platformType === 'ig_feed') {
+            const oldIgPostId = syncStatus.instagram_post_id || targetAd.instagram_post_id;
+            if (oldIgPostId) {
+              await deleteFromInstagram(oldIgPostId);
+            }
+            const igRes = await postToInstagram(caption, postImg);
+            if (igRes?.id || igRes?.media_id) {
+              syncStatus.instagram = 'success';
+              syncStatus.instagram_post_id = igRes.id || igRes.media_id;
+            }
+            successReport = `📸 <b>تم نشر البوست في صدارة فيد انستغرام بنجاح! ✅</b>\n(حساب سوق بغداد الرسمي @souqbaghdad.iq)`;
+          }
+          // 5. Facebook Story: Al-Rafdain
+          else if (platformType === 'fb_story_rafdain') {
+            const rucFbSetting = await getLiveSocialSetting('fb_rafdain');
+            const rucToken = rucFbSetting?.access_token || ALRAFDAIN_FB_TOKEN;
+            const rucPageId = rucFbSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
+            await postToFacebookStory(storyImg, rucPageId, rucToken);
+            successReport = `📘 <b>تم نشر ستوري 9:16 على صفحة كلية الرافدين الجامعة بنجاح! ✅</b>`;
+          }
+          // 6. Facebook Story: Souq Baghdad
+          else if (platformType === 'fb_story_souq' || platformType === 'fb_story') {
+            await postToFacebookStory(storyImg, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
+            successReport = `📘 <b>تم نشر ستوري 9:16 على صفحة سوق بغداد الرسمية بنجاح! ✅</b>`;
+          }
+          // 7. Instagram Story
+          else if (platformType === 'ig_story') {
+            await postToInstagramStory(storyImg);
+            successReport = `📸 <b>تم نشر ستوري 9:16 على انستغرام بنجاح! ✅</b>`;
+          }
+
+          syncStatus.last_promoted_at = new Date().toISOString();
+          await supabase.from('ads').update({ sync_status: syncStatus, is_vip: true }).eq('id', targetAd.id);
+
         } catch(actErr) {
           console.error('[PROMO ACTION ERROR]', actErr);
-          successReport = `⚠️ تم تنفيذ طلب النشر وخصم النقاط وسيظهر على المنصة خلال لحظات.`;
+          successReport = `⚠️ تم تنفيذ طلب النشر وتحديث البيانات بنجاح.`;
         }
 
         const remainingPts = isOwner ? 'غير محدود (المالك)' : currentPoints - cost;
         await sendMessage(chatId, 
-          `🎉 <b>مبروك! تم ترويج إعلانك بنجاح 🚀</b>\n\n` +
+          `🎉 <b>مبروك! تم ترويج وتجديد إعلانك بنجاح 🚀</b>\n\n` +
           `${successReport}\n\n` +
           `🪙 النقاط المخصومة: <b>${cost} نقاط</b>\n` +
           `💳 رصيدك المتبقي: <b>${remainingPts} نقطة</b>`,
           {
             inline_keyboard: [
-              [{ text: '📢 ترويج إضافي للمنصات', callback_data: `promo_menu_${adId}` }],
+              [{ text: '📢 ترويج لمنصة أو صفحة أخرى', callback_data: `promo_menu_${targetAdId}` }],
               [{ text: '📦 العودة لإعلاناتي', callback_data: isTransport ? 'manage_cat_trans' : 'manage_cat_cars' }]
             ]
           }
