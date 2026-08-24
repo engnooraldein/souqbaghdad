@@ -83,7 +83,9 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const mode = url.searchParams.get("type") || "post"; // "post" (1080x1350) or "story" (1080x1920)
+    const category = (url.searchParams.get("category") || "transport").toLowerCase();
     const adType = (url.searchParams.get("ad_type") || "offer").toLowerCase();
+    const imageUrl = url.searchParams.get("image_url") || "";
 
     // 1. Initialize WASM for Resvg
     if (!wasmInitialized) {
@@ -108,6 +110,7 @@ serve(async (req) => {
     const canvasHeight = isPost ? 1350 : 1920;
 
     // 3. Clean Input Parameters
+    const rawTitle = cleanText(url.searchParams.get("title"), category === 'car' ? 'سيارة للبيع' : 'إعلان جديد');
     const shortId = cleanText(url.searchParams.get("short_id"), "GVR37#");
     const formattedId = shortId.endsWith('#') ? shortId : `${shortId}#`;
     
@@ -117,11 +120,13 @@ serve(async (req) => {
     if (!workDays.includes('إلى')) workDays = "الأحد إلى الخميس";
 
     const shiftTime = cleanText(url.searchParams.get("time"), "من 08:00 ص إلى 02:00 م");
-    const regions = cleanText(url.searchParams.get("regions"), "اليرموك، المنصور، الحارثية، زيونة");
-    const destination = cleanText(url.searchParams.get("destination"), "جامعة أوروك");
+    const regions = cleanText(url.searchParams.get("regions"), "بغداد");
+    const destination = cleanText(url.searchParams.get("destination"), "بغداد");
     
-    let rawFare = cleanText(url.searchParams.get("fare"), "45,000 د.ع");
-    if (!rawFare.includes('د.ع')) rawFare = `${rawFare} د.ع`;
+    let rawFare = cleanText(url.searchParams.get("fare"), category === 'transport' ? '45,000 د.ع' : 'السعر حسب الاتفاق');
+    if (!rawFare.includes('د.ع') && !rawFare.includes('$') && !rawFare.includes('دولار') && !rawFare.includes('الاتفاق')) {
+      rawFare = `${rawFare} د.ع`;
+    }
 
     let phone = cleanText(url.searchParams.get("phone"), "0780 000 0000");
     if (phone === "0780 000 0000" || phone.length < 5) {
@@ -129,18 +134,20 @@ serve(async (req) => {
     }
 
     const cleanShortId = shortId.replace(/[^a-zA-Z0-9]/g, '');
-    const shortUrlDisplay = `souqbaghdad.store/ad/${cleanShortId || 'transport'}`;
-    const directAdUrl = `https://www.souqbaghdad.store/transport/card/${cleanShortId}`;
+    const shortUrlDisplay = `souqbaghdad.store/ad/${cleanShortId || 'view'}`;
+    const directAdUrl = category === 'transport' 
+      ? `https://www.souqbaghdad.store/transport/card/${cleanShortId}`
+      : `https://www.souqbaghdad.store/ad/${cleanShortId}`;
 
     // Generate QR Code data URL using public API
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&format=png&data=${encodeURIComponent(directAdUrl)}`;
 
     // Badges & Titles
-    const badgeLabel = adType === "request" ? "مطلوب" : "جديد";
-    const mainTitle1 = adType === "request" ? "طلب نقل" : "نقل خط";
-    const mainTitle2 = adType === "request" ? "مباشر" : "توفير";
-    const subHeadline = adType === "request" ? "بحث عن خط نقل مريح وآمن" : "رحلتك مريحة.. بسعر أوفر";
-    const fareTitle = adType === "request" ? "الأجرة المقترحة" : "سعر الأجرة";
+    const badgeLabel = adType === "request" ? "مطلوب" : (category === 'car' ? "🚗 سيارات" : (category === 'general' ? "📦 سوق عام" : "جديد"));
+    const mainTitle1 = category === 'car' ? "إعلان" : (adType === "request" ? "طلب نقل" : "نقل خط");
+    const mainTitle2 = category === 'car' ? "سيارة" : (adType === "request" ? "مباشر" : "توفير");
+    const subHeadline = category === 'car' ? "فحص ومعاينة وضمان البيع المباشر" : (adType === "request" ? "بحث عن خط نقل مريح وآمن" : "رحلتك مريحة.. بسعر أوفر");
+    const fareTitle = category === 'car' ? "السعر المطلوب" : (adType === "request" ? "الأجرة المقترحة" : "سعر الأجرة");
 
     // 4. Build Exact Editorial Template HTML (Clean LTR Flow with Pre-shaped Arabic)
     const markup = html`
@@ -178,6 +185,45 @@ serve(async (req) => {
           </div>
         </div>
 
+        ${(category === 'car' || category === 'general') && imageUrl ? `
+        <!-- 2. Car / Product Hero Visual Photo Card (9:16 Optimized) -->
+        <div style="display: flex; flex-direction: column; width: 100%; height: ${isPost ? '600px' : '900px'}; background: #ffffff; border: 2px solid #e9d5ff; border-radius: 32px; overflow: hidden; box-shadow: 0 15px 40px rgba(76,29,149,0.12); position: relative; z-index: 10;">
+          <img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: cover;" />
+          <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(0deg, rgba(20,5,40,0.92) 0%, rgba(20,5,40,0.6) 60%, rgba(20,5,40,0) 100%); padding: 24px 30px; display: flex; flex-direction: column; align-items: flex-start;">
+            <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%;">
+              <span style="font-size: 38px; font-weight: bold; color: #ffffff; text-shadow: 0 2px 10px rgba(0,0,0,0.5);">${fixAr(rawTitle)}</span>
+              <div style="display: flex; background: #7c3aed; border-radius: 16px; padding: 8px 20px;">
+                <span style="font-size: 24px; color: #ffffff; font-weight: bold;">${fixAr(regions)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Price & Ad Code Row (Two Cards) -->
+        <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; gap: 20px; position: relative; z-index: 10;">
+          <!-- Price Card (Dark Purple) -->
+          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; flex: 1.1; background: #230b3d; border-radius: 24px; padding: 20px 28px; box-shadow: 0 10px 25px rgba(35,11,61,0.25);">
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <span style="font-size: 20px; color: #d8b4fe; font-weight: bold; margin-bottom: 4px;">${fixAr(fareTitle)}</span>
+              <span style="font-size: 38px; color: #ffffff; font-weight: bold;">${fixAr(rawFare)}</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: #3b0764; border: 1.5px solid #7c3aed; border-radius: 28px;">
+              <img src="${svgImg(SVGS.wallet)}" width="30" height="30" />
+            </div>
+          </div>
+
+          <!-- Ad Code Card (White) -->
+          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; flex: 0.9; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 24px; padding: 20px 28px; box-shadow: 0 8px 20px rgba(76,29,149,0.04);">
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <span style="font-size: 20px; color: #6b7280; font-weight: bold; margin-bottom: 4px;">${fixAr('كود الإعلان')}</span>
+              <span style="font-size: 32px; color: #2e0854; font-weight: bold; letter-spacing: 1px;">${formattedId}</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 28px;">
+              <img src="${svgImg(SVGS.code)}" width="30" height="30" />
+            </div>
+          </div>
+        </div>
+        ` : `
         <!-- 2. Route Card (Floating White Card) -->
         <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 28px; padding: 22px 32px; box-shadow: 0 10px 30px rgba(76,29,149,0.06); position: relative; z-index: 10;">
           
@@ -332,21 +378,22 @@ serve(async (req) => {
             </div>
           </div>
         </div>
+        `}
 
-        ${mode === 'story' ? html`
+        ${mode === 'story' ? `
         <!-- 6b. SPECIAL INTERACTIVE STORY CTA BOX (Only for Story 9:16) -->
         <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: linear-gradient(135deg, #2e0854 0%, #4c1d95 100%); border-radius: 28px; padding: 24px 32px; box-shadow: 0 12px 30px rgba(46,8,84,0.35); position: relative; z-index: 10; border: 2px solid #a855f7;">
           
           <!-- Left: Big High-Contrast QR Code -->
           <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; background: #ffffff; padding: 10px; border-radius: 20px; box-shadow: 0 6px 20px rgba(0,0,0,0.2);">
             <img src="${qrUrl}" width="130" height="130" style="border-radius: 12px;" />
-            <span style="font-size: 15px; color: #4c1d95; font-weight: bold;">${fixAr('امسح لفتح الخط')}</span>
+            <span style="font-size: 15px; color: #4c1d95; font-weight: bold;">${fixAr('امسح لفتح الإعلان')}</span>
           </div>
 
           <!-- Right: Smart DM & Bio Action Prompt -->
           <div style="display: flex; flex-direction: column; align-items: flex-end; flex: 1; padding-left: 24px; gap: 10px;">
             <div style="display: flex; background: #a855f7; border-radius: 14px; padding: 6px 20px;">
-              <span style="font-size: 20px; color: #ffffff; font-weight: bold;">${fixAr('📲 لحجز مقعدك بالخط فوراً')}</span>
+              <span style="font-size: 20px; color: #ffffff; font-weight: bold;">${fixAr(category === 'car' ? '🚗 لمعاينة وتفاصيل السيارة' : '📲 للتفاصيل والتواصل فوراً')}</span>
             </div>
             <span style="font-size: 23px; color: #f3e8ff; font-weight: bold; text-align: right; line-height: 1.3;">${fixAr('امسح الباركود أو افتح الرابط في البايو')}</span>
             <div style="display: flex; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 12px; padding: 6px 18px;">

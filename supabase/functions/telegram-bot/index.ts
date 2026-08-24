@@ -1336,7 +1336,7 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
   );
   return new Response('OK', { status: 200 });
 }
-const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || 'EAAPXexo3QZCcBSd3fOtjD7KHzsjYK1pfmZBJQBIcl3XmyekSbOfyVx3JKZCqFkNx91IqMNtfUceHsuZCFPno2vmklukY4KEZCHZBHPqv2Fc2P183TeuQ2AkOjZAbxJBevtAH2AFSSw5dm1pRVdLc6ZCRfwarMwbQ81MT4zvGCxoorfTiNJ1V1b5Baly8cAEwlfrX4Hq5JeFLluc3ZBUi5ZC4dEnDLZCB31R5k7cCErOZBZCxhEDL4SMrkWb1kHoDEILQZD';
+const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || 'EAAPXexo3QZCcBSQf0MmoxXqmhTO9CQXUFvYnnHwHOsNJNZBXxQbsKGZCBpAkrN2bpunHbtMebbkdnFQZBwiLOWpru8cD5Il5kWZC8c12LhGwzsikZB1ZAzZBKtDAO4m2eD7mXQ0SbKkNZC7Uk0LbrZAjxZA8xL0zd3WAPNZCzLXm9ZAC1Mzn7L7m3ADYbtcS1408BxA60OI3RZC6d6mTw3ft9crKgQjc8Pw2lJD7nzSA6OluYPdefIqrWSR6ltn4xWEQ4ZD';
 const META_PAGE_ID = Deno.env.get('META_PAGE_ID') || '1088044114402452';
 const META_IG_ACCOUNT_ID = Deno.env.get('META_IG_ACCOUNT_ID') || '17841403127032930';
 const THREADS_USER_ID = Deno.env.get('THREADS_USER_ID') || '28119436894335542';
@@ -1415,7 +1415,11 @@ async function getLiveSocialSetting(id: string): Promise<any> {
     return dynamicSocialCache[id];
   }
   try {
-    const { data } = await supabase.from('social_settings').select('*');
+    const sbClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+    const { data } = await sbClient.from('social_settings').select('*');
     if (data && data.length > 0) {
       dynamicSocialCache = {};
       for (const row of data) {
@@ -1534,78 +1538,71 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
     const urls = Array.isArray(photoUrl) ? photoUrl : (photoUrl ? [photoUrl] : []);
     const cleanUrls = urls.filter(u => typeof u === 'string' && u.startsWith('http'));
 
-    // 1. Multiple photos -> Upload each photo unpublished, then publish album feed post with attached_media
-    if (cleanUrls.length > 1) {
-      console.log(`[FB MULTI-PHOTO] Uploading ${cleanUrls.length} photos to Facebook Page ${pageId}...`);
+    // 1. Photo Post (Single or Multiple) -> Upload temporary/unpublished photos via multipart buffer, then publish Feed Post with attached_media
+    if (cleanUrls.length > 0) {
+      console.log(`[FB MEDIA UPLOAD] Uploading ${cleanUrls.length} photos for Facebook Page ${pageId}...`);
       const attachedMedia: any[] = [];
-      for (const imgUrl of cleanUrls.slice(0, 10)) {
+      
+      for (const rawUrl of cleanUrls.slice(0, 10)) {
         try {
-          const uploadParams = new URLSearchParams();
-          uploadParams.append('url', imgUrl);
-          uploadParams.append('published', 'false');
-          uploadParams.append('access_token', token);
+          // Fetch image buffer directly
+          const imgFetch = await fetch(rawUrl);
+          if (imgFetch.ok) {
+            const imgBlob = await imgFetch.blob();
+            const formData = new FormData();
+            formData.append('source', imgBlob, 'photo.png');
+            formData.append('published', 'false');
+            formData.append('access_token', token);
 
-          const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: uploadParams.toString()
-          });
-          const uploadData = await uploadRes.json();
-          if (uploadData && uploadData.id) {
-            attachedMedia.push({ media_fbid: uploadData.id });
+            const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
+              method: 'POST',
+              body: formData
+            });
+            const uploadData = await uploadRes.json();
+            if (uploadData && uploadData.id) {
+              attachedMedia.push({ media_fbid: uploadData.id });
+            } else {
+              console.warn('FB Photo upload error:', uploadData);
+            }
           }
         } catch (e) {
-          console.error('FB Multi-photo item upload exception:', e);
+          console.error('FB Photo upload item exception:', e);
         }
       }
-      
+
       if (attachedMedia.length > 0) {
-        console.log(`[FB MULTI-PHOTO] Publishing multi-photo feed post with ${attachedMedia.length} attached media...`);
-        const res = await fetch(`https://graph.facebook.com/v20.0/${pageId}/feed`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text, attached_media: attachedMedia, access_token: token })
+        console.log(`[FB FEED POST] Publishing feed post with ${attachedMedia.length} attached media on Page ${pageId}...`);
+        const feedParams = new URLSearchParams();
+        feedParams.append('message', text);
+        attachedMedia.forEach((media, idx) => {
+          feedParams.append(`attached_media[${idx}]`, JSON.stringify(media));
         });
-        const data = await res.json();
-        if (data.id || data.post_id) return data;
-      }
-    }
+        feedParams.append('access_token', token);
 
-    // 2. Single photo post
-    const rawSingleUrl = cleanUrls.length > 0 ? cleanUrls[0] : null;
-    const singleUrl = rawSingleUrl 
-      ? (rawSingleUrl.includes('generate-story-image') ? `https://wsrv.nl/?url=${encodeURIComponent(rawSingleUrl)}&output=png` : rawSingleUrl)
-      : null;
-
-    if (singleUrl) {
-      const cleanFbCaption = (text || '')
-        .replace(/<a\s+href="([^"]+)">([^<]+)<\/a>/gi, '$2 ($1)')
-        .replace(/<[^>]*>?/gm, '')
-        .trim();
-
-      console.log(`[FB PHOTO] Posting single photo to Facebook Page ${pageId}...`);
-      
-      try {
-        const params = new URLSearchParams();
-        params.append('url', singleUrl);
-        params.append('caption', cleanFbCaption);
-        params.append('access_token', token);
-
-        const photoRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/photos`, {
+        const feedRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/feed`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: params.toString()
+          body: feedParams.toString()
         });
-        const photoData = await photoRes.json();
-        console.log('[FB PHOTO URLSearchParams] Response:', photoData);
-        if (photoData.id || photoData.post_id) return photoData;
-      } catch (err) {
-        console.warn('FB Single photo exception:', err);
+        const feedData = await feedRes.json();
+        console.log('[FB FEED WITH MEDIA] Response:', feedData);
+
+        if (feedData && feedData.id) {
+          const rawId = feedData.id;
+          const cleanPostId = rawId.includes('_') ? rawId.split('_')[1] : rawId;
+          feedData.url = `https://www.facebook.com/${pageId}/posts/${cleanPostId}`;
+          feedData.permalink_url = feedData.url;
+          return feedData;
+        } else if (feedData && feedData.error) {
+          const pageName = isRafdainPage ? 'فيسبوك كلية الرافدين' : 'فيسبوك سوق بغداد';
+          await checkAndAlertTokenError(pageName, feedData);
+          return feedData;
+        }
       }
     }
 
-    // 3. Feed Post (Text or Link)
-    console.log(`[FB FEED] Posting feed message to Facebook Page ${pageId}...`);
+    // 2. Text or Link Feed Post (only if no photos)
+    console.log(`[FB FEED TEXT] Posting feed message to Facebook Page ${pageId}...`);
     const feedParams = new URLSearchParams();
     feedParams.append('message', text);
     feedParams.append('access_token', token);
@@ -1616,11 +1613,12 @@ async function postToFacebook(text: string, photoUrl: string | string[] | null, 
       body: feedParams.toString()
     });
     const feedData = await feedRes.json();
-    console.log('[FB FEED] Response:', feedData);
+    console.log('[FB FEED TEXT] Response:', feedData);
     if (feedData && feedData.id) {
-      const pId = feedData.id;
-      const cleanPostId = pId.includes('_') ? pId.split('_')[1] : pId;
-      feedData.url = `https://www.facebook.com/${cleanPostId}`;
+      const rawId = feedData.id;
+      const cleanPostId = rawId.includes('_') ? rawId.split('_')[1] : rawId;
+      feedData.url = `https://www.facebook.com/${pageId}/posts/${cleanPostId}`;
+      feedData.permalink_url = feedData.url;
       return feedData;
     }
     if (feedData.error) {
@@ -1652,6 +1650,30 @@ async function deleteFromFacebook(postId: string, customToken?: string) {
   } catch (err) {
     console.error('FB Delete Error:', err);
     return false;
+  }
+}
+
+async function deleteOldFacebookPostsForAd(shortId: string, pageId: string, token: string, existingPostId?: string | null) {
+  try {
+    if (existingPostId) {
+      await deleteFromFacebook(existingPostId, token);
+    }
+    if (!shortId || !pageId || !token) return;
+    const cleanShortId = shortId.replace('#', '').trim().toLowerCase();
+    if (cleanShortId.length < 2) return;
+
+    const res = await fetch(`https://graph.facebook.com/v20.0/${pageId}/published_posts?fields=id,message&limit=30&access_token=${token}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    for (const post of data?.data || []) {
+      const msg = (post.message || '').toLowerCase();
+      if (msg.includes(cleanShortId)) {
+        console.log(`[FB AUTO CLEANUP] Deleting previous duplicate Facebook post ${post.id} for ad code #${shortId}...`);
+        await deleteFromFacebook(post.id, token);
+      }
+    }
+  } catch(e) {
+    console.error('deleteOldFacebookPostsForAd exception:', e);
   }
 }
 
@@ -1885,16 +1907,11 @@ async function syncAndHealAd(ad: any, supabaseClient: any): Promise<{ healed: bo
 
 function buildStoryImageUrl(record: any, category: string, primaryImage?: string): string {
   const shortId = record.short_id || record.id || '';
-  if (category === 'transport') {
-    const dynUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(record.title || '')}&regions=${encodeURIComponent(record.location || record.regions || '')}&destination=${encodeURIComponent(record.city || record.destination || '')}&fare=${encodeURIComponent(record.price || '')}&phone=${encodeURIComponent(record.phone || '')}&short_id=${shortId}`;
-    return `https://wsrv.nl/?url=${encodeURIComponent(dynUrl)}&output=jpg`;
-  }
+  const imgParam = primaryImage ? `&image_url=${encodeURIComponent(primaryImage)}` : '';
+  const priceVal = record.price ? `${record.price} ${record.currency || 'د.ع'}` : '';
+
+  const dynUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&category=${encodeURIComponent(category)}&title=${encodeURIComponent(record.title || '')}&regions=${encodeURIComponent(record.location || record.city || 'بغداد')}&destination=${encodeURIComponent(record.destination || record.city || 'بغداد')}&fare=${encodeURIComponent(priceVal)}&phone=${encodeURIComponent(record.phone || '')}&short_id=${shortId}${imgParam}`;
   
-  if (primaryImage) {
-    return `https://wsrv.nl/?url=${encodeURIComponent(primaryImage)}&w=1080&h=1920&fit=contain&cbg=1e0836&output=jpg`;
-  }
-  
-  const dynUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(record.title || 'إعلان سوق بغداد')}&regions=${encodeURIComponent(record.city || record.location || 'بغداد')}&short_id=${shortId}&fare=${encodeURIComponent(record.price ? `${record.price} ${record.currency || 'د.ع'}` : '')}&phone=${encodeURIComponent(record.phone || '')}`;
   return `https://wsrv.nl/?url=${encodeURIComponent(dynUrl)}&output=jpg`;
 }
 
@@ -2115,6 +2132,16 @@ async function postToInstagram(text: string, photoUrl: string | string[] | null,
     const data = await publishRes.json();
     if (data?.error) {
       await checkAndAlertTokenError('انستكرام سوق بغداد (@souqbaghdad.iq)', data);
+    }
+    if (data?.id) {
+      try {
+        const permalinkRes = await fetch(`${apiBase}/${data.id}?fields=id,permalink,shortcode&access_token=${token}`);
+        const permData = await permalinkRes.json();
+        if (permData?.permalink) {
+          data.permalink = permData.permalink;
+          data.url = permData.permalink;
+        }
+      } catch(e) {}
     }
     return data;
   } catch (err: any) {
@@ -7161,11 +7188,10 @@ Deno.serve(async (req: any) => {
           ? `https://www.souqbaghdad.store/transport/card/${shortId}` 
           : `https://www.souqbaghdad.store/ad/${shortId}`;
 
-        const postImg = (targetAd.images && targetAd.images.length > 0) 
-          ? targetAd.images[0] 
-          : `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(targetAd.title)}&regions=${encodeURIComponent(targetAd.location || '')}&destination=${encodeURIComponent(targetAd.city || '')}&fare=${encodeURIComponent(targetAd.price || '')}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(targetAd.phone || '')}`;
+        const primaryImg = (targetAd.images && targetAd.images.length > 0) ? targetAd.images[0] : '';
+        const postImg = primaryImg || `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&category=${encodeURIComponent(targetAd.category || 'transport')}&title=${encodeURIComponent(targetAd.title)}&regions=${encodeURIComponent(targetAd.location || '')}&destination=${encodeURIComponent(targetAd.city || '')}&fare=${encodeURIComponent(targetAd.price || '')}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(targetAd.phone || '')}`;
 
-        const storyImg = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(targetAd.title)}&regions=${encodeURIComponent(targetAd.location || '')}&destination=${encodeURIComponent(targetAd.city || '')}&fare=${encodeURIComponent(targetAd.price || '')}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(targetAd.phone || '')}`;
+        const storyImg = buildStoryImageUrl(targetAd, targetAd.category || (isTransport ? 'transport' : 'car'), primaryImg);
 
         let syncStatus = typeof targetAd.sync_status === 'object' && targetAd.sync_status ? { ...targetAd.sync_status } : {};
         let successReport = '';
@@ -7177,20 +7203,19 @@ Deno.serve(async (req: any) => {
 
           // 1. Facebook: Al-Rafdain Only
           if (platformType === 'fb_rafdain') {
-            const oldRucPostId = syncStatus.rafdain_facebook_post_id;
-            if (oldRucPostId) {
-              await deleteFromFacebook(oldRucPostId, ALRAFDAIN_FB_TOKEN);
-            }
             const rucFbSetting = await getLiveSocialSetting('fb_rafdain');
             const rucToken = rucFbSetting?.access_token || ALRAFDAIN_FB_TOKEN;
             const rucPageId = rucFbSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
-            const rucRes = await postToFacebook(caption, null, rucToken, rucPageId);
+            
+            // Delete previous posts for this ad to prevent duplicates
+            await deleteOldFacebookPostsForAd(shortId, rucPageId, rucToken, syncStatus.rafdain_facebook_post_id);
+
+            const rucRes = await postToFacebook(caption, postImg, rucToken, rucPageId);
             if (rucRes?.id || rucRes?.post_id) {
-              const pid = rucRes.id || rucRes.post_id;
+              const pid = rucRes.post_id || rucRes.id;
               syncStatus.rafdain_facebook = 'success';
               syncStatus.rafdain_facebook_post_id = pid;
-              const cleanId = pid.includes('_') ? pid.split('_')[1] : pid;
-              directPostUrl = `https://www.facebook.com/${cleanId}`;
+              directPostUrl = rucRes.permalink_url || rucRes.url || `https://www.facebook.com/${rucPageId}/posts/${pid.split('_')[1] || pid}`;
               directButtonLabel = '📘 مشاهدة البوست على صفحة كلية الرافدين';
             }
             successReport = `📘 <b>تم نشر البوست في صدارة صفحة كلية الرافدين بنجاح! ✅</b>` + 
@@ -7198,17 +7223,19 @@ Deno.serve(async (req: any) => {
           } 
           // 2. Facebook: Souq Baghdad Only
           else if (platformType === 'fb_souq' || platformType === 'fb_feed') {
-            const oldFbPostId = syncStatus.facebook_post_id || targetAd.facebook_post_id;
-            if (oldFbPostId) {
-              await deleteFromFacebook(oldFbPostId, META_PAGE_ACCESS_TOKEN);
-            }
-            const fbRes = await postToFacebook(caption, null);
+            const souqFbSetting = await getLiveSocialSetting('fb_souq');
+            const souqToken = souqFbSetting?.access_token || META_PAGE_ACCESS_TOKEN;
+            const souqPageId = souqFbSetting?.page_id || META_PAGE_ID || '1088044114402452';
+
+            // Delete previous posts for this ad to prevent duplicates
+            await deleteOldFacebookPostsForAd(shortId, souqPageId, souqToken, syncStatus.facebook_post_id || targetAd.facebook_post_id);
+
+            const fbRes = await postToFacebook(caption, postImg, souqToken, souqPageId);
             if (fbRes?.id || fbRes?.post_id) {
-              const pid = fbRes.id || fbRes.post_id;
+              const pid = fbRes.post_id || fbRes.id;
               syncStatus.facebook = 'success';
               syncStatus.facebook_post_id = pid;
-              const cleanId = pid.includes('_') ? pid.split('_')[1] : pid;
-              directPostUrl = `https://www.facebook.com/${cleanId}`;
+              directPostUrl = fbRes.permalink_url || fbRes.url || `https://www.facebook.com/${souqPageId}/posts/${pid.split('_')[1] || pid}`;
               directButtonLabel = '📘 مشاهدة البوست على صفحة سوق بغداد';
             }
             successReport = `📘 <b>تم نشر البوست في صدارة صفحة سوق بغداد الرسمية بنجاح! ✅</b>` + 
@@ -7216,28 +7243,43 @@ Deno.serve(async (req: any) => {
           }
           // 3. Facebook: Both Pages
           else if (platformType === 'fb_both') {
-            // Delete old
-            if (syncStatus.facebook_post_id) await deleteFromFacebook(syncStatus.facebook_post_id, META_PAGE_ACCESS_TOKEN);
-            if (syncStatus.rafdain_facebook_post_id) await deleteFromFacebook(syncStatus.rafdain_facebook_post_id, ALRAFDAIN_FB_TOKEN);
-
-            const fbRes = await postToFacebook(caption, null);
-            if (fbRes?.id || fbRes?.post_id) {
-              syncStatus.facebook = 'success';
-              syncStatus.facebook_post_id = fbRes.id || fbRes.post_id;
-            }
             const rucFbSetting = await getLiveSocialSetting('fb_rafdain');
             const rucToken = rucFbSetting?.access_token || ALRAFDAIN_FB_TOKEN;
             const rucPageId = rucFbSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
-            const rucRes = await postToFacebook(caption, null, rucToken, rucPageId);
-            if (rucRes?.id || rucRes?.post_id) {
-              syncStatus.rafdain_facebook = 'success';
-              syncStatus.rafdain_facebook_post_id = rucRes.id || rucRes.post_id;
-              const cleanId = (rucRes.id || rucRes.post_id).split('_')[1] || (rucRes.id || rucRes.post_id);
-              directPostUrl = `https://www.facebook.com/${cleanId}`;
-              directButtonLabel = '📘 مشاهدة البوست على صفحة كلية الرافدين';
+
+            const souqFbSetting = await getLiveSocialSetting('fb_souq');
+            const souqToken = souqFbSetting?.access_token || META_PAGE_ACCESS_TOKEN;
+            const souqPageId = souqFbSetting?.page_id || META_PAGE_ID || '1088044114402452';
+
+            // Delete old from both
+            await deleteOldFacebookPostsForAd(shortId, souqPageId, souqToken, syncStatus.facebook_post_id || targetAd.facebook_post_id);
+            await deleteOldFacebookPostsForAd(shortId, rucPageId, rucToken, syncStatus.rafdain_facebook_post_id);
+
+            let souqPostUrl = '';
+            let rucPostUrl = '';
+
+            const fbRes = await postToFacebook(caption, postImg, souqToken, souqPageId);
+            if (fbRes?.id || fbRes?.post_id) {
+              const pid = fbRes.post_id || fbRes.id;
+              syncStatus.facebook = 'success';
+              syncStatus.facebook_post_id = pid;
+              souqPostUrl = fbRes.permalink_url || fbRes.url || `https://www.facebook.com/${souqPageId}/posts/${pid.split('_')[1] || pid}`;
             }
-            successReport = `📘 <b>تم تجديد ونشر البوست على صفحة كلية الرافدين + صفحة سوق بغداد معاً بنجاح! ✅</b>` +
-              (directPostUrl ? `\n🔗 <b>رابط المنشور:</b> <a href="${directPostUrl}">${directPostUrl}</a>` : '');
+
+            const rucRes = await postToFacebook(caption, postImg, rucToken, rucPageId);
+            if (rucRes?.id || rucRes?.post_id) {
+              const pid = rucRes.post_id || rucRes.id;
+              syncStatus.rafdain_facebook = 'success';
+              syncStatus.rafdain_facebook_post_id = pid;
+              rucPostUrl = rucRes.permalink_url || rucRes.url || `https://www.facebook.com/${rucPageId}/posts/${pid.split('_')[1] || pid}`;
+            }
+
+            directPostUrl = souqPostUrl || rucPostUrl;
+            directButtonLabel = '📘 مشاهدة البوست على صفحة سوق بغداد';
+
+            successReport = `📘 <b>تم تجديد ونشر البوست على الصفحتين معاً بنجاح! ✅</b>` +
+              (souqPostUrl ? `\n🔗 <b>رابط صفحة سوق بغداد:</b> <a href="${souqPostUrl}">${souqPostUrl}</a>` : '') +
+              (rucPostUrl ? `\n🔗 <b>رابط صفحة كلية الرافدين:</b> <a href="${rucPostUrl}">${rucPostUrl}</a>` : '');
           }
           // 4. Instagram Feed
           else if (platformType === 'ig_feed') {
@@ -7249,10 +7291,14 @@ Deno.serve(async (req: any) => {
             if (igRes?.id || igRes?.media_id) {
               syncStatus.instagram = 'success';
               syncStatus.instagram_post_id = igRes.id || igRes.media_id;
+              directPostUrl = igRes.permalink || igRes.url || 'https://www.instagram.com/souqbaghdad.iq/';
+              directButtonLabel = '📸 مشاهدة البوست على انستغرام';
+            } else {
+              directPostUrl = 'https://www.instagram.com/souqbaghdad.iq/';
+              directButtonLabel = '📸 فتح حساب انستغرام @souqbaghdad.iq';
             }
-            directPostUrl = 'https://www.instagram.com/souqbaghdad.iq/';
-            directButtonLabel = '📸 مشاهدة البوست على انستغرام';
-            successReport = `📸 <b>تم نشر البوست في صدارة فيد انستغرام بنجاح! ✅</b>\n(حساب سوق بغداد الرسمي @souqbaghdad.iq)`;
+            successReport = `📸 <b>تم نشر البوست في صدارة فيد انستغرام بنجاح! ✅</b>` +
+              (directPostUrl && directPostUrl.includes('/p/') ? `\n🔗 <b>رابط البوست المباشر:</b> <a href="${directPostUrl}">${directPostUrl}</a>` : `\n(حساب سوق بغداد الرسمي @souqbaghdad.iq)`);
           }
           // 5. Facebook Story: Al-Rafdain
           else if (platformType === 'fb_story_rafdain') {
@@ -7260,23 +7306,23 @@ Deno.serve(async (req: any) => {
             const rucToken = rucFbSetting?.access_token || ALRAFDAIN_FB_TOKEN;
             const rucPageId = rucFbSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
             await postToFacebookStory(storyImg, rucPageId, rucToken);
-            directPostUrl = 'https://www.facebook.com/102975411515668';
+            directPostUrl = `https://www.facebook.com/${rucPageId}`;
             directButtonLabel = '📘 فتح صفحة كلية الرافدين لمشاهدة الستوري';
-            successReport = `📘 <b>تم نشر ستوري 9:16 على صفحة كلية الرافدين الجامعة بنجاح! ✅</b>`;
+            successReport = `📘 <b>تم نشر ستوري 9:16 على صفحة كلية الرافدين الجامعة بنجاح! ✅</b>\n🔗 <a href="${directPostUrl}">اضغط هنا لفتح الصفحة والستوري</a>`;
           }
           // 6. Facebook Story: Souq Baghdad
           else if (platformType === 'fb_story_souq' || platformType === 'fb_story') {
             await postToFacebookStory(storyImg, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
-            directPostUrl = 'https://www.facebook.com/1088044114402452';
+            directPostUrl = `https://www.facebook.com/${META_PAGE_ID}`;
             directButtonLabel = '📘 فتح صفحة سوق بغداد لمشاهدة الستوري';
-            successReport = `📘 <b>تم نشر ستوري 9:16 على صفحة سوق بغداد الرسمية بنجاح! ✅</b>`;
+            successReport = `📘 <b>تم نشر ستوري 9:16 على صفحة سوق بغداد الرسمية بنجاح! ✅</b>\n🔗 <a href="${directPostUrl}">اضغط هنا لفتح الصفحة والستوري</a>`;
           }
           // 7. Instagram Story
           else if (platformType === 'ig_story') {
             await postToInstagramStory(storyImg);
             directPostUrl = 'https://www.instagram.com/souqbaghdad.iq/';
             directButtonLabel = '📸 فتح حساب انستغرام لمشاهدة الستوري';
-            successReport = `📸 <b>تم نشر ستوري 9:16 على انستغرام بنجاح! ✅</b>`;
+            successReport = `📸 <b>تم نشر ستوري 9:16 على انستغرام بنجاح! ✅</b>\n🔗 <a href="${directPostUrl}">اضغط هنا لفتح الحساب والستوري</a>`;
           }
 
           syncStatus.last_promoted_at = new Date().toISOString();
