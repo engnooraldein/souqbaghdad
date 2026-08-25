@@ -5,7 +5,12 @@ import { html } from "npm:satori-html@0.3.2"
 
 let wasmInitialized = false;
 
-const fontUrl = 'https://github.com/google/fonts/raw/main/ofl/tajawal/Tajawal-Bold.ttf'
+const fontUrls = [
+  'https://raw.githubusercontent.com/google/fonts/main/ofl/tajawal/Tajawal-Bold.ttf',
+  'https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf'
+];
+
+let cachedFontData: ArrayBuffer | null = null;
 
 // Helper to sanitize any raw HTML, base64 or garbage strings
 function cleanText(val: string | null, fallback: string): string {
@@ -26,11 +31,11 @@ serve(async (req) => {
     const mode = url.searchParams.get("type") || "post"; // "post" (1080x1350) or "story" (1080x1920)
     
     const title = cleanText(url.searchParams.get("title"), "خط نقل جديد في بغداد");
-    const subtitle = cleanText(url.searchParams.get("subtitle"), "كلية الرافدين");
-    const subdesc = cleanText(url.searchParams.get("subdesc"), "خط نقل طلاب وموظفين");
-    const regions = cleanText(url.searchParams.get("regions"), "صليخ 600 - سبع بكار - كريعات - حي تونس - القاهرة");
-    const destination = cleanText(url.searchParams.get("destination"), "كلية الرافدين");
-    const fare = cleanText(url.searchParams.get("fare"), "حسب الاتفاق");
+    const subtitle = cleanText(url.searchParams.get("subtitle") || url.searchParams.get("destination"), "كلية الرافدين");
+    const subdesc = cleanText(url.searchParams.get("subdesc") || url.searchParams.get("audience"), "خط نقل طلاب وموظفين");
+    const regions = cleanText(url.searchParams.get("regions") || url.searchParams.get("location"), "صليخ 600 - سبع بكار - كريعات - حي تونس - القاهرة");
+    const destination = cleanText(url.searchParams.get("destination") || url.searchParams.get("city"), "كلية الرافدين");
+    const fare = cleanText(url.searchParams.get("fare") || url.searchParams.get("price"), "حسب الاتفاق");
     let link = cleanText(url.searchParams.get("link"), "https://www.souqbaghdad.store/transport");
     if (link.includes('data:image')) {
       link = "https://www.souqbaghdad.store/transport";
@@ -55,9 +60,21 @@ serve(async (req) => {
       wasmInitialized = true;
     }
 
-    // 2. Fetch Arabic Font (Tajawal-Bold)
-    const fontRes = await fetch(fontUrl);
-    const fontData = await fontRes.arrayBuffer();
+    // 2. Fetch Arabic Font with resilient fallback
+    if (!cachedFontData) {
+      for (const fUrl of fontUrls) {
+        try {
+          const fontRes = await fetch(fUrl);
+          if (fontRes.ok) {
+            cachedFontData = await fontRes.arrayBuffer();
+            break;
+          }
+        } catch(e) {
+          console.warn('Font fetch fail from', fUrl, e);
+        }
+      }
+    }
+    const fontData = cachedFontData!;
 
     const isPost = mode === "post";
     const canvasWidth = 1080;
