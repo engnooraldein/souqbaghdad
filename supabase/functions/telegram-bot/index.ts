@@ -1335,14 +1335,14 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
     }
   );
   return new Response('OK', { status: 200 });
-}
-const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || 'EAAPXexo3QZCcBSQf0MmoxXqmhTO9CQXUFvYnnHwHOsNJNZBXxQbsKGZCBpAkrN2bpunHbtMebbkdnFQZBwiLOWpru8cD5Il5kWZC8c12LhGwzsikZB1ZAzZBKtDAO4m2eD7mXQ0SbKkNZC7Uk0LbrZAjxZA8xL0zd3WAPNZCzLXm9ZAC1Mzn7L7m3ADYbtcS1408BxA60OI3RZC6d6mTw3ft9crKgQjc8Pw2lJD7nzSA6OluYPdefIqrWSR6ltn4xWEQ4ZD';
+const META_SYSTEM_USER_TOKEN = Deno.env.get('META_SYSTEM_USER_TOKEN') || 'EAAPXexo3QZCcBSbsjqzSmRYjWEEazQioLNZB97IFK6ckf6eUAZAjZBpyySXHbPFM6L0JDeWZCKKwSGZBZBnpi5e0HL8EGQz7030QHZCWiU0phZBpmtYVZATGdzw3rGXS0qidEzKiTsrFNsUA8zIMFinVfQfLJDNeFY4Vz45HvQgzgIKVVuDMm9i9ck6DmwzX7uZCZBUCZAAZDZD';
+const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || META_SYSTEM_USER_TOKEN;
 const META_PAGE_ID = Deno.env.get('META_PAGE_ID') || '1088044114402452';
 const META_IG_ACCOUNT_ID = Deno.env.get('META_IG_ACCOUNT_ID') || '17841403127032930';
 const THREADS_USER_ID = Deno.env.get('THREADS_USER_ID') || '28119436894335542';
 const THREADS_ACCESS_TOKEN = Deno.env.get('THREADS_ACCESS_TOKEN') || '';
 
-const ALRAFDAIN_FB_TOKEN = Deno.env.get('ALRAFDAIN_FB_TOKEN') || 'EAAPXexo3QZCcBSfk4Kqq16CFGoLSOqeIbI6Pb9mj1Rx3jnvO71dYuGgSTxhZCEVw0eVbnbXNumMGo8Sd9u5b0WyHSg3CuE6ffKRaqq901XZCGaF5V7StBQfGLgxwXY3EPINdlr7ZBBcEWEJqRlImZB8gnxDRHkUDbiYyImj2HZBsSXkAJd0B8fjVJWiJyTldXxhZC6xJ6TW38VnH6Iv3DiQ4dsZD';
+const ALRAFDAIN_FB_TOKEN = Deno.env.get('ALRAFDAIN_FB_TOKEN') || META_SYSTEM_USER_TOKEN;
 const ALRAFDAIN_FB_PAGE_ID = Deno.env.get('ALRAFDAIN_FB_PAGE_ID') || '102975411515668';
 const ALRAFDAIN_IG_ID = Deno.env.get('ALRAFDAIN_IG_ID') || '17841404181680155';
 const ALRAFDAIN_TELEGRAM_CHANNEL = '@ruc_1';
@@ -7407,9 +7407,11 @@ Deno.serve(async (req: any) => {
               syncStatus.rafdain_facebook_post_id = pid;
               directPostUrl = rucRes.permalink_url || rucRes.url || `https://www.facebook.com/${rucPageId}/posts/${pid.split('_')[1] || pid}`;
               directButtonLabel = '📘 مشاهدة البوست على صفحة كلية الرافدين';
+              successReport = `📘 <b>تم نشر البوست في صدارة صفحة كلية الرافدين بنجاح! ✅</b>\n🔗 <b>رابط البوست المباشر:</b> <a href="${directPostUrl}">${directPostUrl}</a>`;
+            } else {
+              const errTxt = rucRes?.error?.message || 'تعذر النشر على الصفحة حالياً';
+              successReport = `⚠️ <b>تنبيه فيسبوك:</b> ${errTxt}`;
             }
-            successReport = `📘 <b>تم نشر البوست في صدارة صفحة كلية الرافدين بنجاح! ✅</b>` + 
-              (directPostUrl ? `\n🔗 <b>رابط البوست المباشر:</b> <a href="${directPostUrl}">${directPostUrl}</a>` : '');
           } 
           // 2. Facebook: Souq Baghdad Only
           else if (platformType === 'fb_souq' || platformType === 'fb_feed') {
@@ -7427,9 +7429,11 @@ Deno.serve(async (req: any) => {
               syncStatus.facebook_post_id = pid;
               directPostUrl = fbRes.permalink_url || fbRes.url || `https://www.facebook.com/${souqPageId}/posts/${pid.split('_')[1] || pid}`;
               directButtonLabel = '📘 مشاهدة البوست على صفحة سوق بغداد';
+              successReport = `📘 <b>تم نشر البوست في صدارة صفحة سوق بغداد الرسمية بنجاح! ✅</b>\n🔗 <b>رابط البوست المباشر:</b> <a href="${directPostUrl}">${directPostUrl}</a>`;
+            } else {
+              const errTxt = fbRes?.error?.message || 'تعذر النشر على الصفحة حالياً';
+              successReport = `⚠️ <b>تنبيه فيسبوك:</b> ${errTxt}`;
             }
-            successReport = `📘 <b>تم نشر البوست في صدارة صفحة سوق بغداد الرسمية بنجاح! ✅</b>` + 
-              (directPostUrl ? `\n🔗 <b>رابط البوست المباشر:</b> <a href="${directPostUrl}">${directPostUrl}</a>` : '');
           }
           // 3. Facebook: Both Pages
           else if (platformType === 'fb_both') {
@@ -7467,9 +7471,13 @@ Deno.serve(async (req: any) => {
             directPostUrl = souqPostUrl || rucPostUrl;
             directButtonLabel = '📘 مشاهدة البوست على صفحة سوق بغداد';
 
-            successReport = `📘 <b>تم تجديد ونشر البوست على الصفحتين معاً بنجاح! ✅</b>` +
-              (souqPostUrl ? `\n🔗 <b>رابط صفحة سوق بغداد:</b> <a href="${souqPostUrl}">${souqPostUrl}</a>` : '') +
-              (rucPostUrl ? `\n🔗 <b>رابط صفحة كلية الرافدين:</b> <a href="${rucPostUrl}">${rucPostUrl}</a>` : '');
+            if (souqPostUrl || rucPostUrl) {
+              successReport = `📘 <b>تم تجديد ونشر البوست على الصفحات بنجاح! ✅</b>` +
+                (souqPostUrl ? `\n🔗 <b>رابط صفحة سوق بغداد:</b> <a href="${souqPostUrl}">${souqPostUrl}</a>` : '') +
+                (rucPostUrl ? `\n🔗 <b>رابط صفحة كلية الرافدين:</b> <a href="${rucPostUrl}">${rucPostUrl}</a>` : '');
+            } else {
+              successReport = `⚠️ <b>تنبيه:</b> ${fbRes?.error?.message || rucRes?.error?.message || 'تعذر إكمال النشر على الصفحتين'}`;
+            }
           }
           // 4. Instagram Feed
           else if (platformType === 'ig_feed') {
@@ -7483,12 +7491,12 @@ Deno.serve(async (req: any) => {
               syncStatus.instagram_post_id = igRes.id || igRes.media_id;
               directPostUrl = igRes.permalink || igRes.url || 'https://www.instagram.com/souqbaghdad.iq/';
               directButtonLabel = '📸 مشاهدة البوست على انستغرام';
+              successReport = `📸 <b>تم نشر البوست في صدارة فيد انستغرام بنجاح! ✅</b>` +
+                (directPostUrl && directPostUrl.includes('/p/') ? `\n🔗 <b>رابط البوست المباشر:</b> <a href="${directPostUrl}">${directPostUrl}</a>` : `\n(حساب سوق بغداد الرسمي @souqbaghdad.iq)`);
             } else {
-              directPostUrl = 'https://www.instagram.com/souqbaghdad.iq/';
-              directButtonLabel = '📸 فتح حساب انستغرام @souqbaghdad.iq';
+              const errTxt = igRes?.error?.message || 'تعذر النشر على انستغرام حالياً';
+              successReport = `⚠️ <b>تنبيه انستغرام:</b> ${errTxt}`;
             }
-            successReport = `📸 <b>تم نشر البوست في صدارة فيد انستغرام بنجاح! ✅</b>` +
-              (directPostUrl && directPostUrl.includes('/p/') ? `\n🔗 <b>رابط البوست المباشر:</b> <a href="${directPostUrl}">${directPostUrl}</a>` : `\n(حساب سوق بغداد الرسمي @souqbaghdad.iq)`);
           }
           // 5. Facebook Story: Al-Rafdain
           else if (platformType === 'fb_story_rafdain') {
