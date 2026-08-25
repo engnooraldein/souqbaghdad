@@ -1335,6 +1335,8 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
     }
   );
   return new Response('OK', { status: 200 });
+}
+
 const META_SYSTEM_USER_TOKEN = Deno.env.get('META_SYSTEM_USER_TOKEN') || 'EAAPXexo3QZCcBSbsjqzSmRYjWEEazQioLNZB97IFK6ckf6eUAZAjZBpyySXHbPFM6L0JDeWZCKKwSGZBZBnpi5e0HL8EGQz7030QHZCWiU0phZBpmtYVZATGdzw3rGXS0qidEzKiTsrFNsUA8zIMFinVfQfLJDNeFY4Vz45HvQgzgIKVVuDMm9i9ck6DmwzX7uZCZBUCZAAZDZD';
 const META_PAGE_ACCESS_TOKEN = Deno.env.get('META_PAGE_ACCESS_TOKEN') || META_SYSTEM_USER_TOKEN;
 const META_PAGE_ID = Deno.env.get('META_PAGE_ID') || '1088044114402452';
@@ -7427,11 +7429,15 @@ Deno.serve(async (req: any) => {
               const pid = fbRes.post_id || fbRes.id;
               syncStatus.facebook = 'success';
               syncStatus.facebook_post_id = pid;
-              directPostUrl = fbRes.permalink_url || fbRes.url || `https://www.facebook.com/${souqPageId}/posts/${pid.split('_')[1] || pid}`;
+              const pidClean = pid.includes('_') ? pid : `${souqPageId}_${pid}`;
+              directPostUrl = fbRes.permalink_url || `https://www.facebook.com/permalink.php?story_fbid=${pidClean.split('_')[1] || pid}&id=${souqPageId}`;
               directButtonLabel = '📘 مشاهدة البوست على صفحة سوق بغداد';
               successReport = `📘 <b>تم نشر البوست في صدارة صفحة سوق بغداد الرسمية بنجاح! ✅</b>\n🔗 <b>رابط البوست المباشر:</b> <a href="${directPostUrl}">${directPostUrl}</a>`;
             } else {
               const errTxt = fbRes?.error?.message || 'تعذر النشر على الصفحة حالياً';
+              if (fbRes?.error?.code === 190 && souqFbSetting?.id) {
+                await supabase.from('social_settings').update({ last_status: 'error', last_error: fbRes.error.message }).eq('id', souqFbSetting.id);
+              }
               successReport = `⚠️ <b>تنبيه فيسبوك:</b> ${errTxt}`;
             }
           }
@@ -7457,7 +7463,8 @@ Deno.serve(async (req: any) => {
               const pid = fbRes.post_id || fbRes.id;
               syncStatus.facebook = 'success';
               syncStatus.facebook_post_id = pid;
-              souqPostUrl = fbRes.permalink_url || fbRes.url || `https://www.facebook.com/${souqPageId}/posts/${pid.split('_')[1] || pid}`;
+              const pidC1 = pid.includes('_') ? pid : `${souqPageId}_${pid}`;
+              souqPostUrl = fbRes.permalink_url || `https://www.facebook.com/permalink.php?story_fbid=${pidC1.split('_')[1] || pid}&id=${souqPageId}`;
             }
 
             const rucRes = await postToFacebook(caption, postImg, rucToken, rucPageId);
@@ -7465,7 +7472,8 @@ Deno.serve(async (req: any) => {
               const pid = rucRes.post_id || rucRes.id;
               syncStatus.rafdain_facebook = 'success';
               syncStatus.rafdain_facebook_post_id = pid;
-              rucPostUrl = rucRes.permalink_url || rucRes.url || `https://www.facebook.com/${rucPageId}/posts/${pid.split('_')[1] || pid}`;
+              const pidC2 = pid.includes('_') ? pid : `${rucPageId}_${pid}`;
+              rucPostUrl = rucRes.permalink_url || `https://www.facebook.com/permalink.php?story_fbid=${pidC2.split('_')[1] || pid}&id=${rucPageId}`;
             }
 
             directPostUrl = souqPostUrl || rucPostUrl;
@@ -7514,11 +7522,15 @@ Deno.serve(async (req: any) => {
           }
           // 6. Facebook Story: Souq Baghdad
           else if (platformType === 'fb_story_souq' || platformType === 'fb_story') {
-            const storyRes = await postToFacebookStory(storyImg, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
+            // Always fetch live token from DB
+            const souqFbStorySetting = await getLiveSocialSetting('fb_souq');
+            const souqStoryToken = souqFbStorySetting?.access_token || META_PAGE_ACCESS_TOKEN;
+            const souqStoryPageId = souqFbStorySetting?.page_id || META_PAGE_ID || '1088044114402452';
+            const storyRes = await postToFacebookStory(storyImg, souqStoryPageId, souqStoryToken);
             if (storyRes?.error) {
               successReport = `⚠️ <b>تنبيه ستوري فيسبوك:</b> ${storyRes.error.message || 'لم يكتمل نشر الستوري'}`;
             } else {
-              directPostUrl = `https://www.facebook.com/${META_PAGE_ID}`;
+              directPostUrl = `https://www.facebook.com/${souqStoryPageId}`;
               directButtonLabel = '📘 فتح صفحة سوق بغداد لمشاهدة الستوري';
               successReport = `📘 <b>تم نشر ستوري 9:16 على صفحة سوق بغداد الرسمية بنجاح! ✅</b>\n🔗 <a href="${directPostUrl}">اضغط هنا لفتح الصفحة والستوري</a>`;
             }
@@ -9945,3 +9957,5 @@ Deno.serve(async (req: any) => {
     });
   }
 })
+
+
