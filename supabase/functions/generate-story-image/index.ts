@@ -134,6 +134,10 @@ serve(async (req) => {
     const destination = cleanText(url.searchParams.get("destination"), "بغداد");
     
     let rawFare = cleanText(url.searchParams.get("fare"), category === 'transport' ? '45,000 د.ع' : 'السعر حسب الاتفاق');
+    // Format any raw number inside fare string with standard comma separation (e.g. 45000 -> 45,000, 45656 -> 45,656)
+    rawFare = rawFare.replace(/\b\d{4,}\b/g, (match) => {
+      return Number(match).toLocaleString('en-US');
+    });
     if (!rawFare.includes('د.ع') && !rawFare.includes('$') && !rawFare.includes('دولار') && !rawFare.includes('الاتفاق')) {
       rawFare = `${rawFare} د.ع`;
     }
