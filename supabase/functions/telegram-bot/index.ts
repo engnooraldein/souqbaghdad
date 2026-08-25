@@ -1375,23 +1375,43 @@ async function checkAndAlertTokenError(platformName: string, responseData: any) 
   if (isTokenError) {
     const now = Date.now();
     const lastTime = lastAlertTimes[platformName] || 0;
-    if (now - lastTime < 30 * 60 * 1000) {
+    if (now - lastTime < 10 * 60 * 1000) {
       return;
     }
     lastAlertTimes[platformName] = now;
 
     console.warn(`[TOKEN ALERT TRIGGERED] ${platformName}: ${err.message || errMsg}`);
 
+    // Try to inspect token via Meta debug_token API for exact details
+    let tokenDebugInfo = 'لا تتوفر تفاصيل إضافية';
+    try {
+      const debugRes = await fetch(`https://graph.facebook.com/v20.0/debug_token?input_token=${META_PAGE_ACCESS_TOKEN}&access_token=${META_PAGE_ACCESS_TOKEN}`);
+      if (debugRes.ok) {
+        const dData = await debugRes.json();
+        if (dData?.data) {
+          const dt = dData.data;
+          const issuedStr = dt.issued_at ? new Date(dt.issued_at * 1000).toLocaleString('ar-IQ', { timeZone: 'Asia/Baghdad' }) : 'غير معروف';
+          const expiresStr = dt.expires_at === 0 ? 'دائم (Never Expire) ♾️' : (dt.expires_at ? new Date(dt.expires_at * 1000).toLocaleString('ar-IQ', { timeZone: 'Asia/Baghdad' }) : 'غير محدد');
+          tokenDebugInfo = `• نوع التوكن: <b>${dt.type || 'User'}</b>\n• تاريخ الإنشاء: <b>${issuedStr}</b>\n• تاريخ الانتهاء: <b>${expiresStr}</b>\n• التطبيق: <b>${dt.application || 'Meta App'}</b>\n• الصلاحية: <b>${dt.is_valid ? 'ساري وصالح ✅' : 'منتهي / غير صالح ❌'}</b>`;
+        }
+      }
+    } catch(debErr) {}
+
     const alertMessage = 
-      `🚨 <b>تنبيه فوري: توقف توكن ${platformName} (انتهت الصلاحية)!</b>\n\n` +
-      `⚠️ <b>السبب:</b> <code>${err.message || 'Error validating access token'}</code>\n\n` +
-      `🛠️ <b>المطلوب:</b> يرجى فتح <b>Graph API Explorer</b> وتوليد توكن جديد للصفحة وإرساله للبوت لتحديث النشر التلقائي فوراً.\n\n` +
+      `🚨 <b>تنبيه فوري: فحص توكن ${platformName}!</b>\n\n` +
+      `⚠️ <b>السبب ورسالة الخطأ:</b>\n<code>${err.message || errMsg || 'Error validating access token'}</code>\n\n` +
+      `📊 <b>تفاصيل وبيانات التوكن الحالية:</b>\n${tokenDebugInfo}\n\n` +
+      `💡 <b>لماذا تظهر أخطاء التوكن أحياناً؟</b>\n` +
+      `1️⃣ <b>توكن مؤقت (User Token):</b> ينتهي بعد ساعة أو 60 يوماً إن لم يكن من <i>System User دائم</i>.\n` +
+      `2️⃣ <b>تغيير كلمة المرور أو تسجيل الخروج:</b> يبطل توكنات المستخدمين العاديين فوراً.\n` +
+      `3️⃣ <b>صلاحيات ناقصة للمنشورات:</b> مثل نقص <code>pages_manage_posts</code> أو <code>instagram_content_publish</code>.\n\n` +
       `⏰ <i>الوقت: ${new Date().toLocaleString('ar-IQ', { timeZone: 'Asia/Baghdad' })}</i>`;
 
     const alertMarkup = {
       inline_keyboard: [
-        [{ text: '🔑 فتح Graph API Explorer', url: 'https://developers.facebook.com/tools/explorer/' }],
-        [{ text: '⚙️ لوحة التحكم', url: 'https://www.souqbaghdad.store/admin' }]
+        [{ text: '🔑 إعدادات Business Suite', url: 'https://business.facebook.com/latest/settings/system_users' }],
+        [{ text: '🛠️ فحص التوكن في Explorer', url: 'https://developers.facebook.com/tools/debug/accesstoken/' }],
+        [{ text: '⚙️ لوحة تحكم سوق بغداد', url: 'https://www.souqbaghdad.store/admin' }]
       ]
     };
 
