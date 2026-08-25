@@ -3195,22 +3195,33 @@ Deno.serve(async (req: any) => {
       }
       
       if (shouldDelete) {
+        console.log(`[DELETE WEBHOOK] Received DELETE trigger for table ${payload.table} ID ${record?.id || oldRecord?.id}`);
         const msgId = record?.telegram_message_id || oldRecord?.telegram_message_id;
         const rucMsgId = record?.sync_status?.ruc_telegram_message_id || oldRecord?.sync_status?.ruc_telegram_message_id;
         
         if (msgId) {
           const isTransport = record?.category === 'transport' || oldRecord?.category === 'transport';
           const isCar = record?.category === 'vehicles' || record?.category === 'cars' || oldRecord?.category === 'vehicles' || oldRecord?.category === 'cars';
-          const channel = isTransport ? (LINES_CHANNEL_ID || TRANSPORT_CHANNEL) : (isCar ? (CAR_CHANNEL_ID || CAR_CHANNEL) : PRODUCT_CHANNEL);
-          if (channel) {
-            await deleteMessage(channel, parseInt(msgId, 10));
-          }
-          if (EXTRA_CHANNEL) {
-            await deleteMessage(EXTRA_CHANNEL, parseInt(msgId, 10));
+          const channelList = isTransport 
+            ? [LINES_CHANNEL_ID, LINES_CHANNEL, '@souqbaghdad_lines', '@souqbaghdad_line']
+            : (isCar 
+              ? [CAR_CHANNEL_ID, CAR_CHANNEL, '@souqbaghdad_car'] 
+              : [PRODUCT_CHANNEL_ID, PRODUCT_CHANNEL, '@souqbaghdad_iq', EXTRA_CHANNEL]);
+
+          for (const ch of channelList) {
+            if (ch) {
+              try {
+                await deleteMessage(ch, parseInt(msgId, 10));
+              } catch(e) {
+                console.error(`[DELETE ERROR] Channel ${ch}:`, e);
+              }
+            }
           }
         }
         if (rucMsgId && ALRAFDAIN_TELEGRAM_CHANNEL) {
-          await deleteMessage(ALRAFDAIN_TELEGRAM_CHANNEL, parseInt(rucMsgId, 10));
+          try {
+            await deleteMessage(ALRAFDAIN_TELEGRAM_CHANNEL, parseInt(rucMsgId, 10));
+          } catch(e) {}
         }
         
         // Delete from Social Media
@@ -3229,6 +3240,11 @@ Deno.serve(async (req: any) => {
 
         const thPostId = record?.threads_post_id || oldRecord?.threads_post_id;
         if (thPostId) await deleteFromThreads(thPostId);
+
+        return new Response(JSON.stringify({ ok: true, deleted: true }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
       }
 
       const isManualExplicitPublish = Boolean(payload.targets);
