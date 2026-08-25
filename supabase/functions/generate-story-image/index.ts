@@ -27,17 +27,18 @@ function fixAr(text: string): string {
   const clean = cleanText(text, '');
   if (!clean) return '';
   try {
-    const fn = (ArabicShaper as any).convertArabic || (ArabicShaper as any)?.ArabicShaper?.convertArabic || (ArabicShaper as any);
+    const fn = (ArabicShaper as any)?.convertArabic || (ArabicShaper as any)?.ArabicShaper?.convertArabic || (ArabicShaper as any)?.default?.convertArabic || (typeof ArabicShaper === 'function' ? ArabicShaper : null);
     if (typeof fn === 'function') {
       const shaped = fn(clean);
-      // Reverse shaped characters so words read correctly from right to left,
-      // while re-reversing numbers/times so they stay left-to-right (e.g. 2,000 and 08:00)
-      return shaped.split('').reverse().join('').replace(/[0-9]+([.:,/-][0-9]+)*/g, (num: string) => {
-        return num.split('').reverse().join('');
-      });
+      if (shaped && typeof shaped === 'string') {
+        return shaped.split('').reverse().join('').replace(/[0-9]+([.:,/-][0-9]+)*/g, (num: string) => {
+          return num.split('').reverse().join('');
+        });
+      }
     }
     return clean;
-  } catch {
+  } catch (err) {
+    console.error('ArabicShaper error:', err);
     return clean;
   }
 }
@@ -159,42 +160,9 @@ serve(async (req) => {
     const fareTitle = category === 'car' ? "السعر المطلوب" : (adType === "request" ? "الأجرة المقترحة" : "سعر الأجرة");
 
     // 4. Build Exact Editorial Template HTML (Clean LTR Flow with Pre-shaped Arabic)
-    const markup = html`
-      <div style="display: flex; flex-direction: column; width: 1080px; height: ${canvasHeight}px; background: #fbfbfe; color: #1e1b4b; padding: 48px 52px; font-family: 'Noto Sans Arabic', 'Almarai', sans-serif; box-sizing: border-box; justify-content: space-between; position: relative;">
-        
-        <!-- Decorative Header Background Curves -->
-        <div style="position: absolute; top: 0; right: 0; left: 0; height: 380px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-bottom-left-radius: 60px; border-bottom-right-radius: 60px; opacity: 0.8; display: flex;"></div>
-        <div style="position: absolute; top: -50px; left: -50px; width: 350px; height: 350px; border-radius: 175px; background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, rgba(245,243,255,0) 70%); display: flex;"></div>
-
-        <!-- 1. Top Header Row (Logo Left + Main Title Right) -->
-        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; width: 100%; position: relative; z-index: 10; margin-bottom: 20px; margin-top: 8px;">
-          
-          <!-- Right side: Title & Headline -->
-          <div style="display: flex; flex-direction: column; align-items: flex-start;">
-            <!-- Badge "جديد" -->
-            <div style="display: flex; background: #2e0854; border-radius: 20px; padding: 6px 28px; margin-bottom: 14px;">
-              <span style="font-size: 24px; color: #ffffff; font-weight: bold;">${fixAr(badgeLabel)}</span>
-            </div>
-            <!-- Huge Title -->
-            <div style="display: flex; flex-direction: row; align-items: baseline; gap: 14px; margin-top: 6px; margin-bottom: 6px;">
-              <span style="font-size: 72px; font-weight: bold; color: #1e1b4b; line-height: 1;">${fixAr(mainTitle1)}</span>
-              <span style="font-size: 72px; font-weight: bold; color: #7c3aed; line-height: 1;">${fixAr(mainTitle2)}</span>
-            </div>
-            <!-- Subtitle -->
-            <span style="font-size: 26px; color: #4b5563; font-weight: bold; margin-top: 8px;">${fixAr(subHeadline)}</span>
-          </div>
-
-          <!-- Left side: Brand Logo -->
-          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; background: #ffffff; padding: 12px 22px; border-radius: 22px; box-shadow: 0 4px 15px rgba(124,58,237,0.08); border: 1.5px solid #ede9fe; margin-top: 4px;">
-            <div style="display: flex; flex-direction: column; align-items: flex-end;">
-              <span style="font-size: 26px; font-weight: bold; color: #1e1b4b; line-height: 1.1;">${fixAr('سوق بغداد')}</span>
-              <span style="font-size: 13px; color: #6b7280; letter-spacing: 1.5px; font-weight: bold;">SOUQ BAGHDAD</span>
-            </div>
-            <img src="${svgImg(SVGS.logo)}" width="44" height="44" />
-          </div>
-        </div>
-
-        ${(category === 'car' || category === 'general') && imageUrl ? `
+    let innerContent = '';
+    if ((category === 'car' || category === 'general') && imageUrl) {
+      innerContent = `
         <!-- 2. Car / Product Hero Visual Photo Card (9:16 Optimized) -->
         <div style="display: flex; flex-direction: column; width: 100%; height: ${isPost ? '600px' : '900px'}; background: #ffffff; border: 2px solid #e9d5ff; border-radius: 32px; overflow: hidden; box-shadow: 0 15px 40px rgba(76,29,149,0.12); position: relative; z-index: 10;">
           <img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: cover;" />
@@ -232,7 +200,9 @@ serve(async (req) => {
             </div>
           </div>
         </div>
-        ` : `
+      `;
+    } else {
+      innerContent = `
         <!-- 2. Route Card (Floating White Card) -->
         <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 28px; padding: 22px 32px; box-shadow: 0 10px 30px rgba(76,29,149,0.06); position: relative; z-index: 10;">
           
@@ -387,9 +357,12 @@ serve(async (req) => {
             </div>
           </div>
         </div>
-        `}
+      `;
+    }
 
-        ${mode === 'story' ? `
+    let storyCtaBox = '';
+    if (mode === 'story') {
+      storyCtaBox = `
         <!-- 6b. SPECIAL INTERACTIVE STORY CTA BOX (Only for Story 9:16) -->
         <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: linear-gradient(135deg, #2e0854 0%, #4c1d95 100%); border-radius: 28px; padding: 24px 32px; box-shadow: 0 12px 30px rgba(46,8,84,0.35); position: relative; z-index: 10; border: 2px solid #a855f7;">
           
@@ -410,7 +383,47 @@ serve(async (req) => {
             </div>
           </div>
         </div>
-        ` : ''}
+      `;
+    }
+
+    const rawHtml = `
+      <div style="display: flex; flex-direction: column; width: 1080px; height: ${canvasHeight}px; background: #fbfbfe; color: #1e1b4b; padding: 48px 52px; font-family: 'Noto Sans Arabic', 'Almarai', sans-serif; box-sizing: border-box; justify-content: space-between; position: relative;">
+        
+        <!-- Decorative Header Background Curves -->
+        <div style="position: absolute; top: 0; right: 0; left: 0; height: 380px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-bottom-left-radius: 60px; border-bottom-right-radius: 60px; opacity: 0.8; display: flex;"></div>
+        <div style="position: absolute; top: -50px; left: -50px; width: 350px; height: 350px; border-radius: 175px; background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, rgba(245,243,255,0) 70%); display: flex;"></div>
+
+        <!-- 1. Top Header Row (Logo Left + Main Title Right) -->
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; width: 100%; position: relative; z-index: 10; margin-bottom: 20px; margin-top: 8px;">
+          
+          <!-- Right side: Title & Headline -->
+          <div style="display: flex; flex-direction: column; align-items: flex-start;">
+            <!-- Badge "جديد" -->
+            <div style="display: flex; background: #2e0854; border-radius: 20px; padding: 6px 28px; margin-bottom: 14px;">
+              <span style="font-size: 24px; color: #ffffff; font-weight: bold;">${fixAr(badgeLabel)}</span>
+            </div>
+            <!-- Huge Title -->
+            <div style="display: flex; flex-direction: row; align-items: baseline; gap: 14px; margin-top: 6px; margin-bottom: 6px;">
+              <span style="font-size: 72px; font-weight: bold; color: #1e1b4b; line-height: 1;">${fixAr(mainTitle1)}</span>
+              <span style="font-size: 72px; font-weight: bold; color: #7c3aed; line-height: 1;">${fixAr(mainTitle2)}</span>
+            </div>
+            <!-- Subtitle -->
+            <span style="font-size: 26px; color: #4b5563; font-weight: bold; margin-top: 8px;">${fixAr(subHeadline)}</span>
+          </div>
+
+          <!-- Left side: Brand Logo -->
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; background: #ffffff; padding: 12px 22px; border-radius: 22px; box-shadow: 0 4px 15px rgba(124,58,237,0.08); border: 1.5px solid #ede9fe; margin-top: 4px;">
+            <div style="display: flex; flex-direction: column; align-items: flex-end;">
+              <span style="font-size: 26px; font-weight: bold; color: #1e1b4b; line-height: 1.1;">${fixAr('سوق بغداد')}</span>
+              <span style="font-size: 13px; color: #6b7280; letter-spacing: 1.5px; font-weight: bold;">SOUQ BAGHDAD</span>
+            </div>
+            <img src="${svgImg(SVGS.logo)}" width="44" height="44" />
+          </div>
+        </div>
+
+        ${innerContent}
+
+        ${storyCtaBox}
 
         <!-- 7. Bottom Dark Purple Footer Bar -->
         <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #1e0836; border-radius: 24px; padding: 18px 30px; position: relative; z-index: 10;">
@@ -455,6 +468,8 @@ serve(async (req) => {
 
       </div>
     `;
+
+    const markup = html(rawHtml);
 
     // 5. Render to SVG using Satori
     const svg = await satori(markup, {
