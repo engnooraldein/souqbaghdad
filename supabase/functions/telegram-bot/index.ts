@@ -5836,6 +5836,7 @@ Deno.serve(async (req: any) => {
       
       if (action === 'account_services') {
         const accRows = [
+          [{ text: '📊 تقارير إعلاناتي النشطة والمؤرشفة', callback_data: 'my_publish_reports' }],
           [{ text: '🚀 ترويج ونشر بالمنصات', callback_data: 'promo_select_ad' }],
           [{ text: '🎁 شارك واكسب نقاط', callback_data: 'invite_and_earn' }, { text: '🎟️ تعبئة بروموكود', callback_data: 'redeem_promo' }],
           [{ text: '💳 شراء نقاط', callback_data: 'buy_points' }, { text: '🔔 إدارة إشعاراتي', callback_data: 'manage_alerts' }],
@@ -5843,6 +5844,59 @@ Deno.serve(async (req: any) => {
           [{ text: '🔌 إعادة ربط الحساب', callback_data: 'relink_account' }, { text: '🔙 العودة للرئيسية', callback_data: 'main_menu' }]
         ];
         return await updateOrSend(`💼 <b>حسابي والخدمات الإضافية</b>\n\nاختر من القائمة أدناه:`, { inline_keyboard: accRows });
+      }
+
+      // 📊 MY PUBLISH REPORTS (تقارير النشر الذكية)
+      if (action === 'my_publish_reports' || action === 'my_publish_reports_archived') {
+        const showArchived = action === 'my_publish_reports_archived';
+        const statusFilter = showArchived ? ['sold', 'matched', 'archived', 'closed'] : ['active'];
+        const { data: myAds } = await supabase
+          .from('ads')
+          .select('id, short_id, title, category, status, created_at, telegram_message_id, sync_status, price, location, city')
+          .eq('seller_id', userId)
+          .in('status', statusFilter)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (!myAds || myAds.length === 0) {
+          return await updateOrSend(
+            showArchived ? '📂 لا توجد إعلانات مؤرشفة.' : '📭 لا توجد إعلانات نشطة حالياً.\n\nانشر إعلانك الأول الآن!',
+            { inline_keyboard: [
+              [{ text: showArchived ? '🟢 الإعلانات النشطة' : '📂 الإعلانات المؤرشفة', callback_data: showArchived ? 'my_publish_reports' : 'my_publish_reports_archived' }],
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ]}
+          );
+        }
+
+        let reportTxt = showArchived ? `📂 <b>إعلاناتي المؤرشفة / المباعة (${myAds.length})</b>\n` : `📊 <b>تقارير إعلاناتي النشطة (${myAds.length})</b>\n`;
+        reportTxt += `━━━━━━━━━━━━━━\n`;
+
+        for (const ad of myAds) {
+          const catEmoji = ad.category === 'transport' ? '🚌' : (ad.category === 'vehicles' || ad.category === 'cars') ? '🚗' : '📦';
+          const statusEmoji = ad.status === 'active' ? '🟢' : '🔴';
+          const tgMsgId = ad.telegram_message_id;
+          const sync = ad.sync_status || {};
+          let tgLink = '';
+          if (tgMsgId) {
+            const ch = (ad.category === 'transport') ? (LINES_CHANNEL_ID || LINES_CHANNEL) : (CAR_CHANNEL_ID || CAR_CHANNEL);
+            tgLink = `https://t.me/${ch.replace('@', '')}/${tgMsgId}`;
+          }
+          const adDate = new Date(ad.created_at).toLocaleDateString('ar-IQ');
+          reportTxt += `\n${catEmoji} <b>${ad.title?.substring(0, 35) || 'إعلان'}...</b>\n`;
+          reportTxt += `${statusEmoji} الحالة: ${ad.status === 'active' ? 'نشط' : 'مغلق'} | 📅 ${adDate}\n`;
+          reportTxt += `📡 تيليجرام: ${tgLink ? `<a href="${tgLink}">عرض المنشور ✅</a>` : '⚪ غير معروف'}\n`;
+          reportTxt += `📘 فيسبوك: ${sync.facebook === 'success' ? '✅ تم النشر' : '⚪ قيد المعالجة'}\n`;
+          reportTxt += `📸 انستغرام: ${sync.instagram === 'success' ? '✅ تم النشر' : '⚪ قيد المعالجة'}\n`;
+          reportTxt += `━━━━━━━━━━━━━━\n`;
+        }
+
+        return await updateOrSend(reportTxt, {
+          inline_keyboard: [
+            [{ text: showArchived ? '🟢 الإعلانات النشطة' : '📂 المؤرشفة والمباعة', callback_data: showArchived ? 'my_publish_reports' : 'my_publish_reports_archived' }],
+            [{ text: '🟢 إعلاناتي النشطة وتعديلها', callback_data: 'manage_my_ads' }],
+            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+          ]
+        });
       }
 
       if (action === 'relink_account') {
@@ -6479,22 +6533,41 @@ Deno.serve(async (req: any) => {
           console.error('Car channel publish error:', e);
         }
 
-        // Success message with full management buttons + VIP Promotion button
-        await updateOrSend(`🎉 <b>تم نشر إعلان سيارتك بنجاح! 🚗✨</b>\n\n🚗 <b>${carTitle}</b>\n💰 <b>السعر:</b> ${formattedPrice}\n📍 <b>المحافظة:</b> ${state.data.governorate || 'بغداد'}\n\n📣 <b>إعلانك نزل تلقائياً في المنصة وقناة التيليكرام وفيسبوك والستوريات!</b>\n👇 يمكنك مشاركة الإعلان أو ترويجه في صدارة فيسبوك وانستغرام:`, {
-          inline_keyboard: [
-            [{ text: '🌐 عرض بطاقة السيارة بالموقع', url: carLink }, { text: '📢 شاهد بالقناة', url: carChannelLink }],
-            [{ text: '🚀 ترويج البوست في صدارة فيسبوك وانستغرام (VIP)', callback_data: `promo_menu_${insertedId}` }],
-            [{ text: '💰 تعديل السعر', callback_data: `edit_car_price_${insertedId}` }, { text: '📞 تعديل الهاتف', callback_data: `edit_car_phone_${insertedId}` }],
-            [{ text: '⚠️ تم بيع السيارة (تعليم كمباعة)', callback_data: `mark_sold_${insertedId}` }],
-            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
-          ]
-        });
+        // 📊 Smart Publishing Report
+        const tgPostLink = tgMsgId ? `https://t.me/${(CAR_CHANNEL_ID || CAR_CHANNEL).replace('@', '')}/${tgMsgId}` : null;
+        const reportLines: string[] = [
+          `🎉 <b>ألف مبروك! تم نشر إعلان سيارتك بنجاح 🚗✨</b>`,
+          ``,
+          `📋 <b>ملخص الإعلان:</b>`,
+          `🚗 <b>السيارة:</b> ${carTitle}`,
+          `💰 <b>السعر:</b> ${formattedPrice}`,
+          `📍 <b>المحافظة:</b> ${state.data.governorate || 'بغداد'}`,
+          ``,
+          `📡 <b>حالة النشر على المنصات:</b>`,
+          `${tgPostLink ? '✅' : '⏳'} تيليجرام — ${tgPostLink ? `<a href="${tgPostLink}">عرض المنشور</a>` : 'قيد المعالجة...'}`,
+          `⏳ فيسبوك — قيد النشر التلقائي`,
+          `⏳ إنستغرام — قيد النشر التلقائي`,
+          ``,
+          `📌 <b>احفظ هذه الرسالة لمتابعة إعلانك وإدارته بسهولة!</b>`,
+        ];
+        const reportMsg = reportLines.join('\n');
+
+        const reportButtons: any[][] = [];
+        if (tgPostLink) {
+          reportButtons.push([{ text: '📢 شاهد إعلانك بالقناة', url: tgPostLink }]);
+        }
+        reportButtons.push([{ text: '🌐 عرض بطاقة السيارة بالموقع', url: carLink }]);
+        reportButtons.push([{ text: '🚀 ترويج في صدارة فيسبوك وانستغرام (VIP)', callback_data: `promo_menu_${insertedId}` }]);
+        reportButtons.push([
+          { text: '💰 تعديل السعر', callback_data: `edit_car_price_${insertedId}` },
+          { text: '📞 تعديل الهاتف', callback_data: `edit_car_phone_${insertedId}` }
+        ]);
+        reportButtons.push([{ text: '⚠️ تم بيع السيارة', callback_data: `mark_sold_${insertedId}` }]);
+        reportButtons.push([{ text: '📊 تقارير إعلاناتي', callback_data: 'my_publish_reports' }, { text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]);
+
+        await updateOrSend(reportMsg, { inline_keyboard: reportButtons });
         state = {};
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-
-        // DB Webhook will automatically pick up sync_status pending for Facebook/Instagram/Stories
-
-
         return new Response('OK', { status: 200 });
       }
 
@@ -7146,12 +7219,14 @@ Deno.serve(async (req: any) => {
                                    `💡 <b>ملاحظة:</b> إذا حذفت الإعلان سينحذف تلقائياً من جميع المنصات، ويمكنك إعادة نشره أو ترويجه في أي وقت عبر زر الترويج أدناه.\n\n` +
                                    `❤️ <i>شكراً لثقتك بمنصة سوق بغداد الرقمي 🤝</i>`;
 
+                const tgPostLink = tgMsgId ? `https://t.me/${(LINES_CHANNEL_ID || LINES_CHANNEL).replace('@', '')}/${tgMsgId}` : null;
+
                 await sendMessage(chatId, receiptMsg, {
                   inline_keyboard: [
-                    [{ text: '🌐 عرض بطاقة الخط في الموقع', url: link }, [{ text: '📢 مشاهدة الإعلان بالقناة', url: channelLink }][0]],
+                    [{ text: '🌐 عرض بطاقة الخط في الموقع', url: link }, ...(tgPostLink ? [{ text: '📢 شاهد إعلانك بالقناة', url: tgPostLink }] : [])],
                     [{ text: '🚀 ترويج وتمييز الخط بالصدارة (VIP)', callback_data: `promo_menu_${insertedTrans.id}` }],
                     [{ text: '📲 مشاركة الرابط مع الأصدقاء', url: shareUrl }],
-                    [{ text: '📦 إدارة خطوطي', callback_data: 'manage_cat_trans' }, { text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+                    [{ text: '📊 تقارير إعلاناتي', callback_data: 'my_publish_reports' }, { text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
                   ]
                 });
               } catch (msgErr) {
