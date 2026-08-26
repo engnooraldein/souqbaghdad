@@ -167,7 +167,7 @@ const getAIReply = async (action: 'process_message' | 'process_comment', platfor
   return { reply: "أهلاً بك في منصة سوق بغداد! 🇮🇶 يسعدنا تواصلك معنا، تفضل بزيارة موقعنا: https://www.souqbaghdad.store" };
 };
 
-serve(async (req) => {
+serve(async (req: Request) => {
   try {
     const url = new URL(req.url);
 
