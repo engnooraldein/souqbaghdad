@@ -15,32 +15,17 @@ function cleanText(val: string | null, fallback: string): string {
     .replace(/&[a-z0-9#]+;/gi, ' ')
     .replace(/data:image\/[a-zA-Z+]+;base64,[a-zA-Z0-9+/=]+/g, '')
     .replace(/img\s+src=[^\s>]+/gi, '')
-    .replace(/[^\u0600-\u06FF\u0750-\u077Fa-zA-Z0-9\s.,;:!?\-\/()@#_=+%'"]/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
   return s.length > 0 ? s : fallback;
 }
 
-// Convert and connect Arabic glyphs, with proper character and number ordering
+// Convert and connect Arabic glyphs safely
 function fixAr(text: string): string {
   if (!text) return '';
   const clean = cleanText(text, '');
   if (!clean) return '';
-  try {
-    const fn = (ArabicShaper as any)?.convertArabic || (ArabicShaper as any)?.ArabicShaper?.convertArabic || (ArabicShaper as any)?.default?.convertArabic || (typeof ArabicShaper === 'function' ? ArabicShaper : null);
-    if (typeof fn === 'function') {
-      const shaped = fn(clean);
-      if (shaped && typeof shaped === 'string') {
-        return shaped.split('').reverse().join('').replace(/[0-9]+([.:,/-][0-9]+)*/g, (num: string) => {
-          return num.split('').reverse().join('');
-        });
-      }
-    }
-    return clean;
-  } catch (err) {
-    console.error('ArabicShaper error:', err);
-    return clean;
-  }
+  return clean;
 }
 
 // Helper to convert SVG markup to safe data-uri image source
