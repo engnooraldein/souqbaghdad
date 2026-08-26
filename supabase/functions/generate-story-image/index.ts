@@ -106,20 +106,11 @@ serve(async (req) => {
       wasmInitialized = true;
     }
 
-    // 2. Fetch & Cache Complete Arabic (Noto) + Latin (Almarai) Fonts
-    if (!cachedNotoData || !cachedAlmaraiData) {
-      const [notoRes, almaraiRes] = await Promise.all([
-        fetch('https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf'),
-        fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/almarai/Almarai-Bold.ttf')
-      ]);
-      const [nData, aData] = await Promise.all([
-        notoRes.arrayBuffer(),
-        almaraiRes.arrayBuffer()
-      ]);
-      cachedNotoData = nData;
-      cachedAlmaraiData = aData;
+    // 2. Fetch & Cache Complete Arabic (Almarai) Font to save memory and avoid 546 error
+    if (!cachedAlmaraiData) {
+      const almaraiRes = await fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/almarai/Almarai-Bold.ttf');
+      cachedAlmaraiData = await almaraiRes.arrayBuffer();
     }
-    const notoData = cachedNotoData;
     const almaraiData = cachedAlmaraiData;
 
     const isPost = mode === "post";
@@ -187,13 +178,9 @@ serve(async (req) => {
       } else if (imageUrls.length >= 3) {
         photoCardsHtml = `
           <div style="display: flex; flex-direction: column; width: 100%; height: 100%;">
-            <div style="display: flex; width: 100%; height: 55%; overflow: hidden;">
-              <img src="${imageUrls[0]}" style="width: 100%; height: 100%; object-fit: cover;" />
-            </div>
-            <div style="display: flex; flex-direction: row; width: 100%; height: 45%; border-top: 6px solid #ffffff;">
-              <img src="${imageUrls[1]}" style="width: 50%; height: 100%; object-fit: cover;" />
-              <img src="${imageUrls[2]}" style="width: 50%; height: 100%; object-fit: cover; border-left: 6px solid #ffffff;" />
-            </div>
+            <img src="${imageUrls[0]}" style="width: 100%; height: 33.3%; object-fit: cover; border-bottom: 4px solid #ffffff;" />
+            <img src="${imageUrls[1]}" style="width: 100%; height: 33.3%; object-fit: cover; border-bottom: 4px solid #ffffff;" />
+            <img src="${imageUrls[2]}" style="width: 100%; height: 33.4%; object-fit: cover;" />
           </div>
         `;
       }
@@ -423,7 +410,7 @@ serve(async (req) => {
     }
 
     const rawHtml = `
-      <div style="display: flex; flex-direction: column; width: 1080px; height: ${canvasHeight}px; background: #fbfbfe; color: #1e1b4b; padding: 48px 52px; font-family: 'Noto Sans Arabic', 'Almarai', sans-serif; box-sizing: border-box; justify-content: space-between; position: relative;">
+      <div style="display: flex; flex-direction: column; width: 1080px; height: ${canvasHeight}px; background: #fbfbfe; color: #1e1b4b; padding: 48px 52px; font-family: 'Almarai', sans-serif; box-sizing: border-box; justify-content: space-between; position: relative;">
         
         <!-- Decorative Header Background Curves -->
         <div style="position: absolute; top: 0; right: 0; left: 0; height: 380px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-bottom-left-radius: 60px; border-bottom-right-radius: 60px; opacity: 0.8; display: flex;"></div>
@@ -512,12 +499,6 @@ serve(async (req) => {
       width: canvasWidth,
       height: canvasHeight,
       fonts: [
-        {
-          name: 'Noto Sans Arabic',
-          data: notoData,
-          weight: 700,
-          style: 'normal',
-        },
         {
           name: 'Almarai',
           data: almaraiData,

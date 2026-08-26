@@ -1675,6 +1675,30 @@ async function deleteFromFacebook(postId: string, customToken?: string) {
   }
 }
 
+async function commentOnFacebook(postId: string, message: string, customToken?: string) {
+  const token = customToken || META_PAGE_ACCESS_TOKEN;
+  if (!token || !postId) return false;
+  try {
+    let res = await fetch(`https://graph.facebook.com/v20.0/${postId}/comments?access_token=${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message })
+    });
+    if (!res.ok && ALRAFDAIN_FB_TOKEN && ALRAFDAIN_FB_TOKEN !== token) {
+      res = await fetch(`https://graph.facebook.com/v20.0/${postId}/comments?access_token=${ALRAFDAIN_FB_TOKEN}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+    }
+    const data = await res.json();
+    return data && data.id ? true : false;
+  } catch (err) {
+    console.error('FB Comment Error:', err);
+    return false;
+  }
+}
+
 async function deleteOldFacebookPostsForAd(shortId: string, pageId: string, token: string, existingPostId?: string | null) {
   try {
     if (existingPostId) {
@@ -5434,7 +5458,7 @@ Deno.serve(async (req: any) => {
         });
       }
 
-      await supabase.from('ads').update({ is_featured: true, is_vip: true, updated_at: new Date().toISOString() }).eq('id', matchedAd.id);
+      await supabase.from('ads').update({ is_featured: true, is_vip: true }).eq('id', matchedAd.id);
 
       return await sendMessage(chatId, 
         `⭐ <b>تم تثبيت الإعلان كـ VIP بنجاح!</b>\n\n` +
@@ -7188,7 +7212,11 @@ Deno.serve(async (req: any) => {
         const isCar = targetTable === 'ads' && (itemToClose.category === 'vehicles' || itemToClose.category === 'cars' || itemToClose.category === 'car');
         
         const newStatus = isProduct ? 'sold' : (isCar ? 'sold' : 'matched');
-        await supabase.from(targetTable).update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', itemToClose.id);
+        const { error: updateErr } = await supabase.from(targetTable).update({ status: newStatus }).eq('id', itemToClose.id);
+        
+        if (updateErr) {
+          console.error('[MARK_SOLD] Error updating status:', updateErr);
+        }
 
         const shortCode = itemToClose.short_id || itemToClose.id;
         const tagText = isProduct ? 'تم تعليم المنتج كـ مباع 🛍️' : (isCar ? 'تم تعليم السيارة كـ مباعة 🚗' : 'تم إغلاق الخط واكتمال العدد 🔒');
@@ -7218,7 +7246,7 @@ Deno.serve(async (req: any) => {
       // Reactivate Transport Line (إعادة تفعيل الخط)
       if (action.startsWith('reactivate_trans_')) {
         const transId = action.replace('reactivate_trans_', '');
-        await supabase.from('ads').update({ status: 'active', updated_at: new Date().toISOString() }).eq('id', transId).eq('seller_id', userId);
+        await supabase.from('ads').update({ status: 'active' }).eq('id', transId).eq('seller_id', userId);
         
         await sendMessage(chatId, `✅ <b>تمت إعادة فتح وتفعيل خطك بنجاح! 🟢</b>\n\nأصبح الآن نشطاً بالموقع وقنوات التيليجرام ويستطيع الركاب والطلاب التواصل معك مباشرة 🤝\n\n💡 <i>إذا أردت نشره مجدداً بصدارة فيسبوك وانستغرام، استخدم زر «ترويج بالنقاط» أدناه.</i>`, {
           inline_keyboard: [
@@ -7673,7 +7701,7 @@ Deno.serve(async (req: any) => {
           await supabase.from('profiles').update({ points: currentPoints - boostCost }).eq('id', userId);
         }
 
-        // 4. Delete Old Post from Telegram Channels (منع تكرار وحذف البوست القديم)
+        // 4. Delete Old Post from Telegram, Facebook, and Instagram (منع تكرار وحذف البوست القديم)
         if (targetAd.telegram_message_id) {
           const oldMsgId = parseInt(targetAd.telegram_message_id, 10);
           const channelList = [LINES_CHANNEL_ID, LINES_CHANNEL, '@souqbaghdad_lines', CAR_CHANNEL_ID, CAR_CHANNEL, '@souqbaghdad_car', PRODUCT_CHANNEL_ID, PRODUCT_CHANNEL, '@souqbaghdad_iq'];
@@ -7682,6 +7710,13 @@ Deno.serve(async (req: any) => {
               try { await deleteMessage(ch, oldMsgId); } catch(e) {}
             }
           }
+        }
+        
+        if (targetAd.facebook_post_id) {
+          try { await deleteFromFacebook(targetAd.facebook_post_id); } catch(e) { console.error('FB delete error:', e); }
+        }
+        if (targetAd.instagram_post_id) {
+          try { await deleteFromInstagram(targetAd.instagram_post_id); } catch(e) { console.error('IG delete error:', e); }
         }
 
         // 5. Publish Fresh VIP Post to Channel + Facebook & Instagram Feed (VIP Promotion via points)
@@ -7759,7 +7794,6 @@ Deno.serve(async (req: any) => {
           is_vip: true,
           is_featured: true,
           last_boosted_at: nowIso,
-          updated_at: nowIso,
           telegram_message_id: newMsgId || targetAd.telegram_message_id
         }).eq('id', adId).eq('seller_id', userId);
 
@@ -8923,16 +8957,24 @@ Deno.serve(async (req: any) => {
 
             const replyMarkup = { inline_keyboard: inlineKeyboard };
 
-            if (updatedAd.telegram_message_id && PRODUCT_CHANNEL) {
+            if (updatedAd.telegram_message_id && CAR_CHANNEL) {
               try {
-                await editMessageCaption(PRODUCT_CHANNEL, parseInt(updatedAd.telegram_message_id, 10), newCaption, replyMarkup);
+                await editMessageCaption(CAR_CHANNEL, parseInt(updatedAd.telegram_message_id, 10), newCaption, replyMarkup);
                 if (EXTRA_CHANNEL) await editMessageCaption(EXTRA_CHANNEL, parseInt(updatedAd.telegram_message_id, 10), newCaption, replyMarkup);
               } catch(e) {
                 console.error('Caption update error:', e);
               }
             }
 
-            await sendMessage(chatId, `✅ <b>تم تحديث السعر بنجاح!</b>\nالسعر الجديد: <b>${formattedPrice}</b>\nتم تحديث المنشور في القناة مباشرة.`, {
+            const commentText = `📣 تم تحديث السعر إلى: ${formattedPrice}`;
+            if (updatedAd.facebook_post_id) {
+              await commentOnFacebook(updatedAd.facebook_post_id, commentText);
+            }
+            if (updatedAd.instagram_post_id) {
+              await commentOnInstagram(updatedAd.instagram_post_id, commentText);
+            }
+
+            await sendMessage(chatId, `✅ <b>تم تحديث السعر بنجاح!</b>\nالسعر الجديد: <b>${formattedPrice}</b>\nتم تحديث المنشور في القناة والتعليق بالسعر الجديد على المنصات.`, {
               inline_keyboard: [[{ text: '🚗 العودة لسياراتي المعروضة', callback_data: 'manage_cat_cars' }], [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
             });
           }
