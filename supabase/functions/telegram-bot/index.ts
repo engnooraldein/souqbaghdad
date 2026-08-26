@@ -5131,6 +5131,7 @@ Deno.serve(async (req: any) => {
       menuRows.push([{ text: '🚗 عرض سيارتي للبيع', callback_data: 'publish_car' }]);
       menuRows.push([{ text: '📦 نشر إعلان آخر (منتجات)', callback_data: 'publish_product' }]);
       menuRows.push([{ text: '🟢 إعلاناتي النشطة وتعديلها', callback_data: 'manage_my_ads' }]);
+      menuRows.push([{ text: '📊 تقارير إعلاناتي النشطة والمؤرشفة', callback_data: 'my_publish_reports' }]);
       menuRows.push([{ text: '💼 حسابي وخدمات أخرى ⚙️', callback_data: 'account_services' }]);
 
       const menuMarkup = { inline_keyboard: menuRows };
@@ -5852,51 +5853,83 @@ Deno.serve(async (req: any) => {
         const statusFilter = showArchived ? ['sold', 'matched', 'archived', 'closed'] : ['active'];
         const { data: myAds } = await supabase
           .from('ads')
-          .select('id, short_id, title, category, status, created_at, telegram_message_id, sync_status, price, location, city')
+          .select('id, short_id, title, category, status, created_at, telegram_message_id, sync_status, facebook_post_id, instagram_post_id')
           .eq('seller_id', userId)
           .in('status', statusFilter)
           .order('created_at', { ascending: false })
-          .limit(10);
+          .limit(8);
+
+        const toggleBtn = { text: showArchived ? '🟢 النشطة' : '📂 المؤرشفة والمباعة', callback_data: showArchived ? 'my_publish_reports' : 'my_publish_reports_archived' };
+        const navButtons = [
+          [toggleBtn, { text: '🏠 الرئيسية', callback_data: 'main_menu' }]
+        ];
 
         if (!myAds || myAds.length === 0) {
           return await updateOrSend(
             showArchived ? '📂 لا توجد إعلانات مؤرشفة.' : '📭 لا توجد إعلانات نشطة حالياً.\n\nانشر إعلانك الأول الآن!',
-            { inline_keyboard: [
-              [{ text: showArchived ? '🟢 الإعلانات النشطة' : '📂 الإعلانات المؤرشفة', callback_data: showArchived ? 'my_publish_reports' : 'my_publish_reports_archived' }],
-              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
-            ]}
+            { inline_keyboard: navButtons }
           );
         }
 
-        let reportTxt = showArchived ? `📂 <b>إعلاناتي المؤرشفة / المباعة (${myAds.length})</b>\n` : `📊 <b>تقارير إعلاناتي النشطة (${myAds.length})</b>\n`;
-        reportTxt += `━━━━━━━━━━━━━━\n`;
+        // Build header message + per-ad link buttons
+        let reportTxt = showArchived
+          ? `📂 <b>إعلاناتي المؤرشفة / المباعة (${myAds.length})</b>\n`
+          : `📊 <b>تقارير إعلاناتي النشطة (${myAds.length})</b>\n`;
+        reportTxt += `اضغط على الروابط أدناه للوصول السريع لكل منشور:\n━━━━━━━━━━━━━━\n`;
+
+        const allButtons: any[][] = [];
 
         for (const ad of myAds) {
           const catEmoji = ad.category === 'transport' ? '🚌' : (ad.category === 'vehicles' || ad.category === 'cars') ? '🚗' : '📦';
           const statusEmoji = ad.status === 'active' ? '🟢' : '🔴';
-          const tgMsgId = ad.telegram_message_id;
           const sync = ad.sync_status || {};
-          let tgLink = '';
+          const tgMsgId = ad.telegram_message_id;
+          const adDate = new Date(ad.created_at).toLocaleDateString('ar-IQ');
+          const shortTitle = (ad.title || 'إعلان').substring(0, 28);
+
+          // Build Telegram link
+          let tgLink: string | null = null;
           if (tgMsgId) {
             const ch = (ad.category === 'transport') ? (LINES_CHANNEL_ID || LINES_CHANNEL) : (CAR_CHANNEL_ID || CAR_CHANNEL);
             tgLink = `https://t.me/${ch.replace('@', '')}/${tgMsgId}`;
           }
-          const adDate = new Date(ad.created_at).toLocaleDateString('ar-IQ');
-          reportTxt += `\n${catEmoji} <b>${ad.title?.substring(0, 35) || 'إعلان'}...</b>\n`;
-          reportTxt += `${statusEmoji} الحالة: ${ad.status === 'active' ? 'نشط' : 'مغلق'} | 📅 ${adDate}\n`;
-          reportTxt += `📡 تيليجرام: ${tgLink ? `<a href="${tgLink}">عرض المنشور ✅</a>` : '⚪ غير معروف'}\n`;
-          reportTxt += `📘 فيسبوك: ${sync.facebook === 'success' ? '✅ تم النشر' : '⚪ قيد المعالجة'}\n`;
-          reportTxt += `📸 انستغرام: ${sync.instagram === 'success' ? '✅ تم النشر' : '⚪ قيد المعالجة'}\n`;
+
+          // Build Facebook link
+          const fbPostId = sync.facebook_post_id || ad.facebook_post_id;
+          let fbLink: string | null = null;
+          if (fbPostId) {
+            const rawId = String(fbPostId).includes('_') ? fbPostId.split('_').pop() : fbPostId;
+            fbLink = `https://www.facebook.com/permalink.php?story_fbid=${rawId}&id=${META_PAGE_ID}`;
+          }
+
+          // Build Instagram link
+          const igPostId = sync.instagram_post_id || ad.instagram_post_id;
+          let igLink: string | null = null;
+          if (igPostId) {
+            // Instagram media ID → use IG profile link as fallback (no reliable post URL from ID alone)
+            // Format: numeric id like "17865793579578429"
+            igLink = `https://www.instagram.com/souqbaghdad.iq/`;
+          }
+
+          // Add text entry
+          reportTxt += `\n${catEmoji} <b>${shortTitle}...</b>\n`;
+          reportTxt += `${statusEmoji} ${ad.status === 'active' ? 'نشط' : 'مغلق'} | 📅 ${adDate}\n`;
+          reportTxt += `📡 تيليجرام: ${tgLink ? `<a href="${tgLink}">عرض المنشور ✅</a>` : '⚪ غير متوفر'}\n`;
+          reportTxt += `📘 فيسبوك: ${fbLink ? `<a href="${fbLink}">عرض المنشور ✅</a>` : (sync.facebook === 'success' ? '✅ نُشر' : '⚪ قيد المعالجة')}\n`;
+          reportTxt += `📸 انستغرام: ${igLink ? `<a href="${igLink}">عرض المنشور ✅</a>` : (sync.instagram === 'success' ? '✅ نُشر' : '⚪ قيد المعالجة')}\n`;
           reportTxt += `━━━━━━━━━━━━━━\n`;
+
+          // Add quick-access buttons for this ad
+          const adBtns: any[] = [];
+          if (tgLink) adBtns.push({ text: `${catEmoji} عرض المنشور — تيليجرام`, url: tgLink });
+          if (fbLink) adBtns.push({ text: `📘 عرض المنشور — فيسبوك`, url: fbLink });
+          if (adBtns.length > 0) allButtons.push(adBtns);
+          if (igLink) allButtons.push([{ text: `📸 عرض المنشور — انستغرام`, url: igLink }]);
         }
 
-        return await updateOrSend(reportTxt, {
-          inline_keyboard: [
-            [{ text: showArchived ? '🟢 الإعلانات النشطة' : '📂 المؤرشفة والمباعة', callback_data: showArchived ? 'my_publish_reports' : 'my_publish_reports_archived' }],
-            [{ text: '🟢 إعلاناتي النشطة وتعديلها', callback_data: 'manage_my_ads' }],
-            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
-          ]
-        });
+        allButtons.push(...navButtons);
+
+        return await updateOrSend(reportTxt, { inline_keyboard: allButtons });
       }
 
       if (action === 'relink_account') {
@@ -9209,40 +9242,46 @@ Deno.serve(async (req: any) => {
               state.data.images.push(pubUrl.publicUrl);
 
               const count = state.data.images.length;
-              const statusText = `📸 <b>تم استلام (${count}) من الصور بنجاح ✅</b>${count >= 6 ? '\n(تم الوصول للحد الأقصى 6 صور)' : ''}\n\nأرسل المزيد أو اضغط على «تم ✅» للمتابعة.`;
+              const statusText = `📸 <b>تم استلام (${count}) ${count === 1 ? 'صورة' : 'صور'} بنجاح ✅</b>${count >= 6 ? '\n(تم الوصول للحد الأقصى 6 صور)' : ''}\n\nأرسل المزيد أو اضغط «تم ✅» للمتابعة.`;
               const statusMarkup = {
                 inline_keyboard: [
-                  [{ text: 'تم ✅ (متابعة)', callback_data: 'car_images_done' }],
+                  [{ text: `تم ✅ (متابعة بـ ${count} ${count === 1 ? 'صورة' : 'صور'})`, callback_data: 'car_images_done' }],
                   [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
                 ]
               };
 
+              // Delete old status message then send a fresh one (editing fails with photo messages)
               if (state.data.statusMsgId) {
                 try {
-                  await editMessageText(chatId, state.data.statusMsgId, statusText, statusMarkup);
-                } catch(e) {
-                  const newRes = await sendMessage(chatId, statusText, statusMarkup);
-                  if (newRes?.result?.message_id) {
-                    state.data.statusMsgId = newRes.result.message_id;
-                  }
-                }
-              } else {
-                const newRes = await sendMessage(chatId, statusText, statusMarkup);
-                if (newRes?.result?.message_id) {
-                  state.data.statusMsgId = newRes.result.message_id;
-                }
+                  await fetch(`${tgUrl}/deleteMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: chatId, message_id: state.data.statusMsgId })
+                  });
+                } catch(e) {}
+              }
+              const newRes = await sendMessage(chatId, statusText, statusMarkup);
+              if (newRes?.result?.message_id) {
+                state.data.statusMsgId = newRes.result.message_id;
               }
 
               await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
             }
           }
         } else {
-          await sendMessage(chatId, '📸 أرسل صور السيارة، أو اضغط «تم ✅» للمتابعة.', {
-            inline_keyboard: [
-              [{ text: 'تم ✅', callback_data: 'car_images_done' }],
-              [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
-            ]
-          });
+          // Non-photo message — remind user
+          if (!state.data.statusMsgId) {
+            const res = await sendMessage(chatId, '📸 أرسل صور السيارة، أو اضغط «تم ✅» للمتابعة.', {
+              inline_keyboard: [
+                [{ text: 'تم ✅', callback_data: 'car_images_done' }],
+                [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+              ]
+            });
+            if (res?.result?.message_id) {
+              state.data.statusMsgId = res.result.message_id;
+              await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+            }
+          }
         }
       }
       else if (state.step === 'car_phone' && text) {
