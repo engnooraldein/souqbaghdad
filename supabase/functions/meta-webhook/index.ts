@@ -229,8 +229,35 @@ serve(async (req) => {
               }
 
               if (messagingEvent.message) {
+                const msgId = messagingEvent.message.mid || messagingEvent.message.message_id;
                 const userText = (messagingEvent.message.text || "").trim();
                 const platform = isInstagram ? "instagram" : isThreads ? "threads" : "facebook";
+
+                // ── حارس مضاعف: إذا كان المُستقبِل أيضاً من حساباتنا → لوب بين صفحتين → توقف فوري ──
+                if (recipientId && OWN_IDS.has(recipientId) && OWN_IDS.has(senderId || '')) {
+                  console.log(`[Inter-Page Loop Guard] Both sender(${senderId}) and recipient(${recipientId}) are own accounts. Skipping.`);
+                  continue;
+                }
+
+                // ── Dedup: تجاهل الرسائل التي سبق معالجتها (بناءً على message_id) ──
+                if (msgId) {
+                  const dedupKey = `meta_msg_${msgId}`;
+                  const { data: existing } = await supabase
+                    .from('telegram_users')
+                    .select('telegram_chat_id')
+                    .eq('telegram_chat_id', dedupKey)
+                    .maybeSingle();
+                  if (existing) {
+                    console.log(`[Dedup Guard] Already processed message: ${msgId}`);
+                    continue;
+                  }
+                  // سجّل المعالجة (تنتهي تلقائياً بعد يوم)
+                  supabase.from('telegram_users').upsert({
+                    telegram_chat_id: dedupKey,
+                    username: 'meta_dedup',
+                    created_at: new Date().toISOString()
+                  }, { onConflict: 'telegram_chat_id' }).then(() => {});
+                }
 
                 // استخراج المرفقات (صور أو بصمات صوتية)
                 let imageUrl: string | undefined = undefined;
