@@ -1055,15 +1055,15 @@ async function editChannelMessage(chatId: string | number, messageId: number, ca
 
 
 // Channel IDs from environment variables
-const PRODUCT_CHANNEL = Deno.env.get('PRODUCT_CHANNEL_ID') || '@souqbaghdad_iq';
-const TRANSPORT_CHANNEL = Deno.env.get('TRANSPORT_CHANNEL_ID') || '@souqbaghdad_lines';
-const EXTRA_CHANNEL = '@souqbaghdad_iq';
+let PRODUCT_CHANNEL = Deno.env.get('PRODUCT_CHANNEL_ID') || '@souqbaghdad_iq';
+let TRANSPORT_CHANNEL = Deno.env.get('TRANSPORT_CHANNEL_ID') || '@souqbaghdad_lines';
+let EXTRA_CHANNEL = '@souqbaghdad_iq';
 
 // Specialized channels
-const CAR_CHANNEL = '@souqbaghdad_car';           // Cars/Vehicles only
-const CAR_CHANNEL_ID = Deno.env.get('CAR_CHANNEL_ID') || '@souqbaghdad_car';          // Cars channel username/ID
-const LINES_CHANNEL = '@souqbaghdad_lines';       // Transport lines username
-const LINES_CHANNEL_ID = Deno.env.get('LINES_CHANNEL_ID') || '@souqbaghdad_lines';        // Transport lines username/ID
+let CAR_CHANNEL = '@souqbaghdad_car';           // Cars/Vehicles only
+let CAR_CHANNEL_ID = Deno.env.get('CAR_CHANNEL_ID') || '@souqbaghdad_car';          // Cars channel username/ID
+let LINES_CHANNEL = '@souqbaghdad_lines';       // Transport lines username
+let LINES_CHANNEL_ID = Deno.env.get('LINES_CHANNEL_ID') || '@souqbaghdad_lines';        // Transport lines username/ID
 
 // Check if Bot is Admin in a Channel
 async function checkBotIsAdmin(channelId: string | number): Promise<{ ok: boolean; title?: string; error?: string }> {
@@ -1347,7 +1347,7 @@ const THREADS_ACCESS_TOKEN = Deno.env.get('THREADS_ACCESS_TOKEN') || '';
 const ALRAFDAIN_FB_TOKEN = Deno.env.get('ALRAFDAIN_FB_TOKEN') || META_SYSTEM_USER_TOKEN;
 const ALRAFDAIN_FB_PAGE_ID = Deno.env.get('ALRAFDAIN_FB_PAGE_ID') || '102975411515668';
 const ALRAFDAIN_IG_ID = Deno.env.get('ALRAFDAIN_IG_ID') || '17841404181680155';
-const ALRAFDAIN_TELEGRAM_CHANNEL = '@ruc_1';
+let ALRAFDAIN_TELEGRAM_CHANNEL = '@ruc_1';
 
 // Dynamic Database Social Settings Cache (Hot Reload from Owner Dashboard)
 let dynamicSocialCache: Record<string, any> = {};
@@ -3343,6 +3343,57 @@ Deno.serve(async (req: any) => {
         if (record.sync_status.threads === 'skip' || record.sync_status.threads === 'success') publishThreads = false;
       }
 
+      // Overrides from auto_publish_settings for auto-publishing
+      if (!isManualExplicitPublish) {
+        let cat = '';
+        if (payload.table === 'products') cat = 'products';
+        else if (payload.table === 'transport_ads' || record.category === 'transport') cat = 'transport';
+        else if (record.category === 'vehicles' || record.category === 'cars' || record.category === 'car' || (record.category || '').toLowerCase().includes('car')) cat = 'cars';
+        
+        if (cat) {
+          const { data: autoSet } = await supabase.from('auto_publish_settings').select('settings').eq('category', cat).maybeSingle();
+          if (autoSet && autoSet.settings) {
+            const s = autoSet.settings;
+            // Facebook
+            if (publishFacebook) {
+              if (s.facebook_souq?.active === false && s.facebook_rafdain?.active === false) {
+                publishFacebook = false;
+              }
+              // If only rafdain is active, we force it
+              if (s.facebook_rafdain?.active === true && s.facebook_souq?.active === false) {
+                forceFacebookPage = 'rafdain';
+              }
+            }
+            // Instagram
+            if (publishInstagram) {
+               if (s.instagram_souq?.active === false) publishInstagram = false;
+            }
+            // Telegram
+            if (publishTelegram) {
+               if (s.telegram_main?.active === false && s.telegram_rafdain?.active === false) {
+                 publishTelegram = false;
+               } else if (s.telegram_rafdain?.active && !s.telegram_main?.active) {
+                 // Override variables globally for this run
+                 ALRAFDAIN_TELEGRAM_CHANNEL = s.telegram_rafdain.channel_id;
+                 if (cat === 'cars') CAR_CHANNEL = s.telegram_rafdain.channel_id;
+                 if (cat === 'transport') LINES_CHANNEL = s.telegram_rafdain.channel_id;
+                 if (cat === 'products') PRODUCT_CHANNEL = s.telegram_rafdain.channel_id;
+               } else if (s.telegram_main?.active && !s.telegram_rafdain?.active) {
+                 if (cat === 'cars' && s.telegram_main.channel_id) CAR_CHANNEL = s.telegram_main.channel_id;
+                 if (cat === 'transport' && s.telegram_main.channel_id) LINES_CHANNEL = s.telegram_main.channel_id;
+                 if (cat === 'products' && s.telegram_main.channel_id) PRODUCT_CHANNEL = s.telegram_main.channel_id;
+               } else if (s.telegram_main?.active && s.telegram_rafdain?.active) {
+                 // If both are active, we can only easily post to one from the generic function right now,
+                 // but we'll prioritize main and it's up to the user to choose one.
+                 if (cat === 'cars' && s.telegram_main.channel_id) CAR_CHANNEL = s.telegram_main.channel_id;
+                 if (cat === 'transport' && s.telegram_main.channel_id) LINES_CHANNEL = s.telegram_main.channel_id;
+                 if (cat === 'products' && s.telegram_main.channel_id) PRODUCT_CHANNEL = s.telegram_main.channel_id;
+               }
+            }
+          }
+        }
+      }
+
       if (!publishTelegram && !publishFacebook && !publishInstagram && !publishTiktok && !publishThreads) {
         shouldPublish = false;
       }
@@ -5061,6 +5112,7 @@ Deno.serve(async (req: any) => {
       
       const ownerMarkup = {
         inline_keyboard: [
+          [{ text: '⚙️ الإدارة الشاملة للنشر التلقائي', callback_data: 'admin_autopublish' }],
           [{ text: '📡 قنوات السوشيال والتسعير', callback_data: '/social' }, { text: '📊 إحصائيات ونبض المنصة', callback_data: 'owner_stats' }],
           [{ text: '🪪 توثيق هويات السائقين', callback_data: 'owner_verifications' }, { text: '🔑 طلبات استرجاع الرمز', callback_data: 'owner_recoveries' }],
           [{ text: '🚩 البلاغات ومراجعة الإعلانات', callback_data: 'owner_reports' }, { text: '🪙 إهداء/خصم نقاط لمستخدم', callback_data: 'owner_gift_points_prompt' }],
@@ -5723,6 +5775,115 @@ Deno.serve(async (req: any) => {
           await updateOrSend('❌ تم إلغاء العملية.');
         }
         await showMainMenu(undefined, true);
+        return new Response('OK', { status: 200 });
+      }
+
+      // ==========================================
+      // ⚙️ AUTO-PUBLISH MANAGEMENT WIZARD
+      // ==========================================
+      if (isOwner && action === 'admin_autopublish') {
+        const adminMsg = `⚙️ <b>الإدارة الشاملة للنشر التلقائي</b> 🇮🇶\n\nالرجاء اختيار القسم الذي تريد تعديل إعدادات النشر التلقائي الخاصة به:`;
+        const adminMarkup = {
+          inline_keyboard: [
+            [{ text: '🚗 إعدادات نشر السيارات', callback_data: 'admin_autopublish_cat_cars' }],
+            [{ text: '🚌 إعدادات نشر الخطوط', callback_data: 'admin_autopublish_cat_transport' }],
+            [{ text: '🛍️ إعدادات نشر المنتجات', callback_data: 'admin_autopublish_cat_products' }],
+            [{ text: '🔙 رجوع للوحة التحكم', callback_data: 'owner_hub_main' }]
+          ]
+        };
+        await updateOrSend(adminMsg, adminMarkup);
+        return new Response('OK', { status: 200 });
+      }
+
+      if (isOwner && action.startsWith('admin_autopublish_cat_')) {
+        const category = action.replace('admin_autopublish_cat_', '');
+        
+        // Fetch current settings
+        const { data: currentSettings, error } = await supabase.from('auto_publish_settings').select('settings').eq('category', category).maybeSingle();
+        
+        let settings = currentSettings?.settings || {};
+        
+        // Default fallbacks if empty or not found
+        if (!settings.telegram_main) settings.telegram_main = { active: true, channel_id: '-1002302360589' };
+        if (!settings.telegram_rafdain) settings.telegram_rafdain = { active: false, channel_id: '-1002361660601' };
+        if (!settings.facebook_souq) settings.facebook_souq = { active: true };
+        if (!settings.facebook_rafdain) settings.facebook_rafdain = { active: false };
+        if (!settings.instagram_souq) settings.instagram_souq = { active: true };
+
+        // Save fallback to DB if error so we have it next time
+        if (error || !currentSettings) {
+           await supabase.from('auto_publish_settings').upsert({ category, settings }, { onConflict: 'category' });
+        }
+
+        const catName = category === 'cars' ? 'السيارات 🚗' : (category === 'transport' ? 'الخطوط 🚌' : 'المنتجات 🛍️');
+        
+        let msg = `⚙️ <b>إعدادات النشر التلقائي لقسم (${catName})</b>\n\n`;
+        msg += `يمكنك تفعيل أو تعطيل النشر التلقائي وتعديل معرفات القنوات:\n\n`;
+
+        msg += `<b>1. تيليكرام الرئيسي:</b> ${settings.telegram_main.active ? '🟢 مفعل' : '🔴 معطل'}\n`;
+        msg += `   المعرف: <code>${settings.telegram_main.channel_id}</code>\n\n`;
+        
+        msg += `<b>2. تيليكرام الرافدين:</b> ${settings.telegram_rafdain.active ? '🟢 مفعل' : '🔴 معطل'}\n`;
+        msg += `   المعرف: <code>${settings.telegram_rafdain.channel_id}</code>\n\n`;
+
+        msg += `<b>3. فيسبوك سوق بغداد:</b> ${settings.facebook_souq.active ? '🟢 مفعل' : '🔴 معطل'}\n`;
+        msg += `<b>4. فيسبوك الرافدين:</b> ${settings.facebook_rafdain.active ? '🟢 مفعل' : '🔴 معطل'}\n`;
+        msg += `<b>5. انستكرام سوق بغداد:</b> ${settings.instagram_souq.active ? '🟢 مفعل' : '🔴 معطل'}\n`;
+
+        const keyboard = [
+          [
+            { text: `${settings.telegram_main.active ? '🔴 إيقاف' : '🟢 تفعيل'} تلي الرئيسي`, callback_data: `admin_autopublish_toggle_${category}_telegram_main` },
+            { text: `✏️ تعديل المعرف`, callback_data: `admin_autopublish_edit_${category}_telegram_main` }
+          ],
+          [
+            { text: `${settings.telegram_rafdain.active ? '🔴 إيقاف' : '🟢 تفعيل'} تلي الرافدين`, callback_data: `admin_autopublish_toggle_${category}_telegram_rafdain` },
+            { text: `✏️ تعديل المعرف`, callback_data: `admin_autopublish_edit_${category}_telegram_rafdain` }
+          ],
+          [
+            { text: `${settings.facebook_souq.active ? '🔴 إيقاف' : '🟢 تفعيل'} فيس بوك سوق`, callback_data: `admin_autopublish_toggle_${category}_facebook_souq` },
+            { text: `${settings.facebook_rafdain.active ? '🔴 إيقاف' : '🟢 تفعيل'} فيس الرافدين`, callback_data: `admin_autopublish_toggle_${category}_facebook_rafdain` }
+          ],
+          [
+            { text: `${settings.instagram_souq.active ? '🔴 إيقاف' : '🟢 تفعيل'} انستا سوق بغداد`, callback_data: `admin_autopublish_toggle_${category}_instagram_souq` }
+          ],
+          [{ text: '🔙 رجوع للقائمة السابقة', callback_data: 'admin_autopublish' }]
+        ];
+
+        await updateOrSend(msg, { inline_keyboard: keyboard });
+        return new Response('OK', { status: 200 });
+      }
+
+      if (isOwner && action.startsWith('admin_autopublish_toggle_')) {
+        const parts = action.replace('admin_autopublish_toggle_', '').split('_');
+        const category = parts[0];
+        const platform = parts.slice(1).join('_'); // e.g. telegram_main
+
+        const { data: currentSettings } = await supabase.from('auto_publish_settings').select('settings').eq('category', category).maybeSingle();
+        if (currentSettings && currentSettings.settings && currentSettings.settings[platform]) {
+          currentSettings.settings[platform].active = !currentSettings.settings[platform].active;
+          await supabase.from('auto_publish_settings').update({ settings: currentSettings.settings, updated_at: new Date().toISOString() }).eq('category', category);
+        }
+        
+        // Re-render the menu
+        callbackQuery.data = `admin_autopublish_cat_${category}`;
+        // we can't easily re-route, so we just manually call the render logic again. 
+        // A simple way is to just let the user know and not edit, but let's edit the message.
+        // Wait, I can just use the fact that I'm inside the webhook. Let's just prompt "✅ تم التعديل. افتح القسم مجدداً للتحديث".
+        await answerCallbackQuery(callbackQuery.id, '✅ تم تعديل الحالة بنجاح', true);
+        return new Response('OK', { status: 200 });
+      }
+
+      if (isOwner && action.startsWith('admin_autopublish_edit_')) {
+        const parts = action.replace('admin_autopublish_edit_', '').split('_');
+        const category = parts[0];
+        const platform = parts.slice(1).join('_'); 
+
+        state = { step: 'admin_autopublish_await_id', data: { category, platform } };
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        
+        await updateOrSend(`✏️ <b>تعديل معرف منصة (${platform}) لقسم (${category}):</b>\n\nيرجى إرسال المعرف الجديد الآن (مثال: -1001234567890 أو @channel_name):`, {
+          inline_keyboard: [[{ text: '❌ إلغاء', callback_data: `admin_autopublish_cat_${category}` }]]
+        });
         return new Response('OK', { status: 200 });
       }
 
