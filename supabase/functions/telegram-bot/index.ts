@@ -2058,15 +2058,33 @@ async function postToInstagramStory(photoUrl: string, igAccountId?: string, acce
     ? `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&output=jpg` 
     : (photoUrl.includes('wsrv.nl') ? photoUrl : `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&output=jpg`);
     
+  let finalPhotoUrl = targetPhotoUrl;
+
   if (targetPhotoUrl.includes('wsrv.nl')) {
-    try { await fetch(targetPhotoUrl); } catch(e) {}
+    try { 
+      const res = await fetch(targetPhotoUrl); 
+      if (res.ok) {
+        const buffer = await res.arrayBuffer();
+        const fileName = `story-${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+        const { data, error } = await supabase.storage.from('ad-images').upload(fileName, buffer, {
+           contentType: 'image/jpeg',
+           upsert: true
+        });
+        if (!error && data) {
+           const { data: publicUrlData } = supabase.storage.from('ad-images').getPublicUrl(fileName);
+           finalPhotoUrl = publicUrlData.publicUrl;
+           console.log('[IG STORY] Cached story image to:', finalPhotoUrl);
+        }
+      }
+    } catch(e) { console.error('Failed to cache IG story image:', e); }
   }
+
   const isDirectIg = token.startsWith('IGAA');
   const apiBase = isDirectIg ? 'https://graph.instagram.com/v20.0' : 'https://graph.facebook.com/v20.0';
 
   try {
     const uploadBody = {
-      image_url: targetPhotoUrl,
+      image_url: finalPhotoUrl,
       media_type: 'STORIES',
       access_token: token
     };
@@ -7883,11 +7901,6 @@ Deno.serve(async (req: any) => {
           return new Response('OK', { status: 200 });
         }
 
-        // Deduct points
-        if (!isOwner) {
-          await supabase.from('profiles').update({ points: currentPoints - cost }).eq('id', userId);
-        }
-
         const isTransport = targetAd.category === 'transport';
         const shortId = targetAd.short_id || targetAd.id;
         const adLink = isTransport 
@@ -8074,9 +8087,20 @@ Deno.serve(async (req: any) => {
           successReport = `⚠️ تم تنفيذ طلب النشر وتحديث البيانات بنجاح.`;
         }
 
-        const remainingPts = isOwner ? 'غير محدود (المالك)' : currentPoints - cost;
+        let isRefunded = false;
+        if (successReport.includes('⚠️')) {
+          isRefunded = true;
+        }
+
+        if (!isOwner && !isRefunded) {
+           await supabase.from('profiles').update({ points: currentPoints - cost }).eq('id', userId);
+        }
+
+        const remainingPts = isOwner ? 'غير محدود (المالك)' : (isRefunded ? currentPoints : currentPoints - cost);
+        const costStr = isRefunded ? `0 نقطة (تم استرجاع ${cost} نقاط بسبب فشل النشر)` : `${cost} نقاط`;
+
         const promoActionKeyboard: any[] = [];
-        if (directPostUrl) {
+        if (directPostUrl && !isRefunded) {
           promoActionKeyboard.push([{ text: directButtonLabel, url: directPostUrl }]);
         }
         promoActionKeyboard.push([{ text: '🌐 عرض بطاقة الإعلان بالموقع', url: adLink }]);
@@ -8084,11 +8108,11 @@ Deno.serve(async (req: any) => {
         promoActionKeyboard.push([{ text: '📦 العودة لإعلاناتي', callback_data: isTransport ? 'manage_cat_trans' : 'manage_cat_cars' }]);
 
         await sendMessage(chatId, 
-          `🎉 <b>مبروك! تم ترويج ونشر إعلانك بنجاح 🚀</b>\n\n` +
+          `🎉 <b>${isRefunded ? 'محاولة النشر واجهت مشكلة' : 'مبروك! تم ترويج ونشر إعلانك بنجاح 🚀'}</b>\n\n` +
           `${successReport}\n\n` +
-          `🪙 النقاط المخصومة: <b>${cost} نقاط</b>\n` +
+          `🪙 النقاط المخصومة: <b>${costStr}</b>\n` +
           `💳 رصيدك المتبقي: <b>${remainingPts} نقطة</b>\n\n` +
-          `👇 <i>يمكنك الضغط على الزر أدناه لمعاينة منشورك مباشرة على الصفحة ومشاركته:</i>`,
+          (!isRefunded ? `👇 <i>يمكنك الضغط على الزر أدناه لمعاينة منشورك مباشرة على الصفحة ومشاركته:</i>` : ''),
           {
             inline_keyboard: promoActionKeyboard
           }
