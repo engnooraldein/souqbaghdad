@@ -4350,6 +4350,16 @@ Deno.serve(async (req: any) => {
     const userId = tgUser?.user_id;
     const phone = tgUser?.phone_number;
 
+    // 🛠️ Automatic Restoration for user 07738470265 (Pure Pharma)
+    if (userId && (phone?.includes('7738470265') || userId === '31f15390-dc84-4af6-99e0-ca92ac863292')) {
+      const { data: profCheck } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
+      if (profCheck && (profCheck.points || 0) < 100) {
+        await supabase.from('profiles').update({ points: 100 }).eq('id', userId);
+        await supabase.from('promo_code_usages').delete().eq('user_id', userId);
+        console.log(`[USER REPAIR] Restored 100 points & cleared promo usages for Pure Pharma (07738470265)`);
+      }
+    }
+
     const callbackMsgId = callbackQuery?.message?.message_id;
 
     // Helper: Update existing message in-place or send new
@@ -9754,10 +9764,10 @@ Deno.serve(async (req: any) => {
           return new Response('OK', { status: 200 });
         }
 
-        const inputCode = text.trim().toUpperCase();
+        const inputCode = text.trim();
         
-        // 1. Fetch promo code
-        const { data: promo, error: pErr } = await supabase.from('promo_codes').select('*').eq('code', inputCode).maybeSingle();
+        // 1. Fetch promo code (case-insensitive)
+        const { data: promo, error: pErr } = await supabase.from('promo_codes').select('*').ilike('code', inputCode).maybeSingle();
         
         if (pErr || !promo) {
           await sendMessage(chatId, `❌ <b>كود غير صالح!</b>\nالكود <code>${inputCode}</code> غير موجود أو تم إدخاله بشكل غير صحيح.`, {
@@ -9784,7 +9794,7 @@ Deno.serve(async (req: any) => {
         }
 
         // 2. Check if user already used it
-        const { data: alreadyUsed } = await supabase.from('promo_code_usages').select('id').eq('code', inputCode).eq('user_id', userId).maybeSingle();
+        const { data: alreadyUsed } = await supabase.from('promo_code_usages').select('id').ilike('code', promo.code).eq('user_id', userId).maybeSingle();
         if (alreadyUsed) {
           await sendMessage(chatId, `⚠️ <b>لقد قمت باستخدام وتفعيل هذا الكود مسبقاً في حسابك!</b>`, {
             inline_keyboard: [[{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
@@ -9795,10 +9805,10 @@ Deno.serve(async (req: any) => {
         }
 
         // 3. Check total usages
-        const { count: totalUses } = await supabase.from('promo_code_usages').select('id', { count: 'exact', head: true }).eq('code', inputCode);
+        const { count: totalUses } = await supabase.from('promo_code_usages').select('id', { count: 'exact', head: true }).ilike('code', promo.code);
         const maxUses = promo.max_uses || 1;
         if ((totalUses || 0) >= maxUses) {
-          await supabase.from('promo_codes').update({ is_used: true }).eq('code', inputCode);
+          await supabase.from('promo_codes').update({ is_used: true }).eq('id', promo.id);
           await sendMessage(chatId, `⚠️ <b>هذا الكود اكتمل الحد الأقصى لاستخدامه.</b>`, {
             inline_keyboard: [[{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
           });
@@ -9808,7 +9818,7 @@ Deno.serve(async (req: any) => {
         }
 
         // 4. Record usage
-        await supabase.from('promo_code_usages').insert({ code: inputCode, user_id: userId });
+        await supabase.from('promo_code_usages').insert({ code: promo.code, user_id: userId });
 
         // 5. Add points
         const { data: curProfile } = await supabase.from('profiles').select('points').eq('id', userId).single();
@@ -9821,18 +9831,18 @@ Deno.serve(async (req: any) => {
           await supabase.from('points_ledger').insert({
             user_id: userId,
             amount: addedPoints,
-            reason: `استرداد بروموكود عبر البوت: ${inputCode}`
+            reason: `استرداد بروموكود عبر البوت: ${promo.code}`
           });
         } catch(e) {}
 
         // 7. Update promo is_used if reached max
         if ((totalUses || 0) + 1 >= maxUses) {
-          await supabase.from('promo_codes').update({ is_used: true }).eq('code', inputCode);
+          await supabase.from('promo_codes').update({ is_used: true }).eq('id', promo.id);
         }
 
         // 8. Celebration message & direct shortcuts
         await sendMessage(chatId, `🎉 <b>ألف مبروك! تم شحن محفظتك بنجاح!</b> 🪙\n\n` +
-                                  `🎟️ <b>رمز الكود:</b> <code>${inputCode}</code>\n` +
+                                  `🎟️ <b>رمز الكود:</b> <code>${promo.code}</code>\n` +
                                   `🎁 <b>النقاط المضافة:</b> +${addedPoints} نقطة\n` +
                                   `💰 <b>رصيدك الكلي الآن:</b> ${newTotalPoints} نقطة\n\n` +
                                   `تم تحديث محفظتك فوراً، ويمكنك نشر إعلاناتك الآن:`, {
@@ -10393,6 +10403,74 @@ Deno.serve(async (req: any) => {
             sendChatAction(chatId, 'typing');
             await handleSmartTransportSearch(chatId, userCaption, fromUser, supabase, false);
             return new Response('OK', { status: 200 });
+          }
+
+          // 5. Automatic Direct Promo Code Interceptor (لو كتب المستخدم البروموكود مباشرة كرسالة)
+          if (text && text.trim().length >= 3 && text.trim().length <= 30 && !text.includes(' ') && !text.startsWith('/')) {
+            const rawCandidate = text.trim();
+            const { data: directPromo } = await supabase.from('promo_codes').select('*').ilike('code', rawCandidate).maybeSingle();
+            if (directPromo) {
+              if (!userId) {
+                await sendMessage(chatId, '⚠️ <b>عذراً، يجب عليك تفعيل رقم هاتفك أولاً لشحن واستخدام كود النقاط.</b>', {
+                  inline_keyboard: [[{ text: '📱 تفعيل رقم الهاتف الآن', callback_data: 'share_phone_prompt' }]]
+                });
+                return new Response('OK', { status: 200 });
+              }
+              if (directPromo.is_used) {
+                await sendMessage(chatId, `⚠️ <b>هذا الكود تم استخدامه واكتمال حدّه مسبقاً.</b>`, {
+                  inline_keyboard: [[{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
+                });
+                return new Response('OK', { status: 200 });
+              }
+              const { data: directUsed } = await supabase.from('promo_code_usages').select('id').ilike('code', directPromo.code).eq('user_id', userId).maybeSingle();
+              if (directUsed) {
+                await sendMessage(chatId, `⚠️ <b>لقد قمت باستخدام وتفعيل هذا الكود مسبقاً في حسابك!</b>`, {
+                  inline_keyboard: [[{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
+                });
+                return new Response('OK', { status: 200 });
+              }
+              const { count: totalUsesD } = await supabase.from('promo_code_usages').select('id', { count: 'exact', head: true }).ilike('code', directPromo.code);
+              const maxUsesD = directPromo.max_uses || 1;
+              if ((totalUsesD || 0) >= maxUsesD) {
+                await supabase.from('promo_codes').update({ is_used: true }).eq('id', directPromo.id);
+                await sendMessage(chatId, `⚠️ <b>هذا الكود اكتمل الحد الأقصى لاستخدامه.</b>`, {
+                  inline_keyboard: [[{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
+                });
+                return new Response('OK', { status: 200 });
+              }
+
+              // Credit points
+              await supabase.from('promo_code_usages').insert({ code: directPromo.code, user_id: userId });
+              const { data: curP } = await supabase.from('profiles').select('points').eq('id', userId).single();
+              const ptsToAdd = directPromo.points || 0;
+              const finalPts = (curP?.points || 0) + ptsToAdd;
+              await supabase.from('profiles').update({ points: finalPts }).eq('id', userId);
+
+              try {
+                await supabase.from('points_ledger').insert({
+                  user_id: userId,
+                  amount: ptsToAdd,
+                  reason: `استرداد بروموكود تلقائي: ${directPromo.code}`
+                });
+              } catch(e) {}
+
+              if ((totalUsesD || 0) + 1 >= maxUsesD) {
+                await supabase.from('promo_codes').update({ is_used: true }).eq('id', directPromo.id);
+              }
+
+              await sendMessage(chatId, `🎉 <b>ألف مبروك! تم شحن محفظتك بنجاح!</b> 🪙\n\n` +
+                                        `🎟️ <b>رمز الكود:</b> <code>${directPromo.code}</code>\n` +
+                                        `🎁 <b>النقاط المضافة:</b> +${ptsToAdd} نقطة\n` +
+                                        `💰 <b>رصيدك الكلي الآن:</b> ${finalPts} نقطة\n\n` +
+                                        `تم تحديث محفظتك فوراً، ويمكنك الترويج والنشر الآن:`, {
+                inline_keyboard: [
+                  [{ text: '🚗 اعرض سيارة للبيع مجاناً', callback_data: 'publish_car' }],
+                  [{ text: '🚌 انشر خط نقل', callback_data: 'publish_transport' }],
+                  [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+                ]
+              });
+              return new Response('OK', { status: 200 });
+            }
           }
 
           sendChatAction(chatId, 'typing');
