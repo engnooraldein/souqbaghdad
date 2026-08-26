@@ -7065,10 +7065,25 @@ Deno.serve(async (req: any) => {
           ? `https://t.me/${ALRAFDAIN_TELEGRAM_CHANNEL.replace('@', '')}`
           : `https://t.me/${LINES_CHANNEL.replace('@', '')}`;
 
-        // Immediately send success message to user before heavy background tasks
-        await updateOrSend(`🎉 <b>تم نشر إعلان الخط بنجاح! شكراً لاختيارك منصة سوق بغداد 🤝</b>\n\n🚌 <b>${transTitle}</b>\n💰 <b>الأجرة:</b> ${cleanFare}\n📍 <b>المناطق:</b> ${stateData.regions}\n🏢 <b>الوجهة:</b> ${stateData.destination}\n\n📣 <b>إعلانك معروض الآن بالموقع وقناة خطوط النقل واستوري المنصات.</b>\n👇 هل ترغب بمضاعفة المشاهدات بنشره في بوست صدارة فيسبوك؟`, {
+        // Immediately send success message to user before heavy background tasks (same as cars section)
+        const immediateReportLines = [
+          `🎉 <b>ألف مبروك! تم نشر إعلان خطك بنجاح 🚌✨</b>`,
+          ``,
+          `📋 <b>ملخص الإعلان:</b>`,
+          `🚌 <b>المسار:</b> ${stateData.regions || cleanRegions} ⬅️ ${stateData.destination || cleanDestination}`,
+          `💰 <b>الأجرة:</b> ${cleanFare}`,
+          `🔖 <b>كود الخط:</b> <code>#${shortId}</code>`,
+          ``,
+          `📡 <b>حالة النشر على المنصات:</b>`,
+          `✅ تيليجرام — <a href="${channelLink}">عرض القناة</a>`,
+          `⏳ فيسبوك — قيد النشر التلقائي`,
+          `⏳ إنستغرام — قيد النشر التلقائي`,
+          ``,
+          `📌 <b>سيصلك تقرير النشر الكامل لجميع المنصات خلال لحظات!</b>`,
+        ];
+        await updateOrSend(immediateReportLines.join('\n'), {
           inline_keyboard: [
-            [{ text: '🌐 عرض بطاقتي بالموقع', url: link }, [{ text: '📢 شاهد بالقناة', url: channelLink }][0]],
+            [{ text: '🌐 عرض بطاقتي بالموقع', url: link }, { text: '📢 شاهد بالقناة', url: channelLink }],
             [{ text: '🚀 ترويج البوست في صدارة فيسبوك وانستغرام (VIP)', callback_data: `promo_menu_${insertedId}` }],
             [{ text: '💰 تعديل الأجرة', callback_data: `edit_trans_price_${insertedId}` }, { text: '📞 تعديل الهاتف', callback_data: `edit_trans_phone_${insertedId}` }],
             [{ text: '✅ إغلاق الخط (اكتمل العدد)', callback_data: `solve_trans_${insertedId}` }, { text: '🗑️ حذف الخط نهائياً', callback_data: `del_trans_${insertedId}` }],
