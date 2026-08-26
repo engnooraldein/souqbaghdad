@@ -18,6 +18,8 @@ const FB_PAGE_ID = Deno.env.get("META_PAGE_ID") || Deno.env.get("FB_PAGE_ID") ||
 const THREADS_USER_ID = Deno.env.get("THREADS_USER_ID") || "28119436894335542";
 const THREADS_ACCESS_TOKEN = Deno.env.get("THREADS_ACCESS_TOKEN") || "";
 
+const IG_ACCOUNT_ID = Deno.env.get("META_IG_ACCOUNT_ID") || "17841461141753177";
+
 // ── 1. النشر على Facebook ──
 const sendFacebookPost = async (message: string, imageUrl?: string) => {
   if (!FB_ACCESS_TOKEN || !FB_PAGE_ID) return;
@@ -43,6 +45,77 @@ const sendFacebookPost = async (message: string, imageUrl?: string) => {
     }
   } catch (err) {
     console.error("Facebook Fetch Error:", err);
+  }
+};
+
+const sendInstagramPost = async (message: string, imageUrl?: string) => {
+  if (!FB_ACCESS_TOKEN || !IG_ACCOUNT_ID || !imageUrl) return;
+  try {
+    const cRes = await fetch(`https://graph.facebook.com/v21.0/${IG_ACCOUNT_ID}/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image_url: imageUrl, caption: message, access_token: FB_ACCESS_TOKEN })
+    });
+    const cData = await cRes.json();
+    if (cData.id) {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      const pRes = await fetch(`https://graph.facebook.com/v21.0/${IG_ACCOUNT_ID}/media_publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creation_id: cData.id, access_token: FB_ACCESS_TOKEN })
+      });
+      const pData = await pRes.json();
+      console.log("Instagram Post Published:", pData.id);
+    }
+  } catch (err) {
+    console.error("Instagram Fetch Error:", err);
+  }
+};
+
+const sendFacebookStory = async (imageUrl: string) => {
+  if (!FB_ACCESS_TOKEN || !FB_PAGE_ID || !imageUrl) return;
+  try {
+    const uploadRes = await fetch(`https://graph.facebook.com/v21.0/${FB_PAGE_ID}/photos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ url: imageUrl, published: 'false', temporary: 'true', access_token: FB_ACCESS_TOKEN }).toString()
+    });
+    const uploadData = await uploadRes.json();
+    if (uploadData.id) {
+      const pRes = await fetch(`https://graph.facebook.com/v21.0/${FB_PAGE_ID}/photo_stories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photo_id: uploadData.id, access_token: FB_ACCESS_TOKEN })
+      });
+      const pData = await pRes.json();
+      console.log("Facebook Story Published:", pData.id);
+    }
+  } catch (err) {
+    console.error("Facebook Story Error:", err);
+  }
+};
+
+const sendInstagramStory = async (imageUrl: string) => {
+  if (!FB_ACCESS_TOKEN || !IG_ACCOUNT_ID || !imageUrl) return;
+  try {
+    const cRes = await fetch(`https://graph.facebook.com/v21.0/${IG_ACCOUNT_ID}/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image_url: imageUrl, media_type: 'STORIES', access_token: FB_ACCESS_TOKEN })
+    });
+    const cData = await cRes.json();
+    if (cData.id) {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      const pRes = await fetch(`https://graph.facebook.com/v21.0/${IG_ACCOUNT_ID}/media_publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creation_id: cData.id, access_token: FB_ACCESS_TOKEN })
+      });
+      const pData = await pRes.json();
+      console.log("Instagram Story Published:", pData.id);
+    }
+  } catch (err) {
+    console.error("Instagram Story Error:", err);
   }
 };
 
@@ -225,6 +298,25 @@ function getFallbackImage(record: any, type: 'car' | 'product' | 'ad'): string {
   return 'https://images.unsplash.com/photo-1522204538064-f37f6c137f8e?w=1080&h=1080&fit=crop';
 }
 
+function buildStoryImageUrl(record: any, category: string, primaryImageOrImages?: string | string[]): string {
+  const shortId = record.short_id || record.id || '';
+  
+  let imgParam = '';
+  if (primaryImageOrImages) {
+    const imgArray = Array.isArray(primaryImageOrImages) ? primaryImageOrImages : [primaryImageOrImages];
+    if (imgArray.length > 0) {
+      const urls = imgArray.slice(0, 3).map((u: string) => encodeURIComponent(u)).join(',');
+      imgParam = `&images=${urls}`;
+    }
+  }
+
+  const priceVal = record.price ? `${record.price} ${record.currency || 'د.ع'}` : '';
+
+  const dynUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&category=${encodeURIComponent(category)}&title=${encodeURIComponent(record.title || '')}&regions=${encodeURIComponent(record.location || record.city || 'بغداد')}&destination=${encodeURIComponent(record.destination || record.city || 'بغداد')}&fare=${encodeURIComponent(priceVal)}&phone=${encodeURIComponent(record.phone || '')}&short_id=${shortId}${imgParam}`;
+  
+  return `https://wsrv.nl/?url=${encodeURIComponent(dynUrl)}&output=jpg`;
+}
+
 serve(async (req: any) => {
   try {
     console.log("Starting Auto Publisher across Telegram, Facebook & Threads...");
@@ -319,16 +411,23 @@ ${rawPhone ? 'الهاتف للتواصل المباشر: ' + rawPhone : ''}
       }
 
       // نشر المنشور مع الصورة على قنوات تيليكرام وفيسبوك وثريدز
-      const rawImages = await ensurePublicImages(ad, ad.category === 'vehicles' ? 'ads' : 'products', supabase);
+      const isCar = ad.category === 'vehicles' || ad.category === 'cars' || ad.category === 'car' || (ad.category || '').toLowerCase().includes('car');
+      const rawImages = await ensurePublicImages(ad, isCar ? 'ads' : 'products', supabase);
       let img = rawImages && rawImages.length > 0 ? rawImages[0] : undefined;
+      
       if (!img) {
-        const isCar = ad.category === 'vehicles' || ad.category === 'cars' || ad.category === 'car' || (ad.category || '').toLowerCase().includes('car');
         img = getFallbackImage(ad, isCar ? 'car' : 'product');
       }
+      
+      const storyImg = buildStoryImageUrl(ad, isCar ? 'car' : 'product', rawImages || img);
+
       if (img) {
         await sendTelegramPhoto(GENERAL_CHANNEL, img, smartCaption);
         await sendFacebookPost(smartCaption, img);
+        await sendInstagramPost(smartCaption, img);
         await sendThreadsPost(smartCaption, img);
+        await sendFacebookStory(storyImg);
+        await sendInstagramStory(storyImg);
       } else {
         await sendFacebookPost(smartCaption);
         await sendThreadsPost(smartCaption);
