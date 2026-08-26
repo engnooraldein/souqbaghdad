@@ -7407,9 +7407,7 @@ Deno.serve(async (req: any) => {
         } else {
           prodQuery = prodQuery.or(`short_id.eq.${targetId},id.eq.${targetId}`);
         }
-        if (!isOwner) {
-          prodQuery = prodQuery.eq('seller_id', userId);
-        }
+          prodQuery = phone ? prodQuery.or(`seller_id.eq.${userId},phone.eq.${phone}`) : prodQuery.eq('seller_id', userId);
         const { data: prodToClose } = await prodQuery.maybeSingle();
 
         const itemToClose = adToClose || prodToClose;
