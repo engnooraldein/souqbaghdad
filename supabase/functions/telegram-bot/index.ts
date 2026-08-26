@@ -5129,12 +5129,15 @@ Deno.serve(async (req: any) => {
     // --- Owner Action: Sync Ads ---
     if (isOwner && trimmedText === 'owner_sync_ads') {
       await sendMessage(chatId, '⏳ <i>جاري فحص ومزامنة الإعلانات النشطة...</i>');
-      const { data: recentAds } = await supabase.from('ads').select('*').order('created_at', { ascending: false }).limit(20);
+      const { data: recentAds } = await supabase.from('ads').select('*').order('created_at', { ascending: false }).limit(5);
       let healedCount = 0;
-      for (const ad of recentAds || []) {
+      
+      // Run concurrently to avoid webhook timeout (which causes the infinite loop)
+      await Promise.all((recentAds || []).map(async (ad) => {
         const res = await syncAndHealAd(ad, supabase);
-        if (res.healed) healedCount++;
-      }
+        if (res?.healed) healedCount++;
+      }));
+
       const syncReport = `✅ <b>تم فحص ومزامنة ${recentAds?.length || 0} إعلان!</b>\n\n🛠️ تم تصحيح: ${healedCount} إعلان بنجاح.`;
       return await sendMessage(chatId, syncReport, {
         inline_keyboard: [[{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]]
