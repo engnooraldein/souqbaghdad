@@ -15,17 +15,31 @@ function cleanText(val: string | null, fallback: string): string {
     .replace(/&[a-z0-9#]+;/gi, ' ')
     .replace(/data:image\/[a-zA-Z+]+;base64,[a-zA-Z0-9+/=]+/g, '')
     .replace(/img\s+src=[^\s>]+/gi, '')
+    .replace(/[^\u0600-\u06FF\u0750-\u077Fa-zA-Z0-9\s.,;:!?\-\/()@#_=+%'"]/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
   return s.length > 0 ? s : fallback;
 }
 
-// Convert and connect Arabic glyphs safely
+// Convert and connect Arabic glyphs, with proper character and number ordering
 function fixAr(text: string): string {
   if (!text) return '';
   const clean = cleanText(text, '');
   if (!clean) return '';
-  return clean;
+  try {
+    const fn = (ArabicShaper as any).convertArabic || (ArabicShaper as any)?.ArabicShaper?.convertArabic || (ArabicShaper as any);
+    if (typeof fn === 'function') {
+      const shaped = fn(clean);
+      // Reverse shaped characters so words read correctly from right to left,
+      // while re-reversing numbers/times so they stay left-to-right (e.g. 2,000 and 08:00)
+      return shaped.split('').reverse().join('').replace(/[0-9]+([.:,/-][0-9]+)*/g, (num: string) => {
+        return num.split('').reverse().join('');
+      });
+    }
+    return clean;
+  } catch {
+    return clean;
+  }
 }
 
 // Helper to convert SVG markup to safe data-uri image source
@@ -65,41 +79,11 @@ const SVGS = {
   star: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
 };
 
-let cachedNotoData: ArrayBuffer | null = null;
-let cachedAlmaraiData: ArrayBuffer | null = null;
-
 serve(async (req) => {
   try {
     const url = new URL(req.url);
     const mode = url.searchParams.get("type") || "post"; // "post" (1080x1350) or "story" (1080x1920)
-    const category = (url.searchParams.get("category") || "transport").toLowerCase();
     const adType = (url.searchParams.get("ad_type") || "offer").toLowerCase();
-    
-    // Support multiple images converted to safe base64 Data URIs for Satori
-    let imageUrls: string[] = [];
-    const imagesParam = url.searchParams.get("images") || url.searchParams.get("image_url") || "";
-    if (imagesParam) {
-      const rawUrls = imagesParam.split(',').map(u => u.trim()).filter(u => u && u.startsWith('http')).slice(0, 3);
-      for (const u of rawUrls) {
-        try {
-          const thumbUrl = u.includes('wsrv.nl') ? u : `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=480&h=480&fit=cover&output=jpg&q=75`;
-          const r = await fetch(thumbUrl, { signal: AbortSignal.timeout(3500) });
-          if (r.ok) {
-            const buf = await r.arrayBuffer();
-            const u8 = new Uint8Array(buf);
-            let binary = '';
-            for (let i = 0; i < u8.length; i += 8192) {
-              binary += String.fromCharCode(...u8.subarray(i, i + 8192));
-            }
-            const b64 = btoa(binary);
-            imageUrls.push(`data:image/jpeg;base64,${b64}`);
-          }
-        } catch (e) {
-          console.warn('Image fetch error:', u, e);
-        }
-      }
-    }
-    const hasImages = imageUrls.length > 0;
 
     // 1. Initialize WASM for Resvg
     if (!wasmInitialized) {
@@ -109,19 +93,21 @@ serve(async (req) => {
       wasmInitialized = true;
     }
 
-    // 2. Fetch & Cache Complete Arabic (Almarai) Font to save memory and avoid 546 error
-    if (!cachedAlmaraiData) {
-      const almaraiRes = await fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/almarai/Almarai-Bold.ttf');
-      cachedAlmaraiData = await almaraiRes.arrayBuffer();
-    }
-    const almaraiData = cachedAlmaraiData;
+    // 2. Fetch Complete Arabic (Noto) + Latin (Almarai) Fonts
+    const [notoRes, almaraiRes] = await Promise.all([
+      fetch('https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf'),
+      fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/almarai/Almarai-Bold.ttf')
+    ]);
+    const [notoData, almaraiData] = await Promise.all([
+      notoRes.arrayBuffer(),
+      almaraiRes.arrayBuffer()
+    ]);
 
     const isPost = mode === "post";
-    const canvasWidth = 720;
-    const canvasHeight = isPost ? 900 : 1280;
+    const canvasWidth = 1080;
+    const canvasHeight = isPost ? 1350 : 1920;
 
     // 3. Clean Input Parameters
-    const rawTitle = cleanText(url.searchParams.get("title"), category === 'car' ? 'سيارة للبيع' : 'إعلان جديد');
     const shortId = cleanText(url.searchParams.get("short_id"), "GVR37#");
     const formattedId = shortId.endsWith('#') ? shortId : `${shortId}#`;
     
@@ -131,17 +117,11 @@ serve(async (req) => {
     if (!workDays.includes('إلى')) workDays = "الأحد إلى الخميس";
 
     const shiftTime = cleanText(url.searchParams.get("time"), "من 08:00 ص إلى 02:00 م");
-    const regions = cleanText(url.searchParams.get("regions"), "بغداد");
-    const destination = cleanText(url.searchParams.get("destination"), "بغداد");
+    const regions = cleanText(url.searchParams.get("regions"), "اليرموك، المنصور، الحارثية، زيونة");
+    const destination = cleanText(url.searchParams.get("destination"), "جامعة أوروك");
     
-    let rawFare = cleanText(url.searchParams.get("fare"), category === 'transport' ? '45,000 د.ع' : 'السعر حسب الاتفاق');
-    // Format any raw number inside fare string with standard comma separation (e.g. 45000 -> 45,000, 45656 -> 45,656)
-    rawFare = rawFare.replace(/\b\d{4,}\b/g, (match) => {
-      return Number(match).toLocaleString('en-US');
-    });
-    if (!rawFare.includes('د.ع') && !rawFare.includes('$') && !rawFare.includes('دولار') && !rawFare.includes('الاتفاق')) {
-      rawFare = `${rawFare} د.ع`;
-    }
+    let rawFare = cleanText(url.searchParams.get("fare"), "45,000 د.ع");
+    if (!rawFare.includes('د.ع')) rawFare = `${rawFare} د.ع`;
 
     let phone = cleanText(url.searchParams.get("phone"), "0780 000 0000");
     if (phone === "0780 000 0000" || phone.length < 5) {
@@ -149,86 +129,55 @@ serve(async (req) => {
     }
 
     const cleanShortId = shortId.replace(/[^a-zA-Z0-9]/g, '');
-    const shortUrlDisplay = `souqbaghdad.store/ad/${cleanShortId || 'view'}`;
-    const directAdUrl = category === 'transport' 
-      ? `https://www.souqbaghdad.store/transport/card/${cleanShortId}`
-      : `https://www.souqbaghdad.store/ad/${cleanShortId}`;
+    const shortUrlDisplay = `souqbaghdad.store/ad/${cleanShortId || 'transport'}`;
+    const directAdUrl = `https://www.souqbaghdad.store/transport/card/${cleanShortId}`;
 
     // Generate QR Code data URL using public API
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&format=png&data=${encodeURIComponent(directAdUrl)}`;
 
     // Badges & Titles
-    const badgeLabel = adType === "request" ? "مطلوب" : (category === 'car' ? "🚗 سيارات" : (category === 'general' ? "📦 سوق عام" : "جديد"));
-    const mainTitle1 = category === 'car' ? "إعلان" : (adType === "request" ? "طلب نقل" : "نقل خط");
-    const mainTitle2 = category === 'car' ? "سيارة" : (adType === "request" ? "مباشر" : "توفير");
-    const subHeadline = category === 'car' ? "فحص ومعاينة وضمان البيع المباشر" : (adType === "request" ? "بحث عن خط نقل مريح وآمن" : "رحلتك مريحة.. بسعر أوفر");
-    const fareTitle = category === 'car' ? "السعر المطلوب" : (adType === "request" ? "الأجرة المقترحة" : "سعر الأجرة");
+    const badgeLabel = adType === "request" ? "مطلوب" : "جديد";
+    const mainTitle1 = adType === "request" ? "طلب نقل" : "نقل خط";
+    const mainTitle2 = adType === "request" ? "مباشر" : "توفير";
+    const subHeadline = adType === "request" ? "بحث عن خط نقل مريح وآمن" : "رحلتك مريحة.. بسعر أوفر";
+    const fareTitle = adType === "request" ? "الأجرة المقترحة" : "سعر الأجرة";
 
     // 4. Build Exact Editorial Template HTML (Clean LTR Flow with Pre-shaped Arabic)
-    let innerContent = '';
-    if ((category === 'car' || category === 'general') && hasImages) {
-      
-      let photoCardsHtml = '';
-      if (imageUrls.length === 1) {
-        photoCardsHtml = `<img src="${imageUrls[0]}" style="width: 100%; height: 100%; object-fit: cover;" />`;
-      } else if (imageUrls.length === 2) {
-        photoCardsHtml = `
-          <div style="display: flex; flex-direction: row; width: 100%; height: 100%;">
-            <img src="${imageUrls[0]}" style="width: 50%; height: 100%; object-fit: cover;" />
-            <img src="${imageUrls[1]}" style="width: 50%; height: 100%; object-fit: cover; border-left: 6px solid #ffffff;" />
-          </div>
-        `;
-      } else if (imageUrls.length >= 3) {
-        photoCardsHtml = `
-          <div style="display: flex; flex-direction: column; width: 100%; height: 100%;">
-            <img src="${imageUrls[0]}" style="width: 100%; height: 33.3%; object-fit: cover; border-bottom: 4px solid #ffffff;" />
-            <img src="${imageUrls[1]}" style="width: 100%; height: 33.3%; object-fit: cover; border-bottom: 4px solid #ffffff;" />
-            <img src="${imageUrls[2]}" style="width: 100%; height: 33.4%; object-fit: cover;" />
-          </div>
-        `;
-      }
+    const markup = html`
+      <div style="display: flex; flex-direction: column; width: 1080px; height: ${canvasHeight}px; background: #fbfbfe; color: #1e1b4b; padding: 48px 52px; font-family: 'Noto Sans Arabic', 'Almarai', sans-serif; box-sizing: border-box; justify-content: space-between; position: relative;">
+        
+        <!-- Decorative Header Background Curves -->
+        <div style="position: absolute; top: 0; right: 0; left: 0; height: 380px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-bottom-left-radius: 60px; border-bottom-right-radius: 60px; opacity: 0.8; display: flex;"></div>
+        <div style="position: absolute; top: -50px; left: -50px; width: 350px; height: 350px; border-radius: 175px; background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, rgba(245,243,255,0) 70%); display: flex;"></div>
 
-      innerContent = `
-        <!-- 2. Car / Product Hero Visual Photo Card (9:16 Optimized) -->
-        <div style="display: flex; flex-direction: column; width: 100%; height: ${isPost ? '600px' : '900px'}; background: #ffffff; border: 2px solid #e9d5ff; border-radius: 32px; overflow: hidden; box-shadow: 0 15px 40px rgba(76,29,149,0.12); position: relative; z-index: 10;">
-          ${photoCardsHtml}
-          <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(0deg, rgba(20,5,40,0.92) 0%, rgba(20,5,40,0.6) 60%, rgba(20,5,40,0) 100%); padding: 24px 30px; display: flex; flex-direction: column; align-items: flex-start;">
-            <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%;">
-              <span style="font-size: 38px; font-weight: bold; color: #ffffff; text-shadow: 0 2px 10px rgba(0,0,0,0.5);">${fixAr(rawTitle)}</span>
-              <div style="display: flex; background: #7c3aed; border-radius: 16px; padding: 8px 20px;">
-                <span style="font-size: 24px; color: #ffffff; font-weight: bold;">${fixAr(regions)}</span>
-              </div>
+        <!-- 1. Top Header Row (Logo Left + Main Title Right) -->
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; width: 100%; position: relative; z-index: 10; margin-bottom: 20px; margin-top: 8px;">
+          
+          <!-- Right side: Title & Headline -->
+          <div style="display: flex; flex-direction: column; align-items: flex-start;">
+            <!-- Badge "جديد" -->
+            <div style="display: flex; background: #2e0854; border-radius: 20px; padding: 6px 28px; margin-bottom: 14px;">
+              <span style="font-size: 24px; color: #ffffff; font-weight: bold;">${fixAr(badgeLabel)}</span>
             </div>
+            <!-- Huge Title -->
+            <div style="display: flex; flex-direction: row; align-items: baseline; gap: 14px; margin-top: 6px; margin-bottom: 6px;">
+              <span style="font-size: 72px; font-weight: bold; color: #1e1b4b; line-height: 1;">${fixAr(mainTitle1)}</span>
+              <span style="font-size: 72px; font-weight: bold; color: #7c3aed; line-height: 1;">${fixAr(mainTitle2)}</span>
+            </div>
+            <!-- Subtitle -->
+            <span style="font-size: 26px; color: #4b5563; font-weight: bold; margin-top: 8px;">${fixAr(subHeadline)}</span>
+          </div>
+
+          <!-- Left side: Brand Logo -->
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; background: #ffffff; padding: 12px 22px; border-radius: 22px; box-shadow: 0 4px 15px rgba(124,58,237,0.08); border: 1.5px solid #ede9fe; margin-top: 4px;">
+            <div style="display: flex; flex-direction: column; align-items: flex-end;">
+              <span style="font-size: 26px; font-weight: bold; color: #1e1b4b; line-height: 1.1;">${fixAr('سوق بغداد')}</span>
+              <span style="font-size: 13px; color: #6b7280; letter-spacing: 1.5px; font-weight: bold;">SOUQ BAGHDAD</span>
+            </div>
+            <img src="${svgImg(SVGS.logo)}" width="44" height="44" />
           </div>
         </div>
 
-        <!-- 3. Price & Ad Code Row (Two Cards) -->
-        <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; gap: 20px; position: relative; z-index: 10;">
-          <!-- Price Card (Dark Purple) -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; flex: 1.1; background: #230b3d; border-radius: 24px; padding: 20px 28px; box-shadow: 0 10px 25px rgba(35,11,61,0.25);">
-            <div style="display: flex; flex-direction: column; align-items: flex-start;">
-              <span style="font-size: 20px; color: #d8b4fe; font-weight: bold; margin-bottom: 4px;">${fixAr(fareTitle)}</span>
-              <span style="font-size: 38px; color: #ffffff; font-weight: bold;">${fixAr(rawFare)}</span>
-            </div>
-            <div style="display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: #3b0764; border: 1.5px solid #7c3aed; border-radius: 28px;">
-              <img src="${svgImg(SVGS.wallet)}" width="30" height="30" />
-            </div>
-          </div>
-
-          <!-- Ad Code Card (White) -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; flex: 0.9; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 24px; padding: 20px 28px; box-shadow: 0 8px 20px rgba(76,29,149,0.04);">
-            <div style="display: flex; flex-direction: column; align-items: flex-start;">
-              <span style="font-size: 20px; color: #6b7280; font-weight: bold; margin-bottom: 4px;">${fixAr('كود الإعلان')}</span>
-              <span style="font-size: 32px; color: #2e0854; font-weight: bold; letter-spacing: 1px;">${formattedId}</span>
-            </div>
-            <div style="display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 28px;">
-              <img src="${svgImg(SVGS.code)}" width="30" height="30" />
-            </div>
-          </div>
-        </div>
-      `;
-    } else {
-      innerContent = `
         <!-- 2. Route Card (Floating White Card) -->
         <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 28px; padding: 22px 32px; box-shadow: 0 10px 30px rgba(76,29,149,0.06); position: relative; z-index: 10;">
           
@@ -383,268 +332,62 @@ serve(async (req) => {
             </div>
           </div>
         </div>
-      `;
-    }
 
-    let storyCtaBox = '';
-    if (mode === 'story') {
-      storyCtaBox = `
-        <!-- 6b. SPECIAL INTERACTIVE STORY CTA BOX (Only for Story 9:16) -->
-        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: linear-gradient(135deg, #2e0854 0%, #4c1d95 100%); border-radius: 28px; padding: 24px 32px; box-shadow: 0 12px 30px rgba(46,8,84,0.35); position: relative; z-index: 10; border: 2px solid #a855f7;">
+        <!-- 7. Bottom Dark Purple Footer Bar -->
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #1e0836; border-radius: 24px; padding: 18px 30px; position: relative; z-index: 10;">
           
-          <!-- Left: Big High-Contrast QR Code -->
-          <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; background: #ffffff; padding: 10px; border-radius: 20px; box-shadow: 0 6px 20px rgba(0,0,0,0.2);">
-            <img src="${qrUrl}" width="130" height="130" style="border-radius: 12px;" />
-            <span style="font-size: 15px; color: #4c1d95; font-weight: bold;">${fixAr('امسح لفتح الإعلان')}</span>
-          </div>
-
-          <!-- Right: Smart DM & Bio Action Prompt -->
-          <div style="display: flex; flex-direction: column; align-items: flex-end; flex: 1; padding-left: 24px; gap: 10px;">
-            <div style="display: flex; background: #a855f7; border-radius: 14px; padding: 6px 20px;">
-              <span style="font-size: 20px; color: #ffffff; font-weight: bold;">${fixAr(category === 'car' ? '🚗 لمعاينة وتفاصيل السيارة' : '📲 للتفاصيل والتواصل فوراً')}</span>
-            </div>
-            <span style="font-size: 23px; color: #f3e8ff; font-weight: bold; text-align: right; line-height: 1.3;">${fixAr('امسح الباركود أو افتح الرابط في البايو')}</span>
-            <div style="display: flex; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 12px; padding: 6px 18px;">
-              <span style="font-size: 19px; color: #ffffff; font-weight: bold;">${fixAr(`💬 أو دز #${cleanShortId} بالخاص ونرسلك الرابط`)}</span>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    let rawHtml = '';
-    
-    if (mode === 'story') {
-      const statusParam = (url.searchParams.get("status") || "active").toLowerCase();
-      let statusBadge = `<div style="display: flex; background: #dcfce7; border-radius: 8px; padding: 2px 10px;"><span style="font-size: 13px; color: #166534; font-weight: bold;">${fixAr('معروض للبيع 🟢')}</span></div>`;
-      if (statusParam === 'sold' || rawTitle.includes('تم البيع') || rawTitle.includes('مباعة')) {
-        statusBadge = `<div style="display: flex; background: #fef3c7; border-radius: 8px; padding: 2px 10px;"><span style="font-size: 13px; color: #92400e; font-weight: bold;">${fixAr('⚠️ تم البيع / مباعة')}</span></div>`;
-      } else if (statusParam === 'vip') {
-        statusBadge = `<div style="display: flex; background: #f3e8ff; border-radius: 8px; padding: 2px 10px;"><span style="font-size: 13px; color: #6b21a8; font-weight: bold;">${fixAr('⭐ إعلان مميز VIP')}</span></div>`;
-      } else if (category === 'transport') {
-        statusBadge = `<div style="display: flex; background: #dbeafe; border-radius: 8px; padding: 2px 10px;"><span style="font-size: 13px; color: #1e40af; font-weight: bold;">${fixAr('🚍 نقل وخطوط')}</span></div>`;
-      }
-
-      let cardMediaHtml = '';
-      if (imageUrls.length >= 3) {
-        // 3+ Images layout (Screenshot 1: Top main + 2 bottom side-by-side)
-        cardMediaHtml = `
-          <div style="display: flex; flex-direction: column; width: 100%; height: 750px; gap: 4px; background: #000000;">
-            <div style="display: flex; width: 100%; height: 446px;">
-              <img src="${imageUrls[0]}" style="width: 100%; height: 100%; object-fit: cover;" />
-            </div>
-            <div style="display: flex; flex-direction: row; width: 100%; height: 300px; gap: 4px;">
-              <div style="display: flex; flex: 1; height: 100%;">
-                <img src="${imageUrls[1]}" style="width: 100%; height: 100%; object-fit: cover;" />
-              </div>
-              <div style="display: flex; flex: 1; height: 100%;">
-                <img src="${imageUrls[2]}" style="width: 100%; height: 100%; object-fit: cover;" />
-              </div>
-            </div>
-          </div>
-        `;
-      } else if (imageUrls.length === 2) {
-        // 2 Images layout (Screenshot 2: Top and bottom stacked)
-        cardMediaHtml = `
-          <div style="display: flex; flex-direction: column; width: 100%; height: 750px; gap: 4px; background: #000000;">
-            <div style="display: flex; width: 100%; height: 373px;">
-              <img src="${imageUrls[0]}" style="width: 100%; height: 100%; object-fit: cover;" />
-            </div>
-            <div style="display: flex; width: 100%; height: 373px;">
-              <img src="${imageUrls[1]}" style="width: 100%; height: 100%; object-fit: cover;" />
-            </div>
-          </div>
-        `;
-      } else if (imageUrls.length === 1) {
-        // 1 Image layout
-        cardMediaHtml = `
-          <div style="display: flex; width: 100%; height: 750px; background: #000000;">
-            <img src="${imageUrls[0]}" style="width: 100%; height: 100%; object-fit: cover;" />
-          </div>
-        `;
-      } else {
-        // No images (Transport text ad)
-        cardMediaHtml = `
-          <div style="display: flex; flex-direction: column; width: 100%; height: 750px; background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); padding: 32px; box-sizing: border-box; justify-content: space-between;">
-            <div style="display: flex; flex-direction: column; gap: 14px;">
-              <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.1); border-radius: 16px; padding: 14px 20px;">
-                <span style="font-size: 18px; color: #c7d2fe;">${fixAr('مناطق الانطلاق')}</span>
-                <span style="font-size: 22px; color: #ffffff; font-weight: bold;">${fixAr(regions)}</span>
-              </div>
-              <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.1); border-radius: 16px; padding: 14px 20px;">
-                <span style="font-size: 18px; color: #c7d2fe;">${fixAr('الوجهة')}</span>
-                <span style="font-size: 22px; color: #ffffff; font-weight: bold;">${fixAr(destination)}</span>
-              </div>
-              <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.1); border-radius: 16px; padding: 14px 20px;">
-                <span style="font-size: 18px; color: #c7d2fe;">${fixAr('أيام العمل')}</span>
-                <span style="font-size: 20px; color: #ffffff; font-weight: bold;">${fixAr(workDays)}</span>
-              </div>
-              <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.1); border-radius: 16px; padding: 14px 20px;">
-                <span style="font-size: 18px; color: #c7d2fe;">${fixAr('الأوقات')}</span>
-                <span style="font-size: 20px; color: #ffffff; font-weight: bold;">${fixAr(shiftTime)}</span>
-              </div>
-            </div>
-            <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; background: #ffffff; border-radius: 18px; padding: 14px 20px;">
-              <div style="display: flex; flex-direction: column;">
-                <span style="font-size: 14px; color: #6b7280; font-weight: bold;">${fixAr('الأجرة / السعر')}</span>
-                <span style="font-size: 24px; color: #7c3aed; font-weight: bold;">${fixAr(rawFare)}</span>
-              </div>
-              <img src="${qrUrl}" width="80" height="80" style="border-radius: 8px;" />
-            </div>
-          </div>
-        `;
-      }
-
-      rawHtml = `
-        <div style="display: flex; flex-direction: column; width: 720px; height: 1280px; background: linear-gradient(180deg, #18191a 0%, #242526 50%, #18191a 100%); align-items: center; justify-content: center; font-family: 'Almarai', sans-serif; box-sizing: border-box; position: relative; padding: 24px;">
-          
-          <!-- Background Ambient Lighting -->
-          <div style="position: absolute; top: 180px; left: 160px; width: 400px; height: 400px; border-radius: 200px; background: radial-gradient(circle, rgba(99,102,241,0.2) 0%, rgba(0,0,0,0) 70%); display: flex;"></div>
-
-          <!-- FLOATING POST CARD STICKER -->
-          <div style="display: flex; flex-direction: column; width: 660px; background: #ffffff; border-radius: 26px; overflow: hidden; box-shadow: 0 30px 70px rgba(0,0,0,0.7); position: relative; z-index: 10;">
-            
-            <!-- Card Header -->
-            <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; padding: 14px 18px; background: #ffffff; border-bottom: 1px solid #f3f4f6;">
-              <div style="display: flex; flex-direction: row; align-items: center; gap: 12px;">
-                <!-- Official Logo Badge -->
-                <div style="display: flex; width: 46px; height: 46px; border-radius: 23px; background: #0f172a; align-items: center; justify-content: center; border: 2px solid #3b82f6;">
-                  <img src="${svgImg(SVGS.logo)}" width="30" height="30" />
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: flex-start;">
-                  <div style="display: flex; flex-direction: row; align-items: center; gap: 6px;">
-                    <span style="font-size: 19px; font-weight: bold; color: #0f172a;">${fixAr('سوق بغداد الرقمي')}</span>
-                    <span style="font-size: 13px; color: #2563eb; font-weight: bold;">Souq Baghdad</span>
-                  </div>
-                  <div style="display: flex; flex-direction: row; align-items: center; gap: 6px; margin-top: 3px;">
-                    ${statusBadge}
-                    <span style="font-size: 15px; font-weight: bold; color: #374151;">${fixAr(rawTitle)}</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Short Code -->
-              <div style="display: flex; background: #f3f4f6; border-radius: 12px; padding: 6px 12px; align-items: center;">
-                <span style="font-size: 14px; font-weight: bold; color: #4b5563;">#${cleanShortId}</span>
-              </div>
-            </div>
-
-            <!-- Card Body / Media -->
-            ${cardMediaHtml}
-
-            <!-- Card Details Footer -->
-            <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; padding: 14px 20px; background: #ffffff; border-top: 1px solid #f3f4f6;">
-              <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
-                <span style="font-size: 22px; font-weight: bold; color: #16a34a;">${fixAr(rawFare)}</span>
-                ${regions ? `<span style="font-size: 16px; color: #6b7280; font-weight: bold;">• ${fixAr(regions)}</span>` : ''}
-              </div>
-              <div style="display: flex; flex-direction: row; align-items: center; gap: 6px; background: #f8fafc; border-radius: 10px; padding: 4px 12px; border: 1px solid #e2e8f0;">
-                <span style="font-size: 15px; color: #1e293b; font-weight: bold; letter-spacing: 0.5px;">${phone}</span>
-              </div>
-            </div>
-
-          </div>
-
-          <!-- Bottom Story Action Prompt -->
-          <div style="display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 10px; margin-top: 24px; background: rgba(255,255,255,0.12); border: 1.5px solid rgba(255,255,255,0.25); border-radius: 30px; padding: 10px 24px;">
-            <span style="font-size: 16px; font-weight: bold; color: #ffffff;">${fixAr('🔗 افتح الرابط في البايو أو أرسل كود الإعلان بالخاص')}</span>
-          </div>
-
-        </div>
-      `;
-
-    } else {
-      rawHtml = `
-        <div style="display: flex; flex-direction: column; width: 1080px; height: ${canvasHeight}px; background: #fbfbfe; color: #1e1b4b; padding: 48px 52px; font-family: 'Almarai', sans-serif; box-sizing: border-box; justify-content: space-between; position: relative;">
-          
-          <!-- Decorative Header Background Curves -->
-          <div style="position: absolute; top: 0; right: 0; left: 0; height: 380px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-bottom-left-radius: 60px; border-bottom-right-radius: 60px; opacity: 0.8; display: flex;"></div>
-          <div style="position: absolute; top: -50px; left: -50px; width: 350px; height: 350px; border-radius: 175px; background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, rgba(245,243,255,0) 70%); display: flex;"></div>
-
-          <!-- 1. Top Header Row (Logo Left + Main Title Right) -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; width: 100%; position: relative; z-index: 10; margin-bottom: 20px; margin-top: 8px;">
-            
-            <!-- Right side: Title & Headline -->
+          <!-- Feature 1 -->
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+            <img src="${svgImg(SVGS.shield)}" width="24" height="24" />
             <div style="display: flex; flex-direction: column; align-items: flex-start;">
-              <!-- Badge "جديد" -->
-              <div style="display: flex; background: #2e0854; border-radius: 20px; padding: 6px 28px; margin-bottom: 14px;">
-                <span style="font-size: 24px; color: #ffffff; font-weight: bold;">${fixAr(badgeLabel)}</span>
-              </div>
-              <!-- Huge Title -->
-              <div style="display: flex; flex-direction: row; align-items: baseline; gap: 14px; margin-top: 6px; margin-bottom: 6px;">
-                <span style="font-size: 72px; font-weight: bold; color: #1e1b4b; line-height: 1;">${fixAr(mainTitle1)}</span>
-                <span style="font-size: 72px; font-weight: bold; color: #7c3aed; line-height: 1;">${fixAr(mainTitle2)}</span>
-              </div>
-              <!-- Subtitle -->
-              <span style="font-size: 26px; color: #4b5563; font-weight: bold; margin-top: 8px;">${fixAr(subHeadline)}</span>
-            </div>
-
-            <!-- Left side: Brand Logo -->
-            <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; background: #ffffff; padding: 12px 22px; border-radius: 22px; box-shadow: 0 4px 15px rgba(124,58,237,0.08); border: 1.5px solid #ede9fe; margin-top: 4px;">
-              <div style="display: flex; flex-direction: column; align-items: flex-end;">
-                <span style="font-size: 26px; font-weight: bold; color: #1e1b4b; line-height: 1.1;">${fixAr('سوق بغداد')}</span>
-                <span style="font-size: 13px; color: #6b7280; letter-spacing: 1.5px; font-weight: bold;">SOUQ BAGHDAD</span>
-              </div>
-              <img src="${svgImg(SVGS.logo)}" width="44" height="44" />
+              <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('راحة وأمان')}</span>
+              <span style="font-size: 13px; color: #c084fc;">${fixAr('رحلات مريحة وآمنة')}</span>
             </div>
           </div>
 
-          ${innerContent}
-
-          ${storyCtaBox}
-
-          <!-- 7. Bottom Dark Purple Footer Bar -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #1e0836; border-radius: 24px; padding: 18px 30px; position: relative; z-index: 10;">
-            
-            <!-- Feature 1 -->
-            <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
-              <img src="${svgImg(SVGS.shield)}" width="24" height="24" />
-              <div style="display: flex; flex-direction: column; align-items: flex-start;">
-                <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('راحة وأمان')}</span>
-                <span style="font-size: 13px; color: #c084fc;">${fixAr('رحلات مريحة وآمنة')}</span>
-              </div>
+          <!-- Feature 2 -->
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+            <img src="${svgImg(SVGS.timeCommit)}" width="24" height="24" />
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('التزام بالوقت')}</span>
+              <span style="font-size: 13px; color: #c084fc;">${fixAr('نصل بك في الوقت المحدد')}</span>
             </div>
+          </div>
 
-            <!-- Feature 2 -->
-            <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
-              <img src="${svgImg(SVGS.timeCommit)}" width="24" height="24" />
-              <div style="display: flex; flex-direction: column; align-items: flex-start;">
-                <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('التزام بالوقت')}</span>
-                <span style="font-size: 13px; color: #c084fc;">${fixAr('نصل بك في الوقت المحدد')}</span>
-              </div>
+          <!-- Feature 3 -->
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+            <img src="${svgImg(SVGS.tag)}" width="24" height="24" />
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('أسعار مناسبة')}</span>
+              <span style="font-size: 13px; color: #c084fc;">${fixAr('أفضل الأسعار للجميع')}</span>
             </div>
+          </div>
 
-            <!-- Feature 3 -->
-            <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
-              <img src="${svgImg(SVGS.tag)}" width="24" height="24" />
-              <div style="display: flex; flex-direction: column; align-items: flex-start;">
-                <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('أسعار مناسبة')}</span>
-                <span style="font-size: 13px; color: #c084fc;">${fixAr('أفضل الأسعار للجميع')}</span>
-              </div>
+          <!-- Feature 4 -->
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+            <img src="${svgImg(SVGS.star)}" width="24" height="24" />
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('خدمة مميزة')}</span>
+              <span style="font-size: 13px; color: #c084fc;">${fixAr('نهتم براحتك دائماً')}</span>
             </div>
-
-            <!-- Feature 4 -->
-            <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
-              <img src="${svgImg(SVGS.star)}" width="24" height="24" />
-              <div style="display: flex; flex-direction: column; align-items: flex-start;">
-                <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('خدمة مميزة')}</span>
-                <span style="font-size: 13px; color: #c084fc;">${fixAr('نهتم براحتك دائماً')}</span>
-              </div>
-            </div>
-
           </div>
 
         </div>
-      `;
-    }
 
-    const markup = html(rawHtml);
+      </div>
+    `;
 
     // 5. Render to SVG using Satori
     const svg = await satori(markup, {
       width: canvasWidth,
       height: canvasHeight,
       fonts: [
+        {
+          name: 'Noto Sans Arabic',
+          data: notoData,
+          weight: 700,
+          style: 'normal',
+        },
         {
           name: 'Almarai',
           data: almaraiData,
