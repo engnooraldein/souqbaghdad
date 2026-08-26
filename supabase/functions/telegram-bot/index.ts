@@ -1951,61 +1951,64 @@ async function syncAndHealAd(ad: any, supabaseClient: any): Promise<{ healed: bo
   return { healed: changed, details };
 }
 
+
 function buildStoryImageUrl(record: any, category: string, primaryImageOrImages?: string | string[]): string {
-  const shortId = record.short_id || record.id || '';
-  
+  const shortId = record?.short_id || record?.id || '';
+  const priceVal = record?.price ? `${record.price} ${record.currency || 'د.ع'}` : '';
+
+  const allImgs = Array.isArray(primaryImageOrImages) ? primaryImageOrImages : (primaryImageOrImages ? [primaryImageOrImages] : (record?.images || []));
+  const validImgs = allImgs.filter((u: any) => typeof u === 'string' && u.startsWith('http'));
+
   let imgParam = '';
-  if (primaryImageOrImages) {
-    const imgArray = Array.isArray(primaryImageOrImages) ? primaryImageOrImages : [primaryImageOrImages];
-    if (imgArray.length > 0) {
-      const urls = imgArray.slice(0, 3).map((u: string) => encodeURIComponent(u)).join(',');
-      imgParam = `&images=${urls}`;
-    }
+  if (validImgs.length > 0) {
+    const urls = validImgs.slice(0, 3).map((u: string) => encodeURIComponent(u)).join(',');
+    imgParam = `&images=${urls}`;
   }
 
-  const priceVal = record.price ? `${record.price} ${record.currency || 'د.ع'}` : '';
+  const statusVal = (record?.status === 'archived' || record?.status === 'sold') ? 'sold' : (record?.is_vip ? 'vip' : 'active');
 
-  return `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&category=${encodeURIComponent(category)}&title=${encodeURIComponent(record.title || '')}&regions=${encodeURIComponent(record.location || record.city || 'بغداد')}&destination=${encodeURIComponent(record.destination || record.city || 'بغداد')}&fare=${encodeURIComponent(priceVal)}&phone=${encodeURIComponent(record.phone || '')}&short_id=${shortId}${imgParam}`;
+  return `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&category=${encodeURIComponent(category || 'transport')}&title=${encodeURIComponent(record?.title || '')}&regions=${encodeURIComponent(record?.location || record?.city || 'بغداد')}&destination=${encodeURIComponent(record?.destination || record?.city || 'بغداد')}&fare=${encodeURIComponent(priceVal)}&phone=${encodeURIComponent(record?.phone || '')}&short_id=${shortId}&status=${statusVal}${imgParam}`;
 }
 
 async function prepareStoryBufferAndUrl(photoUrl: string): Promise<{ publicUrl: string; blob: Blob | null }> {
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || 'sb_publishable_JH0HoX448K2Rqw38QOM5Gw_IsIXRAUf';
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || anonKey;
 
-  // If already a clean Supabase storage URL
-  if (photoUrl.includes('supabase.co/storage/v1/object/public/ad-images/')) {
+  // If already a clean public image URL
+  if (photoUrl.startsWith('http') && !photoUrl.includes('generate-story-image')) {
     try {
-      const fetchRes = await fetch(photoUrl);
+      const fetchRes = await fetch(photoUrl, { signal: AbortSignal.timeout(8000) });
       if (fetchRes.ok) {
         const b = await fetchRes.blob();
         return { publicUrl: photoUrl, blob: b };
       }
-    } catch(e) {}
+    } catch(e) {
+      console.warn('[STORY PREPARE] Direct blob fetch error, using URL:', e);
+    }
     return { publicUrl: photoUrl, blob: null };
   }
 
   try {
-    const headers: Record<string, string> = {};
-    if (photoUrl.includes('supabase.co/functions/v1/')) {
-      headers['apikey'] = anonKey;
-      headers['Authorization'] = `Bearer ${serviceKey}`;
-    }
+    const headers: Record<string, string> = {
+      'apikey': anonKey,
+      'Authorization': `Bearer ${serviceKey}`
+    };
 
-    console.log(`[STORY PREPARE] Fetching story canvas from:`, photoUrl);
+    console.log(`[STORY PREPARE] Fetching generated story canvas from:`, photoUrl);
     const res = await fetch(photoUrl, { headers, signal: AbortSignal.timeout(12000) });
 
     if (res.ok) {
       const arrayBuf = await res.arrayBuffer();
-      const fileName = `story-${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
+      const fileName = `story-${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
       const { data, error } = await supabase.storage.from('ad-images').upload(fileName, arrayBuf, {
-        contentType: 'image/png',
+        contentType: 'image/jpeg',
         upsert: true
       });
 
       if (!error && data) {
         const { data: pubData } = supabase.storage.from('ad-images').getPublicUrl(fileName);
         console.log(`[STORY PREPARE] Cached permanent story to:`, pubData.publicUrl);
-        const blob = new Blob([arrayBuf], { type: 'image/png' });
+        const blob = new Blob([arrayBuf], { type: 'image/jpeg' });
         return { publicUrl: pubData.publicUrl, blob };
       }
     } else {

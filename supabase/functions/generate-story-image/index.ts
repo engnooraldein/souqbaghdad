@@ -90,12 +90,29 @@ serve(async (req) => {
     const category = (url.searchParams.get("category") || "transport").toLowerCase();
     const adType = (url.searchParams.get("ad_type") || "offer").toLowerCase();
     
-    // Support multiple images separated by comma
+    // Support multiple images converted to safe base64 Data URIs for Satori
     let imageUrls: string[] = [];
     const imagesParam = url.searchParams.get("images") || url.searchParams.get("image_url") || "";
     if (imagesParam) {
-      const maxImages = (mode === 'story' && category !== 'transport') ? 7 : 3;
-      imageUrls = imagesParam.split(',').map(u => u.trim()).filter(Boolean).slice(0, maxImages);
+      const rawUrls = imagesParam.split(',').map(u => u.trim()).filter(u => u && u.startsWith('http')).slice(0, 3);
+      for (const u of rawUrls) {
+        try {
+          const thumbUrl = u.includes('wsrv.nl') ? u : `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=480&h=480&fit=cover&output=jpg&q=75`;
+          const r = await fetch(thumbUrl, { signal: AbortSignal.timeout(3500) });
+          if (r.ok) {
+            const buf = await r.arrayBuffer();
+            const u8 = new Uint8Array(buf);
+            let binary = '';
+            for (let i = 0; i < u8.length; i += 8192) {
+              binary += String.fromCharCode(...u8.subarray(i, i + 8192));
+            }
+            const b64 = btoa(binary);
+            imageUrls.push(`data:image/jpeg;base64,${b64}`);
+          }
+        } catch (e) {
+          console.warn('Image fetch error:', u, e);
+        }
+      }
     }
     const hasImages = imageUrls.length > 0;
 
@@ -115,8 +132,8 @@ serve(async (req) => {
     const almaraiData = cachedAlmaraiData;
 
     const isPost = mode === "post";
-    const canvasWidth = 1080;
-    const canvasHeight = isPost ? 1350 : 1920;
+    const canvasWidth = 720;
+    const canvasHeight = isPost ? 900 : 1280;
 
     // 3. Clean Input Parameters
     const rawTitle = cleanText(url.searchParams.get("title"), category === 'car' ? 'سيارة للبيع' : 'إعلان جديد');
@@ -412,64 +429,144 @@ serve(async (req) => {
 
     let rawHtml = '';
     
-    if (mode === 'story' && category !== 'transport') {
-      let imagesGridHtml = '';
-      if (hasImages) {
-        const topImg = imageUrls[0] ? `<img src="${imageUrls[0]}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 20px;" />` : '';
-        const row2Left = imageUrls[1] ? `<img src="${imageUrls[1]}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 20px;" />` : '';
-        const row2Right = imageUrls[2] ? `<img src="${imageUrls[2]}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 20px;" />` : '';
-        const row3Right = imageUrls[3] ? `<img src="${imageUrls[3]}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 20px;" />` : '';
-        const b1 = imageUrls[4] ? `<img src="${imageUrls[4]}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 20px;" />` : '';
-        const b2 = imageUrls[5] ? `<img src="${imageUrls[5]}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 20px;" />` : '';
-        const b3 = imageUrls[6] ? `<img src="${imageUrls[6]}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 20px;" />` : '';
+    if (mode === 'story') {
+      const statusParam = (url.searchParams.get("status") || "active").toLowerCase();
+      let statusBadge = `<div style="display: flex; background: #dcfce7; border-radius: 8px; padding: 2px 10px;"><span style="font-size: 13px; color: #166534; font-weight: bold;">${fixAr('معروض للبيع 🟢')}</span></div>`;
+      if (statusParam === 'sold' || rawTitle.includes('تم البيع') || rawTitle.includes('مباعة')) {
+        statusBadge = `<div style="display: flex; background: #fef3c7; border-radius: 8px; padding: 2px 10px;"><span style="font-size: 13px; color: #92400e; font-weight: bold;">${fixAr('⚠️ تم البيع / مباعة')}</span></div>`;
+      } else if (statusParam === 'vip') {
+        statusBadge = `<div style="display: flex; background: #f3e8ff; border-radius: 8px; padding: 2px 10px;"><span style="font-size: 13px; color: #6b21a8; font-weight: bold;">${fixAr('⭐ إعلان مميز VIP')}</span></div>`;
+      } else if (category === 'transport') {
+        statusBadge = `<div style="display: flex; background: #dbeafe; border-radius: 8px; padding: 2px 10px;"><span style="font-size: 13px; color: #1e40af; font-weight: bold;">${fixAr('🚍 نقل وخطوط')}</span></div>`;
+      }
 
-        const hasRow2 = imageUrls[1] || imageUrls[2];
-        const hasRow3Img = imageUrls[3];
-        const hasBottomRow = imageUrls[4] || imageUrls[5] || imageUrls[6];
-
-        imagesGridHtml = `
-          <div style="display: flex; flex-direction: column; width: 1080px; height: 1920px; background: #ffffff; color: #1e1b4b; padding: 40px; font-family: 'Almarai', sans-serif; box-sizing: border-box; justify-content: space-between;">
-            
-            <!-- Row 1: Large Top Image -->
-            ${imageUrls[0] ? `<div style="display: flex; width: 100%; height: 500px;">${topImg}</div>` : ''}
-            
-            <!-- Row 2: 2 Square Images -->
-            ${hasRow2 ? `
-            <div style="display: flex; flex-direction: row; width: 100%; height: 400px; gap: 30px;">
-              <div style="display: flex; flex: 1;">${row2Left}</div>
-              <div style="display: flex; flex: 1;">${row2Right}</div>
-            </div>` : ''}
-
-            <!-- Row 3: Text (Right visually for Arabic) + Image (Left) -->
-            <div style="display: flex; flex-direction: row; width: 100%; ${hasRow3Img ? 'height: 400px;' : 'flex: 1;'} gap: 30px; align-items: center; justify-content: space-between;">
-              <div style="display: flex; flex-direction: column; flex: 1; padding: 10px; align-items: flex-end; text-align: right;">
-                 <span style="font-size: 64px; font-weight: bold; color: #1e1b4b; line-height: 1.2;">${fixAr(rawTitle)}</span>
-                 <span style="font-size: 46px; font-weight: bold; color: #7c3aed; margin-top: 15px;">${fixAr(rawFare)}</span>
-                 ${regions ? `<span style="font-size: 34px; color: #6b7280; margin-top: 15px;">${fixAr(regions)}</span>` : ''}
-                 <span style="font-size: 34px; color: #4b5563; font-weight: bold; margin-top: 30px;">${fixAr(subHeadline)}</span>
-              </div>
-              ${hasRow3Img ? `<div style="display: flex; flex: 1; height: 100%;">${row3Right}</div>` : ''}
+      let cardMediaHtml = '';
+      if (imageUrls.length >= 3) {
+        // 3+ Images layout (Screenshot 1: Top main + 2 bottom side-by-side)
+        cardMediaHtml = `
+          <div style="display: flex; flex-direction: column; width: 100%; height: 750px; gap: 4px; background: #000000;">
+            <div style="display: flex; width: 100%; height: 446px;">
+              <img src="${imageUrls[0]}" style="width: 100%; height: 100%; object-fit: cover;" />
             </div>
-
-            <!-- Row 4: 3 Vertical Images -->
-            ${hasBottomRow ? `
-            <div style="display: flex; flex-direction: row; width: 100%; height: 450px; gap: 30px;">
-              <div style="display: flex; flex: 1;">${b1}</div>
-              <div style="display: flex; flex: 1;">${b2}</div>
-              <div style="display: flex; flex: 1;">${b3}</div>
-            </div>` : ''}
-
+            <div style="display: flex; flex-direction: row; width: 100%; height: 300px; gap: 4px;">
+              <div style="display: flex; flex: 1; height: 100%;">
+                <img src="${imageUrls[1]}" style="width: 100%; height: 100%; object-fit: cover;" />
+              </div>
+              <div style="display: flex; flex: 1; height: 100%;">
+                <img src="${imageUrls[2]}" style="width: 100%; height: 100%; object-fit: cover;" />
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (imageUrls.length === 2) {
+        // 2 Images layout (Screenshot 2: Top and bottom stacked)
+        cardMediaHtml = `
+          <div style="display: flex; flex-direction: column; width: 100%; height: 750px; gap: 4px; background: #000000;">
+            <div style="display: flex; width: 100%; height: 373px;">
+              <img src="${imageUrls[0]}" style="width: 100%; height: 100%; object-fit: cover;" />
+            </div>
+            <div style="display: flex; width: 100%; height: 373px;">
+              <img src="${imageUrls[1]}" style="width: 100%; height: 100%; object-fit: cover;" />
+            </div>
+          </div>
+        `;
+      } else if (imageUrls.length === 1) {
+        // 1 Image layout
+        cardMediaHtml = `
+          <div style="display: flex; width: 100%; height: 750px; background: #000000;">
+            <img src="${imageUrls[0]}" style="width: 100%; height: 100%; object-fit: cover;" />
           </div>
         `;
       } else {
-        imagesGridHtml = `
-          <div style="display: flex; flex-direction: column; width: 1080px; height: 1920px; align-items: center; justify-content: center; background: #ffffff; font-family: 'Almarai', sans-serif;">
-            <span style="font-size: 70px; color: #1e1b4b; font-weight: bold;">${fixAr(rawTitle)}</span>
-            <span style="font-size: 50px; color: #7c3aed; margin-top: 20px;">${fixAr(rawFare)}</span>
-          </div>`;
+        // No images (Transport text ad)
+        cardMediaHtml = `
+          <div style="display: flex; flex-direction: column; width: 100%; height: 750px; background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); padding: 32px; box-sizing: border-box; justify-content: space-between;">
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+              <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.1); border-radius: 16px; padding: 14px 20px;">
+                <span style="font-size: 18px; color: #c7d2fe;">${fixAr('مناطق الانطلاق')}</span>
+                <span style="font-size: 22px; color: #ffffff; font-weight: bold;">${fixAr(regions)}</span>
+              </div>
+              <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.1); border-radius: 16px; padding: 14px 20px;">
+                <span style="font-size: 18px; color: #c7d2fe;">${fixAr('الوجهة')}</span>
+                <span style="font-size: 22px; color: #ffffff; font-weight: bold;">${fixAr(destination)}</span>
+              </div>
+              <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.1); border-radius: 16px; padding: 14px 20px;">
+                <span style="font-size: 18px; color: #c7d2fe;">${fixAr('أيام العمل')}</span>
+                <span style="font-size: 20px; color: #ffffff; font-weight: bold;">${fixAr(workDays)}</span>
+              </div>
+              <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.1); border-radius: 16px; padding: 14px 20px;">
+                <span style="font-size: 18px; color: #c7d2fe;">${fixAr('الأوقات')}</span>
+                <span style="font-size: 20px; color: #ffffff; font-weight: bold;">${fixAr(shiftTime)}</span>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; background: #ffffff; border-radius: 18px; padding: 14px 20px;">
+              <div style="display: flex; flex-direction: column;">
+                <span style="font-size: 14px; color: #6b7280; font-weight: bold;">${fixAr('الأجرة / السعر')}</span>
+                <span style="font-size: 24px; color: #7c3aed; font-weight: bold;">${fixAr(rawFare)}</span>
+              </div>
+              <img src="${qrUrl}" width="80" height="80" style="border-radius: 8px;" />
+            </div>
+          </div>
+        `;
       }
-      
-      rawHtml = imagesGridHtml;
+
+      rawHtml = `
+        <div style="display: flex; flex-direction: column; width: 720px; height: 1280px; background: linear-gradient(180deg, #18191a 0%, #242526 50%, #18191a 100%); align-items: center; justify-content: center; font-family: 'Almarai', sans-serif; box-sizing: border-box; position: relative; padding: 24px;">
+          
+          <!-- Background Ambient Lighting -->
+          <div style="position: absolute; top: 180px; left: 160px; width: 400px; height: 400px; border-radius: 200px; background: radial-gradient(circle, rgba(99,102,241,0.2) 0%, rgba(0,0,0,0) 70%); display: flex;"></div>
+
+          <!-- FLOATING POST CARD STICKER -->
+          <div style="display: flex; flex-direction: column; width: 660px; background: #ffffff; border-radius: 26px; overflow: hidden; box-shadow: 0 30px 70px rgba(0,0,0,0.7); position: relative; z-index: 10;">
+            
+            <!-- Card Header -->
+            <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; padding: 14px 18px; background: #ffffff; border-bottom: 1px solid #f3f4f6;">
+              <div style="display: flex; flex-direction: row; align-items: center; gap: 12px;">
+                <!-- Official Logo Badge -->
+                <div style="display: flex; width: 46px; height: 46px; border-radius: 23px; background: #0f172a; align-items: center; justify-content: center; border: 2px solid #3b82f6;">
+                  <img src="${svgImg(SVGS.logo)}" width="30" height="30" />
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: flex-start;">
+                  <div style="display: flex; flex-direction: row; align-items: center; gap: 6px;">
+                    <span style="font-size: 19px; font-weight: bold; color: #0f172a;">${fixAr('سوق بغداد الرقمي')}</span>
+                    <span style="font-size: 13px; color: #2563eb; font-weight: bold;">Souq Baghdad</span>
+                  </div>
+                  <div style="display: flex; flex-direction: row; align-items: center; gap: 6px; margin-top: 3px;">
+                    ${statusBadge}
+                    <span style="font-size: 15px; font-weight: bold; color: #374151;">${fixAr(rawTitle)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Short Code -->
+              <div style="display: flex; background: #f3f4f6; border-radius: 12px; padding: 6px 12px; align-items: center;">
+                <span style="font-size: 14px; font-weight: bold; color: #4b5563;">#${cleanShortId}</span>
+              </div>
+            </div>
+
+            <!-- Card Body / Media -->
+            ${cardMediaHtml}
+
+            <!-- Card Details Footer -->
+            <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; padding: 14px 20px; background: #ffffff; border-top: 1px solid #f3f4f6;">
+              <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                <span style="font-size: 22px; font-weight: bold; color: #16a34a;">${fixAr(rawFare)}</span>
+                ${regions ? `<span style="font-size: 16px; color: #6b7280; font-weight: bold;">• ${fixAr(regions)}</span>` : ''}
+              </div>
+              <div style="display: flex; flex-direction: row; align-items: center; gap: 6px; background: #f8fafc; border-radius: 10px; padding: 4px 12px; border: 1px solid #e2e8f0;">
+                <span style="font-size: 15px; color: #1e293b; font-weight: bold; letter-spacing: 0.5px;">${phone}</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Bottom Story Action Prompt -->
+          <div style="display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 10px; margin-top: 24px; background: rgba(255,255,255,0.12); border: 1.5px solid rgba(255,255,255,0.25); border-radius: 30px; padding: 10px 24px;">
+            <span style="font-size: 16px; font-weight: bold; color: #ffffff;">${fixAr('🔗 افتح الرابط في البايو أو أرسل كود الإعلان بالخاص')}</span>
+          </div>
+
+        </div>
+      `;
 
     } else {
       rawHtml = `
