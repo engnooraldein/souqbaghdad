@@ -206,8 +206,14 @@ serve(async (req) => {
               const senderId = messagingEvent.sender?.id;
               const recipientId = messagingEvent.recipient?.id;
 
-              // تجاهل الرسائل الصادرة من الصفحة نفسها لمنع الحلقات اللانهائية
-              if (!senderId || senderId === META_PAGE_ID || senderId === META_IG_ACCOUNT_ID || senderId === entryId) {
+              // تجاهل الرسائل الصادرة من أي من حسابات المنصة لمنع الحلقات اللانهائية
+              // (سوق بغداد + الرافدين — فيسبوك وانستغرام)
+              const OWN_IDS = new Set([
+                META_PAGE_ID, META_IG_ACCOUNT_ID, entryId,
+                ALRAFDAIN_FB_PAGE_ID, ALRAFDAIN_IG_ID
+              ].filter(Boolean));
+              if (!senderId || OWN_IDS.has(senderId)) {
+                console.log(`[Loop Guard] Ignored message from own account: ${senderId}`);
                 continue;
               }
 
