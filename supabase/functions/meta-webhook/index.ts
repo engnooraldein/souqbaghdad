@@ -314,7 +314,7 @@ serve(async (req) => {
 
                 // 1. توليد رد ذكي من الذكاء الاصطناعي
                 const aiData = await getAIReply("process_comment", platformName.toLowerCase(), commentText, fromId);
-                const replyText = aiData?.reply || "أهلاً بك عيوني في سوق بغداد 🇮🇶 دزينا لك التفاصيل على الخاص 📩";
+                const replyText = aiData?.reply || "أهلاً بك عيوني 🌹 راسلنا على بوت سوق بغداد في تيليجرام للرد الفوري ونشر إعلاناتك: https://t.me/souqbaghda_bot";
 
                 // 2. نشر الرد على التعليق علناً
                 if (isInstagram) {
@@ -328,7 +328,7 @@ serve(async (req) => {
                 const isGeneralPraise = ["ما شاء الله", "حلو", "بالتوفيق", "منورين", "تبارك"].some(k => cleanComment.includes(k)) && cleanComment.length < 20;
                 
                 if (!isGeneralPraise) {
-                  let pmText = "يا هلا بيك عيوني 👋 إليك الرابط المباشر للتصفح والنشر والتواصل مع المعلنين في منصة سوق بغداد: https://www.souqbaghdad.store";
+                  let pmText = "يا هلا بيك عيوني 👋 للسرعة والرد الفوري، ولنشر إعلاناتك وتصفحها مجاناً، تواصل ويانة مباشرة على بوت سوق بغداد في تيليجرام:\nhttps://t.me/souqbaghda_bot";
                   
                   // محاولة جلب الإعلان المرتبط بالبوست من قاعدة البيانات
                   if (postId) {
