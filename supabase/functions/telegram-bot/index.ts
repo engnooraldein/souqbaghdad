@@ -5106,6 +5106,10 @@ Deno.serve(async (req: any) => {
     // 👑 OWNER CONTROL HUB (لوحة تحكم المالك)
     // ==========================================
     if (isOwner && (trimmedText === 'owner_hub_main' || trimmedText === '/owner' || trimmedText === '/admin' || trimmedText === 'المالك')) {
+      const { data: sysSettings } = await supabase.from('auto_publish_settings').select('settings').eq('category', 'system').maybeSingle();
+      const isMaint = sysSettings?.settings?.maintenance_mode === true;
+      const maintBtnText = isMaint ? '🟢 إيقاف الصيانة (إعادة فتح الموقع)' : '🔴 تشغيل الصيانة (إغلاق الموقع)';
+
       const ownerMsg = 
         `👑 <b>مرحباً بك في لوحة تحكم المالك — سوق بغداد الرقمي</b> 🇮🇶\n\n` +
         `<i>إدارة المنصة بالكامل بذكاء من التيليجرام دون الحاجة لفتح الموقع:</i>\n\n` +
@@ -5114,7 +5118,7 @@ Deno.serve(async (req: any) => {
       const ownerMarkup = {
         inline_keyboard: [
           [{ text: '⚙️ الإدارة الشاملة للنشر التلقائي', callback_data: 'admin_autopublish' }],
-          [{ text: '🔴 تشغيل / إيقاف وضع الصيانة', callback_data: 'admin_toggle_maintenance' }],
+          [{ text: maintBtnText, callback_data: 'admin_toggle_maintenance' }],
           [{ text: '📡 قنوات السوشيال والتسعير', callback_data: '/social' }, { text: '📊 إحصائيات ونبض المنصة', callback_data: 'owner_stats' }],
           [{ text: '🪪 توثيق هويات السائقين', callback_data: 'owner_verifications' }, { text: '🔑 طلبات استرجاع الرمز', callback_data: 'owner_recoveries' }],
           [{ text: '🚩 البلاغات ومراجعة الإعلانات', callback_data: 'owner_reports' }, { text: '🪙 إهداء/خصم نقاط لمستخدم', callback_data: 'owner_gift_points_prompt' }],
