@@ -7149,9 +7149,10 @@ Deno.serve(async (req: any) => {
 
       // Close Transport Line / Sold status (إغلاق الخط أو تعليمه كمباع)
       if (action.startsWith('solve_trans_') || action.startsWith('mark_sold_')) {
-        const isCar = action.startsWith('mark_sold_');
+        const isMarkSold = action.startsWith('mark_sold_');
         const targetId = action.replace('solve_trans_', '').replace('mark_sold_', '');
         
+        // Check ads table first
         let adQuery = supabase.from('ads').select('*');
         if (targetId.length >= 30) {
           adQuery = adQuery.eq('id', targetId);
@@ -7163,28 +7164,50 @@ Deno.serve(async (req: any) => {
         }
         const { data: adToClose } = await adQuery.maybeSingle();
 
-        if (!adToClose) {
+        // Check products table next
+        let prodQuery = supabase.from('products').select('*');
+        if (targetId.length >= 30) {
+          prodQuery = prodQuery.eq('id', targetId);
+        } else {
+          prodQuery = prodQuery.or(`short_id.eq.${targetId},id.eq.${targetId}`);
+        }
+        if (!isOwner) {
+          prodQuery = prodQuery.eq('seller_id', userId);
+        }
+        const { data: prodToClose } = await prodQuery.maybeSingle();
+
+        const itemToClose = adToClose || prodToClose;
+        const targetTable = adToClose ? 'ads' : (prodToClose ? 'products' : null);
+
+        if (!itemToClose || !targetTable) {
           await sendMessage(chatId, '❌ لم يتم العثور على الإعلان.');
           return new Response('OK', { status: 200 });
         }
 
-        const newStatus = isCar ? 'sold' : 'matched';
-        await supabase.from('ads').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', adToClose.id);
+        const isProduct = targetTable === 'products';
+        const isCar = targetTable === 'ads' && (itemToClose.category === 'vehicles' || itemToClose.category === 'cars' || itemToClose.category === 'car');
+        
+        const newStatus = isProduct ? 'sold' : (isCar ? 'sold' : 'matched');
+        await supabase.from(targetTable).update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', itemToClose.id);
 
-        const shortCode = adToClose.short_id || adToClose.id;
-        const tagText = isCar ? 'تم تعليم السيارة كـ مباعة 🚗' : 'تم إغلاق الخط واكتمال العدد 🔒';
+        const shortCode = itemToClose.short_id || itemToClose.id;
+        const tagText = isProduct ? 'تم تعليم المنتج كـ مباع 🛍️' : (isCar ? 'تم تعليم السيارة كـ مباعة 🚗' : 'تم إغلاق الخط واكتمال العدد 🔒');
+        
+        const archiveButton = isProduct 
+          ? { text: '🛍️ إدارة منتجاتي', callback_data: 'manage_cat_ads' }
+          : { text: '📂 عرض الأرشيف', callback_data: isCar ? 'manage_cars_archive' : 'manage_trans_archive' };
 
         await sendMessage(chatId,
           `✅ <b>${tagText} (#${shortCode}) بنجاح!</b>\n\n` +
-          `• تم تحديث المنشورات في قنوات تيليجرام وصفحات التواصل لتصبح مغلقة ومكتملة.\n` +
+          `• تم تحديث المنشورات في قنوات تيليجرام وصفحات التواصل لتصبح مباعة أو مكتملة.\n` +
           `• تم نقل الإعلان إلى <b>الأرشيف</b> ولن يزعجك أحد بالاتصال.\n\n` +
-          `💡 <b>هل تريد إعادة فتح الخط أو تعديله مستقبلاً؟</b>\n` +
+          `💡 <b>هل تريد إعادة فتح الإعلان مستقبلاً؟</b>\n` +
           `• يمكنك الدخول للأرشيف والضغط على <b>«🔄 إعادة تفعيل»</b> أو تعديل بياناته.\n` +
           `• يمكنك عمل <b>«ترويج بالنقاط»</b> لإعادة نشره في الصدارة كإعلان جديد كلياً!`,
           {
             inline_keyboard: [
-              [{ text: '📂 عرض الأرشيف', callback_data: isCar ? 'manage_cars_archive' : 'manage_trans_archive' }],
-              [{ text: isCar ? '🚗 إدارة سياراتي' : '🚌 إدارة خطوطي', callback_data: isCar ? 'manage_cat_cars' : 'manage_cat_trans' }],
+              [archiveButton],
+              [{ text: isProduct ? '🛒 نشر منتج جديد' : (isCar ? '🚗 إدارة سياراتي' : '🚌 إدارة خطوطي'), callback_data: isProduct ? 'publish_product' : (isCar ? 'manage_cat_cars' : 'manage_cat_trans') }],
               [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
             ]
           }
@@ -8066,65 +8089,7 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
-      // Mark Ad as Sold
-      if (action.startsWith('mark_sold_')) {
-        const adId = action.replace('mark_sold_', '');
-        const { data: updatedAd } = await supabase.from('ads').update({ status: 'sold' }).eq('id', adId).eq('seller_id', userId).select().single();
-        
-        if (updatedAd) {
-          const msgId = updatedAd.telegram_message_id;
-          const isCar = updatedAd.category === 'vehicles' || updatedAd.category === 'cars' || updatedAd.category === 'car';
-          const targetChannel = isCar ? (CAR_CHANNEL_ID || CAR_CHANNEL) : PRODUCT_CHANNEL;
 
-          if (msgId && targetChannel) {
-            try {
-              const browseUrl = isCar ? 'https://www.souqbaghdad.store/vehicles' : 'https://www.souqbaghdad.store';
-              const soldButtons = {
-                inline_keyboard: [
-                  [{ text: '⚠️ تم بيع هذا الإعلان — تصفح المزيد 🚗', url: browseUrl }],
-                  [{ text: '🚗 اعرض إعلانك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}` }]
-                ]
-              };
-              const soldTag = isCar ? '⚠️ <b>[تم البيع / مباعة]</b>' : '⚠️ <b>[تم البيع / غير متوفر]</b>';
-              const soldCaption = `${soldTag}\n\n` +
-                                  `🚗 <b>${updatedAd.title}</b>\n` +
-                                  `💰 <b>تم البيع بنجاح عبر منصة سوق بغداد</b>\n` +
-                                  `📍 ${updatedAd.location || 'العراق'}\n\n` +
-                                  `📣 لم يعد هذا الإعلان متاحاً للتواصل. يمكنك تصفح أحدث المعروضات بالضغط أدناه 👇`;
-
-              await editChannelMessage(targetChannel, parseInt(msgId, 10), soldCaption, soldButtons);
-              if (EXTRA_CHANNEL && EXTRA_CHANNEL !== targetChannel) {
-                await editChannelMessage(EXTRA_CHANNEL, parseInt(msgId, 10), soldCaption, soldButtons);
-              }
-            } catch(e) {
-              console.error('Telegram caption update error:', e);
-            }
-          }
-
-          // Update Facebook Post
-          if (updatedAd.facebook_post_id) {
-            const fbSoldText = `⚠️ [تم البيع / غير متوفر]\n\n${updatedAd.title || 'إعلان'}\n💰 تم البيع بنجاح عبر منصة سوق بغداد\n\nتصفح المزيد من العروض عبر:\nhttps://www.souqbaghdad.store`;
-            await updateFacebookPost(updatedAd.facebook_post_id, fbSoldText);
-          }
-
-          // Delete Instagram Post if exists (since IG API does not allow editing captions)
-          const adIgId = updatedAd.instagram_post_id || updatedAd.sync_status?.instagram_post_id;
-          if (adIgId) {
-            console.log(`[MARK SOLD] Deleting Instagram post ${adIgId}...`);
-            try { await deleteFromInstagram(adIgId); } catch(e) {}
-          }
-
-          await updateOrSend('✅ <b>تم تعليم الإعلان كمباع بنجاح! شكراً لاستخدامك منصة سوق بغداد 🤝</b>\n\nتم تحديث المنشور في القناة وفيسبوك وحذف بوست انستكرام تلقائياً.\nنتمنى لك كل التوفيق والبركة! ✨', {
-            inline_keyboard: [
-              [{ text: '🚗 عرض سيارة جديدة', callback_data: 'publish_car' }, { text: '📦 إدارة إعلاناتي', callback_data: 'manage_cat_cars' }],
-              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
-            ]
-          });
-        } else {
-          await updateOrSend('❌ لم يتم العثور على الإعلان أو لا تملك صلاحية تعديله.');
-        }
-        return new Response('OK', { status: 200 });
-      }
 
       // Edit Car Price
       if (action.startsWith('edit_car_price_')) {
