@@ -4742,7 +4742,7 @@ Deno.serve(async (req: any) => {
     if (!isOwner && chatType === 'private') {
       let isSubscribed = true;
       try {
-        const channelsToCheck = ['@souqbaghdad_iq', '@souqbaghdad_car', '@souqbaghdad_lines'];
+        const channelsToCheck = ['@souqbaghda', '@souqbaghdad_car', '@souqbaghdad_lines'];
         const subChecks = await Promise.all(
           channelsToCheck.map(ch => getChatMember(ch, chatId))
         );
@@ -4752,21 +4752,22 @@ Deno.serve(async (req: any) => {
       }
 
       if (!isSubscribed) {
+        const subMsg = `👋 <b>أهلاً بك يالغالي في بوت سوق بغداد!</b>\n\n` +
+          `عذراً، لا يمكنك استخدام البوت أو النشر قبل الاشتراك في قنواتنا الرسمية لدعمنا والاستمرار بتقديم الخدمة مجاناً للجميع 🌹\n\n` +
+          `👇 <b>يرجى الاشتراك في (جميع) القنوات الثلاثة التالية لتفعيل البوت:</b>`;
+        
+        const subMarkup = {
+          inline_keyboard: [
+            [{ text: '📢 سوق بغداد (العامة)', url: 'https://t.me/souqbaghda' }],
+            [{ text: '🚗 سيارات سوق بغداد', url: 'https://t.me/souqbaghdad_car' }],
+            [{ text: '🚌 خطوط النقل والجامعات', url: 'https://t.me/souqbaghdad_lines' }],
+            [{ text: '✅ تحقق من الاشتراك', callback_data: 'check_subscription' }]
+          ]
+        };
+
         if (callbackQueryId && trimmedText === 'check_subscription') {
-           answerCallbackQuery(callbackQueryId, '❌ عذراً، يجب الاشتراك في جميع القنوات أولاً.', true);
-        } else if (trimmedText !== 'check_subscription') {
-          const subMsg = `👋 <b>أهلاً بك يالغالي في بوت سوق بغداد!</b>\n\n` +
-            `عذراً، لا يمكنك استخدام البوت أو النشر قبل الاشتراك في قنواتنا الرسمية لدعمنا والاستمرار بتقديم الخدمة مجاناً للجميع 🌹\n\n` +
-            `👇 <b>يرجى الاشتراك في القنوات التالية لتفعيل البوت:</b>`;
-          
-          const subMarkup = {
-            inline_keyboard: [
-              [{ text: '📢 سوق بغداد (العامة)', url: 'https://t.me/souqbaghdad_iq' }],
-              [{ text: '🚗 سيارات سوق بغداد', url: 'https://t.me/souqbaghdad_car' }],
-              [{ text: '🚌 خطوط النقل والجامعات', url: 'https://t.me/souqbaghdad_lines' }],
-              [{ text: '✅ تحقق من الاشتراك', callback_data: 'check_subscription' }]
-            ]
-          };
+           await answerCallbackQuery(callbackQueryId, '❌ عذراً، يجب الاشتراك في جميع القنوات الثلاثة أولاً لتفعيل البوت!', true);
+        } else {
           if (callbackMsgId) {
              await updateOrSend(subMsg, subMarkup);
           } else {
@@ -4775,7 +4776,7 @@ Deno.serve(async (req: any) => {
         }
         return new Response('OK', { status: 200 });
       } else if (trimmedText === 'check_subscription') {
-         if (callbackQueryId) answerCallbackQuery(callbackQueryId, '✅ شكراً لاشتراكك! يمكنك استخدام البوت الآن.', true);
+         if (callbackQueryId) await answerCallbackQuery(callbackQueryId, '✅ شكراً لاشتراكك! تم تفعيل البوت بالكامل.', true);
          text = '/start'; // Trigger main menu automatically
       }
     }
