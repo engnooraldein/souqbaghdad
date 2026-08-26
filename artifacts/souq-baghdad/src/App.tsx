@@ -558,9 +558,9 @@ export default function App() {
           {maintenance.message}
         </p>
         <div className="flex gap-4">
-          <a href="https://t.me/souqbaghdad_iq" target="_blank" rel="noreferrer" className="flex items-center gap-2 px-6 py-3 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 rounded-xl transition-all border border-blue-500/30">
+          <a href="https://t.me/souqbaghda_bot" target="_blank" rel="noreferrer" className="flex items-center gap-2 px-6 py-3 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 rounded-xl transition-all border border-blue-500/30">
             <MessageCircle className="w-5 h-5" />
-            <span>قناة التليكرام</span>
+            <span>تواصل مع البوت</span>
           </a>
         </div>
       </div>
