@@ -3403,7 +3403,14 @@ Deno.serve(async (req: any) => {
           let res;
           if (publishTelegram) {
             const targetCarChannel = CAR_CHANNEL_ID || CAR_CHANNEL;
-            if (imagesToPost.length >= 1) {
+            if (imagesToPost.length > 1) {
+              let mediaGroupCaption = caption;
+              mediaGroupCaption += `\n\n🔗 <a href="${link}">عرض التفاصيل بالمنصة</a>`;
+              if (cleanPhone) {
+                mediaGroupCaption += `\n📞 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> | ✈️ <a href="https://t.me/+${cleanPhone}">تواصل تيليكرام</a>`;
+              }
+              res = await sendMediaGroup(targetCarChannel, imagesToPost, mediaGroupCaption);
+            } else if (imagesToPost.length === 1) {
               res = await sendPhoto(targetCarChannel, imagesToPost[0], caption, replyMarkup);
             } else {
               res = await sendMessage(targetCarChannel, caption, replyMarkup);
@@ -3528,7 +3535,14 @@ Deno.serve(async (req: any) => {
 
           let res;
           if (publishTelegram) {
-            if (imagesToPost.length >= 1) {
+            if (imagesToPost.length > 1) {
+              let mediaGroupCaption = caption;
+              mediaGroupCaption += `\n\n🔗 <a href="${link}">عرض التفاصيل والصور بالمنصة</a>`;
+              if (cleanPhone) {
+                mediaGroupCaption += `\n📞 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> | ✈️ <a href="https://t.me/+${cleanPhone}">تواصل تيليكرام</a>`;
+              }
+              res = await sendMediaGroup(PRODUCT_CHANNEL, imagesToPost, mediaGroupCaption);
+            } else if (imagesToPost.length === 1) {
               res = await sendPhoto(PRODUCT_CHANNEL, imagesToPost[0], caption, replyMarkup);
             } else {
               res = await sendMessage(PRODUCT_CHANNEL, caption, replyMarkup);
