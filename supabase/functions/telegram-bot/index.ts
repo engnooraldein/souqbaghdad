@@ -1965,35 +1965,71 @@ function buildStoryImageUrl(record: any, category: string, primaryImageOrImages?
 
   const priceVal = record.price ? `${record.price} ${record.currency || 'د.ع'}` : '';
 
-  const dynUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&category=${encodeURIComponent(category)}&title=${encodeURIComponent(record.title || '')}&regions=${encodeURIComponent(record.location || record.city || 'بغداد')}&destination=${encodeURIComponent(record.destination || record.city || 'بغداد')}&fare=${encodeURIComponent(priceVal)}&phone=${encodeURIComponent(record.phone || '')}&short_id=${shortId}${imgParam}`;
-  
-  return `https://wsrv.nl/?url=${encodeURIComponent(dynUrl)}&output=jpg`;
+  return `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&category=${encodeURIComponent(category)}&title=${encodeURIComponent(record.title || '')}&regions=${encodeURIComponent(record.location || record.city || 'بغداد')}&destination=${encodeURIComponent(record.destination || record.city || 'بغداد')}&fare=${encodeURIComponent(priceVal)}&phone=${encodeURIComponent(record.phone || '')}&short_id=${shortId}${imgParam}`;
+}
+
+async function prepareStoryBufferAndUrl(photoUrl: string): Promise<{ publicUrl: string; blob: Blob | null }> {
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || 'sb_publishable_JH0HoX448K2Rqw38QOM5Gw_IsIXRAUf';
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || anonKey;
+
+  // If already a clean Supabase storage URL
+  if (photoUrl.includes('supabase.co/storage/v1/object/public/ad-images/')) {
+    try {
+      const fetchRes = await fetch(photoUrl);
+      if (fetchRes.ok) {
+        const b = await fetchRes.blob();
+        return { publicUrl: photoUrl, blob: b };
+      }
+    } catch(e) {}
+    return { publicUrl: photoUrl, blob: null };
+  }
+
+  try {
+    const headers: Record<string, string> = {};
+    if (photoUrl.includes('supabase.co/functions/v1/')) {
+      headers['apikey'] = anonKey;
+      headers['Authorization'] = `Bearer ${serviceKey}`;
+    }
+
+    console.log(`[STORY PREPARE] Fetching story canvas from:`, photoUrl);
+    const res = await fetch(photoUrl, { headers, signal: AbortSignal.timeout(12000) });
+
+    if (res.ok) {
+      const arrayBuf = await res.arrayBuffer();
+      const fileName = `story-${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
+      const { data, error } = await supabase.storage.from('ad-images').upload(fileName, arrayBuf, {
+        contentType: 'image/png',
+        upsert: true
+      });
+
+      if (!error && data) {
+        const { data: pubData } = supabase.storage.from('ad-images').getPublicUrl(fileName);
+        console.log(`[STORY PREPARE] Cached permanent story to:`, pubData.publicUrl);
+        const blob = new Blob([arrayBuf], { type: 'image/png' });
+        return { publicUrl: pubData.publicUrl, blob };
+      }
+    } else {
+      console.warn(`[STORY PREPARE] Fetch failed status: ${res.status}`);
+    }
+  } catch(err) {
+    console.error(`[STORY PREPARE] Error fetching/caching story image:`, err);
+  }
+
+  return { publicUrl: photoUrl, blob: null };
 }
 
 async function postToFacebookStory(photoUrl: string, pageId: string, accessToken: string) {
   if (!accessToken || !pageId || !photoUrl) return { error: { message: 'رمز الوصول لفيسبوك أو الصورة مفقودة' } };
-  const targetPhotoUrl = photoUrl.includes('generate-story-image') 
-    ? `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&output=jpg` 
-    : (photoUrl.includes('wsrv.nl') ? photoUrl : `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&output=jpg`);
   
   try {
     console.log(`[FB STORY] Publishing Story 9:16 to Facebook Page ${pageId}...`);
     
-    // Upload photo via binary multipart
-    let imgBlob: Blob | null = null;
-    try {
-      const imgFetch = await fetch(targetPhotoUrl, { signal: AbortSignal.timeout(8000) });
-      if (imgFetch.ok) {
-        imgBlob = await imgFetch.blob();
-      }
-    } catch(e) {
-      console.warn('[FB STORY] Direct blob fetch failed, falling back to url parameter:', e);
-    }
+    const { publicUrl, blob } = await prepareStoryBufferAndUrl(photoUrl);
 
     let uploadData: any = null;
-    if (imgBlob) {
+    if (blob) {
       const form = new FormData();
-      form.append('source', imgBlob, 'story.jpg');
+      form.append('source', blob, 'story.png');
       form.append('published', 'false');
       form.append('temporary', 'true');
       form.append('access_token', accessToken);
@@ -2005,7 +2041,7 @@ async function postToFacebookStory(photoUrl: string, pageId: string, accessToken
       uploadData = await uploadRes.json();
     } else {
       const uploadParams = new URLSearchParams();
-      uploadParams.append('url', targetPhotoUrl);
+      uploadParams.append('url', publicUrl);
       uploadParams.append('published', 'false');
       uploadParams.append('temporary', 'true');
       uploadParams.append('access_token', accessToken);
@@ -2053,38 +2089,14 @@ async function postToInstagramStory(photoUrl: string, igAccountId?: string, acce
   }
   if (!token || !accountId || !photoUrl) return { error: { message: 'رمز الوصول لانستكرام أو الصورة مفقودة' } };
   
-  // Instagram Stories strictly require JPG / JPEG format
-  const targetPhotoUrl = photoUrl.includes('generate-story-image') 
-    ? `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&output=jpg` 
-    : (photoUrl.includes('wsrv.nl') ? photoUrl : `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&output=jpg`);
-    
-  let finalPhotoUrl = targetPhotoUrl;
-
-  if (targetPhotoUrl.includes('wsrv.nl')) {
-    try { 
-      const res = await fetch(targetPhotoUrl, { signal: AbortSignal.timeout(8000) }); 
-      if (res.ok) {
-        const buffer = await res.arrayBuffer();
-        const fileName = `story-${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
-        const { data, error } = await supabase.storage.from('ad-images').upload(fileName, buffer, {
-           contentType: 'image/jpeg',
-           upsert: true
-        });
-        if (!error && data) {
-           const { data: publicUrlData } = supabase.storage.from('ad-images').getPublicUrl(fileName);
-           finalPhotoUrl = publicUrlData.publicUrl;
-           console.log('[IG STORY] Cached story image to:', finalPhotoUrl);
-        }
-      }
-    } catch(e) { console.error('Failed to cache IG story image:', e); }
-  }
+  const { publicUrl } = await prepareStoryBufferAndUrl(photoUrl);
 
   const isDirectIg = token.startsWith('IGAA');
   const apiBase = isDirectIg ? 'https://graph.instagram.com/v20.0' : 'https://graph.facebook.com/v20.0';
 
   try {
     const uploadBody = {
-      image_url: finalPhotoUrl,
+      image_url: publicUrl,
       media_type: 'STORIES',
       access_token: token
     };
