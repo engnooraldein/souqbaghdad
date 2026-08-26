@@ -1959,43 +1959,31 @@ function buildStoryImageUrl(record: any, category: string, primaryImageOrImages?
   const allImgs = Array.isArray(primaryImageOrImages) ? primaryImageOrImages : (primaryImageOrImages ? [primaryImageOrImages] : (record?.images || []));
   const validImgs = allImgs.filter((u: any) => typeof u === 'string' && u.startsWith('http'));
 
-  let imgParam = '';
   if (validImgs.length > 0) {
-    const urls = validImgs.slice(0, 3).map((u: string) => encodeURIComponent(u)).join(',');
-    imgParam = `&images=${urls}`;
+    return validImgs[0];
   }
 
-  const statusVal = (record?.status === 'archived' || record?.status === 'sold') ? 'sold' : (record?.is_vip ? 'vip' : 'active');
-
-  return `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&category=${encodeURIComponent(category || 'transport')}&title=${encodeURIComponent(record?.title || '')}&regions=${encodeURIComponent(record?.location || record?.city || 'بغداد')}&destination=${encodeURIComponent(record?.destination || record?.city || 'بغداد')}&fare=${encodeURIComponent(priceVal)}&phone=${encodeURIComponent(record?.phone || '')}&short_id=${shortId}&status=${statusVal}${imgParam}`;
+  return `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&category=${encodeURIComponent(category || 'transport')}&title=${encodeURIComponent(record?.title || '')}&regions=${encodeURIComponent(record?.location || record?.city || 'بغداد')}&destination=${encodeURIComponent(record?.destination || record?.city || 'بغداد')}&fare=${encodeURIComponent(priceVal)}&phone=${encodeURIComponent(record?.phone || '')}&short_id=${shortId}`;
 }
 
 async function prepareStoryBufferAndUrl(photoUrl: string): Promise<{ publicUrl: string; blob: Blob | null }> {
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || 'sb_publishable_JH0HoX448K2Rqw38QOM5Gw_IsIXRAUf';
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || anonKey;
 
-  // If already a clean public image URL
-  if (photoUrl.startsWith('http') && !photoUrl.includes('generate-story-image')) {
-    try {
-      const fetchRes = await fetch(photoUrl, { signal: AbortSignal.timeout(8000) });
-      if (fetchRes.ok) {
-        const b = await fetchRes.blob();
-        return { publicUrl: photoUrl, blob: b };
-      }
-    } catch(e) {
-      console.warn('[STORY PREPARE] Direct blob fetch error, using URL:', e);
-    }
-    return { publicUrl: photoUrl, blob: null };
-  }
-
   try {
-    const headers: Record<string, string> = {
-      'apikey': anonKey,
-      'Authorization': `Bearer ${serviceKey}`
-    };
+    let sourceUrl = photoUrl;
+    const headers: Record<string, string> = {};
 
-    console.log(`[STORY PREPARE] Fetching generated story canvas from:`, photoUrl);
-    const res = await fetch(photoUrl, { headers, signal: AbortSignal.timeout(12000) });
+    if (photoUrl.includes('supabase.co/functions/v1/generate-story-image')) {
+      headers['apikey'] = anonKey;
+      headers['Authorization'] = `Bearer ${serviceKey}`;
+    } else if (photoUrl.startsWith('http') && !photoUrl.includes('wsrv.nl')) {
+      // Format image onto a vertical 9:16 Story Canvas (1080x1920) with sleek dark background
+      sourceUrl = `https://wsrv.nl/?url=${encodeURIComponent(photoUrl)}&w=1080&h=1920&fit=contain&cbg=18191a&output=jpg`;
+    }
+
+    console.log(`[STORY PREPARE] Fetching story canvas from:`, sourceUrl);
+    const res = await fetch(sourceUrl, { headers, signal: AbortSignal.timeout(10000) });
 
     if (res.ok) {
       const arrayBuf = await res.arrayBuffer();
@@ -2007,12 +1995,12 @@ async function prepareStoryBufferAndUrl(photoUrl: string): Promise<{ publicUrl: 
 
       if (!error && data) {
         const { data: pubData } = supabase.storage.from('ad-images').getPublicUrl(fileName);
-        console.log(`[STORY PREPARE] Cached permanent story to:`, pubData.publicUrl);
+        console.log(`[STORY PREPARE] Cached permanent 9:16 story to:`, pubData.publicUrl);
         const blob = new Blob([arrayBuf], { type: 'image/jpeg' });
         return { publicUrl: pubData.publicUrl, blob };
       }
     } else {
-      console.warn(`[STORY PREPARE] Fetch failed status: ${res.status}`);
+      console.warn(`[STORY PREPARE] Fetch failed with status: ${res.status}`);
     }
   } catch(err) {
     console.error(`[STORY PREPARE] Error fetching/caching story image:`, err);
