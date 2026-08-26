@@ -5116,24 +5116,22 @@ Deno.serve(async (req: any) => {
         }
       }
 
-      let messageToSend = `🚗 <b>بوت سوق بغداد — قسم السيارات وخطوط النقل</b> 🇮🇶\n\n${userInfo}اختر ما تريد القيام به من القائمة أدناه:`;
+      let messageToSend = `🚗 <b>بوت سوق بغداد — المنصة الذكية الأولى</b> 🇮🇶\n\n${userInfo}ماذا تريد أن تفعل اليوم؟\n<i>ملاحظة: يمكنك التحدث معي كبشر وسأفهم طلبك مباشرة! 🤖💬</i>`;
       if (aiText) {
         messageToSend = aiText + `\n\n${userInfo}👇 <b>القائمة الرئيسية:</b>`;
       }
 
       const menuRows: any[] = [];
       if (isOwner) {
-        menuRows.push([{ text: '👑 لوحة تحكم المالك (Owner Hub)', callback_data: 'owner_hub_main' }]);
+        menuRows.push([{ text: '👑 لوحة تحكم المالك', callback_data: 'owner_hub_main' }]);
       }
-      menuRows.push([{ text: '🟢 إعلاناتي النشطة فقط 🟢', callback_data: 'my_active_ads_summary' }]);
-      menuRows.push([{ text: '🚀 ترويج ونشر إعلاناتي بالمنصات (بالنقاط) ⭐', callback_data: 'promo_select_ad' }]);
-      menuRows.push([{ text: '🚗 اعرض سيارتك للبيع مجاناً', callback_data: 'publish_car' }]);
-      menuRows.push([{ text: '🚌 انشر خط نقل (سائق / راكب)', callback_data: 'publish_transport' }, { text: '📦 نشر منتج عام', callback_data: 'publish_product' }]);
-      menuRows.push([{ text: '🎁 شارك واكسب نقاط مجانية', callback_data: 'invite_and_earn' }, { text: '📋 إدارة إعلاناتي وخطوطي', callback_data: 'manage_my_ads' }]);
-      menuRows.push([{ text: '🔗 ربط قناتك مع سوق بغداد', callback_data: 'partner_connect_start' }, { text: '🎟️ تعبئة بروموكود', callback_data: 'redeem_promo' }]);
-      menuRows.push([{ text: '💳 شراء نقاط', callback_data: 'buy_points' }, { text: '📖 كيفية التسجيل', callback_data: 'how_to_register' }]);
-      menuRows.push([{ text: '🔑 نسيت كلمة المرور', callback_data: 'forgot_password' }, { text: '❓ الأسئلة الشائعة', callback_data: 'faq' }]);
-      menuRows.push([{ text: '🔔 إدارة إشعاراتي', callback_data: 'manage_alerts' }, { text: '🔌 تحديث/إعادة ربط الحساب', callback_data: 'relink_account' }]);
+      
+      // Clear, simple buttons based on user request:
+      menuRows.push([{ text: '🚌 نشر خط نقل (طالب/سائق)', callback_data: 'publish_transport' }]);
+      menuRows.push([{ text: '🚗 عرض سيارتي للبيع', callback_data: 'publish_car' }]);
+      menuRows.push([{ text: '📦 نشر إعلان آخر (منتجات)', callback_data: 'publish_product' }]);
+      menuRows.push([{ text: '🟢 إعلاناتي النشطة وتعديلها', callback_data: 'manage_my_ads' }]);
+      menuRows.push([{ text: '💼 حسابي وخدمات أخرى ⚙️', callback_data: 'account_services' }]);
 
       const menuMarkup = { inline_keyboard: menuRows };
 
@@ -5836,6 +5834,17 @@ Deno.serve(async (req: any) => {
       await answerCallbackQuery(callbackQuery.id);
       const action = callbackQuery.data;
       
+      if (action === 'account_services') {
+        const accRows = [
+          [{ text: '🚀 ترويج ونشر بالمنصات', callback_data: 'promo_select_ad' }],
+          [{ text: '🎁 شارك واكسب نقاط', callback_data: 'invite_and_earn' }, { text: '🎟️ تعبئة بروموكود', callback_data: 'redeem_promo' }],
+          [{ text: '💳 شراء نقاط', callback_data: 'buy_points' }, { text: '🔔 إدارة إشعاراتي', callback_data: 'manage_alerts' }],
+          [{ text: '🔗 ربط قناتك', callback_data: 'partner_connect_start' }, { text: '🔑 تغيير كلمة المرور', callback_data: 'forgot_password' }],
+          [{ text: '🔌 إعادة ربط الحساب', callback_data: 'relink_account' }, { text: '🔙 العودة للرئيسية', callback_data: 'main_menu' }]
+        ];
+        return await updateOrSend(`💼 <b>حسابي والخدمات الإضافية</b>\n\nاختر من القائمة أدناه:`, { inline_keyboard: accRows });
+      }
+
       if (action === 'relink_account') {
         await supabase.from('telegram_users').delete().eq('telegram_chat_id', chatId);
         await sendMessage(chatId, 'تم إلغاء ربط حسابك الحالي بالبوت.\n\nيرجى مشاركة رقم هاتفك للتحقق وإعادة الربط.', {
