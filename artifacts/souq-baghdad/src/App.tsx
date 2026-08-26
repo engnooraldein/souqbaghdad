@@ -41,7 +41,7 @@ import { AppBiometricBanner } from './components/AppBiometricBanner';
 import { GlobalModals } from './components/GlobalModals';
 import { BiometricLockScreen } from './components/BiometricLockScreen';
 import { SearchPage } from './components/SearchPage';
-import { Lock } from 'lucide-react';
+import { Lock, Settings, MessageCircle } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Badge } from '@capawesome/capacitor-badge';
 
@@ -298,6 +298,21 @@ export default function App() {
   const isOwner = user?.role === 'owner';
   const isAdmin = user?.role === 'admin' || isOwner;
 
+  const [maintenance, setMaintenance] = useState<{ active: boolean; message: string }>({ active: false, message: '' });
+  const [maintenanceLoaded, setMaintenanceLoaded] = useState(false);
+
+  useEffect(() => {
+    supabase.from('auto_publish_settings').select('settings').eq('category', 'system').maybeSingle().then(({ data, error }) => {
+      if (!error && data?.settings) {
+        setMaintenance({
+          active: !!data.settings.maintenance_mode,
+          message: data.settings.message || 'الموقع قيد التحديث والصيانة. نعود لكم قريباً!'
+        });
+      }
+      setMaintenanceLoaded(true);
+    });
+  }, []);
+
   // 2. Modals, Theme, Polling
   const { themeMode, isDarkMode, showThemeMenu, setShowThemeMenu, changeThemeMode, toggleDarkMode } = useAppTheme();
   const { isBiometricLocked, showBiometricBanner, setShowBiometricBanner, setIsBiometricLocked } = useBiometric(user, playNotificationSound);
@@ -526,6 +541,31 @@ export default function App() {
       setView('seller_public');
     }
   };
+  if (!maintenanceLoaded) {
+    return <LoadingScreen isLoading={true} />;
+  }
+
+  if (maintenance.active) {
+    return (
+      <div className={`min-h-screen flex flex-col items-center justify-center p-6 text-center transition-colors duration-300 ${isDarkMode ? 'dark bg-[#0c2b5e] text-white' : 'bg-slate-50 text-slate-900'}`}>
+        <div className="w-24 h-24 mb-6 rounded-full bg-blue-500/10 flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.3)]">
+          <Settings className="w-12 h-12 text-blue-500 animate-spin-slow" />
+        </div>
+        <h1 className="text-3xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-l from-blue-400 to-cyan-300">
+          تحديث وصيانة
+        </h1>
+        <p className="text-lg max-w-md text-slate-400 leading-relaxed mb-8">
+          {maintenance.message}
+        </p>
+        <div className="flex gap-4">
+          <a href="https://t.me/souqbaghdad_iq" target="_blank" rel="noreferrer" className="flex items-center gap-2 px-6 py-3 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 rounded-xl transition-all border border-blue-500/30">
+            <MessageCircle className="w-5 h-5" />
+            <span>قناة التليكرام</span>
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen pwa-outer-container transition-colors duration-300 ${isDarkMode ? 'dark bg-[black] text-white' : 'bg-slate-50 text-slate-900'}`}>
