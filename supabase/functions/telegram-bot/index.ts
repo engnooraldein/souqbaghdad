@@ -6208,25 +6208,8 @@ Deno.serve(async (req: any) => {
         state = {};
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        // Background Auto-sync for Cars: Facebook Feed, Instagram Feed + Stories
-        EdgeRuntime.waitUntil((async () => {
-          try {
-            const resolvedImages = await ensurePublicImages(insertedCar, 'ads', supabase);
-            const carPhotoPayload = resolvedImages.length > 0 ? resolvedImages : fallbackCarImage;
-            const carStoryPayload = buildStoryImageUrl(insertedCar, 'car', resolvedImages);
+        // DB Webhook will automatically pick up sync_status pending for Facebook/Instagram/Stories
 
-            // 1. Souq Baghdad Facebook Post
-            await postToFacebook(channelCaption, carPhotoPayload);
-
-            // 2. Souq Baghdad Facebook Story
-            await postToFacebookStory(carStoryPayload, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
-
-            // 3. Instagram Story
-            await postToInstagramStory(carStoryPayload);
-          } catch(err) {
-            console.error('Car social auto-broadcast background error:', err);
-          }
-        })());
 
         return new Response('OK', { status: 200 });
       }
@@ -8510,7 +8493,8 @@ Deno.serve(async (req: any) => {
               seller_id: userId,
               seller_name: userProfile?.full_name || 'بائع',
               seller_avatar: userProfile?.avatar_url || '',
-              status: 'active'
+              status: 'active',
+              sync_status: { telegram: 'skip', facebook: 'pending', instagram: 'pending', tiktok: 'pending', threads: 'pending' }
             }).select().single();
 
             if (!inserted) {
@@ -8587,45 +8571,9 @@ Deno.serve(async (req: any) => {
             // 3b. Broadcast to Partner Channels Network (Products/All)
             EdgeRuntime.waitUntil(broadcastToPartnerChannels(inserted, 'products', tgCaption, prodImages, tgButtons, supabase));
 
-            // 4. Social media caption
-            const socialCaption = await generateSocialCaption(
-              inserted,
-              'product',
-              productLink,
-              false
-            );
+            // DB Webhook will automatically pick up sync_status pending for Facebook/Instagram/Stories/Threads
 
-            // 5. Facebook
-            if (META_PAGE_ACCESS_TOKEN) {
-              try {
-                const fbData = await postToFacebook(socialCaption, prodImages && prodImages.length > 0 ? prodImages : null);
-                if (fbData && (fbData.post_id || fbData.id)) {
-                  updates.facebook_post_id = fbData.post_id || fbData.id;
-                }
-              } catch(e) { console.error('[PROD] FB error:', e); }
-            }
-
-            // 6. Instagram (only if we have images)
-            if (META_IG_ACCOUNT_ID && META_PAGE_ACCESS_TOKEN && mainImage) {
-              try {
-                const igData = await postToInstagram(socialCaption, prodImages && prodImages.length > 0 ? prodImages : null);
-                if (igData && (igData.id || igData.media_id)) {
-                  updates.instagram_post_id = igData.id || igData.media_id;
-                }
-              } catch(e) { console.error('[PROD] IG error:', e); }
-            }
-
-            // 7. Threads
-            if (THREADS_ACCESS_TOKEN) {
-              try {
-                const thData = await postToThreads(socialCaption, prodImages && prodImages.length > 0 ? prodImages : null);
-                if (thData && thData.id) {
-                  updates.threads_post_id = thData.id;
-                }
-              } catch(e) { console.error('[PROD] Threads error:', e); }
-            }
-
-            // 8. Update DB with social IDs
+            // 8. Update DB with social IDs (Telegram only here)
             if (Object.keys(updates).length > 0) {
               await supabase.from('products').update(updates).eq('id', inserted.id);
             }
