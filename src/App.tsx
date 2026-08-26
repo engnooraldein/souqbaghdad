@@ -2702,7 +2702,7 @@ export default function App() {
     return <LoadingScreen isLoading={true} />;
   }
 
-  if (maintenance.active && user?.role !== 'owner' && user?.role !== 'admin') {
+  if (maintenance.active) {
     return (
       <div className={`min-h-screen flex flex-col items-center justify-center p-6 text-center transition-colors duration-300 ${isDarkMode ? 'dark bg-[#0c2b5e] text-white' : 'bg-slate-50 text-slate-900'}`}>
         <div className="w-24 h-24 mb-6 rounded-full bg-blue-500/10 flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.3)]">
