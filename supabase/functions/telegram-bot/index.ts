@@ -4981,6 +4981,61 @@ Deno.serve(async (req: any) => {
       return new Response('OK', { status: 200 });
     }
 
+    if (isOwner && trimmedText === '/test_story') {
+      await sendMessage(chatId, '⏳ <i>جاري سحب آخر إعلان سيارات ونشره كستوري انستغرام للتجربة...</i>');
+      try {
+        const { data: latestAd } = await supabase.from('ads').select('*').eq('category', 'vehicles').eq('status', 'active').not('image_url', 'is', null).order('created_at', { ascending: false }).limit(1).single();
+        if (latestAd && latestAd.image_url) {
+          const igToken = META_PAGE_ACCESS_TOKEN;
+          const igAccountId = Deno.env.get('META_IG_ACCOUNT_ID') || '17841461141753177'; // Fallback to souqbaghdad IG ID if missing
+          
+          if (!igToken) throw new Error("Missing Meta Access Token");
+
+          // 1. Create Media Container for Story
+          const containerRes = await fetch(`https://graph.facebook.com/v21.0/${igAccountId}/media`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              image_url: latestAd.image_url,
+              media_type: 'STORIES',
+              access_token: igToken
+            })
+          });
+          
+          const containerData = await containerRes.json();
+          if (containerData.error) {
+            await sendMessage(chatId, `❌ خطأ بإنشاء الستوري: ${JSON.stringify(containerData.error)}`);
+            return new Response('OK', { status: 200 });
+          }
+
+          const creationId = containerData.id;
+
+          // 2. Publish Story
+          const publishRes = await fetch(`https://graph.facebook.com/v21.0/${igAccountId}/media_publish`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              creation_id: creationId,
+              access_token: igToken
+            })
+          });
+
+          const publishData = await publishRes.json();
+          if (publishData.error) {
+            await sendMessage(chatId, `❌ خطأ بنشر الستوري: ${JSON.stringify(publishData.error)}`);
+          } else {
+            await sendMessage(chatId, `✅ <b>تم نشر الستوري بنجاح!</b>\n\nافتح انستغرام سوق بغداد وشوف الستوري الآن.\nID: ${publishData.id}`);
+          }
+
+        } else {
+           await sendMessage(chatId, '❌ لم يتم العثور على إعلان سيارات يحتوي على صورة.');
+        }
+      } catch (err: any) {
+        await sendMessage(chatId, `❌ Exception: ${err.message}`);
+      }
+      return new Response('OK', { status: 200 });
+    }
+
     // ⚙️ Owner Command: /social, /control, /channels, social_management, التسعيرة, لوحة تحكم المنصات
     const isSocialManagementIntent = isOwner && (
       trimmedText === '/social' || trimmedText === '/control' || trimmedText === '/channels' || trimmedText === '/pricing' ||
