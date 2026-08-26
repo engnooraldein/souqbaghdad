@@ -89,7 +89,14 @@ serve(async (req) => {
     const mode = url.searchParams.get("type") || "post"; // "post" (1080x1350) or "story" (1080x1920)
     const category = (url.searchParams.get("category") || "transport").toLowerCase();
     const adType = (url.searchParams.get("ad_type") || "offer").toLowerCase();
-    const imageUrl = url.searchParams.get("image_url") || "";
+    
+    // Support multiple images separated by comma (up to 3)
+    let imageUrls: string[] = [];
+    const imagesParam = url.searchParams.get("images") || url.searchParams.get("image_url") || "";
+    if (imagesParam) {
+      imageUrls = imagesParam.split(',').map(u => u.trim()).filter(Boolean).slice(0, 3);
+    }
+    const hasImages = imageUrls.length > 0;
 
     // 1. Initialize WASM for Resvg
     if (!wasmInitialized) {
@@ -165,11 +172,36 @@ serve(async (req) => {
 
     // 4. Build Exact Editorial Template HTML (Clean LTR Flow with Pre-shaped Arabic)
     let innerContent = '';
-    if ((category === 'car' || category === 'general') && imageUrl) {
+    if ((category === 'car' || category === 'general') && hasImages) {
+      
+      let photoCardsHtml = '';
+      if (imageUrls.length === 1) {
+        photoCardsHtml = `<img src="${imageUrls[0]}" style="width: 100%; height: 100%; object-fit: cover;" />`;
+      } else if (imageUrls.length === 2) {
+        photoCardsHtml = `
+          <div style="display: flex; flex-direction: row; width: 100%; height: 100%;">
+            <img src="${imageUrls[0]}" style="width: 50%; height: 100%; object-fit: cover;" />
+            <img src="${imageUrls[1]}" style="width: 50%; height: 100%; object-fit: cover; border-left: 6px solid #ffffff;" />
+          </div>
+        `;
+      } else if (imageUrls.length >= 3) {
+        photoCardsHtml = `
+          <div style="display: flex; flex-direction: column; width: 100%; height: 100%;">
+            <div style="display: flex; width: 100%; height: 55%; overflow: hidden;">
+              <img src="${imageUrls[0]}" style="width: 100%; height: 100%; object-fit: cover;" />
+            </div>
+            <div style="display: flex; flex-direction: row; width: 100%; height: 45%; border-top: 6px solid #ffffff;">
+              <img src="${imageUrls[1]}" style="width: 50%; height: 100%; object-fit: cover;" />
+              <img src="${imageUrls[2]}" style="width: 50%; height: 100%; object-fit: cover; border-left: 6px solid #ffffff;" />
+            </div>
+          </div>
+        `;
+      }
+
       innerContent = `
         <!-- 2. Car / Product Hero Visual Photo Card (9:16 Optimized) -->
         <div style="display: flex; flex-direction: column; width: 100%; height: ${isPost ? '600px' : '900px'}; background: #ffffff; border: 2px solid #e9d5ff; border-radius: 32px; overflow: hidden; box-shadow: 0 15px 40px rgba(76,29,149,0.12); position: relative; z-index: 10;">
-          <img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: cover;" />
+          ${photoCardsHtml}
           <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(0deg, rgba(20,5,40,0.92) 0%, rgba(20,5,40,0.6) 60%, rgba(20,5,40,0) 100%); padding: 24px 30px; display: flex; flex-direction: column; align-items: flex-start;">
             <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%;">
               <span style="font-size: 38px; font-weight: bold; color: #ffffff; text-shadow: 0 2px 10px rgba(0,0,0,0.5);">${fixAr(rawTitle)}</span>

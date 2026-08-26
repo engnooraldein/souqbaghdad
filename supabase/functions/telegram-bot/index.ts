@@ -1927,9 +1927,18 @@ async function syncAndHealAd(ad: any, supabaseClient: any): Promise<{ healed: bo
   return { healed: changed, details };
 }
 
-function buildStoryImageUrl(record: any, category: string, primaryImage?: string): string {
+function buildStoryImageUrl(record: any, category: string, primaryImageOrImages?: string | string[]): string {
   const shortId = record.short_id || record.id || '';
-  const imgParam = primaryImage ? `&image_url=${encodeURIComponent(primaryImage)}` : '';
+  
+  let imgParam = '';
+  if (primaryImageOrImages) {
+    const imgArray = Array.isArray(primaryImageOrImages) ? primaryImageOrImages : [primaryImageOrImages];
+    if (imgArray.length > 0) {
+      const urls = imgArray.slice(0, 3).map((u: string) => encodeURIComponent(u)).join(',');
+      imgParam = `&images=${urls}`;
+    }
+  }
+
   const priceVal = record.price ? `${record.price} ${record.currency || 'د.ع'}` : '';
 
   const dynUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&category=${encodeURIComponent(category)}&title=${encodeURIComponent(record.title || '')}&regions=${encodeURIComponent(record.location || record.city || 'بغداد')}&destination=${encodeURIComponent(record.destination || record.city || 'بغداد')}&fare=${encodeURIComponent(priceVal)}&phone=${encodeURIComponent(record.phone || '')}&short_id=${shortId}${imgParam}`;
@@ -2269,6 +2278,28 @@ async function deleteFromInstagram(mediaId: string, customToken?: string) {
     return res.ok || data?.success === true;
   } catch (err) {
     console.error('IG Delete Error:', err);
+    return false;
+  }
+}
+
+async function commentOnInstagram(mediaId: string, text: string, customToken?: string) {
+  let token = customToken;
+  if (!token) {
+    const igSetting = await getLiveSocialSetting('ig_souq');
+    token = igSetting?.access_token || META_PAGE_ACCESS_TOKEN;
+  }
+  if (!token || !mediaId) return false;
+  try {
+    const res = await fetch(`https://graph.facebook.com/v20.0/${mediaId}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, access_token: token })
+    });
+    const data = await res.json().catch(() => ({}));
+    console.log(`[IG COMMENT] mediaId=${mediaId}, ok=${res.ok}`, data);
+    return res.ok || data?.id ? true : false;
+  } catch (err) {
+    console.error('IG Comment Error:', err);
     return false;
   }
 }
@@ -3204,14 +3235,14 @@ Deno.serve(async (req: any) => {
           await updateFacebookPost(rafdainFbPostId, fbSoldText, token);
         }
 
-        // 4. Delete Instagram post upon Sold / Completed (since IG API does not allow editing captions)
+        // 4. Comment on Instagram post upon Sold / Completed
         const igPostId = actualAd.instagram_post_id || record?.instagram_post_id || oldRecord?.instagram_post_id || actualAd.sync_status?.instagram_post_id || record?.sync_status?.instagram_post_id;
         if (igPostId) {
-          console.log(`[SOLD WEBHOOK] Deleting Instagram post ${igPostId} since IG doesn't support edit...`);
+          console.log(`[SOLD WEBHOOK] Commenting on Instagram post ${igPostId} to mark as sold...`);
           try {
-            await deleteFromInstagram(igPostId);
+            await commentOnInstagram(igPostId, fbSoldText);
           } catch (igDelErr) {
-            console.error('[SOLD WEBHOOK] Error deleting IG post:', igDelErr);
+            console.error('[SOLD WEBHOOK] Error commenting on IG post:', igDelErr);
           }
         }
       }
@@ -3371,7 +3402,7 @@ Deno.serve(async (req: any) => {
           const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
             ? await generateSocialCaption(record, 'car', link, false)
             : '';
-          const carStoryImg = buildStoryImageUrl(record, 'car', imagesToPost[0]);
+          const carStoryImg = buildStoryImageUrl(record, 'car', imagesToPost);
 
           if (publishFacebook) {
             const fbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl);
@@ -3501,7 +3532,7 @@ Deno.serve(async (req: any) => {
           const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
             ? await generateSocialCaption(record, 'product', link, false)
             : '';
-          const prodStoryImg = buildStoryImageUrl(record, 'product', imagesToPost[0]);
+          const prodStoryImg = buildStoryImageUrl(record, 'product', imagesToPost);
                               
           if (publishFacebook) {
             const fbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl);
@@ -3628,7 +3659,7 @@ Deno.serve(async (req: any) => {
           const fbIgCaption = (publishFacebook || publishInstagram || publishThreads || publishTiktok)
             ? await generateSocialCaption(record, 'ad', link, false)
             : '';
-          const generalStoryImg = buildStoryImageUrl(record, 'ad', imagesToPost[0]);
+          const generalStoryImg = buildStoryImageUrl(record, 'ad', imagesToPost);
                               
           if (publishFacebook) {
             const fbData = await postToFacebook(fbIgCaption, fbIgPhotoUrl);
@@ -6182,7 +6213,7 @@ Deno.serve(async (req: any) => {
           try {
             const resolvedImages = await ensurePublicImages(insertedCar, 'ads', supabase);
             const carPhotoPayload = resolvedImages.length > 0 ? resolvedImages : fallbackCarImage;
-            const carStoryPayload = buildStoryImageUrl(insertedCar, 'car', resolvedImages.length > 0 ? resolvedImages[0] : '');
+            const carStoryPayload = buildStoryImageUrl(insertedCar, 'car', resolvedImages);
 
             // 1. Souq Baghdad Facebook Post
             await postToFacebook(channelCaption, carPhotoPayload);
@@ -7383,7 +7414,7 @@ Deno.serve(async (req: any) => {
           ? allImages 
           : `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&category=${encodeURIComponent(targetAd.category || 'transport')}&title=${encodeURIComponent(targetAd.title)}&regions=${encodeURIComponent(targetAd.location || '')}&destination=${encodeURIComponent(targetAd.city || '')}&fare=${encodeURIComponent(targetAd.price || '')}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(targetAd.phone || '')}`;
 
-        const storyImg = buildStoryImageUrl(targetAd, targetAd.category || (isTransport ? 'transport' : 'car'), primaryImg);
+        const storyImg = buildStoryImageUrl(targetAd, targetAd.category || (isTransport ? 'transport' : 'car'), targetAd.images || primaryImg);
 
         let syncStatus = typeof targetAd.sync_status === 'object' && targetAd.sync_status ? { ...targetAd.sync_status } : {};
         let successReport = '';
