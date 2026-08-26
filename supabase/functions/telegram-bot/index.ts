@@ -4316,7 +4316,7 @@ Deno.serve(async (req: any) => {
 
     const fromUser = update.message?.from || update.callback_query?.from;
     const callbackQueryId = callbackQuery?.id;
-    if (callbackQueryId) {
+    if (callbackQueryId && text !== 'check_subscription') {
       // Dismiss Telegram loading spinner immediately so buttons never hang
       answerCallbackQuery(callbackQueryId);
     }
