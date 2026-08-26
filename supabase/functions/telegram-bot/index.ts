@@ -5114,6 +5114,7 @@ Deno.serve(async (req: any) => {
       const ownerMarkup = {
         inline_keyboard: [
           [{ text: '⚙️ الإدارة الشاملة للنشر التلقائي', callback_data: 'admin_autopublish' }],
+          [{ text: '🔴 تشغيل / إيقاف وضع الصيانة', callback_data: 'admin_toggle_maintenance' }],
           [{ text: '📡 قنوات السوشيال والتسعير', callback_data: '/social' }, { text: '📊 إحصائيات ونبض المنصة', callback_data: 'owner_stats' }],
           [{ text: '🪪 توثيق هويات السائقين', callback_data: 'owner_verifications' }, { text: '🔑 طلبات استرجاع الرمز', callback_data: 'owner_recoveries' }],
           [{ text: '🚩 البلاغات ومراجعة الإعلانات', callback_data: 'owner_reports' }, { text: '🪙 إهداء/خصم نقاط لمستخدم', callback_data: 'owner_gift_points_prompt' }],
@@ -5125,6 +5126,29 @@ Deno.serve(async (req: any) => {
       };
 
       return await updateOrSend(ownerMsg, ownerMarkup);
+    }
+
+    // --- Owner Action: Toggle Maintenance Mode ---
+    if (isOwner && trimmedText === 'admin_toggle_maintenance') {
+      const { data: currentSettings, error } = await supabase.from('auto_publish_settings').select('settings').eq('category', 'system').maybeSingle();
+      
+      let settings = currentSettings?.settings || {};
+      settings.maintenance_mode = !settings.maintenance_mode;
+      settings.message = settings.message || 'الموقع قيد التحديث والصيانة. نعود لكم قريباً!';
+
+      if (error || !currentSettings) {
+        await supabase.from('auto_publish_settings').upsert({ category: 'system', settings }, { onConflict: 'category' });
+      } else {
+        await supabase.from('auto_publish_settings').update({ settings, updated_at: new Date().toISOString() }).eq('category', 'system');
+      }
+
+      const statusMsg = settings.maintenance_mode 
+        ? '🔴 <b>تم تفعيل وضع الصيانة!</b>\nالموقع الآن معطل للجميع ولن يستهلك أي بيانات.'
+        : '🟢 <b>تم إيقاف وضع الصيانة!</b>\nعاد الموقع للعمل بشكل طبيعي للجميع.';
+
+      return await updateOrSend(statusMsg, {
+        inline_keyboard: [[{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]]
+      });
     }
 
     // --- Owner Action: Sync Ads ---
