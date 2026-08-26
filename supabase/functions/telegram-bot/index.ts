@@ -4737,6 +4737,49 @@ Deno.serve(async (req: any) => {
       return new Response('OK', { status: 200 });
     }
     const trimmedText = (text || '').trim();
+
+    // 🛡️ FORCE SUBSCRIBE LOGIC
+    if (!isOwner && chatType === 'private') {
+      let isSubscribed = true;
+      try {
+        const channelsToCheck = ['@souqbaghdad_iq', '@souqbaghdad_car', '@souqbaghdad_lines'];
+        const subChecks = await Promise.all(
+          channelsToCheck.map(ch => getChatMember(ch, chatId))
+        );
+        isSubscribed = subChecks.every(member => member && ['creator', 'administrator', 'member', 'restricted'].includes(member.status));
+      } catch (e) {
+        console.error('Force subscribe check error:', e);
+      }
+
+      if (!isSubscribed) {
+        if (callbackQueryId && trimmedText === 'check_subscription') {
+           answerCallbackQuery(callbackQueryId, '❌ عذراً، يجب الاشتراك في جميع القنوات أولاً.', true);
+        } else if (trimmedText !== 'check_subscription') {
+          const subMsg = `👋 <b>أهلاً بك يالغالي في بوت سوق بغداد!</b>\n\n` +
+            `عذراً، لا يمكنك استخدام البوت أو النشر قبل الاشتراك في قنواتنا الرسمية لدعمنا والاستمرار بتقديم الخدمة مجاناً للجميع 🌹\n\n` +
+            `👇 <b>يرجى الاشتراك في القنوات التالية لتفعيل البوت:</b>`;
+          
+          const subMarkup = {
+            inline_keyboard: [
+              [{ text: '📢 سوق بغداد (العامة)', url: 'https://t.me/souqbaghdad_iq' }],
+              [{ text: '🚗 سيارات سوق بغداد', url: 'https://t.me/souqbaghdad_car' }],
+              [{ text: '🚌 خطوط النقل والجامعات', url: 'https://t.me/souqbaghdad_lines' }],
+              [{ text: '✅ تحقق من الاشتراك', callback_data: 'check_subscription' }]
+            ]
+          };
+          if (callbackMsgId) {
+             await updateOrSend(subMsg, subMarkup);
+          } else {
+             await sendMessage(chatId, subMsg, subMarkup);
+          }
+        }
+        return new Response('OK', { status: 200 });
+      } else if (trimmedText === 'check_subscription') {
+         if (callbackQueryId) answerCallbackQuery(callbackQueryId, '✅ شكراً لاشتراكك! يمكنك استخدام البوت الآن.', true);
+         text = '/start'; // Trigger main menu automatically
+      }
+    }
+
     if (isOwner && (trimmedText.startsWith('EAAP') || trimmedText.startsWith('EAA') || trimmedText.startsWith('IGAA') || (trimmedText.length > 100 && !trimmedText.includes(' ') && trimmedText.startsWith('E')))) {
       console.log(`[OWNER TOKEN RECEIVED] ChatId: ${chatId}, token prefix: ${trimmedText.substring(0, 10)}...`);
       await sendMessage(chatId, '⏳ <i>جاري فحص وتفعيل التوكن والتحقق من الصلاحيات...</i>');
