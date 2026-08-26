@@ -1982,7 +1982,7 @@ async function postToFacebookStory(photoUrl: string, pageId: string, accessToken
     // Upload photo via binary multipart
     let imgBlob: Blob | null = null;
     try {
-      const imgFetch = await fetch(targetPhotoUrl);
+      const imgFetch = await fetch(targetPhotoUrl, { signal: AbortSignal.timeout(8000) });
       if (imgFetch.ok) {
         imgBlob = await imgFetch.blob();
       }
@@ -2062,7 +2062,7 @@ async function postToInstagramStory(photoUrl: string, igAccountId?: string, acce
 
   if (targetPhotoUrl.includes('wsrv.nl')) {
     try { 
-      const res = await fetch(targetPhotoUrl); 
+      const res = await fetch(targetPhotoUrl, { signal: AbortSignal.timeout(8000) }); 
       if (res.ok) {
         const buffer = await res.arrayBuffer();
         const fileName = `story-${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
@@ -8627,6 +8627,12 @@ Deno.serve(async (req: any) => {
 
       // Redeem Promo Code Action
       if (action === 'redeem_promo') {
+        if (!userId) {
+          await updateOrSend('⚠️ <b>عذراً، يجب عليك تفعيل رقم هاتفك وإنشاء حساب أولاً لاستخدام الأكواد الترويجية وشحن الرصيد.</b>', {
+            inline_keyboard: [[{ text: '📱 تفعيل رقم الهاتف الآن', callback_data: 'share_phone_prompt' }]]
+          });
+          return new Response('OK', { status: 200 });
+        }
         state = { step: 'enter_promo_code' };
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
         await updateOrSend('🎟️ <b>شحن وتعبئة بروموكود (كود نقاط)</b> 🪙\n\nأرسل رمز الكود الآن في رسالة (مثال: <code>GIFT50</code> أو <code>VIP100</code>):', {
@@ -9739,6 +9745,15 @@ Deno.serve(async (req: any) => {
 
       // Promo Code Redemption Input
       else if (state.step === 'enter_promo_code' && text) {
+        if (!userId) {
+          await sendMessage(chatId, '⚠️ <b>عذراً، يجب عليك تفعيل رقم هاتفك وإنشاء حساب أولاً لاستخدام الأكواد الترويجية وشحن الرصيد.</b>', {
+            inline_keyboard: [[{ text: '📱 تفعيل رقم الهاتف الآن', callback_data: 'share_phone_prompt' }]]
+          });
+          state = {};
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+          return new Response('OK', { status: 200 });
+        }
+
         const inputCode = text.trim().toUpperCase();
         
         // 1. Fetch promo code
