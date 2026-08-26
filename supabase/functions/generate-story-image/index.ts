@@ -79,7 +79,10 @@ const SVGS = {
   star: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
 };
 
-serve(async (req) => {
+let cachedNotoData: ArrayBuffer | null = null;
+let cachedAlmaraiData: ArrayBuffer | null = null;
+
+serve(async (req: Request) => {
   try {
     const url = new URL(req.url);
     const mode = url.searchParams.get("type") || "post"; // "post" (1080x1350) or "story" (1080x1920)
@@ -93,15 +96,17 @@ serve(async (req) => {
       wasmInitialized = true;
     }
 
-    // 2. Fetch Complete Arabic (Noto) + Latin (Almarai) Fonts
-    const [notoRes, almaraiRes] = await Promise.all([
-      fetch('https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf'),
-      fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/almarai/Almarai-Bold.ttf')
-    ]);
-    const [notoData, almaraiData] = await Promise.all([
-      notoRes.arrayBuffer(),
-      almaraiRes.arrayBuffer()
-    ]);
+    // 2. Fetch Complete Arabic (Noto) + Latin (Almarai) Fonts (Cached)
+    if (!cachedNotoData || !cachedAlmaraiData) {
+      const [notoRes, almaraiRes] = await Promise.all([
+        fetch('https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf'),
+        fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/almarai/Almarai-Bold.ttf')
+      ]);
+      cachedNotoData = await notoRes.arrayBuffer();
+      cachedAlmaraiData = await almaraiRes.arrayBuffer();
+    }
+    const notoData = cachedNotoData;
+    const almaraiData = cachedAlmaraiData;
 
     const isPost = mode === "post";
     const canvasWidth = 1080;
