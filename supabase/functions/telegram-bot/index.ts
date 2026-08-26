@@ -7313,56 +7313,52 @@ Deno.serve(async (req: any) => {
               socialUpdates.sync_status = currentSync;
               await supabase.from('ads').update(socialUpdates).eq('id', insertedTrans.id);
 
-              // Send rich verification report back to user in Telegram
+              // Send concise verification report with direct post links
               try {
-                const fbItems: string[] = [];
-                if (currentSync.facebook === 'success' || currentSync.facebook_story === 'success') {
-                  fbItems.push('  • بوست فيد + ستوري صفحة سوق بغداد الرسمية ✅');
-                }
-                if (isAlRafdain) {
-                  if (currentSync.rafdain_facebook === 'success' || currentSync.rafdain_facebook_story === 'success') {
-                    fbItems.push('  • بوست فيد + ستوري صفحة كلية الرافدين الجامعة ✅');
-                  }
-                }
-                const fbReport = fbItems.length > 0 ? fbItems.join('\n') : '⚪ قيد المعالجة';
-
-                const igItems: string[] = [];
-                if (currentSync.instagram === 'success' || currentSync.instagram_story === 'success') {
-                  igItems.push('  • بوست فيد + ستوري 9:16 سوق بغداد @souqbaghdad.iq ✅');
-                }
-                if (isAlRafdain && currentSync.rafdain_instagram_story === 'success') {
-                  igItems.push('  • ستوري (Story 9:16) كلية الرافدين @al_rafdain ✅');
-                }
-                const igReport = igItems.length > 0 ? igItems.join('\n') : '⚪ قيد المعالجة';
-
-                let tgReport = `  • قناة الخطوط الرسمية: <code>@souqbaghdad_lines</code> ✅`;
-                if (isAlRafdain) {
-                  tgReport += `\n  • قناة كلية الرافدين: <code>@ruc_1</code> ✅`;
-                }
-
-                const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(`🚌 إعلان خط نقل: ${cleanRegions} إلى ${cleanDestination}`)}`;
-
-                const receiptMsg = `📊 <b>تقرير توثيق ونشر إعلان الخط على جميع المنصات 🚀</b>\n\n` +
-                                   `🔖 <b>كود الإعلان:</b> <code>#${shortId}</code>\n` +
-                                   `📍 <b>المسار:</b> ${cleanRegions} ⬅️ ${cleanDestination}\n` +
-                                   `💰 <b>الأجرة:</b> ${cleanFare}\n\n` +
-                                   `📘 <b>فيسبوك (Facebook Post & Story):</b>\n${fbReport}\n\n` +
-                                   `📸 <b>انستغرام (Instagram Feed & Story):</b>\n${igReport}\n\n` +
-                                   `✈️ <b>تيليجرام (Telegram Channels):</b>\n${tgReport}\n\n` +
-                                   `🌐 <b>موقع ومنصة سوق بغداد:</b>\n  • بطاقة تفاعلية كاملة مع زر اتصال وواتساب وحجز مباشر ✅\n\n` +
-                                   `💡 <b>ملاحظة:</b> إذا حذفت الإعلان سينحذف تلقائياً من جميع المنصات، ويمكنك إعادة نشره أو ترويجه في أي وقت عبر زر الترويج أدناه.\n\n` +
-                                   `❤️ <i>شكراً لثقتك بمنصة سوق بغداد الرقمي 🤝</i>`;
-
                 const tgPostLink = tgMsgId ? `https://t.me/${(LINES_CHANNEL_ID || LINES_CHANNEL).replace('@', '')}/${tgMsgId}` : null;
+                const rucPostLink = rucMsgId ? `https://t.me/${ALRAFDAIN_TELEGRAM_CHANNEL.replace('@', '')}/${rucMsgId}` : null;
+                const fbPostLink = socialUpdates.facebook_post_id ? `https://www.facebook.com/${socialUpdates.facebook_post_id}` : null;
+                const igPostLink = socialUpdates.instagram_post_id ? `https://www.instagram.com/p/${socialUpdates.instagram_post_id}/` : null;
 
-                await sendMessage(chatId, receiptMsg, {
-                  inline_keyboard: [
-                    [{ text: '🌐 عرض بطاقة الخط في الموقع', url: link }, ...(tgPostLink ? [{ text: '📢 شاهد إعلانك بالقناة', url: tgPostLink }] : [])],
-                    [{ text: '🚀 ترويج وتمييز الخط بالصدارة (VIP)', callback_data: `promo_menu_${insertedTrans.id}` }],
-                    [{ text: '📲 مشاركة الرابط مع الأصدقاء', url: shareUrl }],
-                    [{ text: '📊 تقارير إعلاناتي', callback_data: 'my_publish_reports' }, { text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
-                  ]
-                });
+                const platformLines: string[] = [];
+                // Telegram
+                const tgOk = tgPostLink ? `✅ تيليجرام @souqbaghdad_lines` : `⚪ تيليجرام`;
+                platformLines.push(tgOk);
+                if (isAlRafdain) platformLines.push(rucPostLink ? `✅ قناة الرافدين @ruc_1` : `⚪ قناة الرافدين`);
+                // Facebook
+                platformLines.push(currentSync.facebook === 'success' ? `✅ فيسبوك — بوست + ستوري` : `⚪ فيسبوك`);
+                if (isAlRafdain) platformLines.push(currentSync.rafdain_facebook === 'success' ? `✅ فيسبوك الرافدين — بوست + ستوري` : `⚪ فيسبوك الرافدين`);
+                // Instagram
+                platformLines.push(currentSync.instagram === 'success' ? `✅ انستغرام — بوست + ستوري` : `⚪ انستغرام`);
+                if (isAlRafdain && currentSync.rafdain_instagram_story === 'success') platformLines.push(`✅ انستغرام الرافدين — ستوري`);
+
+                const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(`🚌 خط نقل: ${cleanRegions} ← ${cleanDestination}`)}`;
+
+                const receiptMsg =
+                  `📊 <b>تقرير النشر — #${shortId}</b>\n` +
+                  `🚌 ${cleanRegions} ⬅️ ${cleanDestination} | 💰 ${cleanFare}\n\n` +
+                  platformLines.join('\n') + '\n\n' +
+                  `🌐 بطاقة تفاعلية بالموقع ✅\n` +
+                  `❤️ <i>شكراً لثقتك بمنصة سوق بغداد 🤝</i>`;
+
+                // Build buttons with direct post view links
+                const reportButtons: any[][] = [];
+                const viewRow: any[] = [];
+                if (tgPostLink) viewRow.push({ text: '📢 عرض بالقناة', url: tgPostLink });
+                if (fbPostLink) viewRow.push({ text: '📘 عرض بفيسبوك', url: fbPostLink });
+                if (viewRow.length > 0) reportButtons.push(viewRow);
+
+                const viewRow2: any[] = [];
+                if (igPostLink) viewRow2.push({ text: '📸 عرض بانستغرام', url: igPostLink });
+                if (rucPostLink) viewRow2.push({ text: '🏛️ عرض قناة الرافدين', url: rucPostLink });
+                if (viewRow2.length > 0) reportButtons.push(viewRow2);
+
+                reportButtons.push([{ text: '🌐 بطاقة الخط بالموقع', url: link }]);
+                reportButtons.push([{ text: '🚀 ترويج VIP — صدارة المنصات', callback_data: `promo_menu_${insertedTrans.id}` }]);
+                reportButtons.push([{ text: '📲 مشاركة مع الأصدقاء', url: shareUrl }]);
+                reportButtons.push([{ text: '📊 تقارير إعلاناتي', callback_data: 'my_publish_reports' }, { text: '🏠 الرئيسية', callback_data: 'main_menu' }]);
+
+                await sendMessage(chatId, receiptMsg, { inline_keyboard: reportButtons });
               } catch (msgErr) {
                 console.error('Error sending social receipt to chat:', msgErr);
               }
