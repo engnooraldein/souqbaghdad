@@ -5081,6 +5081,7 @@ Deno.serve(async (req: any) => {
       if (isOwner) {
         menuRows.push([{ text: '👑 لوحة تحكم المالك (Owner Hub)', callback_data: 'owner_hub_main' }]);
       }
+      menuRows.push([{ text: '🟢 إعلاناتي النشطة فقط 🟢', callback_data: 'my_active_ads_summary' }]);
       menuRows.push([{ text: '🚀 ترويج ونشر إعلاناتي بالمنصات (بالنقاط) ⭐', callback_data: 'promo_select_ad' }]);
       menuRows.push([{ text: '🚗 اعرض سيارتك للبيع مجاناً', callback_data: 'publish_car' }]);
       menuRows.push([{ text: '🚌 انشر خط نقل (سائق / راكب)', callback_data: 'publish_transport' }, { text: '📦 نشر منتج عام', callback_data: 'publish_product' }]);
@@ -7089,6 +7090,39 @@ Deno.serve(async (req: any) => {
           publishBackground();
         }
 
+        return new Response('OK', { status: 200 });
+      }
+
+      // ==========================================
+      // 🟢 MY ACTIVE ADS SUMMARY
+      // ==========================================
+      if (action === 'my_active_ads_summary') {
+        const { data: myAds } = await supabase.from('ads').select('id, category, title').eq('seller_id', userId).eq('status', 'active');
+        const { data: myProds } = await supabase.from('products').select('id, title').eq('seller_id', userId).eq('status', 'active');
+        
+        const activeCars = (myAds || []).filter(a => a.category === 'vehicles' || a.category === 'cars');
+        const activeTrans = (myAds || []).filter(a => a.category === 'transport');
+        const activeProds = myProds || [];
+        
+        const total = activeCars.length + activeTrans.length + activeProds.length;
+        if (total === 0) {
+          await updateOrSend('📭 <b>لا يوجد لديك أي إعلانات نشطة حالياً.</b>\nإذا قمت بنشر إعلان حديثاً، قد يكون قيد المراجعة أو تم بيعه.', { inline_keyboard: [[{ text: '🔙 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]] });
+          return new Response('OK', { status: 200 });
+        }
+        
+        let msg = `✅ <b>لديك ${total} إعلانات نشطة حالياً:</b>\n\n`;
+        if (activeCars.length > 0) msg += `🚗 <b>قسم السيارات:</b> ${activeCars.length} إعلان\n`;
+        if (activeTrans.length > 0) msg += `🚌 <b>قسم خطوط النقل:</b> ${activeTrans.length} إعلان\n`;
+        if (activeProds.length > 0) msg += `📦 <b>قسم السلع والمنتجات:</b> ${activeProds.length} إعلان\n`;
+        msg += `\n👇 انقر على القسم أدناه لعرض تفاصيل إعلاناتك النشطة وإدارتها (تعديل السعر/حذف/الخ):`;
+        
+        const btns = [];
+        if (activeCars.length > 0) btns.push([{ text: `🚗 إدارة سياراتي النشطة (${activeCars.length})`, callback_data: 'manage_cat_cars' }]);
+        if (activeTrans.length > 0) btns.push([{ text: `🚌 إدارة خطوطي النشطة (${activeTrans.length})`, callback_data: 'manage_cat_trans' }]);
+        if (activeProds.length > 0) btns.push([{ text: `📦 إدارة منتجاتي النشطة (${activeProds.length})`, callback_data: 'manage_cat_ads' }]);
+        btns.push([{ text: '🔙 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]);
+        
+        await updateOrSend(msg, { inline_keyboard: btns });
         return new Response('OK', { status: 200 });
       }
 
