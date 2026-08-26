@@ -90,11 +90,12 @@ serve(async (req) => {
     const category = (url.searchParams.get("category") || "transport").toLowerCase();
     const adType = (url.searchParams.get("ad_type") || "offer").toLowerCase();
     
-    // Support multiple images separated by comma (up to 3)
+    // Support multiple images separated by comma
     let imageUrls: string[] = [];
     const imagesParam = url.searchParams.get("images") || url.searchParams.get("image_url") || "";
     if (imagesParam) {
-      imageUrls = imagesParam.split(',').map(u => u.trim()).filter(Boolean).slice(0, 3);
+      const maxImages = (mode === 'story' && category !== 'transport') ? 7 : 3;
+      imageUrls = imagesParam.split(',').map(u => u.trim()).filter(Boolean).slice(0, maxImages);
     }
     const hasImages = imageUrls.length > 0;
 
@@ -409,88 +410,151 @@ serve(async (req) => {
       `;
     }
 
-    const rawHtml = `
-      <div style="display: flex; flex-direction: column; width: 1080px; height: ${canvasHeight}px; background: #fbfbfe; color: #1e1b4b; padding: 48px 52px; font-family: 'Almarai', sans-serif; box-sizing: border-box; justify-content: space-between; position: relative;">
-        
-        <!-- Decorative Header Background Curves -->
-        <div style="position: absolute; top: 0; right: 0; left: 0; height: 380px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-bottom-left-radius: 60px; border-bottom-right-radius: 60px; opacity: 0.8; display: flex;"></div>
-        <div style="position: absolute; top: -50px; left: -50px; width: 350px; height: 350px; border-radius: 175px; background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, rgba(245,243,255,0) 70%); display: flex;"></div>
+    let rawHtml = '';
+    
+    if (mode === 'story' && category !== 'transport') {
+      let imagesGridHtml = '';
+      if (hasImages) {
+        const topImg = imageUrls[0] ? `<img src="${imageUrls[0]}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 20px;" />` : '';
+        const row2Left = imageUrls[1] ? `<img src="${imageUrls[1]}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 20px;" />` : '';
+        const row2Right = imageUrls[2] ? `<img src="${imageUrls[2]}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 20px;" />` : '';
+        const row3Right = imageUrls[3] ? `<img src="${imageUrls[3]}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 20px;" />` : '';
+        const b1 = imageUrls[4] ? `<img src="${imageUrls[4]}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 20px;" />` : '';
+        const b2 = imageUrls[5] ? `<img src="${imageUrls[5]}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 20px;" />` : '';
+        const b3 = imageUrls[6] ? `<img src="${imageUrls[6]}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 20px;" />` : '';
 
-        <!-- 1. Top Header Row (Logo Left + Main Title Right) -->
-        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; width: 100%; position: relative; z-index: 10; margin-bottom: 20px; margin-top: 8px;">
+        const hasRow2 = imageUrls[1] || imageUrls[2];
+        const hasRow3Img = imageUrls[3];
+        const hasBottomRow = imageUrls[4] || imageUrls[5] || imageUrls[6];
+
+        imagesGridHtml = `
+          <div style="display: flex; flex-direction: column; width: 1080px; height: 1920px; background: #ffffff; color: #1e1b4b; padding: 40px; font-family: 'Almarai', sans-serif; box-sizing: border-box; justify-content: space-between;">
+            
+            <!-- Row 1: Large Top Image -->
+            ${imageUrls[0] ? `<div style="display: flex; width: 100%; height: 500px;">${topImg}</div>` : ''}
+            
+            <!-- Row 2: 2 Square Images -->
+            ${hasRow2 ? `
+            <div style="display: flex; flex-direction: row; width: 100%; height: 400px; gap: 30px;">
+              <div style="display: flex; flex: 1;">${row2Left}</div>
+              <div style="display: flex; flex: 1;">${row2Right}</div>
+            </div>` : ''}
+
+            <!-- Row 3: Text (Right visually for Arabic) + Image (Left) -->
+            <div style="display: flex; flex-direction: row; width: 100%; ${hasRow3Img ? 'height: 400px;' : 'flex: 1;'} gap: 30px; align-items: center; justify-content: space-between;">
+              <div style="display: flex; flex-direction: column; flex: 1; padding: 10px; align-items: flex-end; text-align: right;">
+                 <span style="font-size: 64px; font-weight: bold; color: #1e1b4b; line-height: 1.2;">${fixAr(rawTitle)}</span>
+                 <span style="font-size: 46px; font-weight: bold; color: #7c3aed; margin-top: 15px;">${fixAr(rawFare)}</span>
+                 ${regions ? `<span style="font-size: 34px; color: #6b7280; margin-top: 15px;">${fixAr(regions)}</span>` : ''}
+                 <span style="font-size: 34px; color: #4b5563; font-weight: bold; margin-top: 30px;">${fixAr(subHeadline)}</span>
+              </div>
+              ${hasRow3Img ? `<div style="display: flex; flex: 1; height: 100%;">${row3Right}</div>` : ''}
+            </div>
+
+            <!-- Row 4: 3 Vertical Images -->
+            ${hasBottomRow ? `
+            <div style="display: flex; flex-direction: row; width: 100%; height: 450px; gap: 30px;">
+              <div style="display: flex; flex: 1;">${b1}</div>
+              <div style="display: flex; flex: 1;">${b2}</div>
+              <div style="display: flex; flex: 1;">${b3}</div>
+            </div>` : ''}
+
+          </div>
+        `;
+      } else {
+        imagesGridHtml = `
+          <div style="display: flex; flex-direction: column; width: 1080px; height: 1920px; align-items: center; justify-content: center; background: #ffffff; font-family: 'Almarai', sans-serif;">
+            <span style="font-size: 70px; color: #1e1b4b; font-weight: bold;">${fixAr(rawTitle)}</span>
+            <span style="font-size: 50px; color: #7c3aed; margin-top: 20px;">${fixAr(rawFare)}</span>
+          </div>`;
+      }
+      
+      rawHtml = imagesGridHtml;
+
+    } else {
+      rawHtml = `
+        <div style="display: flex; flex-direction: column; width: 1080px; height: ${canvasHeight}px; background: #fbfbfe; color: #1e1b4b; padding: 48px 52px; font-family: 'Almarai', sans-serif; box-sizing: border-box; justify-content: space-between; position: relative;">
           
-          <!-- Right side: Title & Headline -->
-          <div style="display: flex; flex-direction: column; align-items: flex-start;">
-            <!-- Badge "جديد" -->
-            <div style="display: flex; background: #2e0854; border-radius: 20px; padding: 6px 28px; margin-bottom: 14px;">
-              <span style="font-size: 24px; color: #ffffff; font-weight: bold;">${fixAr(badgeLabel)}</span>
+          <!-- Decorative Header Background Curves -->
+          <div style="position: absolute; top: 0; right: 0; left: 0; height: 380px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-bottom-left-radius: 60px; border-bottom-right-radius: 60px; opacity: 0.8; display: flex;"></div>
+          <div style="position: absolute; top: -50px; left: -50px; width: 350px; height: 350px; border-radius: 175px; background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, rgba(245,243,255,0) 70%); display: flex;"></div>
+
+          <!-- 1. Top Header Row (Logo Left + Main Title Right) -->
+          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; width: 100%; position: relative; z-index: 10; margin-bottom: 20px; margin-top: 8px;">
+            
+            <!-- Right side: Title & Headline -->
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <!-- Badge "جديد" -->
+              <div style="display: flex; background: #2e0854; border-radius: 20px; padding: 6px 28px; margin-bottom: 14px;">
+                <span style="font-size: 24px; color: #ffffff; font-weight: bold;">${fixAr(badgeLabel)}</span>
+              </div>
+              <!-- Huge Title -->
+              <div style="display: flex; flex-direction: row; align-items: baseline; gap: 14px; margin-top: 6px; margin-bottom: 6px;">
+                <span style="font-size: 72px; font-weight: bold; color: #1e1b4b; line-height: 1;">${fixAr(mainTitle1)}</span>
+                <span style="font-size: 72px; font-weight: bold; color: #7c3aed; line-height: 1;">${fixAr(mainTitle2)}</span>
+              </div>
+              <!-- Subtitle -->
+              <span style="font-size: 26px; color: #4b5563; font-weight: bold; margin-top: 8px;">${fixAr(subHeadline)}</span>
             </div>
-            <!-- Huge Title -->
-            <div style="display: flex; flex-direction: row; align-items: baseline; gap: 14px; margin-top: 6px; margin-bottom: 6px;">
-              <span style="font-size: 72px; font-weight: bold; color: #1e1b4b; line-height: 1;">${fixAr(mainTitle1)}</span>
-              <span style="font-size: 72px; font-weight: bold; color: #7c3aed; line-height: 1;">${fixAr(mainTitle2)}</span>
+
+            <!-- Left side: Brand Logo -->
+            <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; background: #ffffff; padding: 12px 22px; border-radius: 22px; box-shadow: 0 4px 15px rgba(124,58,237,0.08); border: 1.5px solid #ede9fe; margin-top: 4px;">
+              <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                <span style="font-size: 26px; font-weight: bold; color: #1e1b4b; line-height: 1.1;">${fixAr('سوق بغداد')}</span>
+                <span style="font-size: 13px; color: #6b7280; letter-spacing: 1.5px; font-weight: bold;">SOUQ BAGHDAD</span>
+              </div>
+              <img src="${svgImg(SVGS.logo)}" width="44" height="44" />
             </div>
-            <!-- Subtitle -->
-            <span style="font-size: 26px; color: #4b5563; font-weight: bold; margin-top: 8px;">${fixAr(subHeadline)}</span>
           </div>
 
-          <!-- Left side: Brand Logo -->
-          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; background: #ffffff; padding: 12px 22px; border-radius: 22px; box-shadow: 0 4px 15px rgba(124,58,237,0.08); border: 1.5px solid #ede9fe; margin-top: 4px;">
-            <div style="display: flex; flex-direction: column; align-items: flex-end;">
-              <span style="font-size: 26px; font-weight: bold; color: #1e1b4b; line-height: 1.1;">${fixAr('سوق بغداد')}</span>
-              <span style="font-size: 13px; color: #6b7280; letter-spacing: 1.5px; font-weight: bold;">SOUQ BAGHDAD</span>
+          ${innerContent}
+
+          ${storyCtaBox}
+
+          <!-- 7. Bottom Dark Purple Footer Bar -->
+          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #1e0836; border-radius: 24px; padding: 18px 30px; position: relative; z-index: 10;">
+            
+            <!-- Feature 1 -->
+            <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+              <img src="${svgImg(SVGS.shield)}" width="24" height="24" />
+              <div style="display: flex; flex-direction: column; align-items: flex-start;">
+                <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('راحة وأمان')}</span>
+                <span style="font-size: 13px; color: #c084fc;">${fixAr('رحلات مريحة وآمنة')}</span>
+              </div>
             </div>
-            <img src="${svgImg(SVGS.logo)}" width="44" height="44" />
+
+            <!-- Feature 2 -->
+            <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+              <img src="${svgImg(SVGS.timeCommit)}" width="24" height="24" />
+              <div style="display: flex; flex-direction: column; align-items: flex-start;">
+                <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('التزام بالوقت')}</span>
+                <span style="font-size: 13px; color: #c084fc;">${fixAr('نصل بك في الوقت المحدد')}</span>
+              </div>
+            </div>
+
+            <!-- Feature 3 -->
+            <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+              <img src="${svgImg(SVGS.tag)}" width="24" height="24" />
+              <div style="display: flex; flex-direction: column; align-items: flex-start;">
+                <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('أسعار مناسبة')}</span>
+                <span style="font-size: 13px; color: #c084fc;">${fixAr('أفضل الأسعار للجميع')}</span>
+              </div>
+            </div>
+
+            <!-- Feature 4 -->
+            <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+              <img src="${svgImg(SVGS.star)}" width="24" height="24" />
+              <div style="display: flex; flex-direction: column; align-items: flex-start;">
+                <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('خدمة مميزة')}</span>
+                <span style="font-size: 13px; color: #c084fc;">${fixAr('نهتم براحتك دائماً')}</span>
+              </div>
+            </div>
+
           </div>
+
         </div>
-
-        ${innerContent}
-
-        ${storyCtaBox}
-
-        <!-- 7. Bottom Dark Purple Footer Bar -->
-        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #1e0836; border-radius: 24px; padding: 18px 30px; position: relative; z-index: 10;">
-          
-          <!-- Feature 1 -->
-          <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
-            <img src="${svgImg(SVGS.shield)}" width="24" height="24" />
-            <div style="display: flex; flex-direction: column; align-items: flex-start;">
-              <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('راحة وأمان')}</span>
-              <span style="font-size: 13px; color: #c084fc;">${fixAr('رحلات مريحة وآمنة')}</span>
-            </div>
-          </div>
-
-          <!-- Feature 2 -->
-          <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
-            <img src="${svgImg(SVGS.timeCommit)}" width="24" height="24" />
-            <div style="display: flex; flex-direction: column; align-items: flex-start;">
-              <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('التزام بالوقت')}</span>
-              <span style="font-size: 13px; color: #c084fc;">${fixAr('نصل بك في الوقت المحدد')}</span>
-            </div>
-          </div>
-
-          <!-- Feature 3 -->
-          <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
-            <img src="${svgImg(SVGS.tag)}" width="24" height="24" />
-            <div style="display: flex; flex-direction: column; align-items: flex-start;">
-              <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('أسعار مناسبة')}</span>
-              <span style="font-size: 13px; color: #c084fc;">${fixAr('أفضل الأسعار للجميع')}</span>
-            </div>
-          </div>
-
-          <!-- Feature 4 -->
-          <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
-            <img src="${svgImg(SVGS.star)}" width="24" height="24" />
-            <div style="display: flex; flex-direction: column; align-items: flex-start;">
-              <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('خدمة مميزة')}</span>
-              <span style="font-size: 13px; color: #c084fc;">${fixAr('نهتم براحتك دائماً')}</span>
-            </div>
-          </div>
-
-        </div>
-
-      </div>
-    `;
+      `;
+    }
 
     const markup = html(rawHtml);
 
