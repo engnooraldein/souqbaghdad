@@ -203,6 +203,17 @@ serve(async (req) => {
           // ── أ. معالجة الرسائل الخاصة (Direct Messages, Messenger, Voice & Images) ──
           if (entry.messaging && Array.isArray(entry.messaging)) {
             for (const messagingEvent of entry.messaging) {
+              // ── حارس اللوب الأساسي: تجاهل Echo (رسائل البوت المرتدة) والإيصالات ──
+              // عند إرسال البوت رسالة، Meta يرسل Webhook بـ is_echo=true — يجب تجاهله فوراً
+              if (messagingEvent.message?.is_echo) {
+                console.log(`[Echo Guard] Skipped echo message from bot to: ${messagingEvent.recipient?.id}`);
+                continue;
+              }
+              // تجاهل إيصالات القراءة والتسليم
+              if (messagingEvent.read || messagingEvent.delivery) {
+                continue;
+              }
+
               const senderId = messagingEvent.sender?.id;
               const recipientId = messagingEvent.recipient?.id;
 
