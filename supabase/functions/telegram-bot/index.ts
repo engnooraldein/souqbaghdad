@@ -5980,20 +5980,27 @@ Deno.serve(async (req: any) => {
             tgLink = `https://t.me/${ch.replace('@', '')}/${tgMsgId}`;
           }
 
-          // Build Facebook link
+          // Build Facebook link — الصيغة الصحيحة مع page_id و post_id
           const fbPostId = sync.facebook_post_id || ad.facebook_post_id;
           let fbLink: string | null = null;
           if (fbPostId) {
-            const rawId = String(fbPostId).includes('_') ? fbPostId.split('_').pop() : fbPostId;
-            fbLink = `https://www.facebook.com/permalink.php?story_fbid=${rawId}&id=${META_PAGE_ID}`;
+            const fbIdStr = String(fbPostId);
+            if (fbIdStr.includes('_')) {
+              // صيغة {page_id}_{post_id}
+              const [pageId, postId] = fbIdStr.split('_');
+              fbLink = `https://www.facebook.com/permalink.php?story_fbid=${postId}&id=${pageId}`;
+            } else {
+              // معرف مفرد — استخدم page_id من المتغيرات البيئية
+              fbLink = `https://www.facebook.com/permalink.php?story_fbid=${fbIdStr}&id=${META_PAGE_ID}`;
+            }
           }
 
-          // Build Instagram link
+          // Build Instagram link — Instagram لا يدعم روابط مباشرة بالـ media_id
+          // نستخدم رابط البروفايل + ذكر للمنشور في النص
           const igPostId = sync.instagram_post_id || ad.instagram_post_id;
           let igLink: string | null = null;
           if (igPostId) {
-            // Instagram media ID → use IG profile link as fallback (no reliable post URL from ID alone)
-            // Format: numeric id like "17865793579578429"
+            // أفضل رابط متاح: صفحة الحساب (لا يوجد URL مباشر من media_id)
             igLink = `https://www.instagram.com/souqbaghdad.iq/`;
           }
 
