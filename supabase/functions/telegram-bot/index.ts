@@ -5246,6 +5246,7 @@ Deno.serve(async (req: any) => {
       
       const ownerMarkup = {
         inline_keyboard: [
+          [{ text: '📡 نشر جميع الإعلانات النشطة', callback_data: 'bulk_publish_step1' }],
           [{ text: '⚙️ الإدارة الشاملة للنشر التلقائي', callback_data: 'admin_autopublish' }],
           [{ text: maintBtnText, callback_data: 'admin_toggle_maintenance' }],
           [{ text: '📡 قنوات السوشيال والتسعير', callback_data: '/social' }, { text: '📊 إحصائيات ونبض المنصة', callback_data: 'owner_stats' }],
@@ -5259,6 +5260,200 @@ Deno.serve(async (req: any) => {
       };
 
       return await updateOrSend(ownerMsg, ownerMarkup);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // 📡 نظام النشر الجماعي المجدول — للمالك فقط
+    // ══════════════════════════════════════════════════════════════
+
+    // الخطوة 1: اختر الفئة
+    if (isOwner && action === 'bulk_publish_step1') {
+      await updateOrSend(
+        `📡 <b>نشر جميع الإعلانات النشطة</b>\n\n<i>الخطوة 1 من 4 — اختر الفئة:</i>`,
+        {
+          inline_keyboard: [
+            [{ text: '🚌 خطوط النقل', callback_data: 'bulk_publish_step2_transport' }],
+            [{ text: '🚗 السيارات', callback_data: 'bulk_publish_step2_cars' }],
+            [{ text: '📦 المنتجات', callback_data: 'bulk_publish_step2_products' }],
+            [{ text: '📋 جميع الفئات', callback_data: 'bulk_publish_step2_all' }],
+            [{ text: '🔙 لوحة المالك', callback_data: 'owner_hub_main' }]
+          ]
+        }
+      );
+      return new Response('OK', { status: 200 });
+    }
+
+    // الخطوة 2: اختر نوع النشر
+    if (isOwner && action.startsWith('bulk_publish_step2_')) {
+      const cat = action.replace('bulk_publish_step2_', '');
+      const catLabel = cat === 'transport' ? '🚌 خطوط' : cat === 'cars' ? '🚗 سيارات' : cat === 'products' ? '📦 منتجات' : '📋 جميع';
+      await updateOrSend(
+        `📡 <b>نشر جميع الإعلانات النشطة</b>\n\n<i>الخطوة 2 من 4 — اختر نوع النشر:</i>\n\nالفئة: ${catLabel}`,
+        {
+          inline_keyboard: [
+            [{ text: '📸 ستوري فقط', callback_data: `bulk_publish_step3_${cat}_story` }],
+            [{ text: '📰 بوست فقط', callback_data: `bulk_publish_step3_${cat}_post` }],
+            [{ text: '🔄 بوست + ستوري', callback_data: `bulk_publish_step3_${cat}_both` }],
+            [{ text: '🔙 رجوع', callback_data: 'bulk_publish_step1' }]
+          ]
+        }
+      );
+      return new Response('OK', { status: 200 });
+    }
+
+    // الخطوة 3: اختر الصفحة
+    if (isOwner && action.startsWith('bulk_publish_step3_')) {
+      const parts = action.replace('bulk_publish_step3_', '').split('_');
+      const publishType = parts.pop()!;
+      const cat = parts.join('_');
+      const typeLabel = publishType === 'story' ? '📸 ستوري' : publishType === 'post' ? '📰 بوست' : '🔄 بوست + ستوري';
+      const catLabel = cat === 'transport' ? '🚌 خطوط' : cat === 'cars' ? '🚗 سيارات' : cat === 'products' ? '📦 منتجات' : '📋 جميع';
+      await updateOrSend(
+        `📡 <b>نشر جميع الإعلانات النشطة</b>\n\n<i>الخطوة 3 من 4 — اختر الصفحة:</i>\n\nالفئة: ${catLabel} | النوع: ${typeLabel}`,
+        {
+          inline_keyboard: [
+            [{ text: '🏛️ الرافدين فيسبوك', callback_data: `bulk_publish_confirm_${cat}_${publishType}_rafdain_fb` }],
+            [{ text: '🏛️ الرافدين انستغرام', callback_data: `bulk_publish_confirm_${cat}_${publishType}_rafdain_ig` }],
+            [{ text: '🏙️ سوق بغداد فيسبوك', callback_data: `bulk_publish_confirm_${cat}_${publishType}_souq_fb` }],
+            [{ text: '🏙️ سوق بغداد انستغرام', callback_data: `bulk_publish_confirm_${cat}_${publishType}_souq_ig` }],
+            [{ text: '🌐 جميع الصفحات', callback_data: `bulk_publish_confirm_${cat}_${publishType}_all` }],
+            [{ text: '🔙 رجوع', callback_data: `bulk_publish_step2_${cat}` }]
+          ]
+        }
+      );
+      return new Response('OK', { status: 200 });
+    }
+
+    // الخطوة 4: تأكيد + معاينة
+    if (isOwner && action.startsWith('bulk_publish_confirm_')) {
+      const parts = action.replace('bulk_publish_confirm_', '').split('_');
+      // format: {cat}_{publishType}_{page} where page may have underscore
+      // e.g. transport_story_rafdain_fb  OR  all_both_all
+      const pageParts = parts.slice(2);
+      const targetPage = pageParts.join('_');
+      const publishType = parts[1];
+      const cat = parts[0];
+
+      // عدد الإعلانات النشطة
+      let adsQuery = supabase.from('ads').select('id', { count: 'exact', head: true }).eq('status', 'active');
+      if (cat !== 'all') adsQuery = adsQuery.eq('category', cat);
+      const { count: adsCount } = await adsQuery;
+      const totalAds = adsCount || 0;
+
+      // حساب الأوقات
+      const nowDate = new Date();
+      const startTime = nowDate.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' });
+      const endDate = new Date(nowDate.getTime() + totalAds * 5 * 60 * 1000);
+      const endTime = endDate.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' });
+
+      const catLabel = cat === 'transport' ? '🚌 خطوط' : cat === 'cars' ? '🚗 سيارات' : cat === 'products' ? '📦 منتجات' : '📋 جميع';
+      const typeLabel = publishType === 'story' ? '📸 ستوري فقط' : publishType === 'post' ? '📰 بوست فقط' : '🔄 بوست + ستوري';
+      const pageLabel = targetPage === 'all' ? '🌐 جميع الصفحات' : targetPage === 'rafdain_fb' ? '🏛️ الرافدين فيسبوك' : targetPage === 'rafdain_ig' ? '🏛️ الرافدين انستغرام' : targetPage === 'souq_fb' ? '🏙️ سوق بغداد فيسبوك' : '🏙️ سوق بغداد انستغرام';
+
+      // تحذير وقت الذروة
+      const hour = nowDate.getHours();
+      const timeWarning = (hour >= 2 && hour < 6) ? '\n\n⚠️ <b>تحذير:</b> الوقت الحالي بين 2 فجراً و6 صباحاً — النشر في هذا الوقت قد يقلل التفاعل.' : '';
+
+      await updateOrSend(
+        `📡 <b>نشر جماعي — معاينة قبل البدء</b>${timeWarning}\n\n` +
+        `الفئة: ${catLabel}\nالنوع: ${typeLabel}\nالصفحة: ${pageLabel}\n\n` +
+        `━━━━━━━━━━━━━━━━━━━\n` +
+        `📊 الإعلانات النشطة: <b>${totalAds} إعلان</b>\n` +
+        `🕐 وقت أول نشر: <b>${startTime}</b>\n` +
+        `🕓 وقت آخر نشر: <b>${endTime}</b> (~${totalAds * 5} دقيقة)\n` +
+        `━━━━━━━━━━━━━━━━━━━`,
+        {
+          inline_keyboard: [
+            [{ text: '▶️ ابدأ النشر', callback_data: `bulk_publish_start_${cat}_${publishType}_${targetPage}` }],
+            [{ text: '❌ إلغاء', callback_data: 'owner_hub_main' }]
+          ]
+        }
+      );
+      return new Response('OK', { status: 200 });
+    }
+
+    // بدء النشر الفعلي — إنشاء الجلسة وإضافة الإعلانات للقائمة
+    if (isOwner && action.startsWith('bulk_publish_start_')) {
+      const parts = action.replace('bulk_publish_start_', '').split('_');
+      const pageParts = parts.slice(2);
+      const targetPage = pageParts.join('_');
+      const publishType = parts[1];
+      const cat = parts[0];
+
+      // إنشاء الجلسة
+      const { data: newJob } = await supabase.from('bulk_publish_jobs').insert({
+        owner_chat_id: String(chatId),
+        category: cat,
+        publish_type: publishType,
+        target_page: targetPage,
+        status: 'running'
+      }).select().single();
+
+      if (!newJob) {
+        await updateOrSend('❌ خطأ في إنشاء جلسة النشر.');
+        return new Response('OK', { status: 200 });
+      }
+
+      // جلب الإعلانات النشطة
+      let adsQ = supabase.from('ads').select('id, category').eq('status', 'active').order('created_at', { ascending: true });
+      if (cat !== 'all') adsQ = adsQ.eq('category', cat);
+      const { data: activeAds } = await adsQ;
+
+      if (!activeAds || activeAds.length === 0) {
+        await supabase.from('bulk_publish_jobs').update({ status: 'done', total_ads: 0 }).eq('id', newJob.id);
+        await updateOrSend('📭 لا توجد إعلانات نشطة للنشر.');
+        return new Response('OK', { status: 200 });
+      }
+
+      // إضافة كل إعلان للقائمة بفارق 5 دقائق
+      const queueItems = activeAds.map((ad, i) => ({
+        job_id: newJob.id,
+        ad_id: ad.id,
+        category: ad.category,
+        status: 'pending',
+        scheduled_at: new Date(Date.now() + i * 5 * 60 * 1000 + Math.floor(Math.random() * 30000)).toISOString()
+      }));
+
+      await supabase.from('bulk_publish_queue').insert(queueItems);
+      await supabase.from('bulk_publish_jobs').update({ total_ads: activeAds.length }).eq('id', newJob.id);
+
+      const endTime = new Date(Date.now() + activeAds.length * 5 * 60 * 1000).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' });
+
+      await updateOrSend(
+        `🚀 <b>تم بدء النشر الجماعي!</b>\n\n` +
+        `📊 الإعلانات: <b>${activeAds.length}</b>\n` +
+        `⏱️ يُنشر إعلان كل 5 دقائق\n` +
+        `🕓 وقت الانتهاء المتوقع: <b>${endTime}</b>\n\n` +
+        `ستتلقى تقريراً نهائياً عند الاكتمال.`,
+        {
+          inline_keyboard: [
+            [{ text: '⏹️ إيقاف النشر الآن', callback_data: `bulk_publish_stop_${newJob.id}` }]
+          ]
+        }
+      );
+      return new Response('OK', { status: 200 });
+    }
+
+    // إيقاف النشر يدوياً
+    if (isOwner && action.startsWith('bulk_publish_stop_')) {
+      const jobId = action.replace('bulk_publish_stop_', '');
+      const { data: job } = await supabase.from('bulk_publish_jobs').select('*').eq('id', jobId).maybeSingle();
+      if (!job || job.status !== 'running') {
+        await updateOrSend('⚠️ العملية لم تعد نشطة أو لا وجود لها.');
+        return new Response('OK', { status: 200 });
+      }
+      await supabase.from('bulk_publish_jobs').update({ status: 'stopped', finished_at: new Date().toISOString() }).eq('id', jobId);
+      const stopTime = new Date().toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' });
+      await updateOrSend(
+        `⏹️ <b>تم إيقاف النشر الجماعي</b>\n\n` +
+        `✅ نُشر:    <b>${job.published_count || 0}</b> إعلان\n` +
+        `❌ فشل:    <b>${job.failed_count || 0}</b> إعلان\n` +
+        `⏭️ ألغيت: <b>${(job.total_ads || 0) - (job.published_count || 0) - (job.failed_count || 0)}</b> متبقية\n` +
+        `━━━━━━━━━━━━━━━━━━━\n` +
+        `📅 أوقف: ${stopTime}`,
+        { inline_keyboard: [[{ text: '🔙 لوحة المالك', callback_data: 'owner_hub_main' }]] }
+      );
+      return new Response('OK', { status: 200 });
     }
 
     // --- Owner Action: Toggle Maintenance Mode ---
