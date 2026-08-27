@@ -8057,7 +8057,7 @@ Deno.serve(async (req: any) => {
       // Execute Custom Single Platform Promotion
       if (action.startsWith('promo_act_')) {
         // format: promo_act_[platformType]_[adId]
-        const prefixMatch = action.match(/^promo_act_(fb_rafdain|fb_souq|fb_both|fb_feed|ig_feed|fb_story_rafdain|fb_story_souq|fb_story|ig_story)_(.+)$/);
+        const prefixMatch = action.match(/^promo_act_(fb_rafdain|fb_souq|fb_both|fb_feed|ig_feed|fb_story_rafdain|fb_story_souq|fb_story|ig_story_rafdain|ig_story)_(.+)$/);
         let platformType = '';
         let targetAdId = '';
 
@@ -8096,6 +8096,7 @@ Deno.serve(async (req: any) => {
           fb_story_rafdain: 2,
           fb_story_souq: 2,
           fb_story: 2,
+          ig_story_rafdain: 2,
           ig_story: 2
         };
 
