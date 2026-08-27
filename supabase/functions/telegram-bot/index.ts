@@ -8309,7 +8309,8 @@ Deno.serve(async (req: any) => {
           else if (platformType === 'ig_story_rafdain') {
             const rucIgSetting = await getLiveSocialSetting('ig_rafdain');
             const igToken = rucIgSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
-            const igId = rucIgSetting?.page_id || rucIgSetting?.extra_id || ALRAFDAIN_IG_ID || '17841404181680155';
+            const rawId = rucIgSetting?.extra_id || rucIgSetting?.page_id || ALRAFDAIN_IG_ID || '17841404181680155';
+            const igId = (rawId && rawId.startsWith('1784')) ? rawId : (ALRAFDAIN_IG_ID || '17841404181680155');
             
             const storyRes = await postToInstagramStory(storyImg, igId, igToken);
             if (storyRes?.error) {
@@ -8509,7 +8510,9 @@ Deno.serve(async (req: any) => {
             try {
               const rucIgSetting = await getLiveSocialSetting('ig_rafdain');
               const igToken = rucIgSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
-              const igId = rucIgSetting?.page_id || rucIgSetting?.extra_id || ALRAFDAIN_IG_ID || '17841404181680155';
+              const rawId = rucIgSetting?.extra_id || rucIgSetting?.page_id || ALRAFDAIN_IG_ID || '17841404181680155';
+              const igId = (rawId && rawId.startsWith('1784')) ? rawId : (ALRAFDAIN_IG_ID || '17841404181680155');
+              
               if (igToken && igId) {
                 const rucIgStory = await postToInstagramStory(storyImg, igId, igToken);
                 if (rucIgStory && !rucIgStory.error) igStoryPublished = true;
