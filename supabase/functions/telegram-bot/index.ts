@@ -7221,100 +7221,86 @@ Deno.serve(async (req: any) => {
               await supabase.from('ads').update(updateData).eq('id', insertedTrans.id);
             }
 
-            // 3. Social Media Publishing (Full Tier: Feeds + 9:16 Stories on Facebook & Instagram & Threads + Telegram Channels)
+            // 3. Social Media Publishing — قواعد الخطوط الجديدة:
+            // 🏛️ الرافدين فيسبوك: بوست + ستوري (جميع الخطوط)
+            // 🏛️ الرافدين انستغرام: ستوري فقط (جميع الخطوط)
+            // 🏙️ سوق بغداد فيسبوك: ستوري فقط
+            // 🏙️ سوق بغداد انستغرام: ستوري فقط
             try {
               const fbIgCaption = await generateSocialCaption(insertedTrans, 'transport', link);
               const socialUpdates: any = {};
-              const currentSync: any = { telegram: 'success', facebook: 'pending', instagram: 'pending', threads: 'pending' };
+              const currentSync: any = {
+                telegram: 'success',
+                facebook: 'pending', instagram: 'pending', threads: 'pending',
+                rafdain_facebook: 'pending', rafdain_instagram_story: 'pending'
+              };
               if (rucMsgId) currentSync.ruc_telegram_message_id = rucMsgId;
 
               const fbIgPhotoUrl = [finalPostPhotoUrl];
 
-              // --- A. Facebook Publishing (Feed Post + Story) ---
+              // --- A. الرافدين فيسبوك: بوست + ستوري (الأساسي لجميع الخطوط) ---
               try {
-                // 1. Souq Baghdad Facebook Post & Story
-                console.log('[BOT SOCIAL] Publishing Post & Story to Souq Baghdad Facebook Page...');
-                const [souqFbPostRes, souqFbStoryRes] = await Promise.allSettled([
-                  postToFacebook(fbIgCaption, fbIgPhotoUrl, META_PAGE_ACCESS_TOKEN, META_PAGE_ID),
-                  postToFacebookStory(finalStoryPhotoUrl, META_PAGE_ID, META_PAGE_ACCESS_TOKEN)
-                ]);
-
-                if (souqFbPostRes.status === 'fulfilled' && (souqFbPostRes.value?.id || souqFbPostRes.value?.post_id)) {
-                  socialUpdates.facebook_post_id = souqFbPostRes.value.post_id || souqFbPostRes.value.id;
-                  currentSync.facebook = 'success';
-                }
-                if (souqFbStoryRes.status === 'fulfilled' && !souqFbStoryRes.value?.error) {
-                  currentSync.facebook_story = 'success';
-                }
-
-                // 2. Al-Rafdain Facebook Post & Story (if related to Al-Rafdain)
-                if (isAlRafdain) {
-                  const rafdainSetting = await getLiveSocialSetting('fb_rafdain');
-                  const rafdainToken = rafdainSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
-                  const rafdainPageId = rafdainSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
-                  if (rafdainToken && rafdainPageId) {
-                    console.log('[BOT SOCIAL] Publishing Post & Story to Al-Rafdain Facebook Page...');
-                    const [rucFbPostRes, rucFbStoryRes] = await Promise.allSettled([
-                      postToFacebook(fbIgCaption, fbIgPhotoUrl, rafdainToken, rafdainPageId),
-                      postToFacebookStory(finalStoryPhotoUrl, rafdainPageId, rafdainToken)
-                    ]);
-
-                    if (rucFbPostRes.status === 'fulfilled' && (rucFbPostRes.value?.id || rucFbPostRes.value?.post_id)) {
-                      currentSync.rafdain_facebook_post_id = rucFbPostRes.value.post_id || rucFbPostRes.value.id;
-                      currentSync.rafdain_facebook = 'success';
-                    }
-                    if (rucFbStoryRes.status === 'fulfilled' && !rucFbStoryRes.value?.error) {
-                      currentSync.rafdain_facebook_story = 'success';
-                    }
+                const rafdainSetting = await getLiveSocialSetting('fb_rafdain');
+                const rafdainToken = rafdainSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
+                const rafdainPageId = rafdainSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
+                if (rafdainToken && rafdainPageId) {
+                  console.log('[BOT SOCIAL] Publishing Post & Story to Al-Rafdain Facebook (PRIMARY for ALL transport)...');
+                  const [rucFbPostRes, rucFbStoryRes] = await Promise.allSettled([
+                    postToFacebook(fbIgCaption, fbIgPhotoUrl, rafdainToken, rafdainPageId),
+                    postToFacebookStory(finalStoryPhotoUrl, rafdainPageId, rafdainToken)
+                  ]);
+                  if (rucFbPostRes.status === 'fulfilled' && (rucFbPostRes.value?.id || rucFbPostRes.value?.post_id)) {
+                    socialUpdates.facebook_post_id = rucFbPostRes.value.post_id || rucFbPostRes.value.id;
+                    currentSync.rafdain_facebook = 'success';
+                    currentSync.facebook = 'success';
+                  }
+                  if (rucFbStoryRes.status === 'fulfilled' && !rucFbStoryRes.value?.error) {
+                    currentSync.rafdain_facebook_story = 'success';
+                    currentSync.facebook_story = 'success';
                   }
                 }
-              } catch(fbErr: any) {
-                console.error('[BOT SOCIAL] FB Error:', fbErr);
+              } catch(fbRucErr) {
+                console.error('[BOT SOCIAL] Al-Rafdain FB Error:', fbRucErr);
               }
 
-              // --- B. Instagram Publishing (Feed Post + Story) ---
+              // --- B. الرافدين انستغرام: ستوري فقط (الأساسي لجميع الخطوط) ---
               try {
-                // 1. Souq Baghdad Instagram Feed & Story
-                console.log('[BOT SOCIAL] Publishing Post & Story to Souq Baghdad Instagram...');
-                const [souqIgPostRes, souqIgStoryRes] = await Promise.allSettled([
-                  postToInstagram(fbIgCaption, fbIgPhotoUrl),
-                  postToInstagramStory(finalStoryPhotoUrl)
-                ]);
-
-                if (souqIgPostRes.status === 'fulfilled' && (souqIgPostRes.value?.id || souqIgPostRes.value?.media_id)) {
-                  socialUpdates.instagram_post_id = souqIgPostRes.value.id || souqIgPostRes.value.media_id;
-                  currentSync.instagram = 'success';
-                }
-                if (souqIgStoryRes.status === 'fulfilled' && !souqIgStoryRes.value?.error) {
-                  currentSync.instagram_story = 'success';
-                }
-
-                // 2. Al-Rafdain Instagram Story
-                if (isAlRafdain) {
-                  const rafdainIgSetting = await getLiveSocialSetting('ig_rafdain');
-                  const igToken = rafdainIgSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
-                  const igTargetId = rafdainIgSetting?.page_id || rafdainIgSetting?.extra_id || ALRAFDAIN_IG_ID || '17841404181680155';
-                  if (igToken && igTargetId) {
-                    console.log(`[BOT SOCIAL] Publishing Story to Al-Rafdain Instagram (@al_rafdain / ${igTargetId})...`);
-                    const rucIgRes = await postToInstagramStory(finalStoryPhotoUrl, igTargetId, igToken);
-                    if (rucIgRes && (rucIgRes.id || !rucIgRes.error)) {
-                      currentSync.rafdain_instagram_story = 'success';
-                    }
+                const rafdainIgSetting = await getLiveSocialSetting('ig_rafdain');
+                const igToken = rafdainIgSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
+                const igTargetId = rafdainIgSetting?.page_id || rafdainIgSetting?.extra_id || ALRAFDAIN_IG_ID || '17841404181680155';
+                if (igToken && igTargetId) {
+                  console.log(`[BOT SOCIAL] Publishing Story to Al-Rafdain Instagram (PRIMARY for ALL transport)...`);
+                  const rucIgRes = await postToInstagramStory(finalStoryPhotoUrl, igTargetId, igToken);
+                  if (rucIgRes && (rucIgRes.id || !rucIgRes.error)) {
+                    currentSync.rafdain_instagram_story = 'success';
+                    currentSync.instagram_story = 'success';
+                    currentSync.instagram = 'success';
                   }
                 }
-              } catch(igErr: any) {
-                console.error('[BOT SOCIAL] IG Error:', igErr);
+              } catch(igRucErr) {
+                console.error('[BOT SOCIAL] Al-Rafdain IG Error:', igRucErr);
               }
 
-              // --- C. Threads Publishing ---
+              // --- C. سوق بغداد فيسبوك: ستوري فقط ---
               try {
-                const thData = await postToThreads(fbIgCaption, fbIgPhotoUrl);
-                if (thData && (thData.id || thData.media_id)) {
-                  socialUpdates.threads_post_id = thData.id || thData.media_id;
-                  currentSync.threads = 'success';
+                console.log('[BOT SOCIAL] Publishing Story-only to Souq Baghdad Facebook...');
+                const souqFbStoryRes = await postToFacebookStory(finalStoryPhotoUrl, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
+                if (souqFbStoryRes && !souqFbStoryRes.error) {
+                  currentSync.souq_facebook_story = 'success';
                 }
-              } catch(thErr) {
-                console.error('[BOT SOCIAL] Threads Error:', thErr);
+              } catch(fbSouqErr) {
+                console.error('[BOT SOCIAL] Souq Baghdad FB Story Error:', fbSouqErr);
+              }
+
+              // --- D. سوق بغداد انستغرام: ستوري فقط ---
+              try {
+                console.log('[BOT SOCIAL] Publishing Story-only to Souq Baghdad Instagram...');
+                const souqIgStoryRes = await postToInstagramStory(finalStoryPhotoUrl);
+                if (souqIgStoryRes && !souqIgStoryRes.error) {
+                  currentSync.souq_instagram_story = 'success';
+                }
+              } catch(igSouqErr) {
+                console.error('[BOT SOCIAL] Souq Baghdad IG Story Error:', igSouqErr);
               }
 
               socialUpdates.sync_status = currentSync;
@@ -7328,16 +7314,15 @@ Deno.serve(async (req: any) => {
                 const igPostLink = socialUpdates.instagram_post_id ? `https://www.instagram.com/p/${socialUpdates.instagram_post_id}/` : null;
 
                 const platformLines: string[] = [];
-                // Telegram
-                const tgOk = tgPostLink ? `✅ تيليجرام @souqbaghdad_lines` : `⚪ تيليجرام`;
-                platformLines.push(tgOk);
-                if (isAlRafdain) platformLines.push(rucPostLink ? `✅ قناة الرافدين @ruc_1` : `⚪ قناة الرافدين`);
-                // Facebook
-                platformLines.push(currentSync.facebook === 'success' ? `✅ فيسبوك — بوست + ستوري` : `⚪ فيسبوك`);
-                if (isAlRafdain) platformLines.push(currentSync.rafdain_facebook === 'success' ? `✅ فيسبوك الرافدين — بوست + ستوري` : `⚪ فيسبوك الرافدين`);
-                // Instagram
-                platformLines.push(currentSync.instagram === 'success' ? `✅ انستغرام — بوست + ستوري` : `⚪ انستغرام`);
-                if (isAlRafdain && currentSync.rafdain_instagram_story === 'success') platformLines.push(`✅ انستغرام الرافدين — ستوري`);
+                // تيليجرام
+                platformLines.push(tgPostLink ? `✅ تيليجرام @souqbaghdad_lines` : `⚪ تيليجرام`);
+                platformLines.push(rucPostLink ? `✅ قناة الرافدين @ruc_1` : `⚪ قناة الرافدين`);
+                // الرافدين (أساسي — جميع الخطوط)
+                platformLines.push(currentSync.rafdain_facebook === 'success' ? `✅ الرافدين فيسبوك — بوست + ستوري 🏛️` : `⚪ الرافدين فيسبوك`);
+                platformLines.push(currentSync.rafdain_instagram_story === 'success' ? `✅ الرافدين انستغرام — ستوري 🏛️` : `⚪ الرافدين انستغرام`);
+                // سوق بغداد (ستوري فقط)
+                platformLines.push(currentSync.souq_facebook_story === 'success' ? `✅ سوق بغداد فيسبوك — ستوري` : `⚪ سوق بغداد فيسبوك`);
+                platformLines.push(currentSync.souq_instagram_story === 'success' ? `✅ سوق بغداد انستغرام — ستوري` : `⚪ سوق بغداد انستغرام`);
 
                 const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(`🚌 خط نقل: ${cleanRegions} ← ${cleanDestination}`)}`;
 
