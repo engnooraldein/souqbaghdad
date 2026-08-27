@@ -8247,36 +8247,69 @@ Deno.serve(async (req: any) => {
           console.error('[BOOST PUBLISH ERROR]', e);
         }
 
-        // 5b. Publish Permanent Feed Post to Facebook & Instagram (VIP Promotion Feature)
+        // 5b. Social Publishing — نفس قواعد الخطوط الجديدة للترويج:
+        // 🏛️ الرافدين فيسبوك: بوست + ستوري (جميع الخطوط)
+        // 🏛️ الرافدين انستغرام: ستوري فقط (جميع الخطوط)
+        // 🏙️ سوق بغداد فيسبوك: ستوري فقط
+        // 🏙️ سوق بغداد انستغرام: ستوري فقط
         let fbFeedPublished = false;
-        let igFeedPublished = false;
+        let igStoryPublished = false;
         try {
           const feedCaption = await generateSocialCaption(targetAd, isTransport ? 'transport' : 'car', adLink);
-          const postImg = (targetAd.images && targetAd.images.length > 0) 
-            ? targetAd.images[0] 
+          const postImg = (targetAd.images && targetAd.images.length > 0)
+            ? targetAd.images[0]
             : `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(targetAd.title)}&regions=${encodeURIComponent(targetAd.location || '')}&destination=${encodeURIComponent(targetAd.city || '')}&fare=${encodeURIComponent(targetAd.price || '')}&short_id=${encodeURIComponent(targetAd.short_id || targetAd.id)}&phone=${encodeURIComponent(targetAd.phone || '')}`;
 
-          // Facebook Feed Post
-          const fbFeedRes = await postToFacebook(feedCaption, postImg);
-          if (fbFeedRes && (fbFeedRes.id || fbFeedRes.post_id)) {
-            fbFeedPublished = true;
-          }
+          const storyImg = postImg; // نفس الصورة للستوري
 
-          // Al-Rafdain Facebook Feed Post (if transport is for Al-Rafdain)
-          const isRafdainAd = (targetAd.title + ' ' + (targetAd.location || '') + ' ' + (targetAd.city || '')).includes('الرافدين');
-          if (isRafdainAd) {
-            const rucFbSetting = await getLiveSocialSetting('fb_rafdain');
-            const rucToken = rucFbSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
-            const rucPageId = rucFbSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
-            if (rucToken && rucPageId) {
-              await postToFacebook(feedCaption, postImg, rucToken, rucPageId);
-            }
-          }
+          if (isTransport) {
+            // --- الرافدين فيسبوك: بوست + ستوري ---
+            try {
+              const rucFbSetting = await getLiveSocialSetting('fb_rafdain');
+              const rucToken = rucFbSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
+              const rucPageId = rucFbSetting?.page_id || ALRAFDAIN_FB_PAGE_ID || '102975411515668';
+              if (rucToken && rucPageId) {
+                const [rucFbPost, rucFbStory] = await Promise.allSettled([
+                  postToFacebook(feedCaption, [postImg], rucToken, rucPageId),
+                  postToFacebookStory(storyImg, rucPageId, rucToken)
+                ]);
+                if (rucFbPost.status === 'fulfilled' && (rucFbPost.value?.id || rucFbPost.value?.post_id)) {
+                  fbFeedPublished = true;
+                }
+              }
+            } catch(e) { console.error('[BOOST] Al-Rafdain FB Error:', e); }
 
-          // Instagram Feed Post
-          const igFeedRes = await postToInstagram(feedCaption, postImg);
-          if (igFeedRes && (igFeedRes.id || igFeedRes.media_id)) {
-            igFeedPublished = true;
+            // --- الرافدين انستغرام: ستوري فقط ---
+            try {
+              const rucIgSetting = await getLiveSocialSetting('ig_rafdain');
+              const igToken = rucIgSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
+              const igId = rucIgSetting?.page_id || rucIgSetting?.extra_id || ALRAFDAIN_IG_ID || '17841404181680155';
+              if (igToken && igId) {
+                const rucIgStory = await postToInstagramStory(storyImg, igId, igToken);
+                if (rucIgStory && !rucIgStory.error) igStoryPublished = true;
+              }
+            } catch(e) { console.error('[BOOST] Al-Rafdain IG Error:', e); }
+
+            // --- سوق بغداد فيسبوك: ستوري فقط ---
+            try {
+              await postToFacebookStory(storyImg, META_PAGE_ID, META_PAGE_ACCESS_TOKEN);
+            } catch(e) { console.error('[BOOST] Souq Baghdad FB Story Error:', e); }
+
+            // --- سوق بغداد انستغرام: ستوري فقط ---
+            try {
+              await postToInstagramStory(storyImg);
+            } catch(e) { console.error('[BOOST] Souq Baghdad IG Story Error:', e); }
+
+          } else {
+            // للسيارات والمنتجات: المنطق الأصلي (بوست فيسبوك + انستغرام سوق بغداد)
+            try {
+              const fbFeedRes = await postToFacebook(feedCaption, [postImg]);
+              if (fbFeedRes && (fbFeedRes.id || fbFeedRes.post_id)) fbFeedPublished = true;
+            } catch(e) { console.error('[BOOST] FB Feed Error:', e); }
+            try {
+              const igFeedRes = await postToInstagram(feedCaption, [postImg]);
+              if (igFeedRes && (igFeedRes.id || igFeedRes.media_id)) igStoryPublished = true;
+            } catch(e) { console.error('[BOOST] IG Feed Error:', e); }
           }
         } catch(socialFeedErr) {
           console.error('[BOOST SOCIAL FEED ERROR]', socialFeedErr);
