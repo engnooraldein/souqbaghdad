@@ -5266,8 +5266,10 @@ Deno.serve(async (req: any) => {
     // 📡 نظام النشر الجماعي المجدول — للمالك فقط
     // ══════════════════════════════════════════════════════════════
 
+    const bulkAction = callbackQuery?.data || '';
+
     // الخطوة 1: اختر الفئة
-    if (isOwner && action === 'bulk_publish_step1') {
+    if (isOwner && bulkAction === 'bulk_publish_step1') {
       await updateOrSend(
         `📡 <b>نشر جميع الإعلانات النشطة</b>\n\n<i>الخطوة 1 من 4 — اختر الفئة:</i>`,
         {
@@ -5284,8 +5286,8 @@ Deno.serve(async (req: any) => {
     }
 
     // الخطوة 2: اختر نوع النشر
-    if (isOwner && action.startsWith('bulk_publish_step2_')) {
-      const cat = action.replace('bulk_publish_step2_', '');
+    if (isOwner && bulkAction.startsWith('bulk_publish_step2_')) {
+      const cat = bulkAction.replace('bulk_publish_step2_', '');
       const catLabel = cat === 'transport' ? '🚌 خطوط' : cat === 'cars' ? '🚗 سيارات' : cat === 'products' ? '📦 منتجات' : '📋 جميع';
       await updateOrSend(
         `📡 <b>نشر جميع الإعلانات النشطة</b>\n\n<i>الخطوة 2 من 4 — اختر نوع النشر:</i>\n\nالفئة: ${catLabel}`,
@@ -5302,8 +5304,8 @@ Deno.serve(async (req: any) => {
     }
 
     // الخطوة 3: اختر الصفحة
-    if (isOwner && action.startsWith('bulk_publish_step3_')) {
-      const parts = action.replace('bulk_publish_step3_', '').split('_');
+    if (isOwner && bulkAction.startsWith('bulk_publish_step3_')) {
+      const parts = bulkAction.replace('bulk_publish_step3_', '').split('_');
       const publishType = parts.pop()!;
       const cat = parts.join('_');
       const typeLabel = publishType === 'story' ? '📸 ستوري' : publishType === 'post' ? '📰 بوست' : '🔄 بوست + ستوري';
@@ -5325,8 +5327,8 @@ Deno.serve(async (req: any) => {
     }
 
     // الخطوة 4: تأكيد + معاينة
-    if (isOwner && action.startsWith('bulk_publish_confirm_')) {
-      const parts = action.replace('bulk_publish_confirm_', '').split('_');
+    if (isOwner && bulkAction.startsWith('bulk_publish_confirm_')) {
+      const parts = bulkAction.replace('bulk_publish_confirm_', '').split('_');
       // format: {cat}_{publishType}_{page} where page may have underscore
       // e.g. transport_story_rafdain_fb  OR  all_both_all
       const pageParts = parts.slice(2);
@@ -5373,8 +5375,8 @@ Deno.serve(async (req: any) => {
     }
 
     // بدء النشر الفعلي — إنشاء الجلسة وإضافة الإعلانات للقائمة
-    if (isOwner && action.startsWith('bulk_publish_start_')) {
-      const parts = action.replace('bulk_publish_start_', '').split('_');
+    if (isOwner && bulkAction.startsWith('bulk_publish_start_')) {
+      const parts = bulkAction.replace('bulk_publish_start_', '').split('_');
       const pageParts = parts.slice(2);
       const targetPage = pageParts.join('_');
       const publishType = parts[1];
@@ -5401,7 +5403,7 @@ Deno.serve(async (req: any) => {
 
       if (!activeAds || activeAds.length === 0) {
         await supabase.from('bulk_publish_jobs').update({ status: 'done', total_ads: 0 }).eq('id', newJob.id);
-        await updateOrSend('📭 لا توجد إعلانات نشطة للنشر.');
+        await updateOrSend('📭 لا توجد الإعلانات نشطة للنشر.');
         return new Response('OK', { status: 200 });
       }
 
@@ -5435,8 +5437,8 @@ Deno.serve(async (req: any) => {
     }
 
     // إيقاف النشر يدوياً
-    if (isOwner && action.startsWith('bulk_publish_stop_')) {
-      const jobId = action.replace('bulk_publish_stop_', '');
+    if (isOwner && bulkAction.startsWith('bulk_publish_stop_')) {
+      const jobId = bulkAction.replace('bulk_publish_stop_', '');
       const { data: job } = await supabase.from('bulk_publish_jobs').select('*').eq('id', jobId).maybeSingle();
       if (!job || job.status !== 'running') {
         await updateOrSend('⚠️ العملية لم تعد نشطة أو لا وجود لها.');
