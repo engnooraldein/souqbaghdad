@@ -1983,20 +1983,25 @@ async function prepareStoryBufferAndUrl(photoUrl: string): Promise<{ publicUrl: 
     }
 
     console.log(`[STORY PREPARE] Fetching story canvas from:`, sourceUrl);
-    const res = await fetch(sourceUrl, { headers, signal: AbortSignal.timeout(10000) });
+    const res = await fetch(sourceUrl, { headers, signal: AbortSignal.timeout(15000) });
 
     if (res.ok) {
       const arrayBuf = await res.arrayBuffer();
-      const fileName = `story-${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+      const isPng = sourceUrl.includes('generate-story-image') || res.headers.get('content-type')?.includes('png');
+      const ext = isPng ? 'png' : 'jpg';
+      const mime = isPng ? 'image/png' : 'image/jpeg';
+      const fileName = `story-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
       const { data, error } = await supabase.storage.from('ad-images').upload(fileName, arrayBuf, {
-        contentType: 'image/jpeg',
+        contentType: mime,
         upsert: true
       });
+
+      if (error) console.error(`[STORY PREPARE] Upload error:`, error);
 
       if (!error && data) {
         const { data: pubData } = supabase.storage.from('ad-images').getPublicUrl(fileName);
         console.log(`[STORY PREPARE] Cached permanent 9:16 story to:`, pubData.publicUrl);
-        const blob = new Blob([arrayBuf], { type: 'image/jpeg' });
+        const blob = new Blob([arrayBuf], { type: mime });
         return { publicUrl: pubData.publicUrl, blob };
       }
     } else {
