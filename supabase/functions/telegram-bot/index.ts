@@ -8021,7 +8021,13 @@ Deno.serve(async (req: any) => {
 
         const menuKeyboard: any[] = [];
 
-        if (isRafdain) {
+        if (isTrans) {
+          menuKeyboard.push([{ text: '📘 بوست + ستوري: فيسبوك الرافدين (5 نقاط)', callback_data: `promo_act_fb_rafdain_${adId}` }]);
+          menuKeyboard.push([{ text: '📸 ستوري انستغرام: كلية الرافدين (2 نقطة)', callback_data: `promo_act_ig_story_rafdain_${adId}` }]);
+          menuKeyboard.push([{ text: '📘 ستوري فيسبوك 9:16: صفحة سوق بغداد (2 نقطة)', callback_data: `promo_act_fb_story_souq_${adId}` }]);
+          menuKeyboard.push([{ text: '📸 ستوري انستغرام 9:16: @souqbaghdad.iq (2 نقطة)', callback_data: `promo_act_ig_story_${adId}` }]);
+          menuKeyboard.push([{ text: '👑 الباقة الشاملة VIP لكل المنصات المذكورة (10 نقاط)', callback_data: `boost_ad_${adId}` }]);
+        } else if (isRafdain) {
           menuKeyboard.push([{ text: '📘 بوست فيسبوك: صفحة كلية الرافدين (5 نقاط)', callback_data: `promo_act_fb_rafdain_${adId}` }]);
           menuKeyboard.push([{ text: '📘 بوست فيسبوك: صفحة سوق بغداد الرسمية (5 نقاط)', callback_data: `promo_act_fb_souq_${adId}` }]);
           menuKeyboard.push([{ text: '📘 بوست فيسبوك: الرافدين + سوق بغداد معاً (7 نقاط)', callback_data: `promo_act_fb_both_${adId}` }]);
@@ -8159,6 +8165,13 @@ Deno.serve(async (req: any) => {
               const errTxt = rucRes?.error?.message || 'تعذر النشر على الصفحة حالياً';
               successReport = `⚠️ <b>تنبيه فيسبوك:</b> ${errTxt}`;
             }
+
+            if (isTransport) {
+              const storyRes = await postToFacebookStory(storyImg, rucPageId, rucToken);
+              if (!storyRes?.error && !successReport.includes('⚠️')) {
+                 successReport = successReport.replace('تم نشر البوست', 'تم نشر البوست والستوري');
+              }
+            }
           } 
           // 2. Facebook: Souq Baghdad Only
           else if (platformType === 'fb_souq' || platformType === 'fb_feed') {
@@ -8289,6 +8302,21 @@ Deno.serve(async (req: any) => {
               directPostUrl = 'https://www.instagram.com/souqbaghdad.iq/';
               directButtonLabel = '📸 فتح حساب انستغرام لمشاهدة الستوري';
               successReport = `📸 <b>تم نشر ستوري 9:16 على انستغرام بنجاح! ✅</b>\n🔗 <a href="${directPostUrl}">اضغط هنا لفتح الحساب والستوري</a>`;
+            }
+          }
+          // 8. Instagram Story: Al-Rafdain
+          else if (platformType === 'ig_story_rafdain') {
+            const rucIgSetting = await getLiveSocialSetting('ig_rafdain');
+            const igToken = rucIgSetting?.access_token || ALRAFDAIN_FB_TOKEN || META_PAGE_ACCESS_TOKEN;
+            const igId = rucIgSetting?.page_id || rucIgSetting?.extra_id || ALRAFDAIN_IG_ID || '17841404181680155';
+            
+            const storyRes = await postToInstagramStory(storyImg, igId, igToken);
+            if (storyRes?.error) {
+              successReport = `⚠️ <b>تنبيه ستوري انستغرام الرافدين:</b> ${storyRes.error.message || 'لم يكتمل نشر الستوري'}`;
+            } else {
+              directPostUrl = 'https://www.instagram.com/'; // Instagram doesn't easily link to stories on web without username
+              directButtonLabel = '📸 فتح انستغرام لمشاهدة الستوري';
+              successReport = `📸 <b>تم نشر ستوري 9:16 على انستغرام الرافدين بنجاح! ✅</b>\n🔗 <a href="${directPostUrl}">اضغط هنا لفتح الحساب والستوري</a>`;
             }
           }
 
