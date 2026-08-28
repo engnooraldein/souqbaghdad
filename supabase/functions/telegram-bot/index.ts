@@ -536,6 +536,20 @@ function getCoreLocationKeyword(loc: string) {
   return s.replace(/(كلية|جامعة|معهد|الجامعة|الكلية|المعهد)\s+/g, '').trim();
 }
 
+const IRAQI_AREAS = [
+  'البنوك', 'الشعب', 'المنصور', 'الكرادة', 'الدورة', 'اليرموك', 'الغزالية', 'الزعفرانية', 
+  'مدينة الصدر', 'جميلة', 'الأعظمية', 'الاعظمية', 'الكاظمية', 'السيدية', 'الجهاد', 'الحرية', 
+  'القاهرة', 'صليخ', 'حي الجامعة', 'الوزيرية', 'حي تونس', 'حي العامل', 'حي الخضراء', 'حي العدل', 
+  'حي أور', 'حي اور', 'البياع', 'سبع ابكار', 'الراشدية', 'التاجي', 'المحمودية', 'المدائن', 
+  'جسر ديالى', 'حي الاعلام', 'حي الإعلام', 'حي التراث', 'المشتل', 'بغداد الجديدة', 'الغدير', 
+  'زيونة', 'شارع فلسطين', 'شارع النضال', 'شارع المغرب', 'باب المعظم', 'باب الشرقي', 'العطيفية', 
+  'الوشاش', 'الاسكان', 'المأمون', 'حي حطين', 'الداوودي', 'حي السلام', 'حي الفرات', 'سويب', 
+  'ابو دشير', 'أبو دشير', 'الكرخ', 'الرصافة', 'حي البساتين', 'سبع قصور', 'حي دراغ', 'الشرطة الرابعة', 
+  'الشرطة الخامسة', 'المسبح', 'عرصات الهندية', 'الكرادة خارج', 'الكرادة داخل', 'البلديات', 'الحبيبية', 
+  'الكمالية', 'الفضل', 'الميدان', 'المستنصرية', 'الرافدين', 'جامعة بغداد', 'الجادرية', 'النهرين', 'التكنولوجية',
+  'الطالبية', 'طالبية', 'حي سومر', 'الأمين', 'الامين', 'حي المعلمين'
+];
+
 async function handleSmartTransportSearch(chatId: string | number, rawText: string, fromUser: any, supabase: any, isGroup = false, userMessageId?: number | string) {
   // 1. Normalize Iraqi Arabic and common typos
   function replaceAr(text: string, searchWords: string, replacement: string) {
@@ -4887,8 +4901,8 @@ Deno.serve(async (req: any) => {
     }
     const trimmedText = (text || '').trim();
 
-    // 🛡️ FORCE SUBSCRIBE LOGIC
-    if (!isOwner && chatType === 'private') {
+    // 🛡️ FORCE SUBSCRIBE LOGIC (Cached per user to eliminate network latency on every message)
+    if (!isOwner && chatType === 'private' && !state.is_subscribed) {
       let isSubscribed = true;
       try {
         const channelsToCheck = ['@souqbaghdad_iq', '@souqbaghdad_car', '@souqbaghdad_lines'];
@@ -4925,9 +4939,12 @@ Deno.serve(async (req: any) => {
           }
         }
         return new Response('OK', { status: 200 });
-      } else if (trimmedText === 'check_subscription') {
-         if (callbackQueryId) await answerCallbackQuery(callbackQueryId, '✅ شكراً لاشتراكك! تم تفعيل البوت بالكامل.', true);
-         text = '/start'; // Trigger main menu automatically
+      } else {
+        state.is_subscribed = true;
+        if (trimmedText === 'check_subscription') {
+          if (callbackQueryId) await answerCallbackQuery(callbackQueryId, '✅ شكراً لاشتراكك! تم تفعيل البوت بالكامل.', true);
+          text = '/start'; // Trigger main menu automatically
+        }
       }
     }
 
@@ -9478,17 +9495,25 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
-      // 🚨 Top-level Seeker Transport Interceptor (Always overrides any stuck wizard state)
+      // 🚨 Top-level Seeker Transport Interceptor (Instant response for transport requests & area queries)
+      const isKnownAreaInput = IRAQI_AREAS.some(a => {
+        const cleanA = a.toLowerCase();
+        const noAlA = cleanA.replace(/^ال/, '');
+        const noAlInput = cleanRawInput.replace(/^ال/, '');
+        return cleanRawInput === cleanA || cleanRawInput === noAlA || noAlInput === noAlA || cleanRawInput.includes(cleanA);
+      });
+
       const isTopLevelSeeker = 
         cleanRawInput.includes('محتاج خط') || cleanRawInput.includes('محتاجة خط') || cleanRawInput.includes('محتاجه خط') || 
         cleanRawInput.includes('اريد خط') || cleanRawInput.includes('أريد خط') || cleanRawInput.includes('نريد خط') || cleanRawInput.includes('محتاجين خط') || 
         cleanRawInput.includes('ادور خط') || cleanRawInput.includes('أدور خط') || cleanRawInput.includes('ندور خط') || cleanRawInput.includes('ابحث عن خط') || 
         cleanRawInput.includes('رايد خط') || cleanRawInput.includes('رايده خط') || cleanRawInput.includes('رايدة خط') || 
         cleanRawInput.includes('محتاج سايق') || cleanRawInput.includes('محتاجه سايق') || cleanRawInput.includes('محتاجة سايق') || cleanRawInput.includes('اريد سايق') || 
-        cleanRawInput.includes('طالبه محتاجه') || cleanRawInput.includes('طالبة محتاجة') || cleanRawInput.includes('طالب محتاج') || cleanRawInput.includes('عفيه اريد خط') || cleanRawInput.includes('عفية اريد خط');
+        cleanRawInput.includes('طالبه محتاجه') || cleanRawInput.includes('طالبة محتاجة') || cleanRawInput.includes('طالب محتاج') || cleanRawInput.includes('عفيه اريد خط') || cleanRawInput.includes('عفية اريد خط') ||
+        (isKnownAreaInput && (cleanRawInput.length <= 25 || cleanRawInput.includes('خط') || cleanRawInput.includes('من') || cleanRawInput.includes('الى') || cleanRawInput.includes('لـ')));
 
       if (isTopLevelSeeker) {
-        state = {};
+        state = { is_subscribed: true };
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
         sendChatAction(chatId, 'typing');
         await handleSmartTransportSearch(chatId, text, fromUser, supabase, false);
