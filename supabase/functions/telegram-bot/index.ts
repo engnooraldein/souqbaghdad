@@ -610,6 +610,26 @@ function buildTransportCard(lines: any[], pageIndex: number, fromName: string, o
   const cleanPhone = rawPhone.replace(/[^0-9+]/g, '');
   let waPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
 
+  let cleanDetails = '';
+  if (l.description) {
+    try {
+      const rawDesc = String(l.description).trim();
+      if (rawDesc.startsWith('{') && rawDesc.endsWith('}')) {
+        const d = JSON.parse(rawDesc);
+        const parts = [];
+        if (d.targetAudience) parts.push(`👥 ${d.targetAudience}`);
+        if (d.shift) parts.push(`⏰ ${d.shift}`);
+        if (d.vehicleType) parts.push(`🚗 ${d.vehicleType} (${d.seats || 4} مقاعد)`);
+        if (d.note) parts.push(`📝 ${d.note}`);
+        cleanDetails = parts.join(' | ');
+      } else {
+        cleanDetails = rawDesc.substring(0, 120);
+      }
+    } catch(e) {
+      cleanDetails = String(l.description).substring(0, 120);
+    }
+  }
+
   let cardText = 
     `🚌 <b>يا هلا بيك ${fromName}! 🌹 وجدنا لك (${total}) خطوط متوفرة لمسارك:</b>\n\n` +
     `━━━━━━━━━━━━━━━━━━\n` +
@@ -618,7 +638,7 @@ function buildTransportCard(lines: any[], pageIndex: number, fromName: string, o
     `🏢 <b>الوجهة:</b> ${l.city || destination || 'الجامعة'}\n` +
     `💰 <b>الأجرة:</b> ${fareText}\n` +
     (cleanPhone ? `📞 <b>هاتف الكابتن:</b> <code>${cleanPhone}</code>\n` : '') +
-    (l.description ? `📝 <b>التفاصيل:</b> ${l.description.substring(0, 120)}\n` : '') +
+    (cleanDetails ? `📝 <b>التفاصيل:</b> ${cleanDetails}\n` : '') +
     `━━━━━━━━━━━━━━━━━━\n\n` +
     `💡 <i>تصفحي الخطوط بالأزرار أدناه (السابق / التالي) وتواصلي مباشرة مع الكابتن المناسب:</i>`;
 
@@ -871,13 +891,14 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     if (isGroup) {
       const driverMsg = 
         `👋 <b>يا هلا بالسائق العزيز كابتن ${fromName} 🚌✨</b>\n\n` +
-        `لتثبيت خطك ورصد ومطابقة ركاب مسارك ونشره في القنوات والموقع مجاناً:\n` +
-        `👇 <b>يرجى نشر إعلان الخط عبر البوت بالخاص (9 خطوات سريعة):</b>`;
+        `⚠️ <b>تنبيه مهم:</b> الكتابة داخل الكروب لا تسجل خطك بالنظام ولن تصلك طلبات وحجوزات الركاب والطلاب!\n\n` +
+        `🚀 <b>انشر خطك مرة واحدة فقط عبر البوت بالخاص (9 خطوات سريعة)</b> لتثبيته في القنوات والموقع وتصلك طلبات وحجوزات الطلاب تلقائياً:\n` +
+        `👇 اضغط على الزر أدناه لبدء النشر مجاناً:`;
 
       const providerMarkup = {
         inline_keyboard: [
-          [{ text: '🚌 نشر وتثبيت الخط عبر البوت (9 خطوات)', url: `https://t.me/${BOT_USERNAME}?start=publish_transport` }],
-          [{ text: '🚀 انشر خطك بالموقع مجاناً', url: 'https://www.souqbaghdad.store/post-ad' }]
+          [{ text: '🚌 نشر وتثبيت الخط بالخاص (9 خطوات) 🌹', url: `https://t.me/${BOT_USERNAME}?start=publish_transport` }],
+          [{ text: '🌐 انشر خطك بالموقع مجاناً', url: 'https://www.souqbaghdad.store/post-ad' }]
         ]
       };
       await sendOrReplaceGroupMessage(chatId, driverMsg, providerMarkup, supabase, userMessageId);
@@ -4726,7 +4747,8 @@ Deno.serve(async (req: any) => {
     const chatType = update.message?.chat?.type || update.callback_query?.message?.chat?.type || 'private';
     const isGroup = chatType === 'group' || chatType === 'supergroup';
 
-    if (isGroup) {
+    // 🚨 Only process group commands/messages here if it's an actual message, NOT a callback query!
+    if (isGroup && !update.callback_query) {
       const fromUser = update.message?.from || update.callback_query?.from;
       const fromId = fromUser?.id;
       
@@ -8155,13 +8177,51 @@ Deno.serve(async (req: any) => {
 
       // 📄 Seamless In-Place Transport Pagination (السابق / التالي للخطوط)
       if (action.startsWith('tpage_')) {
-        const targetPage = parseInt(action.replace('tpage_', ''), 10) || 0;
-        const linesList = state.matched_lines || [];
-        const sName = state.seeker_name || fromUser?.first_name || 'عزيزنا';
-        const sOrig = state.seeker_origin || 'بغداد';
-        const sDest = state.seeker_destination || 'الجامعة';
+        const parts = action.split('_');
+        const targetPage = parseInt(parts[1], 10) || 0;
+        
+        let linesList = state.matched_lines;
+        let sName = state.seeker_name || fromUser?.first_name || 'عزيزنا';
+        let sOrig = state.seeker_origin || state.last_origin || 'بغداد';
+        let sDest = state.seeker_destination || state.last_dest || 'كلية الرافدين الجامعة';
 
-        if (linesList.length > 0 && messageId) {
+        // Fallback: If state was cleared or missing in session, query directly from DB!
+        if (!linesList || !Array.isArray(linesList) || linesList.length === 0) {
+          const { data: allActiveLines } = await supabase
+            .from('ads')
+            .select('*')
+            .eq('category', 'transport')
+            .eq('status', 'active')
+            .order('created_at', { ascending: false })
+            .limit(60);
+
+          const activeDriverLines = (allActiveLines || []).filter((ad: any) => {
+            const t = (ad.title || '').toLowerCase();
+            const isStudentRequest = t.includes('ابحث') || t.includes('أبحث') || t.includes('محتاج') || t.includes('ادور');
+            const isCompleted = ad.status === 'sold' || ad.status === 'matched' || ad.status === 'archived' || ad.status === 'closed';
+            return !isStudentRequest && !isCompleted;
+          });
+
+          if (sOrig && sDest) {
+            const coreDest = getCoreLocationKeyword(sDest);
+            linesList = activeDriverLines.filter((ad: any) => {
+              const fullAdText = `${ad.title || ''} ${ad.location || ''} ${ad.city || ''} ${ad.description || ''}`.toLowerCase();
+              const coreDestMatch = !coreDest || fullAdText.includes(coreDest) || getCoreLocationKeyword(ad.city || '') === coreDest;
+              const originMatch = isLocationMatch(sOrig, fullAdText) || fullAdText.includes(sOrig.toLowerCase());
+              return originMatch && coreDestMatch;
+            });
+            if (linesList.length === 0) {
+              linesList = activeDriverLines.filter((ad: any) => {
+                const fullAdText = `${ad.title || ''} ${ad.location || ''} ${ad.city || ''} ${ad.description || ''}`.toLowerCase();
+                return isLocationMatch(sOrig, fullAdText) || fullAdText.includes(sOrig.toLowerCase());
+              });
+            }
+          } else {
+            linesList = activeDriverLines;
+          }
+        }
+
+        if (linesList && linesList.length > 0 && messageId) {
           const card = buildTransportCard(linesList, targetPage, sName, sOrig, sDest);
           await editMessageText(chatId, messageId, card.text, card.markup);
           if (callbackQueryId) {
