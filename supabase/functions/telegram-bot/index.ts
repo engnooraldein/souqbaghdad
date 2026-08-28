@@ -3301,27 +3301,167 @@ const CAR_SPECS_ORIGINS = [
   ['صبغ قطع بسيطة 🔧', 'مواصفات أخرى 📝']
 ];
 
-// --- Data Lists for Transport Wizard (خطوط النقل) ---
-const TRANSPORT_AREAS_BAGHDAD = [
-  ['الكرادة', 'المنصور', 'اليرموك'],
-  ['الدورة', 'السيدية', 'البياع'],
-  ['الشعب', 'الأعظمية', 'الكاظمية'],
-  ['حي الجامعة', 'الغزالية', 'العامرية'],
-  ['زيونة', 'شارع فلسطين', 'بغداد الجديدة'],
-  ['الزعفرانية', 'مدينة الصدر', 'أبو غريب'],
-  ['المحمودية', 'التاجي', 'مناطق أخرى 📝']
+// --- Data Lists for Transport Wizard (خطوط النقل - مناطق واسعة ومصنفة مع تصفح صفحات) ---
+const TRANSPORT_AREAS_PAGES = [
+  {
+    title: 'مناطق جانب الكرخ (صفحة 1/3)',
+    rows: [
+      ['المنصور', 'اليرموك', 'حي الجامعة'],
+      ['الخضراء', 'الغزالية', 'العامرية'],
+      ['الدورة', 'السيدية', 'البياع'],
+      ['حي الجهاد', 'حي العامل', 'الشعلة'],
+      ['الحرية', 'الكاظمية', 'العطيفية'],
+      ['القادسية', 'أبو غريب', 'المحمودية']
+    ]
+  },
+  {
+    title: 'مناطق جانب الرصافة (صفحة 2/3)',
+    rows: [
+      ['الكرادة', 'الجادرية', 'زيونة'],
+      ['شارع فلسطين', 'الغدير', 'بغداد الجديدة'],
+      ['المشتل', 'الأمين', 'النعيرية'],
+      ['الأعظمية', 'الوزيرية', 'الصليخ'],
+      ['الشعب', 'حي أور', 'القاهرة'],
+      ['الزعفرانية', 'المدائن', 'جسر ديالى']
+    ]
+  },
+  {
+    title: 'أطراف ومناطق إضافية (صفحة 3/3)',
+    rows: [
+      ['مدينة الصدر', 'الحبيبية', 'الطالبية'],
+      ['البنوك', 'سبع ابكار', 'الكريعات'],
+      ['التاجي', 'الطارمية', 'الراشدية'],
+      ['النهروان', 'بسماية', 'الزعفرانية 2'],
+      ['الرضوانية', 'اليوسفية', 'اللطيفية']
+    ]
+  }
 ];
 
-const TRANSPORT_DESTINATIONS_BAGHDAD = [
-  ['كلية الرافدين الجامعة 🎓', 'جامعة بغداد (الجادرية)'],
-  ['جامعة بغداد (باب المعظم)', 'الجامعة المستنصرية'],
-  ['الجامعة التكنولوجية', 'جامعة النهرين'],
-  ['الجامعة العراقية', 'جامعة الفراهيدي'],
-  ['جامعة البيان', 'جامعة التراث'],
-  ['جامعة أوروك', 'كلية دجلة / الإسراء'],
-  ['كلية المنصور / المأمون', 'دوائر ومؤسسات الكرخ'],
-  ['دوائر ومؤسسات الرصافة', 'وجهة أخرى 📝']
+const TRANSPORT_DESTINATIONS_PAGES = [
+  {
+    title: 'الجامعات والكليات الكبرى (صفحة 1/4)',
+    rows: [
+      ['كلية الرافدين الجامعة 🎓', 'جامعة بغداد (الجادرية)'],
+      ['جامعة بغداد (باب المعظم)', 'الجامعة المستنصرية (الرئيسي)'],
+      ['الجامعة المستنصرية (فلسطين)', 'الجامعة التكنولوجية'],
+      ['جامعة النهرين (الجادرية)', 'جامعة النهرين (الكاظمية)'],
+      ['الجامعة العراقية (سبع ابكار)', 'الجامعة التقنية الوسطى']
+    ]
+  },
+  {
+    title: 'الجامعات والكليات الأهلية (صفحة 2/4)',
+    rows: [
+      ['كلية دجلة الجامعة', 'كلية الإسراء الجامعة'],
+      ['جامعة الفراهيدي', 'جامعة البيان'],
+      ['جامعة التراث', 'جامعة أوروك'],
+      ['كلية المأمون الجامعة', 'كلية المنصور الجامعة'],
+      ['كلية النسور الجامعة', 'كلية الرشيد الجامعة']
+    ]
+  },
+  {
+    title: 'مجمعات وأقسام وتخصصات (صفحة 3/4)',
+    rows: [
+      ['كلية الرافدين (مجمع فلسطين)', 'كلية الرافدين (مجمع البنوك)'],
+      ['مجمع كليات باب المعظم الطبي', 'مجمع المستنصرية الطبي (القادسية)'],
+      ['جامعة العين / المعارف', 'جامعة وارث الأنبياء / أخرى'],
+      ['معهد التكنولوجيا (الزعفرانية)', 'معهد الإدارة (الرصافة / المنصور)']
+    ]
+  },
+  {
+    title: 'مؤسسات ودوائر ومستشفيات (صفحة 4/4)',
+    rows: [
+      ['دوائر ومؤسسات الكرخ', 'دوائر ومؤسسات الرصافة'],
+      ['مدينة الطب والمستشفيات', 'مطار بغداد الدولي'],
+      ['المنطقة الخضراء والمقرات', 'مول المنصور / زيونة / الحارثية'],
+      ['مستشفى اليرموك / الكرامة', 'مستشفى الكندي / الجملة العصبية']
+    ]
+  }
 ];
+
+// Fallback flat arrays for legacy compatibility
+const TRANSPORT_AREAS_BAGHDAD = TRANSPORT_AREAS_PAGES[0].rows;
+const TRANSPORT_DESTINATIONS_BAGHDAD = TRANSPORT_DESTINATIONS_PAGES[0].rows;
+
+function buildTransportAreasMarkup(state: any, pageIdx = 0) {
+  const totalPages = TRANSPORT_AREAS_PAGES.length;
+  const safeIdx = Math.max(0, Math.min(pageIdx, totalPages - 1));
+  const curPage = TRANSPORT_AREAS_PAGES[safeIdx];
+  const selectedRegions = state?.data?.regions || '';
+
+  const buttons: any[] = [];
+  for (const row of curPage.rows) {
+    buttons.push(row.map((area: string) => {
+      const isSelected = selectedRegions.includes(area);
+      return {
+        text: isSelected ? `✅ ${area}` : area,
+        callback_data: `trans_area_pick_${area}_p${safeIdx}`
+      };
+    }));
+  }
+
+  // Navigation pagination row
+  const navRow: any[] = [];
+  if (safeIdx > 0) {
+    navRow.push({ text: '⬅️ السابق', callback_data: `trans_area_page_${safeIdx - 1}` });
+  }
+  navRow.push({ text: `📄 ${safeIdx + 1} / ${totalPages}`, callback_data: `trans_area_page_${safeIdx}` });
+  if (safeIdx < totalPages - 1) {
+    navRow.push({ text: 'التالي ➡️', callback_data: `trans_area_page_${safeIdx + 1}` });
+  }
+  buttons.push(navRow);
+
+  // If regions selected, show confirm button
+  if (selectedRegions) {
+    buttons.push([{ text: `✅ اعتماد المناطق والمتابعة للوجهة ➡️`, callback_data: `trans_area_done` }]);
+  }
+
+  // Custom text input button
+  buttons.push([{ text: '✏️ كتابة المناطق بنفسي (نص) 📝', callback_data: 'trans_area_custom' }]);
+  buttons.push([
+    { text: '◀️ السابق', callback_data: `trans_cat_${state?.data?.categoryType || 'student'}` },
+    { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+  ]);
+
+  return { inline_keyboard: buttons };
+}
+
+function buildTransportDestinationsMarkup(state: any, pageIdx = 0) {
+  const totalPages = TRANSPORT_DESTINATIONS_PAGES.length;
+  const safeIdx = Math.max(0, Math.min(pageIdx, totalPages - 1));
+  const curPage = TRANSPORT_DESTINATIONS_PAGES[safeIdx];
+  const selectedDest = state?.data?.destination || '';
+
+  const buttons: any[] = [];
+  for (const row of curPage.rows) {
+    buttons.push(row.map((dest: string) => {
+      const isSelected = selectedDest === dest;
+      return {
+        text: isSelected ? `✅ ${dest}` : dest,
+        callback_data: `trans_dest_pick_${dest}`
+      };
+    }));
+  }
+
+  // Navigation pagination row
+  const navRow: any[] = [];
+  if (safeIdx > 0) {
+    navRow.push({ text: '⬅️ السابق', callback_data: `trans_dest_page_${safeIdx - 1}` });
+  }
+  navRow.push({ text: `📄 ${safeIdx + 1} / ${totalPages}`, callback_data: `trans_dest_page_${safeIdx}` });
+  if (safeIdx < totalPages - 1) {
+    navRow.push({ text: 'التالي ➡️', callback_data: `trans_dest_page_${safeIdx + 1}` });
+  }
+  buttons.push(navRow);
+
+  // Custom text input button
+  buttons.push([{ text: '✏️ كتابة الوجهة بنفسي (نص) 📝', callback_data: 'trans_dest_custom' }]);
+  buttons.push([
+    { text: '◀️ السابق (المناطق)', callback_data: 'trans_back_to_areas' },
+    { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+  ]);
+
+  return { inline_keyboard: buttons };
+}
 
 const TRANSPORT_SHIFTS = [
   ['☀️ صباحي (8:00 ص - 2:00 م)'],
@@ -4665,15 +4805,24 @@ Deno.serve(async (req: any) => {
     let state = tgUser?.bot_state || {};
     const userId = tgUser?.user_id;
     const phone = tgUser?.phone_number;
-    const isOwner = String(chatId) === '7083049103' || 
+    // Fetch profile role if user exists
+    let userRole = '';
+    if (userId) {
+      const { data: userProf } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle();
+      userRole = userProf?.role || '';
+    }
+
+    const isOwner = 
+      String(chatId) === '777557036' || 
       String(chatId) === '6474465462' || 
+      String(chatId) === '7083049103' || 
       String(chatId) === '108892492' || 
-      phone?.includes('7738470265') || 
-      phone?.includes('7701109692') || 
       phone?.includes('7700028170') || 
-      userId === '31f15390-dc84-4af6-99e0-ca92ac863292' ||
-      tgUser?.role === 'owner' || 
-      tgUser?.role === 'admin';
+      phone?.includes('7701109692') || 
+      userId === '8f660ea2-ec84-401c-a7c6-18a907ef6f76' ||
+      userId === '1bf7e012-4d5d-46f3-8c2a-2848defffc11' ||
+      userRole === 'owner' || 
+      userRole === 'admin';
 
 
 
@@ -5636,6 +5785,13 @@ Deno.serve(async (req: any) => {
     // ==========================================
     // 👑 OWNER CONTROL HUB (لوحة تحكم المالك)
     // ==========================================
+    if (!isOwner && (trimmedText === 'owner_hub_main' || trimmedText === '/owner' || trimmedText === '/admin' || trimmedText === 'المالك' || trimmedText.startsWith('owner_') || trimmedText.startsWith('admin_'))) {
+      await updateOrSend('⚠️ <b>عذراً، هذه اللوحة مخصصة لإدارة ومالك المنصة فقط.</b>', {
+        inline_keyboard: [[{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
+      });
+      return new Response('OK', { status: 200 });
+    }
+
     if (isOwner && (trimmedText === 'owner_hub_main' || trimmedText === '/owner' || trimmedText === '/admin' || trimmedText === 'المالك')) {
       const { data: sysSettings } = await supabase.from('auto_publish_settings').select('settings').eq('category', 'system').maybeSingle();
       const isMaint = sysSettings?.settings?.maintenance_mode === true;
@@ -7843,53 +7999,123 @@ Deno.serve(async (req: any) => {
         state.step = 'trans_regions';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        const areaButtons = TRANSPORT_AREAS_BAGHDAD.map(row => row.map(a => {
-          if (a.includes('أخرى')) return { text: a, callback_data: 'trans_area_custom' };
-          return { text: a, callback_data: `trans_area_${a}` };
-        }));
-        areaButtons.push([{ text: '◀️ السابق', callback_data: `trans_type_${state.data.type || 'offer'}` }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
-
-        await updateOrSend(`📍 <b>الخطوة 3 من 9 — مناطق الانطلاق (المرور)</b>\n\nاختر منطقة الانطلاق أو اكتبها بنفسك 👇`, {
-          inline_keyboard: areaButtons
-        });
+        const areaMarkup = buildTransportAreasMarkup(state, 0);
+        await updateOrSend(
+          `📍 <b>الخطوة 3 من 9 — مناطق الانطلاق (المرور)</b>\n\n` +
+          `اختر مناطق الانطلاق التي يمر بها خطك (يمكنك اختيار أكثر من منطقة بالضغط عليها) أو اكتبها بنفسك 👇`,
+          areaMarkup
+        );
         return new Response('OK', { status: 200 });
       }
 
-      if (action.startsWith('trans_area_')) {
-        const areaVal = action.replace('trans_area_', '');
-        if (areaVal === 'custom') {
-          state.step = 'trans_area_custom_input';
-          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-          await updateOrSend(`📍 <b>اكتب مناطق الانطلاق</b> التي يمر بها الخط (مثال: حي الجامعة، الخضراء، نفق الشرطة):`, {
-            inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]]
-          });
-          return new Response('OK', { status: 200 });
+      if (action.startsWith('trans_area_page_')) {
+        const pageIdx = parseInt(action.replace('trans_area_page_', ''), 10) || 0;
+        const areaMarkup = buildTransportAreasMarkup(state, pageIdx);
+        const selectedInfo = state.data?.regions 
+          ? `\n📌 <b>المناطق المحددة حتى الآن:</b> [ <b>${state.data.regions}</b> ]\n` 
+          : '\n';
+        await updateOrSend(
+          `📍 <b>الخطوة 3 من 9 — مناطق الانطلاق (المرور)</b>\n${selectedInfo}\n` +
+          `اختر منطقة أخرى لإضافتها أو اضغط «✅ اعتماد المناطق والمتابعة للوجهة» للمتابعة 👇`,
+          areaMarkup
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action.startsWith('trans_area_pick_')) {
+        const raw = action.replace('trans_area_pick_', '');
+        const pMatch = raw.match(/^(.*)_p(\d+)$/);
+        const areaVal = pMatch ? pMatch[1] : raw;
+        const pageIdx = pMatch ? parseInt(pMatch[2], 10) : 0;
+
+        let currentRegions = (state.data?.regions || '').split('،').map((s: string) => s.trim()).filter(Boolean);
+        if (currentRegions.includes(areaVal)) {
+          // Toggle off
+          currentRegions = currentRegions.filter((r: string) => r !== areaVal);
+        } else {
+          // Toggle on
+          currentRegions.push(areaVal);
         }
 
-        state.data.regions = areaVal;
+        state.data.regions = currentRegions.join('، ');
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const areaMarkup = buildTransportAreasMarkup(state, pageIdx);
+        const selectedInfo = state.data.regions 
+          ? `\n📌 <b>المناطق المحددة حتى الآن:</b>\n[ <b>${state.data.regions}</b> ]\n` 
+          : '\n';
+
+        await updateOrSend(
+          `📍 <b>الخطوة 3 من 9 — مناطق الانطلاق (المرور)</b>\n${selectedInfo}\n` +
+          `اختر منطقة أخرى لإضافتها، أو اضغط «✅ اعتماد المناطق والمتابعة للوجهة» للمتابعة 👇`,
+          areaMarkup
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'trans_area_done') {
+        if (!state.data?.regions) {
+          state.data.regions = 'بغداد';
+        }
         state.step = 'trans_dest';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        const destButtons = TRANSPORT_DESTINATIONS_BAGHDAD.map(row => row.map(d => {
-          if (d.includes('أخرى')) return { text: d, callback_data: 'trans_dest_custom' };
-          return { text: d, callback_data: `trans_dest_${d}` };
-        }));
-        destButtons.push([{ text: '◀️ السابق', callback_data: `trans_cat_${state.data.categoryType || 'student'}` }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
-
-        await updateOrSend(`🏢 <b>الخطوة 4 من 9 — الوجهة (الجامعة أو العمل)</b>\n\nاختر الوجهة المطلوبة 👇`, {
-          inline_keyboard: destButtons
-        });
+        const destMarkup = buildTransportDestinationsMarkup(state, 0);
+        await updateOrSend(
+          `🏢 <b>الخطوة 4 من 9 — الوجهة (الجامعة أو العمل)</b>\n\n` +
+          `📍 مناطق الانطلاق المعتمدة: <b>${state.data.regions}</b>\n\n` +
+          `اختر الوجهة المطلوبة من القوائم أدناه أو اكتبها بنفسك 👇`,
+          destMarkup
+        );
         return new Response('OK', { status: 200 });
       }
 
-      if (action.startsWith('trans_dest_')) {
-        const destVal = action.replace('trans_dest_', '');
+      if (action === 'trans_area_custom') {
+        state.step = 'trans_area_custom_input';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        await updateOrSend(
+          `📍 <b>اكتب مناطق الانطلاق</b> التي يمر بها الخط (مثال: حي الجامعة، الخضراء، نفق الشرطة):\n\n<i>أرسل رسالة نصية الآن بالمناطق:</i>`,
+          { inline_keyboard: [[{ text: '◀️ العودة للقائمة', callback_data: 'trans_back_to_areas' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]] }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'trans_back_to_areas') {
+        state.step = 'trans_regions';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        const areaMarkup = buildTransportAreasMarkup(state, 0);
+        await updateOrSend(
+          `📍 <b>الخطوة 3 من 9 — مناطق الانطلاق (المرور)</b>\n\n` +
+          `اختر مناطق الانطلاق أو اكتبها بنفسك 👇`,
+          areaMarkup
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action.startsWith('trans_dest_page_')) {
+        const pageIdx = parseInt(action.replace('trans_dest_page_', ''), 10) || 0;
+        const destMarkup = buildTransportDestinationsMarkup(state, pageIdx);
+        await updateOrSend(
+          `🏢 <b>الخطوة 4 من 9 — الوجهة (الجامعة أو العمل)</b>\n\n` +
+          `📍 مناطق الانطلاق المعتمدة: <b>${state.data?.regions || 'بغداد'}</b>\n\n` +
+          `اختر الوجهة المطلوبة من القوائم أدناه أو اكتبها بنفسك 👇`,
+          destMarkup
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action.startsWith('trans_dest_pick_') || action.startsWith('trans_dest_')) {
+        const destVal = action.startsWith('trans_dest_pick_') 
+          ? action.replace('trans_dest_pick_', '') 
+          : action.replace('trans_dest_', '');
+
         if (destVal === 'custom') {
           state.step = 'trans_dest_custom_input';
           await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-          await updateOrSend(`🏢 <b>اكتب الوجهة</b> (اسم الجامعة أو مكان العمل أو المستشفى):`, {
-            inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]]
-          });
+          await updateOrSend(
+            `🏢 <b>اكتب الوجهة</b> (اسم الجامعة أو الكلية أو مكان العمل أو المستشفى):\n\n<i>أرسل رسالة نصية بالوجهة الآن:</i>`,
+            { inline_keyboard: [[{ text: '◀️ العودة للقائمة', callback_data: 'trans_back_to_dest' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]] }
+          );
           return new Response('OK', { status: 200 });
         }
 
@@ -7898,11 +8124,27 @@ Deno.serve(async (req: any) => {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         const shiftButtons = TRANSPORT_SHIFTS.map(row => row.map(s => ({ text: s, callback_data: `trans_shift_${s}` })));
-        shiftButtons.push([{ text: '◀️ السابق', callback_data: `trans_area_${state.data.regions || 'الكرادة'}` }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
+        shiftButtons.push([
+          { text: '◀️ السابق (الوجهة)', callback_data: 'trans_back_to_dest' },
+          { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+        ]);
 
-        await updateOrSend(`⏰ <b>الخطوة 5 من 9 — وقت الدوام والشفت</b>\n\nاختر وقت الدوام 👇`, {
+        await updateOrSend(`⏰ <b>الخطوة 5 من 9 — وقت الدوام والشفت</b>\n\n🏢 الوجهة: <b>${destVal}</b>\nاختر وقت الدوام 👇`, {
           inline_keyboard: shiftButtons
         });
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'trans_back_to_dest') {
+        state.step = 'trans_dest';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        const destMarkup = buildTransportDestinationsMarkup(state, 0);
+        await updateOrSend(
+          `🏢 <b>الخطوة 4 من 9 — الوجهة (الجامعة أو العمل)</b>\n\n` +
+          `📍 مناطق الانطلاق المعتمدة: <b>${state.data?.regions || 'بغداد'}</b>\n\n` +
+          `اختر الوجهة المطلوبة 👇`,
+          destMarkup
+        );
         return new Response('OK', { status: 200 });
       }
 
@@ -11202,34 +11444,89 @@ Deno.serve(async (req: any) => {
       // ==========================================
       // 🚌 TRANSPORT WIZARD TEXT INPUTS
       // ==========================================
-      else if (state.step === 'trans_area_custom_input' && text) {
+      else if ((state.step === 'trans_regions' || state.step === 'trans_area_custom_input') && text) {
         state.data.regions = text.trim();
         state.step = 'trans_dest';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        const destButtons = TRANSPORT_DESTINATIONS_BAGHDAD.map(row => row.map(d => {
-          if (d.includes('أخرى')) return { text: d, callback_data: 'trans_dest_custom' };
-          return { text: d, callback_data: `trans_dest_${d}` };
-        }));
-        destButtons.push([{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
-
-        await sendMessage(chatId, `🏢 <b>الخطوة 4 من 9 — الوجهة (الجامعة أو العمل)</b>\n\nاختر الوجهة المطلوبة 👇`, {
-          inline_keyboard: destButtons
-        });
+        const destMarkup = buildTransportDestinationsMarkup(state, 0);
+        await sendMessage(
+          chatId,
+          `🏢 <b>الخطوة 4 من 9 — الوجهة (الجامعة أو العمل)</b>\n\n` +
+          `📍 مناطق الانطلاق المعتمدة: <b>${state.data.regions}</b>\n\n` +
+          `اختر الوجهة المطلوبة من القوائم أدناه أو اكتبها بنفسك 👇`,
+          destMarkup
+        );
+        return new Response('OK', { status: 200 });
       }
-      else if (state.step === 'trans_dest_custom_input' && text) {
+      else if ((state.step === 'trans_dest' || state.step === 'trans_dest_custom_input') && text) {
         state.data.destination = text.trim();
         state.step = 'trans_shift';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         const shiftButtons = TRANSPORT_SHIFTS.map(row => row.map(s => ({ text: s, callback_data: `trans_shift_${s}` })));
-        shiftButtons.push([{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
+        shiftButtons.push([
+          { text: '◀️ السابق (الوجهة)', callback_data: 'trans_back_to_dest' },
+          { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+        ]);
 
-        await sendMessage(chatId, `⏰ <b>الخطوة 5 من 9 — وقت الدوام والشفت</b>\n\nاختر وقت الدوام 👇`, {
+        await sendMessage(chatId, `⏰ <b>الخطوة 5 من 9 — وقت الدوام والشفت</b>\n\n🏢 الوجهة: <b>${state.data.destination}</b>\nاختر وقت الدوام المناسب أو اكتبه 👇`, {
           inline_keyboard: shiftButtons
         });
+        return new Response('OK', { status: 200 });
       }
-      else if (state.step === 'trans_fare_custom_input' && text) {
+      else if (state.step === 'trans_shift' && text) {
+        state.data.shift = text.trim();
+        state.step = 'trans_vehicle';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const vehicleButtons = TRANSPORT_VEHICLES.map(row => row.map(v => ({ text: v, callback_data: `trans_vehicle_${v}` })));
+        vehicleButtons.push([
+          { text: '◀️ السابق', callback_data: `trans_dest_${state.data.destination || 'جامعة بغداد'}` },
+          { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+        ]);
+
+        await sendMessage(chatId, `🚗 <b>الخطوة 6 من 9 — نوع المركبة</b>\n\nاختر نوع المركبة 👇`, {
+          inline_keyboard: vehicleButtons
+        });
+        return new Response('OK', { status: 200 });
+      }
+      else if (state.step === 'trans_vehicle' && text) {
+        state.data.vehicleType = text.trim();
+        state.step = 'trans_target';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const targetButtons = TRANSPORT_TARGETS.map(row => row.map(t => ({ text: t, callback_data: `trans_target_${t}` })));
+        targetButtons.push([
+          { text: '◀️ السابق', callback_data: `trans_shift_${state.data.shift || 'صباحي'}` },
+          { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+        ]);
+
+        await sendMessage(chatId, `👥 <b>الخطوة 7 من 9 — فئة الركاب</b>\n\nالخط مخصص لمن؟ 👇`, {
+          inline_keyboard: targetButtons
+        });
+        return new Response('OK', { status: 200 });
+      }
+      else if (state.step === 'trans_target' && text) {
+        state.data.targetAudience = text.trim();
+        state.step = 'trans_fare';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const fareButtons = TRANSPORT_FARES.map(row => row.map(f => {
+          if (f.includes('آخر')) return { text: f, callback_data: 'trans_fare_custom' };
+          return { text: f, callback_data: `trans_fare_${f}` };
+        }));
+        fareButtons.push([
+          { text: '◀️ السابق', callback_data: `trans_vehicle_${state.data.vehicleType || 'صالون'}` },
+          { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+        ]);
+
+        await sendMessage(chatId, `💰 <b>الخطوة 8 من 9 — الأجرة الشهرية / السعر</b>\n\nاختر الأجرة التقريبية لكل راكب 👇`, {
+          inline_keyboard: fareButtons
+        });
+        return new Response('OK', { status: 200 });
+      }
+      else if ((state.step === 'trans_fare' || state.step === 'trans_fare_custom_input') && text) {
         const cleanPrice = text.replace(/[^0-9]/g, '');
         state.data.price = cleanPrice || '0';
         state.step = 'trans_phone';
@@ -11245,6 +11542,7 @@ Deno.serve(async (req: any) => {
         await sendMessage(chatId, `📞 <b>الخطوة 9 من 9 — رقم الهاتف للتواصل</b>\n\nاكتب رقم الهاتف الخاص بك للتواصل، أو اضغط على الزر أدناه:`, {
           inline_keyboard: phoneButtons
         });
+        return new Response('OK', { status: 200 });
       }
       else if (state.step === 'trans_phone' && text) {
         state.data.phone = text.trim();
@@ -11269,6 +11567,7 @@ Deno.serve(async (req: any) => {
             [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
           ]
         });
+        return new Response('OK', { status: 200 });
       }
       // Edit Transport Price Input
       else if (state.step === 'edit_trans_price_input' && text) {
