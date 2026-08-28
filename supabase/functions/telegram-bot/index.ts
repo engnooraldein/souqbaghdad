@@ -10938,7 +10938,18 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
-      // 🚨 Top-level Seeker Transport Interceptor (Instant response for transport requests & area queries)
+      // 🛡️ Active Form/Wizard State Protection (حماية جلسات النشر من أي مقاطعة)
+      const isActivelyFilling = Boolean(state.step && (
+        state.step.startsWith('car_') || 
+        state.step.startsWith('edit_car_') || 
+        (state.step.startsWith('trans_') && state.step !== 'trans_seeker_dest') ||
+        state.step.startsWith('edit_trans_') ||
+        state.step.startsWith('product_') ||
+        state.step.startsWith('partner_') ||
+        state.step.startsWith('owner_')
+      ));
+
+      // 🚨 Top-level Seeker Transport Interceptor (Instant response for transport requests & area queries when NOT in a wizard)
       const isKnownAreaInput = IRAQI_AREAS.some(a => {
         const cleanA = a.toLowerCase();
         const noAlA = cleanA.replace(/^ال/, '');
@@ -10946,14 +10957,15 @@ Deno.serve(async (req: any) => {
         return cleanRawInput === cleanA || cleanRawInput === noAlA || noAlInput === noAlA || cleanRawInput.includes(cleanA);
       });
 
-      const isTopLevelSeeker = 
+      const isTopLevelSeeker = !isActivelyFilling && (
         cleanRawInput.includes('محتاج خط') || cleanRawInput.includes('محتاجة خط') || cleanRawInput.includes('محتاجه خط') || 
         cleanRawInput.includes('اريد خط') || cleanRawInput.includes('أريد خط') || cleanRawInput.includes('نريد خط') || cleanRawInput.includes('محتاجين خط') || 
         cleanRawInput.includes('ادور خط') || cleanRawInput.includes('أدور خط') || cleanRawInput.includes('ندور خط') || cleanRawInput.includes('ابحث عن خط') || 
         cleanRawInput.includes('رايد خط') || cleanRawInput.includes('رايده خط') || cleanRawInput.includes('رايدة خط') || 
         cleanRawInput.includes('محتاج سايق') || cleanRawInput.includes('محتاجه سايق') || cleanRawInput.includes('محتاجة سايق') || cleanRawInput.includes('اريد سايق') || 
         cleanRawInput.includes('طالبه محتاجه') || cleanRawInput.includes('طالبة محتاجة') || cleanRawInput.includes('طالب محتاج') || cleanRawInput.includes('عفيه اريد خط') || cleanRawInput.includes('عفية اريد خط') ||
-        (isKnownAreaInput && (cleanRawInput.length <= 25 || cleanRawInput.includes('خط') || cleanRawInput.includes('من') || cleanRawInput.includes('الى') || cleanRawInput.includes('لـ')));
+        (isKnownAreaInput && (cleanRawInput.length <= 25 || cleanRawInput.includes('خط') || cleanRawInput.includes('من') || cleanRawInput.includes('الى') || cleanRawInput.includes('لـ')))
+      );
 
       // 🏛️ Seeker Destination Text Input Handler (عندما تكتب الطالبة وجهتها نصياً بعد تحديد المنطقة)
       if (state.step === 'trans_seeker_dest' && text) {
@@ -10974,16 +10986,6 @@ Deno.serve(async (req: any) => {
         await handleSmartTransportSearch(chatId, text, fromUser, supabase, false);
         return new Response('OK', { status: 200 });
       }
-
-      // Interruption Check (Only when not actively in a form step)
-      const isActivelyFilling = state.step && (
-        state.step.startsWith('car_') || 
-        state.step.startsWith('edit_car_') || 
-        state.step.startsWith('trans_') ||
-        state.step.startsWith('edit_trans_') ||
-        state.step.startsWith('product_') ||
-        state.step.startsWith('partner_')
-      );
 
       // --- Report Driver Reason Input Handler ---
       if (state.step === 'report_driver_reason' && text) {
