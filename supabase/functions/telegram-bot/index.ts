@@ -43,28 +43,6 @@ async function sendMessage(chatId: string | number, text: string, replyMarkup?: 
   }
 }
 
-async function editMessageText(chatId: string | number, messageId: number | string, text: string, replyMarkup?: any): Promise<any> {
-  try {
-    const body: any = {
-      chat_id: chatId,
-      message_id: messageId,
-      text: text,
-      parse_mode: 'HTML',
-      disable_web_page_preview: true
-    };
-    if (replyMarkup) body.reply_markup = replyMarkup;
-
-    const res = await fetch(`${tgUrl}/editMessageText`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    return await res.json();
-  } catch (e) {
-    console.error('editMessageText exception:', e);
-    return { ok: false, error: String(e) };
-  }
-}
 
 async function answerCallbackQuery(callbackQueryId: string, text: string = '', showAlert = false) {
   fetch(`${tgUrl}/answerCallbackQuery`, {
@@ -1332,8 +1310,8 @@ async function editMessageCaption(chatId: string | number, messageId: number, ca
   return res.json();
 }
 
-async function editMessageText(chatId: string | number, messageId: number, text: string, replyMarkup?: any) {
-  const body: any = { chat_id: chatId, message_id: messageId, text, parse_mode: 'HTML' };
+async function editMessageText(chatId: string | number, messageId: number | string, text: string, replyMarkup?: any) {
+  const body: any = { chat_id: chatId, message_id: messageId, text, parse_mode: 'HTML', disable_web_page_preview: true };
   if (replyMarkup) body.reply_markup = replyMarkup;
   const res = await fetch(`${tgUrl}/editMessageText`, {
     method: 'POST',
