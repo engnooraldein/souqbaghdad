@@ -4677,6 +4677,7 @@ Deno.serve(async (req: any) => {
     }
 
     const callbackMsgId = callbackQuery?.message?.message_id;
+    const messageId = update.message?.message_id || callbackQuery?.message?.message_id;
 
     // Helper: Update existing message in-place or send new
     const updateOrSend = async (msgText: string, markup?: any) => {
@@ -8221,9 +8222,11 @@ Deno.serve(async (req: any) => {
           }
         }
 
-        if (linesList && linesList.length > 0 && messageId) {
+        const targetMsgId = messageId || callbackMsgId || callbackQuery?.message?.message_id;
+
+        if (linesList && linesList.length > 0 && targetMsgId) {
           const card = buildTransportCard(linesList, targetPage, sName, sOrig, sDest);
-          await editMessageText(chatId, messageId, card.text, card.markup);
+          await editMessageText(chatId, targetMsgId, card.text, card.markup);
           if (callbackQueryId) {
             await answerCallbackQuery(callbackQueryId);
           }
