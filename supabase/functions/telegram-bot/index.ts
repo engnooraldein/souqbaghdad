@@ -547,10 +547,10 @@ const IRAQI_AREAS = [
   'ابو دشير', 'أبو دشير', 'الكرخ', 'الرصافة', 'حي البساتين', 'سبع قصور', 'حي دراغ', 'الشرطة الرابعة', 
   'الشرطة الخامسة', 'المسبح', 'عرصات الهندية', 'الكرادة خارج', 'الكرادة داخل', 'البلديات', 'الحبيبية', 
   'الكمالية', 'الفضل', 'الميدان', 'المستنصرية', 'الرافدين', 'جامعة بغداد', 'الجادرية', 'النهرين', 'التكنولوجية',
-  'الطالبية', 'طالبية', 'حي سومر', 'الأمين', 'الامين', 'حي المعلمين'
+  'المهندسين', 'حي المهندسين', 'مهندسين', 'الطالبية', 'طالبية', 'حي سومر', 'الأمين', 'الامين', 'حي المعلمين'
 ];
 
-async function notifyDriverOfWaitingPassengers(driverChatId: string | number, driverName: string, regions: string, destination: string, supabase: any) {
+async function notifyDriverOfWaitingPassengers(driverChatId: string | number, driverName: string, regions: string, destination: string, supabase: any, driverPhone?: string) {
   try {
     const { data: waitingStudents } = await supabase
       .from('transport_requests')
@@ -579,6 +579,7 @@ async function notifyDriverOfWaitingPassengers(driverChatId: string | number, dr
       `وجدنا لك <b>(${matched.length})</b> طلبات ركاب وطلاب يبحثون عن خط بنفس مسارك حالياً:\n\n`;
 
     const buttons: any[][] = [];
+    const cleanPhone = (driverPhone || '').replace(/[^0-9]/g, '');
 
     for (let i = 0; i < matched.length; i++) {
       const st = matched[i];
@@ -591,10 +592,11 @@ async function notifyDriverOfWaitingPassengers(driverChatId: string | number, dr
       if (st.telegram_chat_id) {
         row.push({ text: `💬 مراسلة الراكب (${i + 1}) 🌹`, url: `tg://user?id=${st.telegram_chat_id}` });
       }
-      if (row.length > 0) buttons.push(row);
+      row.push({ text: `📢 إبلاغ الراكب بتوفر خطك (${i + 1}) ⚡`, callback_data: `alert_p_${st.id}_${cleanPhone || 'nophone'}` });
+      buttons.push(row);
     }
 
-    driverMsg += `💡 <i>تواصل مع الركاب أعلاه لحجز المقاعد وإكمال عدد خطك فوراً ✨</i>`;
+    driverMsg += `💡 <i>اضغط على «📢 إبلاغ الراكب» لإرسال بطاقة خطك ورقمك إلى خاص الراكب فوراً ✨</i>`;
     buttons.push([{ text: '🚌 تصفح جميع طلبات الركاب بالموقع', url: 'https://www.souqbaghdad.store/transport' }]);
 
     await sendMessage(driverChatId, driverMsg, { inline_keyboard: buttons });
@@ -641,6 +643,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   norm = replaceAr(norm, 'طالبيه|طالبية|الطالبيه', 'الطالبية');
   norm = replaceAr(norm, 'سومر|حي سومر', 'حي سومر');
   norm = replaceAr(norm, 'معلمين|حي المعلمين', 'حي المعلمين');
+  norm = replaceAr(norm, 'مهندسين|المهندسين|حي المهندسين', 'حي المهندسين');
   norm = replaceAr(norm, 'امين|الامين', 'الأمين');
   norm = norm.trim();
 
@@ -839,8 +842,8 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
       };
 
       await sendMessage(chatId, driverPrivateMsg, wizardMarkup);
-      // 🎯 Also send the driver the list of waiting passengers right now!
-      await notifyDriverOfWaitingPassengers(chatId, fromName, lowerRaw, driverDest, supabase);
+      // 🎯 Also send the driver the list of waiting passengers right now with 1-click notification button!
+      await notifyDriverOfWaitingPassengers(chatId, fromName, lowerRaw, driverDest, supabase, extractedPhone || undefined);
     }
     return;
   }
@@ -8039,6 +8042,83 @@ Deno.serve(async (req: any) => {
 
         await sendMessage(chatId, 'نهاية أرشيف الخطوط. يمكنك إعادة تفعيل أي خط بضغطة زر واحدة 👆', {
           inline_keyboard: [[{ text: '🔙 العودة لخطوطي النشطة', callback_data: 'manage_cat_trans' }]]
+        });
+        return new Response('OK', { status: 200 });
+      }
+
+      // 📢 Driver alerts waiting passenger (إبلاغ الراكب بتوفر الخط)
+      if (action.startsWith('alert_p_')) {
+        const parts = action.replace('alert_p_', '').split('_');
+        const reqId = parts[0];
+        const drvPhone = parts.slice(1).join('_');
+        
+        const { data: stReq } = await supabase.from('transport_requests').select('*').eq('id', reqId).maybeSingle();
+        if (stReq && stReq.telegram_chat_id) {
+          const cleanPhone = (drvPhone === 'nophone' || !drvPhone) ? (phone || '') : drvPhone;
+          const waPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
+          const drvName = fromUser?.first_name || 'أحد الكباتن';
+          
+          const alertMsg = 
+            `🔔 <b>يا هلا بيك! كابتن (${drvName}) أبلغك بتوفر مقعد في خطه بنفس مسارك! 🚌✨</b>\n\n` +
+            `📍 <b>مسار الخط:</b> ${stReq.origin} ⬅️ ${stReq.destination || 'الجامعة'}\n` +
+            (cleanPhone ? `📞 <b>هاتف الكابتن:</b> <code>${cleanPhone}</code>\n\n` : '\n') +
+            `💡 <i>تواصل مع الكابتن للتأكيد، وإذا اتفقت معه واكتفيت اضغط على الزر الأخضر أدناه:</i>`;
+
+          const alertButtons: any[][] = [];
+          const row: any[] = [];
+          if (waPhone) {
+            row.push({ text: '💬 تواصل واتساب 🟢', url: `https://wa.me/${waPhone}` });
+          }
+          if (cleanPhone) {
+            row.push({ text: '✈️ تواصل تيليجرام / اتصال', url: `https://t.me/+${waPhone || cleanPhone}` });
+          }
+          if (row.length > 0) alertButtons.push(row);
+
+          alertButtons.push([{ text: '✅ اتفقت ولكيت خط خلاص (إيقاف)', callback_data: `matched_req_${stReq.id}_${cleanPhone || 'ok'}` }]);
+          alertButtons.push([{ text: '🚌 تصفح جميع الخطوط', url: 'https://www.souqbaghdad.store/transport' }]);
+
+          try {
+            await sendMessage(stReq.telegram_chat_id, alertMsg, { inline_keyboard: alertButtons });
+          } catch(e) {}
+
+          if (callbackQueryId) {
+            await answerCallbackQuery(callbackQueryId, '✅ تم إرسال إشعار فوري وتفاصيل خطك إلى خاص الراكب بنجاح!', true);
+          } else {
+            await sendMessage(chatId, '✅ <b>تم إرسال إشعار فوري وتفاصيل خطك إلى خاص الراكب بنجاح! 🌹</b>');
+          }
+        } else {
+          if (callbackQueryId) {
+            await answerCallbackQuery(callbackQueryId, '⚠️ تعذر إرسال الإشعار، قد يكون الراكب قد اكتفى أو مسح طلبه.', true);
+          }
+        }
+        return new Response('OK', { status: 200 });
+      }
+
+      // ✅ Passenger confirms agreement with driver (اتفقت ولكيت خط خلاص)
+      if (action.startsWith('matched_req_') || action.startsWith('stop_alert_')) {
+        const parts = action.replace('matched_req_', '').replace('stop_alert_', '').split('_');
+        const reqId = parts[0];
+
+        if (reqId === 'user') {
+          await supabase.from('transport_requests').update({ status: 'matched' }).eq('telegram_chat_id', String(chatId)).eq('status', 'pending');
+        } else if (!isNaN(Number(reqId)) || reqId.length >= 10) {
+          await supabase.from('transport_requests').update({ status: 'matched' }).eq('id', reqId);
+        }
+
+        const successReply = 
+          `🎉 <b>ألف مبروك! نتمنى لك دوام التوفيق والراحة برحلاتك اليومية 🌹</b>\n\n` +
+          `✅ تم تسجيل اتفاقك وإيقاف التنبيهات لهذا المسار بنجاح.\n` +
+          `❤️ شكراً لاستخدامك منصة سوق بغداد!`;
+
+        if (callbackQueryId) {
+          await answerCallbackQuery(callbackQueryId, '✅ ألف مبروك! تم إيقاف التنبيهات بنجاح.', true);
+        }
+
+        await sendMessage(chatId, successReply, {
+          inline_keyboard: [
+            [{ text: '🚌 تصفح خدمات النقل', url: 'https://www.souqbaghdad.store/transport' }],
+            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+          ]
         });
         return new Response('OK', { status: 200 });
       }
