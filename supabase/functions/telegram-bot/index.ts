@@ -885,8 +885,21 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     } catch(e) {}
   }
 
-  // If matched active driver lines found -> return them
+  // If matched active driver lines found -> return them & register seeker for future alerts
   if (matchedLines && matchedLines.length > 0) {
+    // 🔔 Always register the seeker in transport_requests for radar notifications of new drivers!
+    try {
+      await supabase.from('transport_requests').insert({
+        telegram_chat_id: String(chatId),
+        telegram_user_id: fromUser?.id ? String(fromUser.id) : null,
+        user_name: fromName,
+        origin: origin || 'بغداد',
+        destination: destination || (norm.includes('رافدين') || norm.includes('رفدين') ? 'كلية الرافدين' : 'الجامعة'),
+        raw_query: rawText,
+        status: 'pending'
+      });
+    } catch(e) {}
+
     let fullMsg = `🚌 <b>يا هلا بيك ${fromName}! 🌹 وجدنا لك (${matchedLines.length}) خطوط نشطة متوفرة لمسارك:</b>\n\n`;
     
     const inlineButtons: any[] = [];
@@ -894,7 +907,11 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     for (let i = 0; i < matchedLines.length; i++) {
       const l = matchedLines[i];
       const fareText = formatTgPrice(l.price);
-      const cleanPhone = (l.phone || '').replace(/[^0-9+]/g, '');
+      
+      // Extract phone from ad.phone OR from description if phone field is empty
+      const descPhoneMatch = (l.description || '').match(/(?:07[3-9]\d{8}|\+9647[3-9]\d{8}|07\d{2}\s?\d{3}\s?\d{4})/);
+      const rawPhone = l.phone || (descPhoneMatch ? descPhoneMatch[0] : '');
+      const cleanPhone = rawPhone.replace(/[^0-9+]/g, '');
       let waPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
 
       fullMsg += 
@@ -909,12 +926,13 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
         row.push({ text: `💬 تواصل واتساب (${i + 1}) 🟢`, url: `https://wa.me/${waPhone}` });
       }
       if (cleanPhone) {
-        row.push({ text: `📞 اتصال (${i + 1})`, url: `https://t.me/+${waPhone || cleanPhone}` });
+        row.push({ text: `📞 اتصال (${i + 1})`, url: `tel:${cleanPhone}` });
       }
       if (row.length > 0) inlineButtons.push(row);
     }
 
-    fullMsg += `💡 <i>تواصل مع السائقين مباشرة لحجز مقعدك، وإذا اتفقت وياهم اضغط «🛑 لكيت خط خلاص» أدناه لإيقاف التنبيهات ✨</i>`;
+    fullMsg += `🔔 <i>تم تفعيل رادار التنبيهات أيضاً! أول ما يسجل كابتن أو خط جديد بنفس مسارك راح يجيك إشعار فوري 🌹</i>\n` +
+      `💡 <i>تواصل مع السائقين مباشرة لحجز مقعدك، وإذا اكتفيت اضغط «🛑 لكيت خط خلاص» أدناه:</i>`;
 
     inlineButtons.push([{ text: '🛑 لكيت خط خلاص / إيقاف التنبيهات', callback_data: 'stop_alert_user' }]);
     
@@ -925,25 +943,18 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
       inlineButtons.push([{ text: '⚠️ إبلاغ عن مشكلة مع سائق', callback_data: `rep_drv_${firstDrvName}_${firstDrvPhone}` }]);
     }
 
-    inlineButtons.push([{ text: '🚌 تصفح جميع الخطوط النشطة بالموقع', url: 'https://www.souqbaghdad.store/transport' }]);
+    inlineButtons.push([{ text: '🚌 تصفح جميع الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }]);
 
     const fullMarkup = { inline_keyboard: inlineButtons };
 
     if (isGroup) {
+      // In group, send directly to group so user & members see results without obstruction
+      await sendOrReplaceGroupMessage(chatId, fullMsg, fullMarkup, supabase, userMessageId);
       if (fromUser?.id) {
         try {
           await sendMessage(fromUser.id, fullMsg, fullMarkup);
         } catch(e) {}
       }
-
-      const shortGroupMsg = `🚌 <b>يا هلا ${fromName} 🌹</b> دزيتلك تفاصيل الخطوط المتوفرة وأرقام السائقين بالخاص ✨`;
-      const shortMarkup = {
-        inline_keyboard: [
-          [{ text: '💬 فتح تفاصيل السائقين بالخاص 🌹', url: `https://t.me/${BOT_USERNAME}?start=group_help` }],
-          [{ text: '🚌 تصفح الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }]
-        ]
-      };
-      await sendOrReplaceGroupMessage(chatId, shortGroupMsg, shortMarkup, supabase, userMessageId);
     } else {
       await sendMessage(chatId, fullMsg, fullMarkup);
     }
@@ -4876,13 +4887,14 @@ Deno.serve(async (req: any) => {
     if (!isOwner && chatType === 'private') {
       let isSubscribed = true;
       try {
-        const channelsToCheck = ['@souqbaghda', '@souqbaghdad_car', '@souqbaghdad_lines'];
+        const channelsToCheck = ['@souqbaghdad_iq', '@souqbaghdad_car', '@souqbaghdad_lines'];
         const subChecks = await Promise.all(
-          channelsToCheck.map(ch => getChatMember(ch, chatId))
+          channelsToCheck.map(ch => getChatMember(ch, chatId).catch(() => ({ status: 'member' })))
         );
         isSubscribed = subChecks.every(member => member && ['creator', 'administrator', 'member', 'restricted'].includes(member.status));
       } catch (e) {
         console.error('Force subscribe check error:', e);
+        isSubscribed = true; // Fallback to avoid blocking on API errors
       }
 
       if (!isSubscribed) {
@@ -4892,7 +4904,7 @@ Deno.serve(async (req: any) => {
         
         const subMarkup = {
           inline_keyboard: [
-            [{ text: '📢 سوق بغداد (العامة)', url: 'https://t.me/souqbaghda' }],
+            [{ text: '📢 سوق بغداد (العامة)', url: 'https://t.me/souqbaghdad_iq' }, { text: '🎓 الرافدين', url: 'https://t.me/ruc_1' }],
             [{ text: '🚗 سيارات سوق بغداد', url: 'https://t.me/souqbaghdad_car' }],
             [{ text: '🚌 خطوط النقل والجامعات', url: 'https://t.me/souqbaghdad_lines' }],
             [{ text: '✅ تحقق من الاشتراك', callback_data: 'check_subscription' }]
