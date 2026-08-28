@@ -5580,6 +5580,7 @@ Deno.serve(async (req: any) => {
       
       const ownerMarkup = {
         inline_keyboard: [
+          [{ text: '📋 سجلات الاتفاقات والحجوزات 🚌', callback_data: 'owner_bookings_0' }],
           [{ text: '📡 نشر جميع الإعلانات النشطة', callback_data: 'bulk_publish_step1' }],
           [{ text: '⚙️ الإدارة الشاملة للنشر التلقائي', callback_data: 'admin_autopublish' }],
           [{ text: maintBtnText, callback_data: 'admin_toggle_maintenance' }],
@@ -5996,6 +5997,161 @@ Deno.serve(async (req: any) => {
           [{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
         ]
       });
+    }
+
+    // ==========================================
+    // 📋 OWNER ACTION: TRANSPORT BOOKINGS & AGREEMENTS HUB
+    // ==========================================
+    if (isOwner && (trimmedText.startsWith('owner_bookings_') || trimmedText.startsWith('owner_confirm_booking_') || trimmedText.startsWith('owner_cancel_booking_') || trimmedText.startsWith('owner_del_booking_'))) {
+      // 1. Action: Manual Confirm
+      if (trimmedText.startsWith('owner_confirm_booking_')) {
+        const parts = trimmedText.replace('owner_confirm_booking_', '').split('_');
+        const bCode = parts[0];
+        const pageNum = parseInt(parts[1], 10) || 0;
+        await supabase.from('transport_bookings').update({ status: 'confirmed', confirmed_at: new Date().toISOString() }).eq('booking_code', bCode);
+        if (callbackQueryId) await answerCallbackQuery(callbackQueryId, `✅ تم تأكيد الحجز #${bCode} يدويًا من الإدارة!`, true);
+        trimmedText = `owner_bookings_${pageNum}`;
+      }
+
+      // 2. Action: Manual Cancel
+      if (trimmedText.startsWith('owner_cancel_booking_')) {
+        const parts = trimmedText.replace('owner_cancel_booking_', '').split('_');
+        const bCode = parts[0];
+        const pageNum = parseInt(parts[1], 10) || 0;
+        await supabase.from('transport_bookings').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('booking_code', bCode);
+        if (callbackQueryId) await answerCallbackQuery(callbackQueryId, `❌ تم إلغاء اتفاق #${bCode}.`, true);
+        trimmedText = `owner_bookings_${pageNum}`;
+      }
+
+      // 3. Action: Delete Booking Record
+      if (trimmedText.startsWith('owner_del_booking_')) {
+        const parts = trimmedText.replace('owner_del_booking_', '').split('_');
+        const bCode = parts[0];
+        let pageNum = parseInt(parts[1], 10) || 0;
+        await supabase.from('transport_bookings').delete().eq('booking_code', bCode);
+        if (callbackQueryId) await answerCallbackQuery(callbackQueryId, `🗑️ تم حذف السجل بنجاح.`, true);
+        pageNum = Math.max(0, pageNum - 1);
+        trimmedText = `owner_bookings_${pageNum}`;
+      }
+
+      // 4. Render Bookings View with Pagination & Full Control
+      const pageIndex = parseInt(trimmedText.replace('owner_bookings_', ''), 10) || 0;
+
+      // Stats
+      const { count: totalBookings } = await supabase.from('transport_bookings').select('*', { count: 'exact', head: true });
+      const { count: confirmedCount } = await supabase.from('transport_bookings').select('*', { count: 'exact', head: true }).eq('status', 'confirmed');
+      const { count: pendingCount } = await supabase.from('transport_bookings').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+      const { count: rejectedCount } = await supabase.from('transport_bookings').select('*', { count: 'exact', head: true }).in('status', ['rejected', 'cancelled']);
+
+      const total = totalBookings || 0;
+
+      if (total === 0) {
+        return await updateOrSend(
+          `📋 <b>سجلات الاتفاقات وحجوزات الخطوط — لوحة المالك</b> 🚌\n\n` +
+          `<i>📭 لا توجد أي اتفاقات أو حجوزات مسجلة بالنظام حتى الآن.</i>\n\n` +
+          `بمجرد أن تقوم طالبة أو راكب بحجز مقعد ويوافق الكابتن، ستظهر جميع البيانات هنا مباشرة للتفتيش والإشراف.`,
+          {
+            inline_keyboard: [
+              [{ text: '🔄 تحديث', callback_data: 'owner_bookings_0' }],
+              [{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
+            ]
+          }
+        );
+      }
+
+      const safePage = Math.min(Math.max(0, pageIndex), total - 1);
+      const { data: bookings } = await supabase
+        .from('transport_bookings')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(safePage, safePage);
+
+      const b = (bookings && bookings[0]) || null;
+      if (!b) {
+        return await updateOrSend('❌ تعذر تحميل بيانات الحجز.', {
+          inline_keyboard: [[{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]]
+        });
+      }
+
+      const createdDate = new Date(b.created_at).toLocaleString('ar-IQ', {
+        day: 'numeric',
+        month: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      let statusBadge = '⏳ قيد الموافقة والانتظار';
+      if (b.status === 'confirmed') statusBadge = '🟢 تم الاتفاق وتأكيد الحجز بنجاح ✅';
+      else if (b.status === 'rejected') statusBadge = '❌ معتذر عنه (الخط ممتلئ)';
+      else if (b.status === 'cancelled') statusBadge = '🚫 ملغي من الإدارة أو الطرفين';
+
+      const cleanCapPhone = (b.captain_phone || '').replace(/[^0-9+]/g, '');
+      const waCapPhone = cleanCapPhone.startsWith('07') ? '964' + cleanCapPhone.substring(1) : cleanCapPhone.replace('+', '');
+
+      let bMsg = 
+        `📋 <b>سجل الاتفاقات وحجوزات الخطوط [ ${safePage + 1} / ${total} ]</b> 🚌\n\n` +
+        `📊 <b>إحصائيات المنصة الحية:</b>\n` +
+        `• إجمالي الحجوزات: <b>${total}</b>\n` +
+        `• المكتملة والمؤكدة: <b>${confirmedCount || 0} 🟢</b> | المعلقة: <b>${pendingCount || 0} ⏳</b> | الملغية: <b>${rejectedCount || 0} ❌</b>\n` +
+        `━━━━━━━━━━━━━━━━━━\n\n` +
+        `🔖 <b>كود الحجز الرقمي:</b> <code>#${b.booking_code}</code>\n` +
+        `📊 <b>الحالة:</b> ${statusBadge}\n` +
+        `📅 <b>تاريخ الطلب:</b> ${createdDate}\n\n` +
+        `🚌 <b>المسار المطلوب:</b> ${b.route_origin || 'بغداد'} ⬅️ ${b.route_destination || 'الجامعة'}\n` +
+        (b.agreed_price ? `💰 <b>الأجرة:</b> ${b.agreed_price}\n` : '') +
+        `\n👤 <b>بيانات الكابتن (السائق):</b>\n` +
+        `• الاسم: <b>${b.captain_name || 'كابتن الخط'}</b>\n` +
+        `• الهاتف: <code>${b.captain_phone || 'غير مسجل'}</code>\n` +
+        `• معرف التليكرام: <code>${b.captain_chat_id || 'غير متوفر'}</code>\n` +
+        `\n🙋‍♀️ <b>بيانات الراكب (الطالب/ة):</b>\n` +
+        `• الاسم: <b>${b.passenger_name || 'راكبة'}</b>\n` +
+        `• معرف التليكرام: ${b.passenger_username ? `@${b.passenger_username}` : '<code>' + (b.passenger_chat_id || 'مخفي') + '</code>'}\n` +
+        `━━━━━━━━━━━━━━━━━━`;
+
+      const bButtons: any[][] = [];
+
+      // Row 1: Direct Contact by Owner
+      const contactRow: any[] = [];
+      if (waCapPhone) {
+        contactRow.push({ text: '📞 اتصال/واتساب بالكابتن', url: `https://wa.me/${waCapPhone}` });
+      }
+      if (b.passenger_username) {
+        contactRow.push({ text: '💬 مراسلة الراكب بالخاص', url: `https://t.me/${b.passenger_username.replace('@', '')}` });
+      }
+      if (contactRow.length > 0) bButtons.push(contactRow);
+
+      // Row 2: Owner Power Actions
+      const actionRow: any[] = [];
+      if (b.status !== 'confirmed') {
+        actionRow.push({ text: '🟢 تأكيد الحجز يدوياً', callback_data: `owner_confirm_booking_${b.booking_code}_${safePage}` });
+      }
+      if (b.status !== 'cancelled') {
+        actionRow.push({ text: '🚫 إلغاء الاتفاق', callback_data: `owner_cancel_booking_${b.booking_code}_${safePage}` });
+      }
+      actionRow.push({ text: '🗑️ حذف السجل', callback_data: `owner_del_booking_${b.booking_code}_${safePage}` });
+      bButtons.push(actionRow);
+
+      // Row 3: Pagination (Previous / Next)
+      if (total > 1) {
+        const navRow: any[] = [];
+        if (safePage > 0) {
+          navRow.push({ text: '⬅️ السابق', callback_data: `owner_bookings_${safePage - 1}` });
+        }
+        navRow.push({ text: `📄 [ ${safePage + 1} / ${total} ]`, callback_data: `owner_bookings_${safePage}` });
+        if (safePage < total - 1) {
+          navRow.push({ text: 'التالي ➡️', callback_data: `owner_bookings_${safePage + 1}` });
+        }
+        bButtons.push(navRow);
+      }
+
+      // Row 4: Refresh and Back
+      bButtons.push([
+        { text: '🔄 تحديث البيانات', callback_data: `owner_bookings_${safePage}` },
+        { text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }
+      ]);
+
+      return await updateOrSend(bMsg, { inline_keyboard: bButtons });
     }
 
     // ==========================================
