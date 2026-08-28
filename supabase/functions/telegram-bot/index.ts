@@ -631,7 +631,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     const askMarkup = {
       inline_keyboard: [
         [{ text: '👨‍✈️ أنا كابتن (عندي سيارة / خط)', callback_data: 'ambig_driver' }],
-        [{ text: '👨‍🎓 أنا طالب (محتاج خط / عبرية)', callback_data: 'ambig_student' }]
+        [{ text: '👨‍🎓 أنا طالب (محتاج خط / راكب)', callback_data: 'ambig_student' }]
       ]
     };
     if (isGroup) {
