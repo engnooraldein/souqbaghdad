@@ -4665,6 +4665,15 @@ Deno.serve(async (req: any) => {
     let state = tgUser?.bot_state || {};
     const userId = tgUser?.user_id;
     const phone = tgUser?.phone_number;
+    const isOwner = String(chatId) === '7083049103' || 
+      String(chatId) === '6474465462' || 
+      String(chatId) === '108892492' || 
+      phone?.includes('7738470265') || 
+      phone?.includes('7701109692') || 
+      phone?.includes('7700028170') || 
+      userId === '31f15390-dc84-4af6-99e0-ca92ac863292' ||
+      tgUser?.role === 'owner' || 
+      tgUser?.role === 'admin';
 
     // 🛠️ Automatic Restoration for user 07738470265 (Pure Pharma)
     if (userId && (phone?.includes('7738470265') || userId === '31f15390-dc84-4af6-99e0-ca92ac863292')) {
@@ -4678,6 +4687,76 @@ Deno.serve(async (req: any) => {
 
     const callbackMsgId = callbackQuery?.message?.message_id;
     const messageId = update.message?.message_id || callbackQuery?.message?.message_id;
+
+    // 🛡️ STRONG BAN SECURITY CHECK (فحص الحظر الأمني القوي المباشر)
+    if (!isOwner) {
+      let isBanned = false;
+      let banReason = 'مخالفة معايير الأمان وشروط الاستخدام';
+
+      // 1. Check by telegram_chat_id
+      const { data: bannedByChat } = await supabase
+        .from('banned_identifiers')
+        .select('*')
+        .eq('identifier_value', String(chatId))
+        .maybeSingle();
+
+      if (bannedByChat) {
+        isBanned = true;
+        banReason = bannedByChat.reason || banReason;
+      }
+
+      // 2. Check by phone
+      if (!isBanned && phone) {
+        const cleanP = phone.replace(/[^0-9]/g, '');
+        const localP = cleanP.startsWith('964') ? '0' + cleanP.substring(3) : cleanP;
+        const { data: bannedByPhone } = await supabase
+          .from('banned_identifiers')
+          .select('*')
+          .or(`identifier_value.eq.${phone},identifier_value.eq.${cleanP},identifier_value.eq.${localP}`)
+          .maybeSingle();
+
+        if (bannedByPhone) {
+          isBanned = true;
+          banReason = bannedByPhone.reason || banReason;
+        }
+      }
+
+      // 3. Check by userId / profile is_banned
+      if (!isBanned && userId) {
+        const { data: profBanned } = await supabase
+          .from('profiles')
+          .select('is_banned, ban_reason')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (profBanned?.is_banned) {
+          isBanned = true;
+          banReason = profBanned.ban_reason || banReason;
+        }
+      }
+
+      if (isBanned) {
+        if (callbackQueryId) {
+          await answerCallbackQuery(callbackQueryId, '🚫 حسابك محظور من استخدام المنصة', true);
+        }
+        const banMsg = 
+          `🚫 <b>تنبيه أمني — حسابك محظور من منصة سوق بغداد</b> 🇮🇶\n\n` +
+          `عذراً، تم حظر رقم هاتفك وجهازك من استخدام البوت والموقع بسبب: <b>${banReason}</b>.\n\n` +
+          `🔒 <b>تم أرشفة وإخفاء كافة إعلاناتك من البحث العام وقنوات المنصة تلقائياً.</b>\n\n` +
+          `📞 <i>لمراجعة الإدارة وفك الحظر، يرجى التواصل مع الدعم الفني المباشر:</i>`;
+
+        const banMarkup = {
+          inline_keyboard: [
+            [{ text: '💬 مراسلة إدارة سوق بغداد 🛡️', url: 'https://t.me/souqbaghdad_admin' }]
+          ]
+        };
+
+        if (chatType === 'private') {
+          await sendMessage(chatId, banMsg, banMarkup);
+        }
+        return new Response('OK', { status: 200 });
+      }
+    }
 
     // Helper: Update existing message in-place or send new
     const updateOrSend = async (msgText: string, markup?: any) => {
@@ -4738,9 +4817,6 @@ Deno.serve(async (req: any) => {
     }
 
     // 🔑 Automatic Token Receiver for Owner (Auto-detects Facebook & Instagram tokens)
-    const isOwner = String(chatId) === '6474465462' || 
-      (phone && (phone.includes('7701109692') || phone.includes('7700028170'))) ||
-      tgUser?.role === 'owner' || tgUser?.role === 'admin';
 
     // =========================================================================
     // 👥 SMART GROUP MODE & 3-STRIKE DEFENDER (نظام حماية ومساعد الكروبات الذكي)
@@ -5581,6 +5657,8 @@ Deno.serve(async (req: any) => {
       const ownerMarkup = {
         inline_keyboard: [
           [{ text: '📋 سجلات الاتفاقات والحجوزات 🚌', callback_data: 'owner_bookings_0' }],
+          [{ text: '🚫 حظر مستخدم / هاتف', callback_data: 'owner_ban_prompt' }, { text: '🟢 فك الحظر', callback_data: 'owner_unban_prompt' }],
+          [{ text: '📋 قائمة المحظورين (Banned List)', callback_data: 'owner_banned_list_0' }],
           [{ text: '📡 نشر جميع الإعلانات النشطة', callback_data: 'bulk_publish_step1' }],
           [{ text: '⚙️ الإدارة الشاملة للنشر التلقائي', callback_data: 'admin_autopublish' }],
           [{ text: maintBtnText, callback_data: 'admin_toggle_maintenance' }],
@@ -6152,6 +6230,237 @@ Deno.serve(async (req: any) => {
       ]);
 
       return await updateOrSend(bMsg, { inline_keyboard: bButtons });
+    }
+
+    // ==========================================
+    // 🚫 OWNER ACTION: BAN SYSTEM (الحظر القوي وإخفاء الإعلانات)
+    // ==========================================
+    if (isOwner && trimmedText === 'owner_ban_prompt') {
+      state = { step: 'owner_ban_waiting' };
+      if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+      return await updateOrSend(
+        `🚫 <b>حظر مستخدم وإخفاء إعلاناته بالكامل 🛡️</b>\n\n` +
+        `أرسل رقم هاتف المستخدم (مثال: <code>0770xxxxxxx</code>) أو معرف التيليجرام أو كود الإعلان للحظر الفوري:`,
+        { inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'owner_hub_main' }]] }
+      );
+    }
+
+    if (isOwner && state?.step === 'owner_ban_waiting') {
+      state = {};
+      if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+      const targetInput = trimmedText.replace('#', '').trim();
+      let targetUserId: string | null = null;
+      let targetPhone: string | null = null;
+      let targetChatId: string | null = null;
+      let targetName: string = targetInput;
+
+      // 1. Search profiles
+      const { data: pList } = await supabase.from('profiles').select('*').or(`phone.ilike.%${targetInput}%,id.eq.${targetInput},full_name.ilike.%${targetInput}%`).limit(1);
+      if (pList && pList[0]) {
+        targetUserId = pList[0].id;
+        targetPhone = pList[0].phone;
+        targetName = pList[0].full_name || targetInput;
+      }
+
+      // 2. Search telegram_users
+      const { data: tuList } = await supabase.from('telegram_users').select('*').or(`phone_number.ilike.%${targetInput}%,telegram_chat_id.eq.${targetInput},username.ilike.%${targetInput}%`).limit(1);
+      if (tuList && tuList[0]) {
+        targetChatId = tuList[0].telegram_chat_id;
+        if (!targetPhone) targetPhone = tuList[0].phone_number;
+        if (!targetUserId) targetUserId = tuList[0].user_id;
+      }
+
+      // 3. Search ads by short_id or phone
+      if (!targetUserId && !targetPhone) {
+        const { data: adList } = await supabase.from('ads').select('*').or(`short_id.ilike.%${targetInput}%,phone.ilike.%${targetInput}%`).limit(1);
+        if (adList && adList[0]) {
+          targetUserId = adList[0].seller_id;
+          targetPhone = adList[0].phone;
+        }
+      }
+
+      const defaultPhone = targetPhone || (targetInput.startsWith('07') || targetInput.startsWith('+964') || targetInput.startsWith('964') ? targetInput : null);
+
+      // Insert into banned_identifiers
+      const banEntries: any[] = [];
+      if (defaultPhone) {
+        const cleanP = defaultPhone.replace(/[^0-9]/g, '');
+        const localP = cleanP.startsWith('964') ? '0' + cleanP.substring(3) : cleanP;
+        const intlP = cleanP.startsWith('964') ? '+' + cleanP : '+964' + cleanP.replace(/^0/, '');
+        banEntries.push({ identifier_type: 'phone', identifier_value: localP, reason: 'حظر إداري بسبب مخالفة الشروط' });
+        banEntries.push({ identifier_type: 'phone', identifier_value: intlP, reason: 'حظر إداري بسبب مخالفة الشروط' });
+      }
+      if (targetChatId) {
+        banEntries.push({ identifier_type: 'telegram_chat_id', identifier_value: String(targetChatId), reason: 'حظر إداري بسبب مخالفة الشروط' });
+      }
+      if (targetUserId) {
+        banEntries.push({ identifier_type: 'user_id', identifier_value: String(targetUserId), reason: 'حظر إداري بسبب مخالفة الشروط' });
+      }
+      if (banEntries.length === 0) {
+        banEntries.push({ identifier_type: 'manual', identifier_value: targetInput, reason: 'حظر إداري بسبب مخالفة الشروط' });
+      }
+
+      for (const entry of banEntries) {
+        await supabase.from('banned_identifiers').upsert(entry, { onConflict: 'identifier_value' });
+      }
+
+      // Mark Profile as Banned
+      if (targetUserId) {
+        await supabase.from('profiles').update({ is_banned: true, ban_reason: 'حظر إداري من قبل المالك' }).eq('id', targetUserId);
+      }
+
+      // 🔒 AUTO-ARCHIVE & HIDE ALL ACTIVE ADS IMMEDIATELY!
+      let archivedAdsCount = 0;
+      if (targetUserId) {
+        const { data: userAds } = await supabase.from('ads').update({ status: 'archived', is_featured: false, is_vip: false }).eq('seller_id', targetUserId).eq('status', 'active').select('id');
+        archivedAdsCount += (userAds || []).length;
+      }
+      if (defaultPhone) {
+        const { data: phoneAds } = await supabase.from('ads').update({ status: 'archived', is_featured: false, is_vip: false }).ilike('phone', `%${defaultPhone}%`).eq('status', 'active').select('id');
+        archivedAdsCount += (phoneAds || []).length;
+      }
+
+      return await sendMessage(chatId, 
+        `🚫 <b>تم تطبيق الحظر القوي بنجاح! 🛡️</b>\n\n` +
+        `👤 <b>الهدف:</b> ${targetName}\n` +
+        `📞 <b>الهاتف:</b> <code>${defaultPhone || 'غير متوفر'}</code>\n` +
+        `🆔 <b>معرف التيليجرام:</b> <code>${targetChatId || 'غير متوفر'}</code>\n` +
+        `📦 <b>الإعلانات المؤرشفة والمخفية فورياً:</b> <b>${archivedAdsCount} إعلان</b>\n\n` +
+        `🔒 <i>لن يتمكن هذا المستخدم أو جهازه من النشر أو استخدام البوت نهائياً حتى يتم فك الحظر.</i>`,
+        {
+          inline_keyboard: [
+            [{ text: '📋 قائمة المحظورين', callback_data: 'owner_banned_list_0' }],
+            [{ text: '🚫 حظر مستخدم آخر', callback_data: 'owner_ban_prompt' }],
+            [{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
+          ]
+        }
+      );
+    }
+
+    // --- Owner Action: Unban Prompt ---
+    if (isOwner && trimmedText === 'owner_unban_prompt') {
+      state = { step: 'owner_unban_waiting' };
+      if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+      return await updateOrSend(
+        `🟢 <b>فك حظر مستخدم 🛡️</b>\n\n` +
+        `أرسل رقم الهاتف أو المعرف المطلوب فك حظره الآن:`,
+        { inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'owner_hub_main' }]] }
+      );
+    }
+
+    if (isOwner && state?.step === 'owner_unban_waiting') {
+      state = {};
+      if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+      const targetInput = trimmedText.trim();
+      const cleanP = targetInput.replace(/[^0-9]/g, '');
+
+      // Remove from banned_identifiers
+      await supabase.from('banned_identifiers').delete().or(`identifier_value.ilike.%${targetInput}%,identifier_value.ilike.%${cleanP}%`);
+
+      // Restore profile is_banned
+      await supabase.from('profiles').update({ is_banned: false, ban_reason: null }).or(`phone.ilike.%${targetInput}%,phone.ilike.%${cleanP}%,id.eq.${targetInput}`);
+
+      return await sendMessage(chatId, `✅ <b>تم فك الحظر عن «${targetInput}» واستعادة صلاحياته بنجاح! 🟢</b>`, {
+        inline_keyboard: [
+          [{ text: '📋 قائمة المحظورين', callback_data: 'owner_banned_list_0' }],
+          [{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
+        ]
+      });
+    }
+
+    // --- Owner Action: Banned List Pagination ---
+    if (isOwner && (trimmedText.startsWith('owner_banned_list_') || trimmedText.startsWith('owner_quick_unban_'))) {
+      if (trimmedText.startsWith('owner_quick_unban_')) {
+        const parts = trimmedText.replace('owner_quick_unban_', '').split('_');
+        const bId = parts[0];
+        const pageNum = parseInt(parts[1], 10) || 0;
+        
+        const { data: bItem } = await supabase.from('banned_identifiers').select('*').eq('id', bId).maybeSingle();
+        if (bItem) {
+          await supabase.from('banned_identifiers').delete().eq('id', bId);
+          if (bItem.identifier_type === 'phone') {
+            await supabase.from('profiles').update({ is_banned: false, ban_reason: null }).ilike('phone', `%${bItem.identifier_value}%`);
+          } else if (bItem.identifier_type === 'user_id') {
+            await supabase.from('profiles').update({ is_banned: false, ban_reason: null }).eq('id', bItem.identifier_value);
+          }
+        }
+        if (callbackQueryId) await answerCallbackQuery(callbackQueryId, '✅ تم فك الحظر بنجاح!', true);
+        trimmedText = `owner_banned_list_${pageNum}`;
+      }
+
+      const pageIndex = parseInt(trimmedText.replace('owner_banned_list_', ''), 10) || 0;
+      const { count: totalBanned } = await supabase.from('banned_identifiers').select('*', { count: 'exact', head: true });
+      const total = totalBanned || 0;
+
+      if (total === 0) {
+        return await updateOrSend(
+          `📋 <b>قائمة المحظورين — لوحة المالك</b> 🛡️\n\n` +
+          `<i>🟢 لا يوجد أي مستخدم أو رقم محظور حالياً. المنصة نظيفة تماماً!</i>`,
+          {
+            inline_keyboard: [
+              [{ text: '🚫 حظر مستخدم جديد', callback_data: 'owner_ban_prompt' }],
+              [{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
+            ]
+          }
+        );
+      }
+
+      const safePage = Math.min(Math.max(0, pageIndex), total - 1);
+      const { data: banItems } = await supabase
+        .from('banned_identifiers')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(safePage, safePage);
+
+      const item = (banItems && banItems[0]) || null;
+      if (!item) {
+        return await updateOrSend('❌ تعذر تحميل بيانات السجل.', {
+          inline_keyboard: [[{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]]
+        });
+      }
+
+      const bannedDate = new Date(item.created_at).toLocaleString('ar-IQ', {
+        day: 'numeric',
+        month: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const typeLabel = item.identifier_type === 'phone' ? '📱 رقم هاتف' : item.identifier_type === 'telegram_chat_id' ? '💬 معرف تيليجرام' : item.identifier_type === 'user_id' ? '🆔 معرف حساب' : '⚙️ مخصص';
+
+      const banCardMsg = 
+        `🚫 <b>سجل المحظورين [ ${safePage + 1} / ${total} ]</b> 🛡️\n\n` +
+        `• النوع: <b>${typeLabel}</b>\n` +
+        `• القيمة المحظورة: <code>${item.identifier_value}</code>\n` +
+        `• سبب الحظر: <b>${item.reason || 'مخالفة معايير الاستخدام'}</b>\n` +
+        `• تاريخ الحظر: <b>${bannedDate}</b>\n` +
+        `━━━━━━━━━━━━━━━━━━`;
+
+      const banBtns: any[][] = [
+        [{ text: '🟢 فك الحظر عن هذا السجل فوراً', callback_data: `owner_quick_unban_${item.id}_${safePage}` }]
+      ];
+
+      if (total > 1) {
+        const navRow: any[] = [];
+        if (safePage > 0) {
+          navRow.push({ text: '⬅️ السابق', callback_data: `owner_banned_list_${safePage - 1}` });
+        }
+        navRow.push({ text: `📄 [ ${safePage + 1} / ${total} ]`, callback_data: `owner_banned_list_${safePage}` });
+        if (safePage < total - 1) {
+          navRow.push({ text: 'التالي ➡️', callback_data: `owner_banned_list_${safePage + 1}` });
+        }
+        banBtns.push(navRow);
+      }
+
+      banBtns.push([
+        { text: '🚫 حظر مستخدم آخر', callback_data: 'owner_ban_prompt' },
+        { text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }
+      ]);
+
+      return await updateOrSend(banCardMsg, { inline_keyboard: banBtns });
     }
 
     // ==========================================
