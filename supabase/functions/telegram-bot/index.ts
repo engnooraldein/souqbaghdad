@@ -6441,16 +6441,32 @@ Deno.serve(async (req: any) => {
       return new Response('OK', { status: 200 });
     }
 
-    if (!userId) {
-      if (callbackQuery) await answerCallbackQuery(callbackQuery.id, 'يجب التسجيل أولاً');
-      await sendMessage(chatId, '⚠️ يرجى إرسال رقم هاتفك للبدء بالنشر.\nأرسل /start');
+    // Actions that allow public browsing, pagination, and seat booking without prior phone registration
+    const isPublicAction = 
+      !text || 
+      text.startsWith('tpage_') || 
+      text === 'noop_page' || 
+      text.startsWith('seeker_dest_') || 
+      text.startsWith('req_seat_') || 
+      text.startsWith('matched_req_') || 
+      text.startsWith('stop_alert_') || 
+      text.startsWith('driver_seat_booked_') ||
+      text === 'main_menu' || 
+      text === 'check_subscription' ||
+      text === 'cancel_wizard' ||
+      isGroup;
+
+    if (!userId && !isPublicAction) {
+      if (callbackQuery) await answerCallbackQuery(callbackQuery.id, 'يجب تفعيل الحساب برقم الهاتف أولاً');
+      if (!isGroup) {
+        await sendMessage(chatId, '⚠️ يرجى إرسال رقم هاتفك للبدء بالنشر.\nأرسل /start');
+      }
       return new Response('OK', { status: 200 });
     }
 
     // --- Handle Callback Queries (Button Actions) ---
     if (callbackQuery) {
-      await answerCallbackQuery(callbackQuery.id);
-      const action = callbackQuery.data;
+      const action = callbackQuery.data || text;
       
       if (action === 'account_services') {
         const accRows = [
