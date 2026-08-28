@@ -317,16 +317,6 @@ async function sendPhoto(chatId: string | number, photoUrl: string, caption: str
   }
 }
 
-async function sendChatAction(chatId: string | number, action = 'typing') {
-  try {
-    await fetch(`${tgUrl}/sendChatAction`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, action: action })
-    });
-  } catch(e) {}
-}
-
 async function deleteMessage(chatId: string | number, messageId: number | string) {
   try {
     await fetch(`${tgUrl}/deleteMessage`, {
