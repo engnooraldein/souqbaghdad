@@ -571,7 +571,10 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   norm = replaceAr(norm, 'زعفرانيه|الزعفرانيه', 'الزعفرانية');
   norm = replaceAr(norm, 'كاظميه|الكاظميه', 'الكاظمية');
   norm = replaceAr(norm, 'اعظميه|الاعظميه', 'الأعظمية');
-  norm = replaceAr(norm, 'يرموك|اليرموك', 'اليرموك');
+  norm = replaceAr(norm, 'طالبيه|طالبية|الطالبيه', 'الطالبية');
+  norm = replaceAr(norm, 'سومر|حي سومر', 'حي سومر');
+  norm = replaceAr(norm, 'معلمين|حي المعلمين', 'حي المعلمين');
+  norm = replaceAr(norm, 'امين|الامين', 'الأمين');
   norm = norm.trim();
 
   const lowerRaw = rawText.toLowerCase();
@@ -780,7 +783,8 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     'الوشاش', 'الاسكان', 'المأمون', 'حي حطين', 'الداوودي', 'حي السلام', 'حي الفرات', 'سويب', 
     'ابو دشير', 'أبو دشير', 'الكرخ', 'الرصافة', 'حي البساتين', 'سبع قصور', 'حي دراغ', 'الشرطة الرابعة', 
     'الشرطة الخامسة', 'المسبح', 'عرصات الهندية', 'الكرادة خارج', 'الكرادة داخل', 'البلديات', 'الحبيبية', 
-    'الكمالية', 'الفضل', 'الميدان', 'المستنصرية', 'الرافدين', 'جامعة بغداد', 'الجادرية', 'النهرين', 'التكنولوجية'
+    'الكمالية', 'الفضل', 'الميدان', 'المستنصرية', 'الرافدين', 'جامعة بغداد', 'الجادرية', 'النهرين', 'التكنولوجية',
+    'الطالبية', 'طالبية', 'حي سومر', 'الأمين', 'الامين', 'حي المعلمين'
   ];
 
   // Extract "من [origin] الى/لـ [destination]" accurately
@@ -10563,7 +10567,22 @@ Deno.serve(async (req: any) => {
             return new Response('OK', { status: 200 });
           }
 
-          // 2. Check if user is offering or seeking a line to start the smart wizard
+          // 2.A Check if user is SEEKING a line (طالب / موظف يبحث عن خط) -> Smart Transport Search & Radar
+          const isSeekerTransportDirect = 
+            cleanP.includes('محتاج خط') || cleanP.includes('محتاجة خط') || cleanP.includes('محتاجه خط') || 
+            cleanP.includes('اريد خط') || cleanP.includes('أريد خط') || cleanP.includes('نريد خط') || cleanP.includes('محتاجين خط') || 
+            cleanP.includes('ادور خط') || cleanP.includes('أدور خط') || cleanP.includes('ندور خط') || cleanP.includes('ابحث عن خط') || 
+            cleanP.includes('رايد خط') || cleanP.includes('رايده خط') || cleanP.includes('رايدة خط') || 
+            cleanP.includes('محتاج سايق') || cleanP.includes('محتاجه سايق') || cleanP.includes('محتاجة سايق') || cleanP.includes('اريد سايق') || 
+            cleanP.includes('طالبه محتاجه') || cleanP.includes('طالبة محتاجة') || cleanP.includes('طالب محتاج') || cleanP.includes('عفيه اريد خط') || cleanP.includes('عفية اريد خط');
+
+          if (isSeekerTransportDirect) {
+            sendChatAction(chatId, 'typing');
+            await handleSmartTransportSearch(chatId, userCaption || text, fromUser, supabase, false);
+            return new Response('OK', { status: 200 });
+          }
+
+          // 2.B Check if user is OFFERING a line as a DRIVER to start the publishing wizard
           const isTransportAdIntent = 
             cleanP.includes('عندي خط') || cleanP.includes('أوفر خط') || cleanP.includes('اوفر خط') || 
             cleanP.includes('يتوفر خط') || cleanP.includes('متوفر خط') || cleanP.includes('خط متوفر') ||
@@ -10571,12 +10590,7 @@ Deno.serve(async (req: any) => {
             cleanP.includes('ادور طلاب') || cleanP.includes('ابحث عن طلاب') || cleanP.includes('اريد طلاب') || 
             cleanP.includes('يوجد خط') || cleanP.includes('عندي سيارة') || cleanP.includes('عندي كيا') || cleanP.includes('عندي كوستر') || cleanP.includes('عندي ستاركس') ||
             cleanP.includes('عندي طيبه') || cleanP.includes('عندي سايبا') || cleanP.includes('اخذ خط') || cleanP.includes('اخذ نفرات') ||
-            cleanP.includes('محتاج خط') || cleanP.includes('اريد خط') || cleanP.includes('أريد خط') || 
-            cleanP.includes('محتاجة خط') || cleanP.includes('محتاجه خط') || cleanP.includes('نريد خط') || cleanP.includes('محتاجين خط') || 
-            cleanP.includes('ادور خط') || cleanP.includes('أدور خط') || cleanP.includes('ندور خط') || cleanP.includes('ابحث عن خط') || 
-            cleanP.includes('رايد خط') || cleanP.includes('رايده خط') || cleanP.includes('رايدة خط') || 
-            cleanP.includes('الي يريد خط') || cleanP.includes('تكملة خط') || cleanP.includes('تكملت خط') ||
-            cleanP.includes('محتاج سايق') || cleanP.includes('محتاجه سايق') || cleanP.includes('اريد سايق') || cleanP.includes('طالبه محتاجه') || cleanP.includes('عفيه اريد خط');
+            cleanP.includes('الي يريد خط') || cleanP.includes('تكملة خط') || cleanP.includes('تكملت خط');
 
           if (isTransportAdIntent) {
             sendChatAction(chatId, 'typing');
@@ -10635,8 +10649,14 @@ Deno.serve(async (req: any) => {
               console.error("Gemini driver parse error:", e);
             }
 
-            // Initialize state with extracted info
-            const adType = extracted.ad_type === 'seek' ? 'seek' : 'offer';
+            // If Gemini determines user is seeking a line -> delegate to Smart Transport Search
+            if (extracted.ad_type === 'seek') {
+              await handleSmartTransportSearch(chatId, userCaption || text, fromUser, supabase, false);
+              return new Response('OK', { status: 200 });
+            }
+
+            // Initialize state with extracted info for driver offer
+            const adType = 'offer';
             let state: any = {
               step: '',
               data: {
