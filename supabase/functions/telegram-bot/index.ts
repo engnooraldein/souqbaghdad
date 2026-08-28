@@ -520,26 +520,39 @@ async function sendOrReplaceGroupMessage(chatId: string | number, text: string, 
 
 function getCoreLocationKeyword(loc: string) {
   if (!loc) return '';
-  const s = loc.toLowerCase();
-  if (s.includes('رافدين') || s.includes('رفدين')) return 'رافدين';
-  if (s.includes('مستنصرية') || s.includes('مستنصريه')) return 'مستنصرية';
-  if (s.includes('تكنولوجية') || s.includes('تكنولوجيه')) return 'تكنولوجية';
+  const s = loc.toLowerCase().replace(/[\u064B-\u065F]/g, ''); // strip tashkeel
+  if (s.includes('رافدين') || s.includes('رفدين') || s.includes('ruc')) return 'رافدين';
+  if (s.includes('مستنصر') || s.includes('مستنصري')) return 'مستنصرية';
+  if (s.includes('تكنولوج') || s.includes('صناع')) return 'تكنولوجية';
   if (s.includes('نهرين')) return 'نهرين';
+  if (s.includes('عراقي')) return 'عراقية';
   if (s.includes('اسراء') || s.includes('إسراء')) return 'اسراء';
   if (s.includes('اوروك') || s.includes('أوروك')) return 'اوروك';
-  if (s.includes('فراهيدي')) return 'فراهيدي';
-  if (s.includes('دجلة') || s.includes('دجله')) return 'دجلة';
+  if (s.includes('فراهيد')) return 'فراهيدي';
+  if (s.includes('دجل')) return 'دجلة';
   if (s.includes('تراث')) return 'تراث';
   if (s.includes('رشيد')) return 'رشيد';
   if (s.includes('معارف')) return 'معارف';
-  if (s.includes('بغداد')) return 'بغداد';
+  if (s.includes('مامون') || s.includes('مأمون')) return 'مامون';
+  if (s.includes('بيان')) return 'بيان';
+  if (s.includes('فاراب')) return 'فارابي';
+  if (s.includes('سلام') && !s.includes('حي السلام')) return 'سلام';
+  if (s.includes('ابن سينا')) return 'ابن سينا';
+  if (s.includes('حكم')) return 'حكمة';
+  if (s.includes('مشرق')) return 'مشرق';
+  if (s.includes('مستقبل')) return 'مستقبل';
+  if (s.includes('عين')) return 'عين';
+  if (s.includes('كتاب')) return 'كتاب';
+  if (s.includes('امام كاظم') || s.includes('الامام الكاظم')) return 'امام كاظم';
+  if (s.includes('تقني') || s.includes('فنون تطبيقية')) return 'تقنية';
+  if (s.includes('جادرية') || s.includes('جامعة بغداد') || s.includes('كلية بغداد') || s.includes('طب بغداد') || s.includes('هندسة بغداد')) return 'بغداد';
   return s.replace(/(كلية|جامعة|معهد|الجامعة|الكلية|المعهد)\s+/g, '').trim();
 }
 
 const IRAQI_AREAS = [
   'البنوك', 'الشعب', 'المنصور', 'الكرادة', 'الدورة', 'اليرموك', 'الغزالية', 'الزعفرانية', 
   'مدينة الصدر', 'جميلة', 'الأعظمية', 'الاعظمية', 'الكاظمية', 'السيدية', 'الجهاد', 'الحرية', 
-  'القاهرة', 'صليخ', 'حي الجامعة', 'الوزيرية', 'حي تونس', 'حي العامل', 'حي الخضراء', 'حي العدل', 
+  'القاهرة', 'صليخ', 'الصليخ', 'حي الجامعة', 'الوزيرية', 'حي تونس', 'حي العامل', 'حي الخضراء', 'حي العدل', 
   'حي أور', 'حي اور', 'البياع', 'سبع ابكار', 'الراشدية', 'التاجي', 'المحمودية', 'المدائن', 
   'جسر ديالى', 'حي الاعلام', 'حي الإعلام', 'حي التراث', 'المشتل', 'بغداد الجديدة', 'الغدير', 
   'زيونة', 'شارع فلسطين', 'شارع النضال', 'شارع المغرب', 'باب المعظم', 'باب الشرقي', 'العطيفية', 
@@ -547,7 +560,10 @@ const IRAQI_AREAS = [
   'ابو دشير', 'أبو دشير', 'الكرخ', 'الرصافة', 'حي البساتين', 'سبع قصور', 'حي دراغ', 'الشرطة الرابعة', 
   'الشرطة الخامسة', 'المسبح', 'عرصات الهندية', 'الكرادة خارج', 'الكرادة داخل', 'البلديات', 'الحبيبية', 
   'الكمالية', 'الفضل', 'الميدان', 'المستنصرية', 'الرافدين', 'جامعة بغداد', 'الجادرية', 'النهرين', 'التكنولوجية',
-  'المهندسين', 'حي المهندسين', 'مهندسين', 'الطالبية', 'طالبية', 'حي سومر', 'الأمين', 'الامين', 'حي المعلمين'
+  'المهندسين', 'حي المهندسين', 'مهندسين', 'الطالبية', 'طالبية', 'حي سومر', 'الأمين', 'الامين', 'حي المعلمين',
+  'العامرية', 'الحارثية', 'القادسية', 'الشورجة', 'الكسرة', 'راغبة خاتون', 'الحسينية', 'بوب الشام',
+  'الديوان', 'حي الشهداء', 'حي الشباب', 'المعالف', 'المهدية', 'هور رجب', 'اللطيفية', 'الرضوانية', 'الطارمية',
+  'بعقوبة', 'ديالى', 'الحلة', 'بابل', 'كربلاء', 'النجف', 'الكوت', 'واسط', 'الفلوجة', 'الانبار', 'الأنبار', 'سامراء'
 ];
 
 async function notifyDriverOfWaitingPassengers(driverChatId: string | number, driverName: string, regions: string, destination: string, supabase: any, driverPhone?: string) {
@@ -611,21 +627,25 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     return text.replace(new RegExp(`(?<![\\u0600-\\u06FF])(${searchWords})(?![\\u0600-\\u06FF])`, 'gi'), replacement);
   }
 
-  let norm = rawText.replace(/[\\\/](line|lines|خط|خطوط)/gi, '');
+  // 0. Remove redundant repeated letters (e.g. راااافدين -> رافدين, جمييييلة -> جميلة)
+  let norm = rawText.replace(/[\\\/](line|lines|خط|خطوط)/gi, '').replace(/(.)\1{2,}/g, '$1$1');
   norm = replaceAr(norm, 'خك|حط|خظ|خيط|خـط|خطط', 'خط');
   norm = replaceAr(norm, 'سيايق|سياق|سايقق|سواق', 'سايق');
   norm = replaceAr(norm, 'اربد|اريدد|ادورر|ابحثث|محتاجج|محتاجه', 'محتاج');
-  norm = replaceAr(norm, 'جميله|جميلهه', 'جميلة');
-  norm = replaceAr(norm, 'الرفدين|الرافين|رافدين|لرافدين|للرافدين', 'كلية الرافدين');
-  norm = replaceAr(norm, 'المستنصريه|مستنصريه|للمستنصرية', 'الجامعة المستنصرية');
-  norm = replaceAr(norm, 'التكنولوجيه|تكنولوجيه', 'الجامعة التكنولوجية');
-  norm = replaceAr(norm, 'الاسراء|للاسراء|إسراء|اسراء|الإسراء', 'كلية الاسراء');
-  norm = replaceAr(norm, 'اوروك|أوروك|لأوروك|لاوروك', 'جامعة اوروك');
-  norm = replaceAr(norm, 'الفراهيدي|فراهيدي|للفراهيدي', 'جامعة الفراهيدي');
-  norm = replaceAr(norm, 'دجله|دجلة|لدجلة|لدجله', 'جامعة دجلة');
-  norm = replaceAr(norm, 'التراث|تراث|للتراث', 'كلية التراث');
-  norm = replaceAr(norm, 'الرشيد|رشيد|للرشيد', 'كلية الرشيد');
-  norm = replaceAr(norm, 'المعارف|معارف|للمعارف', 'كلية المعارف');
+  norm = replaceAr(norm, 'جميله|جميلهه|جميلةة|جميلية', 'جميلة');
+  norm = replaceAr(norm, 'الرفدين|الرافين|رافدين|لرافدين|للرافدين|الرافيدين|كليه الرافدين|جامعة الرافدين|جامعه الرافدين|معهد الرافدين', 'كلية الرافدين');
+  norm = replaceAr(norm, 'المستنصريه|مستنصريه|للمستنصرية|مستنصرية|المستنصرية', 'الجامعة المستنصرية');
+  norm = replaceAr(norm, 'التكنولوجيه|تكنولوجيه|تكنلوجيا|التكنلوجيا|شارع الصناعة|صناعة', 'الجامعة التكنولوجية');
+  norm = replaceAr(norm, 'الاسراء|للاسراء|إسراء|اسراء|الإسراء|كليه الاسراء|جامعة الاسراء', 'كلية الاسراء');
+  norm = replaceAr(norm, 'اوروك|أوروك|لأوروك|لاوروك|جامعة اوروك', 'جامعة اوروك');
+  norm = replaceAr(norm, 'الفراهيدي|فراهيدي|للفراهيدي|جامعة الفراهيدي', 'جامعة الفراهيدي');
+  norm = replaceAr(norm, 'دجله|دجلة|لدجلة|لدجله|كلية دجلة|جامعة دجلة', 'جامعة دجلة');
+  norm = replaceAr(norm, 'التراث|تراث|للتراث|كلية التراث|جامعة التراث', 'كلية التراث');
+  norm = replaceAr(norm, 'الرشيد|رشيد|للرشيد|كلية الرشيد', 'كلية الرشيد');
+  norm = replaceAr(norm, 'المعارف|معارف|للمعارف|جامعة المعارف', 'كلية المعارف');
+  norm = replaceAr(norm, 'المامون|المأمون|مامون|مأمون|كلية المامون|كلية المأمون', 'كلية المأمون');
+  norm = replaceAr(norm, 'البيان|بيان|جامعة البيان', 'جامعة البيان');
+  norm = replaceAr(norm, 'الفارابي|فارابي|كلية الفارابي', 'كلية الفارابي');
   norm = replaceAr(norm, 'سيديه|سيدية', 'السيدية');
   norm = replaceAr(norm, 'دوره|الدوره', 'الدورة');
   norm = replaceAr(norm, 'جامعه|الجامعه', 'جامعة');
@@ -636,7 +656,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   norm = replaceAr(norm, 'منصور|المنصورر', 'المنصور');
   norm = replaceAr(norm, 'بنوك|البنوكك', 'البنوك');
   norm = replaceAr(norm, 'شعب|الشعبب', 'الشعب');
-  norm = replaceAr(norm, 'كراده|الكراده', 'الكرادة');
+  norm = replaceAr(norm, 'كراده|الكراده|كرادة داخل|كرادة خارج', 'الكرادة');
   norm = replaceAr(norm, 'زعفرانيه|الزعفرانيه', 'الزعفرانية');
   norm = replaceAr(norm, 'كاظميه|الكاظميه', 'الكاظمية');
   norm = replaceAr(norm, 'اعظميه|الاعظميه', 'الأعظمية');
@@ -644,6 +664,9 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   norm = replaceAr(norm, 'سومر|حي سومر', 'حي سومر');
   norm = replaceAr(norm, 'معلمين|حي المعلمين', 'حي المعلمين');
   norm = replaceAr(norm, 'مهندسين|المهندسين|حي المهندسين', 'حي المهندسين');
+  norm = replaceAr(norm, 'عامريه|العامريه|عامرية', 'العامرية');
+  norm = replaceAr(norm, 'حارثيه|الحارثيه|حارثية', 'الحارثية');
+  norm = replaceAr(norm, 'قادسيه|القادسيه|قادسية', 'القادسية');
   norm = replaceAr(norm, 'امين|الامين', 'الأمين');
   norm = norm.trim();
 
@@ -920,20 +943,34 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     }
   }
 
-  // Parse destination (colleges & universities)
+  // Parse destination (colleges & universities) with intelligent Iraqi alias matching
   if (!destination) {
-    if (norm.includes('رافدين') || norm.includes('رفدين')) destination = 'كلية الرافدين الجامعة';
-    else if (norm.includes('مستنصرية') || norm.includes('مستنصريه')) destination = 'الجامعة المستنصرية';
-    else if (norm.includes('تكنولوجية') || norm.includes('تكنولوجيه')) destination = 'الجامعة التكنولوجية';
-    else if (norm.includes('نهرين')) destination = 'جامعة النهرين';
-    else if (norm.includes('اسراء') || norm.includes('إسراء')) destination = 'كلية الاسراء';
-    else if (norm.includes('اوروك') || norm.includes('أوروك')) destination = 'جامعة اوروك';
-    else if (norm.includes('فراهيدي')) destination = 'جامعة الفراهيدي';
-    else if (norm.includes('دجلة') || norm.includes('دجله')) destination = 'جامعة دجلة';
-    else if (norm.includes('تراث')) destination = 'كلية التراث';
-    else if (norm.includes('رشيد')) destination = 'كلية الرشيد';
-    else if (norm.includes('معارف')) destination = 'كلية المعارف';
-    else if (norm.includes('بغداد')) destination = 'جامعة بغداد';
+    const normLower = norm.toLowerCase();
+    if (normLower.includes('رافدين') || normLower.includes('رفدين') || normLower.includes('ruc')) destination = 'كلية الرافدين الجامعة';
+    else if (normLower.includes('مستنصر') || normLower.includes('مستنصري')) destination = 'الجامعة المستنصرية';
+    else if (normLower.includes('تكنولوج') || normLower.includes('صناع')) destination = 'الجامعة التكنولوجية';
+    else if (normLower.includes('نهرين')) destination = 'جامعة النهرين';
+    else if (normLower.includes('عراقي')) destination = 'الجامعة العراقية';
+    else if (normLower.includes('اسراء') || normLower.includes('إسراء')) destination = 'كلية الاسراء الجامعة';
+    else if (normLower.includes('اوروك') || normLower.includes('أوروك')) destination = 'جامعة اوروك';
+    else if (normLower.includes('فراهيد')) destination = 'جامعة الفراهيدي';
+    else if (normLower.includes('دجل')) destination = 'جامعة دجلة';
+    else if (normLower.includes('تراث')) destination = 'كلية التراث الجامعة';
+    else if (normLower.includes('رشيد')) destination = 'كلية الرشيد الجامعة';
+    else if (normLower.includes('معارف')) destination = 'جامعة المعارف';
+    else if (normLower.includes('مامون') || normLower.includes('مأمون')) destination = 'كلية المأمون الجامعة';
+    else if (normLower.includes('بيان')) destination = 'جامعة البيان';
+    else if (normLower.includes('فاراب')) destination = 'كلية الفارابي الجامعة';
+    else if (normLower.includes('سلام') && !normLower.includes('حي السلام')) destination = 'كلية السلام الجامعة';
+    else if (normLower.includes('ابن سينا')) destination = 'جامعة ابن سينا';
+    else if (normLower.includes('حكم')) destination = 'كلية الحكمة الجامعة';
+    else if (normLower.includes('مشرق')) destination = 'جامعة المشرق';
+    else if (normLower.includes('مستقبل')) destination = 'جامعة المستقبل';
+    else if (normLower.includes('عين')) destination = 'جامعة العين';
+    else if (normLower.includes('كتاب')) destination = 'جامعة الكتاب';
+    else if (normLower.includes('امام كاظم') || normLower.includes('الامام الكاظم')) destination = 'كلية الامام الكاظم';
+    else if (normLower.includes('تقني') || normLower.includes('فنون تطبيقية')) destination = 'الجامعة التقنية الوسطى';
+    else if (normLower.includes('بغداد') || normLower.includes('جادرية')) destination = 'جامعة بغداد';
   }
 
   // 1. Fetch strictly ACTIVE driver line offers (exclude completed, sold, matched, or student search ads)
