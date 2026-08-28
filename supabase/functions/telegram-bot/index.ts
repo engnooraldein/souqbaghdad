@@ -8283,11 +8283,8 @@ Deno.serve(async (req: any) => {
 
       // ✅ Captain confirms booking agreement (تم الاتفاق وحجز المقعد)
       if (action.startsWith('driver_seat_booked_')) {
-        state = { is_subscribed: true };
-        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-
         if (callbackQueryId) {
-          await answerCallbackQuery(callbackQueryId, '✅ عاشت إيدك كابتن! تم تسجيل حجز المقعد.', false);
+          await answerCallbackQuery(callbackQueryId, '✅ عاشت إيدك كابتن! تم تسجيل حجز المقعد.', true);
         }
         await sendMessage(chatId, '✅ <b>عاشت إيدك كابتن!</b> تم تسجيل الحجز بنجاح، نتمنى لك وللركاب رحلات موفقة وآمنة 🌹', {
           inline_keyboard: [[{ text: '🚌 إدارة خطوطي', callback_data: 'manage_cat_trans' }]]
@@ -8384,28 +8381,20 @@ Deno.serve(async (req: any) => {
         const parts = action.replace('matched_req_', '').replace('stop_alert_', '').split('_');
         const reqId = parts[0];
 
-        try {
-          if (reqId === 'user' || reqId === 'direct') {
-            await supabase.from('transport_requests').update({ status: 'matched' }).eq('telegram_chat_id', String(chatId)).eq('status', 'pending');
-          } else if (!isNaN(Number(reqId)) || reqId.length >= 10) {
-            await supabase.from('transport_requests').update({ status: 'matched' }).eq('id', reqId);
-          } else {
-            await supabase.from('transport_requests').update({ status: 'matched' }).eq('telegram_chat_id', String(chatId)).eq('status', 'pending');
-          }
-        } catch(e) {}
-
-        // Clear state so any next user message or question is answered immediately
-        state = { is_subscribed: true };
-        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-
-        if (callbackQueryId) {
-          await answerCallbackQuery(callbackQueryId, '✅ ألف مبروك! تم تسجيل الاتفاق بنجاح.', false);
+        if (reqId === 'user') {
+          await supabase.from('transport_requests').update({ status: 'matched' }).eq('telegram_chat_id', String(chatId)).eq('status', 'pending');
+        } else if (!isNaN(Number(reqId)) || reqId.length >= 10) {
+          await supabase.from('transport_requests').update({ status: 'matched' }).eq('id', reqId);
         }
 
         const successReply = 
           `🎉 <b>ألف مبروك! نتمنى لك دوام التوفيق والراحة برحلاتك اليومية 🌹</b>\n\n` +
           `✅ تم تسجيل اتفاقك وإيقاف التنبيهات لهذا المسار بنجاح.\n` +
           `❤️ شكراً لاستخدامك منصة سوق بغداد!`;
+
+        if (callbackQueryId) {
+          await answerCallbackQuery(callbackQueryId, '✅ ألف مبروك! تم إيقاف التنبيهات بنجاح.', true);
+        }
 
         await sendMessage(chatId, successReply, {
           inline_keyboard: [
@@ -10123,6 +10112,19 @@ Deno.serve(async (req: any) => {
         return await finalizePartnerChannel(chatId, state, supabase, updateOrSend);
       }
 
+      if (!isActivelyFilling && Object.keys(state).length > 0 && text && !text.startsWith('car_') && !text.startsWith('trans_') && !['تم', 'تم ✅'].includes(text.trim())) {
+        const isInterruption = await checkInterruption(text);
+        if (isInterruption) {
+           state = {};
+           if (userId) {
+             await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+           }
+           const aiRes = await callGemini(text);
+           await showMainMenu(aiRes || undefined);
+           return new Response('OK', { status: 200 });
+        }
+      }
+
       const cancelBtn = { inline_keyboard: [[{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]] };
 
       // ==========================================
@@ -11042,14 +11044,12 @@ Deno.serve(async (req: any) => {
             return new Response('OK', { status: 200 });
           }
 
-          // 2. Check if user found a line or wants to stop notifications ("لكيت خط", "حصلت خط", "لغيت الطلب", "اتفقت")
+          // 2. Check if user found a line or wants to stop notifications ("لكيت خط", "حصلت خط", "لغيت الطلب")
           const isMatchedIntent = 
             cleanP.includes('لكيت خط') || cleanP.includes('حصلت خط') || cleanP.includes('لكيت خلاص') || 
             cleanP.includes('ما محتاج بعد') || cleanP.includes('ما احتاج خط') || cleanP.includes('لغيت طلبي') || 
             cleanP.includes('لقيت خط') || cleanP.includes('لقيت خلاص') || cleanP.includes('حصلت خلاص') ||
-            cleanP.includes('الغاء التنبيه') || cleanP.includes('وقف التنبيه') || cleanP.includes('اوقف التنبيه') ||
-            cleanP.includes('اتفقت') || cleanP.includes('تم الاتفاق') || cleanP.includes('وافقت') || cleanP.includes('وافقت عليه') ||
-            cleanP.includes('اتفقت وياه') || cleanP.includes('اتفقت ويا السايق') || cleanP.includes('تم حجز') || cleanP.includes('حجزت خلاص');
+            cleanP.includes('الغاء التنبيه') || cleanP.includes('وقف التنبيه') || cleanP.includes('اوقف التنبيه');
 
           if (isMatchedIntent) {
             sendChatAction(chatId, 'typing');
@@ -11057,12 +11057,9 @@ Deno.serve(async (req: any) => {
               await supabase.from('transport_requests').update({ status: 'matched' }).or(`telegram_chat_id.eq.${chatId},telegram_user_id.eq.${fromUser?.id || chatId}`);
             } catch(e) {}
             
-            state = { is_subscribed: true };
-            await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-
             const matchedSuccessMsg = 
               `🎉 <b>ألف مبروك عيوني ${fromUser?.first_name || 'الغالي'}! 🌹</b>\n\n` +
-              `✅ <b>تم إيقاف التنبيهات وتحديث طلبك (حصلت خط / تم الاتفاق) بنجاح</b>.\n` +
+              `✅ <b>تم إيقاف التنبيهات وتحديث طلبك (حصلت خط) بنجاح</b> حتى لا نزعجك بعد بأي إشعار.\n` +
               `نتمنى لك دوام موفق وسنة دراسية ممتعة وكل التوفيق والنجاح يا رب! ✨`;
             
             const matchedMarkup = {
