@@ -518,6 +518,24 @@ async function sendOrReplaceGroupMessage(chatId: string | number, text: string, 
   return res;
 }
 
+function getCoreLocationKeyword(loc: string) {
+  if (!loc) return '';
+  const s = loc.toLowerCase();
+  if (s.includes('رافدين') || s.includes('رفدين')) return 'رافدين';
+  if (s.includes('مستنصرية') || s.includes('مستنصريه')) return 'مستنصرية';
+  if (s.includes('تكنولوجية') || s.includes('تكنولوجيه')) return 'تكنولوجية';
+  if (s.includes('نهرين')) return 'نهرين';
+  if (s.includes('اسراء') || s.includes('إسراء')) return 'اسراء';
+  if (s.includes('اوروك') || s.includes('أوروك')) return 'اوروك';
+  if (s.includes('فراهيدي')) return 'فراهيدي';
+  if (s.includes('دجلة') || s.includes('دجله')) return 'دجلة';
+  if (s.includes('تراث')) return 'تراث';
+  if (s.includes('رشيد')) return 'رشيد';
+  if (s.includes('معارف')) return 'معارف';
+  if (s.includes('بغداد')) return 'بغداد';
+  return s.replace(/(كلية|جامعة|معهد|الجامعة|الكلية|المعهد)\s+/g, '').trim();
+}
+
 async function handleSmartTransportSearch(chatId: string | number, rawText: string, fromUser: any, supabase: any, isGroup = false, userMessageId?: number | string) {
   // 1. Normalize Iraqi Arabic and common typos
   function replaceAr(text: string, searchWords: string, replacement: string) {
@@ -831,9 +849,10 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   if (activeDriverLines.length > 0) {
     if (origin && destination) {
       // Must match ORIGIN area AND DESTINATION
+      const coreDest = getCoreLocationKeyword(destination);
       matchedLines = activeDriverLines.filter((ad: any) => {
         const fullAdText = `${ad.title || ''} ${ad.location || ''} ${ad.description || ''}`.toLowerCase();
-        return fullAdText.includes(origin.toLowerCase()) && fullAdText.includes(destination.toLowerCase());
+        return fullAdText.includes(origin.toLowerCase()) && fullAdText.includes(coreDest);
       }).slice(0, 3);
 
       // If strict both not found, check if line at least covers student's ORIGIN area
@@ -1013,7 +1032,7 @@ async function notifyWaitingStudents(ad: any, supabase: any) {
       const dest = (req.destination || '').toLowerCase().trim();
 
       const isOriginMatch = orig && adText.includes(orig);
-      const isDestMatch = dest && adText.includes(dest);
+      const isDestMatch = dest && adText.includes(getCoreLocationKeyword(dest));
 
       if (isOriginMatch || isDestMatch) {
         let userTag = req.user_name || 'عزيزنا';
