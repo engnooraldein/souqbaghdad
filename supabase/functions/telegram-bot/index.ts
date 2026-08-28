@@ -10480,20 +10480,24 @@ Deno.serve(async (req: any) => {
             return new Response('OK', { status: 200 });
           }
 
-          // 2. Check if a driver is offering a line / seats ("عندي خط", "أوفر خط", "سايق خط")
-          const isDriverOfferIntent = 
+          // 2. Check if user is offering or seeking a line to start the smart wizard
+          const isTransportAdIntent = 
             cleanP.includes('عندي خط') || cleanP.includes('أوفر خط') || cleanP.includes('اوفر خط') || 
+            cleanP.includes('يتوفر خط') || cleanP.includes('متوفر خط') || cleanP.includes('خط متوفر') ||
             cleanP.includes('سايق خط') || cleanP.includes('سائق خط') || cleanP.includes('عندي مقاعد') || 
             cleanP.includes('ادور طلاب') || cleanP.includes('ابحث عن طلاب') || cleanP.includes('اريد طلاب') || 
-            cleanP.includes('يوجد خط') || cleanP.includes('عندي سيارة') || cleanP.includes('عندي كيا') || cleanP.includes('عندي كوستر') || cleanP.includes('عندي ستاركس');
+            cleanP.includes('يوجد خط') || cleanP.includes('عندي سيارة') || cleanP.includes('عندي كيا') || cleanP.includes('عندي كوستر') || cleanP.includes('عندي ستاركس') ||
+            cleanP.includes('محتاج خط') || cleanP.includes('اريد خط') || cleanP.includes('أريد خط') || 
+            cleanP.includes('محتاجة خط') || cleanP.includes('نريد خط') || cleanP.includes('محتاجين خط') || 
+            cleanP.includes('ادور خط') || cleanP.includes('أدور خط') || cleanP.includes('ابحث عن خط') || cleanP.includes('الي يريد خط') || cleanP.includes('تكملة خط') || cleanP.includes('تكملت خط');
 
-          if (isDriverOfferIntent) {
+          if (isTransportAdIntent) {
             sendChatAction(chatId, 'typing');
             
             // Check points first
             const { data: profile } = await supabase.from('profiles').select('points, role').eq('id', userId).maybeSingle();
             if (profile?.role !== 'admin' && profile?.role !== 'owner' && (profile?.points || 0) < 1) {
-              await sendMessage(chatId, '❌ <b>عذراً كابتن، رصيد النقاط الخاص بك غير كافٍ لنشر إعلان.</b>\nيرجى شحن المحفظة أولاً من القائمة الرئيسية.');
+              await sendMessage(chatId, '❌ <b>عذراً كابتن/عيوني، رصيد النقاط الخاص بك غير كافٍ لنشر إعلان.</b>\nيرجى شحن المحفظة أولاً من القائمة الرئيسية.');
               return new Response('OK', { status: 200 });
             }
 
@@ -10501,20 +10505,21 @@ Deno.serve(async (req: any) => {
             let extracted: any = {};
             try {
               const systemPrompt = `أنت خبير في الذكاء الاصطناعي متخصص في اللهجة العراقية الدارجة وتحليل إعلانات خطوط النقل للطلاب والموظفين في العراق.
-مهمتك هي قراءة رسالة السائق (مهما كان أسلوبها، لهجتها، أو تنسيقها) واستخراج البيانات التالية بصيغة JSON حصراً:
+مهمتك هي قراءة الرسالة (مهما كان أسلوبها، لهجتها، أو تنسيقها) واستخراج البيانات التالية بصيغة JSON حصراً:
 {
-  "origin": "نقطة الانطلاق (منين يطلع الخط؟) سواء كانت منطقة أو عدة مناطق (مثال: جميلة، الدورة، حي الجامعة، بغداد الجديدة) أو null إذا غير مذكورة",
-  "destination": "وجهة الخط (وين يروح؟) اسم الجامعة أو الكلية أو المعهد أو الدائرة (مثال: كلية الرافدين، جامعة بغداد، الجامعة التكنولوجية) أو null",
-  "car_type": "نوع السيارة أو مواصفاتها (مثال: النترا، ستاركس، سايبا، VIP مكيف، حديثة) أو null",
-  "gender": "الفئة المستهدفة (مثال: طالبات فقط، بنات، طلاب، شباب، الجميع، موظفين) أو null",
-  "shift": "وقت الدوام (مثال: صباحي، مسائي، مسائي وصباحي، مرن) أو null",
-  "price": "السعر أو الأجرة (مثال: حسب الاتفاق، 50 الف، 75) أو null",
+  "ad_type": "استنتج نوع الإعلان: إذا كان المستخدم سائق يمتلك خط ويبحث عن ركاب (أو يريد تكملة خط) اكتب 'offer'، وإذا كان طالب أو موظف يبحث عن خط يوصله اكتب 'seek'",
+  "origin": "نقطة الانطلاق (منين يطلع؟) سواء كانت منطقة أو عدة مناطق (مثال: جميلة، الدورة، حي الجامعة) أو null إذا غير مذكورة",
+  "destination": "وجهة الخط (وين يروح؟) اسم الجامعة أو الكلية أو المعهد أو الدائرة (مثال: كلية الرافدين، جامعة بغداد) أو null",
+  "car_type": "نوع السيارة أو مواصفاتها (مثال: النترا، ستاركس، VIP مكيف) أو null",
+  "gender": "الفئة المستهدفة أو الجنس (مثال: طالبات فقط، بنات، طلاب، الجميع، موظفين) أو null",
+  "shift": "وقت الدوام (مثال: صباحي، مسائي، مرن) أو null",
+  "price": "السعر أو الأجرة (مثال: حسب الاتفاق، 50 الف) أو null",
   "phone": "رقم الهاتف للتواصل (أي رقم عراقي موجود في النص) أو null"
 }
 تنبيهات هامة:
-- السائق قد يكتب بلهجة عراقية عامية (مثل: "عندي خط"، "طالع من"، "اروح لـ"، "مار بـ"، "رايح جاي"، "ادور نفرات").
-- السائق قد يستخدم تنسيقات مرتبة مثل "مناطق الانطلاق:" و "الوجهة:" أو يكتبها كفقرة واحدة.
-- استخرج المعلومات بذكاء وضع null لأي معلومة غير موجودة.
+- السائق قد يكتب بلهجة عراقية عامية (عندي خط، تكملة خط، رايح جاي).
+- الطالب قد يكتب (محتاج خط، اريد خط، ادور خط).
+- استخرج المعلومات بذكاء وضع null لأي معلومة غير موجودة (مثلاً الطالب غالباً لا يذكر نوع السيارة).
 - لا تكتب أي حرف أو نص خارج كود الـ JSON.`;
               
               const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
@@ -10543,10 +10548,11 @@ Deno.serve(async (req: any) => {
             }
 
             // Initialize state with extracted info
+            const adType = extracted.ad_type === 'seek' ? 'seek' : 'offer';
             let state: any = {
               step: '',
               data: {
-                type: 'offer',
+                type: adType,
                 categoryType: 'student', // Default assumption
                 regions: extracted.origin || null,
                 destination: extracted.destination || null,
@@ -10563,9 +10569,9 @@ Deno.serve(async (req: any) => {
             if (!state.data.regions) missingStep = 'trans_regions';
             else if (!state.data.destination) missingStep = 'trans_dest';
             else if (!state.data.shift) missingStep = 'trans_shift';
-            else if (!state.data.vehicleType) missingStep = 'trans_vehicle';
+            else if (!state.data.vehicleType && adType === 'offer') missingStep = 'trans_vehicle'; // Students seeking line don't necessarily provide car_type
             else if (!state.data.targetAudience) missingStep = 'trans_target';
-            else if (!state.data.price) missingStep = 'trans_fare';
+            else if (!state.data.price && adType === 'offer') missingStep = 'trans_fare';
             else if (!state.data.phone) missingStep = 'trans_phone';
             else missingStep = 'trans_review';
 
