@@ -520,31 +520,41 @@ async function sendOrReplaceGroupMessage(chatId: string | number, text: string, 
 
 async function handleSmartTransportSearch(chatId: string | number, rawText: string, fromUser: any, supabase: any, isGroup = false, userMessageId?: number | string) {
   // 1. Normalize Iraqi Arabic and common typos
-  const norm = rawText
-    .replace(/[\\\/](line|lines|خط|خطوط)/gi, '')
-    .replace(/\b(خك|حط|خظ|خيط|خـط|خطط)\b/gi, 'خط')
-    .replace(/\b(سيايق|سياق|سايقق|سواق)\b/gi, 'سايق')
-    .replace(/\b(اربد|اريدد|ادورر|ابحثث|محتاجج|محتاجه)\b/gi, 'محتاج')
-    .replace(/\b(جميله|جميلهه)\b/gi, 'جميلة')
-    .replace(/\b(الرفدين|الرافين|رافدين|لرافدين|للرافدين)\b/gi, 'كلية الرافدين')
-    .replace(/\b(المستنصريه|مستنصريه|للمستنصرية)\b/gi, 'الجامعة المستنصرية')
-    .replace(/\b(التكنولوجيه|تكنولوجيه)\b/gi, 'الجامعة التكنولوجية')
-    .replace(/\b(سيديه|سيدية)\b/gi, 'السيدية')
-    .replace(/\b(دوره|الدوره)\b/gi, 'الدورة')
-    .replace(/\b(جامعه|الجامعه)\b/gi, 'جامعة')
-    .replace(/\b(كليه|الكليه)\b/gi, 'كلية')
-    .replace(/\b(شعله|الشعله)\b/gi, 'الشعلة')
-    .replace(/\b(حريه|الحريه)\b/gi, 'الحرية')
-    .replace(/\b(غزاليه|الغزاليه)\b/gi, 'الغزالية')
-    .replace(/\b(منصور|المنصورر)\b/gi, 'المنصور')
-    .replace(/\b(بنوك|البنوكك)\b/gi, 'البنوك')
-    .replace(/\b(شعب|الشعبب)\b/gi, 'الشعب')
-    .replace(/\b(كراده|الكراده)\b/gi, 'الكرادة')
-    .replace(/\b(زعفرانيه|الزعفرانيه)\b/gi, 'الزعفرانية')
-    .replace(/\b(كاظميه|الكاظميه)\b/gi, 'الكاظمية')
-    .replace(/\b(اعظميه|الاعظميه)\b/gi, 'الأعظمية')
-    .replace(/\b(يرموك|اليرموك)\b/gi, 'اليرموك')
-    .trim();
+  function replaceAr(text: string, searchWords: string, replacement: string) {
+    return text.replace(new RegExp(`(?<![\\u0600-\\u06FF])(${searchWords})(?![\\u0600-\\u06FF])`, 'gi'), replacement);
+  }
+
+  let norm = rawText.replace(/[\\\/](line|lines|خط|خطوط)/gi, '');
+  norm = replaceAr(norm, 'خك|حط|خظ|خيط|خـط|خطط', 'خط');
+  norm = replaceAr(norm, 'سيايق|سياق|سايقق|سواق', 'سايق');
+  norm = replaceAr(norm, 'اربد|اريدد|ادورر|ابحثث|محتاجج|محتاجه', 'محتاج');
+  norm = replaceAr(norm, 'جميله|جميلهه', 'جميلة');
+  norm = replaceAr(norm, 'الرفدين|الرافين|رافدين|لرافدين|للرافدين', 'كلية الرافدين');
+  norm = replaceAr(norm, 'المستنصريه|مستنصريه|للمستنصرية', 'الجامعة المستنصرية');
+  norm = replaceAr(norm, 'التكنولوجيه|تكنولوجيه', 'الجامعة التكنولوجية');
+  norm = replaceAr(norm, 'الاسراء|للاسراء|إسراء|اسراء|الإسراء', 'كلية الاسراء');
+  norm = replaceAr(norm, 'اوروك|أوروك|لأوروك|لاوروك', 'جامعة اوروك');
+  norm = replaceAr(norm, 'الفراهيدي|فراهيدي|للفراهيدي', 'جامعة الفراهيدي');
+  norm = replaceAr(norm, 'دجله|دجلة|لدجلة|لدجله', 'جامعة دجلة');
+  norm = replaceAr(norm, 'التراث|تراث|للتراث', 'كلية التراث');
+  norm = replaceAr(norm, 'الرشيد|رشيد|للرشيد', 'كلية الرشيد');
+  norm = replaceAr(norm, 'المعارف|معارف|للمعارف', 'كلية المعارف');
+  norm = replaceAr(norm, 'سيديه|سيدية', 'السيدية');
+  norm = replaceAr(norm, 'دوره|الدوره', 'الدورة');
+  norm = replaceAr(norm, 'جامعه|الجامعه', 'جامعة');
+  norm = replaceAr(norm, 'كليه|الكليه', 'كلية');
+  norm = replaceAr(norm, 'شعله|الشعله', 'الشعلة');
+  norm = replaceAr(norm, 'حريه|الحريه', 'الحرية');
+  norm = replaceAr(norm, 'غزاليه|الغزاليه', 'الغزالية');
+  norm = replaceAr(norm, 'منصور|المنصورر', 'المنصور');
+  norm = replaceAr(norm, 'بنوك|البنوكك', 'البنوك');
+  norm = replaceAr(norm, 'شعب|الشعبب', 'الشعب');
+  norm = replaceAr(norm, 'كراده|الكراده', 'الكرادة');
+  norm = replaceAr(norm, 'زعفرانيه|الزعفرانيه', 'الزعفرانية');
+  norm = replaceAr(norm, 'كاظميه|الكاظميه', 'الكاظمية');
+  norm = replaceAr(norm, 'اعظميه|الاعظميه', 'الأعظمية');
+  norm = replaceAr(norm, 'يرموك|اليرموك', 'اليرموك');
+  norm = norm.trim();
 
   const lowerRaw = rawText.toLowerCase();
 
@@ -632,7 +642,8 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
                 `📱 <b>للتواصل والحجز:</b> ${driverContact}\n\n` +
                 `💡 <i>إذا اتفقت وياه واكتفيت، اضغط على «✅ اتفقت ولكيت خط خلاص» أدناه:</i>`;
 
-              const reportData = `rep_drv_${encodeURIComponent(fromName.substring(0,20))}_${extractedPhone || 'nophone'}`;
+              const shortName = fromName.substring(0, 10).replace(/_/g, '');
+              const reportData = `rep_drv_${shortName}_${extractedPhone || 'nophone'}`;
               const studentMarkup = {
                 inline_keyboard: [
                   contactHandle && contactHandle.startsWith('@') ? [{ text: '💬 مراسلة السائق تليكرام 🌹', url: `https://t.me/${contactHandle.replace('@','')}` }] : [],
@@ -718,13 +729,22 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   ];
 
   // Extract "من [origin] الى/لـ [destination]" accurately
-  const routeMatch = norm.match(/من\s+(.+?)\s+(?:إلى|الي|الى|لـ|ل)\s+(.+)/i);
+  let routeMatch = norm.match(/من\s+(.+?)\s+(?:إلى|الي|الى|لـ|ل)\s+(.+)/i);
   if (routeMatch) {
     const rawOrigin = routeMatch[1].trim().replace(/^(منطقة|حي|شارع)\s+/, '');
     if (isValidLocation(rawOrigin)) {
       origin = rawOrigin;
     }
     destination = routeMatch[2].trim();
+  } else {
+    routeMatch = norm.match(/(?:إلى|الي|الى|لـ|ل)\s+(.+?)\s+من\s+(.+)/i);
+    if (routeMatch) {
+      destination = routeMatch[1].trim();
+      const rawOrigin = routeMatch[2].trim().replace(/^(منطقة|حي|شارع)\s+/, '');
+      if (isValidLocation(rawOrigin)) {
+        origin = rawOrigin;
+      }
+    }
   }
 
   // If origin not yet found via routeMatch, check IRAQI_AREAS
@@ -740,9 +760,16 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   // Parse destination (colleges & universities)
   if (!destination) {
     if (norm.includes('رافدين') || norm.includes('رفدين')) destination = 'كلية الرافدين الجامعة';
-    else if (norm.includes('مستنصرية')) destination = 'الجامعة المستنصرية';
-    else if (norm.includes('تكنولوجية')) destination = 'الجامعة التكنولوجية';
+    else if (norm.includes('مستنصرية') || norm.includes('مستنصريه')) destination = 'الجامعة المستنصرية';
+    else if (norm.includes('تكنولوجية') || norm.includes('تكنولوجيه')) destination = 'الجامعة التكنولوجية';
     else if (norm.includes('نهرين')) destination = 'جامعة النهرين';
+    else if (norm.includes('اسراء') || norm.includes('إسراء')) destination = 'كلية الاسراء';
+    else if (norm.includes('اوروك') || norm.includes('أوروك')) destination = 'جامعة اوروك';
+    else if (norm.includes('فراهيدي')) destination = 'جامعة الفراهيدي';
+    else if (norm.includes('دجلة') || norm.includes('دجله')) destination = 'جامعة دجلة';
+    else if (norm.includes('تراث')) destination = 'كلية التراث';
+    else if (norm.includes('رشيد')) destination = 'كلية الرشيد';
+    else if (norm.includes('معارف')) destination = 'كلية المعارف';
     else if (norm.includes('بغداد')) destination = 'جامعة بغداد';
   }
 
@@ -838,7 +865,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     // Add report button if there's at least one matched line with phone
     if (matchedLines.length > 0 && matchedLines[0].phone) {
       const firstDrvPhone = matchedLines[0].phone.replace(/[^0-9]/g, '');
-      const firstDrvName = encodeURIComponent((matchedLines[0].title || 'سائق خط').substring(0, 20));
+      const firstDrvName = (matchedLines[0].title || 'سائق خط').substring(0, 10).replace(/_/g, '');
       inlineButtons.push([{ text: '⚠️ إبلاغ عن مشكلة مع سائق', callback_data: `rep_drv_${firstDrvName}_${firstDrvPhone}` }]);
     }
 
@@ -8634,7 +8661,8 @@ Deno.serve(async (req: any) => {
         const shortId = myAd.short_id || myAd.id;
         const driverName = myAd.contact_name || myAd.title || 'كابتن';
         const driverPhone = myAd.phone || '';
-        const repDrvCb = `rep_drv_${encodeURIComponent(driverName.substring(0, 15))}_${driverPhone || 'nophone'}`;
+        const shortDriverName = driverName.substring(0, 10).replace(/_/g, '');
+        const repDrvCb = `rep_drv_${shortDriverName}_${driverPhone || 'nophone'}`;
 
         for (const student of matched) {
           const studentChatId = student.telegram_chat_id || student.telegram_user_id;
@@ -8818,7 +8846,7 @@ Deno.serve(async (req: any) => {
       // Report Driver (إبلاغ عن كابتن يوصل للمالك فوراً مع إمكانية الحظر)
       if (action.startsWith('rep_drv_')) {
         const parts = action.split('_');
-        const driverName = decodeURIComponent(parts[2] || 'كابتن');
+        const driverName = parts[2] || 'كابتن';
         const driverPhone = parts[3] || 'غير متوفر';
 
         state = { 
@@ -10447,73 +10475,167 @@ Deno.serve(async (req: any) => {
             return new Response('OK', { status: 200 });
           }
 
+          if (cleanP.includes('مراجعة إعلان الخط قبل النشر')) {
+            await sendMessage(chatId, '⚠️ <b>عذراً كابتن، لنشر إعلانك يرجى الضغط على زر "✅ نشر إعلان الخط الآن" الموجود أسفل رسالة المراجعة بدلاً من إعادة إرسال النص.</b>');
+            return new Response('OK', { status: 200 });
+          }
+
           // 2. Check if a driver is offering a line / seats ("عندي خط", "أوفر خط", "سايق خط")
           const isDriverOfferIntent = 
             cleanP.includes('عندي خط') || cleanP.includes('أوفر خط') || cleanP.includes('اوفر خط') || 
             cleanP.includes('سايق خط') || cleanP.includes('سائق خط') || cleanP.includes('عندي مقاعد') || 
             cleanP.includes('ادور طلاب') || cleanP.includes('ابحث عن طلاب') || cleanP.includes('اريد طلاب') || 
-            cleanP.includes('يوجد خط');
+            cleanP.includes('يوجد خط') || cleanP.includes('عندي سيارة') || cleanP.includes('عندي كيا') || cleanP.includes('عندي كوستر') || cleanP.includes('عندي ستاركس');
 
           if (isDriverOfferIntent) {
             sendChatAction(chatId, 'typing');
-            let driverOrigin = '';
-            let driverDest = '';
-            const match = userCaption?.match(/من\s+(.+?)\s+(?:إلى|الي|الى|لـ|ل)\s+(.+)/i);
-            if (match) {
-              driverOrigin = match[1].trim().replace(/[.,!?:;،؟]/g, '');
-              driverDest = match[2].trim().replace(/[.,!?:;،؟]/g, '');
-            } else {
-              const commonAreas = ['البنوك', 'الشعب', 'المنصور', 'الكرادة', 'الدورة', 'اليرموك', 'الغزالية', 'الزعفرانية', 'مدينة الصدر', 'جميلة', 'الأعظمية', 'الكاظمية', 'السيدية', 'الجهاد', 'الحرية', 'القاهرة', 'صليخ', 'حي الجامعة', 'الوزيرية', 'حي تونس'];
-              for (const a of commonAreas) {
-                if (cleanP.includes(a.toLowerCase())) {
-                  driverOrigin = a;
-                  break;
-                }
-              }
+            
+            // Check points first
+            const { data: profile } = await supabase.from('profiles').select('points, role').eq('id', userId).maybeSingle();
+            if (profile?.role !== 'admin' && profile?.role !== 'owner' && (profile?.points || 0) < 1) {
+              await sendMessage(chatId, '❌ <b>عذراً كابتن، رصيد النقاط الخاص بك غير كافٍ لنشر إعلان.</b>\nيرجى شحن المحفظة أولاً من القائمة الرئيسية.');
+              return new Response('OK', { status: 200 });
             }
 
-            if (driverOrigin) {
-              const { data: waitingStudents } = await supabase.from('transport_requests').select('*').eq('status', 'pending').order('created_at', { ascending: false }).limit(30);
-              const matchedStudents = (waitingStudents || []).filter((req: any) => {
-                const reqFull = `${req.origin || ''} ${req.destination || ''} ${req.raw_query || ''}`.toLowerCase();
-                return reqFull.includes(driverOrigin.toLowerCase());
+            // Call Gemini
+            let extracted: any = {};
+            try {
+              const systemPrompt = `أنت مساعد ذكي لاستخراج بيانات إعلانات خطوط النقل في العراق.
+استخرج البيانات التالية من رسالة السائق بصيغة JSON حصراً:
+{
+  "origin": "المنطقة التي ينطلق منها (مثال: الدورة، المنصور) أو null إذا غير مذكورة",
+  "destination": "وجهة الخط (مثال: جامعة بغداد، كلية التراث) أو null",
+  "car_type": "نوع السيارة (مثال: النترا، ستاركس، صالون) أو null",
+  "gender": "تفضيل الجنس (اختر واحد فقط: 'الجميع', 'طالبات فقط', 'طلاب فقط') أو null",
+  "shift": "الدوام (اختر واحد فقط: 'صباحي', 'مسائي', 'مرن') أو null",
+  "price": "السعر كرقم فقط (مثال: اذا 100 الف اكتب 100000) أو null",
+  "phone": "رقم الهاتف العراقي أو null"
+}
+اذا لم تجد المعلومة ضع null. لا تكتب اي نص اخر غير הJSON.`;
+              
+              const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+              if (GEMINI_API_KEY) {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    contents: [{ role: 'user', parts: [{ text: userCaption || text }] }],
+                    systemInstruction: { role: 'system', parts: [{ text: systemPrompt }] },
+                    generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+                  })
+                });
+                
+                const data = await response.json();
+                if (data.candidates && data.candidates.length > 0) {
+                  const aiResponse = data.candidates[0].content.parts[0].text;
+                  const jsonStr = aiResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+                  extracted = JSON.parse(jsonStr);
+                }
+              }
+            } catch (e) {
+              console.error("Gemini driver parse error:", e);
+            }
+
+            // Initialize state with extracted info
+            let state: any = {
+              step: '',
+              data: {
+                type: 'offer',
+                categoryType: 'student', // Default assumption
+                regions: extracted.origin || null,
+                destination: extracted.destination || null,
+                vehicleType: extracted.car_type || null,
+                targetAudience: extracted.gender || null,
+                shift: extracted.shift || null,
+                price: extracted.price ? (String(extracted.price).includes('الاتفاق') ? '0' : String(extracted.price).replace(/[^0-9]/g, '')) : null,
+                phone: extracted.phone || null,
+              }
+            };
+
+            // Find missing step
+            let missingStep = '';
+            if (!state.data.regions) missingStep = 'trans_regions';
+            else if (!state.data.destination) missingStep = 'trans_dest';
+            else if (!state.data.shift) missingStep = 'trans_shift';
+            else if (!state.data.vehicleType) missingStep = 'trans_vehicle';
+            else if (!state.data.targetAudience) missingStep = 'trans_target';
+            else if (!state.data.price) missingStep = 'trans_fare';
+            else if (!state.data.phone) missingStep = 'trans_phone';
+            else missingStep = 'trans_review';
+
+            state.step = missingStep;
+            await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+            // Send appropriate missing prompt
+            if (missingStep === 'trans_regions') {
+              const areaButtons = TRANSPORT_AREAS_BAGHDAD.map(row => row.map(a => {
+                if (a.includes('أخرى')) return { text: a, callback_data: 'trans_area_custom' };
+                return { text: a, callback_data: `trans_area_${a}` };
+              }));
+              areaButtons.push([{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
+              await sendMessage(chatId, `📍 <b>نحتاج بعض التفاصيل الإضافية لنشر خطك!</b>\n\nالخطوة الحالية: <b>مناطق الانطلاق (المرور)</b>\nاختر منطقة الانطلاق أو اكتبها بنفسك 👇`, { inline_keyboard: areaButtons });
+            } 
+            else if (missingStep === 'trans_dest') {
+              const destButtons = TRANSPORT_DESTINATIONS_BAGHDAD.map(row => row.map(d => {
+                if (d.includes('أخرى')) return { text: d, callback_data: 'trans_dest_custom' };
+                return { text: d, callback_data: `trans_dest_${d}` };
+              }));
+              destButtons.push([{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
+              await sendMessage(chatId, `🏢 <b>نحتاج بعض التفاصيل الإضافية لنشر خطك!</b>\n\nالخطوة الحالية: <b>الوجهة (الجامعة أو العمل)</b>\nاختر الوجهة المطلوبة 👇`, { inline_keyboard: destButtons });
+            }
+            else if (missingStep === 'trans_shift') {
+              const shiftButtons = TRANSPORT_SHIFTS.map(row => row.map(s => ({ text: s, callback_data: `trans_shift_${s}` })));
+              shiftButtons.push([{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
+              await sendMessage(chatId, `⏰ <b>نحتاج بعض التفاصيل الإضافية لنشر خطك!</b>\n\nالخطوة الحالية: <b>وقت الدوام والشفت</b>\nاختر وقت الدوام 👇`, { inline_keyboard: shiftButtons });
+            }
+            else if (missingStep === 'trans_vehicle') {
+              const vehicleButtons = TRANSPORT_VEHICLES.map(row => row.map(v => ({ text: v, callback_data: `trans_vehicle_${v}` })));
+              vehicleButtons.push([{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
+              await sendMessage(chatId, `🚗 <b>نحتاج بعض التفاصيل الإضافية لنشر خطك!</b>\n\nالخطوة الحالية: <b>نوع المركبة</b>\nاختر نوع المركبة 👇`, { inline_keyboard: vehicleButtons });
+            }
+            else if (missingStep === 'trans_target') {
+              const targetButtons = TRANSPORT_TARGETS.map(row => row.map(t => ({ text: t, callback_data: `trans_target_${t}` })));
+              targetButtons.push([{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
+              await sendMessage(chatId, `👥 <b>نحتاج بعض التفاصيل الإضافية لنشر خطك!</b>\n\nالخطوة الحالية: <b>فئة الركاب</b>\nالخط مخصص لمن؟ 👇`, { inline_keyboard: targetButtons });
+            }
+            else if (missingStep === 'trans_fare') {
+              const fareButtons = TRANSPORT_FARES.map(row => row.map(f => {
+                if (f.includes('آخر')) return { text: f, callback_data: 'trans_fare_custom' };
+                return { text: f, callback_data: `trans_fare_${f}` };
+              }));
+              fareButtons.push([{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
+              await sendMessage(chatId, `💰 <b>نحتاج بعض التفاصيل الإضافية لنشر خطك!</b>\n\nالخطوة الحالية: <b>الأجرة الشهرية / السعر</b>\nاختر الأجرة التقريبية لكل راكب 👇`, { inline_keyboard: fareButtons });
+            }
+            else if (missingStep === 'trans_phone') {
+              const currentPhone = phone || '';
+              const phoneButtons = [];
+              if (currentPhone) phoneButtons.push([{ text: `📱 استخدام رقمي الحالي (${currentPhone})`, callback_data: 'trans_phone_current' }]);
+              phoneButtons.push([{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
+              await sendMessage(chatId, `📞 <b>الخطوة الأخيرة لنشر خطك!</b>\n\nاكتب رقم الهاتف للتواصل، أو اضغط على الزر لاستخدام رقمك المسجل:`, { inline_keyboard: phoneButtons });
+            }
+            else if (missingStep === 'trans_review') {
+              const typeStr = '🚗 أوفر خط نقل (سائق)';
+              const fareNum = parseInt(state.data.price) || 0;
+              const fareStr = fareNum === 0 ? 'حسب الاتفاق' : fareNum.toLocaleString() + ' دينار';
+              const reviewText = `✨ <b>ممتاز كابتن! لقد استخرجنا جميع معلومات خطك بنجاح.</b>\n\n` +
+                                 `🔍 <b>مراجعة إعلان الخط قبل النشر</b>\nتأكد من صحة المعلومات، ثم اضغط «✅ نشر إعلان الخط الآن»:\n\n` +
+                                 `📌 <b>النوع:</b> ${typeStr}\n` +
+                                 `🏷️ <b>الفئة:</b> ${state.data.categoryType === 'employee' ? '💼 موظفين' : '🎓 طلاب'} (${state.data.targetAudience || 'الجميع'})\n` +
+                                 `📍 <b>مناطق الانطلاق:</b> ${state.data.regions || 'بغداد'}\n` +
+                                 `🏢 <b>الوجهة:</b> ${state.data.destination || 'بغداد'}\n` +
+                                 `⏰ <b>الدوام:</b> ${state.data.shift || 'صباحي'}\n` +
+                                 `🚗 <b>المركبة:</b> ${state.data.vehicleType || 'صالون'}\n` +
+                                 `💰 <b>الأجرة:</b> ${fareStr}\n` +
+                                 `📞 <b>التواصل:</b> ${state.data.phone}\n`;
+
+              await sendMessage(chatId, reviewText, {
+                inline_keyboard: [
+                  [{ text: '✅ نشر إعلان الخط الآن', callback_data: 'trans_confirm_publish' }],
+                  [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+                ]
               });
-
-              if (matchedStudents.length > 0) {
-                let driverMsg = `🚌 <b>يا هلا بكابتن ${fromUser?.first_name || 'السائق'} 🌹!</b>\n` +
-                  `وجدنا لك (<b>${matchedStudents.length}</b>) طلاب يبحثون عن خط بمسار (<b>${driverOrigin}</b>) حالياً:\n\n`;
-                for (const s of matchedStudents.slice(0, 5)) {
-                  driverMsg += `• 👤 <b>${s.user_name || 'طالب'}</b> (${s.origin} ⬅️ ${s.destination})\n`;
-                }
-                driverMsg += `\n🚀 <b>اضغط الزر أدناه لنشر خطك فوراً</b> لينزل بالموقع وقنوات تيليجرام وفيسبوك والطلاب يتواصلون وياك مباشرة:`;
-                const driverMarkup = {
-                  inline_keyboard: [
-                    [{ text: '➕ نشر خطك الآن مجاناً 🚀', callback_data: 'publish_transport' }],
-                    [{ text: '🚌 تصفح طلبات النقل بالموقع', url: 'https://www.souqbaghdad.store/transport' }],
-                    [{ text: '📋 القائمة الرئيسية', callback_data: 'main_menu' }]
-                  ]
-                };
-                await sendMessage(chatId, driverMsg, driverMarkup);
-                return new Response('OK', { status: 200 });
-              } else {
-                let noStudentMsg = 
-                  `🚌 <b>يا هلا بكابتن ${fromUser?.first_name || 'السائق'} 🌹!</b>\n` +
-                  `حالياً لا توجد طلبات انتظار جديدة مسجلة لمسار (<b>${driverOrigin}</b>).\n\n` +
-                  `✨ <b>انشر خطك الآن مجاناً عبر البوت</b> وسينزل فوراً في:\n` +
-                  `• موقع سوق بغداد الرسمي\n` +
-                  `• قنوات تيليجرام (@souqbaghdad_lines و @ruc_1)\n` +
-                  `• صفحات فيسبوك الرسمية\n` +
-                  `وأول ما يسجل أي طالب بهذا المسار راح نربطه بيك فوراً! 🤝`;
-                const noStudentMarkup = {
-                  inline_keyboard: [
-                    [{ text: '➕ نشر خطك الآن مجاناً 🚀', callback_data: 'publish_transport' }],
-                    [{ text: '🚌 تصفح الموقع', url: 'https://www.souqbaghdad.store/transport' }]
-                  ]
-                };
-                await sendMessage(chatId, noStudentMsg, noStudentMarkup);
-                return new Response('OK', { status: 200 });
-              }
             }
+            return new Response('OK', { status: 200 });
           }
 
           // 2.5 Check if user found a line or wants to cancel/stop alerts (لكيت خط، حصلت خط، لغيت الطلب، وقف التنبيهات)
