@@ -10492,8 +10492,11 @@ Deno.serve(async (req: any) => {
             cleanP.includes('يوجد خط') || cleanP.includes('عندي سيارة') || cleanP.includes('عندي كيا') || cleanP.includes('عندي كوستر') || cleanP.includes('عندي ستاركس') ||
             cleanP.includes('عندي طيبه') || cleanP.includes('عندي سايبا') || cleanP.includes('اخذ خط') || cleanP.includes('اخذ نفرات') ||
             cleanP.includes('محتاج خط') || cleanP.includes('اريد خط') || cleanP.includes('أريد خط') || 
-            cleanP.includes('محتاجة خط') || cleanP.includes('نريد خط') || cleanP.includes('محتاجين خط') || 
-            cleanP.includes('ادور خط') || cleanP.includes('أدور خط') || cleanP.includes('ابحث عن خط') || cleanP.includes('الي يريد خط') || cleanP.includes('تكملة خط') || cleanP.includes('تكملت خط');
+            cleanP.includes('محتاجة خط') || cleanP.includes('محتاجه خط') || cleanP.includes('نريد خط') || cleanP.includes('محتاجين خط') || 
+            cleanP.includes('ادور خط') || cleanP.includes('أدور خط') || cleanP.includes('ندور خط') || cleanP.includes('ابحث عن خط') || 
+            cleanP.includes('رايد خط') || cleanP.includes('رايده خط') || cleanP.includes('رايدة خط') || 
+            cleanP.includes('الي يريد خط') || cleanP.includes('تكملة خط') || cleanP.includes('تكملت خط') ||
+            cleanP.includes('محتاج سايق') || cleanP.includes('محتاجه سايق') || cleanP.includes('اريد سايق') || cleanP.includes('طالبه محتاجه') || cleanP.includes('عفيه اريد خط');
 
           if (isTransportAdIntent) {
             sendChatAction(chatId, 'typing');
