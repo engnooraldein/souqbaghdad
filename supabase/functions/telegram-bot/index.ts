@@ -6448,6 +6448,8 @@ Deno.serve(async (req: any) => {
       text === 'noop_page' || 
       text.startsWith('seeker_dest_') || 
       text.startsWith('req_seat_') || 
+      text.startsWith('accept_booking_') || 
+      text.startsWith('reject_booking_') || 
       text.startsWith('matched_req_') || 
       text.startsWith('stop_alert_') || 
       text.startsWith('driver_seat_booked_') ||
@@ -8276,8 +8278,14 @@ Deno.serve(async (req: any) => {
         const cleanPhone = (lineAd?.phone || '').replace(/[^0-9+]/g, '');
         let waPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
 
+        // 🏷️ Generate Unique Digital Booking Code (مثال: #SEAT-7492)
+        const randomNum = Math.floor(1000 + Math.random() * 9000);
+        const bookingCode = `SEAT-${randomNum}`;
+
         // 1. Try to notify driver on Telegram if registered
         let driverNotified = false;
+        let driverChatId: string | null = null;
+
         if (lineAd) {
           try {
             let drvQuery = supabase.from('telegram_users').select('telegram_chat_id');
@@ -8287,22 +8295,47 @@ Deno.serve(async (req: any) => {
               drvQuery = drvQuery.eq('phone', cleanPhone);
             }
             const { data: drvUser } = await drvQuery.maybeSingle();
-            
-            if (drvUser && drvUser.telegram_chat_id) {
+            driverChatId = drvUser?.telegram_chat_id || null;
+
+            // 💾 Record the agreement in transport_bookings table
+            await supabase.from('transport_bookings').insert({
+              booking_code: bookingCode,
+              ad_id: lineAd.id,
+              captain_id: lineAd.seller_id || null,
+              captain_chat_id: driverChatId ? String(driverChatId) : null,
+              captain_name: lineAd.title || 'كابتن الخط',
+              captain_phone: cleanPhone || null,
+              passenger_id: userId || null,
+              passenger_chat_id: String(chatId),
+              passenger_name: studentName,
+              passenger_username: studentHandle || null,
+              route_origin: lineAd.location || 'بغداد',
+              route_destination: lineAd.city || 'الجامعة',
+              agreed_price: lineAd.price ? String(lineAd.price) : null,
+              status: 'pending'
+            });
+
+            if (driverChatId) {
               const driverAlert = 
                 `🔔 <b>كابتن العزيز! وصلك طلب حجز مقعد جديد في خطك 🚌✨</b>\n\n` +
                 `👤 <b>اسم الراكب:</b> ${studentName}\n` +
                 `📍 <b>مسار خطك:</b> ${lineAd.location} ⬅️ ${lineAd.city}\n` +
                 (studentHandle ? `💬 <b>معرف التيليجرام:</b> ${studentHandle}\n` : '') +
-                `\n💡 <i>تواصل مع الراكب بالخاص فوراً للاتفاق وتأكيد المقعد!</i>`;
+                `🔖 <b>كود الحجز الرقمي:</b> <code>#${bookingCode}</code>\n\n` +
+                `<i>هل توافق على تثبيت المقعد لهذا الراكب وتأكيد الحجز؟</i>`;
 
-              const drvBtns: any[] = [];
+              const drvBtns: any[][] = [
+                [
+                  { text: '✅ قبول وتأكيد الحجز 🎯', callback_data: `accept_booking_${bookingCode}` },
+                  { text: '❌ اعتذار / الخط ممتلئ', callback_data: `reject_booking_${bookingCode}` }
+                ]
+              ];
+
               if (studentHandle) {
-                drvBtns.push([{ text: '💬 مراسلة الراكب بالخاص تليكرام 🌹', url: `https://t.me/${studentHandle.replace('@', '')}` }]);
+                drvBtns.push([{ text: '💬 مراسلة الراكب بالخاص 🌹', url: `https://t.me/${studentHandle.replace('@', '')}` }]);
               }
-              drvBtns.push([{ text: '✅ تم الاتفاق وحجز المقعد', callback_data: `driver_seat_booked_${lineAd.id}` }]);
 
-              await sendMessage(drvUser.telegram_chat_id, driverAlert, { inline_keyboard: drvBtns });
+              await sendMessage(driverChatId, driverAlert, { inline_keyboard: drvBtns });
               driverNotified = true;
             }
           } catch(e) {
@@ -8316,15 +8349,16 @@ Deno.serve(async (req: any) => {
 
         const confirmMsg = 
           `🎉 <b>تم إرسال طلب حجز المقعد للكابتن بنجاح! 🌹</b>\n\n` +
+          `🔖 <b>كود حجزك الرقمي المعتمد:</b> <code>#${bookingCode}</code>\n` +
           (driverNotified 
-            ? `📲 <b>تم إشعار الكابتن بطلبك على تيليجرام</b> وسيتواصل معك قريباً لتأكيد المقعد.\n` 
-            : `📲 تم تسجيل طلبك بالنظام وربطه مع الكابتن.\n`) +
-          `💡 <i>يمكنك أيضاً مراسلته مباشرة عبر الواتساب أو الاتصال أدناه للتأكيد الفوري:</i>`;
+            ? `📲 <b>تم إشعار الكابتن بطلبك فوراً عبر تيليجرام</b> وسيقوم بتأكيد الحجز.\n` 
+            : `📲 تم توثيق طلبك رسمياً بالنظام لضمان حقك وأمانك.\n`) +
+          `\n💡 <i>يمكنك أيضاً مراسلته مباشرة عبر الواتساب أو الاتصال أدناه للتأكيد السريع:</i>`;
 
         const confirmBtns: any[] = [];
         const commRow: any[] = [];
         if (waPhone) {
-          const prefill = encodeURIComponent('السلام عليكم كابتن، شفت خطك بسوق بغداد وحابة استفسر عن حجز مقعد');
+          const prefill = encodeURIComponent(`السلام عليكم كابتن، شفت خطك بسوق بغداد وحابة استفسر عن حجز مقعد - كود الحجز #${bookingCode}`);
           commRow.push({ text: '💬 تواصل واتساب مع الكابتن 🟢', url: `https://wa.me/${waPhone}?text=${prefill}` });
         }
         if (cleanPhone) {
@@ -8335,6 +8369,127 @@ Deno.serve(async (req: any) => {
         confirmBtns.push([{ text: '🚌 تصفح باقي الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }]);
 
         await sendMessage(chatId, confirmMsg, { inline_keyboard: confirmBtns });
+        return new Response('OK', { status: 200 });
+      }
+
+      // ✅ Captain Accepts Booking (قبول وتثبيت الحجز من الكابتن)
+      if (action.startsWith('accept_booking_')) {
+        const bCode = action.replace('accept_booking_', '');
+        
+        // 1. Update Booking Record in DB
+        const { data: booking } = await supabase
+          .from('transport_bookings')
+          .update({ status: 'confirmed', confirmed_at: new Date().toISOString() })
+          .eq('booking_code', bCode)
+          .select('*')
+          .maybeSingle();
+
+        if (callbackQueryId) {
+          await answerCallbackQuery(callbackQueryId, '🎉 تم تأكيد وتثبيت الحجز بنجاح!', true);
+        }
+
+        // 2. Update Captain Message in-place
+        const captainAck = 
+          `✅ <b>تم تأكيد وتثبيت حجز المقعد بنجاح! 🎯</b>\n\n` +
+          `🔖 <b>كود الحجز المعتمد:</b> <code>#${bCode}</code>\n` +
+          `👤 <b>اسم الراكب:</b> ${booking?.passenger_name || 'راكب'}\n` +
+          `📍 <b>المسار:</b> ${booking?.route_origin || 'بغداد'} ⬅️ ${booking?.route_destination || 'الجامعة'}\n\n` +
+          `🛡️ <i>تم توثيق هذا الاتفاق رسمياً في سجلات إدارة سوق بغداد لحفظ حقوقك والتزام الركاب 🌹</i>`;
+
+        const capBtns: any[][] = [];
+        if (booking?.passenger_username) {
+          capBtns.push([{ text: '💬 تواصل مع الراكب بالخاص تليكرام', url: `https://t.me/${booking.passenger_username.replace('@', '')}` }]);
+        }
+        capBtns.push([{ text: '🚌 إدارة خطوطي', callback_data: 'manage_cat_trans' }]);
+
+        if (callbackMsgId) {
+          try {
+            await editMessageText(chatId, callbackMsgId, captainAck, { inline_keyboard: capBtns });
+          } catch(e) {
+            await sendMessage(chatId, captainAck, { inline_keyboard: capBtns });
+          }
+        } else {
+          await sendMessage(chatId, captainAck, { inline_keyboard: capBtns });
+        }
+
+        // 3. Notify Passenger on private Telegram chat!
+        if (booking?.passenger_chat_id) {
+          try {
+            const passAlert = 
+              `🎉 <b>ألف مبروك! وافق الكابتن على طلب حجز مقعدك 🚌✨</b>\n\n` +
+              `👤 <b>الكابتن:</b> ${booking.captain_name || 'كابتن الخط'}\n` +
+              (booking.captain_phone ? `📞 <b>هاتف الكابتن:</b> <code>${booking.captain_phone}</code>\n` : '') +
+              `📍 <b>المسار:</b> ${booking.route_origin} ⬅️ ${booking.route_destination}\n` +
+              `🔖 <b>كود حجزك الرقمي المعتمد:</b> <code>#${bCode}</code>\n\n` +
+              `🛡️ <i>تم توثيق الاتفاق رسمياً لدى إدارة سوق بغداد لضمان أمانك والتزام الكابتن بمواعيد الدوام 🌹</i>`;
+
+            const passBtns: any[][] = [];
+            const cleanCapPhone = (booking.captain_phone || '').replace(/[^0-9+]/g, '');
+            let waCapPhone = cleanCapPhone.startsWith('07') ? '964' + cleanCapPhone.substring(1) : cleanCapPhone.replace('+', '');
+            
+            const passCommRow: any[] = [];
+            if (waCapPhone) {
+              passCommRow.push({ text: '💬 تواصل واتساب مع الكابتن 🟢', url: `https://wa.me/${waCapPhone}?text=${encodeURIComponent(`السلام عليكم كابتن، تم تأكيد حجز مقعدي بكود #${bCode}`)}` });
+            }
+            if (cleanCapPhone) {
+              passCommRow.push({ text: '✈️ تليكرام / اتصال', url: `https://t.me/+${waCapPhone || cleanCapPhone}` });
+            }
+            if (passCommRow.length > 0) passBtns.push(passCommRow);
+            passBtns.push([{ text: '🛑 إيقاف التنبيهات (حصلت خط خلاص) 🌹', callback_data: `stop_alert_${booking.ad_id || 'user'}` }]);
+
+            await sendMessage(booking.passenger_chat_id, passAlert, { inline_keyboard: passBtns });
+          } catch(e) {
+            console.error('Error notifying passenger of confirmation:', e);
+          }
+        }
+
+        return new Response('OK', { status: 200 });
+      }
+
+      // ❌ Captain Rejects / Line Full (اعتذار الكابتن / الخط ممتلئ)
+      if (action.startsWith('reject_booking_')) {
+        const bCode = action.replace('reject_booking_', '');
+
+        // 1. Update Booking Record in DB
+        const { data: booking } = await supabase
+          .from('transport_bookings')
+          .update({ status: 'rejected', updated_at: new Date().toISOString() })
+          .eq('booking_code', bCode)
+          .select('*')
+          .maybeSingle();
+
+        if (callbackQueryId) {
+          await answerCallbackQuery(callbackQueryId, 'تم تسجيل الاعتذار.', true);
+        }
+
+        const rejAck = `ℹ️ <b>تم تسجيل اعتذارك عن الحجز (#${bCode}).</b>\nشكراً لإبلاغنا لتحديث حالة الركاب.`;
+        if (callbackMsgId) {
+          try {
+            await editMessageText(chatId, callbackMsgId, rejAck);
+          } catch(e) {
+            await sendMessage(chatId, rejAck);
+          }
+        }
+
+        // 2. Notify Passenger gently and offer other lines
+        if (booking?.passenger_chat_id) {
+          try {
+            const passRejMsg = 
+              `ℹ️ <b>تنويه حول طلب الحجز (#${bCode}):</b>\n\n` +
+              `نعتذر منكِ، الكابتن بلّغ أن خطه ممتلئ حالياً أو لا يتوفر مقعد إضافي.\n\n` +
+              `🔍 <b>لا تقلقي! يمكنك تصفح باقي السائقين والخطوط المتوفرة لمسارك فوراً:</b>`;
+
+            const passRejBtns = [
+              [{ text: '🚌 تصفح باقي الخطوط المتاحة بالموقع', url: 'https://www.souqbaghdad.store/transport' }],
+              [{ text: '🔍 البحث عن خط جديد بالبوت', callback_data: 'publish_seeker_prompt' }]
+            ];
+
+            await sendMessage(booking.passenger_chat_id, passRejMsg, { inline_keyboard: passRejBtns });
+          } catch(e) {
+            console.error('Error notifying passenger of rejection:', e);
+          }
+        }
+
         return new Response('OK', { status: 200 });
       }
 
