@@ -600,9 +600,12 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     (lowerRaw.includes('خط') && (lowerRaw.includes('تبريد') || lowerRaw.includes('تدفئة') || lowerRaw.includes('انترنت') || lowerRaw.includes('واي فاي')));
 
   const isSeekerExplicit = 
-    lowerRaw.includes('محتاج خط') || lowerRaw.includes('محتاجة خط') || lowerRaw.includes('اريد خط') || 
-    lowerRaw.includes('أريد خط') || lowerRaw.includes('ادور خط') || lowerRaw.includes('أدور خط') || 
-    lowerRaw.includes('ابحث عن خط') || lowerRaw.includes('طالبة محتاجة') || lowerRaw.includes('طالب محتاج');
+    lowerRaw.includes('محتاج خط') || lowerRaw.includes('محتاجة خط') || lowerRaw.includes('محتاجه خط') || lowerRaw.includes('محتاجين خط') || 
+    lowerRaw.includes('اريد خط') || lowerRaw.includes('أريد خط') || lowerRaw.includes('نريد خط') || 
+    lowerRaw.includes('رايد خط') || lowerRaw.includes('رايده خط') || lowerRaw.includes('رايدة خط') ||
+    lowerRaw.includes('ادور خط') || lowerRaw.includes('أدور خط') || lowerRaw.includes('ندور خط') || 
+    lowerRaw.includes('ابحث عن خط') || lowerRaw.includes('طالبة محتاجة') || lowerRaw.includes('طالبه محتاجه') || lowerRaw.includes('طالب محتاج') ||
+    lowerRaw.includes('محتاج سايق') || lowerRaw.includes('محتاجه سايق') || lowerRaw.includes('اريد سايق') || lowerRaw.includes('نريد سايق') || lowerRaw.includes('محتاج سيارة');
 
   const isProvider = isDriverKeywords && !isSeekerExplicit;
 
@@ -10487,6 +10490,7 @@ Deno.serve(async (req: any) => {
             cleanP.includes('سايق خط') || cleanP.includes('سائق خط') || cleanP.includes('عندي مقاعد') || 
             cleanP.includes('ادور طلاب') || cleanP.includes('ابحث عن طلاب') || cleanP.includes('اريد طلاب') || 
             cleanP.includes('يوجد خط') || cleanP.includes('عندي سيارة') || cleanP.includes('عندي كيا') || cleanP.includes('عندي كوستر') || cleanP.includes('عندي ستاركس') ||
+            cleanP.includes('عندي طيبه') || cleanP.includes('عندي سايبا') || cleanP.includes('اخذ خط') || cleanP.includes('اخذ نفرات') ||
             cleanP.includes('محتاج خط') || cleanP.includes('اريد خط') || cleanP.includes('أريد خط') || 
             cleanP.includes('محتاجة خط') || cleanP.includes('نريد خط') || cleanP.includes('محتاجين خط') || 
             cleanP.includes('ادور خط') || cleanP.includes('أدور خط') || cleanP.includes('ابحث عن خط') || cleanP.includes('الي يريد خط') || cleanP.includes('تكملة خط') || cleanP.includes('تكملت خط');
@@ -10509,17 +10513,18 @@ Deno.serve(async (req: any) => {
 {
   "ad_type": "استنتج نوع الإعلان: إذا كان المستخدم سائق يمتلك خط ويبحث عن ركاب (أو يريد تكملة خط) اكتب 'offer'، وإذا كان طالب أو موظف يبحث عن خط يوصله اكتب 'seek'",
   "origin": "نقطة الانطلاق (منين يطلع؟) سواء كانت منطقة أو عدة مناطق (مثال: جميلة، الدورة، حي الجامعة) أو null إذا غير مذكورة",
-  "destination": "وجهة الخط (وين يروح؟) اسم الجامعة أو الكلية أو المعهد أو الدائرة (مثال: كلية الرافدين، جامعة بغداد) أو null",
-  "car_type": "نوع السيارة أو مواصفاتها (مثال: النترا، ستاركس، VIP مكيف) أو null",
+  "destination": "وجهة الخط (وين يروح؟) أي مكان يقصده سواء كلية، معهد، دائرة، شركة، مستشفى، مول، أو منطقة (مثال: كلية الرافدين، شركة زين، مستشفى اليرموك) أو null",
+  "car_type": "نوع السيارة أو مواصفاتها (مثال: النترا، ستاركس، طيبه، سايبا، كيا، VIP) أو null",
   "gender": "الفئة المستهدفة أو الجنس (مثال: طالبات فقط، بنات، طلاب، الجميع، موظفين) أو null",
-  "shift": "وقت الدوام (مثال: صباحي، مسائي، مرن) أو null",
+  "shift": "وقت الدوام أو ساعات العمل (مثال: صباحي، مسائي، مرن، من 8 لـ 4، من 9 للـ 3) أو null",
   "price": "السعر أو الأجرة (مثال: حسب الاتفاق، 50 الف) أو null",
-  "phone": "رقم الهاتف للتواصل (أي رقم عراقي موجود في النص) أو null"
+  "phone": "رقم الهاتف للتواصل (سواء انكتب بالانجليزي 077 او بالعربي ٠٧٧) أو null"
 }
 تنبيهات هامة:
-- السائق قد يكتب بلهجة عراقية عامية (عندي خط، تكملة خط، رايح جاي).
+- السائق قد يكتب بلهجة عراقية عامية (عندي خط، تكملة خط، رايح جاي، عندي طيبه، اخذ خط بيها).
 - الطالب قد يكتب (محتاج خط، اريد خط، ادور خط).
-- استخرج المعلومات بذكاء وضع null لأي معلومة غير موجودة (مثلاً الطالب غالباً لا يذكر نوع السيارة).
+- استخرج المعلومات بذكاء، مثلاً إذا كتب "من 8 الى 4 عصر" فهذا هو الـ shift، وإذا كتب "كلية الرفدين" فهذا هو الـ destination.
+- استخرج أي شيء يدل على نوع السيارة وضعها في car_type حتى لو كانت كلمة "طيبه".
 - لا تكتب أي حرف أو نص خارج كود الـ JSON.`;
               
               const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
