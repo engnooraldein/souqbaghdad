@@ -705,7 +705,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
               const studentMarkup = {
                 inline_keyboard: [
                   contactHandle && contactHandle.startsWith('@') ? [{ text: '💬 مراسلة السائق تليكرام 🌹', url: `https://t.me/${contactHandle.replace('@','')}` }] : [],
-                  extractedPhone ? [{ text: `📞 اتصال: ${extractedPhone}`, url: `tel:${extractedPhone}` }] : [],
+                  extractedPhone ? [{ text: `📞 تليكرام / اتصال: ${extractedPhone}`, url: `https://t.me/+${extractedPhone.startsWith('07') ? '964' + extractedPhone.substring(1) : extractedPhone.replace('+', '')}` }] : [],
                   [{ text: '✅ اتفقت ولكيت خط خلاص (إيقاف)', callback_data: `stop_alert_${st.id}` }],
                   [{ text: '⚠️ إبلاغ عن مشكلة مع الكابتن', callback_data: reportData }],
                   [{ text: '🚌 تصفح جميع الخطوط', url: 'https://www.souqbaghdad.store/transport' }]
@@ -930,7 +930,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
         row.push({ text: `💬 تواصل واتساب (${i + 1}) 🟢`, url: `https://wa.me/${waPhone}` });
       }
       if (cleanPhone) {
-        row.push({ text: `📞 اتصال (${i + 1})`, url: `tel:${cleanPhone}` });
+        row.push({ text: `✈️ تليكرام / اتصال (${i + 1})`, url: `https://t.me/+${waPhone || cleanPhone}` });
       }
       if (row.length > 0) inlineButtons.push(row);
     }
