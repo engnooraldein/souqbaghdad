@@ -6080,7 +6080,26 @@ Deno.serve(async (req: any) => {
     // ==========================================
     // 📋 OWNER ACTION: TRANSPORT BOOKINGS & AGREEMENTS HUB
     // ==========================================
-    if (isOwner && (trimmedText.startsWith('owner_bookings_') || trimmedText.startsWith('owner_confirm_booking_') || trimmedText.startsWith('owner_cancel_booking_') || trimmedText.startsWith('owner_del_booking_'))) {
+    if (isOwner && (
+      trimmedText.startsWith('owner_bookings_') || 
+      trimmedText.startsWith('owner_filter_bookings_') ||
+      trimmedText.startsWith('owner_dsearch_') ||
+      trimmedText.startsWith('owner_confirm_booking_') || 
+      trimmedText.startsWith('owner_cancel_booking_') || 
+      trimmedText.startsWith('owner_del_booking_') ||
+      trimmedText === 'owner_search_driver_prompt'
+    )) {
+      // Prompt for Driver Search
+      if (trimmedText === 'owner_search_driver_prompt') {
+        state = { step: 'owner_search_driver_waiting' };
+        if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        return await updateOrSend(
+          `🔍 <b>بحث واستعلام عن طلبات وسجل السائق (الكابتن) 🚌</b>\n\n` +
+          `أرسل رقم هاتف الكابتن (مثال: <code>0770xxxxxxx</code>) أو اسمه أو كود الحجز (#SEAT-XXXX) لمعرفة كافة طلباته ونسبة تجاوبه:`,
+          { inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'owner_bookings_0' }]] }
+        );
+      }
+
       // 1. Action: Manual Confirm
       if (trimmedText.startsWith('owner_confirm_booking_')) {
         const parts = trimmedText.replace('owner_confirm_booking_', '').split('_');
@@ -6112,44 +6131,84 @@ Deno.serve(async (req: any) => {
         trimmedText = `owner_bookings_${pageNum}`;
       }
 
-      // 4. Render Bookings View with Pagination & Full Control
-      const pageIndex = parseInt(trimmedText.replace('owner_bookings_', ''), 10) || 0;
+      // Determine Filter & Query Parameters
+      let filterStatus: string | null = null;
+      let driverQuery: string | null = null;
+      let pageIndex = 0;
 
-      // Stats
-      const { count: totalBookings } = await supabase.from('transport_bookings').select('*', { count: 'exact', head: true });
-      const { count: confirmedCount } = await supabase.from('transport_bookings').select('*', { count: 'exact', head: true }).eq('status', 'confirmed');
-      const { count: pendingCount } = await supabase.from('transport_bookings').select('*', { count: 'exact', head: true }).eq('status', 'pending');
-      const { count: rejectedCount } = await supabase.from('transport_bookings').select('*', { count: 'exact', head: true }).in('status', ['rejected', 'cancelled']);
+      if (trimmedText.startsWith('owner_filter_bookings_')) {
+        const p = trimmedText.replace('owner_filter_bookings_', '').split('_');
+        filterStatus = p[0];
+        pageIndex = parseInt(p[1], 10) || 0;
+      } else if (trimmedText.startsWith('owner_dsearch_')) {
+        const p = trimmedText.replace('owner_dsearch_', '').split('_');
+        driverQuery = decodeURIComponent(p[0]);
+        pageIndex = parseInt(p[1], 10) || 0;
+      } else if (trimmedText.startsWith('owner_bookings_')) {
+        pageIndex = parseInt(trimmedText.replace('owner_bookings_', ''), 10) || 0;
+      }
 
-      const total = totalBookings || 0;
+      // Global Stats
+      const { count: totalAll } = await supabase.from('transport_bookings').select('*', { count: 'exact', head: true });
+      const { count: confirmedAll } = await supabase.from('transport_bookings').select('*', { count: 'exact', head: true }).eq('status', 'confirmed');
+      const { count: pendingAll } = await supabase.from('transport_bookings').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+      const { count: rejectedAll } = await supabase.from('transport_bookings').select('*', { count: 'exact', head: true }).in('status', ['rejected', 'cancelled']);
+
+      // Build specific query
+      let queryBuilder = supabase.from('transport_bookings').select('*', { count: 'exact' });
+      if (filterStatus) {
+        if (filterStatus === 'rejected') {
+          queryBuilder = queryBuilder.in('status', ['rejected', 'cancelled']);
+        } else {
+          queryBuilder = queryBuilder.eq('status', filterStatus);
+        }
+      }
+      if (driverQuery) {
+        const cleanTerm = driverQuery.replace(/[^0-9a-zA-Z\u0600-\u06FF]/g, '').trim();
+        queryBuilder = queryBuilder.or(`captain_phone.ilike.%${cleanTerm}%,captain_name.ilike.%${cleanTerm}%,booking_code.ilike.%${cleanTerm}%,passenger_phone.ilike.%${cleanTerm}%,passenger_name.ilike.%${cleanTerm}%`);
+      }
+
+      queryBuilder = queryBuilder.order('created_at', { ascending: false });
+
+      const { data: allMatched, count: filteredCount } = await queryBuilder;
+      const total = filteredCount || 0;
 
       if (total === 0) {
-        return await updateOrSend(
-          `📋 <b>سجلات الاتفاقات وحجوزات الخطوط — لوحة المالك</b> 🚌\n\n` +
-          `<i>📭 لا توجد أي اتفاقات أو حجوزات مسجلة بالنظام حتى الآن.</i>\n\n` +
-          `بمجرد أن تقوم طالبة أو راكب بحجز مقعد ويوافق الكابتن، ستظهر جميع البيانات هنا مباشرة للتفتيش والإشراف.`,
-          {
-            inline_keyboard: [
-              [{ text: '🔄 تحديث', callback_data: 'owner_bookings_0' }],
-              [{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
-            ]
-          }
-        );
+        let emptyMsg = `📋 <b>سجلات الاتفاقات وحجوزات الخطوط — لوحة المالك</b> 🚌\n\n`;
+        if (driverQuery) {
+          emptyMsg += `<i>🔍 لم يتم العثور على أي طلبات أو حجوزات مطابقة للكابتن «${driverQuery}».</i>`;
+        } else if (filterStatus) {
+          emptyMsg += `<i>📭 لا توجد حجوزات بحالة (${filterStatus === 'pending' ? 'معلقة بدون رد' : (filterStatus === 'confirmed' ? 'مؤكدة' : 'ملغية')}) حالياً.</i>`;
+        } else {
+          emptyMsg += `<i>📭 لا توجد أي اتفاقات أو حجوزات مسجلة بالنظام حتى الآن.</i>`;
+        }
+
+        return await updateOrSend(emptyMsg, {
+          inline_keyboard: [
+            [{ text: '🔍 بحث برقم كابتن آخر', callback_data: 'owner_search_driver_prompt' }],
+            [{ text: '📋 عرض جميع الحجوزات', callback_data: 'owner_bookings_0' }],
+            [{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
+          ]
+        });
       }
 
       const safePage = Math.min(Math.max(0, pageIndex), total - 1);
-      const { data: bookings } = await supabase
-        .from('transport_bookings')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .range(safePage, safePage);
+      const b = allMatched ? allMatched[safePage] : null;
 
-      const b = (bookings && bookings[0]) || null;
       if (!b) {
         return await updateOrSend('❌ تعذر تحميل بيانات الحجز.', {
           inline_keyboard: [[{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]]
         });
       }
+
+      // Calculate Driver-Specific Stats (ملف أداء وتجاوب الكابتن)
+      const dPhone = b.captain_phone || '';
+      const driverBookings = dPhone ? (allMatched || []).filter((item: any) => item.captain_phone && item.captain_phone.includes(dPhone.replace(/[^0-9]/g, ''))) : [b];
+      const dTotal = driverBookings.length;
+      const dConfirmed = driverBookings.filter((item: any) => item.status === 'confirmed').length;
+      const dPending = driverBookings.filter((item: any) => item.status === 'pending').length;
+      const dRejected = driverBookings.filter((item: any) => item.status === 'rejected' || item.status === 'cancelled').length;
+      const dResponseRate = dTotal > 0 ? Math.round(((dConfirmed + dRejected) / dTotal) * 100) : 0;
 
       const createdDate = new Date(b.created_at).toLocaleString('ar-IQ', {
         day: 'numeric',
@@ -6159,32 +6218,32 @@ Deno.serve(async (req: any) => {
         minute: '2-digit'
       });
 
-      let statusBadge = '⏳ قيد الموافقة والانتظار';
-      if (b.status === 'confirmed') statusBadge = '🟢 تم الاتفاق وتأكيد الحجز بنجاح ✅';
-      else if (b.status === 'rejected') statusBadge = '❌ معتذر عنه (الخط ممتلئ)';
-      else if (b.status === 'cancelled') statusBadge = '🚫 ملغي من الإدارة أو الطرفين';
+      let statusBadge = '⏳ معلق (لم يرد الكابتن بعد)';
+      if (b.status === 'confirmed') statusBadge = '🟢 تم الاتفاق وتأكيد المقعد بنجاح ✅';
+      else if (b.status === 'rejected') statusBadge = '❌ اعتذر عنه (الخط ممتلئ)';
+      else if (b.status === 'cancelled') statusBadge = '🚫 ملغي من الإدارة';
 
       const cleanCapPhone = (b.captain_phone || '').replace(/[^0-9+]/g, '');
       const waCapPhone = cleanCapPhone.startsWith('07') ? '964' + cleanCapPhone.substring(1) : cleanCapPhone.replace('+', '');
 
       let bMsg = 
-        `📋 <b>سجل الاتفاقات وحجوزات الخطوط [ ${safePage + 1} / ${total} ]</b> 🚌\n\n` +
-        `📊 <b>إحصائيات المنصة الحية:</b>\n` +
-        `• إجمالي الحجوزات: <b>${total}</b>\n` +
-        `• المكتملة والمؤكدة: <b>${confirmedCount || 0} 🟢</b> | المعلقة: <b>${pendingCount || 0} ⏳</b> | الملغية: <b>${rejectedCount || 0} ❌</b>\n` +
+        `📋 <b>سجل اتفاقات وحجوزات الخطوط [ ${safePage + 1} / ${total} ]</b> 🚌\n\n` +
+        (driverQuery ? `🔍 <b>نتائج البحث للكابتن:</b> «${driverQuery}»\n` : '') +
+        (filterStatus ? `🏷️ <b>الفلتر النشط:</b> ${filterStatus === 'pending' ? '⏳ المعلقة بدون رد' : (filterStatus === 'confirmed' ? '🟢 المؤكدة' : '❌ الملغية')}\n` : '') +
+        `📊 <b>إحصائيات المنصة:</b> إجمالي: <b>${totalAll || 0}</b> | مؤكد: <b>${confirmedAll || 0} 🟢</b> | معلق: <b>${pendingAll || 0} ⏳</b>\n` +
         `━━━━━━━━━━━━━━━━━━\n\n` +
-        `🔖 <b>كود الحجز الرقمي:</b> <code>#${b.booking_code}</code>\n` +
-        `📊 <b>الحالة:</b> ${statusBadge}\n` +
-        `📅 <b>تاريخ الطلب:</b> ${createdDate}\n\n` +
-        `🚌 <b>المسار المطلوب:</b> ${b.route_origin || 'بغداد'} ⬅️ ${b.route_destination || 'الجامعة'}\n` +
-        (b.agreed_price ? `💰 <b>الأجرة:</b> ${b.agreed_price}\n` : '') +
-        `\n👤 <b>بيانات الكابتن (السائق):</b>\n` +
-        `• الاسم: <b>${b.captain_name || 'كابتن الخط'}</b>\n` +
+        `👤 <b>ملف أداء الكابتن (${b.captain_name || 'سائق الخط'}):</b>\n` +
         `• الهاتف: <code>${b.captain_phone || 'غير مسجل'}</code>\n` +
-        `• معرف التليكرام: <code>${b.captain_chat_id || 'غير متوفر'}</code>\n` +
-        `\n🙋‍♀️ <b>بيانات الراكب (الطالب/ة):</b>\n` +
-        `• الاسم: <b>${b.passenger_name || 'راكبة'}</b>\n` +
-        `• معرف التليكرام: ${b.passenger_username ? `@${b.passenger_username}` : '<code>' + (b.passenger_chat_id || 'مخفي') + '</code>'}\n` +
+        `• إجمالي الطلبات المستلمة: <b>${dTotal} طلب</b>\n` +
+        `• المقاعد المؤكدة: <b>${dConfirmed} 🟢</b> | معلقة بدون رد: <b>${dPending} ⏳</b> | معتذر عنها: <b>${dRejected} ❌</b>\n` +
+        `• نسبة التجاوب والالتزام: <b>${dResponseRate}% ${dResponseRate >= 70 ? '⭐ ممتاز' : '⚠️ بحاجة متابعة'}</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━\n` +
+        `🔖 <b>كود الحجز:</b> <code>#${b.booking_code}</code>\n` +
+        `📊 <b>الحالة:</b> ${statusBadge}\n` +
+        `📅 <b>تاريخ الطلب:</b> ${createdDate}\n` +
+        `🚌 <b>المسار:</b> ${b.route_origin || 'بغداد'} ⬅️ ${b.route_destination || 'الجامعة'}\n` +
+        (b.agreed_price ? `💰 <b>الأجرة:</b> ${b.agreed_price}\n` : '') +
+        `🙋‍♀️ <b>الراكب:</b> ${b.passenger_name || 'طالبة'} (${b.passenger_username ? `@${b.passenger_username}` : 'تليكرام'})\n` +
         `━━━━━━━━━━━━━━━━━━`;
 
       const bButtons: any[][] = [];
@@ -6192,44 +6251,65 @@ Deno.serve(async (req: any) => {
       // Row 1: Direct Contact by Owner
       const contactRow: any[] = [];
       if (waCapPhone) {
-        contactRow.push({ text: '📞 اتصال/واتساب بالكابتن', url: `https://wa.me/${waCapPhone}` });
+        contactRow.push({ text: '📞 اتصال/واتساب بالسائق', url: `https://wa.me/${waCapPhone}` });
       }
       if (b.passenger_username) {
-        contactRow.push({ text: '💬 مراسلة الراكب بالخاص', url: `https://t.me/${b.passenger_username.replace('@', '')}` });
+        contactRow.push({ text: '💬 مراسلة الراكبة', url: `https://t.me/${b.passenger_username.replace('@', '')}` });
       }
       if (contactRow.length > 0) bButtons.push(contactRow);
 
-      // Row 2: Owner Power Actions
+      // Row 2: Filter Tabs
+      bButtons.push([
+        { text: '⏳ المعلقة (بدون رد)', callback_data: 'owner_filter_bookings_pending_0' },
+        { text: '🟢 المؤكدة', callback_data: 'owner_filter_bookings_confirmed_0' },
+        { text: '📋 الكل', callback_data: 'owner_bookings_0' }
+      ]);
+
+      // Row 3: Owner Power Actions
       const actionRow: any[] = [];
       if (b.status !== 'confirmed') {
-        actionRow.push({ text: '🟢 تأكيد الحجز يدوياً', callback_data: `owner_confirm_booking_${b.booking_code}_${safePage}` });
+        actionRow.push({ text: '🟢 تأكيد يدوي', callback_data: `owner_confirm_booking_${b.booking_code}_${safePage}` });
       }
       if (b.status !== 'cancelled') {
-        actionRow.push({ text: '🚫 إلغاء الاتفاق', callback_data: `owner_cancel_booking_${b.booking_code}_${safePage}` });
+        actionRow.push({ text: '🚫 إلغاء', callback_data: `owner_cancel_booking_${b.booking_code}_${safePage}` });
       }
-      actionRow.push({ text: '🗑️ حذف السجل', callback_data: `owner_del_booking_${b.booking_code}_${safePage}` });
+      actionRow.push({ text: '🗑️ حذف', callback_data: `owner_del_booking_${b.booking_code}_${safePage}` });
       bButtons.push(actionRow);
 
-      // Row 3: Pagination (Previous / Next)
+      // Row 4: Pagination (Previous / Next)
+      const navPrefix = driverQuery 
+        ? `owner_dsearch_${encodeURIComponent(driverQuery)}_` 
+        : (filterStatus ? `owner_filter_bookings_${filterStatus}_` : 'owner_bookings_');
+
       if (total > 1) {
         const navRow: any[] = [];
         if (safePage > 0) {
-          navRow.push({ text: '⬅️ السابق', callback_data: `owner_bookings_${safePage - 1}` });
+          navRow.push({ text: '⬅️ السابق', callback_data: `${navPrefix}${safePage - 1}` });
         }
-        navRow.push({ text: `📄 [ ${safePage + 1} / ${total} ]`, callback_data: `owner_bookings_${safePage}` });
+        navRow.push({ text: `📄 [ ${safePage + 1} / ${total} ]`, callback_data: `${navPrefix}${safePage}` });
         if (safePage < total - 1) {
-          navRow.push({ text: 'التالي ➡️', callback_data: `owner_bookings_${safePage + 1}` });
+          navRow.push({ text: 'التالي ➡️', callback_data: `${navPrefix}${safePage + 1}` });
         }
         bButtons.push(navRow);
       }
 
-      // Row 4: Refresh and Back
+      // Row 5: Search and Back
       bButtons.push([
-        { text: '🔄 تحديث البيانات', callback_data: `owner_bookings_${safePage}` },
+        { text: '🔍 بحث برقم كابتن آخر', callback_data: 'owner_search_driver_prompt' },
         { text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }
       ]);
 
       return await updateOrSend(bMsg, { inline_keyboard: bButtons });
+    }
+
+    // --- Owner Action: Handle Driver Search Input ---
+    if (isOwner && state?.step === 'owner_search_driver_waiting') {
+      state = {};
+      if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+      const dTerm = trimmedText.replace('#', '').trim();
+      const encoded = encodeURIComponent(dTerm);
+      trimmedText = `owner_dsearch_${encoded}_0`;
     }
 
     // ==========================================
