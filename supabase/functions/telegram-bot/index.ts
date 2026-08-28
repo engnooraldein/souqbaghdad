@@ -607,7 +607,41 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     lowerRaw.includes('ابحث عن خط') || lowerRaw.includes('طالبة محتاجة') || lowerRaw.includes('طالبه محتاجه') || lowerRaw.includes('طالب محتاج') ||
     lowerRaw.includes('محتاج سايق') || lowerRaw.includes('محتاجه سايق') || lowerRaw.includes('اريد سايق') || lowerRaw.includes('نريد سايق') || lowerRaw.includes('محتاج سيارة');
 
-  const isProvider = isDriverKeywords && !isSeekerExplicit;
+  const isStrongDriver = 
+    lowerRaw.includes('يتوفر خط') || lowerRaw.includes('متوفر خط') || lowerRaw.includes('يوجد خط') || 
+    lowerRaw.includes('اوفر خط') || lowerRaw.includes('أوفر خط') || lowerRaw.includes('عندي خط') || 
+    lowerRaw.includes('خط متوفر') || lowerRaw.includes('متوفر مقاعد') || lowerRaw.includes('يوجد مقاعد') || 
+    lowerRaw.includes('عندي سيارة') || lowerRaw.includes('عندي كيا') || lowerRaw.includes('عندي كوستر') || 
+    lowerRaw.includes('عندي ستاركس') || lowerRaw.includes('عندي طيبه') || lowerRaw.includes('عندي سايبا') || 
+    lowerRaw.includes('اخذ خط') || lowerRaw.includes('اخذ نفرات');
+
+  const isAmbiguous = isDriverKeywords && !isStrongDriver && !isSeekerExplicit;
+  const isProvider = (isStrongDriver || isDriverKeywords) && !isSeekerExplicit && !isAmbiguous;
+
+  if (isAmbiguous) {
+    try {
+      const { data: tgUser } = await supabase.from('telegram_users').select('*').eq('telegram_chat_id', chatId).maybeSingle();
+      let state = tgUser?.bot_state || {};
+      state.data = state.data || {};
+      state.data.ambig_text = rawText;
+      await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+    } catch(e) {}
+
+    const askMsg = `👋 <b>يا هلا بيك ${fromName} 🌹</b>\nلم نتمكن من تحديد طلبك بدقة، هل أنت كابتن أم طالب؟`;
+    const askMarkup = {
+      inline_keyboard: [
+        [{ text: '👨‍✈️ أنا كابتن (عندي سيارة / خط)', callback_data: 'ambig_driver' }],
+        [{ text: '👨‍🎓 أنا طالب (محتاج خط / عبرية)', callback_data: 'ambig_student' }]
+      ]
+    };
+    if (isGroup) {
+      // For group, we just send a normal message or replace it
+      await sendMessage(chatId, askMsg, askMarkup);
+    } else {
+      await sendMessage(chatId, askMsg, askMarkup);
+    }
+    return;
+  }
 
   if (isProvider) {
     // Check if driver phone is blacklisted / banned
@@ -4440,6 +4474,21 @@ Deno.serve(async (req: any) => {
       
       const editMsg = `✅ <b>ألف مبروك يالغالي! 🎉</b>\nتم تثبيت أنك حصلت على خط نقل، وتم إيقاف جميع التنبيهات والتاكات بنجاح.\nبالتوفيق بدوامك، وسوق بغداد بخدمتك دائماً 🌹`;
       await updateOrSend(editMsg);
+      return new Response('OK', { status: 200 });
+    }
+
+    if (text === 'ambig_driver' || text === 'ambig_student') {
+      const origText = state.data?.ambig_text || '';
+      const forcedText = text === 'ambig_driver' ? `عندي خط ${origText}` : `محتاج خط ${origText}`;
+      
+      const chatType = update.message?.chat?.type || update.callback_query?.message?.chat?.type || 'private';
+      const isGroup = chatType !== 'private';
+
+      if (callbackMsgId) {
+        try { await deleteMessage(chatId, callbackMsgId); } catch(e) {}
+      }
+      
+      await handleSmartTransportSearch(chatId, forcedText, fromUser, supabase, isGroup);
       return new Response('OK', { status: 200 });
     }
 
