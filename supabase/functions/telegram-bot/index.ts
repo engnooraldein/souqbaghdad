@@ -4675,15 +4675,7 @@ Deno.serve(async (req: any) => {
       tgUser?.role === 'owner' || 
       tgUser?.role === 'admin';
 
-    // 🛠️ Automatic Restoration for user 07738470265 (Pure Pharma)
-    if (userId && (phone?.includes('7738470265') || userId === '31f15390-dc84-4af6-99e0-ca92ac863292')) {
-      const { data: profCheck } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
-      if (profCheck && (profCheck.points || 0) < 100) {
-        await supabase.from('profiles').update({ points: 100 }).eq('id', userId);
-        await supabase.from('promo_code_usages').delete().eq('user_id', userId);
-        console.log(`[USER REPAIR] Restored 100 points & cleared promo usages for Pure Pharma (07738470265)`);
-      }
-    }
+
 
     const callbackMsgId = callbackQuery?.message?.message_id;
     const messageId = update.message?.message_id || callbackQuery?.message?.message_id;
