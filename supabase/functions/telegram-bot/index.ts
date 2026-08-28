@@ -550,6 +550,59 @@ const IRAQI_AREAS = [
   'الطالبية', 'طالبية', 'حي سومر', 'الأمين', 'الامين', 'حي المعلمين'
 ];
 
+async function notifyDriverOfWaitingPassengers(driverChatId: string | number, driverName: string, regions: string, destination: string, supabase: any) {
+  try {
+    const { data: waitingStudents } = await supabase
+      .from('transport_requests')
+      .select('*')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(30);
+
+    if (!waitingStudents || waitingStudents.length === 0) return;
+
+    const regLower = (regions || '').toLowerCase();
+    const destCore = getCoreLocationKeyword(destination);
+
+    const matched = waitingStudents.filter((st: any) => {
+      const stOrig = (st.origin || '').toLowerCase().trim();
+      const stDestCore = getCoreLocationKeyword(st.destination || '');
+      if (!stOrig) return false;
+      const originMatch = regLower.includes(stOrig) || stOrig.split(/\s+/).some((w: string) => w.length > 2 && regLower.includes(w));
+      const destMatch = !destCore || !stDestCore || destCore === stDestCore || (st.destination || '').toLowerCase().includes(destCore);
+      return originMatch && destMatch;
+    }).slice(0, 5);
+
+    if (matched.length === 0) return;
+
+    let driverMsg = `🎯 <b>يا هلا كابتن ${driverName}! 🌹</b>\n` +
+      `وجدنا لك <b>(${matched.length})</b> طلبات ركاب وطلاب يبحثون عن خط بنفس مسارك حالياً:\n\n`;
+
+    const buttons: any[][] = [];
+
+    for (let i = 0; i < matched.length; i++) {
+      const st = matched[i];
+      driverMsg += `<b>${i + 1}. الراكب: ${st.user_name || 'طالب'}</b>\n` +
+        `📍 <b>المسار:</b> ${st.origin} ⬅️ ${st.destination || 'الجامعة'}\n` +
+        (st.raw_query ? `💬 <b>نص الطلب:</b> <i>«${st.raw_query}»</i>\n` : '') +
+        `\n`;
+
+      const row: any[] = [];
+      if (st.telegram_chat_id) {
+        row.push({ text: `💬 مراسلة الراكب (${i + 1}) 🌹`, url: `tg://user?id=${st.telegram_chat_id}` });
+      }
+      if (row.length > 0) buttons.push(row);
+    }
+
+    driverMsg += `💡 <i>تواصل مع الركاب أعلاه لحجز المقاعد وإكمال عدد خطك فوراً ✨</i>`;
+    buttons.push([{ text: '🚌 تصفح جميع طلبات الركاب بالموقع', url: 'https://www.souqbaghdad.store/transport' }]);
+
+    await sendMessage(driverChatId, driverMsg, { inline_keyboard: buttons });
+  } catch (err) {
+    console.error('Error notifying driver of waiting passengers:', err);
+  }
+}
+
 async function handleSmartTransportSearch(chatId: string | number, rawText: string, fromUser: any, supabase: any, isGroup = false, userMessageId?: number | string) {
   // 1. Normalize Iraqi Arabic and common typos
   function replaceAr(text: string, searchWords: string, replacement: string) {
@@ -619,6 +672,17 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   // --------------------------------------------------------------------------
   // 🚗 CASE 1: DRIVER / LINE PROVIDER (صاحب خط / سائق يعرض خطه ومقاعده)
   // --------------------------------------------------------------------------
+  const isSeekerExplicit = 
+    lowerRaw.includes('محتاج') || lowerRaw.includes('محتاجة') || lowerRaw.includes('محتاجه') || lowerRaw.includes('محتاجين') || 
+    lowerRaw.includes('اريد') || lowerRaw.includes('أريد') || lowerRaw.includes('نريد') || 
+    lowerRaw.includes('رايد') || lowerRaw.includes('رايده') || lowerRaw.includes('رايدة') || lowerRaw.includes('رايدين') ||
+    lowerRaw.includes('ادور') || lowerRaw.includes('أدور') || lowerRaw.includes('ندور') || 
+    lowerRaw.includes('ابحث') || lowerRaw.includes('أبحث') || lowerRaw.includes('نبحث') ||
+    lowerRaw.includes('طالبة') || lowerRaw.includes('طالبه') || lowerRaw.includes('طالب') ||
+    lowerRaw.includes('راكب') || lowerRaw.includes('عبرية') || lowerRaw.includes('عبريه') ||
+    lowerRaw.includes('عفيه') || lowerRaw.includes('عفية') ||
+    lowerRaw.includes('ماكو خط') || lowerRaw.includes('اكو خط') || lowerRaw.includes('أكو خط') || lowerRaw.includes('هل يوجد خط');
+
   const isDriverKeywords = 
     lowerRaw.includes('يتوفر خط') || lowerRaw.includes('متوفر خط') || lowerRaw.includes('يوجد خط') || 
     lowerRaw.includes('اوفر خط') || lowerRaw.includes('أوفر خط') || lowerRaw.includes('عندي خط') || 
@@ -634,13 +698,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     lowerRaw.includes('للحجز') || lowerRaw.includes('للاستفسار') || lowerRaw.includes('متواجد على تلي') ||
     (lowerRaw.includes('خط') && (lowerRaw.includes('تبريد') || lowerRaw.includes('تدفئة') || lowerRaw.includes('انترنت') || lowerRaw.includes('واي فاي')));
 
-  const isSeekerExplicit = 
-    lowerRaw.includes('محتاج خط') || lowerRaw.includes('محتاجة خط') || lowerRaw.includes('محتاجه خط') || lowerRaw.includes('محتاجين خط') || 
-    lowerRaw.includes('اريد خط') || lowerRaw.includes('أريد خط') || lowerRaw.includes('نريد خط') || 
-    lowerRaw.includes('رايد خط') || lowerRaw.includes('رايده خط') || lowerRaw.includes('رايدة خط') ||
-    lowerRaw.includes('ادور خط') || lowerRaw.includes('أدور خط') || lowerRaw.includes('ندور خط') || 
-    lowerRaw.includes('ابحث عن خط') || lowerRaw.includes('طالبة محتاجة') || lowerRaw.includes('طالبه محتاجه') || lowerRaw.includes('طالب محتاج') ||
-    lowerRaw.includes('محتاج سايق') || lowerRaw.includes('محتاجه سايق') || lowerRaw.includes('اريد سايق') || lowerRaw.includes('نريد سايق') || lowerRaw.includes('محتاج سيارة');
+  const isDriverRoutePattern = /خط\s+من\s+/i.test(lowerRaw) || /خط\s+.+?\s+(?:إلى|الى|الي|لـ|ل)\s+/i.test(lowerRaw) || /توصيل\s+من\s+/i.test(lowerRaw);
 
   const isStrongDriver = 
     lowerRaw.includes('يتوفر خط') || lowerRaw.includes('متوفر خط') || lowerRaw.includes('يوجد خط') || 
@@ -648,10 +706,12 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     lowerRaw.includes('خط متوفر') || lowerRaw.includes('متوفر مقاعد') || lowerRaw.includes('يوجد مقاعد') || 
     lowerRaw.includes('عندي سيارة') || lowerRaw.includes('عندي كيا') || lowerRaw.includes('عندي كوستر') || 
     lowerRaw.includes('عندي ستاركس') || lowerRaw.includes('عندي طيبه') || lowerRaw.includes('عندي سايبا') || 
-    lowerRaw.includes('اخذ خط') || lowerRaw.includes('اخذ نفرات');
+    lowerRaw.includes('سائق خط') || lowerRaw.includes('سايق خط') || lowerRaw.includes('صاحب خط') ||
+    lowerRaw.includes('اخذ خط') || lowerRaw.includes('اخذ نفرات') ||
+    (isDriverRoutePattern && !isSeekerExplicit);
 
   const isAmbiguous = isDriverKeywords && !isStrongDriver && !isSeekerExplicit;
-  const isProvider = (isStrongDriver || isDriverKeywords) && !isSeekerExplicit && !isAmbiguous;
+  const isProvider = (isStrongDriver || isDriverKeywords || (isDriverRoutePattern && !isSeekerExplicit)) && !isSeekerExplicit && !isAmbiguous;
 
   if (isAmbiguous) {
     try {
@@ -737,23 +797,50 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
       console.error('Error auto-matching driver with waiting students:', err);
     }
 
-    const driverMsg = 
-      `👋 <b>يا هلا بالسائق العزيز كابتن ${fromName} 🚌✨</b>\n` +
-      `عاشت إيدك، تم رصد خطك وسنقوم بربط وإرسال أي طالب أو طالبة يبحث عن هذا المسار إلى خاصك فوراً 🤝\n` +
-      (matchedStudentCount > 0 ? `🎯 <i>(تم إشعار ${matchedStudentCount} طلاب مسجلين بقائمة الانتظار بمناطق خطك فوراً!)</i>\n` : '') +
-      `💡 لنشر خطك ببوست وستوري رسمي بالموقع والقنوات مجاناً، اضغط أدناه:`;
-
-    const providerMarkup = {
-      inline_keyboard: [
-        [{ text: '🚀 انشر خطك بالموقع والقنوات مجاناً', url: 'https://www.souqbaghdad.store/post-ad' }],
-        [{ text: '🤖 فتح محادثة خاصة مع البوت', url: `https://t.me/${BOT_USERNAME}` }]
-      ]
-    };
-
     if (isGroup) {
+      const driverMsg = 
+        `👋 <b>يا هلا بالسائق العزيز كابتن ${fromName} 🚌✨</b>\n` +
+        `عاشت إيدك، تم رصد خطك وسنقوم بربط وإرسال أي طالب أو طالبة يبحث عن هذا المسار إلى خاصك فوراً 🤝\n` +
+        (matchedStudentCount > 0 ? `🎯 <i>(تم إشعار ${matchedStudentCount} طلاب مسجلين بقائمة الانتظار بمناطق خطك فوراً!)</i>\n` : '') +
+        `💡 لنشر خطك ببوست وستوري رسمي بالموقع والقنوات مجاناً، راسل البوت بالخاص 👇`;
+
+      const providerMarkup = {
+        inline_keyboard: [
+          [{ text: '🤖 نشر الخط عبر البوت بالخاص (9 خطوات)', url: `https://t.me/${BOT_USERNAME}?start=publish_transport` }],
+          [{ text: '🚀 انشر خطك بالموقع مجاناً', url: 'https://www.souqbaghdad.store/post-ad' }]
+        ]
+      };
       await sendOrReplaceGroupMessage(chatId, driverMsg, providerMarkup, supabase, userMessageId);
     } else {
-      await sendMessage(chatId, driverMsg, providerMarkup);
+      // 🚗 In Private Chat: Confirm monitoring AND launch the 9-step wizard right away!
+      const driverState = {
+        step: 'trans_cat',
+        data: {
+          type: 'offer',
+          phone: extractedPhone || null
+        }
+      };
+      await supabase.from('telegram_users').update({ bot_state: driverState }).eq('telegram_chat_id', chatId);
+
+      const driverPrivateMsg = 
+        `👋 <b>يا هلا بالسائق العزيز كابتن ${fromName} 🚌✨</b>\n` +
+        `عاشت إيدك، تم رصد خطك وسنقوم بربط أي راكب يطلب مسارك فوراً 🤝\n` +
+        (matchedStudentCount > 0 ? `🎯 <i>(تم إشعار ${matchedStudentCount} طلاب مسجلين بقائمة الانتظار بمناطق خطك فوراً!)</i>\n\n` : '\n') +
+        `🚀 <b>لنشر إعلان خطك الآن بالقنوات والصفحات والموقع مجاناً:</b>\n\n` +
+        `👇 <b>الخطوة 2 من 9 — فئة الخط</b>\nالخط مخصص لمن؟ اختر الفئة للمتابعة:`;
+
+      const wizardMarkup = {
+        inline_keyboard: [
+          [{ text: '🎓 خط طلاب جامعات / كليات', callback_data: 'trans_cat_student' }],
+          [{ text: '💼 خط موظفين وشركات', callback_data: 'trans_cat_employee' }],
+          [{ text: '🚨 نقل خاص وطارئ / مناسبات', callback_data: 'trans_cat_emergency' }],
+          [{ text: '❌ إلغاء النشر', callback_data: 'cancel_wizard' }]
+        ]
+      };
+
+      await sendMessage(chatId, driverPrivateMsg, wizardMarkup);
+      // 🎯 Also send the driver the list of waiting passengers right now!
+      await notifyDriverOfWaitingPassengers(chatId, fromName, lowerRaw, driverDest, supabase);
     }
     return;
   }
@@ -4905,7 +4992,7 @@ Deno.serve(async (req: any) => {
     if (!isOwner && chatType === 'private' && !state.is_subscribed) {
       let isSubscribed = true;
       try {
-        const channelsToCheck = ['@souqbaghdad_iq', '@souqbaghdad_car', '@souqbaghdad_lines'];
+        const channelsToCheck = ['@souqbaghdad_car', '@souqbaghdad_lines', '@ruc_1'];
         const subChecks = await Promise.all(
           channelsToCheck.map(ch => getChatMember(ch, chatId).catch(() => ({ status: 'member' })))
         );
@@ -4918,13 +5005,13 @@ Deno.serve(async (req: any) => {
       if (!isSubscribed) {
         const subMsg = `👋 <b>أهلاً بك يالغالي في بوت سوق بغداد!</b>\n\n` +
           `عذراً، لا يمكنك استخدام البوت أو النشر قبل الاشتراك في قنواتنا الرسمية لدعمنا والاستمرار بتقديم الخدمة مجاناً للجميع 🌹\n\n` +
-          `👇 <b>يرجى الاشتراك في (جميع) القنوات الثلاثة التالية لتفعيل البوت:</b>`;
+          `👇 <b>يرجى الاشتراك في القنوات الرسمية التالية لتفعيل البوت:</b>`;
         
         const subMarkup = {
           inline_keyboard: [
-            [{ text: '📢 سوق بغداد (العامة)', url: 'https://t.me/souqbaghdad_iq' }, { text: '🎓 الرافدين', url: 'https://t.me/ruc_1' }],
-            [{ text: '🚗 سيارات سوق بغداد', url: 'https://t.me/souqbaghdad_car' }],
-            [{ text: '🚌 خطوط النقل والجامعات', url: 'https://t.me/souqbaghdad_lines' }],
+            [{ text: '🚗 قناة سيارات سوق بغداد', url: 'https://t.me/souqbaghdad_car' }],
+            [{ text: '🚌 قناة خطوط النقل والجامعات', url: 'https://t.me/souqbaghdad_lines' }],
+            [{ text: '🎓 قناة كلية الرافدين الجامعة', url: 'https://t.me/ruc_1' }],
             [{ text: '✅ تحقق من الاشتراك', callback_data: 'check_subscription' }]
           ]
         };
@@ -7684,6 +7771,9 @@ Deno.serve(async (req: any) => {
                 reportButtons.push([{ text: '📊 تقارير إعلاناتي', callback_data: 'my_publish_reports' }, { text: '🏠 الرئيسية', callback_data: 'main_menu' }]);
 
                 await sendMessage(chatId, receiptMsg, { inline_keyboard: reportButtons });
+
+                // 🎯 Also deliver matched waiting passengers directly to the driver!
+                await notifyDriverOfWaitingPassengers(chatId, fromUser?.first_name || 'الكابتن', cleanRegions, cleanDestination, supabase);
               } catch (msgErr) {
                 console.error('Error sending social receipt to chat:', msgErr);
               }
