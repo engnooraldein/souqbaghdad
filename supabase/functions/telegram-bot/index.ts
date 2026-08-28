@@ -10520,16 +10520,18 @@ Deno.serve(async (req: any) => {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     contents: [{ role: 'user', parts: [{ text: userCaption || text }] }],
-                    systemInstruction: { role: 'system', parts: [{ text: systemPrompt }] },
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
                     generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
                   })
                 });
                 
                 const data = await response.json();
-                if (data.candidates && data.candidates.length > 0) {
+                if (response.ok && data.candidates && data.candidates.length > 0) {
                   const aiResponse = data.candidates[0].content.parts[0].text;
                   const jsonStr = aiResponse.replace(/```json/g, '').replace(/```/g, '').trim();
                   extracted = JSON.parse(jsonStr);
+                } else {
+                  console.error("Gemini fetch failed:", data);
                 }
               }
             } catch (e) {
