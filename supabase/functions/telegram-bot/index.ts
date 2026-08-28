@@ -9469,8 +9469,29 @@ Deno.serve(async (req: any) => {
 
     // --- Handle Text, Photo, and Voice Inputs for State Machine ---
     if (text || photo || voice) {
-      if (text === '/cancel') {
+      const cleanRawInput = (text || '').trim().toLowerCase();
+
+      if (text === '/cancel' || cleanRawInput === 'الغاء' || cleanRawInput === 'إلغاء') {
+        state = {};
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
         await showMainMenu();
+        return new Response('OK', { status: 200 });
+      }
+
+      // 🚨 Top-level Seeker Transport Interceptor (Always overrides any stuck wizard state)
+      const isTopLevelSeeker = 
+        cleanRawInput.includes('محتاج خط') || cleanRawInput.includes('محتاجة خط') || cleanRawInput.includes('محتاجه خط') || 
+        cleanRawInput.includes('اريد خط') || cleanRawInput.includes('أريد خط') || cleanRawInput.includes('نريد خط') || cleanRawInput.includes('محتاجين خط') || 
+        cleanRawInput.includes('ادور خط') || cleanRawInput.includes('أدور خط') || cleanRawInput.includes('ندور خط') || cleanRawInput.includes('ابحث عن خط') || 
+        cleanRawInput.includes('رايد خط') || cleanRawInput.includes('رايده خط') || cleanRawInput.includes('رايدة خط') || 
+        cleanRawInput.includes('محتاج سايق') || cleanRawInput.includes('محتاجه سايق') || cleanRawInput.includes('محتاجة سايق') || cleanRawInput.includes('اريد سايق') || 
+        cleanRawInput.includes('طالبه محتاجه') || cleanRawInput.includes('طالبة محتاجة') || cleanRawInput.includes('طالب محتاج') || cleanRawInput.includes('عفيه اريد خط') || cleanRawInput.includes('عفية اريد خط');
+
+      if (isTopLevelSeeker) {
+        state = {};
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        sendChatAction(chatId, 'typing');
+        await handleSmartTransportSearch(chatId, text, fromUser, supabase, false);
         return new Response('OK', { status: 200 });
       }
 
