@@ -8471,31 +8471,66 @@ Deno.serve(async (req: any) => {
         const { data: userProfile } = await supabase.from('profiles').select('points, role, full_name, avatar_url').eq('id', userId).single();
         const isOwnerOrAdmin = userProfile?.role === 'admin' || userProfile?.role === 'owner';
 
-        // 1. فحص منع تكرار نفس إعلان خط النقل
-        if (!isOwnerOrAdmin) {
-          const { data: duplicateAds } = await supabase
-            .from('ads')
-            .select('id, title, short_id')
-            .eq('seller_id', userId)
-            .eq('status', 'active')
-            .eq('category', 'transport')
-            .or(`location.ilike.%${state.data.regions}%,city.ilike.%${state.data.destination}%`)
-            .limit(1);
+        // 1. 🛡️ فحص ومنع تكرار إعلانات الخطوط لنفس الوجهة والمسار
+        if (action.startsWith('trans_replace_dup_')) {
+          const oldAdId = action.replace('trans_replace_dup_', '');
+          try {
+            await supabase.from('ads').update({ status: 'matched' }).eq('id', oldAdId);
+          } catch(e) {}
+        } else {
+          const sellerPhone = (state.data.phone || phone || '').replace(/[^0-9]/g, '');
+          const curDest = (state.data.destination || '').toLowerCase().trim();
+          const curDestCore = getCoreLocationKeyword(curDest);
+          const curRegions = (state.data.regions || '').toLowerCase();
 
-          if (duplicateAds && duplicateAds.length > 0) {
-            await updateOrSend(
-              `⚠️ <b>عذراً، لديك إعلان خط مشابه منشور مسبقاً!</b> (#${duplicateAds[0].short_id || duplicateAds[0].id})\n\n` +
-              `خط النقل هذا مسجل لديك حالياً في المنصة. لمنع التكرار، يرجى <b>تعديل إعلانك الحالي</b> أو <b>حذفه</b> إذا كنت ترغب بنشر إعلان جديد.`,
-              {
-                inline_keyboard: [
-                  [{ text: '🚌 عرض وتعديل خطوطي', callback_data: 'my_ads' }],
-                  [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
-                ]
-              }
-            );
-            state = {};
-            await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-            return new Response('OK', { status: 200 });
+          let dupQuery = supabase
+            .from('ads')
+            .select('id, short_id, title, location, city, phone, created_at, status')
+            .eq('category', 'transport')
+            .eq('status', 'active');
+
+          if (userId) {
+            if (sellerPhone && sellerPhone.length >= 8) {
+              dupQuery = dupQuery.or(`seller_id.eq.${userId},phone.ilike.%${sellerPhone.slice(-8)}%`);
+            } else {
+              dupQuery = dupQuery.eq('seller_id', userId);
+            }
+          } else if (sellerPhone && sellerPhone.length >= 8) {
+            dupQuery = dupQuery.ilike('phone', `%${sellerPhone.slice(-8)}%`);
+          }
+
+          const { data: activeUserAds } = await dupQuery.order('created_at', { ascending: false }).limit(10);
+
+          if (activeUserAds && activeUserAds.length > 0) {
+            const matchedDup = activeUserAds.find((ad: any) => {
+              const adDest = (ad.city || ad.title || '').toLowerCase();
+              const adDestCore = getCoreLocationKeyword(adDest);
+              const isSameDest = (curDestCore && adDestCore && (curDestCore === adDestCore || adDest.includes(curDestCore) || curDest.includes(adDestCore))) ||
+                                 (curDest && (adDest.includes(curDest) || curDest.includes(adDest)));
+              return isSameDest;
+            });
+
+            if (matchedDup) {
+              const dupCode = matchedDup.short_id || matchedDup.id.substring(0, 6).toUpperCase();
+              const dupOrigin = matchedDup.location || 'بغداد';
+              const dupDest = matchedDup.city || 'الجامعة';
+
+              const dupWarningMsg = 
+                `⚠️ <b>تنبيه — لديك خط نشط مسبقاً لنفس الوجهة والمسار! 🛑</b>\n\n` +
+                `🔖 <b>كود خطك الحالي:</b> <code>#${dupCode}</code>\n` +
+                `📍 <b>المسار المسجل:</b> ${dupOrigin} ⬅️ ${dupDest}\n\n` +
+                `💡 <i>حفاظاً على تنظيم القناة وجودة الخدمة ومنع التكرار، <b>لم يتم خصم أي نقاط</b>. يمكنك اختيار أحد الإجراءات أدناه:</i>`;
+
+              const dupButtons = [
+                [{ text: '✏️ تعديل تفاصيل خطي الحالي (مجاناً)', callback_data: `manage_cat_trans` }],
+                [{ text: '🚀 تمييز وترويج خطي الحالي VIP', callback_data: `boost_ad_${matchedDup.id}` }],
+                [{ text: '🔒 إغلاق الخط السابق ونشر هذا الجديد بدلاً منه', callback_data: `trans_replace_dup_${matchedDup.id}` }],
+                [{ text: '🔙 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]
+              ];
+
+              await updateOrSend(dupWarningMsg, { inline_keyboard: dupButtons });
+              return new Response('OK', { status: 200 });
+            }
           }
         }
 
