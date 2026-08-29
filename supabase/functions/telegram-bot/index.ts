@@ -599,7 +599,7 @@ function isLocationMatch(userLoc: string, adLoc: string): boolean {
   return false;
 }
 
-function buildTransportCard(lines: any[], pageIndex: number, fromName: string, origin: string, destination: string) {
+function buildTransportCard(lines: any[], pageIndex: number, fromName: string, origin: string, destination: string, isGroup = false) {
   const total = lines.length;
   const idx = Math.max(0, Math.min(pageIndex, total - 1));
   const l = lines[idx];
@@ -640,7 +640,9 @@ function buildTransportCard(lines: any[], pageIndex: number, fromName: string, o
     (cleanPhone ? `📞 <b>هاتف الكابتن:</b> <code>${cleanPhone}</code>\n` : '') +
     (cleanDetails ? `📝 <b>التفاصيل:</b> ${cleanDetails}\n` : '') +
     `━━━━━━━━━━━━━━━━━━\n\n` +
-    `💡 <i>تصفحي الخطوط بالأزرار أدناه (السابق / التالي) وتواصلي مباشرة مع الكابتن المناسب:</i>`;
+    (isGroup 
+      ? `💡 <i>لحجز مقعد أو التواصل بالخاص دون إزعاج الكروب، اضغطي الزر أدناه 👇</i>` 
+      : `💡 <i>تصفحي الخطوط بالأزرار أدناه (السابق / التالي) وتواصلي مباشرة مع الكابتن المناسب:</i>`);
 
   const inlineButtons: any[][] = [];
   
@@ -655,8 +657,12 @@ function buildTransportCard(lines: any[], pageIndex: number, fromName: string, o
   }
   if (commRow.length > 0) inlineButtons.push(commRow);
 
-  // Row 2: 1-Click Direct Request to Captain
-  inlineButtons.push([{ text: '📩 إرسال طلب حجز مقعد للكابتن ⚡', callback_data: `req_seat_${l.id}` }]);
+  // Row 2: 1-Click Direct Request to Captain (In group: Deep link to private chat to keep group 100% quiet)
+  if (isGroup) {
+    inlineButtons.push([{ text: '📩 حجز مقعد ومتابعة التفاصيل بالخاص 🌹', url: `https://t.me/${BOT_USERNAME}?start=book_${l.id}` }]);
+  } else {
+    inlineButtons.push([{ text: '📩 إرسال طلب حجز مقعد للكابتن ⚡', callback_data: `req_seat_${l.id}` }]);
+  }
 
   // Row 3: Pagination Navigation (السابق / التالي)
   if (total > 1) {
@@ -1130,7 +1136,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
       } catch(e) {}
     }
 
-    const card = buildTransportCard(matchedLines, 0, fromName, origin || 'بغداد', destination || 'كلية الرافدين الجامعة');
+    const card = buildTransportCard(matchedLines, 0, fromName, origin || 'بغداد', destination || 'كلية الرافدين الجامعة', isGroup);
 
     if (isGroup) {
       // In group, send directly to group so user & members see results without obstruction
@@ -6969,6 +6975,113 @@ Deno.serve(async (req: any) => {
       return new Response('OK', { status: 200 });
     }
 
+    // --- Deep-Link Direct Line Booking from Group (حجز الخط ونقل كامل المحادثة لخاص البوت) ---
+    if (text.startsWith('/start book_') || text.startsWith('/start line_')) {
+      const lineId = text.replace('/start book_', '').replace('/start line_', '').trim();
+      let adQuery = supabase.from('ads').select('*');
+      if (lineId.length >= 30) {
+        adQuery = adQuery.eq('id', lineId);
+      } else {
+        adQuery = adQuery.or(`short_id.eq.${lineId},id.eq.${lineId}`);
+      }
+      const { data: lineAd } = await adQuery.maybeSingle();
+
+      const studentName = fromUser?.first_name || 'راكبة';
+      const studentHandle = fromUser?.username ? `@${fromUser.username}` : '';
+
+      if (lineAd) {
+        const cleanPhone = (lineAd.phone || '').replace(/[^0-9+]/g, '');
+        let waPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
+        const randomNum = Math.floor(1000 + Math.random() * 9000);
+        const bookingCode = `SEAT-${randomNum}`;
+
+        let driverNotified = false;
+        let driverChatId: string | null = null;
+
+        try {
+          let drvQuery = supabase.from('telegram_users').select('telegram_chat_id');
+          if (lineAd.seller_id) {
+            drvQuery = drvQuery.eq('user_id', lineAd.seller_id);
+          } else if (cleanPhone) {
+            drvQuery = drvQuery.eq('phone', cleanPhone);
+          }
+          const { data: drvUser } = await drvQuery.maybeSingle();
+          driverChatId = drvUser?.telegram_chat_id || null;
+
+          await supabase.from('transport_bookings').insert({
+            booking_code: bookingCode,
+            ad_id: lineAd.id,
+            captain_id: lineAd.seller_id || null,
+            captain_chat_id: driverChatId ? String(driverChatId) : null,
+            captain_name: lineAd.title || 'كابتن الخط',
+            captain_phone: cleanPhone || null,
+            passenger_id: userId || null,
+            passenger_chat_id: String(chatId),
+            passenger_name: studentName,
+            passenger_username: studentHandle || null,
+            route_origin: lineAd.location || 'بغداد',
+            route_destination: lineAd.city || 'الجامعة',
+            agreed_price: lineAd.price ? String(lineAd.price) : null,
+            status: 'pending'
+          });
+
+          if (driverChatId) {
+            const driverAlert = 
+              `🔔 <b>كابتن العزيز! وصلك طلب حجز مقعد جديد في خطك 🚌✨</b>\n\n` +
+              `👤 <b>اسم الراكب:</b> ${studentName}\n` +
+              `📍 <b>مسار خطك:</b> ${lineAd.location} ⬅️ ${lineAd.city}\n` +
+              (studentHandle ? `💬 <b>معرف التيليجرام:</b> ${studentHandle}\n` : '') +
+              `🔖 <b>كود الحجز الرقمي:</b> <code>#${bookingCode}</code>\n\n` +
+              `<i>هل توافق على تثبيت المقعد لهذا الراكب وتأكيد الحجز؟</i>`;
+
+            const drvBtns: any[][] = [
+              [
+                { text: '✅ قبول وتأكيد الحجز 🎯', callback_data: `accept_booking_${bookingCode}` },
+                { text: '❌ اعتذار / الخط ممتلئ', callback_data: `reject_booking_${bookingCode}` }
+              ]
+            ];
+
+            if (studentHandle) {
+              drvBtns.push([{ text: '💬 مراسلة الراكب بالخاص 🌹', url: `https://t.me/${studentHandle.replace('@', '')}` }]);
+            }
+
+            await sendMessage(driverChatId, driverAlert, { inline_keyboard: drvBtns });
+            driverNotified = true;
+          }
+        } catch(e) {
+          console.error('Error booking via start link:', e);
+        }
+
+        const confirmMsg = 
+          `🎉 <b>يا هلا بيك عيوني ${studentName}! 🌹 تم إرسال طلب حجز مقعدك للكابتن بنجاح ✨</b>\n\n` +
+          `🏷️ <b>تفاصيل الخط:</b> ${lineAd.title}\n` +
+          `📍 <b>المسار:</b> ${lineAd.location} ⬅️ ${lineAd.city}\n` +
+          (lineAd.price ? `💰 <b>الأجرة:</b> ${formatTgPrice(lineAd.price)}\n` : '') +
+          (cleanPhone ? `📞 <b>هاتف الكابتن:</b> <code>${cleanPhone}</code>\n` : '') +
+          `\n🔖 <b>كود حجزك الرقمي المعتمد:</b> <code>#${bookingCode}</code>\n\n` +
+          (driverNotified 
+            ? `📲 <b>تم إشعار الكابتن بطلبك فوراً عبر تيليجرام</b> وسيقوم بتأكيد المقعد وتثبيته وسنرسل لك التأكيد هنا بالخاص.\n` 
+            : `📲 تم توثيق طلبك رسمياً بنظام سوق بغداد.\n`) +
+          `\n💡 <i>يمكنك أيضاً مراسلة الكابتن مباشرة عبر الواتساب أو الاتصال أدناه للتأكيد السريع:</i>`;
+
+        const confirmBtns: any[] = [];
+        const commRow: any[] = [];
+        if (waPhone) {
+          const prefill = encodeURIComponent(`السلام عليكم كابتن، شفت خطك بسوق بغداد وحابة استفسر عن حجز مقعد - كود الحجز #${bookingCode}`);
+          commRow.push({ text: '💬 تواصل واتساب مع الكابتن 🟢', url: `https://wa.me/${waPhone}?text=${prefill}` });
+        }
+        if (cleanPhone) {
+          commRow.push({ text: '✈️ تواصل تيليجرام / اتصال', url: `https://t.me/+${waPhone || cleanPhone}` });
+        }
+        if (commRow.length > 0) confirmBtns.push(commRow);
+        confirmBtns.push([{ text: '✅ اتفقت ولكيت خط خلاص', callback_data: `matched_req_direct_${cleanPhone}` }]);
+        confirmBtns.push([{ text: '🚌 تصفح باقي الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }]);
+
+        await sendMessage(chatId, confirmMsg, { inline_keyboard: confirmBtns });
+        return new Response('OK', { status: 200 });
+      }
+    }
+
     // --- Deep-Link Concierge (تحويل المستخدم من الكروب إلى الخاص) ---
     if (text.startsWith('/start group_help') || text.startsWith('/start line')) {
       const fromName = update.message?.from?.first_name || 'عزيزنا';
@@ -9117,7 +9230,8 @@ Deno.serve(async (req: any) => {
         const targetMsgId = messageId || callbackMsgId || callbackQuery?.message?.message_id;
 
         if (linesList && linesList.length > 0 && targetMsgId) {
-          const card = buildTransportCard(linesList, targetPage, sName, sOrig, sDest);
+          const isGroupChat = Number(chatId) < 0;
+          const card = buildTransportCard(linesList, targetPage, sName, sOrig, sDest, isGroupChat);
           await editMessageText(chatId, targetMsgId, card.text, card.markup);
           if (callbackQueryId) {
             await answerCallbackQuery(callbackQueryId);
@@ -9156,6 +9270,9 @@ Deno.serve(async (req: any) => {
         const randomNum = Math.floor(1000 + Math.random() * 9000);
         const bookingCode = `SEAT-${randomNum}`;
 
+        const isGroupChat = Number(chatId) < 0;
+        const passengerPrivateChatId = fromUser?.id ? String(fromUser.id) : String(chatId);
+
         // 1. Try to notify driver on Telegram if registered
         let driverNotified = false;
         let driverChatId: string | null = null;
@@ -9171,7 +9288,7 @@ Deno.serve(async (req: any) => {
             const { data: drvUser } = await drvQuery.maybeSingle();
             driverChatId = drvUser?.telegram_chat_id || null;
 
-            // 💾 Record the agreement in transport_bookings table
+            // 💾 Record the agreement in transport_bookings table with PASSENGER PRIVATE CHAT ID
             await supabase.from('transport_bookings').insert({
               booking_code: bookingCode,
               ad_id: lineAd.id,
@@ -9180,7 +9297,7 @@ Deno.serve(async (req: any) => {
               captain_name: lineAd.title || 'كابتن الخط',
               captain_phone: cleanPhone || null,
               passenger_id: userId || null,
-              passenger_chat_id: String(chatId),
+              passenger_chat_id: passengerPrivateChatId,
               passenger_name: studentName,
               passenger_username: studentHandle || null,
               route_origin: lineAd.location || 'بغداد',
@@ -9217,10 +9334,6 @@ Deno.serve(async (req: any) => {
           }
         }
 
-        if (callbackQueryId) {
-          await answerCallbackQuery(callbackQueryId, '✅ تم إرسال طلب حجز المقعد للكابتن!', true);
-        }
-
         const confirmMsg = 
           `🎉 <b>تم إرسال طلب حجز المقعد للكابتن بنجاح! 🌹</b>\n\n` +
           `🔖 <b>كود حجزك الرقمي المعتمد:</b> <code>#${bookingCode}</code>\n` +
@@ -9242,7 +9355,23 @@ Deno.serve(async (req: any) => {
         confirmBtns.push([{ text: '✅ اتفقت ولكيت خط خلاص', callback_data: `matched_req_direct_${cleanPhone}` }]);
         confirmBtns.push([{ text: '🚌 تصفح باقي الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }]);
 
-        await sendMessage(chatId, confirmMsg, { inline_keyboard: confirmBtns });
+        if (isGroupChat) {
+          if (callbackQueryId) {
+            await answerCallbackQuery(callbackQueryId, '🎉 تم إرسال طلب الحجز للكابتن! أرسلنا لك التفاصيل بالخاص 🌹', true);
+          }
+          if (fromUser?.id) {
+            try {
+              await sendMessage(fromUser.id, confirmMsg, { inline_keyboard: confirmBtns });
+            } catch(e) {
+              console.warn('Could not send to private chat, sending link fallback');
+            }
+          }
+        } else {
+          if (callbackQueryId) {
+            await answerCallbackQuery(callbackQueryId, '✅ تم إرسال طلب حجز المقعد للكابتن!', true);
+          }
+          await sendMessage(chatId, confirmMsg, { inline_keyboard: confirmBtns });
+        }
         return new Response('OK', { status: 200 });
       }
 
@@ -9473,21 +9602,32 @@ Deno.serve(async (req: any) => {
           await supabase.from('transport_requests').update({ status: 'matched' }).eq('id', reqId);
         }
 
+        const isGroupChat = Number(chatId) < 0;
         const successReply = 
           `🎉 <b>ألف مبروك! نتمنى لك دوام التوفيق والراحة برحلاتك اليومية 🌹</b>\n\n` +
           `✅ تم تسجيل اتفاقك وإيقاف التنبيهات لهذا المسار بنجاح.\n` +
           `❤️ شكراً لاستخدامك منصة سوق بغداد!`;
 
-        if (callbackQueryId) {
-          await answerCallbackQuery(callbackQueryId, '✅ ألف مبروك! تم إيقاف التنبيهات بنجاح.', true);
+        if (isGroupChat) {
+          if (callbackQueryId) {
+            await answerCallbackQuery(callbackQueryId, '🎉 ألف مبروك! تم تسجيل اتفاقك وإيقاف التنبيهات بنجاح 🌹', true);
+          }
+          if (callbackMsgId) {
+            try {
+              await editMessageText(chatId, callbackMsgId, `✅ <b>تم تأكيد الاتفاق بنجاح وإيقاف التنبيهات 🌹</b>\nنتمنى للجميع رحلات موفقة وآمنة.`);
+            } catch(e) {}
+          }
+        } else {
+          if (callbackQueryId) {
+            await answerCallbackQuery(callbackQueryId, '✅ ألف مبروك! تم إيقاف التنبيهات بنجاح.', true);
+          }
+          await sendMessage(chatId, successReply, {
+            inline_keyboard: [
+              [{ text: '🚌 تصفح خدمات النقل', url: 'https://www.souqbaghdad.store/transport' }],
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ]
+          });
         }
-
-        await sendMessage(chatId, successReply, {
-          inline_keyboard: [
-            [{ text: '🚌 تصفح خدمات النقل', url: 'https://www.souqbaghdad.store/transport' }],
-            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
-          ]
-        });
         return new Response('OK', { status: 200 });
       }
 
