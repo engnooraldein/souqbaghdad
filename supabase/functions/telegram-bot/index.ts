@@ -772,7 +772,7 @@ function buildTransportCard(lines: any[], pageIndex: number, fromName: string, o
 // =========================================================================
 // 🔔 TOP-LEVEL SMART ROUTE RADAR WIZARD HELPERS
 // =========================================================================
-async function showRadarAreaPicker(chatId: string | number, supabase: any) {
+async function showRadarAreaPicker(chatId: string | number, supabase: any, callbackMsgId?: number) {
   const radarState = { step: 'radar_custom_area', data: {} };
   await supabase.from('telegram_users').update({ bot_state: radarState }).eq('telegram_chat_id', chatId);
 
@@ -792,10 +792,16 @@ async function showRadarAreaPicker(chatId: string | number, supabase: any) {
     [{ text: '🔙 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]
   ];
 
+  if (callbackMsgId) {
+    try {
+      const editRes = await editMessageText(chatId, callbackMsgId, radarAreaText, { inline_keyboard: areaRows });
+      if (editRes?.ok) return editRes;
+    } catch(e) {}
+  }
   return await sendMessage(chatId, radarAreaText, { inline_keyboard: areaRows });
 }
 
-async function showRadarDestPicker(chatId: string | number, origin: string, supabase: any) {
+async function showRadarDestPicker(chatId: string | number, origin: string, supabase: any, callbackMsgId?: number) {
   const radarState = { step: 'radar_custom_dest', data: { origin } };
   await supabase.from('telegram_users').update({ bot_state: radarState }).eq('telegram_chat_id', chatId);
 
@@ -820,10 +826,16 @@ async function showRadarDestPicker(chatId: string | number, origin: string, supa
     [{ text: '🔙 تغيير منطقة الانطلاق', callback_data: 'start_route_radar' }]
   ];
 
+  if (callbackMsgId) {
+    try {
+      const editRes = await editMessageText(chatId, callbackMsgId, radarDestText, { inline_keyboard: destRows });
+      if (editRes?.ok) return editRes;
+    } catch(e) {}
+  }
   return await sendMessage(chatId, radarDestText, { inline_keyboard: destRows });
 }
 
-async function finishRadarRegistration(chatId: string | number, origin: string, destination: string, fromUser: any, supabase: any) {
+async function finishRadarRegistration(chatId: string | number, origin: string, destination: string, fromUser: any, supabase: any, callbackMsgId?: number) {
   const userTgId = fromUser?.id ? String(fromUser.id) : null;
   const userChatIdStr = String(chatId);
   const fromName = fromUser?.first_name || 'عزيزنا';
@@ -887,7 +899,15 @@ async function finishRadarRegistration(chatId: string | number, origin: string, 
       `📡 <b>حالة الرادار:</b> يعمل على مدار الساعة 24/7\n\n` +
       `🔥 <b>ولحسن الحظ، وجدنا لك (${matchedLines.length}) خطوط متوفرة حالياً لمسارك! تصفحها أدناه:</b>`;
 
-    await sendMessage(chatId, noticeText);
+    if (callbackMsgId) {
+      try {
+        await editMessageText(chatId, callbackMsgId, noticeText);
+      } catch(e) {
+        await sendMessage(chatId, noticeText);
+      }
+    } else {
+      await sendMessage(chatId, noticeText);
+    }
     const card = buildTransportCard(matchedLines, 0, fromName, origin, destination, false);
     await sendMessage(chatId, card.text, card.markup);
   } else {
@@ -906,6 +926,12 @@ async function finishRadarRegistration(chatId: string | number, origin: string, 
       [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
     ];
 
+    if (callbackMsgId) {
+      try {
+        const editRes = await editMessageText(chatId, callbackMsgId, confirmMsg, { inline_keyboard: confirmBtns });
+        if (editRes?.ok) return editRes;
+      } catch(e) {}
+    }
     await sendMessage(chatId, confirmMsg, { inline_keyboard: confirmBtns });
   }
 }
@@ -7574,10 +7600,11 @@ Deno.serve(async (req: any) => {
     // --- Handle Callback Queries (Button Actions) ---
     if (callbackQuery) {
       let action = callbackQuery.data || text;
+      const callbackMsgId = callbackQuery?.message?.message_id;
       
       // 🔔 START ROUTE RADAR WIZARD (إشعار آلي عند توفر خط بمنطقتي)
       if (action === 'start_route_radar') {
-        await showRadarAreaPicker(chatId, supabase);
+        await showRadarAreaPicker(chatId, supabase, callbackMsgId);
         return new Response('OK', { status: 200 });
       }
 
@@ -7595,7 +7622,7 @@ Deno.serve(async (req: any) => {
           );
           return new Response('OK', { status: 200 });
         }
-        await showRadarDestPicker(chatId, areaVal, supabase);
+        await showRadarDestPicker(chatId, areaVal, supabase, callbackMsgId);
         return new Response('OK', { status: 200 });
       }
 
@@ -7614,7 +7641,7 @@ Deno.serve(async (req: any) => {
           );
           return new Response('OK', { status: 200 });
         }
-        await finishRadarRegistration(chatId, origin, destVal, fromUser, supabase);
+        await finishRadarRegistration(chatId, origin, destVal, fromUser, supabase, callbackMsgId);
         return new Response('OK', { status: 200 });
       }
 
