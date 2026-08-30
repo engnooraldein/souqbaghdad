@@ -7581,6 +7581,12 @@ Deno.serve(async (req: any) => {
         }
       }
 
+      // 🚀 If user is already registered, show the Main Menu directly!
+      if (userId || phone) {
+        await showMainMenu();
+        return new Response('OK', { status: 200 });
+      }
+
       await sendMessage(chatId, 'مرحباً بك في بوت <b>سوق بغداد الرقمي</b>! 🇮🇶🚗🚌\n\nسوق السيارات والمنتجات وخطوط النقل الأول في العراق.\nيرجى مشاركة رقم هاتفك للتحقق من حسابك وتفعيل هديتك والبدء فوراً 🎁', {
         keyboard: [[{ text: '📱 مشاركة رقم الهاتف', request_contact: true }]],
         one_time_keyboard: true,
