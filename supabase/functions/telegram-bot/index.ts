@@ -7282,6 +7282,104 @@ Deno.serve(async (req: any) => {
       return new Response('OK', { status: 200 });
     }
 
+    // 🔔 Auto-Activate Route Radar for specific line clicked in channel/ad (مخصص للزبائن والطلاب فقط)
+    if (text.startsWith('/start radline_') || text.startsWith('/start radar_')) {
+      const lineId = text.replace('/start radline_', '').replace('/start radar_', '').trim();
+      let adQuery = supabase.from('ads').select('*');
+      if (lineId.length >= 30) {
+        adQuery = adQuery.eq('id', lineId);
+      } else {
+        adQuery = adQuery.or(`short_id.eq.${lineId},id.eq.${lineId}`);
+      }
+      const { data: lineAd } = await adQuery.maybeSingle();
+
+      const cleanPhone = (lineAd?.phone || '').replace(/[^0-9+]/g, '');
+
+      // Check if clicking user is a captain
+      let isCaptain = false;
+      if (lineAd?.seller_id && userId && lineAd.seller_id === userId) isCaptain = true;
+      if (cleanPhone && userPhone && cleanPhone.replace(/\D/g, '').endsWith(userPhone.replace(/\D/g, '').slice(-8))) isCaptain = true;
+      
+      // If user has other active captain lines
+      if (!isCaptain && userId) {
+        const { data: capAds } = await supabase.from('ads').select('id').eq('seller_id', userId).eq('category', 'transport').limit(1);
+        if (capAds && capAds.length > 0) isCaptain = true;
+      }
+
+      if (isCaptain) {
+        const capNotice = 
+          `👋 <b>يا هلا بكابتنا الغالي ${fromUser?.first_name || ''}! 🌹</b>\n\n` +
+          `📡 <i>رادار التنبيهات مخصص للطلاب والركاب للبحث عن خطوط واستلام إشعارات الكباتن.</i>\n\n` +
+          `إذا كنت ترغب بنشر خط جديد أو رؤية طلبات الطلاب المحتاجين لخطوط بمناطقك، يمكنك الاختيار أدناه 👇:`;
+
+        const capBtns = [
+          [{ text: '🚌 نشر خط نقل جديد الآن ⚡', callback_data: 'publish_transport' }],
+          (lineAd ? [{ text: '👥 عرض الطلاب المحتاجين لخطك فوراً 🎯', callback_data: `match_students_${lineAd.id}` }] : []),
+          [{ text: '🚌 إدارة خطوطي النشطة', callback_data: 'manage_cat_trans' }],
+          [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+        ].filter(r => r.length > 0);
+
+        await updateOrSend(capNotice, { inline_keyboard: capBtns });
+        return new Response('OK', { status: 200 });
+      }
+
+      // If Passenger / Student: Auto-activate radar for this line's route!
+      const origin = lineAd?.location || 'بغداد';
+      const destination = lineAd?.city || 'الجامعة';
+
+      let reqId = '';
+      try {
+        const { data: insertedReq } = await supabase.from('transport_requests').insert({
+          telegram_chat_id: String(chatId),
+          telegram_user_id: fromUser?.id ? String(fromUser.id) : String(chatId),
+          user_name: fromUser?.first_name || 'طالب/طالبة',
+          origin: origin,
+          destination: destination,
+          status: 'pending'
+        }).select('id').single();
+        reqId = insertedReq?.id || '';
+      } catch(e) {
+        console.error('Error auto-registering route radar:', e);
+      }
+
+      const confirmMsg = 
+        `🎉 <b>تم تفعيل رادار التنبيهات لمسارك بنجاح! 🚌✨</b>\n\n` +
+        `📍 <b>منطقة الانطلاق:</b> <b>${origin}</b>\n` +
+        `🏢 <b>الوجهة:</b> <b>${destination}</b>\n` +
+        `📡 <b>حالة الرادار:</b> نشط ويعمل على مدار الساعة 24/7\n\n` +
+        `🔔 <b>شكراً لك!</b> أول ما ينشر أي كابتن خطاً يمر بـ [${origin}]، سنرسل لك إشعاراً فورياً على الخاص مع رقم الكابتن وزر الحجز المباشر ⚡\n\n` +
+        `💡 <i>يمكنك في أي وقت فحص الخطوط المتوفرة أو إدارة مساراتك من الأزرار أدناه:</i>`;
+
+      const confirmBtns = [
+        [{ text: `🔍 فحص الخطوط المتوفرة لـ [${origin}] 🚌`, callback_data: `search_route_${reqId}` }],
+        [{ text: '📋 مساراتي وتنبيهاتي المسجلة', callback_data: 'manage_my_routes' }],
+        [{ text: '➕ تسجيل مسار إضافي 🔔', callback_data: 'start_route_radar' }],
+        [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+      ];
+
+      await updateOrSend(confirmMsg, { inline_keyboard: confirmBtns });
+      return new Response('OK', { status: 200 });
+    }
+
+    // 🚌 Deep link to publish transport line directly for captains
+    if (text === '/start pubtrans' || text === '/start publish_transport') {
+      const transWizardState = { step: 'trans_type', data: {} };
+      await supabase.from('telegram_users').update({ bot_state: transWizardState }).eq('telegram_chat_id', chatId);
+      await updateOrSend(
+        '🚌 <b>نشر إعلان خط نقل جديد — كابتن سوق بغداد</b>\n\n' +
+        'اختر نوع الخط لنشره فوراً بالقنوات والمنصات:',
+        {
+          inline_keyboard: [
+            [{ text: '🚗 سيارة صالون (4 مقاعد)', callback_data: 'trans_vtype_salon' }],
+            [{ text: '🚐 ستاراكس / ميني باص (7-11 راكب)', callback_data: 'trans_vtype_minibus' }],
+            [{ text: '🚌 كوستر / باص كبير', callback_data: 'trans_vtype_coaster' }],
+            [{ text: '🔙 إلغاء', callback_data: 'cancel_wizard' }]
+          ]
+        }
+      );
+      return new Response('OK', { status: 200 });
+    }
+
     // --- Deep-Link Direct Line Booking from Group (حجز الخط ونقل كامل المحادثة لخاص البوت) ---
     if (text.startsWith('/start book_') || text.startsWith('/start line_')) {
       const lineId = text.replace('/start book_', '').replace('/start line_', '').trim();
@@ -9353,10 +9451,10 @@ Deno.serve(async (req: any) => {
               [{ text: '📩 مراسلة وحجز مقعد عبر تليكرام ⚡', url: `https://t.me/${BOT_USERNAME}?start=book_${insertedTrans.id}` }],
               [{ text: '💬 واتساب الكابتن 🟢', url: `https://wa.me/${formattedPhone}?text=${encodeURIComponent('السلام عليكم كابتن، شفت خطك بسوق بغداد وحاب استفسر عن حجز مقعد')}` }],
               [
-                { text: '🔔 رادار تنبيهات الخطوط 24/7', url: `https://t.me/${BOT_USERNAME}?start=radar` },
+                { text: '🔔 نبهني أول ما يتوفر خط لمساري ⚡', url: `https://t.me/${BOT_USERNAME}?start=radline_${insertedTrans.id}` },
                 { text: '🚌 تفاصيل الخط بالموقع 🌐', url: link }
               ],
-              [{ text: '🚌 انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}` }]
+              [{ text: '🚌 كابتن؟ انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
             ];
 
             const channelMsg = `🚌 <b>إعلان خط نقل جديد — سوق بغداد</b>\n\n` +
