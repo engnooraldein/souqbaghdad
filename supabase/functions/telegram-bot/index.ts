@@ -43,7 +43,6 @@ async function sendMessage(chatId: string | number, text: string, replyMarkup?: 
   }
 }
 
-
 async function answerCallbackQuery(callbackQueryId: string, text: string = '', showAlert = false) {
   fetch(`${tgUrl}/answerCallbackQuery`, {
     method: 'POST',
