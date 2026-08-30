@@ -6055,12 +6055,18 @@ Deno.serve(async (req: any) => {
       if (userId) {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
       }
+
+      // Determine current role (Driver vs Passenger/Student)
+      const { data: currentTgUser } = await supabase.from('telegram_users').select('user_role').eq('telegram_chat_id', chatId).maybeSingle();
+      const currentRole = currentTgUser?.user_role || tgUser?.user_role || 'passenger';
+      const isDriver = currentRole === 'driver';
       
       let userInfo = '';
       if (userId) {
         const { data: profile } = await supabase.from('profiles').select('full_name, points').eq('id', userId).maybeSingle();
         if (profile) {
-          userInfo = `👤 <b>${profile.full_name || 'مستخدم'}</b>\n🪙 <b>رصيد النقاط:</b> ${profile.points || 0}\n\n`;
+          const roleBadge = isDriver ? '🚗 كابتن / سائق' : '🎓 طالب / راكب';
+          userInfo = `👤 <b>${profile.full_name || 'مستخدم'}</b> (${roleBadge})\n🪙 <b>رصيد النقاط:</b> ${profile.points || 0}\n\n`;
         }
       }
 
@@ -6074,14 +6080,29 @@ Deno.serve(async (req: any) => {
         menuRows.push([{ text: '👑 لوحة تحكم المالك', callback_data: 'owner_hub_main' }]);
       }
       
-      // Clear, simple buttons based on user request:
-      menuRows.push([{ text: '🚌 نشر خط نقل (كابتن / سائق)', callback_data: 'publish_transport' }]);
-      menuRows.push([{ text: '🔔 إشعار آلي عند توفر خط بمنطقتي 📡', callback_data: 'start_route_radar' }]);
-      menuRows.push([{ text: '🚗 عرض سيارتي للبيع', callback_data: 'publish_car' }]);
-      menuRows.push([{ text: '📦 نشر إعلان آخر (منتجات)', callback_data: 'publish_product' }]);
-      menuRows.push([{ text: '🟢 إعلاناتي ومساراتي النشطة', callback_data: 'manage_my_ads' }]);
-      menuRows.push([{ text: '📊 تقارير إعلاناتي النشطة والمؤرشفة', callback_data: 'my_publish_reports' }]);
-      menuRows.push([{ text: '💼 حسابي وخدمات أخرى ⚙️', callback_data: 'account_services' }]);
+      if (isDriver) {
+        // 🚗 Driver / Captain tailored menu
+        menuRows.push([{ text: '🚌 نشر خط نقل جديد (كابتن) ⚡', callback_data: 'publish_transport' }]);
+        menuRows.push([{ text: '📦 إدارة خطوطي النشطة والأرشيف', callback_data: 'manage_cat_trans' }]);
+        menuRows.push([{ text: '🚗 عرض سيارتي للبيع', callback_data: 'publish_car' }]);
+        menuRows.push([{ text: '📦 نشر إعلان آخر (منتجات)', callback_data: 'publish_product' }]);
+        menuRows.push([{ text: '📊 تقارير إعلاناتي النشطة والمؤرشفة', callback_data: 'my_publish_reports' }]);
+        menuRows.push([
+          { text: '🔄 تبديل الصِفة (أنا طالب)', callback_data: 'change_my_role' },
+          { text: '💼 حسابي وخدمات ⚙️', callback_data: 'account_services' }
+        ]);
+      } else {
+        // 🎓 Passenger / Student tailored menu
+        menuRows.push([{ text: '🔔 إشعار آلي عند توفر خط بمنطقتي 📡', callback_data: 'start_route_radar' }]);
+        menuRows.push([{ text: '📋 مساراتي وتنبيهاتي المسجلة', callback_data: 'manage_my_routes' }]);
+        menuRows.push([{ text: '🚌 تصفح الخطوط المتوفرة بالموقع', url: 'https://www.souqbaghdad.store/transport' }]);
+        menuRows.push([{ text: '🚗 عرض سيارتي للبيع', callback_data: 'publish_car' }]);
+        menuRows.push([{ text: '🟢 إعلاناتي ومساراتي النشطة', callback_data: 'manage_my_ads' }]);
+        menuRows.push([
+          { text: '🔄 تبديل الصِفة (أنا كابتن)', callback_data: 'change_my_role' },
+          { text: '💼 حسابي وخدمات ⚙️', callback_data: 'account_services' }
+        ]);
+      }
 
       const menuMarkup = { inline_keyboard: menuRows };
 
@@ -7689,11 +7710,25 @@ Deno.serve(async (req: any) => {
       }, { onConflict: 'telegram_chat_id' });
 
       const welcomeMsg = isNewAccount
-        ? '🎉 <b>أهلاً وسهلاً بك في منصة وبوت سوق بغداد! 🇮🇶</b>\n🎁 <b>تم منحك 10 نقاط مجانية</b> كهدية ترحيبية لنشر إعلانات سياراتك وخطوط النقل فوراً.'
-        : '🎉 <b>تم التسجيل وربط الحساب بنجاح!</b>\nيمكنك الآن البدء بنشر إعلانات السيارات والخطوط والمنتجات فوراً.';
+        ? '🎉 <b>أهلاً وسهلاً بك في منصة وبوت سوق بغداد! 🇮🇶</b>\n🎁 <b>تم منحك 10 نقاط مجانية</b> كهدية ترحيبية.'
+        : '🎉 <b>تم تأكيد رقم هاتفك وربط الحساب بنجاح! 🇮🇶✨</b>';
 
       await sendMessage(chatId, welcomeMsg, { remove_keyboard: true });
-      await showMainMenu();
+
+      const rolePrompt = 
+        `👇 <b>يرجى تحديد صفتك في البوت للبدء:</b>\n\n` +
+        `🎓 <b>طالب / راكب:</b> للبحث عن خطوط النقل، حجز مقاعد، وتلقي تنبيهات الرادار 24/7 لمسارك.\n\n` +
+        `🚗 <b>كابتن / سائق:</b> لنشر خطوطك للجامعات والمدارس، واستقبال طلبات الحجز المباشرة من الطلاب.\n\n` +
+        `💡 <i>(يمكنك تغيير صفتك بأي وقت من القائمة الرئيسية).</i>`;
+
+      const roleMarkup = {
+        inline_keyboard: [
+          [{ text: '🎓 أنا طالب / راكب (أبحث عن خطوط)', callback_data: 'set_role_passenger' }],
+          [{ text: '🚗 أنا كابتن / سائق (أوفر خطوط نقل)', callback_data: 'set_role_driver' }]
+        ]
+      };
+
+      await sendMessage(chatId, rolePrompt, roleMarkup);
       return new Response('OK', { status: 200 });
     }
 
@@ -7704,6 +7739,9 @@ Deno.serve(async (req: any) => {
       text.startsWith('rpage_') ||
       text.startsWith('search_route_') ||
       text === 'noop_page' || 
+      text === 'set_role_passenger' ||
+      text === 'set_role_driver' ||
+      text === 'change_my_role' ||
       text.startsWith('seeker_dest_') || 
       text === 'start_route_radar' ||
       text.startsWith('rad_a_') ||
@@ -7737,6 +7775,70 @@ Deno.serve(async (req: any) => {
       const callbackMsgId = callbackQuery?.message?.message_id;
       if (callbackQuery.id) {
         try { await answerCallbackQuery(callbackQuery.id); } catch(e) {}
+      }
+
+      // 🎓 Set Role: Passenger / Student
+      if (action === 'set_role_passenger') {
+        await supabase.from('telegram_users').update({ user_role: 'passenger' }).eq('telegram_chat_id', chatId);
+        if (callbackQueryId) {
+          await answerCallbackQuery(callbackQueryId, '🎓 تم ضبط حسابك: طالب / راكب 🌹', true);
+        }
+        const studentWelcome = 
+          `🎓 <b>أهلاً وسهلاً بك كـ (طالب / راكب) في سوق بغداد! 🌹✨</b>\n\n` +
+          `📡 <b>خدماتك المتاحة كزبون:</b>\n` +
+          `• تفعيل <b>رادار الخطوط 24/7</b> ليصلك إشعار خاص أول ما ينشر أي كابتن خطاً لمسارك.\n` +
+          `• حجز مقاعد مباشرة ومراسلة الكباتن.\n` +
+          `• تصفح ومتابعة كافة خطوط الجامعات والمدارس.`;
+
+        const studentBtns = [
+          [{ text: '🔔 تسجيل مساري في رادار التنبيهات', callback_data: 'start_route_radar' }],
+          [{ text: '🚌 تصفح الخطوط المتوفرة بالموقع', url: 'https://www.souqbaghdad.store/transport' }],
+          [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+        ];
+
+        await updateOrSend(studentWelcome, { inline_keyboard: studentBtns });
+        return new Response('OK', { status: 200 });
+      }
+
+      // 🚗 Set Role: Driver / Captain
+      if (action === 'set_role_driver') {
+        await supabase.from('telegram_users').update({ user_role: 'driver' }).eq('telegram_chat_id', chatId);
+        if (callbackQueryId) {
+          await answerCallbackQuery(callbackQueryId, '🚗 تم ضبط حسابك: كابتن / سائق 🌹', true);
+        }
+        const driverWelcome = 
+          `🚗 <b>يا هلا بكابتنا الغالي! 🌹✨</b>\n\n` +
+          `🚌 <b>خدماتك المتاحة ككابتن:</b>\n` +
+          `• <b>نشر خطك مجاناً</b> لنشره فورياً في قنوات سوق بغداد وفيسبوك وبوت التلغرام.\n` +
+          `• استقبال وتأكيد طلبات حجز المقاعد من الطلاب فوراً.\n` +
+          `• مطابقة الطلاب الباحثين عن خطوط لنفس مناطق مرورك.`;
+
+        const driverBtns = [
+          [{ text: '🚌 نشر خط نقل جديد الآن ⚡', callback_data: 'publish_transport' }],
+          [{ text: '📦 إدارة خطوطي النشطة', callback_data: 'manage_cat_trans' }],
+          [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+        ];
+
+        await updateOrSend(driverWelcome, { inline_keyboard: driverBtns });
+        return new Response('OK', { status: 200 });
+      }
+
+      // 🔄 Change Role
+      if (action === 'change_my_role') {
+        const changeRoleMsg = 
+          `🔄 <b>تعديل الصِفة في البوت</b>\n\n` +
+          `اختر صفتك الحالية لتخصيص خيارات وخدمات البوت لك:`;
+
+        const roleMarkup = {
+          inline_keyboard: [
+            [{ text: '🎓 أنا طالب / راكب (أبحث عن خطوط)', callback_data: 'set_role_passenger' }],
+            [{ text: '🚗 أنا كابتن / سائق (أوفر خطوط نقل)', callback_data: 'set_role_driver' }],
+            [{ text: '🏠 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]
+          ]
+        };
+
+        await updateOrSend(changeRoleMsg, roleMarkup);
+        return new Response('OK', { status: 200 });
       }
       
       // 🔔 START ROUTE RADAR WIZARD (إشعار آلي عند توفر خط بمنطقتي)
