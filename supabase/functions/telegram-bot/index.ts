@@ -3831,8 +3831,54 @@ Deno.serve(async (req: any) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  // Diagnostic / Health check endpoint
+  const urlObj = new URL(req.url);
+  if (req.method === 'GET' || urlObj.searchParams.get('action') === 'scan_bot') {
+    try {
+      const meRes = await fetch(`${tgUrl}/getMe`).then(r => r.json());
+      const hookRes = await fetch(`${tgUrl}/getWebhookInfo`).then(r => r.json());
+      let autoFixed = false;
+      const expectedUrl = 'https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/telegram-bot';
+      const shouldDrop = urlObj.searchParams.get('drop_pending') === 'true' || (hookRes.result?.pending_update_count || 0) > 0;
+      if (!hookRes.result?.url || hookRes.result?.url !== expectedUrl || shouldDrop) {
+        const fixRes = await fetch(`${tgUrl}/setWebhook?url=${encodeURIComponent(expectedUrl)}&drop_pending_updates=${shouldDrop ? 'true' : 'false'}&allowed_updates=${encodeURIComponent(JSON.stringify(["message", "callback_query", "channel_post", "my_chat_member"]))}`).then(r => r.json());
+        autoFixed = fixRes.ok;
+      }
+      const updatedHook = await fetch(`${tgUrl}/getWebhookInfo`).then(r => r.json());
+      return new Response(JSON.stringify({
+        status: 'online',
+        botMe: meRes,
+        webhookInfo: updatedHook,
+        autoFixed
+      }, null, 2), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      });
+    } catch(err: any) {
+      return new Response(JSON.stringify({ status: 'error', error: err.message }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500
+      });
+    }
+  }
+
   try {
     const payload = await req.json();
+    if (payload.action === 'scan_bot' || payload.action === 'fix_webhook') {
+      const meRes = await fetch(`${tgUrl}/getMe`).then(r => r.json());
+      const expectedUrl = 'https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/telegram-bot';
+      const fixRes = await fetch(`${tgUrl}/setWebhook?url=${encodeURIComponent(expectedUrl)}&drop_pending_updates=true&allowed_updates=${encodeURIComponent(JSON.stringify(["message", "callback_query", "channel_post", "my_chat_member"]))}`).then(r => r.json());
+      const hookRes = await fetch(`${tgUrl}/getWebhookInfo`).then(r => r.json());
+      return new Response(JSON.stringify({
+        status: 'online',
+        botMe: meRes,
+        webhookInfo: hookRes,
+        setWebhookResult: fixRes
+      }, null, 2), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      });
+    }
     // Direct WhatsApp Test Endpoint
     if (payload.action === 'test_whatsapp' && payload.phone) {
       const token = Deno.env.get('WHATSAPP_TOKEN');
@@ -13872,12 +13918,11 @@ Deno.serve(async (req: any) => {
       }
     }
 
-    return new Response('OK', { status: 200, headers: corsHeaders });
   } catch (error: any) {
     console.error('Error handling request:', error);
-    return new Response(JSON.stringify({ error: error.message }), { 
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    return new Response(JSON.stringify({ ok: true, error: error.message }), { 
+      status: 200, 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     });
   }
 })
