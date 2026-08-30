@@ -769,6 +769,147 @@ function buildTransportCard(lines: any[], pageIndex: number, fromName: string, o
   return { text: cardText, markup: { inline_keyboard: inlineButtons } };
 }
 
+// =========================================================================
+// 🔔 TOP-LEVEL SMART ROUTE RADAR WIZARD HELPERS
+// =========================================================================
+async function showRadarAreaPicker(chatId: string | number, supabase: any) {
+  const radarState = { step: 'radar_custom_area', data: {} };
+  await supabase.from('telegram_users').update({ bot_state: radarState }).eq('telegram_chat_id', chatId);
+
+  const radarAreaText = 
+    `🔔 <b>رادار الإشعارات الذكي لخطوط النقل 🚌📡</b>\n\n` +
+    `📍 <b>الخطوة 1 من 2: حدد منطقة انطلاقك أو سكنك</b>\n` +
+    `👇 اختر منطقتك من القائمة أدناه أو أرسل اسم منطقتك بالرسائل:`;
+
+  const areaRows = [
+    [{ text: 'الشعب', callback_data: 'rad_a_الشعب' }, { text: 'الطالبية', callback_data: 'rad_a_الطالبية' }, { text: 'جميلة', callback_data: 'rad_a_جميلة' }],
+    [{ text: 'البنوك', callback_data: 'rad_a_البنوك' }, { text: 'القاهرة', callback_data: 'rad_a_القاهرة' }, { text: 'الصليخ', callback_data: 'rad_a_الصليخ' }],
+    [{ text: 'الغدير', callback_data: 'rad_a_الغدير' }, { text: 'زيونة', callback_data: 'rad_a_زيونة' }, { text: 'بغداد الجديدة', callback_data: 'rad_a_بغداد الجديدة' }],
+    [{ text: 'السيدية', callback_data: 'rad_a_السيدية' }, { text: 'الدورة', callback_data: 'rad_a_الدورة' }, { text: 'المنصور', callback_data: 'rad_a_المنصور' }],
+    [{ text: 'حي الجامعة', callback_data: 'rad_a_حي الجامعة' }, { text: 'الغزالية', callback_data: 'rad_a_الغزالية' }, { text: 'العامرية', callback_data: 'rad_a_العامرية' }],
+    [{ text: 'الكاظمية', callback_data: 'rad_a_الكاظمية' }, { text: 'الشعلة', callback_data: 'rad_a_الشعلة' }, { text: 'الحرية', callback_data: 'rad_a_الحرية' }],
+    [{ text: '✍️ كتابة اسم منطقة أخرى بالرسائل', callback_data: 'rad_a_custom' }],
+    [{ text: '🔙 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]
+  ];
+
+  return await sendMessage(chatId, radarAreaText, { inline_keyboard: areaRows });
+}
+
+async function showRadarDestPicker(chatId: string | number, origin: string, supabase: any) {
+  const radarState = { step: 'radar_custom_dest', data: { origin } };
+  await supabase.from('telegram_users').update({ bot_state: radarState }).eq('telegram_chat_id', chatId);
+
+  const radarDestText = 
+    `📍 <b>منطقة الانطلاق:</b> <b>${origin}</b> ✅\n\n` +
+    `🏢 <b>الخطوة 2 من 2: حدد كليتك أو وجهتك اليومية:</b>\n` +
+    `👇 اختر الكلية أو الوجهة لتفعيل الرادار فوراً:`;
+
+  const destRows = [
+    [{ text: '🏛️ كلية الرافدين الجامعة', callback_data: 'rad_d_كلية الرافدين' }],
+    [{ text: '🏛️ جامعة بغداد (الجادرية / باب المعظم)', callback_data: 'rad_d_جامعة بغداد' }],
+    [{ text: '🏛️ الجامعة المستنصرية', callback_data: 'rad_d_الجامعة المستنصرية' }],
+    [{ text: '🏛️ كلية الإسراء الجامعة', callback_data: 'rad_d_كلية الإسراء' }],
+    [{ text: '🏛️ الجامعة التكنولوجية', callback_data: 'rad_d_الجامعة التكنولوجية' }],
+    [{ text: '🏛️ كلية دجلة الجامعة', callback_data: 'rad_d_كلية دجلة' }],
+    [{ text: '🏛️ كلية البيان الجامعة', callback_data: 'rad_d_كلية البيان' }],
+    [{ text: '🏛️ جامعة الفراهيدي', callback_data: 'rad_d_جامعة الفراهيدي' }],
+    [{ text: '🏛️ جامعة النهرين', callback_data: 'rad_d_جامعة النهرين' }],
+    [{ text: '🏛️ الجامعة العراقية', callback_data: 'rad_d_الجامعة العراقية' }],
+    [{ text: '🏛️ كلية التراث الجامعة', callback_data: 'rad_d_كلية التراث' }],
+    [{ text: '✍️ كتابة وجهة أو دائرة أخرى بالرسائل', callback_data: 'rad_d_custom' }],
+    [{ text: '🔙 تغيير منطقة الانطلاق', callback_data: 'start_route_radar' }]
+  ];
+
+  return await sendMessage(chatId, radarDestText, { inline_keyboard: destRows });
+}
+
+async function finishRadarRegistration(chatId: string | number, origin: string, destination: string, fromUser: any, supabase: any) {
+  const userTgId = fromUser?.id ? String(fromUser.id) : null;
+  const userChatIdStr = String(chatId);
+  const fromName = fromUser?.first_name || 'عزيزنا';
+
+  // 1. Save / Deduplicate in transport_requests
+  let reqId: string | null = null;
+  try {
+    const { data: existingReq } = await supabase
+      .from('transport_requests')
+      .select('id, origin, destination')
+      .or(`telegram_chat_id.eq.${userChatIdStr}${userTgId ? `,telegram_user_id.eq.${userTgId}` : ''}`)
+      .eq('status', 'pending');
+
+    const match = existingReq?.find((r: any) => 
+      isLocationMatch(r.origin, origin) && 
+      (!destination || !r.destination || getCoreLocationKeyword(r.destination) === getCoreLocationKeyword(destination))
+    );
+
+    if (match) {
+      reqId = match.id;
+    } else {
+      const { data: insertedReq } = await supabase.from('transport_requests').insert({
+        telegram_chat_id: userChatIdStr,
+        telegram_user_id: userTgId,
+        user_name: fromName,
+        origin: origin,
+        destination: destination,
+        raw_query: `رادار: ${origin} إلى ${destination}`,
+        status: 'pending'
+      }).select('id').maybeSingle();
+      reqId = insertedReq?.id || null;
+    }
+  } catch(e) {
+    console.error('Error in finishRadarRegistration:', e);
+  }
+
+  // Reset state
+  try {
+    await supabase.from('telegram_users').update({ bot_state: { is_subscribed: true } }).eq('telegram_chat_id', chatId);
+  } catch(e) {}
+
+  // 2. Check if active driver lines exist right now!
+  const { data: activeDrivers } = await supabase
+    .from('ads')
+    .select('*')
+    .eq('status', 'active')
+    .or('category.eq.transport,type.eq.transport');
+
+  const matchedLines = (activeDrivers || []).filter((ad: any) => {
+    const adText = `${ad.title || ''} ${ad.location || ''} ${ad.description || ''}`.toLowerCase();
+    const origMatch = isLocationMatch(origin, adText);
+    const destMatch = !destination || isLocationMatch(destination, adText) || (getCoreLocationKeyword(destination) ? adText.includes(getCoreLocationKeyword(destination)) : false);
+    return origMatch && destMatch;
+  });
+
+  if (matchedLines.length > 0) {
+    const noticeText = 
+      `🎉 <b>تم تفعيل رادار الخطوط لمسارك بنجاح! 🚌✨</b>\n\n` +
+      `📍 <b>منطقة الانطلاق:</b> <b>${origin}</b>\n` +
+      `🏢 <b>الوجهة:</b> <b>${destination}</b>\n` +
+      `📡 <b>حالة الرادار:</b> يعمل على مدار الساعة 24/7\n\n` +
+      `🔥 <b>ولحسن الحظ، وجدنا لك (${matchedLines.length}) خطوط متوفرة حالياً لمسارك! تصفحها أدناه:</b>`;
+
+    await sendMessage(chatId, noticeText);
+    const card = buildTransportCard(matchedLines, 0, fromName, origin, destination, false);
+    await sendMessage(chatId, card.text, card.markup);
+  } else {
+    const confirmMsg = 
+      `🎉 <b>تم تفعيل رادار الخطوط لمسارك بنجاح! 🚌✨</b>\n\n` +
+      `📍 <b>منطقة الانطلاق:</b> <b>${origin}</b>\n` +
+      `🏢 <b>الوجهة:</b> <b>${destination}</b>\n` +
+      `📡 <b>حالة الرادار:</b> نشط ويعمل على مدار الساعة 24/7\n\n` +
+      `🔔 <b>شكراً لك!</b> أول ما ينشر أي كابتن خطاً يمر بمنطقتك، سنرسل لك إشعاراً فورياً على الخاص مع رقم الكابتن وزر الحجز المباشر ⚡\n\n` +
+      `💡 <i>يمكنك في أي وقت إيقاف التنبيهات أو حذف المسار من زر «مساراتي المسجلة».</i>`;
+
+    const confirmBtns = [
+      [{ text: '🛑 إيقاف التنبيهات لهذا المسار', callback_data: `del_route_req_${reqId || 'user'}` }],
+      [{ text: '📋 مساراتي المسجلة للإشعارات', callback_data: 'manage_my_routes' }],
+      [{ text: '➕ تسجيل مسار إضافي 🔔', callback_data: 'start_route_radar' }],
+      [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+    ];
+
+    await sendMessage(chatId, confirmMsg, { inline_keyboard: confirmBtns });
+  }
+}
+
 async function notifyDriverOfWaitingPassengers(driverChatId: string | number, driverName: string, regions: string, destination: string, supabase: any, driverPhone?: string) {
   try {
     const { data: waitingStudents } = await supabase
@@ -1276,7 +1417,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
       await sendOrReplaceGroupMessage(chatId, askMsg, askMarkup, supabase, userMessageId);
     } else {
       // In private chat: open the interactive route radar area picker directly!
-      await showRadarAreaPicker(chatId);
+      await showRadarAreaPicker(chatId, supabase);
     }
     return;
   }
@@ -5921,141 +6062,16 @@ Deno.serve(async (req: any) => {
     // =========================================================================
     // 🔔 SMART ROUTE RADAR WIZARD (نظام رادار الإشعارات الذكي لخطوط النقل)
     // =========================================================================
-    const showRadarAreaPicker = async (chatId: string | number) => {
-      const radarState = { step: 'radar_custom_area', data: {} };
-      await supabase.from('telegram_users').update({ bot_state: radarState }).eq('telegram_chat_id', chatId);
-
-      const radarAreaText = 
-        `🔔 <b>رادار الإشعارات الذكي لخطوط النقل 🚌📡</b>\n\n` +
-        `📍 <b>الخطوة 1 من 2: حدد منطقة انطلاقك أو سكنك</b>\n` +
-        `👇 اختر منطقتك من القائمة أدناه أو أرسل اسم منطقتك بالرسائل:`;
-
-      const areaRows = [
-        [{ text: 'الشعب', callback_data: 'rad_a_الشعب' }, { text: 'الطالبية', callback_data: 'rad_a_الطالبية' }, { text: 'جميلة', callback_data: 'rad_a_جميلة' }],
-        [{ text: 'البنوك', callback_data: 'rad_a_البنوك' }, { text: 'القاهرة', callback_data: 'rad_a_القاهرة' }, { text: 'الصليخ', callback_data: 'rad_a_الصليخ' }],
-        [{ text: 'الغدير', callback_data: 'rad_a_الغدير' }, { text: 'زيونة', callback_data: 'rad_a_زيونة' }, { text: 'بغداد الجديدة', callback_data: 'rad_a_بغداد الجديدة' }],
-        [{ text: 'السيدية', callback_data: 'rad_a_السيدية' }, { text: 'الدورة', callback_data: 'rad_a_الدورة' }, { text: 'المنصور', callback_data: 'rad_a_المنصور' }],
-        [{ text: 'حي الجامعة', callback_data: 'rad_a_حي الجامعة' }, { text: 'الغزالية', callback_data: 'rad_a_الغزالية' }, { text: 'العامرية', callback_data: 'rad_a_العامرية' }],
-        [{ text: 'الكاظمية', callback_data: 'rad_a_الكاظمية' }, { text: 'الشعلة', callback_data: 'rad_a_الشعلة' }, { text: 'الحرية', callback_data: 'rad_a_الحرية' }],
-        [{ text: '✍️ كتابة اسم منطقة أخرى بالرسائل', callback_data: 'rad_a_custom' }],
-        [{ text: '🔙 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]
-      ];
-
-      return await updateOrSend(radarAreaText, { inline_keyboard: areaRows });
+    const showRadarAreaPickerInner = async (cId: string | number) => {
+      return await showRadarAreaPicker(cId, supabase);
     };
 
-    const showRadarDestPicker = async (chatId: string | number, origin: string) => {
-      const radarState = { step: 'radar_custom_dest', data: { origin } };
-      await supabase.from('telegram_users').update({ bot_state: radarState }).eq('telegram_chat_id', chatId);
-
-      const radarDestText = 
-        `📍 <b>منطقة الانطلاق:</b> <b>${origin}</b> ✅\n\n` +
-        `🏢 <b>الخطوة 2 من 2: حدد كليتك أو وجهتك اليومية:</b>\n` +
-        `👇 اختر الكلية أو الوجهة لتفعيل الرادار فوراً:`;
-
-      const destRows = [
-        [{ text: '🏛️ كلية الرافدين الجامعة', callback_data: 'rad_d_كلية الرافدين' }],
-        [{ text: '🏛️ جامعة بغداد (الجادرية / باب المعظم)', callback_data: 'rad_d_جامعة بغداد' }],
-        [{ text: '🏛️ الجامعة المستنصرية', callback_data: 'rad_d_الجامعة المستنصرية' }],
-        [{ text: '🏛️ كلية الإسراء الجامعة', callback_data: 'rad_d_كلية الإسراء' }],
-        [{ text: '🏛️ الجامعة التكنولوجية', callback_data: 'rad_d_الجامعة التكنولوجية' }],
-        [{ text: '🏛️ كلية دجلة الجامعة', callback_data: 'rad_d_كلية دجلة' }],
-        [{ text: '🏛️ كلية البيان الجامعة', callback_data: 'rad_d_كلية البيان' }],
-        [{ text: '🏛️ جامعة الفراهيدي', callback_data: 'rad_d_جامعة الفراهيدي' }],
-        [{ text: '🏛️ جامعة النهرين', callback_data: 'rad_d_جامعة النهرين' }],
-        [{ text: '🏛️ الجامعة العراقية', callback_data: 'rad_d_الجامعة العراقية' }],
-        [{ text: '🏛️ كلية التراث الجامعة', callback_data: 'rad_d_كلية التراث' }],
-        [{ text: '✍️ كتابة وجهة أو دائرة أخرى بالرسائل', callback_data: 'rad_d_custom' }],
-        [{ text: '🔙 تغيير منطقة الانطلاق', callback_data: 'start_route_radar' }]
-      ];
-
-      return await updateOrSend(radarDestText, { inline_keyboard: destRows });
+    const showRadarDestPickerInner = async (cId: string | number, origin: string) => {
+      return await showRadarDestPicker(cId, origin, supabase);
     };
 
-    const finishRadarRegistration = async (chatId: string | number, origin: string, destination: string, fromUser: any) => {
-      const userTgId = fromUser?.id ? String(fromUser.id) : null;
-      const userChatIdStr = String(chatId);
-      const fromName = fromUser?.first_name || 'عزيزنا';
-
-      // 1. Save / Deduplicate in transport_requests
-      let reqId: string | null = null;
-      try {
-        const { data: existingReq } = await supabase
-          .from('transport_requests')
-          .select('id, origin, destination')
-          .or(`telegram_chat_id.eq.${userChatIdStr}${userTgId ? `,telegram_user_id.eq.${userTgId}` : ''}`)
-          .eq('status', 'pending');
-
-        const match = existingReq?.find((r: any) => 
-          isLocationMatch(r.origin, origin) && 
-          (!destination || !r.destination || getCoreLocationKeyword(r.destination) === getCoreLocationKeyword(destination))
-        );
-
-        if (match) {
-          reqId = match.id;
-        } else {
-          const { data: insertedReq } = await supabase.from('transport_requests').insert({
-            telegram_chat_id: userChatIdStr,
-            telegram_user_id: userTgId,
-            user_name: fromName,
-            origin: origin,
-            destination: destination,
-            raw_query: `رادار: ${origin} إلى ${destination}`,
-            status: 'pending'
-          }).select('id').maybeSingle();
-          reqId = insertedReq?.id || null;
-        }
-      } catch(e) {
-        console.error('Error in finishRadarRegistration:', e);
-      }
-
-      // Reset state
-      state = { is_subscribed: true };
-      await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-
-      // 2. Check if active driver lines exist right now!
-      const { data: activeDrivers } = await supabase
-        .from('ads')
-        .select('*')
-        .eq('status', 'active')
-        .or('category.eq.transport,type.eq.transport');
-
-      const matchedLines = (activeDrivers || []).filter((ad: any) => {
-        const adText = `${ad.title || ''} ${ad.location || ''} ${ad.description || ''}`.toLowerCase();
-        const origMatch = isLocationMatch(origin, adText);
-        const destMatch = !destination || isLocationMatch(destination, adText) || (getCoreLocationKeyword(destination) ? adText.includes(getCoreLocationKeyword(destination)) : false);
-        return origMatch && destMatch;
-      });
-
-      if (matchedLines.length > 0) {
-        const noticeText = 
-          `🎉 <b>تم تفعيل رادار الخطوط لمسارك بنجاح! 🚌✨</b>\n\n` +
-          `📍 <b>منطقة الانطلاق:</b> <b>${origin}</b>\n` +
-          `🏢 <b>الوجهة:</b> <b>${destination}</b>\n` +
-          `📡 <b>حالة الرادار:</b> يعمل على مدار الساعة 24/7\n\n` +
-          `🔥 <b>ولحسن الحظ، وجدنا لك (${matchedLines.length}) خطوط متوفرة حالياً لمسارك! تصفحها أدناه:</b>`;
-
-        await sendMessage(chatId, noticeText);
-        const card = buildTransportCard(matchedLines, 0, fromName, origin, destination, false);
-        await sendMessage(chatId, card.text, card.markup);
-      } else {
-        const confirmMsg = 
-          `🎉 <b>تم تفعيل رادار الخطوط لمسارك بنجاح! 🚌✨</b>\n\n` +
-          `📍 <b>منطقة الانطلاق:</b> <b>${origin}</b>\n` +
-          `🏢 <b>الوجهة:</b> <b>${destination}</b>\n` +
-          `📡 <b>حالة الرادار:</b> نشط ويعمل على مدار الساعة 24/7\n\n` +
-          `🔔 <b>شكراً لك!</b> أول ما ينشر أي كابتن خطاً يمر بمنطقتك، سنرسل لك إشعاراً فورياً على الخاص مع رقم الكابتن وزر الحجز المباشر ⚡\n\n` +
-          `💡 <i>يمكنك في أي وقت إيقاف التنبيهات أو حذف المسار من زر «مساراتي المسجلة».</i>`;
-
-        const confirmBtns = [
-          [{ text: '🛑 إيقاف التنبيهات لهذا المسار', callback_data: `del_route_req_${reqId || 'user'}` }],
-          [{ text: '📋 مساراتي المسجلة للإشعارات', callback_data: 'manage_my_routes' }],
-          [{ text: '➕ تسجيل مسار إضافي 🔔', callback_data: 'start_route_radar' }],
-          [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
-        ];
-
-        await updateOrSend(confirmMsg, { inline_keyboard: confirmBtns });
-      }
+    const finishRadarRegistrationInner = async (cId: string | number, origin: string, destination: string, fUser: any) => {
+      return await finishRadarRegistration(cId, origin, destination, fUser, supabase);
     };
 
     // ==========================================
@@ -7340,7 +7356,7 @@ Deno.serve(async (req: any) => {
 
     // --- Deep-Link Route Radar (تحويل المستخدم من الكروب لتفعيل الرادار بالخاص) ---
     if (text.startsWith('/start route_radar') || text.startsWith('/start radar')) {
-      await showRadarAreaPicker(chatId);
+      await showRadarAreaPicker(chatId, supabase);
       return new Response('OK', { status: 200 });
     }
 
@@ -7561,7 +7577,7 @@ Deno.serve(async (req: any) => {
       
       // 🔔 START ROUTE RADAR WIZARD (إشعار آلي عند توفر خط بمنطقتي)
       if (action === 'start_route_radar') {
-        await showRadarAreaPicker(chatId);
+        await showRadarAreaPicker(chatId, supabase);
         return new Response('OK', { status: 200 });
       }
 
@@ -7579,7 +7595,7 @@ Deno.serve(async (req: any) => {
           );
           return new Response('OK', { status: 200 });
         }
-        await showRadarDestPicker(chatId, areaVal);
+        await showRadarDestPicker(chatId, areaVal, supabase);
         return new Response('OK', { status: 200 });
       }
 
@@ -7598,7 +7614,7 @@ Deno.serve(async (req: any) => {
           );
           return new Response('OK', { status: 200 });
         }
-        await finishRadarRegistration(chatId, origin, destVal, fromUser);
+        await finishRadarRegistration(chatId, origin, destVal, fromUser, supabase);
         return new Response('OK', { status: 200 });
       }
 
@@ -11758,7 +11774,7 @@ Deno.serve(async (req: any) => {
       // 📍 Radar Custom Area Text Input (عندما يكتب المستخدم منطقة انطلاقه نصياً)
       if (state.step === 'radar_custom_area' && text) {
         const customArea = text.trim();
-        await showRadarDestPicker(chatId, customArea);
+        await showRadarDestPicker(chatId, customArea, supabase);
         return new Response('OK', { status: 200 });
       }
 
@@ -11766,7 +11782,7 @@ Deno.serve(async (req: any) => {
       if (state.step === 'radar_custom_dest' && text) {
         const customDest = text.trim();
         const origin = state.data?.origin || 'بغداد';
-        await finishRadarRegistration(chatId, origin, customDest, fromUser);
+        await finishRadarRegistration(chatId, origin, customDest, fromUser, supabase);
         return new Response('OK', { status: 200 });
       }
 
