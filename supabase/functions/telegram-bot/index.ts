@@ -630,58 +630,96 @@ function buildTransportCard(lines: any[], pageIndex: number, fromName: string, o
     }
   }
 
-  let cardText = 
-    `🚌 <b>يا هلا بيك ${fromName}! 🌹 وجدنا لك (${total}) خطوط متوفرة لمسارك:</b>\n\n` +
-    `━━━━━━━━━━━━━━━━━━\n` +
-    `🏷️ <b>الخط [${idx + 1} من ${total}]: ${l.title}</b> [🟢 نشط]\n` +
-    `📍 <b>المناطق:</b> ${l.location || origin || 'بغداد'}\n` +
-    `🏢 <b>الوجهة:</b> ${l.city || destination || 'الجامعة'}\n` +
-    `💰 <b>الأجرة:</b> ${fareText}\n` +
-    (cleanPhone ? `📞 <b>هاتف الكابتن:</b> <code>${cleanPhone}</code>\n` : '') +
-    (cleanDetails ? `📝 <b>التفاصيل:</b> ${cleanDetails}\n` : '') +
-    `━━━━━━━━━━━━━━━━━━\n\n` +
-    (isGroup 
-      ? `💡 <i>لحجز مقعد أو التواصل بالخاص دون إزعاج الكروب، اضغطي الزر أدناه 👇</i>` 
-      : `💡 <i>تصفحي الخطوط بالأزرار أدناه (السابق / التالي) وتواصلي مباشرة مع الكابتن المناسب:</i>`);
-
+  let cardText = '';
   const inlineButtons: any[][] = [];
-  
-  // Row 1: Direct Contact Buttons
-  const commRow: any[] = [];
-  if (waPhone) {
-    const prefill = encodeURIComponent('السلام عليكم كابتن، شفت خطك بسوق بغداد وحابة استفسر عن حجز مقعد');
-    commRow.push({ text: '💬 تواصل واتساب 🟢', url: `https://wa.me/${waPhone}?text=${prefill}` });
-  }
-  if (cleanPhone) {
-    commRow.push({ text: '✈️ تليكرام / اتصال', url: `https://t.me/+${waPhone || cleanPhone}` });
-  }
-  if (commRow.length > 0) inlineButtons.push(commRow);
 
-  // Row 2: 1-Click Direct Request to Captain (In group: Deep link to private chat to keep group 100% quiet)
   if (isGroup) {
-    inlineButtons.push([{ text: '📩 حجز مقعد ومتابعة التفاصيل بالخاص 🌹', url: `https://t.me/${BOT_USERNAME}?start=book_${l.id}` }]);
+    // 📱 ULTRA-COMPACT MINI CARD FOR PUBLIC GROUPS (صغيرة ومختصرة جداً لمنع الفوضى بكروب)
+    cardText = 
+      `🚌 <b>يا هلا ${fromName} 🌹 مسار مقترح متوفر:</b>\n` +
+      `📍 <b>المسار:</b> ${l.location || origin || 'بغداد'} ⬅️ ${l.city || destination || 'الجامعة'}\n` +
+      `💰 <b>الأجرة:</b> ${fareText}` + (cleanPhone ? ` | 📞 <code>${cleanPhone}</code>` : '') + `\n` +
+      `<i>اضغط أدناه لحجز مقعدك والتواصل بالخاص 🔒</i>`;
+
+    // Row 1: Primary Private Booking Deep-Link Button
+    inlineButtons.push([
+      { text: '📩 حجز مقعد ومتابعة التفاصيل بالخاص 🌹', url: `https://t.me/${BOT_USERNAME}?start=book_${l.id}` }
+    ]);
+
+    // Row 2: WhatsApp direct if available
+    const commRow: any[] = [];
+    if (waPhone) {
+      const prefill = encodeURIComponent('السلام عليكم كابتن، شفت خطك بسوق بغداد وحابة استفسر عن حجز مقعد');
+      commRow.push({ text: '💬 تواصل واتساب 🟢', url: `https://wa.me/${waPhone}?text=${prefill}` });
+    }
+    if (commRow.length > 0) inlineButtons.push(commRow);
+
+    // Row 3: Pagination if multiple lines
+    if (total > 1) {
+      const navRow: any[] = [];
+      if (idx > 0) {
+        navRow.push({ text: '⬅️ السابق', callback_data: `tpage_${idx - 1}` });
+      }
+      navRow.push({ text: `📄 [ ${idx + 1} / ${total} ]`, callback_data: 'noop_page' });
+      if (idx < total - 1) {
+        navRow.push({ text: 'التالي ➡️', callback_data: `tpage_${idx + 1}` });
+      }
+      inlineButtons.push(navRow);
+    }
+
+    // Row 4: Resolution & Explore
+    inlineButtons.push([
+      { text: '🛑 لكيت خط خلاص', callback_data: `matched_req_direct_${cleanPhone || 'ok'}` },
+      { text: '🚌 باقي الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }
+    ]);
+
   } else {
+    // 💬 RICH DETAILED CARD FOR PRIVATE CHAT (بخاص نفسها بتفاصيل كاملة)
+    cardText = 
+      `🚌 <b>يا هلا بيك ${fromName}! 🌹 وجدنا لك (${total}) خطوط متوفرة لمسارك:</b>\n\n` +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      `🏷️ <b>الخط [${idx + 1} من ${total}]: ${l.title}</b> [🟢 نشط]\n` +
+      `📍 <b>المناطق:</b> ${l.location || origin || 'بغداد'}\n` +
+      `🏢 <b>الوجهة:</b> ${l.city || destination || 'الجامعة'}\n` +
+      `💰 <b>الأجرة:</b> ${fareText}\n` +
+      (cleanPhone ? `📞 <b>هاتف الكابتن:</b> <code>${cleanPhone}</code>\n` : '') +
+      (cleanDetails ? `📝 <b>التفاصيل:</b> ${cleanDetails}\n` : '') +
+      `━━━━━━━━━━━━━━━━━━\n\n` +
+      `💡 <i>تصفحي الخطوط بالأزرار أدناه (السابق / التالي) وتواصلي مباشرة مع الكابتن المناسب:</i>`;
+
+    // Row 1: Direct Contact Buttons
+    const commRow: any[] = [];
+    if (waPhone) {
+      const prefill = encodeURIComponent('السلام عليكم كابتن، شفت خطك بسوق بغداد وحابة استفسر عن حجز مقعد');
+      commRow.push({ text: '💬 تواصل واتساب 🟢', url: `https://wa.me/${waPhone}?text=${prefill}` });
+    }
+    if (cleanPhone) {
+      commRow.push({ text: '✈️ تليكرام / اتصال', url: `https://t.me/+${waPhone || cleanPhone}` });
+    }
+    if (commRow.length > 0) inlineButtons.push(commRow);
+
+    // Row 2: 1-Click Direct Request to Captain
     inlineButtons.push([{ text: '📩 إرسال طلب حجز مقعد للكابتن ⚡', callback_data: `req_seat_${l.id}` }]);
-  }
 
-  // Row 3: Pagination Navigation (السابق / التالي)
-  if (total > 1) {
-    const navRow: any[] = [];
-    if (idx > 0) {
-      navRow.push({ text: '⬅️ السابق', callback_data: `tpage_${idx - 1}` });
+    // Row 3: Pagination Navigation (السابق / التالي)
+    if (total > 1) {
+      const navRow: any[] = [];
+      if (idx > 0) {
+        navRow.push({ text: '⬅️ السابق', callback_data: `tpage_${idx - 1}` });
+      }
+      navRow.push({ text: `📄 [ ${idx + 1} / ${total} ]`, callback_data: 'noop_page' });
+      if (idx < total - 1) {
+        navRow.push({ text: 'التالي ➡️', callback_data: `tpage_${idx + 1}` });
+      }
+      inlineButtons.push(navRow);
     }
-    navRow.push({ text: `📄 [ ${idx + 1} / ${total} ]`, callback_data: 'noop_page' });
-    if (idx < total - 1) {
-      navRow.push({ text: 'التالي ➡️', callback_data: `tpage_${idx + 1}` });
-    }
-    inlineButtons.push(navRow);
-  }
 
-  // Row 4: Resolution & Explore
-  inlineButtons.push([
-    { text: '🛑 لكيت خط خلاص', callback_data: `matched_req_direct_${cleanPhone || 'ok'}` },
-    { text: '🚌 تصفح الكل بالموقع', url: 'https://www.souqbaghdad.store/transport' }
-  ]);
+    // Row 4: Resolution & Explore
+    inlineButtons.push([
+      { text: '🛑 لكيت خط خلاص', callback_data: `matched_req_direct_${cleanPhone || 'ok'}` },
+      { text: '🚌 تصفح الكل بالموقع', url: 'https://www.souqbaghdad.store/transport' }
+    ]);
+  }
 
   return { text: cardText, markup: { inline_keyboard: inlineButtons } };
 }
@@ -896,15 +934,13 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
 
     if (isGroup) {
       const driverMsg = 
-        `👋 <b>يا هلا بالسائق العزيز كابتن ${fromName} 🚌✨</b>\n\n` +
-        `⚠️ <b>تنبيه مهم:</b> الكتابة داخل الكروب لا تسجل خطك بالنظام ولن تصلك طلبات وحجوزات الركاب والطلاب!\n\n` +
-        `🚀 <b>انشر خطك مرة واحدة فقط عبر البوت بالخاص (9 خطوات سريعة)</b> لتثبيته في القنوات والموقع وتصلك طلبات وحجوزات الطلاب تلقائياً:\n` +
-        `👇 اضغط على الزر أدناه لبدء النشر مجاناً:`;
+        `👋 <b>يا هلا كابتن ${fromName} 🚌</b>\n` +
+        `لتثبيت خطك وتصلك حجوزات الطلاب تلقائياً، انشر خطك بالخاص بضغطة واحدة 👇`;
 
       const providerMarkup = {
         inline_keyboard: [
-          [{ text: '🚌 نشر وتثبيت الخط بالخاص (9 خطوات) 🌹', url: `https://t.me/${BOT_USERNAME}?start=publish_transport` }],
-          [{ text: '🌐 انشر خطك بالموقع مجاناً', url: 'https://www.souqbaghdad.store/post-ad' }]
+          [{ text: '➕ نشر وتثبيت خطي بالخاص 🌹', url: `https://t.me/${BOT_USERNAME}?start=publish_transport` }],
+          [{ text: '🌐 النشر عبر الموقع', url: 'https://www.souqbaghdad.store/post-ad' }]
         ]
       };
       await sendOrReplaceGroupMessage(chatId, driverMsg, providerMarkup, supabase, userMessageId);
@@ -9631,9 +9667,15 @@ Deno.serve(async (req: any) => {
         const parts = action.replace('matched_req_', '').replace('stop_alert_', '').split('_');
         const reqId = parts[0];
 
+        // 1. Mark request as matched in database
+        if (fromUser?.id) {
+          try {
+            await supabase.from('transport_requests').update({ status: 'matched' }).eq('telegram_user_id', String(fromUser.id)).eq('status', 'pending');
+          } catch(e) {}
+        }
         if (reqId === 'user') {
           await supabase.from('transport_requests').update({ status: 'matched' }).eq('telegram_chat_id', String(chatId)).eq('status', 'pending');
-        } else if (!isNaN(Number(reqId)) || reqId.length >= 10) {
+        } else if (!isNaN(Number(reqId)) || (reqId !== 'direct' && reqId !== 'ok' && reqId.length >= 10)) {
           await supabase.from('transport_requests').update({ status: 'matched' }).eq('id', reqId);
         }
 
@@ -9644,15 +9686,23 @@ Deno.serve(async (req: any) => {
           `❤️ شكراً لاستخدامك منصة سوق بغداد!`;
 
         if (isGroupChat) {
+          // 🔒 In Group: Answer popup alert for the user ONLY + send confirmation to private chat
           if (callbackQueryId) {
-            await answerCallbackQuery(callbackQueryId, '🎉 ألف مبروك! تم تسجيل اتفاقك وإيقاف التنبيهات بنجاح 🌹', true);
+            await answerCallbackQuery(callbackQueryId, '🎉 ألف مبروك! تم تسجيل اتفاقك وإيقاف التنبيهات بحسابك بنجاح 🌹', true);
           }
-          if (callbackMsgId) {
+          if (fromUser?.id) {
             try {
-              await editMessageText(chatId, callbackMsgId, `✅ <b>تم تأكيد الاتفاق بنجاح وإيقاف التنبيهات 🌹</b>\nنتمنى للجميع رحلات موفقة وآمنة.`);
+              await sendMessage(fromUser.id, successReply, {
+                inline_keyboard: [
+                  [{ text: '🚌 تصفح خدمات النقل', url: 'https://www.souqbaghdad.store/transport' }],
+                  [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+                ]
+              });
             } catch(e) {}
           }
+          // Do NOT send or edit messages publicly in the group
         } else {
+          // 💬 In Private: Answer callback + send full success card
           if (callbackQueryId) {
             await answerCallbackQuery(callbackQueryId, '✅ ألف مبروك! تم إيقاف التنبيهات بنجاح.', true);
           }
