@@ -896,17 +896,22 @@ async function finishRadarRegistration(chatId: string | number, origin: string, 
       `🎉 <b>تم تفعيل رادار الخطوط لمسارك بنجاح! 🚌✨</b>\n\n` +
       `📍 <b>منطقة الانطلاق:</b> <b>${origin}</b>\n` +
       `🏢 <b>الوجهة:</b> <b>${destination}</b>\n` +
-      `📡 <b>حالة الرادار:</b> يعمل على مدار الساعة 24/7\n\n` +
+      `📡 <b>حالة الرادار:</b> نشط ويعمل على مدار الساعة 24/7\n\n` +
       `🔥 <b>ولحسن الحظ، وجدنا لك (${matchedLines.length}) خطوط متوفرة حالياً لمسارك! تصفحها أدناه:</b>`;
+
+    const noticeBtns = [
+      [{ text: '📋 مساراتي وتنبيهاتي المسجلة', callback_data: 'manage_my_routes' }],
+      [{ text: '➕ تسجيل مسار إضافي 🔔', callback_data: 'start_route_radar' }]
+    ];
 
     if (callbackMsgId) {
       try {
-        await editMessageText(chatId, callbackMsgId, noticeText);
+        await editMessageText(chatId, callbackMsgId, noticeText, { inline_keyboard: noticeBtns });
       } catch(e) {
-        await sendMessage(chatId, noticeText);
+        await sendMessage(chatId, noticeText, { inline_keyboard: noticeBtns });
       }
     } else {
-      await sendMessage(chatId, noticeText);
+      await sendMessage(chatId, noticeText, { inline_keyboard: noticeBtns });
     }
     const card = buildTransportCard(matchedLines, 0, fromName, origin, destination, false);
     await sendMessage(chatId, card.text, card.markup);
@@ -7569,6 +7574,8 @@ Deno.serve(async (req: any) => {
     const isPublicAction = 
       !text || 
       text.startsWith('tpage_') || 
+      text.startsWith('rpage_') ||
+      text.startsWith('search_route_') ||
       text === 'noop_page' || 
       text.startsWith('seeker_dest_') || 
       text === 'start_route_radar' ||
@@ -7611,8 +7618,13 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
-      // 📋 MANAGE MY REGISTERED ROUTES (رادار المسارات)
-      if (action === 'manage_my_routes') {
+      // 📋 MANAGE MY REGISTERED ROUTES (عرض تفاعلي بنظام السابق والتالي لرسالة واحدة)
+      if (action === 'manage_my_routes' || action.startsWith('rpage_')) {
+        let pageIdx = 0;
+        if (action.startsWith('rpage_')) {
+          pageIdx = parseInt(action.replace('rpage_', '')) || 0;
+        }
+
         const userTgId = fromUser?.id ? String(fromUser.id) : '';
         const userChatIdStr = String(chatId);
         let orFilters = [`telegram_chat_id.eq.${userChatIdStr}`];
@@ -7645,26 +7657,55 @@ Deno.serve(async (req: any) => {
           );
         }
 
-        let routesMsg = `🔔 <b>مساراتي وتنبيهاتي المسجلة في رادار الخطوط (${activeReqs.length} نشطة):</b>\n\n` +
-          `📡 <b>حالة الرادار:</b> يعمل على مدار الساعة 24/7 لمطابقة الخطوط الجديدة فور نشرها من الكباتن.\n\n` +
-          `━━━━━━━━━━━━━━━━━━\n`;
+        // Group & Deduplicate active routes by origin + destination
+        const uniqueActiveMap = new Map<string, any>();
+        activeReqs.forEach((r: any) => {
+          const key = `${cleanLoc(r.origin)}->${cleanLoc(r.destination || '')}`;
+          if (!uniqueActiveMap.has(key)) {
+            uniqueActiveMap.set(key, r);
+          }
+        });
+        const displayActiveReqs = Array.from(uniqueActiveMap.values());
+        const total = displayActiveReqs.length;
+        const curIdx = Math.max(0, Math.min(pageIdx, total - 1));
+        const curRoute = displayActiveReqs[curIdx];
+
+        const dateStr = curRoute.created_at ? new Date(curRoute.created_at).toLocaleDateString('ar-IQ') : '';
+        
+        let cardText = 
+          `🔔 <b>مساراتي وتنبيهاتي المسجلة [ ${curIdx + 1} من ${total} ] 🚌📡</b>\n\n` +
+          `━━━━━━━━━━━━━━━━━━\n` +
+          `📍 <b>منطقة الانطلاق:</b> <b>${curRoute.origin}</b>\n` +
+          `🏢 <b>الوجهة / الكلية:</b> <b>${curRoute.destination || 'الجامعة'}</b>\n` +
+          `🟢 <b>حالة التنبيه:</b> نشط (تصلك الإشعارات بالخاص فوراً ⚡)\n` +
+          (dateStr ? `📅 <b>تاريخ التسجيل:</b> ${dateStr}\n` : '') +
+          `━━━━━━━━━━━━━━━━━━\n\n` +
+          `📡 <i>الرادار يعمل 24/7 لمطابقة الخطوط الجديدة فور نشرها من الكباتن وإرسالها لك مباشرة.</i>`;
 
         const routeButtons: any[][] = [];
 
-        activeReqs.forEach((r: any, idx: number) => {
-          const dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('ar-IQ') : '';
-          routesMsg += 
-            `<b>${idx + 1}️⃣ المسار:</b> 📍 من <b>${r.origin}</b> ⬅️ إلى 🏢 <b>${r.destination || 'الجامعة'}</b>\n` +
-            `🟢 <b>حالة التنبيه:</b> نشط (تصلك الإشعارات بالخاص فوراً ⚡)\n` +
-            (dateStr ? `📅 <b>تاريخ التسجيل:</b> ${dateStr}\n` : '') +
-            `━━━━━━━━━━━━━━━━━━\n`;
+        // Row 1: Search live driver lines & Delete route
+        routeButtons.push([
+          { text: `🔍 فحص الخطوط لـ [${curRoute.origin}] 🚌`, callback_data: `search_route_${curRoute.id}` }
+        ]);
+        routeButtons.push([
+          { text: `🛑 إيقاف وحذف هذا المسار`, callback_data: `del_route_req_${curRoute.id}_${curIdx}` }
+        ]);
 
-          routeButtons.push([
-            { text: `🔍 فحص الخطوط المتوفرة لـ [${r.origin}]`, callback_data: `search_route_${r.id}` },
-            { text: `🛑 إيقاف وحذف`, callback_data: `del_route_req_${r.id}` }
-          ]);
-        });
+        // Row 2: Pagination (السابق / التالي) if multiple routes
+        if (total > 1) {
+          const navRow: any[] = [];
+          if (curIdx > 0) {
+            navRow.push({ text: '⬅️ السابق', callback_data: `rpage_${curIdx - 1}` });
+          }
+          navRow.push({ text: `📄 [ ${curIdx + 1} / ${total} ]`, callback_data: 'noop_page' });
+          if (curIdx < total - 1) {
+            navRow.push({ text: 'التالي ➡️', callback_data: `rpage_${curIdx + 1}` });
+          }
+          routeButtons.push(navRow);
+        }
 
+        // Row 3: Add new route & Main Menu
         routeButtons.push([
           { text: '➕ تسجيل مسار إضافي 🔔', callback_data: 'start_route_radar' }
         ]);
@@ -7673,7 +7714,154 @@ Deno.serve(async (req: any) => {
         }
         routeButtons.push([{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]);
 
-        return await updateOrSend(routesMsg, { inline_keyboard: routeButtons });
+        return await updateOrSend(cardText, { inline_keyboard: routeButtons });
+      }
+
+      // 🛑 Delete / Stop Route Handler
+      if (action.startsWith('del_route_req_')) {
+        const parts = action.replace('del_route_req_', '').split('_');
+        const reqId = parts[0];
+        const prevIdx = parseInt(parts[1]) || 0;
+
+        if (reqId && reqId !== 'user') {
+          await supabase.from('transport_requests').update({ status: 'cancelled' }).eq('id', reqId);
+        }
+        if (callbackQuery?.id) {
+          await answerCallbackQuery(callbackQuery.id, '✅ تم إيقاف التنبيهات وحذف المسار بنجاح 🌹', true);
+        }
+
+        // Refresh routes view in-place
+        const userTgId = fromUser?.id ? String(fromUser.id) : '';
+        const userChatIdStr = String(chatId);
+        let orFilters = [`telegram_chat_id.eq.${userChatIdStr}`];
+        if (userTgId && userTgId !== userChatIdStr) {
+          orFilters.push(`telegram_user_id.eq.${userTgId}`);
+          orFilters.push(`telegram_chat_id.eq.${userTgId}`);
+        }
+        const { data: myReqs } = await supabase
+          .from('transport_requests')
+          .select('*')
+          .or(orFilters.join(','))
+          .order('created_at', { ascending: false });
+
+        const activeReqs = (myReqs || []).filter((r: any) => r.status === 'pending');
+
+        if (activeReqs.length === 0) {
+          return await updateOrSend(
+            '✅ <b>تم إيقاف التنبيهات وحذف المسار بنجاح.</b>\n\n📭 ليس لديك مسارات نشطة مسجلة حالياً.',
+            {
+              inline_keyboard: [
+                [{ text: '➕ تسجيل مسار جديد 🔔', callback_data: 'start_route_radar' }],
+                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+              ]
+            }
+          );
+        }
+
+        // Group & Deduplicate active routes
+        const uniqueActiveMap = new Map<string, any>();
+        activeReqs.forEach((r: any) => {
+          const key = `${cleanLoc(r.origin)}->${cleanLoc(r.destination || '')}`;
+          if (!uniqueActiveMap.has(key)) {
+            uniqueActiveMap.set(key, r);
+          }
+        });
+        const displayActiveReqs = Array.from(uniqueActiveMap.values());
+        const total = displayActiveReqs.length;
+        const curIdx = Math.max(0, Math.min(prevIdx, total - 1));
+        const curRoute = displayActiveReqs[curIdx];
+
+        const dateStr = curRoute.created_at ? new Date(curRoute.created_at).toLocaleDateString('ar-IQ') : '';
+        
+        let cardText = 
+          `🔔 <b>مساراتي وتنبيهاتي المسجلة [ ${curIdx + 1} من ${total} ] 🚌📡</b>\n\n` +
+          `━━━━━━━━━━━━━━━━━━\n` +
+          `📍 <b>منطقة الانطلاق:</b> <b>${curRoute.origin}</b>\n` +
+          `🏢 <b>الوجهة / الكلية:</b> <b>${curRoute.destination || 'الجامعة'}</b>\n` +
+          `🟢 <b>حالة التنبيه:</b> نشط (تصلك الإشعارات بالخاص فوراً ⚡)\n` +
+          (dateStr ? `📅 <b>تاريخ التسجيل:</b> ${dateStr}\n` : '') +
+          `━━━━━━━━━━━━━━━━━━\n\n` +
+          `📡 <i>الرادار يعمل 24/7 لمطابقة الخطوط الجديدة فور نشرها من الكباتن وإرسالها لك مباشرة.</i>`;
+
+        const routeButtons: any[][] = [];
+
+        routeButtons.push([
+          { text: `🔍 فحص الخطوط لـ [${curRoute.origin}] 🚌`, callback_data: `search_route_${curRoute.id}` }
+        ]);
+        routeButtons.push([
+          { text: `🛑 إيقاف وحذف هذا المسار`, callback_data: `del_route_req_${curRoute.id}_${curIdx}` }
+        ]);
+
+        if (total > 1) {
+          const navRow: any[] = [];
+          if (curIdx > 0) {
+            navRow.push({ text: '⬅️ السابق', callback_data: `rpage_${curIdx - 1}` });
+          }
+          navRow.push({ text: `📄 [ ${curIdx + 1} / ${total} ]`, callback_data: 'noop_page' });
+          if (curIdx < total - 1) {
+            navRow.push({ text: 'التالي ➡️', callback_data: `rpage_${curIdx + 1}` });
+          }
+          routeButtons.push(navRow);
+        }
+
+        routeButtons.push([
+          { text: '➕ تسجيل مسار إضافي 🔔', callback_data: 'start_route_radar' }
+        ]);
+        routeButtons.push([{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]);
+
+        return await updateOrSend(cardText, { inline_keyboard: routeButtons });
+      }
+
+      // 🔍 Instant live search for a registered route
+      if (action.startsWith('search_route_')) {
+        const reqId = action.replace('search_route_', '');
+        const { data: targetReq } = await supabase.from('transport_requests').select('*').eq('id', reqId).maybeSingle();
+        if (targetReq) {
+          const origin = targetReq.origin;
+          const destination = targetReq.destination || '';
+          
+          const { data: activeDrivers } = await supabase
+            .from('ads')
+            .select('*')
+            .eq('status', 'active')
+            .or('category.eq.transport,type.eq.transport');
+
+          const matchedLines = (activeDrivers || []).filter((ad: any) => {
+            const adText = `${ad.title || ''} ${ad.location || ''} ${ad.description || ''}`.toLowerCase();
+            const origMatch = isLocationMatch(origin, adText);
+            const destMatch = !destination || isLocationMatch(destination, adText) || (getCoreLocationKeyword(destination) ? adText.includes(getCoreLocationKeyword(destination)) : false);
+            return origMatch && destMatch;
+          });
+
+          if (matchedLines.length > 0) {
+            const card = buildTransportCard(matchedLines, 0, fromUser?.first_name || 'عزيزي', origin, destination, false);
+            const headerMsg = 
+              `🎯 <b>وجدنا لك (${matchedLines.length}) خطوط متوفرة حالياً لمسارك! 🚌✨</b>\n\n` +
+              `📍 <b>منطقة الانطلاق:</b> <b>${origin}</b>\n` +
+              `🏢 <b>الوجهة:</b> <b>${destination || 'الجامعة'}</b>\n\n` +
+              `👇 تصفح تفاصيل الخطوط وتواصل مباشرة مع الكباتن:`;
+
+            const headerBtns = [
+              [{ text: '📋 العودة لمساراتي المسجلة', callback_data: 'manage_my_routes' }]
+            ];
+
+            await updateOrSend(headerMsg, { inline_keyboard: headerBtns });
+            await sendMessage(chatId, card.text, card.markup);
+          } else {
+            const noLinesMsg = 
+              `📭 <b>لا توجد حالياً خطوط معروضة تمر بـ (${origin}) مباشرة.</b>\n\n` +
+              `📡 <b>رادارك الذكي نشط 24/7:</b> أول ما يسجل أي كابتن خطاً يمر بمنطقتك، سنرسل لك إشعاراً فورياً على الخاص مع رقم الكابتن وزر الحجز المباشر ⚡`;
+
+            const noLinesBtns = [
+              [{ text: '📋 مساراتي وتنبيهاتي المسجلة', callback_data: 'manage_my_routes' }],
+              [{ text: '➕ تسجيل مسار إضافي 🔔', callback_data: 'start_route_radar' }],
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ];
+
+            await updateOrSend(noLinesMsg, { inline_keyboard: noLinesBtns });
+          }
+          return new Response('OK', { status: 200 });
+        }
       }
 
       // Step 1: Area Picked for Radar
@@ -9493,149 +9681,9 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
-      // ==========================================
-      // 🔔 MANAGE MY REGISTERED ROUTES (رادار المسارات)
-      // ==========================================
-      if (action === 'manage_my_routes') {
-        const userTgId = fromUser?.id ? String(fromUser.id) : '';
-        const userChatIdStr = String(chatId);
-        let orFilter = `telegram_chat_id.eq.${userChatIdStr}`;
-        if (userTgId && userTgId !== userChatIdStr) {
-          orFilter += `,telegram_user_id.eq.${userTgId}`;
-        }
-        const { data: myReqs } = await supabase
-          .from('transport_requests')
-          .select('*')
-          .or(orFilter)
-          .order('created_at', { ascending: false });
 
-        const activeReqs = (myReqs || []).filter((r: any) => r.status === 'pending');
-        const closedReqs = (myReqs || []).filter((r: any) => r.status === 'matched' || r.status === 'notified' || r.status === 'cancelled');
 
-        if (activeReqs.length === 0) {
-          const emptyRows: any[][] = [
-            [{ text: '➕ تسجيل مسار جديد لتلقي التنبيهات 🔔', callback_data: 'start_route_radar' }]
-          ];
-          if (closedReqs.length > 0) {
-            emptyRows.push([{ text: `📂 المسارات السابقة والمؤرشفة (${closedReqs.length})`, callback_data: 'manage_routes_archive' }]);
-          }
-          emptyRows.push([{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]);
 
-          await updateOrSend(
-            '📭 <b>ليس لديك مسارات نشطة مسجلة برادار الخطوط حالياً.</b>\n\n' +
-            '💡 يمكنك تسجيل مسارك المفضل (مثل: من الطالبية إلى كلية الرافدين) وسيقوم رادار سوق بغداد الذكي بتنبيهك فوراً برسالة خاصة أول ما يتوفر أي خط جديد يمر بمنطقتك! ✨',
-            { inline_keyboard: emptyRows }
-          );
-          return new Response('OK', { status: 200 });
-        }
-
-        let routesMsg = `🔔 <b>مساراتي وتنبيهاتي المسجلة في رادار الخطوط (${activeReqs.length} نشطة):</b>\n\n` +
-          `📡 <b>حالة الرادار:</b> يعمل على مدار الساعة 24/7 لمطابقة الخطوط الجديدة فور نشرها من الكباتن.\n\n` +
-          `━━━━━━━━━━━━━━━━━━\n`;
-
-        const routeButtons: any[][] = [];
-
-        activeReqs.forEach((r: any, idx: number) => {
-          const dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('ar-IQ') : '';
-          routesMsg += 
-            `<b>${idx + 1}️⃣ المسار:</b> 📍 من <b>${r.origin}</b> ⬅️ إلى 🏢 <b>${r.destination || 'الجامعة'}</b>\n` +
-            `🟢 <b>حالة التنبيه:</b> نشط (تصلك الإشعارات بالخاص فوراً ⚡)\n` +
-            (dateStr ? `📅 <b>تاريخ التسجيل:</b> ${dateStr}\n` : '') +
-            `━━━━━━━━━━━━━━━━━━\n`;
-
-          routeButtons.push([
-            { text: `🔍 فحص الخطوط المتوفرة لـ [${r.origin}]`, callback_data: `search_route_${r.id}` },
-            { text: `🛑 إيقاف وحذف`, callback_data: `del_route_req_${r.id}` }
-          ]);
-        });
-
-        routeButtons.push([
-          { text: '➕ تسجيل مسار إضافي 🔔', callback_data: 'start_route_radar' }
-        ]);
-        if (closedReqs.length > 0) {
-          routeButtons.push([{ text: `📂 المسارات السابقة والمؤرشفة (${closedReqs.length})`, callback_data: 'manage_routes_archive' }]);
-        }
-        routeButtons.push([{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]);
-
-        await updateOrSend(routesMsg, { inline_keyboard: routeButtons });
-        return new Response('OK', { status: 200 });
-      }
-
-      // 🔍 Instant live search for a registered route
-      if (action.startsWith('search_route_')) {
-        const reqId = action.replace('search_route_', '');
-        const { data: targetReq } = await supabase.from('transport_requests').select('*').eq('id', reqId).maybeSingle();
-        if (targetReq) {
-          await handleSmartTransportSearch(chatId, `خط من ${targetReq.origin} إلى ${targetReq.destination || 'كلية الرافدين'}`, fromUser, supabase, false);
-          return new Response('OK', { status: 200 });
-        }
-      }
-
-      // Stop / Delete registered route
-      if (action.startsWith('del_route_req_')) {
-        const reqId = action.replace('del_route_req_', '');
-        await supabase.from('transport_requests').update({ status: 'matched' }).eq('id', reqId);
-        if (callbackQueryId) {
-          await answerCallbackQuery(callbackQueryId, '✅ تم إيقاف التنبيهات وحذف المسار بنجاح 🌹', true);
-        }
-        
-        // Refresh routes list
-        const userTgId = fromUser?.id ? String(fromUser.id) : '';
-        const userChatIdStr = String(chatId);
-        let orFilter = `telegram_chat_id.eq.${userChatIdStr}`;
-        if (userTgId && userTgId !== userChatIdStr) {
-          orFilter += `,telegram_user_id.eq.${userTgId}`;
-        }
-        const { data: myReqs } = await supabase
-          .from('transport_requests')
-          .select('*')
-          .or(orFilter)
-          .order('created_at', { ascending: false });
-
-        const activeReqs = (myReqs || []).filter((r: any) => r.status === 'pending');
-        const closedReqs = (myReqs || []).filter((r: any) => r.status === 'matched' || r.status === 'notified' || r.status === 'cancelled');
-
-        if (activeReqs.length === 0) {
-          await updateOrSend(
-            '✅ <b>تم إيقاف التنبيهات بنجاح.</b>\n\n📭 ليس لديك مسارات نشطة مسجلة حالياً.',
-            {
-              inline_keyboard: [
-                [{ text: '➕ تسجيل مسار جديد 🔔', callback_data: 'start_route_radar' }],
-                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
-              ]
-            }
-          );
-          return new Response('OK', { status: 200 });
-        }
-
-        let routesMsg = `🔔 <b>مساراتي وتنبيهاتي المسجلة في رادار الخطوط (${activeReqs.length} نشطة):</b>\n\n` +
-          `📡 <b>حالة الرادار:</b> يعمل على مدار الساعة 24/7 لمطابقة الخطوط الجديدة فور نشرها من الكباتن.\n\n` +
-          `━━━━━━━━━━━━━━━━━━\n`;
-
-        const routeButtons: any[][] = [];
-        activeReqs.forEach((r: any, idx: number) => {
-          const dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('ar-IQ') : '';
-          routesMsg += 
-            `<b>${idx + 1}️⃣ المسار:</b> 📍 من <b>${r.origin}</b> ⬅️ إلى 🏢 <b>${r.destination || 'الجامعة'}</b>\n` +
-            `🟢 <b>حالة التنبيه:</b> نشط (تصلك الإشعارات بالخاص فوراً ⚡)\n` +
-            (dateStr ? `📅 <b>تاريخ التسجيل:</b> ${dateStr}\n` : '') +
-            `━━━━━━━━━━━━━━━━━━\n`;
-
-          routeButtons.push([
-            { text: `🔍 فحص الخطوط المتوفرة لـ [${r.origin}]`, callback_data: `search_route_${r.id}` },
-            { text: `🛑 إيقاف وحذف`, callback_data: `del_route_req_${r.id}` }
-          ]);
-        });
-
-        routeButtons.push([{ text: '➕ تسجيل مسار إضافي 🔔', callback_data: 'start_route_radar' }]);
-        if (closedReqs.length > 0) {
-          routeButtons.push([{ text: `📂 المسارات السابقة والمؤرشفة (${closedReqs.length})`, callback_data: 'manage_routes_archive' }]);
-        }
-        routeButtons.push([{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]);
-
-        await updateOrSend(routesMsg, { inline_keyboard: routeButtons });
-        return new Response('OK', { status: 200 });
-      }
 
       // Add route prompt
       if (action === 'add_route_req') {
