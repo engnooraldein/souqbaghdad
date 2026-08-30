@@ -7803,39 +7803,17 @@ Deno.serve(async (req: any) => {
       return new Response('OK', { status: 200 });
     }
 
-    // Actions that allow public browsing, pagination, radar, and seat booking without prior phone registration
-    const isPublicAction = 
-      !text || 
-      text.startsWith('tpage_') || 
-      text.startsWith('rpage_') ||
-      text.startsWith('search_route_') ||
-      text === 'noop_page' || 
-      text === 'set_role_passenger' ||
-      text === 'set_role_driver' ||
-      text === 'change_my_role' ||
-      text.startsWith('seeker_dest_') || 
-      text === 'start_route_radar' ||
-      text.startsWith('rad_a_') ||
-      text.startsWith('rad_d_') ||
-      text === 'manage_my_routes' ||
-      text.startsWith('del_route_req_') ||
-      text === 'add_route_req' ||
-      text === 'manage_routes_archive' ||
-      text.startsWith('req_seat_') || 
-      text.startsWith('accept_booking_') || 
-      text.startsWith('reject_booking_') || 
-      text.startsWith('matched_req_') || 
-      text.startsWith('stop_alert_') || 
-      text.startsWith('driver_seat_booked_') ||
-      text === 'main_menu' || 
-      text === 'check_subscription' ||
-      text === 'cancel_wizard' ||
-      isGroup;
+    // Publishing wizard actions require phone registration
+    const isPublishAction = 
+      text === 'publish_car' || 
+      text === 'publish_transport' || 
+      text === 'publish_product' || 
+      text === 'publish_choose';
 
-    if (!userId && !isPublicAction) {
-      if (callbackQuery) await answerCallbackQuery(callbackQuery.id, 'يجب تفعيل الحساب برقم الهاتف أولاً');
+    if (!userId && isPublishAction) {
+      if (callbackQuery) await answerCallbackQuery(callbackQuery.id, 'يرجى تفعيل رقم الهاتف أولاً لنشر الإعلانات', true);
       if (!isGroup) {
-        await sendMessage(chatId, '⚠️ يرجى إرسال رقم هاتفك للبدء بالنشر.\nأرسل /start');
+        await sendMessage(chatId, '⚠️ <b>يرجى تفعيل حسابك برقم الهاتف أولاً لنشر الإعلانات.</b>\nأرسل /start للبدء.');
       }
       return new Response('OK', { status: 200 });
     }
