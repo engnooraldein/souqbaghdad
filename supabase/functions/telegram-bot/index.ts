@@ -643,7 +643,69 @@ function isLocationMatch(userLoc: string, adLoc: string): boolean {
   return false;
 }
 
-function buildTransportCard(lines: any[], pageIndex: number, fromName: string, origin: string, destination: string, isGroup = false) {
+function isDestinationMatch(targetDest: string, adText: string, adCity = ''): boolean {
+  if (!targetDest || targetDest === 'الجامعة' || targetDest === 'غير محدد') return true;
+  
+  const fullAd = `${adCity} ${adText}`.toLowerCase()
+    .replace(/[إأآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي');
+
+  const cleanTarget = targetDest.toLowerCase()
+    .replace(/[إأآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/^(كليه|جامعه|معهد|الجامعه|الكليه|المعهد)\s+/, '')
+    .trim();
+
+  // Known Universities in Baghdad
+  const colleges: { [key: string]: string[] } = {
+    'اسراء': ['اسراء', 'israa'],
+    'رافدين': ['رافدين', 'rafidain', 'ruc'],
+    'مستنصريه': ['مستنصريه', 'mustansiriyah'],
+    'بغداد': ['جامعه بغداد', 'الجادريه', 'باب المعظم', 'طب بغداد', 'هندسه بغداد'],
+    'تكنولوجيه': ['تكنولوجيه', 'uot'],
+    'نهرين': ['نهرين', 'nahrain'],
+    'فراهيدي': ['فراهيدي', 'faraheedi'],
+    'تراث': ['تراث', 'turath'],
+    'اوروك': ['اوروك', 'uruk'],
+    'مامون': ['مامون', 'مأمون', 'mamoun'],
+    'دجله': ['دجله', 'dijlah'],
+    'بيان': ['بيان', 'bayan'],
+    'عراقيه': ['عراقيه', 'iraqia'],
+    'فارابي': ['فارابي', 'farabi'],
+    'سلام': ['جامعه السلام', 'كليه السلام'],
+    'معارف': ['معارف'],
+    'حكمه': ['حكمه', 'حكمة'],
+    'مشرق': ['مشرق'],
+    'مستقبل': ['مستقبل']
+  };
+
+  // Check if target is a known distinct university
+  for (const [colKey, aliases] of Object.entries(colleges)) {
+    if (aliases.some(a => cleanTarget.includes(a))) {
+      // Must match one of target university aliases
+      return aliases.some(a => fullAd.includes(a));
+    }
+  }
+
+  // Direct word match if other destination
+  if (cleanTarget.length >= 3) {
+    return fullAd.includes(cleanTarget);
+  }
+
+  return false;
+}
+
+function buildTransportCard(
+  lines: any[], 
+  pageIndex: number, 
+  fromName: string, 
+  origin: string, 
+  destination: string, 
+  isGroup = false,
+  reqId = ''
+) {
   const total = lines.length;
   const idx = Math.max(0, Math.min(pageIndex, total - 1));
   const l = lines[idx];
@@ -677,6 +739,9 @@ function buildTransportCard(lines: any[], pageIndex: number, fromName: string, o
   let cardText = '';
   const inlineButtons: any[][] = [];
 
+  const prevCb = reqId ? `tpage_${reqId}_${idx - 1}` : `tpage_${idx - 1}`;
+  const nextCb = reqId ? `tpage_${reqId}_${idx + 1}` : `tpage_${idx + 1}`;
+
   if (isGroup) {
     // 📱 ULTRA-COMPACT MINI CARD FOR PUBLIC GROUPS (صغيرة ومختصرة جداً لمنع الفوضى بكروب)
     cardText = 
@@ -702,11 +767,11 @@ function buildTransportCard(lines: any[], pageIndex: number, fromName: string, o
     if (total > 1) {
       const navRow: any[] = [];
       if (idx > 0) {
-        navRow.push({ text: '⬅️ السابق', callback_data: `tpage_${idx - 1}` });
+        navRow.push({ text: '⬅️ السابق', callback_data: prevCb });
       }
       navRow.push({ text: `📄 [ ${idx + 1} / ${total} ]`, callback_data: 'noop_page' });
       if (idx < total - 1) {
-        navRow.push({ text: 'التالي ➡️', callback_data: `tpage_${idx + 1}` });
+        navRow.push({ text: 'التالي ➡️', callback_data: nextCb });
       }
       inlineButtons.push(navRow);
     }
@@ -8062,16 +8127,16 @@ Deno.serve(async (req: any) => {
             .or('category.eq.transport,type.eq.transport');
 
           const matchedLines = (activeDrivers || []).filter((ad: any) => {
-            const adText = `${ad.title || ''} ${ad.location || ''} ${ad.description || ''}`.toLowerCase();
+            const adText = `${ad.title || ''} ${ad.location || ''} ${ad.description || ''}`;
             const origMatch = isLocationMatch(origin, adText);
-            const destMatch = !destination || isLocationMatch(destination, adText) || (getCoreLocationKeyword(destination) ? adText.includes(getCoreLocationKeyword(destination)) : false);
+            const destMatch = isDestinationMatch(destination, adText, ad.city || '');
             return origMatch && destMatch;
           });
 
           if (matchedLines.length > 0) {
-            const card = buildTransportCard(matchedLines, 0, fromUser?.first_name || 'عزيزي', origin, destination, false);
+            const card = buildTransportCard(matchedLines, 0, fromUser?.first_name || 'عزيزي', origin, destination, false, reqId);
             const headerMsg = 
-              `🎯 <b>وجدنا لك (${matchedLines.length}) خطوط متوفرة حالياً لمسارك! 🚌✨</b>\n\n` +
+              `🎯 <b>وجدنا لك (${matchedLines.length}) خطوط متوفرة لمسارك! 🚌✨</b>\n\n` +
               `📍 <b>منطقة الانطلاق:</b> <b>${origin}</b>\n` +
               `🏢 <b>الوجهة:</b> <b>${destination || 'الجامعة'}</b>\n\n` +
               `👇 تصفح تفاصيل الخطوط وتواصل مباشرة مع الكباتن:`;
@@ -10139,54 +10204,59 @@ Deno.serve(async (req: any) => {
       // 📄 Seamless In-Place Transport Pagination (السابق / التالي للخطوط)
       if (action.startsWith('tpage_')) {
         const parts = action.split('_');
-        const targetPage = parseInt(parts[1], 10) || 0;
+        let targetReqId = '';
+        let targetPage = 0;
+
+        if (parts.length >= 3) {
+          targetReqId = parts[1];
+          targetPage = parseInt(parts[2], 10) || 0;
+        } else {
+          targetPage = parseInt(parts[1], 10) || 0;
+        }
         
-        let linesList = state.matched_lines;
-        let sName = state.seeker_name || fromUser?.first_name || 'عزيزنا';
-        let sOrig = state.seeker_origin || state.last_origin || 'بغداد';
-        let sDest = state.seeker_destination || state.last_dest || 'كلية الرافدين الجامعة';
+        let sName = fromUser?.first_name || 'عزيزنا';
+        let sOrig = state.seeker_origin || state.last_origin || '';
+        let sDest = state.seeker_destination || state.last_dest || '';
 
-        // Fallback: If state was cleared or missing in session, query directly from DB!
-        if (!linesList || !Array.isArray(linesList) || linesList.length === 0) {
-          const { data: allActiveLines } = await supabase
-            .from('ads')
-            .select('*')
-            .eq('category', 'transport')
-            .eq('status', 'active')
-            .order('created_at', { ascending: false })
-            .limit(60);
-
-          const activeDriverLines = (allActiveLines || []).filter((ad: any) => {
-            const t = (ad.title || '').toLowerCase();
-            const isStudentRequest = t.includes('ابحث') || t.includes('أبحث') || t.includes('محتاج') || t.includes('ادور');
-            const isCompleted = ad.status === 'sold' || ad.status === 'matched' || ad.status === 'archived' || ad.status === 'closed';
-            return !isStudentRequest && !isCompleted;
-          });
-
-          if (sOrig && sDest) {
-            const coreDest = getCoreLocationKeyword(sDest);
-            linesList = activeDriverLines.filter((ad: any) => {
-              const fullAdText = `${ad.title || ''} ${ad.location || ''} ${ad.city || ''} ${ad.description || ''}`.toLowerCase();
-              const coreDestMatch = !coreDest || fullAdText.includes(coreDest) || getCoreLocationKeyword(ad.city || '') === coreDest;
-              const originMatch = isLocationMatch(sOrig, fullAdText) || fullAdText.includes(sOrig.toLowerCase());
-              return originMatch && coreDestMatch;
-            });
-            if (linesList.length === 0) {
-              linesList = activeDriverLines.filter((ad: any) => {
-                const fullAdText = `${ad.title || ''} ${ad.location || ''} ${ad.city || ''} ${ad.description || ''}`.toLowerCase();
-                return isLocationMatch(sOrig, fullAdText) || fullAdText.includes(sOrig.toLowerCase());
-              });
-            }
-          } else {
-            linesList = activeDriverLines;
+        // If request ID is present, fetch the exact registered route details
+        if (targetReqId && targetReqId !== 'all') {
+          const { data: tReq } = await supabase.from('transport_requests').select('*').eq('id', targetReqId).maybeSingle();
+          if (tReq) {
+            sOrig = tReq.origin || sOrig;
+            sDest = tReq.destination || sDest;
           }
+        }
+
+        const { data: allActiveLines } = await supabase
+          .from('ads')
+          .select('*')
+          .eq('status', 'active')
+          .or('category.eq.transport,type.eq.transport')
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        const activeDriverLines = (allActiveLines || []).filter((ad: any) => {
+          const t = (ad.title || '').toLowerCase();
+          const isStudentRequest = t.includes('ابحث') || t.includes('أبحث') || t.includes('محتاج') || t.includes('ادور');
+          const isCompleted = ad.status === 'sold' || ad.status === 'matched' || ad.status === 'archived' || ad.status === 'closed';
+          return !isStudentRequest && !isCompleted;
+        });
+
+        let linesList = activeDriverLines;
+        if (sOrig || sDest) {
+          linesList = activeDriverLines.filter((ad: any) => {
+            const fullAdText = `${ad.title || ''} ${ad.location || ''} ${ad.city || ''} ${ad.description || ''}`;
+            const origMatch = !sOrig || isLocationMatch(sOrig, fullAdText);
+            const destMatch = !sDest || isDestinationMatch(sDest, fullAdText, ad.city || '');
+            return origMatch && destMatch;
+          });
         }
 
         const targetMsgId = messageId || callbackMsgId || callbackQuery?.message?.message_id;
 
         if (linesList && linesList.length > 0 && targetMsgId) {
           const isGroupChat = Number(chatId) < 0;
-          const card = buildTransportCard(linesList, targetPage, sName, sOrig, sDest, isGroupChat);
+          const card = buildTransportCard(linesList, targetPage, sName, sOrig, sDest, isGroupChat, targetReqId);
           await editMessageText(chatId, targetMsgId, card.text, card.markup);
           if (callbackQueryId) {
             await answerCallbackQuery(callbackQueryId);
