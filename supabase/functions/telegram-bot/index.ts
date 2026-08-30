@@ -7299,6 +7299,31 @@ Deno.serve(async (req: any) => {
       if (lineAd) {
         const cleanPhone = (lineAd.phone || '').replace(/[^0-9+]/g, '');
         let waPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
+
+        // 🛡️ Check if the user clicking is the captain himself!
+        let isCaptain = false;
+        if (lineAd.seller_id && userId && lineAd.seller_id === userId) isCaptain = true;
+        if (cleanPhone && userPhone && cleanPhone.replace(/\D/g, '').endsWith(userPhone.replace(/\D/g, '').slice(-8))) isCaptain = true;
+
+        if (isCaptain) {
+          const ownerMsg = 
+            `👋 <b>يا هلا بكابتنا الغالي ${studentName}! 🌹</b>\n\n` +
+            `🚌 <b>هذا إعلان خطك أنت:</b> ${lineAd.title}\n` +
+            `📍 <b>المسار:</b> ${lineAd.location} ⬅️ ${lineAd.city}\n\n` +
+            `😄 <i>لا يمكنك حجز مقعد لنفسك في خطك الخاص!</i>\n` +
+            `إذا أردت إدارة خطك أو إغلاقه عند اكتمال عدد الركاب، يمكنك استخدام الأزرار أدناه 👇:`;
+
+          const ownerBtns = [
+            [{ text: '🔒 إغلاق الخط (اكتمل العدد)', callback_data: `solve_trans_${lineAd.id}` }],
+            [{ text: '👥 عرض الطلاب المحتاجين لخطك فوراً 🎯', callback_data: `match_students_${lineAd.id}` }],
+            [{ text: '🚌 إدارة خطوطي النشطة', callback_data: 'manage_cat_trans' }],
+            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+          ];
+
+          await updateOrSend(ownerMsg, { inline_keyboard: ownerBtns });
+          return new Response('OK', { status: 200 });
+        }
+
         const randomNum = Math.floor(1000 + Math.random() * 9000);
         const bookingCode = `SEAT-${randomNum}`;
 
@@ -9324,17 +9349,15 @@ Deno.serve(async (req: any) => {
             const cleanPhone = cleanDisplayPhone;
             let formattedPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
 
-            const contactRow = [];
-            if (formattedPhone) {
-              contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${formattedPhone}` });
-              
-            }
-
             const channelKeyboard = [
-              [{ text: '🌐 التفاصيل الكاملة وحجز المقعد', url: link }]
+              [{ text: '📩 مراسلة وحجز مقعد عبر تليكرام ⚡', url: `https://t.me/${BOT_USERNAME}?start=book_${insertedTrans.id}` }],
+              [{ text: '💬 واتساب الكابتن 🟢', url: `https://wa.me/${formattedPhone}?text=${encodeURIComponent('السلام عليكم كابتن، شفت خطك بسوق بغداد وحاب استفسر عن حجز مقعد')}` }],
+              [
+                { text: '🔔 رادار تنبيهات الخطوط 24/7', url: `https://t.me/${BOT_USERNAME}?start=radar` },
+                { text: '🚌 تفاصيل الخط بالموقع 🌐', url: link }
+              ],
+              [{ text: '🚌 انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}` }]
             ];
-            if (contactRow.length > 0) channelKeyboard.push(contactRow);
-            channelKeyboard.push([{ text: '🚌 انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}` }]);
 
             const channelMsg = `🚌 <b>إعلان خط نقل جديد — سوق بغداد</b>\n\n` +
                                `📌 <b>النوع:</b> ${typeStr}\n` +
@@ -9987,9 +10010,37 @@ Deno.serve(async (req: any) => {
         }
         const { data: lineAd } = await adQuery.maybeSingle();
 
+        const cleanPhone = (lineAd?.phone || '').replace(/[^0-9+]/g, '');
+
+        // 🛡️ Check if the user clicking is the captain himself!
+        let isCaptain = false;
+        if (lineAd?.seller_id && userId && lineAd.seller_id === userId) isCaptain = true;
+        if (cleanPhone && userPhone && cleanPhone.replace(/\D/g, '').endsWith(userPhone.replace(/\D/g, '').slice(-8))) isCaptain = true;
+
+        if (isCaptain) {
+          if (callbackQueryId) {
+            await answerCallbackQuery(callbackQueryId, '😄 يا هلا كابتن! هذا خطك الخاص، لا يمكنك حجز مقعد لنفسك 🌹', true);
+          }
+          const ownerMsg = 
+            `👋 <b>يا هلا بكابتنا الغالي! 🌹</b>\n\n` +
+            `🚌 <b>هذا إعلان خطك أنت:</b> ${lineAd?.title || 'خط نقل'}\n` +
+            `📍 <b>المسار:</b> ${lineAd?.location || ''} ⬅️ ${lineAd?.city || ''}\n\n` +
+            `😄 <i>لا يمكنك إرسال طلب حجز مقعد لنفسك!</i>\n` +
+            `لإدارة خطك أو إغلاقه عند اكتمال عدد الركاب، اختر من الأزرار أدناه 👇:`;
+
+          const ownerBtns = [
+            [{ text: '🔒 إغلاق الخط (اكتمل العدد)', callback_data: `solve_trans_${lineAd?.id}` }],
+            [{ text: '👥 عرض الطلاب المحتاجين لخطك فوراً 🎯', callback_data: `match_students_${lineAd?.id}` }],
+            [{ text: '🚌 إدارة خطوطي النشطة', callback_data: 'manage_cat_trans' }],
+            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+          ];
+
+          await updateOrSend(ownerMsg, { inline_keyboard: ownerBtns });
+          return new Response('OK', { status: 200 });
+        }
+
         const studentName = fromUser?.first_name || 'راكبة';
         const studentHandle = fromUser?.username ? `@${fromUser.username}` : '';
-        const cleanPhone = (lineAd?.phone || '').replace(/[^0-9+]/g, '');
         let waPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
 
         // 🏷️ Generate Unique Digital Booking Code (مثال: #SEAT-7492)
@@ -10144,24 +10195,37 @@ Deno.serve(async (req: any) => {
         // 3. Notify Passenger on private Telegram chat!
         if (booking?.passenger_chat_id) {
           try {
+            // Find captain username from telegram_users or current sender
+            let capUsername = fromUser?.username ? `@${fromUser.username}` : '';
+            if (!capUsername && booking.captain_chat_id) {
+              const { data: capUser } = await supabase
+                .from('telegram_users')
+                .select('username')
+                .eq('telegram_chat_id', booking.captain_chat_id)
+                .maybeSingle();
+              if (capUser?.username) capUsername = capUser.username;
+            }
+
             const passAlert = 
               `🎉 <b>ألف مبروك! وافق الكابتن على طلب حجز مقعدك 🚌✨</b>\n\n` +
               `👤 <b>الكابتن:</b> ${booking.captain_name || 'كابتن الخط'}\n` +
               (booking.captain_phone ? `📞 <b>هاتف الكابتن:</b> <code>${booking.captain_phone}</code>\n` : '') +
+              (capUsername ? `💬 <b>معرف تليكرام للكابتن:</b> @${capUsername.replace('@', '')}\n` : '') +
               `📍 <b>المسار:</b> ${booking.route_origin} ⬅️ ${booking.route_destination}\n` +
               `🔖 <b>كود حجزك الرقمي المعتمد:</b> <code>#${bCode}</code>\n\n` +
-              `🛡️ <i>تم توثيق الاتفاق رسمياً لدى إدارة سوق بغداد لضمان أمانك والتزام الكابتن بمواعيد الدوام 🌹</i>`;
+              `🛡️ <i>تم توثيق الاتفاق رسمياً لدى إدارة سوق بغداد لضمان أمانك والتزام الكابتن بمواعيد الدوام 🌹</i>\n` +
+              `👇 <b>تواصل الآن مع الكابتن لتحديد نقطة الركوب ووقت الانطلاق:</b>`;
 
             const passBtns: any[][] = [];
             const cleanCapPhone = (booking.captain_phone || '').replace(/[^0-9+]/g, '');
             let waCapPhone = cleanCapPhone.startsWith('07') ? '964' + cleanCapPhone.substring(1) : cleanCapPhone.replace('+', '');
             
             const passCommRow: any[] = [];
+            if (capUsername) {
+              passCommRow.push({ text: '💬 مراسلة الكابتن بالخاص تليكرام ✈️', url: `https://t.me/${capUsername.replace('@', '')}` });
+            }
             if (waCapPhone) {
               passCommRow.push({ text: '💬 تواصل واتساب مع الكابتن 🟢', url: `https://wa.me/${waCapPhone}?text=${encodeURIComponent(`السلام عليكم كابتن، تم تأكيد حجز مقعدي بكود #${bCode}`)}` });
-            }
-            if (cleanCapPhone) {
-              
             }
             if (passCommRow.length > 0) passBtns.push(passCommRow);
             passBtns.push([{ text: '🛑 إيقاف التنبيهات (حصلت خط خلاص) 🌹', callback_data: `stop_alert_${booking.ad_id || 'user'}` }]);
