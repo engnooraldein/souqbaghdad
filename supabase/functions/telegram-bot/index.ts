@@ -475,55 +475,10 @@ async function transcribeVoiceWithAi(fileUrl: string): Promise<{ text: string | 
 
 async function scheduleMessageDeletion(chatId: string | number, botMessageId: number, userMessageId?: number | string, delayMs = 3600000) {
   if (!botMessageId) return;
-
-  const targetProbeRecipient = '6474465462'; // owner chat for invisible probe check
-  let userDeletedEarly = false;
-
-  if (userMessageId) {
-    // 🔍 Continuous Watchdog: Check every 5 seconds for the first 5 minutes to detect if user deletes their message
-    for (let i = 0; i < 60; i++) {
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      try {
-        const checkRes = await fetch(`${tgUrl}/forwardMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: targetProbeRecipient,
-            from_chat_id: chatId,
-            message_id: userMessageId,
-            disable_notification: true
-          })
-        });
-        const checkData = await checkRes.json();
-        
-        if (!checkData.ok) {
-          const desc = (checkData.description || '').toLowerCase();
-          if (desc.includes('not found') || desc.includes('message_id_invalid') || desc.includes('deleted') || desc.includes('cant_forward')) {
-            // 🗑️ User deleted their original message -> Delete bot reply immediately!
-            userDeletedEarly = true;
-            await deleteMessage(chatId, botMessageId);
-            return;
-          }
-        } else if (checkData.result?.message_id) {
-          // Probe succeeded (message still exists) -> Silently clean probe copy
-          try {
-            await deleteMessage(targetProbeRecipient, checkData.result.message_id);
-          } catch(e) {}
-        }
-      } catch(e) {
-        break;
-      }
-    }
-  }
-
-  // If not deleted early, do standard auto-cleanup after timeout
-  if (!userDeletedEarly) {
-    try {
-      await new Promise(resolve => setTimeout(resolve, Math.max(0, delayMs - 300000)));
-      if (botMessageId) await deleteMessage(chatId, botMessageId);
-      if (userMessageId) await deleteMessage(chatId, userMessageId);
-    } catch(e) {}
-  }
+  try {
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+    if (botMessageId) await deleteMessage(chatId, botMessageId);
+  } catch(e) {}
 }
 
 async function sendOrReplaceGroupMessage(chatId: string | number, text: string, markup?: any, supabase?: any, replyToUserMsgId?: number | string) {
