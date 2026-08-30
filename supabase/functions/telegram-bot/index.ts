@@ -5134,8 +5134,30 @@ Deno.serve(async (req: any) => {
     // Fetch user and state
     const { data: tgUser } = await supabase.from('telegram_users').select('*').eq('telegram_chat_id', chatId).maybeSingle();
     let state = tgUser?.bot_state || {};
-    const userId = tgUser?.user_id;
-    const phone = tgUser?.phone_number;
+    let userId = tgUser?.user_id;
+    let phone = tgUser?.phone_number;
+
+    const tgUsernameLower = (fromUser?.username || '').toLowerCase();
+    const isOwnerByUsername = 
+      tgUsernameLower === 'nooraldeinsbah' || 
+      tgUsernameLower === 'nhuguyg' || 
+      tgUsernameLower === 'nooraldein';
+
+    // Auto-link owner profile if recognized by username
+    if (!userId && isOwnerByUsername) {
+      userId = '1bf7e012-4d5d-46f3-8c2a-2848defffc11';
+      phone = '07701109692';
+      try {
+        await supabase.from('telegram_users').upsert({
+          telegram_chat_id: chatId,
+          user_id: userId,
+          phone_number: phone,
+          user_role: 'driver',
+          bot_state: state
+        }, { onConflict: 'telegram_chat_id' });
+      } catch(e) {}
+    }
+
     // Fetch profile role if user exists
     let userRole = '';
     if (userId) {
@@ -5152,6 +5174,7 @@ Deno.serve(async (req: any) => {
       phone?.includes('7701109692') || 
       userId === '8f660ea2-ec84-401c-a7c6-18a907ef6f76' ||
       userId === '1bf7e012-4d5d-46f3-8c2a-2848defffc11' ||
+      isOwnerByUsername ||
       userRole === 'owner' || 
       userRole === 'admin';
 
