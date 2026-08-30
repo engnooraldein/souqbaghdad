@@ -7602,11 +7602,79 @@ Deno.serve(async (req: any) => {
     if (callbackQuery) {
       let action = callbackQuery.data || text;
       const callbackMsgId = callbackQuery?.message?.message_id;
+      if (callbackQuery.id) {
+        try { await answerCallbackQuery(callbackQuery.id); } catch(e) {}
+      }
       
       // 🔔 START ROUTE RADAR WIZARD (إشعار آلي عند توفر خط بمنطقتي)
       if (action === 'start_route_radar') {
         await showRadarAreaPicker(chatId, supabase, callbackMsgId);
         return new Response('OK', { status: 200 });
+      }
+
+      // 📋 MANAGE MY REGISTERED ROUTES (رادار المسارات)
+      if (action === 'manage_my_routes') {
+        const userTgId = fromUser?.id ? String(fromUser.id) : '';
+        const userChatIdStr = String(chatId);
+        let orFilters = [`telegram_chat_id.eq.${userChatIdStr}`];
+        if (userTgId && userTgId !== userChatIdStr) {
+          orFilters.push(`telegram_user_id.eq.${userTgId}`);
+          orFilters.push(`telegram_chat_id.eq.${userTgId}`);
+        }
+        const { data: myReqs } = await supabase
+          .from('transport_requests')
+          .select('*')
+          .or(orFilters.join(','))
+          .order('created_at', { ascending: false });
+
+        const activeReqs = (myReqs || []).filter((r: any) => r.status === 'pending');
+        const closedReqs = (myReqs || []).filter((r: any) => r.status === 'matched' || r.status === 'notified' || r.status === 'cancelled');
+
+        if (activeReqs.length === 0) {
+          const emptyRows: any[][] = [
+            [{ text: '➕ تسجيل مسار جديد لتلقي التنبيهات 🔔', callback_data: 'start_route_radar' }]
+          ];
+          if (closedReqs.length > 0) {
+            emptyRows.push([{ text: `📂 المسارات السابقة والمؤرشفة (${closedReqs.length})`, callback_data: 'manage_routes_archive' }]);
+          }
+          emptyRows.push([{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]);
+
+          return await updateOrSend(
+            '📭 <b>ليس لديك مسارات نشطة مسجلة برادار الخطوط حالياً.</b>\n\n' +
+            '💡 يمكنك تسجيل مسارك المفضل (مثل: من الطالبية إلى كلية الرافدين) وسيقوم رادار سوق بغداد الذكي بتنبيهك فوراً برسالة خاصة أول ما يتوفر أي خط جديد يمر بمنطقتك! ✨',
+            { inline_keyboard: emptyRows }
+          );
+        }
+
+        let routesMsg = `🔔 <b>مساراتي وتنبيهاتي المسجلة في رادار الخطوط (${activeReqs.length} نشطة):</b>\n\n` +
+          `📡 <b>حالة الرادار:</b> يعمل على مدار الساعة 24/7 لمطابقة الخطوط الجديدة فور نشرها من الكباتن.\n\n` +
+          `━━━━━━━━━━━━━━━━━━\n`;
+
+        const routeButtons: any[][] = [];
+
+        activeReqs.forEach((r: any, idx: number) => {
+          const dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('ar-IQ') : '';
+          routesMsg += 
+            `<b>${idx + 1}️⃣ المسار:</b> 📍 من <b>${r.origin}</b> ⬅️ إلى 🏢 <b>${r.destination || 'الجامعة'}</b>\n` +
+            `🟢 <b>حالة التنبيه:</b> نشط (تصلك الإشعارات بالخاص فوراً ⚡)\n` +
+            (dateStr ? `📅 <b>تاريخ التسجيل:</b> ${dateStr}\n` : '') +
+            `━━━━━━━━━━━━━━━━━━\n`;
+
+          routeButtons.push([
+            { text: `🔍 فحص الخطوط المتوفرة لـ [${r.origin}]`, callback_data: `search_route_${r.id}` },
+            { text: `🛑 إيقاف وحذف`, callback_data: `del_route_req_${r.id}` }
+          ]);
+        });
+
+        routeButtons.push([
+          { text: '➕ تسجيل مسار إضافي 🔔', callback_data: 'start_route_radar' }
+        ]);
+        if (closedReqs.length > 0) {
+          routeButtons.push([{ text: `📂 المسارات السابقة والمؤرشفة (${closedReqs.length})`, callback_data: 'manage_routes_archive' }]);
+        }
+        routeButtons.push([{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]);
+
+        return await updateOrSend(routesMsg, { inline_keyboard: routeButtons });
       }
 
       // Step 1: Area Picked for Radar
