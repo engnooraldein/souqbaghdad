@@ -731,19 +731,17 @@ function buildTransportCard(lines: any[], pageIndex: number, fromName: string, o
       `━━━━━━━━━━━━━━━━━━\n\n` +
       `💡 <i>تصفحي الخطوط بالأزرار أدناه (السابق / التالي) وتواصلي مباشرة مع الكابتن المناسب:</i>`;
 
-    // Row 1: Direct Contact Buttons
+    // Row 1: 1-Click Direct Request to Captain
+    inlineButtons.push([{ text: '📩 إرسال طلب حجز مقعد للكابتن ⚡', callback_data: `req_seat_${l.id}` }]);
+
+    // Row 2: WhatsApp direct chat
     const commRow: any[] = [];
-    if (waPhone) {
+    if (waPhone || cleanPhone) {
+      const p = waPhone || cleanPhone;
       const prefill = encodeURIComponent('السلام عليكم كابتن، شفت خطك بسوق بغداد وحابة استفسر عن حجز مقعد');
-      commRow.push({ text: '💬 تواصل واتساب 🟢', url: `https://wa.me/${waPhone}?text=${prefill}` });
-    }
-    if (cleanPhone) {
-      commRow.push({ text: '✈️ تليكرام / اتصال', url: `https://t.me/+${waPhone || cleanPhone}` });
+      commRow.push({ text: '💬 تواصل واتساب مع الكابتن 🟢', url: `https://wa.me/${p}?text=${prefill}` });
     }
     if (commRow.length > 0) inlineButtons.push(commRow);
-
-    // Row 2: 1-Click Direct Request to Captain
-    inlineButtons.push([{ text: '📩 إرسال طلب حجز مقعد للكابتن ⚡', callback_data: `req_seat_${l.id}` }]);
 
     // Row 3: Pagination Navigation (السابق / التالي)
     if (total > 1) {
@@ -758,9 +756,15 @@ function buildTransportCard(lines: any[], pageIndex: number, fromName: string, o
       inlineButtons.push(navRow);
     }
 
-    // Row 4: Resolution & Explore
+    // Row 4: My Routes & Resolution
     inlineButtons.push([
-      { text: '🛑 لكيت خط خلاص', callback_data: `matched_req_direct_${cleanPhone || 'ok'}` },
+      { text: '📋 مساراتي وتنبيهاتي المسجلة', callback_data: 'manage_my_routes' },
+      { text: '🛑 لكيت خط خلاص', callback_data: `matched_req_direct_${cleanPhone || 'ok'}` }
+    ]);
+
+    // Row 5: Main Menu & Explore
+    inlineButtons.push([
+      { text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' },
       { text: '🚌 تصفح الكل بالموقع', url: 'https://www.souqbaghdad.store/transport' }
     ]);
   }
@@ -1563,7 +1567,7 @@ async function notifyWaitingStudents(ad: any, supabase: any) {
         const waPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
         const contactRow: any[] = [];
         if (waPhone) contactRow.push({ text: '💬 تواصل واتساب 🟢', url: `https://wa.me/${waPhone}` });
-        if (cleanPhone) contactRow.push({ text: '✈️ تليكرام / اتصال', url: `https://t.me/+${waPhone || cleanPhone}` });
+        
 
         const drvRepPhone = cleanPhone || 'nophone';
         const drvRepTitle = encodeURIComponent((ad.title || 'سائق خط').substring(0, 20));
@@ -4219,7 +4223,7 @@ Deno.serve(async (req: any) => {
           const contactRow = [];
           if (cleanPhone) {
             contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-            contactRow.push({ text: '✈️ تواصل تيليكرام', url: `https://t.me/+${cleanPhone}` });
+            
           }
 
           const inlineKeyboard = [
@@ -4239,7 +4243,7 @@ Deno.serve(async (req: any) => {
               let mediaGroupCaption = caption;
               mediaGroupCaption += `\n\n🔗 <a href="${link}">عرض التفاصيل بالمنصة</a>`;
               if (cleanPhone) {
-                mediaGroupCaption += `\n📞 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> | ✈️ <a href="https://t.me/+${cleanPhone}">تواصل تيليكرام</a>`;
+                mediaGroupCaption += `\n📞 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> `;
               }
               res = await sendMediaGroup(targetCarChannel, imagesToPost, mediaGroupCaption);
             } else if (imagesToPost.length === 1) {
@@ -4352,7 +4356,7 @@ Deno.serve(async (req: any) => {
           const contactRow = [];
           if (cleanPhone) {
             contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-            contactRow.push({ text: '✈️ تواصل تيليكرام', url: `https://t.me/+${cleanPhone}` });
+            
           }
 
           const inlineKeyboard = [
@@ -4371,7 +4375,7 @@ Deno.serve(async (req: any) => {
               let mediaGroupCaption = caption;
               mediaGroupCaption += `\n\n🔗 <a href="${link}">عرض التفاصيل والصور بالمنصة</a>`;
               if (cleanPhone) {
-                mediaGroupCaption += `\n📞 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> | ✈️ <a href="https://t.me/+${cleanPhone}">تواصل تيليكرام</a>`;
+                mediaGroupCaption += `\n📞 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> `;
               }
               res = await sendMediaGroup(PRODUCT_CHANNEL, imagesToPost, mediaGroupCaption);
             } else if (imagesToPost.length === 1) {
@@ -4486,7 +4490,7 @@ Deno.serve(async (req: any) => {
           const contactRow = [];
           if (cleanPhone) {
             contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-            contactRow.push({ text: '✈️ تواصل تيليكرام', url: `https://t.me/+${cleanPhone}` });
+            
           }
 
           const inlineKeyboard = [
@@ -4644,7 +4648,7 @@ Deno.serve(async (req: any) => {
           const contactRow = [];
           if (cleanPhone) {
             contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-            contactRow.push({ text: '✈️ تواصل تيليكرام', url: `https://t.me/+${cleanPhone}` });
+            
           }
 
           const inlineKeyboard = [
@@ -4782,7 +4786,7 @@ Deno.serve(async (req: any) => {
               let mediaGroupCaption = msg;
               mediaGroupCaption += `\n\n🌐 <a href="${link}">التفاصيل الكاملة وحجز المقعد</a>`;
               if (cleanPhone) {
-                mediaGroupCaption += `\n💬 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> | ✈️ <a href="https://t.me/+${cleanPhone}">تواصل تيليكرام</a>`;
+                mediaGroupCaption += `\n💬 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> `;
               }
               res = await sendMediaGroup(targetLinesChannel, imagesToPost, mediaGroupCaption);
             } else {
@@ -4807,7 +4811,7 @@ Deno.serve(async (req: any) => {
                   let mediaGroupCaption = msg;
                   mediaGroupCaption += `\n\n🌐 <a href="${link}">التفاصيل الكاملة وحجز المقعد</a>`;
                   if (cleanPhone) {
-                    mediaGroupCaption += `\n💬 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> | ✈️ <a href="https://t.me/+${cleanPhone}">تواصل تيليكرام</a>`;
+                    mediaGroupCaption += `\n💬 <a href="https://wa.me/${cleanPhone}">تواصل واتساب</a> `;
                   }
                   rucRes = await sendMediaGroup(ALRAFDAIN_TELEGRAM_CHANNEL, imagesToPost, mediaGroupCaption);
                 } else {
@@ -7374,7 +7378,7 @@ Deno.serve(async (req: any) => {
           commRow.push({ text: '💬 تواصل واتساب مع الكابتن 🟢', url: `https://wa.me/${waPhone}?text=${prefill}` });
         }
         if (cleanPhone) {
-          commRow.push({ text: '✈️ تواصل تيليجرام / اتصال', url: `https://t.me/+${waPhone || cleanPhone}` });
+          
         }
         if (commRow.length > 0) confirmBtns.push(commRow);
         confirmBtns.push([{ text: '✅ اتفقت ولكيت خط خلاص', callback_data: `matched_req_direct_${cleanPhone}` }]);
@@ -8655,7 +8659,7 @@ Deno.serve(async (req: any) => {
         const contactRow: any[] = [];
         if (cleanPhone) {
           contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-          contactRow.push({ text: '✈️ تواصل تيليكرام', url: `https://t.me/+${cleanPhone}` });
+          
         }
         const channelMarkup: any = {
           inline_keyboard: [
@@ -9323,7 +9327,7 @@ Deno.serve(async (req: any) => {
             const contactRow = [];
             if (formattedPhone) {
               contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${formattedPhone}` });
-              contactRow.push({ text: '✈️ تواصل تيليكرام', url: `https://t.me/+${formattedPhone}` });
+              
             }
 
             const channelKeyboard = [
@@ -9581,7 +9585,7 @@ Deno.serve(async (req: any) => {
                         const waPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
                         const alertRow: any[] = [];
                         if (waPhone) alertRow.push({ text: '💬 تواصل واتساب 🟢', url: `https://wa.me/${waPhone}` });
-                        if (cleanPhone) alertRow.push({ text: '✈️ تواصل تيليجرام / اتصال', url: `https://t.me/+${waPhone || cleanPhone}` });
+                        
 
                         const studentMarkup = {
                           inline_keyboard: [
@@ -10071,7 +10075,7 @@ Deno.serve(async (req: any) => {
           commRow.push({ text: '💬 تواصل واتساب مع الكابتن 🟢', url: `https://wa.me/${waPhone}?text=${prefill}` });
         }
         if (cleanPhone) {
-          commRow.push({ text: '✈️ تواصل تيليجرام / اتصال', url: `https://t.me/+${waPhone || cleanPhone}` });
+          
         }
         if (commRow.length > 0) confirmBtns.push(commRow);
         confirmBtns.push([{ text: '✅ اتفقت ولكيت خط خلاص', callback_data: `matched_req_direct_${cleanPhone}` }]);
@@ -10157,7 +10161,7 @@ Deno.serve(async (req: any) => {
               passCommRow.push({ text: '💬 تواصل واتساب مع الكابتن 🟢', url: `https://wa.me/${waCapPhone}?text=${encodeURIComponent(`السلام عليكم كابتن، تم تأكيد حجز مقعدي بكود #${bCode}`)}` });
             }
             if (cleanCapPhone) {
-              passCommRow.push({ text: '✈️ تليكرام / اتصال', url: `https://t.me/+${waCapPhone || cleanCapPhone}` });
+              
             }
             if (passCommRow.length > 0) passBtns.push(passCommRow);
             passBtns.push([{ text: '🛑 إيقاف التنبيهات (حصلت خط خلاص) 🌹', callback_data: `stop_alert_${booking.ad_id || 'user'}` }]);
@@ -10289,7 +10293,7 @@ Deno.serve(async (req: any) => {
             row.push({ text: '💬 تواصل واتساب 🟢', url: `https://wa.me/${waPhone}` });
           }
           if (cleanPhone) {
-            row.push({ text: '✈️ تواصل تيليجرام / اتصال', url: `https://t.me/+${waPhone || cleanPhone}` });
+            
           }
           if (row.length > 0) alertButtons.push(row);
 
@@ -11852,7 +11856,7 @@ Deno.serve(async (req: any) => {
             const contactRow = [];
             if (cleanPhone) {
               contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-              contactRow.push({ text: '✈️ تواصل تيليكرام', url: `https://t.me/+${cleanPhone}` });
+              
             }
 
             const tgInlineKeyboard = [
@@ -12323,7 +12327,7 @@ Deno.serve(async (req: any) => {
             const contactRow = [];
             if (cleanPhone) {
               contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-              contactRow.push({ text: '✈️ تواصل تيليكرام', url: `https://t.me/+${cleanPhone}` });
+              
             }
 
             const inlineKeyboard = [
@@ -12399,7 +12403,7 @@ Deno.serve(async (req: any) => {
             const contactRow = [];
             if (cleanPhone) {
               contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-              contactRow.push({ text: '✈️ تواصل تيليكرام', url: `https://t.me/+${cleanPhone}` });
+              
             }
 
             const inlineKeyboard = [
@@ -12593,7 +12597,7 @@ Deno.serve(async (req: any) => {
             const contactRow = [];
             if (cleanPhone) {
               contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-              contactRow.push({ text: '✈️ تواصل تيليكرام', url: `https://t.me/+${cleanPhone}` });
+              
             }
 
             const inlineKeyboard = [
@@ -12657,7 +12661,7 @@ Deno.serve(async (req: any) => {
             const contactRow = [];
             if (cleanPhone) {
               contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-              contactRow.push({ text: '✈️ تواصل تيليكرام', url: `https://t.me/+${cleanPhone}` });
+              
             }
 
             const inlineKeyboard = [
