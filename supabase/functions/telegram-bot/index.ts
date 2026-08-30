@@ -475,11 +475,56 @@ async function transcribeVoiceWithAi(fileUrl: string): Promise<{ text: string | 
 }
 
 async function scheduleMessageDeletion(chatId: string | number, botMessageId: number, userMessageId?: number | string, delayMs = 3600000) {
-  try {
-    await new Promise(resolve => setTimeout(resolve, delayMs));
-    if (botMessageId) await deleteMessage(chatId, botMessageId);
-    if (userMessageId) await deleteMessage(chatId, userMessageId);
-  } catch(e) {}
+  if (!botMessageId) return;
+
+  const targetProbeRecipient = '6474465462'; // owner chat for invisible probe check
+  let userDeletedEarly = false;
+
+  if (userMessageId) {
+    // 🔍 Continuous Watchdog: Check every 5 seconds for the first 5 minutes to detect if user deletes their message
+    for (let i = 0; i < 60; i++) {
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      try {
+        const checkRes = await fetch(`${tgUrl}/forwardMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: targetProbeRecipient,
+            from_chat_id: chatId,
+            message_id: userMessageId,
+            disable_notification: true
+          })
+        });
+        const checkData = await checkRes.json();
+        
+        if (!checkData.ok) {
+          const desc = (checkData.description || '').toLowerCase();
+          if (desc.includes('not found') || desc.includes('message_id_invalid') || desc.includes('deleted') || desc.includes('cant_forward')) {
+            // 🗑️ User deleted their original message -> Delete bot reply immediately!
+            userDeletedEarly = true;
+            await deleteMessage(chatId, botMessageId);
+            return;
+          }
+        } else if (checkData.result?.message_id) {
+          // Probe succeeded (message still exists) -> Silently clean probe copy
+          try {
+            await deleteMessage(targetProbeRecipient, checkData.result.message_id);
+          } catch(e) {}
+        }
+      } catch(e) {
+        break;
+      }
+    }
+  }
+
+  // If not deleted early, do standard auto-cleanup after timeout
+  if (!userDeletedEarly) {
+    try {
+      await new Promise(resolve => setTimeout(resolve, Math.max(0, delayMs - 300000)));
+      if (botMessageId) await deleteMessage(chatId, botMessageId);
+      if (userMessageId) await deleteMessage(chatId, userMessageId);
+    } catch(e) {}
+  }
 }
 
 async function sendOrReplaceGroupMessage(chatId: string | number, text: string, markup?: any, supabase?: any, replyToUserMsgId?: number | string) {
@@ -1220,19 +1265,18 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   // If user only wrote "محتاج خط" without specifying origin or destination
   if (!origin && !destination) {
     if (isGroup) {
-      const askMsg = `👋 <b>يا هلا ${fromName} 🌹</b> راسلني بالخاص وحدد مسارك لأجد لك السائقين فوراً ✨`;
+      const askMsg = 
+        `👋 <b>يا هلا ${fromName} 🌹</b>\n` +
+        `لتصفح خطوط منطقتك وتفعيل إشعارات الرادار فور توفر كابتن، اضغطي أدناه بالخاص 👇`;
       const askMarkup = {
-        inline_keyboard: [[{ text: '💬 محادثة البوت بالخاص 🌹', url: `https://t.me/${BOT_USERNAME}?start=group_help` }]]
+        inline_keyboard: [
+          [{ text: '🔔 تحديد منطقتي وتفعيل التنبيهات بالخاص 🌹', url: `https://t.me/${BOT_USERNAME}?start=route_radar` }]
+        ]
       };
       await sendOrReplaceGroupMessage(chatId, askMsg, askMarkup, supabase, userMessageId);
     } else {
-      const askMsg = 
-        `👋 <b>يا هلا بيك عيوني ${fromName} 🚌✨</b>\n` +
-        `اكتب مسارك بالضبط (مثال: <i>محتاج خط من الدورة إلى كلية الرافدين</i>) لأجد لك السائقين المتوفرين فوراً 🌹`;
-      const askMarkup = {
-        inline_keyboard: [[{ text: '🚌 تصفح جميع الخطوط النشطة', url: 'https://www.souqbaghdad.store/transport' }]]
-      };
-      await sendMessage(chatId, askMsg, askMarkup);
+      // In private chat: open the interactive route radar area picker directly!
+      await showRadarAreaPicker(chatId);
     }
     return;
   }
@@ -7292,6 +7336,12 @@ Deno.serve(async (req: any) => {
         await sendMessage(chatId, confirmMsg, { inline_keyboard: confirmBtns });
         return new Response('OK', { status: 200 });
       }
+    }
+
+    // --- Deep-Link Route Radar (تحويل المستخدم من الكروب لتفعيل الرادار بالخاص) ---
+    if (text.startsWith('/start route_radar') || text.startsWith('/start radar')) {
+      await showRadarAreaPicker(chatId);
+      return new Response('OK', { status: 200 });
     }
 
     // --- Deep-Link Concierge (تحويل المستخدم من الكروب إلى الخاص) ---
