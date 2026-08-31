@@ -1084,6 +1084,19 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     }
   }
 
+  const isOwnerUser = 
+    String(fromUser?.id) === '777557036' || 
+    String(fromUser?.id) === '6474465462' || 
+    String(fromUser?.id) === '7083049103' || 
+    String(fromUser?.id) === '108892492' ||
+    fromUser?.username === 'nooraldeinsbah' ||
+    fromUser?.username === 'nhuguyg' ||
+    fromUser?.username === 'nooraldein';
+
+  if (isOwnerUser) {
+    fromName = 'مديرنا ومؤسس المنصة الغالي 👑';
+  }
+
   // Extract Iraqi phone number if present
   const phoneMatch = rawText.match(/(?:07[3-9]\d{8}|\+9647[3-9]\d{8}|07\d{2}\s?\d{3}\s?\d{4})/);
   const extractedPhone = phoneMatch ? phoneMatch[0].replace(/\s+/g, '') : null;
