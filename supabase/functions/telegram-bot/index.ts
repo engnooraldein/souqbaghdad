@@ -1135,8 +1135,35 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     lowerRaw.includes('اخذ خط') || lowerRaw.includes('اخذ نفرات') ||
     (isDriverRoutePattern && !isSeekerExplicit);
 
-  const isAmbiguous = isDriverKeywords && !isStrongDriver && !isSeekerExplicit;
-  const isProvider = (isStrongDriver || isDriverKeywords || (isDriverRoutePattern && !isSeekerExplicit)) && !isSeekerExplicit && !isAmbiguous;
+  // Check if sender is already known as a registered Captain/Driver in DB
+  let isSenderDriver = false;
+  if (fromUser?.id) {
+    try {
+      const { data: senderTgUser } = await supabase.from('telegram_users').select('user_role').eq('telegram_chat_id', fromUser.id).maybeSingle();
+      if (senderTgUser?.user_role === 'driver') {
+        isSenderDriver = true;
+      }
+    } catch(e) {}
+  }
+
+  const isExplicitDriverClaim = 
+    lowerRaw.includes('اني كابتن') || lowerRaw.includes('انا كابتن') || 
+    lowerRaw.includes('اني سايق') || lowerRaw.includes('انا سايق') || 
+    lowerRaw.includes('اني سائق') || lowerRaw.includes('انا سائق') ||
+    lowerRaw.includes('صاحب الخط') || lowerRaw.includes('اني صاحب');
+
+  if (isExplicitDriverClaim && fromUser?.id) {
+    isSenderDriver = true;
+    try {
+      await supabase.from('telegram_users').update({ user_role: 'driver' }).eq('telegram_chat_id', fromUser.id);
+    } catch(e) {}
+  }
+
+  const isAmbiguous = isDriverKeywords && !isStrongDriver && !isSeekerExplicit && !isSenderDriver;
+  const isProvider = 
+    isSenderDriver || 
+    isExplicitDriverClaim || 
+    ((isStrongDriver || isDriverKeywords || (isDriverRoutePattern && !isSeekerExplicit)) && !isSeekerExplicit && !isAmbiguous);
 
   if (isAmbiguous) {
     try {
@@ -1155,7 +1182,6 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
       ]
     };
     if (isGroup) {
-      // For group, we just send a normal message or replace it
       await sendMessage(chatId, askMsg, askMarkup);
     } else {
       await sendMessage(chatId, askMsg, askMarkup);
@@ -1175,13 +1201,15 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
 
     if (isGroup) {
       const driverMsg = 
-        `👋 <b>يا هلا كابتن ${fromName} 🚌</b>\n` +
-        `لتثبيت خطك وتصلك حجوزات الطلاب تلقائياً، انشر خطك بالخاص بضغطة واحدة 👇`;
+        `👋 <b>يا هلا بكابتننا العزيز ${fromName} 🚌🌹</b>\n\n` +
+        `⚠️ <b>تنبيه هام:</b> رسائل الكروب مخصصة للطلاب والركاب المحتاجين خط فقط.\n` +
+        `💡 <b>لتجنب تكرار الإعلان أو الحظر التلقائي بالنظام:</b>\n` +
+        `انشر خطك الآن عبر البوت بالخاص مجاناً بضغطة زر 👇 ليصل إعلانك فوراً إلى جميع القنوات والصفحات وتصلك طلبات حجز الطلاب على هاتفك مباشرة! 🚀`;
 
       const providerMarkup = {
         inline_keyboard: [
-          [{ text: '➕ نشر وتثبيت خطي بالخاص 🌹', url: `https://t.me/${BOT_USERNAME}?start=publish_transport` }],
-          [{ text: '🌐 النشر عبر الموقع', url: 'https://www.souqbaghdad.store/post-ad' }]
+          [{ text: '➕ نشر وتثبيت خطي عبر البوت ⚡', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }],
+          [{ text: '📋 إدارة خطوطي النشطة', url: `https://t.me/${BOT_USERNAME}?start=manage_cat_trans` }]
         ]
       };
       await sendOrReplaceGroupMessage(chatId, driverMsg, providerMarkup, supabase, userMessageId);
