@@ -1034,7 +1034,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   norm = replaceAr(norm, 'جميله|جميلهه|جميلةة|جميلية', 'جميلة');
   norm = replaceAr(norm, 'الرفدين|الرافين|رافدين|لرافدين|للرافدين|الرافيدين|كليه الرافدين|جامعة الرافدين|جامعه الرافدين|معهد الرافدين', 'كلية الرافدين');
   norm = replaceAr(norm, 'المستنصريه|مستنصريه|للمستنصرية|مستنصرية|المستنصرية', 'الجامعة المستنصرية');
-  norm = replaceAr(norm, 'التكنولوجيه|تكنولوجيه|تكنلوجيا|التكنلوجيا|شارع الصناعة|صناعة', 'الجامعة التكنولوجية');
+  norm = replaceAr(norm, 'التكنولوجيه|تكنولوجيه|تكنلوجيا|التكنلوجيا|تكنلوجيه|التكنلوجية|تكنولوجية|التكنولوجية|تكنلوجي|تكنولوجي|شارع الصناعة|صناعة|الصناعة', 'الجامعة التكنولوجية');
   norm = replaceAr(norm, 'الاسراء|للاسراء|إسراء|اسراء|الإسراء|كليه الاسراء|جامعة الاسراء', 'كلية الاسراء');
   norm = replaceAr(norm, 'اوروك|أوروك|لأوروك|لاوروك|جامعة اوروك', 'جامعة اوروك');
   norm = replaceAr(norm, 'الفراهيدي|فراهيدي|للفراهيدي|جامعة الفراهيدي', 'جامعة الفراهيدي');
@@ -1300,8 +1300,8 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     'الطالبية', 'طالبية', 'حي سومر', 'الأمين', 'الامين', 'حي المعلمين'
   ];
 
-  // Extract "من [origin] الى/لـ [destination]" accurately
-  let routeMatch = norm.match(/من\s+(.+?)\s+(?:إلى|الي|الى|لـ|ل)\s+(.+)/i);
+  // Extract "من [origin] الى/لـ/لل [destination]" accurately (handling attached letters like للجامعة)
+  let routeMatch = norm.match(/من\s+(.+?)\s+(?:إلى|الي|الى|لـ|لل|ل|باتجاه)\s*(.+)/i);
   if (routeMatch) {
     const rawOrigin = routeMatch[1].trim().replace(/^(منطقة|حي|شارع)\s+/, '');
     if (isValidLocation(rawOrigin)) {
@@ -1309,7 +1309,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     }
     destination = routeMatch[2].trim();
   } else {
-    routeMatch = norm.match(/(?:إلى|الي|الى|لـ|ل)\s+(.+?)\s+من\s+(.+)/i);
+    routeMatch = norm.match(/(?:إلى|الي|الى|لـ|لل|ل|باتجاه)\s*(.+?)\s+من\s+(.+)/i);
     if (routeMatch) {
       destination = routeMatch[1].trim();
       const rawOrigin = routeMatch[2].trim().replace(/^(منطقة|حي|شارع)\s+/, '');
@@ -1329,34 +1329,58 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     }
   }
 
-  // Parse destination (colleges & universities) with intelligent Iraqi alias matching
-  if (!destination) {
-    const normLower = norm.toLowerCase();
-    if (normLower.includes('رافدين') || normLower.includes('رفدين') || normLower.includes('ruc')) destination = 'كلية الرافدين الجامعة';
-    else if (normLower.includes('مستنصر') || normLower.includes('مستنصري')) destination = 'الجامعة المستنصرية';
-    else if (normLower.includes('تكنولوج') || normLower.includes('صناع')) destination = 'الجامعة التكنولوجية';
-    else if (normLower.includes('نهرين')) destination = 'جامعة النهرين';
-    else if (normLower.includes('عراقي')) destination = 'الجامعة العراقية';
-    else if (normLower.includes('اسراء') || normLower.includes('إسراء')) destination = 'كلية الاسراء الجامعة';
-    else if (normLower.includes('اوروك') || normLower.includes('أوروك')) destination = 'جامعة اوروك';
-    else if (normLower.includes('فراهيد')) destination = 'جامعة الفراهيدي';
-    else if (normLower.includes('دجل')) destination = 'جامعة دجلة';
-    else if (normLower.includes('تراث')) destination = 'كلية التراث الجامعة';
-    else if (normLower.includes('رشيد')) destination = 'كلية الرشيد الجامعة';
-    else if (normLower.includes('معارف')) destination = 'جامعة المعارف';
-    else if (normLower.includes('مامون') || normLower.includes('مأمون')) destination = 'كلية المأمون الجامعة';
-    else if (normLower.includes('بيان')) destination = 'جامعة البيان';
-    else if (normLower.includes('فاراب')) destination = 'كلية الفارابي الجامعة';
-    else if (normLower.includes('سلام') && !normLower.includes('حي السلام')) destination = 'كلية السلام الجامعة';
-    else if (normLower.includes('ابن سينا')) destination = 'جامعة ابن سينا';
-    else if (normLower.includes('حكم')) destination = 'كلية الحكمة الجامعة';
-    else if (normLower.includes('مشرق')) destination = 'جامعة المشرق';
-    else if (normLower.includes('مستقبل')) destination = 'جامعة المستقبل';
-    else if (normLower.includes('عين')) destination = 'جامعة العين';
-    else if (normLower.includes('كتاب')) destination = 'جامعة الكتاب';
-    else if (normLower.includes('امام كاظم') || normLower.includes('الامام الكاظم')) destination = 'كلية الامام الكاظم';
-    else if (normLower.includes('تقني') || normLower.includes('فنون تطبيقية')) destination = 'الجامعة التقنية الوسطى';
-    else if (normLower.includes('بغداد') || normLower.includes('جادرية')) destination = 'جامعة بغداد';
+  // Parse & resolve destination (colleges & universities) with comprehensive Iraqi alias matching
+  const destToCheck = (destination || norm).toLowerCase();
+  if (destToCheck.includes('تكنولوج') || destToCheck.includes('تكنلوج') || destToCheck.includes('صناع') || destToCheck.includes('uot')) {
+    destination = 'الجامعة التكنولوجية';
+  } else if (destToCheck.includes('رافدين') || destToCheck.includes('رفدين') || destToCheck.includes('ruc')) {
+    destination = 'كلية الرافدين الجامعة';
+  } else if (destToCheck.includes('مستنصر') || destToCheck.includes('مستنصري')) {
+    destination = 'الجامعة المستنصرية';
+  } else if (destToCheck.includes('نهرين')) {
+    destination = 'جامعة النهرين';
+  } else if (destToCheck.includes('عراقي')) {
+    destination = 'الجامعة العراقية';
+  } else if (destToCheck.includes('اسراء') || destToCheck.includes('إسراء')) {
+    destination = 'كلية الاسراء الجامعة';
+  } else if (destToCheck.includes('اوروك') || destToCheck.includes('أوروك')) {
+    destination = 'جامعة اوروك';
+  } else if (destToCheck.includes('فراهيد')) {
+    destination = 'جامعة الفراهيدي';
+  } else if (destToCheck.includes('دجل')) {
+    destination = 'جامعة دجلة';
+  } else if (destToCheck.includes('تراث')) {
+    destination = 'كلية التراث الجامعة';
+  } else if (destToCheck.includes('رشيد')) {
+    destination = 'كلية الرشيد الجامعة';
+  } else if (destToCheck.includes('معارف')) {
+    destination = 'جامعة المعارف';
+  } else if (destToCheck.includes('مامون') || destToCheck.includes('مأمون')) {
+    destination = 'كلية المأمون الجامعة';
+  } else if (destToCheck.includes('بيان')) {
+    destination = 'جامعة البيان';
+  } else if (destToCheck.includes('فاراب')) {
+    destination = 'كلية الفارابي الجامعة';
+  } else if (destToCheck.includes('سلام') && !destToCheck.includes('حي السلام')) {
+    destination = 'كلية السلام الجامعة';
+  } else if (destToCheck.includes('ابن سينا')) {
+    destination = 'جامعة ابن سينا';
+  } else if (destToCheck.includes('حكم')) {
+    destination = 'كلية الحكمة الجامعة';
+  } else if (destToCheck.includes('مشرق')) {
+    destination = 'جامعة المشرق';
+  } else if (destToCheck.includes('مستقبل')) {
+    destination = 'جامعة المستقبل';
+  } else if (destToCheck.includes('عين')) {
+    destination = 'جامعة العين';
+  } else if (destToCheck.includes('كتاب')) {
+    destination = 'جامعة الكتاب';
+  } else if (destToCheck.includes('امام كاظم') || destToCheck.includes('الامام الكاظم')) {
+    destination = 'كلية الامام الكاظم';
+  } else if (destToCheck.includes('تقني') || destToCheck.includes('فنون تطبيقية')) {
+    destination = 'الجامعة التقنية الوسطى';
+  } else if (destToCheck.includes('بغداد') || destToCheck.includes('جادرية')) {
+    destination = 'جامعة بغداد';
   }
 
   // 1. Fetch strictly ACTIVE driver line offers (exclude completed, sold, matched, or student search ads)
