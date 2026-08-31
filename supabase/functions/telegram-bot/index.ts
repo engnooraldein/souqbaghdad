@@ -7,6 +7,8 @@ const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN') || '';
 const tgUrl = `https://api.telegram.org/bot${botToken}`;
 const BOT_USERNAME = 'souqbaghda_bot';
 
+const processedTelegramUpdateIds = new Set<number>();
+
 async function sendMessage(chatId: string | number, text: string, replyMarkup?: any, disableWebPagePreview = true, replyToMessageId?: number | string) {
   const body: any = { 
     chat_id: chatId, 
@@ -5153,6 +5155,18 @@ Deno.serve(async (req: any) => {
 
     // --- Telegram Message / Callback Processing ---
     const update = payload;
+    
+    if (update && typeof update.update_id === 'number') {
+      if (processedTelegramUpdateIds.has(update.update_id)) {
+        console.log(`[DEDUPLICATION] Skipping already processed telegram update_id: ${update.update_id}`);
+        return new Response('OK', { status: 200 });
+      }
+      processedTelegramUpdateIds.add(update.update_id);
+      if (processedTelegramUpdateIds.size > 3000) {
+        const first = processedTelegramUpdateIds.values().next().value;
+        if (first !== undefined) processedTelegramUpdateIds.delete(first);
+      }
+    }
     
     let chatId: number;
     let text = '';
@@ -14343,8 +14357,10 @@ Deno.serve(async (req: any) => {
             : aiRes;
 
           await sendMessage(chatId, finalReply, { inline_keyboard: smartButtons });
+          return new Response('OK', { status: 200 });
         } else {
           await showMainMenu();
+          return new Response('OK', { status: 200 });
         }
       }
 
@@ -14352,7 +14368,10 @@ Deno.serve(async (req: any) => {
       if (userId) {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
       }
+      return new Response('OK', { status: 200 });
     }
+
+    return new Response('OK', { status: 200 });
 
   } catch (error: any) {
     console.error('Error handling request:', error);
