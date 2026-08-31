@@ -1223,6 +1223,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     ((isStrongDriver || isDriverKeywords || (isDriverRoutePattern && !isSeekerExplicit)) && !isSeekerExplicit && !isAmbiguous);
 
   if (isAmbiguous) {
+    if (isGroup) return; // In group: stay silent!
     try {
       const { data: tgUser } = await supabase.from('telegram_users').select('*').eq('telegram_chat_id', chatId).maybeSingle();
       let state = tgUser?.bot_state || {};
@@ -1238,11 +1239,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
         [{ text: '👨‍🎓 أنا طالب (محتاج خط / راكب)', callback_data: 'ambig_student' }]
       ]
     };
-    if (isGroup) {
-      await sendMessage(chatId, askMsg, askMarkup);
-    } else {
-      await sendMessage(chatId, askMsg, askMarkup);
-    }
+    await sendMessage(chatId, askMsg, askMarkup);
     return;
   }
 
@@ -1532,7 +1529,25 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     return;
   }
 
-  // 🔔 If NO line matched this specific destination: Register request & politely inform student
+  // 🔔 In GROUP: If no matching line found or missing origin/destination -> Stay completely silent in group!
+  if (isGroup) {
+    if (origin && destination) {
+      try {
+        await supabase.from('transport_requests').insert({
+          telegram_chat_id: String(chatId),
+          telegram_user_id: fromUser?.id ? String(fromUser.id) : null,
+          user_name: fromName,
+          origin: finalOrigin,
+          destination: finalDestination,
+          raw_query: rawText,
+          status: 'pending'
+        });
+      } catch(e) {}
+    }
+    return; // Stay completely silent in group!
+  }
+
+  // 🔔 In PRIVATE CHAT: If NO line matched this specific destination: Register request & politely inform student
   if (origin || destination) {
     try {
       await supabase.from('transport_requests').insert({
@@ -1560,21 +1575,12 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
       ]
     };
 
-    if (isGroup) {
-      await sendOrReplaceGroupMessage(chatId, noMatchMsg, noMatchMarkup, supabase, userMessageId);
-      if (fromUser?.id) {
-        try {
-          await sendMessage(fromUser.id, noMatchMsg, noMatchMarkup);
-        } catch(e) {}
-      }
-    } else {
-      await sendMessage(chatId, noMatchMsg, noMatchMarkup);
-    }
+    await sendMessage(chatId, noMatchMsg, noMatchMarkup);
     return;
   }
 
-  // If user only wrote origin without destination (e.g. "محتاجة خط من المهندسين")
-  if (origin && !destination && !isGroup) {
+  // If user only wrote origin without destination in private chat (e.g. "محتاجة خط من المهندسين")
+  if (origin && !destination) {
     const seekerState = {
       step: 'trans_seeker_dest',
       data: {
@@ -1602,22 +1608,9 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     return;
   }
 
-  // If user only wrote "محتاج خط" without specifying origin or destination
+  // If user only wrote "محتاج خط" without specifying origin or destination in private chat
   if (!origin && !destination) {
-    if (isGroup) {
-      const askMsg = 
-        `👋 <b>يا هلا ${fromName} 🌹</b>\n` +
-        `لتصفح خطوط منطقتك وتفعيل إشعارات الرادار فور توفر كابتن، اضغطي أدناه بالخاص 👇`;
-      const askMarkup = {
-        inline_keyboard: [
-          [{ text: '🔔 تحديد منطقتي وتفعيل التنبيهات بالخاص 🌹', url: `https://t.me/${BOT_USERNAME}?start=route_radar` }]
-        ]
-      };
-      await sendOrReplaceGroupMessage(chatId, askMsg, askMarkup, supabase, userMessageId);
-    } else {
-      // In private chat: open the interactive route radar area picker directly!
-      await showRadarAreaPicker(chatId, supabase);
-    }
+    await showRadarAreaPicker(chatId, supabase);
     return;
   }
 }
@@ -5834,38 +5827,18 @@ Deno.serve(async (req: any) => {
           (cleanMsg.startsWith('بوت ') || cleanMsg === 'بوت') ||
           isReplyToBot;
 
-        // A. Transport search intent (handles typos like خك, جميله, الرفدين)
+        // A. Transport search intent (handles student line searches)
         const isTransportIntent = 
           cleanMsg.includes('خط') || cleanMsg.includes('خك') || cleanMsg.includes('حط') || cleanMsg.includes('نقل') || cleanMsg.includes('سايق') ||
           ((cleanMsg.includes('من ') || cleanMsg.includes('الى ') || cleanMsg.includes('إلى ') || cleanMsg.includes('لـ')) && (cleanMsg.includes('رافدين') || cleanMsg.includes('رفدين') || cleanMsg.includes('جامع') || cleanMsg.includes('كلية') || cleanMsg.includes('دورة') || cleanMsg.includes('جميل') || cleanMsg.includes('سيدي') || cleanMsg.includes('منصور') || cleanMsg.includes('شعب') || cleanMsg.includes('كراد') || cleanMsg.includes('بياع') || cleanMsg.includes('يرموك')));
 
-        if (isTransportIntent && (cleanMsg.includes('اريد') || cleanMsg.includes('محتاج') || cleanMsg.includes('ادور') || cleanMsg.includes('اكو') || cleanMsg.includes('متوفر') || cleanMsg.includes('من') || cleanMsg.includes('الى') || cleanMsg.includes('لـ') || cleanMsg.includes('سعر'))) {
-          await sendChatAction(chatId, 'typing');
+        if (isTransportIntent && (cleanMsg.includes('اريد') || cleanMsg.includes('أريد') || cleanMsg.includes('محتاج') || cleanMsg.includes('محتاجة') || cleanMsg.includes('ادور') || cleanMsg.includes('أدور') || cleanMsg.includes('اكو') || cleanMsg.includes('متوفر') || cleanMsg.includes('من') || cleanMsg.includes('الى') || cleanMsg.includes('لـ') || cleanMsg.includes('سعر'))) {
           await handleSmartTransportSearch(chatId, text, fromUser, supabase, true, messageId);
           return new Response('OK', { status: 200 });
         }
 
-        // B. Car prices & vehicle questions in group
-        const isCarIntent = 
-          cleanMsg.includes('سعر') || cleanMsg.includes('بيش') || cleanMsg.includes('سيار') ||
-          cleanMsg.includes('توسان') || cleanMsg.includes('النترا') || cleanMsg.includes('كورولا') || 
-          cleanMsg.includes('سبورتاج') || cleanMsg.includes('سنتافي') || cleanMsg.includes('تاهو') || 
-          cleanMsg.includes('اوباما') || cleanMsg.includes('شارجر') || cleanMsg.includes('كامري');
-
-        if (isCarIntent && (cleanMsg.includes('سعر') || cleanMsg.includes('بيش') || cleanMsg.includes('موديل') || cleanMsg.includes('وارد') || cleanMsg.includes('معروض') || cleanMsg.includes('للبيع') || cleanMsg.includes('شراء') || cleanMsg.includes('شراي'))) {
-          await sendChatAction(chatId, 'typing');
-          const groupAiReply = await callGroupAiEngine(text, fromUsername, chatTitle);
-          await sendOrReplaceGroupMessage(chatId, groupAiReply, undefined, supabase, messageId);
-          return new Response('OK', { status: 200 });
-        }
-
-        // C. Conversational AI (Direct Mentions / Replies / Inquiries / General Help)
-        if (isBotMentioned || cleanMsg.includes('شلون انشر') || cleanMsg.includes('شلون اشتري') || cleanMsg.includes('شلون ابيع') || cleanMsg.includes('رابط الموقع') || cleanMsg.includes('ساعدني') || cleanMsg.includes('شعندك')) {
-          await sendChatAction(chatId, 'typing');
-          const groupAiReply = await callGroupAiEngine(text, fromUsername, chatTitle);
-          await sendOrReplaceGroupMessage(chatId, groupAiReply, undefined, supabase, messageId);
-          return new Response('OK', { status: 200 });
-        }
+        // B. In groups: If message is not understood or not a valid route request, stay completely silent!
+        return new Response('OK', { status: 200 });
       }
 
       return new Response('OK', { status: 200 });
