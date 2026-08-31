@@ -1436,7 +1436,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   // Filter for actual driver line offers only (not student requests "ابحث عن خط")
   const activeDriverLines = (allActiveLines || []).filter((ad: any) => {
     const t = (ad.title || '').toLowerCase();
-    const isStudentRequest = t.includes('ابحث') || t.includes('أبحث') || t.includes('محتاج') || t.includes('ادور');
+    const isStudentRequest = ad.type === 'request' || t.includes('ابحث') || t.includes('أبحث') || t.includes('محتاج') || t.includes('ادور');
     const isCompleted = ad.status === 'sold' || ad.status === 'matched' || ad.status === 'archived' || ad.status === 'closed';
     return !isStudentRequest && !isCompleted;
   });
@@ -1464,25 +1464,27 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   const finalDestination = destination || 'الجامعة';
 
   if (origin && (fromUser?.id || chatId)) {
-    const targetChatId = fromUser?.id || chatId;
-    try {
-      const { data: u } = await supabase.from('telegram_users').select('bot_state').eq('telegram_chat_id', targetChatId).maybeSingle();
-      const s = u?.bot_state || {};
-      s.last_origin = finalOrigin;
-      s.last_dest = finalDestination;
-      if (matchedLines && matchedLines.length > 0) {
-        s.last_driver_phone = matchedLines[0].phone || '';
-      }
-      await supabase.from('telegram_users').update({ bot_state: s }).eq('telegram_chat_id', targetChatId);
-    } catch(e) {}
+    const targetChatId = fromUser?.id || (isGroup ? null : chatId);
+    if (targetChatId) {
+      try {
+        const { data: u } = await supabase.from('telegram_users').select('bot_state').eq('telegram_chat_id', targetChatId).maybeSingle();
+        const s = u?.bot_state || {};
+        s.last_origin = finalOrigin;
+        s.last_dest = finalDestination;
+        if (matchedLines && matchedLines.length > 0) {
+          s.last_driver_phone = matchedLines[0].phone || '';
+        }
+        await supabase.from('telegram_users').update({ bot_state: s }).eq('telegram_chat_id', targetChatId);
+      } catch(e) {}
+    }
   }
 
   // If matched active driver lines found -> return them & register seeker for future alerts
   if (matchedLines && matchedLines.length > 0) {
-    // 🔔 Always register the seeker in transport_requests for radar notifications of new drivers!
+    // 🔔 Always register the seeker in transport_requests for radar notifications of new drivers (strictly in private DM)!
     try {
       await supabase.from('transport_requests').insert({
-        telegram_chat_id: String(chatId),
+        telegram_chat_id: isGroup ? null : String(chatId),
         telegram_user_id: fromUser?.id ? String(fromUser.id) : null,
         user_name: fromName,
         origin: finalOrigin,
