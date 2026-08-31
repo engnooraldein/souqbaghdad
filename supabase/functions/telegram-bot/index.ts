@@ -496,7 +496,7 @@ async function transcribeVoiceWithAi(fileUrl: string): Promise<{ text: string | 
   return { text: null, base64: null };
 }
 
-async function scheduleMessageDeletion(chatId: string | number, botMessageId: number, userMessageId?: number | string, delayMs = 300000) {
+async function scheduleMessageDeletion(chatId: string | number, botMessageId: number, delayMs = 60000) {
   if (!botMessageId) return;
   try {
     await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -504,7 +504,7 @@ async function scheduleMessageDeletion(chatId: string | number, botMessageId: nu
   } catch(e) {}
 }
 
-async function sendOrReplaceGroupMessage(chatId: string | number, text: string, markup?: any, supabase?: any, replyToUserMsgId?: number | string) {
+async function sendOrReplaceGroupMessage(chatId: string | number, text: string, markup?: any, supabase?: any, replyToUserMsgId?: number | string, delayMs = 60000) {
   if (supabase) {
     try {
       const { data: lastRecord } = await supabase.from('group_warnings').select('last_reason').eq('chat_id', String(chatId)).eq('user_id', 'BOT_LAST_MSG').maybeSingle();
@@ -533,9 +533,9 @@ async function sendOrReplaceGroupMessage(chatId: string | number, text: string, 
       } catch(e) {}
     }
 
-    // Keep response visible in group for 5 minutes (300000ms), then delete bot reply automatically
+    // Keep response visible in group as a brief notice for 60 seconds (60000ms), then delete bot reply automatically
     if (typeof (globalThis as any).EdgeRuntime?.waitUntil === 'function') {
-      (globalThis as any).EdgeRuntime.waitUntil(scheduleMessageDeletion(chatId, newMsgId, replyToUserMsgId, 300000));
+      (globalThis as any).EdgeRuntime.waitUntil(scheduleMessageDeletion(chatId, newMsgId, delayMs));
     }
   }
   return res;
@@ -1532,7 +1532,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
         `وجدنا خطوطاً مقترحة متوفرة لمسارك:\n` +
         `📍 <b>[ ${finalOrigin} ⬅️ ${finalDestination} ]</b>\n\n` +
         `👇 <i>اضغط الزر أدناه لفتح تفاصيل الخطوط وحجز مقعدك بالخاص 🔒</i>\n` +
-        `⏳ <i>[ يختفي هذا التنبيه تلقائياً خلال 30 ثانية لتنظيم الكروب ]</i>`;
+        `⏳ <i>[ يختفي هذا التنبيه تلقائياً خلال 60 ثانية لتنظيم الكروب ]</i>`;
 
       const groupNoticeMarkup = {
         inline_keyboard: [
