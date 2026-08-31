@@ -5270,25 +5270,25 @@ Deno.serve(async (req: any) => {
     let phone = tgUser?.phone_number;
 
     // 🛡️ ANTI-QUEUE FLOODING & LATEST MESSAGE GUARANTEE (اعتماد آخر رسالة وتجاهل التراكمات القديمة)
-    const incomingMsgDate = update.message?.date || update.callback_query?.message?.date || Math.floor(Date.now() / 1000);
-    const incomingMsgId = update.message?.message_id || update.callback_query?.message?.message_id || 0;
+    const incomingMsgDate = update.message?.date || Math.floor(Date.now() / 1000);
+    const incomingMsgId = update.message?.message_id || 0;
     const nowSeconds = Math.floor(Date.now() / 1000);
 
-    // If this update is an older message that arrived after a newer one was already processed
-    if (incomingMsgId && state.last_processed_msg_id && incomingMsgId < state.last_processed_msg_id) {
+    // If this update is an older incoming user message that arrived after a newer one was already processed
+    if (!callbackQuery && incomingMsgId && state.last_processed_msg_id && incomingMsgId < state.last_processed_msg_id) {
       console.log(`[QUEUE FILTER] Ignored outdated queued message (id: ${incomingMsgId} < latest: ${state.last_processed_msg_id})`);
       return new Response('OK', { status: 200, headers: corsHeaders });
     }
 
     // If message was stuck in Telegram queue for more than 120 seconds, ignore stale conversational triggers
     const isStaleQueue = (nowSeconds - incomingMsgDate) > 120;
-    if (isStaleQueue && !callbackQuery && text !== '/start' && !contact) {
+    if (!callbackQuery && isStaleQueue && text !== '/start' && !contact) {
       console.log(`[QUEUE FILTER] Dropped stale queued message (${nowSeconds - incomingMsgDate}s old): "${text}"`);
       return new Response('OK', { status: 200, headers: corsHeaders });
     }
 
-    // Update latest processed pointer
-    if (incomingMsgId > (state.last_processed_msg_id || 0)) {
+    // Update latest processed pointer (only for incoming user messages)
+    if (!callbackQuery && incomingMsgId > (state.last_processed_msg_id || 0)) {
       state.last_processed_msg_id = incomingMsgId;
       state.last_processed_date = incomingMsgDate;
     }
@@ -8290,6 +8290,10 @@ Deno.serve(async (req: any) => {
         const { data: targetReq } = await supabase.from('transport_requests').select('*').eq('id', reqId).maybeSingle();
         if (!targetReq) return new Response('OK', { status: 200 });
 
+        await supabase.from('telegram_users').update({
+          bot_state: { ...(state || {}), editing_req_id: reqId }
+        }).eq('telegram_chat_id', chatId);
+
         const editOrigMsg = 
           `📍 <b>تعديل وإضافة مناطق الانطلاق لمسارك 🚌</b>\n\n` +
           `المناطق المسجلة حالياً:\n📍 <b>${targetReq.origin}</b>\n\n` +
@@ -8297,12 +8301,12 @@ Deno.serve(async (req: any) => {
 
         const editOrigMarkup = {
           inline_keyboard: [
-            [{ text: '➕ الشعب', callback_data: `add_req_orig_${reqId}_الشعب` }, { text: '➕ البنوك', callback_data: `add_req_orig_${reqId}_البنوك` }, { text: '➕ القاهرة', callback_data: `add_req_orig_${reqId}_القاهرة` }],
-            [{ text: '➕ المنصور', callback_data: `add_req_orig_${reqId}_المنصور` }, { text: '➕ الكرادة', callback_data: `add_req_orig_${reqId}_الكرادة` }, { text: '➕ الدورة', callback_data: `add_req_orig_${reqId}_الدورة` }],
-            [{ text: '➕ جميلة', callback_data: `add_req_orig_${reqId}_جميلة` }, { text: '➕ السيدية', callback_data: `add_req_orig_${reqId}_السيدية` }, { text: '➕ الأعظمية', callback_data: `add_req_orig_${reqId}_الأعظمية` }],
-            [{ text: '➕ الكاظمية', callback_data: `add_req_orig_${reqId}_الكاظمية` }, { text: '➕ اليرموك', callback_data: `add_req_orig_${reqId}_اليرموك` }, { text: '➕ الغزالية', callback_data: `add_req_orig_${reqId}_الغزالية` }],
-            [{ text: '➕ منطقة أخرى (كتابة أو بصمة) ✍️', callback_data: `custom_req_orig_${reqId}_add` }],
-            [{ text: '🔄 استبدال المنطقة بالكامل', callback_data: `custom_req_orig_${reqId}_replace` }],
+            [{ text: '➕ الشعب', callback_data: `add_orig_الشعب` }, { text: '➕ البنوك', callback_data: `add_orig_البنوك` }, { text: '➕ القاهرة', callback_data: `add_orig_القاهرة` }],
+            [{ text: '➕ المنصور', callback_data: `add_orig_المنصور` }, { text: '➕ الكرادة', callback_data: `add_orig_الكرادة` }, { text: '➕ الدورة', callback_data: `add_orig_الدورة` }],
+            [{ text: '➕ جميلة', callback_data: `add_orig_جميلة` }, { text: '➕ السيدية', callback_data: `add_orig_السيدية` }, { text: '➕ الأعظمية', callback_data: `add_orig_الأعظمية` }],
+            [{ text: '➕ الكاظمية', callback_data: `add_orig_الكاظمية` }, { text: '➕ اليرموك', callback_data: `add_orig_اليرموك` }, { text: '➕ الغزالية', callback_data: `add_orig_الغزالية` }],
+            [{ text: '➕ منطقة أخرى (كتابة أو بصمة) ✍️', callback_data: `custom_orig_add` }],
+            [{ text: '🔄 استبدال المنطقة بالكامل', callback_data: `custom_orig_replace` }],
             [{ text: '🔙 العودة لمساراتي', callback_data: 'manage_my_routes' }]
           ]
         };
@@ -8311,32 +8315,52 @@ Deno.serve(async (req: any) => {
       }
 
       // 📍 Add Origin to existing route
-      if (action.startsWith('add_req_orig_')) {
-        const parts = action.replace('add_req_orig_', '').split('_');
-        const reqId = parts[0];
-        const areaName = parts.slice(1).join('_');
-        const { data: targetReq } = await supabase.from('transport_requests').select('*').eq('id', reqId).maybeSingle();
+      if (action.startsWith('add_orig_')) {
+        const areaName = action.replace('add_orig_', '').trim();
+        const reqId = state?.editing_req_id;
+        let targetReq = null;
+        if (reqId) {
+          const { data } = await supabase.from('transport_requests').select('*').eq('id', reqId).maybeSingle();
+          targetReq = data;
+        }
+        if (!targetReq) {
+          const { data } = await supabase.from('transport_requests').select('*').eq('telegram_chat_id', String(chatId)).eq('status', 'pending').order('created_at', { ascending: false }).limit(1).maybeSingle();
+          targetReq = data;
+        }
+
         if (targetReq && areaName) {
           const currentOrig = targetReq.origin || '';
+          let newOrig = currentOrig;
           if (!currentOrig.includes(areaName)) {
-            const newOrig = `${currentOrig}، ${areaName}`.replace(/^،\s*/, '');
-            await supabase.from('transport_requests').update({ origin: newOrig }).eq('id', reqId);
+            newOrig = `${currentOrig}، ${areaName}`.replace(/^،\s*/, '');
+            await supabase.from('transport_requests').update({ origin: newOrig }).eq('id', targetReq.id);
           }
           if (callbackQuery?.id) {
             await answerCallbackQuery(callbackQuery.id, `✅ تمت إضافة (${areaName}) بنجاح! 🌹`, false);
           }
+          return await updateOrSend(
+            `✅ <b>تمت إضافة (${areaName}) لمناطق انطلاقك بنجاح! 📍✨</b>\n\n` +
+            `📍 <b>مناطق الانطلاق الحالية:</b> <b>${newOrig}</b>\n` +
+            `🏢 <b>الوجهة:</b> <b>${targetReq.destination || 'الجامعة'}</b>`,
+            {
+              inline_keyboard: [
+                [{ text: '🔍 فحص الخطوط لمساري 🚌', callback_data: `search_route_${targetReq.id}` }],
+                [{ text: '📋 عرض مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' }],
+                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+              ]
+            }
+          );
         }
         return await updateOrSend(
-          `✅ <b>تمت إضافة (${areaName}) لمناطق انطلاقك بنجاح! 📍✨</b>`,
+          `✅ <b>تم حفظ التعديل بنجاح! 📍✨</b>`,
           { inline_keyboard: [[{ text: '📋 عرض مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' }]] }
         );
       }
 
       // 📍 Custom text/voice for Origin
-      if (action.startsWith('custom_req_orig_')) {
-        const parts = action.replace('custom_req_orig_', '').split('_');
-        const reqId = parts[0];
-        const mode = parts[1] || 'add';
+      if (action.startsWith('custom_orig_')) {
+        const mode = action.replace('custom_orig_', '') || 'add';
+        const reqId = state?.editing_req_id;
         
         await supabase.from('telegram_users').update({
           bot_state: { step: 'edit_route_origin_custom', data: { reqId, mode } }
@@ -8357,6 +8381,10 @@ Deno.serve(async (req: any) => {
         const { data: targetReq } = await supabase.from('transport_requests').select('*').eq('id', reqId).maybeSingle();
         if (!targetReq) return new Response('OK', { status: 200 });
 
+        await supabase.from('telegram_users').update({
+          bot_state: { ...(state || {}), editing_req_id: reqId }
+        }).eq('telegram_chat_id', chatId);
+
         const editDestMsg = 
           `🏢 <b>تعديل وإضافة الوجهات والكليات لمسارك 🎓</b>\n\n` +
           `الوجهات المسجلة حالياً:\n🏢 <b>${targetReq.destination || 'الجامعة'}</b>\n\n` +
@@ -8364,13 +8392,13 @@ Deno.serve(async (req: any) => {
 
         const editDestMarkup = {
           inline_keyboard: [
-            [{ text: '➕ كلية الرافدين الجامعة', callback_data: `add_req_dest_${reqId}_كلية الرافدين الجامعة` }, { text: '➕ الجامعة التكنولوجية', callback_data: `add_req_dest_${reqId}_الجامعة التكنولوجية` }],
-            [{ text: '➕ الجامعة المستنصرية', callback_data: `add_req_dest_${reqId}_الجامعة المستنصرية` }, { text: '➕ جامعة بغداد (الجادرية)', callback_data: `add_req_dest_${reqId}_جامعة بغداد` }],
-            [{ text: '➕ جامعة النهرين', callback_data: `add_req_dest_${reqId}_جامعة النهرين` }, { text: '➕ كلية التراث الجامعة', callback_data: `add_req_dest_${reqId}_كلية التراث الجامعة` }],
-            [{ text: '➕ كلية الاسراء الجامعة', callback_data: `add_req_dest_${reqId}_كلية الاسراء الجامعة` }, { text: '➕ جامعة دجلة', callback_data: `add_req_dest_${reqId}_جامعة دجلة` }],
-            [{ text: '➕ جامعة الفراهيدي', callback_data: `add_req_dest_${reqId}_جامعة الفراهيدي` }, { text: '➕ جامعة اوروك', callback_data: `add_req_dest_${reqId}_جامعة اوروك` }],
-            [{ text: '➕ وجهة / كلية أخرى (كتابة أو بصمة) ✍️', callback_data: `custom_req_dest_${reqId}_add` }],
-            [{ text: '🔄 استبدال الوجهة بالكامل', callback_data: `custom_req_dest_${reqId}_replace` }],
+            [{ text: '➕ كلية الرافدين الجامعة', callback_data: 'add_dest_rafdain' }, { text: '➕ الجامعة التكنولوجية', callback_data: 'add_dest_tech' }],
+            [{ text: '➕ الجامعة المستنصرية', callback_data: 'add_dest_mustansiriya' }, { text: '➕ جامعة بغداد', callback_data: 'add_dest_baghdad' }],
+            [{ text: '➕ جامعة النهرين', callback_data: 'add_dest_nahrain' }, { text: '➕ كلية التراث الجامعة', callback_data: 'add_dest_turath' }],
+            [{ text: '➕ كلية الاسراء الجامعة', callback_data: 'add_dest_israa' }, { text: '➕ جامعة دجلة', callback_data: 'add_dest_dijla' }],
+            [{ text: '➕ جامعة الفراهيدي', callback_data: 'add_dest_farahidi' }, { text: '➕ جامعة اوروك', callback_data: 'add_dest_uruk' }],
+            [{ text: '➕ وجهة / كلية أخرى (كتابة أو بصمة) ✍️', callback_data: 'custom_dest_add' }],
+            [{ text: '🔄 استبدال الوجهة بالكامل', callback_data: 'custom_dest_replace' }],
             [{ text: '🔙 العودة لمساراتي', callback_data: 'manage_my_routes' }]
           ]
         };
@@ -8379,32 +8407,65 @@ Deno.serve(async (req: any) => {
       }
 
       // 🏢 Add Destination to existing route
-      if (action.startsWith('add_req_dest_')) {
-        const parts = action.replace('add_req_dest_', '').split('_');
-        const reqId = parts[0];
-        const destName = parts.slice(1).join('_');
-        const { data: targetReq } = await supabase.from('transport_requests').select('*').eq('id', reqId).maybeSingle();
+      if (action.startsWith('add_dest_')) {
+        const destKey = action.replace('add_dest_', '').trim();
+        const DEST_MAP: Record<string, string> = {
+          rafdain: 'كلية الرافدين الجامعة',
+          tech: 'الجامعة التكنولوجية',
+          mustansiriya: 'الجامعة المستنصرية',
+          baghdad: 'جامعة بغداد',
+          nahrain: 'جامعة النهرين',
+          turath: 'كلية التراث الجامعة',
+          israa: 'كلية الاسراء الجامعة',
+          dijla: 'جامعة دجلة',
+          farahidi: 'جامعة الفراهيدي',
+          uruk: 'جامعة اوروك'
+        };
+        const destName = DEST_MAP[destKey] || destKey;
+        const reqId = state?.editing_req_id;
+        let targetReq = null;
+        if (reqId) {
+          const { data } = await supabase.from('transport_requests').select('*').eq('id', reqId).maybeSingle();
+          targetReq = data;
+        }
+        if (!targetReq) {
+          const { data } = await supabase.from('transport_requests').select('*').eq('telegram_chat_id', String(chatId)).eq('status', 'pending').order('created_at', { ascending: false }).limit(1).maybeSingle();
+          targetReq = data;
+        }
+
         if (targetReq && destName) {
           const currentDest = targetReq.destination || '';
+          let newDest = currentDest;
           if (!currentDest.includes(destName)) {
-            const newDest = `${currentDest}، ${destName}`.replace(/^،\s*/, '');
-            await supabase.from('transport_requests').update({ destination: newDest }).eq('id', reqId);
+            newDest = `${currentDest}، ${destName}`.replace(/^،\s*/, '');
+            await supabase.from('transport_requests').update({ destination: newDest }).eq('id', targetReq.id);
           }
           if (callbackQuery?.id) {
             await answerCallbackQuery(callbackQuery.id, `✅ تمت إضافة (${destName}) بنجاح! 🌹`, false);
           }
+          return await updateOrSend(
+            `✅ <b>تمت إضافة (${destName}) لوجهاتك بنجاح! 🏢✨</b>\n\n` +
+            `📍 <b>مناطق الانطلاق:</b> <b>${targetReq.origin || 'المسار'}</b>\n` +
+            `🏢 <b>الوجهات والكليات الحالية:</b> <b>${newDest}</b>`,
+            {
+              inline_keyboard: [
+                [{ text: '🔍 فحص الخطوط لمساري 🚌', callback_data: `search_route_${targetReq.id}` }],
+                [{ text: '📋 عرض مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' }],
+                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+              ]
+            }
+          );
         }
         return await updateOrSend(
-          `✅ <b>تمت إضافة (${destName}) لوجهاتك بنجاح! 🏢✨</b>`,
+          `✅ <b>تم حفظ التعديل بنجاح! 🏢✨</b>`,
           { inline_keyboard: [[{ text: '📋 عرض مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' }]] }
         );
       }
 
       // 🏢 Custom text/voice for Destination
-      if (action.startsWith('custom_req_dest_')) {
-        const parts = action.replace('custom_req_dest_', '').split('_');
-        const reqId = parts[0];
-        const mode = parts[1] || 'add';
+      if (action.startsWith('custom_dest_')) {
+        const mode = action.replace('custom_dest_', '') || 'add';
+        const reqId = state?.editing_req_id;
         
         await supabase.from('telegram_users').update({
           bot_state: { step: 'edit_route_dest_custom', data: { reqId, mode } }
