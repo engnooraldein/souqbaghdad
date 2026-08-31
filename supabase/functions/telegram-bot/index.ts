@@ -601,16 +601,16 @@ function isLocationMatch(userLoc: string, adLoc: string): boolean {
 function isDestinationMatch(targetDest: string, adText: string, adCity = ''): boolean {
   if (!targetDest || targetDest === 'الجامعة' || targetDest === 'غير محدد') return true;
   
-  const fullAd = `${adCity} ${adText}`.toLowerCase()
-    .replace(/[إأآ]/g, 'ا')
-    .replace(/ة/g, 'ه')
-    .replace(/ى/g, 'ي');
+  const normAr = (s: string) => (s || '').toLowerCase()
+    .replace(/[إأآا]/g, 'ا')
+    .replace(/[ةه]/g, 'ه')
+    .replace(/[ىي]/g, 'ي')
+    .replace(/[ؤئ]/g, 'ء')
+    .trim();
 
-  const cleanTarget = targetDest.toLowerCase()
-    .replace(/[إأآ]/g, 'ا')
-    .replace(/ة/g, 'ه')
-    .replace(/ى/g, 'ي')
-    .replace(/^(كليه|جامعه|معهد|الجامعه|الكليه|المعهد)\s+/, '')
+  const fullAd = normAr(`${adCity} ${adText}`);
+  const cleanTarget = normAr(targetDest)
+    .replace(/^(كليه|جامعه|معهد|الجامعه|الكليه|المعهد|لـكليه|لـجامعه|لكليه|لجامعه|للجامعه|للكليه)\s+/, '')
     .trim();
 
   // Known Universities in Baghdad
@@ -619,27 +619,27 @@ function isDestinationMatch(targetDest: string, adText: string, adCity = ''): bo
     'رافدين': ['رافدين', 'rafidain', 'ruc'],
     'مستنصريه': ['مستنصريه', 'mustansiriyah'],
     'بغداد': ['جامعه بغداد', 'الجادريه', 'باب المعظم', 'طب بغداد', 'هندسه بغداد'],
-    'تكنولوجيه': ['تكنولوجيه', 'uot'],
+    'تكنولوجيه': ['تكنولوجيه', 'تكنلوجيه', 'تكنلوجيا', 'تكنولوجي', 'صناعه', 'uot'],
     'نهرين': ['نهرين', 'nahrain'],
     'فراهيدي': ['فراهيدي', 'faraheedi'],
     'تراث': ['تراث', 'turath'],
     'اوروك': ['اوروك', 'uruk'],
-    'مامون': ['مامون', 'مأمون', 'mamoun'],
+    'مامون': ['مامون', 'mamoun'],
     'دجله': ['دجله', 'dijlah'],
     'بيان': ['بيان', 'bayan'],
     'عراقيه': ['عراقيه', 'iraqia'],
     'فارابي': ['فارابي', 'farabi'],
     'سلام': ['جامعه السلام', 'كليه السلام'],
     'معارف': ['معارف'],
-    'حكمه': ['حكمه', 'حكمة'],
+    'حكمه': ['حكمه'],
     'مشرق': ['مشرق'],
     'مستقبل': ['مستقبل']
   };
 
-  // Check if target is a known distinct university
+  // Check if target matches one of the known distinct universities
   for (const [colKey, aliases] of Object.entries(colleges)) {
-    if (aliases.some(a => cleanTarget.includes(a))) {
-      // Must match one of target university aliases
+    if (aliases.some(a => cleanTarget.includes(a) || a.includes(cleanTarget))) {
+      // Must match one of target university aliases in the ad text
       return aliases.some(a => fullAd.includes(a));
     }
   }
