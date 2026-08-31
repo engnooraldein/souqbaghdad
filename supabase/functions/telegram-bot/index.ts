@@ -6345,6 +6345,17 @@ Deno.serve(async (req: any) => {
       if (isOwner) {
         menuRows.push([{ text: '👑 لوحة تحكم المالك', callback_data: 'owner_hub_main' }]);
       }
+
+      // Check if user is a verified channel partner
+      const tgUserIdStr = fromUser?.id ? String(fromUser.id) : String(chatId);
+      const { data: userPartnerChs } = await supabase
+        .from('partner_channels')
+        .select('id')
+        .or(`partner_tg_user_id.eq.${tgUserIdStr},partner_tg_chat_id.eq.${String(chatId)},owner_telegram_id.eq.${chatId}`)
+        .limit(1);
+      if (userPartnerChs && userPartnerChs.length > 0) {
+        menuRows.push([{ text: '👑 لوحة تحكم الشريك وإحصائياتي 📊', callback_data: 'partner_dashboard_main' }]);
+      }
       
       if (isDriver) {
         // 🚗 Driver / Captain tailored menu
@@ -8181,11 +8192,27 @@ Deno.serve(async (req: any) => {
           .eq('invite_code', state.partner_code)
           .maybeSingle();
 
+        const partnerPointsAwarded = 500;
+        let pUserId = userId;
+        if (!pUserId && pRecord?.phone) {
+          const { data: profByPhone } = await supabase.from('profiles').select('id, points').eq('phone', pRecord.phone).maybeSingle();
+          if (profByPhone) {
+            pUserId = profByPhone.id;
+          }
+        }
+        if (pUserId) {
+          const { data: curProf } = await supabase.from('profiles').select('points').eq('id', pUserId).maybeSingle();
+          const newPts = (curProf?.points || 0) + partnerPointsAwarded;
+          await supabase.from('profiles').update({ points: newPts }).eq('id', pUserId);
+        }
+
         await supabase.from('partner_channels').update({
           channel_id: String(detectedChannelId),
           channel_title: chTitle,
           channel_username: detectedChannelUsername,
           partner_tg_user_id: fromUser?.id ? String(fromUser.id) : String(chatId),
+          partner_tg_chat_id: String(chatId),
+          earned_points: partnerPointsAwarded,
           status: 'active',
           is_active: true,
           updated_at: new Date().toISOString()
@@ -8213,10 +8240,12 @@ Deno.serve(async (req: any) => {
           `📢 <b>القناة:</b> ${chTitle} (${detectedChannelUsername || detectedChannelId})\n` +
           `🎓 <b>الاختصاص:</b> [ <b>${pRecord?.university || 'عام'}</b> ]\n` +
           `🟢 <b>الحالة:</b> <b>متصلة ومفعلة 24/7</b>\n\n` +
+          `🎁 <b>مكافأة الشراكة الفورية:</b> تم إيداع <b>+500 نقطة مجانية 🪙</b> في محفظتك فوراً مع منحك شارة <b>«شريك معتمد 👑»</b>!\n\n` +
           `🚀 الآن، كل خط نقل أو إعلان جديد يخص كليتك سينزل تلقائياً بقناتك مع صورة الستوري وبطاقة الحجز المباشر!\n\n` +
           `شكراً لانضمامك إلى شبكة شركاء سوق بغداد 🤝🌹`,
           {
             inline_keyboard: [
+              [{ text: '📊 لوحة تحكم الشريك وإحصائياتي 👑', callback_data: 'partner_dashboard_main' }],
               [{ text: '🚌 تصفح الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }],
               [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
             ]
@@ -8778,6 +8807,100 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
       
+      // 👑 PARTNER DASHBOARD & STATS (لوحة تحكم وإحصائيات الشريك الرسمي)
+      if (action === 'partner_dashboard_main' || text === '/partner' || text === '/channel' || text === '/chnal') {
+        const tgUserIdStr = fromUser?.id ? String(fromUser.id) : String(chatId);
+        const { data: myPartnerChs } = await supabase
+          .from('partner_channels')
+          .select('*')
+          .or(`partner_tg_user_id.eq.${tgUserIdStr},partner_tg_chat_id.eq.${String(chatId)},owner_telegram_id.eq.${chatId}`);
+
+        if (!myPartnerChs || myPartnerChs.length === 0) {
+          return await updateOrSend(
+            `📡 <b>منظومة القنوات والكروبات الشريكة — سوق بغداد 👑</b>\n\n` +
+            `هل تملك قناة أو كروب تيليجرام للجامعات أو الكليات أو السيارات؟\n\n` +
+            `🌟 <b>المميزات الحصرية للشريك:</b>\n` +
+            `• 🎁 <b>منحة تفعيل فورية:</b> +500 نقطة مجانية في محفظتك.\n` +
+            `• 🚀 <b>نشر تلقائي فوري:</b> تستلم قناتك إعلانات كليتك تلقائياً بصور وتصاميم ستوري احترافية.\n` +
+            `• 🔄 <b>تحديث حي للمقاعد:</b> تعديل البوستات في قناتك عند اكتمال العدد.\n` +
+            `• 👑 <b>شارة شريك معتمد:</b> تمييز وأولوية لحسابك وإعلاناتك الشخصية.\n\n` +
+            `👇 <i>للحصول على كود ورابط تفعيل حصري لقناتك، تواصل مع المالك:</i>`,
+            {
+              inline_keyboard: [
+                [{ text: '💬 تواصل مع المالك لتفعيل قناتك 👑', url: 'https://t.me/souqbaghdad_support' }],
+                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+              ]
+            }
+          );
+        }
+
+        let dashMsg = `👑 <b>لوحة تحكم الشريك الرسمي — سوق بغداد 📊✨</b>\n\n` +
+                      `يا هلا بكابتن وأدمن القناة العزيز 🌹\n` +
+                      `إليك ملخص أداء ومزامنة قنواتك الشريكة النشطة:\n\n`;
+        let totalPosts = 0;
+        let totalPts = 0;
+
+        myPartnerChs.forEach((ch: any, idx: number) => {
+          const isAct = ch.status === 'active' || ch.is_active;
+          const st = isAct ? '🟢 متصلة ومفعلة 24/7' : '⏳ قيد المراجعة والربط';
+          const pCount = ch.posts_count || 0;
+          const ePts = ch.earned_points || 500;
+          totalPosts += pCount;
+          totalPts += ePts;
+
+          dashMsg += `📢 <b>القناة (${idx + 1}):</b> ${ch.channel_title || ch.channel_username || ch.channel_id}\n` +
+                     `🎓 <b>التخصص:</b> [ <b>${ch.university || ch.category}</b> ]\n` +
+                     `⚡ <b>الحالة:</b> ${st}\n` +
+                     `📊 <b>الإعلانات المستلمة:</b> <b>${pCount}</b> منشور\n` +
+                     `🪙 <b>مكافآت الشراكة:</b> <b>${ePts}</b> نقطة\n\n`;
+        });
+
+        dashMsg += `━━━━━━━━━━━━━━━━━━\n` +
+                   `🎁 <b>إجمالي أرباحك ونقاطك:</b> <b>${totalPts}</b> نقطة 🪙\n` +
+                   `👑 <b>رتبتك:</b> <b>شريك ماسي معتمد 🎖️</b>\n\n` +
+                   `<i>النظام يقوم بالمزامنة والنشر التلقائي فور نشر أي خط يخص كليتك!</i>`;
+
+        const dashMarkup = {
+          inline_keyboard: [
+            [{ text: '🎁 توليد كود نقاط لطلابي ومتابعي', callback_data: 'partner_gen_student_code' }],
+            [{ text: '🚌 تصفح الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }],
+            [{ text: '🏠 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]
+          ]
+        };
+        return await updateOrSend(dashMsg, dashMarkup);
+      }
+
+      // 🎁 GENERATE STUDENT CODE FOR PARTNER AUDIENCE
+      if (action === 'partner_gen_student_code') {
+        const studentPromoCode = 'VIP-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+        await supabase.from('promo_codes').insert({
+          code: studentPromoCode,
+          points: 50,
+          max_uses: 20
+        });
+
+        const promoShareMsg = 
+          `🎁 <b>كود هدية حصري لطلاب ومتابعي القناة! ✨</b>\n\n` +
+          `🪙 <b>الرصيد:</b> 50 نقطة مجانية لكل طالب\n` +
+          `👥 <b>الاستخدامات المتاحة:</b> 20 طالب\n\n` +
+          `👇 <b>كود التفعيل:</b>\n<code>${studentPromoCode}</code>\n\n` +
+          `📌 <b>طريقة التفعيل:</b>\n` +
+          `افتح موقع سوق بغداد https://www.souqbaghdad.store واضغط على <b>المحفظة 💼</b> وأدخل الكود!`;
+
+        return await updateOrSend(
+          `🎉 <b>تم توليد كود الهدية لمتابعي قناتك بنجاح! 👑✨</b>\n\n` +
+          `يمكنك نسخه ومشاركته مباشرة في قناتك 👇\n\n` +
+          promoShareMsg,
+          {
+            inline_keyboard: [
+              [{ text: '📋 نسخ الكود', copy_text: { text: studentPromoCode } }],
+              [{ text: '🔙 عودة للوحة الشريك', callback_data: 'partner_dashboard_main' }],
+              [{ text: '🏠 الرئيسية', callback_data: 'main_menu' }]
+            ]
+          }
+        );
+      }
+
       // ❓ FAQ & SMART ASSISTANT HUB
       if (action === 'faq_hub_main') {
         const faqMsg = 
