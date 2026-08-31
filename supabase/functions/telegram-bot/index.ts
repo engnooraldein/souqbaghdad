@@ -8284,12 +8284,24 @@ Deno.serve(async (req: any) => {
         return await updateOrSend(cardText, { inline_keyboard: routeButtons });
       }
 
-      // 📍 Edit / Add Origin Menu
-      if (action.startsWith('edit_req_orig_')) {
-        const reqId = action.replace('edit_req_orig_', '');
-        const { data: targetReq } = await supabase.from('transport_requests').select('*').eq('id', reqId).maybeSingle();
+      // 📍 Edit / Add Origin Main Menu (الأكثر طلباً + التصنيفات)
+      if (action.startsWith('edit_req_orig_') || action === 'menu_areas_main') {
+        let reqId = state?.editing_req_id;
+        if (action.startsWith('edit_req_orig_')) {
+          reqId = action.replace('edit_req_orig_', '');
+        }
+        let targetReq = null;
+        if (reqId) {
+          const { data } = await supabase.from('transport_requests').select('*').eq('id', reqId).maybeSingle();
+          targetReq = data;
+        }
+        if (!targetReq) {
+          const { data } = await supabase.from('transport_requests').select('*').eq('telegram_chat_id', String(chatId)).eq('status', 'pending').order('created_at', { ascending: false }).limit(1).maybeSingle();
+          targetReq = data;
+        }
         if (!targetReq) return new Response('OK', { status: 200 });
 
+        reqId = targetReq.id;
         await supabase.from('telegram_users').update({
           bot_state: { ...(state || {}), editing_req_id: reqId }
         }).eq('telegram_chat_id', chatId);
@@ -8297,21 +8309,103 @@ Deno.serve(async (req: any) => {
         const editOrigMsg = 
           `📍 <b>تعديل وإضافة مناطق الانطلاق لمسارك 🚌</b>\n\n` +
           `المناطق المسجلة حالياً:\n📍 <b>${targetReq.origin}</b>\n\n` +
-          `اختر منطقة لإضافتها بجانبها لتلقي التنبيهات لأكثر من منطقة، أو اختر استبدال:`;
+          `⚡ <b>المناطق الأكثر طلباً:</b> اختر منطقة لإضافتها فوراً، أو تصفح القوائم الكاملة للرصافة والكرخ والأطراف:`;
 
         const editOrigMarkup = {
           inline_keyboard: [
-            [{ text: '➕ الشعب', callback_data: `add_orig_الشعب` }, { text: '➕ البنوك', callback_data: `add_orig_البنوك` }, { text: '➕ القاهرة', callback_data: `add_orig_القاهرة` }],
-            [{ text: '➕ المنصور', callback_data: `add_orig_المنصور` }, { text: '➕ الكرادة', callback_data: `add_orig_الكرادة` }, { text: '➕ الدورة', callback_data: `add_orig_الدورة` }],
-            [{ text: '➕ جميلة', callback_data: `add_orig_جميلة` }, { text: '➕ السيدية', callback_data: `add_orig_السيدية` }, { text: '➕ الأعظمية', callback_data: `add_orig_الأعظمية` }],
-            [{ text: '➕ الكاظمية', callback_data: `add_orig_الكاظمية` }, { text: '➕ اليرموك', callback_data: `add_orig_اليرموك` }, { text: '➕ الغزالية', callback_data: `add_orig_الغزالية` }],
-            [{ text: '➕ منطقة أخرى (كتابة أو بصمة) ✍️', callback_data: `custom_orig_add` }],
-            [{ text: '🔄 استبدال المنطقة بالكامل', callback_data: `custom_orig_replace` }],
+            [{ text: '➕ الشعب', callback_data: 'add_orig_الشعب' }, { text: '➕ البنوك', callback_data: 'add_orig_البنوك' }, { text: '➕ القاهرة', callback_data: 'add_orig_القاهرة' }],
+            [{ text: '➕ المنصور', callback_data: 'add_orig_المنصور' }, { text: '➕ الكرادة', callback_data: 'add_orig_الكرادة' }, { text: '➕ الدورة', callback_data: 'add_orig_الدورة' }],
+            [{ text: '➕ جميلة', callback_data: 'add_orig_جميلة' }, { text: '➕ السيدية', callback_data: 'add_orig_السيدية' }, { text: '➕ الأعظمية', callback_data: 'add_orig_الأعظمية' }],
+            [{ text: '➕ الكاظمية', callback_data: 'add_orig_الكاظمية' }, { text: '➕ اليرموك', callback_data: 'add_orig_اليرموك' }, { text: '➕ الغزالية', callback_data: 'add_orig_الغزالية' }],
+            [{ text: '🏙️ كل مناطق الرصافة (قائمة كاملة)', callback_data: 'menu_areas_rusafa_0' }],
+            [{ text: '🌳 كل مناطق الكرخ (قائمة كاملة)', callback_data: 'menu_areas_karkh_0' }],
+            [{ text: '🌾 أقضية ونواحي وأطراف بغداد', callback_data: 'menu_areas_suburbs' }],
+            [{ text: '✍️ كتابة منطقة أخرى أو بصمة صوتية 🎙️', callback_data: 'custom_orig_add' }],
+            [{ text: '🔄 استبدال منطقة الانطلاق بالكامل', callback_data: 'custom_orig_replace' }],
             [{ text: '🔙 العودة لمساراتي', callback_data: 'manage_my_routes' }]
           ]
         };
 
         return await updateOrSend(editOrigMsg, editOrigMarkup);
+      }
+
+      // 🏙️ مناطق الرصافة - صفحة 1
+      if (action === 'menu_areas_rusafa_0') {
+        const msg = `🏙️ <b>مناطق وأحياء الرصافة [ صفحة 1 من 2 ] 📍</b>\nاختر المنطقة لإضافتها لمسارك:`;
+        const markup = {
+          inline_keyboard: [
+            [{ text: '➕ الشعب', callback_data: 'add_orig_الشعب' }, { text: '➕ البنوك', callback_data: 'add_orig_البنوك' }, { text: '➕ الطالبية', callback_data: 'add_orig_الطالبية' }],
+            [{ text: '➕ القاهرة', callback_data: 'add_orig_القاهرة' }, { text: '➕ صليخ', callback_data: 'add_orig_صليخ' }, { text: '➕ الأعظمية', callback_data: 'add_orig_الأعظمية' }],
+            [{ text: '➕ راغبة خاتون', callback_data: 'add_orig_راغبة خاتون' }, { text: '➕ الكسرة', callback_data: 'add_orig_الكسرة' }, { text: '➕ باب المعظم', callback_data: 'add_orig_باب المعظم' }],
+            [{ text: '➕ الكرادة', callback_data: 'add_orig_الكرادة' }, { text: '➕ شارع فلسطين', callback_data: 'add_orig_شارع فلسطين' }, { text: '➕ زيونة', callback_data: 'add_orig_زيونة' }],
+            [{ text: 'التالي ➡️ (المزيد من الرصافة)', callback_data: 'menu_areas_rusafa_1' }],
+            [{ text: '🔙 عودة لقائمة المناطق', callback_data: 'menu_areas_main' }]
+          ]
+        };
+        return await updateOrSend(msg, markup);
+      }
+
+      // 🏙️ مناطق الرصافة - صفحة 2
+      if (action === 'menu_areas_rusafa_1') {
+        const msg = `🏙️ <b>مناطق وأحياء الرصافة [ صفحة 2 من 2 ] 📍</b>\nاختر المنطقة لإضافتها لمسارك:`;
+        const markup = {
+          inline_keyboard: [
+            [{ text: '➕ الغدير', callback_data: 'add_orig_الغدير' }, { text: '➕ بغداد الجديدة', callback_data: 'add_orig_بغداد الجديدة' }, { text: '➕ المشتل', callback_data: 'add_orig_المشتل' }],
+            [{ text: '➕ الأمين', callback_data: 'add_orig_الأمين' }, { text: '➕ المعلمين', callback_data: 'add_orig_المعلمين' }, { text: '➕ البلديات', callback_data: 'add_orig_البلديات' }],
+            [{ text: '➕ جميلة', callback_data: 'add_orig_جميلة' }, { text: '➕ مدينة الصدر', callback_data: 'add_orig_مدينة الصدر' }, { text: '➕ الحبيبية', callback_data: 'add_orig_الحبيبية' }],
+            [{ text: '➕ الزعفرانية', callback_data: 'add_orig_الزعفرانية' }, { text: '➕ حي أور', callback_data: 'add_orig_حي أور' }, { text: '➕ سبع أبكار', callback_data: 'add_orig_سبع أبكار' }],
+            [{ text: '⬅️ السابق', callback_data: 'menu_areas_rusafa_0' }],
+            [{ text: '🔙 عودة لقائمة المناطق', callback_data: 'menu_areas_main' }]
+          ]
+        };
+        return await updateOrSend(msg, markup);
+      }
+
+      // 🌳 مناطق الكرخ - صفحة 1
+      if (action === 'menu_areas_karkh_0') {
+        const msg = `🌳 <b>مناطق وأحياء الكرخ [ صفحة 1 من 2 ] 📍</b>\nاختر المنطقة لإضافتها لمسارك:`;
+        const markup = {
+          inline_keyboard: [
+            [{ text: '➕ المنصور', callback_data: 'add_orig_المنصور' }, { text: '➕ اليرموك', callback_data: 'add_orig_اليرموك' }, { text: '➕ الحارثية', callback_data: 'add_orig_الحارثية' }],
+            [{ text: '➕ القادسية', callback_data: 'add_orig_القادسية' }, { text: '➕ الداوودي', callback_data: 'add_orig_الداوودي' }, { text: '➕ حي الجامعة', callback_data: 'add_orig_حي الجامعة' }],
+            [{ text: '➕ حي الخضراء', callback_data: 'add_orig_حي الخضراء' }, { text: '➕ حي العدل', callback_data: 'add_orig_حي العدل' }, { text: '➕ الغزالية', callback_data: 'add_orig_الغزالية' }],
+            [{ text: '➕ العامرية', callback_data: 'add_orig_العامرية' }, { text: '➕ الإسكان', callback_data: 'add_orig_الإسكان' }, { text: '➕ الوشاش', callback_data: 'add_orig_الوشاش' }],
+            [{ text: 'التالي ➡️ (المزيد من الكرخ)', callback_data: 'menu_areas_karkh_1' }],
+            [{ text: '🔙 عودة لقائمة المناطق', callback_data: 'menu_areas_main' }]
+          ]
+        };
+        return await updateOrSend(msg, markup);
+      }
+
+      // 🌳 مناطق الكرخ - صفحة 2
+      if (action === 'menu_areas_karkh_1') {
+        const msg = `🌳 <b>مناطق وأحياء الكرخ [ صفحة 2 من 2 ] 📍</b>\nاختر المنطقة لإضافتها لمسارك:`;
+        const markup = {
+          inline_keyboard: [
+            [{ text: '➕ الكاظمية', callback_data: 'add_orig_الكاظمية' }, { text: '➕ العطيفية', callback_data: 'add_orig_العطيفية' }, { text: '➕ الحرية', callback_data: 'add_orig_الحرية' }],
+            [{ text: '➕ السيدية', callback_data: 'add_orig_السيدية' }, { text: '➕ حي العامل', callback_data: 'add_orig_حي العامل' }, { text: '➕ حي التراث', callback_data: 'add_orig_حي التراث' }],
+            [{ text: '➕ البياع', callback_data: 'add_orig_البياع' }, { text: '➕ حي الإعلام', callback_data: 'add_orig_حي الإعلام' }, { text: '➕ الشرطة الرابعة', callback_data: 'add_orig_الشرطة الرابعة' }],
+            [{ text: '➕ حي الجهاد', callback_data: 'add_orig_حي الجهاد' }, { text: '➕ الدورة', callback_data: 'add_orig_الدورة' }, { text: '➕ أبو دشير', callback_data: 'add_orig_أبو دشير' }],
+            [{ text: '⬅️ السابق', callback_data: 'menu_areas_karkh_0' }],
+            [{ text: '🔙 عودة لقائمة المناطق', callback_data: 'menu_areas_main' }]
+          ]
+        };
+        return await updateOrSend(msg, markup);
+      }
+
+      // 🌾 أطراف ونواحي وأقضية بغداد
+      if (action === 'menu_areas_suburbs') {
+        const msg = `🌾 <b>أقضية ونواحي وأطراف بغداد 📍</b>\nاختر منطقتك لإضافتها لمسارك:`;
+        const markup = {
+          inline_keyboard: [
+            [{ text: '➕ المحمودية', callback_data: 'add_orig_المحمودية' }, { text: '➕ المدائن', callback_data: 'add_orig_المدائن' }, { text: '➕ التاجي', callback_data: 'add_orig_التاجي' }],
+            [{ text: '➕ الطارمية', callback_data: 'add_orig_الطارمية' }, { text: '➕ جسر ديالى', callback_data: 'add_orig_جسر ديالى' }, { text: '➕ الحسينية', callback_data: 'add_orig_الحسينية' }],
+            [{ text: '➕ بوب الشام', callback_data: 'add_orig_بوب الشام' }, { text: '➕ سبع قصور', callback_data: 'add_orig_سبع قصور' }, { text: '➕ حي البساتين', callback_data: 'add_orig_حي البساتين' }],
+            [{ text: '➕ اللطيفية', callback_data: 'add_orig_اللطيفية' }, { text: '➕ الرضوانية', callback_data: 'add_orig_الرضوانية' }, { text: '➕ بعقوبة / ديالى', callback_data: 'add_orig_بعقوبة' }],
+            [{ text: '🔙 عودة لقائمة المناطق', callback_data: 'menu_areas_main' }]
+          ]
+        };
+        return await updateOrSend(msg, markup);
       }
 
       // 📍 Add Origin to existing route
@@ -8345,6 +8439,7 @@ Deno.serve(async (req: any) => {
             {
               inline_keyboard: [
                 [{ text: '🔍 فحص الخطوط لمساري 🚌', callback_data: `search_route_${targetReq.id}` }],
+                [{ text: '➕ إضافة منطقة أخرى لمساري', callback_data: 'menu_areas_main' }],
                 [{ text: '📋 عرض مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' }],
                 [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
               ]
@@ -8363,7 +8458,7 @@ Deno.serve(async (req: any) => {
         const reqId = state?.editing_req_id;
         
         await supabase.from('telegram_users').update({
-          bot_state: { step: 'edit_route_origin_custom', data: { reqId, mode } }
+          bot_state: { step: 'edit_route_origin_custom', editing_req_id: reqId, data: { reqId, mode } }
         }).eq('telegram_chat_id', chatId);
 
         const promptText = mode === 'replace' 
@@ -8375,12 +8470,24 @@ Deno.serve(async (req: any) => {
         });
       }
 
-      // 🏢 Edit / Add Destination Menu
-      if (action.startsWith('edit_req_dest_')) {
-        const reqId = action.replace('edit_req_dest_', '');
-        const { data: targetReq } = await supabase.from('transport_requests').select('*').eq('id', reqId).maybeSingle();
+      // 🏢 Edit / Add Destination Main Menu (الأكثر طلباً + التصنيفات)
+      if (action.startsWith('edit_req_dest_') || action === 'menu_univ_main') {
+        let reqId = state?.editing_req_id;
+        if (action.startsWith('edit_req_dest_')) {
+          reqId = action.replace('edit_req_dest_', '');
+        }
+        let targetReq = null;
+        if (reqId) {
+          const { data } = await supabase.from('transport_requests').select('*').eq('id', reqId).maybeSingle();
+          targetReq = data;
+        }
+        if (!targetReq) {
+          const { data } = await supabase.from('transport_requests').select('*').eq('telegram_chat_id', String(chatId)).eq('status', 'pending').order('created_at', { ascending: false }).limit(1).maybeSingle();
+          targetReq = data;
+        }
         if (!targetReq) return new Response('OK', { status: 200 });
 
+        reqId = targetReq.id;
         await supabase.from('telegram_users').update({
           bot_state: { ...(state || {}), editing_req_id: reqId }
         }).eq('telegram_chat_id', chatId);
@@ -8388,22 +8495,87 @@ Deno.serve(async (req: any) => {
         const editDestMsg = 
           `🏢 <b>تعديل وإضافة الوجهات والكليات لمسارك 🎓</b>\n\n` +
           `الوجهات المسجلة حالياً:\n🏢 <b>${targetReq.destination || 'الجامعة'}</b>\n\n` +
-          `اختر كلية أو جامعة لإضافتها لتوسيع نطاق التنبيهات لأكثر من وجهة، أو اختر استبدال:`;
+          `⚡ <b>الكليات والجامعات الأكثر طلباً:</b> اختر كليتك لإضافتها فوراً، أو تصفح القوائم الكاملة أدناه:`;
 
         const editDestMarkup = {
           inline_keyboard: [
             [{ text: '➕ كلية الرافدين الجامعة', callback_data: 'add_dest_rafdain' }, { text: '➕ الجامعة التكنولوجية', callback_data: 'add_dest_tech' }],
-            [{ text: '➕ الجامعة المستنصرية', callback_data: 'add_dest_mustansiriya' }, { text: '➕ جامعة بغداد', callback_data: 'add_dest_baghdad' }],
-            [{ text: '➕ جامعة النهرين', callback_data: 'add_dest_nahrain' }, { text: '➕ كلية التراث الجامعة', callback_data: 'add_dest_turath' }],
-            [{ text: '➕ كلية الاسراء الجامعة', callback_data: 'add_dest_israa' }, { text: '➕ جامعة دجلة', callback_data: 'add_dest_dijla' }],
+            [{ text: '➕ الجامعة المستنصرية', callback_data: 'add_dest_mustansiriya' }, { text: '➕ جامعة بغداد', callback_data: 'add_dest_baghdad_jadriya' }],
+            [{ text: '➕ جامعة النهرين', callback_data: 'add_dest_nahrain' }, { text: '➕ كلية الاسراء الجامعة', callback_data: 'add_dest_israa' }],
+            [{ text: '➕ كلية التراث الجامعة', callback_data: 'add_dest_turath' }, { text: '➕ جامعة دجلة', callback_data: 'add_dest_dijla' }],
             [{ text: '➕ جامعة الفراهيدي', callback_data: 'add_dest_farahidi' }, { text: '➕ جامعة اوروك', callback_data: 'add_dest_uruk' }],
-            [{ text: '➕ وجهة / كلية أخرى (كتابة أو بصمة) ✍️', callback_data: 'custom_dest_add' }],
+            [{ text: '🏛️ كل الجامعات الحكومية والمعاهد (قائمة كاملة)', callback_data: 'menu_univ_gov' }],
+            [{ text: '🎓 كل الكليات والجامعات الأهلية (قائمة كاملة)', callback_data: 'menu_univ_pvt_0' }],
+            [{ text: '🏥 المجمعات الطبية والهندسية والمواقع', callback_data: 'menu_univ_complex' }],
+            [{ text: '✍️ كتابة وجهة / كلية أخرى أو بصمة صوتية 🎙️', callback_data: 'custom_dest_add' }],
             [{ text: '🔄 استبدال الوجهة بالكامل', callback_data: 'custom_dest_replace' }],
             [{ text: '🔙 العودة لمساراتي', callback_data: 'manage_my_routes' }]
           ]
         };
 
         return await updateOrSend(editDestMsg, editDestMarkup);
+      }
+
+      // 🏛️ الجامعات الحكومية والمعاهد
+      if (action === 'menu_univ_gov') {
+        const msg = `🏛️ <b>الجامعات الحكومية والمعاهد في بغداد 🎓</b>\nاختر جامعتك أو معهدك لإضافته لمسارك:`;
+        const markup = {
+          inline_keyboard: [
+            [{ text: '➕ جامعة بغداد (الجادرية)', callback_data: 'add_dest_baghdad_jadriya' }, { text: '➕ جامعة بغداد (باب المعظم)', callback_data: 'add_dest_baghdad_moadhem' }],
+            [{ text: '➕ الجامعة المستنصرية', callback_data: 'add_dest_mustansiriya' }, { text: '➕ الجامعة التكنولوجية', callback_data: 'add_dest_tech' }],
+            [{ text: '➕ جامعة النهرين', callback_data: 'add_dest_nahrain' }, { text: '➕ الجامعة العراقية', callback_data: 'add_dest_iraqia' }],
+            [{ text: '➕ جامعة ابن سينا الطبية', callback_data: 'add_dest_ibnsina' }, { text: '➕ التقنية الوسطى (الزعفرانية)', callback_data: 'add_dest_middle_tech' }],
+            [{ text: '➕ معهد التكنولوجيا بغداد', callback_data: 'add_dest_tech_inst' }, { text: '➕ معهد الإدارة الرصافة', callback_data: 'add_dest_admin_inst' }],
+            [{ text: '🔙 عودة لقائمة الكليات', callback_data: 'menu_univ_main' }]
+          ]
+        };
+        return await updateOrSend(msg, markup);
+      }
+
+      // 🎓 الكليات والجامعات الأهلية - صفحة 1
+      if (action === 'menu_univ_pvt_0') {
+        const msg = `🎓 <b>الكليات والجامعات الأهلية [ صفحة 1 من 2 ] 🏢</b>\nاختر كليتك لإضافتها لمسارك:`;
+        const markup = {
+          inline_keyboard: [
+            [{ text: '➕ كلية الرافدين الجامعة', callback_data: 'add_dest_rafdain' }, { text: '➕ كلية الاسراء الجامعة', callback_data: 'add_dest_israa' }],
+            [{ text: '➕ كلية التراث الجامعة', callback_data: 'add_dest_turath' }, { text: '➕ جامعة دجلة', callback_data: 'add_dest_dijla' }],
+            [{ text: '➕ جامعة الفراهيدي', callback_data: 'add_dest_farahidi' }, { text: '➕ جامعة اوروك', callback_data: 'add_dest_uruk' }],
+            [{ text: '➕ كلية المنصور الجامعة', callback_data: 'add_dest_mansour' }, { text: '➕ كلية المأمون الجامعة', callback_data: 'add_dest_mamun' }],
+            [{ text: 'التالي ➡️ (المزيد من الكليات)', callback_data: 'menu_univ_pvt_1' }],
+            [{ text: '🔙 عودة لقائمة الكليات', callback_data: 'menu_univ_main' }]
+          ]
+        };
+        return await updateOrSend(msg, markup);
+      }
+
+      // 🎓 الكليات والجامعات الأهلية - صفحة 2
+      if (action === 'menu_univ_pvt_1') {
+        const msg = `🎓 <b>الكليات والجامعات الأهلية [ صفحة 2 من 2 ] 🏢</b>\nاختر كليتك لإضافتها لمسارك:`;
+        const markup = {
+          inline_keyboard: [
+            [{ text: '➕ جامعة البيان', callback_data: 'add_dest_bayan' }, { text: '➕ جامعة الفارابي', callback_data: 'add_dest_farabi' }],
+            [{ text: '➕ كلية المشرق الجامعة', callback_data: 'add_dest_mashreq' }, { text: '➕ كلية المستقبل الجامعة', callback_data: 'add_dest_mustaqbal' }],
+            [{ text: '➕ كلية الرشيد الجامعة', callback_data: 'add_dest_rashid' }, { text: '➕ كلية المعارف الجامعة', callback_data: 'add_dest_maaref' }],
+            [{ text: '➕ جامعة السلام', callback_data: 'add_dest_salam' }, { text: '➕ كلية الإمام الكاظم (ع)', callback_data: 'add_dest_kadhim' }],
+            [{ text: '⬅️ السابق', callback_data: 'menu_univ_pvt_0' }],
+            [{ text: '🔙 عودة لقائمة الكليات', callback_data: 'menu_univ_main' }]
+          ]
+        };
+        return await updateOrSend(msg, markup);
+      }
+
+      // 🏥 المجمعات الطبية والهندسية
+      if (action === 'menu_univ_complex') {
+        const msg = `🏥 <b>المجمعات الطبية والهندسية والمواقع الجامعية 📍</b>\nاختر المجمع المطلوب:`;
+        const markup = {
+          inline_keyboard: [
+            [{ text: '➕ مجمع باب المعظم الطبي', callback_data: 'add_dest_comp_moadhem' }, { text: '➕ مجمع الجادرية الجامعي', callback_data: 'add_dest_comp_jadriya' }],
+            [{ text: '➕ مجمع الطالبية (المستنصرية)', callback_data: 'add_dest_comp_talbiya' }, { text: '➕ مجمع الوزيرية (الفنون/التربية)', callback_data: 'add_dest_comp_waziriya' }],
+            [{ text: '➕ مجمع الزعفرانية التقني', callback_data: 'add_dest_comp_zafraniya' }, { text: '➕ مجمع الكاظمية (النهرين)', callback_data: 'add_dest_comp_kadhimiya' }],
+            [{ text: '🔙 عودة لقائمة الكليات', callback_data: 'menu_univ_main' }]
+          ]
+        };
+        return await updateOrSend(msg, markup);
       }
 
       // 🏢 Add Destination to existing route
@@ -8413,13 +8585,36 @@ Deno.serve(async (req: any) => {
           rafdain: 'كلية الرافدين الجامعة',
           tech: 'الجامعة التكنولوجية',
           mustansiriya: 'الجامعة المستنصرية',
+          baghdad_jadriya: 'جامعة بغداد (الجادرية)',
+          baghdad_moadhem: 'جامعة بغداد (باب المعظم)',
           baghdad: 'جامعة بغداد',
           nahrain: 'جامعة النهرين',
+          iraqia: 'الجامعة العراقية',
+          ibnsina: 'جامعة ابن سينا الطبية',
+          middle_tech: 'الجامعة التقنية الوسطى',
+          tech_inst: 'معهد التكنولوجيا بغداد',
+          admin_inst: 'معهد الإدارة الرصافة',
           turath: 'كلية التراث الجامعة',
           israa: 'كلية الاسراء الجامعة',
           dijla: 'جامعة دجلة',
           farahidi: 'جامعة الفراهيدي',
-          uruk: 'جامعة اوروك'
+          uruk: 'جامعة اوروك',
+          mansour: 'كلية المنصور الجامعة',
+          mamun: 'كلية المأمون الجامعة',
+          bayan: 'جامعة البيان',
+          farabi: 'جامعة الفارابي',
+          mashreq: 'كلية المشرق الجامعة',
+          mustaqbal: 'كلية المستقبل الجامعة',
+          rashid: 'كلية الرشيد الجامعة',
+          maaref: 'كلية المعارف الجامعة',
+          salam: 'جامعة السلام',
+          kadhim: 'كلية الإمام الكاظم (ع)',
+          comp_moadhem: 'مجمع باب المعظم الطبي',
+          comp_jadriya: 'مجمع الجادرية الجامعي',
+          comp_talbiya: 'مجمع الطالبية (المستنصرية)',
+          comp_waziriya: 'مجمع الوزيرية (الفنون والتربية)',
+          comp_zafraniya: 'مجمع الزعفرانية التقني',
+          comp_kadhimiya: 'مجمع الكاظمية الجامعي'
         };
         const destName = DEST_MAP[destKey] || destKey;
         const reqId = state?.editing_req_id;
@@ -8450,6 +8645,7 @@ Deno.serve(async (req: any) => {
             {
               inline_keyboard: [
                 [{ text: '🔍 فحص الخطوط لمساري 🚌', callback_data: `search_route_${targetReq.id}` }],
+                [{ text: '➕ إضافة كلية / وجهة أخرى لمساري', callback_data: 'menu_univ_main' }],
                 [{ text: '📋 عرض مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' }],
                 [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
               ]
@@ -8468,7 +8664,7 @@ Deno.serve(async (req: any) => {
         const reqId = state?.editing_req_id;
         
         await supabase.from('telegram_users').update({
-          bot_state: { step: 'edit_route_dest_custom', data: { reqId, mode } }
+          bot_state: { step: 'edit_route_dest_custom', editing_req_id: reqId, data: { reqId, mode } }
         }).eq('telegram_chat_id', chatId);
 
         const promptText = mode === 'replace' 
@@ -13764,12 +13960,20 @@ Deno.serve(async (req: any) => {
       }
       else if (state.step === 'edit_route_origin_custom' && (text || originalVoiceText)) {
         const inputArea = (text || originalVoiceText || '').trim();
-        const reqId = state.data?.reqId;
+        const reqId = state.data?.reqId || state.editing_req_id;
         const mode = state.data?.mode || 'add';
-        const { data: curReq } = await supabase.from('transport_requests').select('*').eq('id', reqId).maybeSingle();
+        let curReq = null;
+        if (reqId) {
+          const { data } = await supabase.from('transport_requests').select('*').eq('id', reqId).maybeSingle();
+          curReq = data;
+        }
+        if (!curReq) {
+          const { data } = await supabase.from('transport_requests').select('*').eq('telegram_chat_id', String(chatId)).eq('status', 'pending').order('created_at', { ascending: false }).limit(1).maybeSingle();
+          curReq = data;
+        }
         if (curReq) {
           const finalOrig = mode === 'replace' ? inputArea : `${curReq.origin || ''}، ${inputArea}`.replace(/^،\s*/, '');
-          await supabase.from('transport_requests').update({ origin: finalOrig }).eq('id', reqId);
+          await supabase.from('transport_requests').update({ origin: finalOrig }).eq('id', curReq.id);
           await supabase.from('telegram_users').update({ bot_state: null }).eq('telegram_chat_id', chatId);
           
           const confirmMsg = 
@@ -13779,7 +13983,7 @@ Deno.serve(async (req: any) => {
             `📡 <i>رادارك الذكي نشط 24/7 لأي خط يمر بأي من هذه المناطق.</i>`;
 
           const confirmBtns = [
-            [{ text: '🔍 فحص الخطوط المتوفرة الآن 🚌', callback_data: `search_route_${reqId}` }],
+            [{ text: '🔍 فحص الخطوط المتوفرة الآن 🚌', callback_data: `search_route_${curReq.id}` }],
             [{ text: '📋 عرض مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' }],
             [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
           ];
@@ -13789,12 +13993,20 @@ Deno.serve(async (req: any) => {
       }
       else if (state.step === 'edit_route_dest_custom' && (text || originalVoiceText)) {
         const inputDest = (text || originalVoiceText || '').trim();
-        const reqId = state.data?.reqId;
+        const reqId = state.data?.reqId || state.editing_req_id;
         const mode = state.data?.mode || 'add';
-        const { data: curReq } = await supabase.from('transport_requests').select('*').eq('id', reqId).maybeSingle();
+        let curReq = null;
+        if (reqId) {
+          const { data } = await supabase.from('transport_requests').select('*').eq('id', reqId).maybeSingle();
+          curReq = data;
+        }
+        if (!curReq) {
+          const { data } = await supabase.from('transport_requests').select('*').eq('telegram_chat_id', String(chatId)).eq('status', 'pending').order('created_at', { ascending: false }).limit(1).maybeSingle();
+          curReq = data;
+        }
         if (curReq) {
           const finalDest = mode === 'replace' ? inputDest : `${curReq.destination || ''}، ${inputDest}`.replace(/^،\s*/, '');
-          await supabase.from('transport_requests').update({ destination: finalDest }).eq('id', reqId);
+          await supabase.from('transport_requests').update({ destination: finalDest }).eq('id', curReq.id);
           await supabase.from('telegram_users').update({ bot_state: null }).eq('telegram_chat_id', chatId);
           
           const confirmMsg = 
@@ -13804,7 +14016,7 @@ Deno.serve(async (req: any) => {
             `📡 <i>رادارك الذكي نشط 24/7 لأي خط يتجه لأي من هذه الكليات.</i>`;
 
           const confirmBtns = [
-            [{ text: '🔍 فحص الخطوط المتوفرة الآن 🚌', callback_data: `search_route_${reqId}` }],
+            [{ text: '🔍 فحص الخطوط المتوفرة الآن 🚌', callback_data: `search_route_${curReq.id}` }],
             [{ text: '📋 عرض مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' }],
             [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
           ];
