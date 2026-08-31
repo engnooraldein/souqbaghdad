@@ -9785,8 +9785,16 @@ Deno.serve(async (req: any) => {
             // Toggle off
             currentRegions = currentRegions.filter((r: string) => r !== areaVal);
           } else {
-            // Toggle on
-            currentRegions.push(areaVal);
+            // Toggle on with max 3 limit
+            if (currentRegions.length >= 3) {
+              if (callbackQueryId) {
+                try {
+                  await answerCallbackQuery(callbackQueryId, '⚠️ الحد الأقصى 3 مناطق رئيسية لضمان ترتيب إعلانك 🌹', true);
+                } catch(e) {}
+              }
+            } else {
+              currentRegions.push(areaVal);
+            }
           }
         }
 
@@ -10166,14 +10174,28 @@ Deno.serve(async (req: any) => {
           whatsappClicks: 0
         });
 
+        const cleanSavedLocation = (state.data.regions || 'بغداد')
+          .replace(/(?:07[3-9]\d{8}|\+9647[3-9]\d{8}|07\d{2}\s?\d{3}\s?\d{4}|\d{7,})/g, '')
+          .replace(/(صاحب الخط|سائق|سايق|طالب|طالبة|طالبه|النترا|ستاركس|كوستر|كيا|توسان|خصوصي|سلام عليكم|مرحبا|متوفر خط|يوجد خط|في الكلية|في الكليه|علما|فرع)/gi, '')
+          .replace(/[()\/\\#@_=+]/g, ' ')
+          .replace(/\s{2,}/g, ' ')
+          .trim()
+          .substring(0, 45) || 'بغداد';
+
+        const cleanSavedCity = (state.data.destination || 'كلية الرافدين الجامعة')
+          .replace(/(?:07[3-9]\d{8}|\+9647[3-9]\d{8}|07\d{2}\s?\d{3}\s?\d{4}|\d{7,})/g, '')
+          .replace(/(صاحب الخط|سائق|سايق|طالب|طالبة|النترا|ستاركس|كوستر|كيا|توسان|خصوصي|سلام عليكم|مرحبا)/gi, '')
+          .trim()
+          .substring(0, 45) || 'الجامعة';
+
         const { data: insertedTrans, error: transInsertError } = await supabase.from('ads').insert({
           type: state.data.type === 'offer' ? 'offer' : 'request',
           title: transTitle,
           description: transDescJson,
           price: state.data.price ? state.data.price.replace(/[^0-9]/g, '') : '0',
           category: 'transport',
-          location: state.data.regions,
-          city: state.data.destination,
+          location: cleanSavedLocation,
+          city: cleanSavedCity,
           images: [],
           phone: state.data.phone || phone,
           status: 'active',
@@ -13538,7 +13560,42 @@ Deno.serve(async (req: any) => {
       // 🚌 TRANSPORT WIZARD TEXT INPUTS
       // ==========================================
       else if ((state.step === 'trans_regions' || state.step === 'trans_area_custom_input') && text) {
-        state.data.regions = text.trim();
+        const rawInput = text.trim();
+        const hasPhone = /(?:07[3-9]\d{8}|\+9647[3-9]\d{8}|07\d{2}\s?\d{3}\s?\d{4}|\d{7,})/.test(rawInput);
+        const hasBadDump = /(صاحب الخط|سائق|سايق|طالب|طالبة|طالبه|النترا|ستاركس|كوستر|كيا|توسان|خصوصي|سلام عليكم|مرحبا|متوفر خط|يوجد خط|في الكلية|في الكليه|علما|فرع|للاستفسار|للحجز|توصيل|سعر|الأجرة|الاجرة|أجرة|اجرة|رقمي|هاتفي)/i.test(rawInput);
+        
+        if (hasPhone) {
+          await sendMessage(
+            chatId,
+            `⚠️ <b>عذراً كابتن 🌹</b>\n` +
+            `لا يمكن كتابة رقم الهاتف في حقل منطقة الانطلاق.\n` +
+            `<i>(سيطلب منك البوت رقم هاتفك في خطوة مخصصة لاحقاً لتسهيل التواصل مع الركاب)</i>\n\n` +
+            `👇 <b>يرجى كتابة اسم المنطقة فقط (مثال: المنصور، أو زيونة، حي الجامعة):</b>`,
+            { inline_keyboard: [[{ text: '◀️ العودة لاختيار المناطق بالقوائم', callback_data: 'trans_back_to_areas' }]] }
+          );
+          return new Response('OK', { status: 200 });
+        }
+
+        if (hasBadDump || rawInput.length > 40 || rawInput.split(/\s+/).length > 6) {
+          await sendMessage(
+            chatId,
+            `⚠️ <b>يرجى كتابة اسم المنطقة فقط 🌹</b>\n` +
+            `<i>تجنب كتابة تفاصيل السيارة أو الملاحظات أو الجمل الطويلة هنا، لأن النظام سيطلبها منك في الخطوات القادمة تباعاً.</i>\n\n` +
+            `📍 <b>مثال صحيح:</b> <code>المنصور، اليرموك</code>\n\n` +
+            `👇 <b>أعد إرسال اسم منطقتك فقط:</b>`,
+            { inline_keyboard: [[{ text: '◀️ العودة لاختيار المناطق بالقوائم', callback_data: 'trans_back_to_areas' }]] }
+          );
+          return new Response('OK', { status: 200 });
+        }
+
+        // Clean & truncate to max 3 areas
+        const cleanAreas = rawInput
+          .split(/[،,-]/)
+          .map(s => s.trim().replace(/^(منطقة|حي|شارع)\s+/, ''))
+          .filter(s => s.length >= 2 && s.length <= 25)
+          .slice(0, 3);
+
+        state.data.regions = cleanAreas.length > 0 ? cleanAreas.join('، ') : rawInput.substring(0, 30);
         state.step = 'trans_dest';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
@@ -13553,7 +13610,22 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
       else if ((state.step === 'trans_dest' || state.step === 'trans_dest_custom_input') && text) {
-        state.data.destination = text.trim();
+        const rawDest = text.trim();
+        const hasPhone = /(?:07[3-9]\d{8}|\+9647[3-9]\d{8}|07\d{2}\s?\d{3}\s?\d{4}|\d{7,})/.test(rawDest);
+        const hasBadDump = /(صاحب الخط|سائق|سايق|النترا|ستاركس|كوستر|كيا|توسان|خصوصي|سلام عليكم|مرحبا|متوفر خط|يوجد خط|علما|للاستفسار|للحجز)/i.test(rawDest);
+
+        if (hasPhone || hasBadDump || rawDest.length > 45 || rawDest.split(/\s+/).length > 6) {
+          await sendMessage(
+            chatId,
+            `⚠️ <b>يرجى كتابة اسم الكلية أو الجامعة فقط 🌹</b>\n` +
+            `📍 <b>مثال صحيح:</b> <code>كلية الرافدين الجامعة</code> أو <code>جامعة بغداد</code>\n\n` +
+            `👇 <b>أعد كتابة اسم وجهتك فقط:</b>`,
+            { inline_keyboard: [[{ text: '◀️ العودة للقائمة', callback_data: 'trans_back_to_dest' }]] }
+          );
+          return new Response('OK', { status: 200 });
+        }
+
+        state.data.destination = rawDest.substring(0, 40);
         state.step = 'trans_shift';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 

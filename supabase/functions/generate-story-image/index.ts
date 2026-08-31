@@ -123,8 +123,31 @@ serve(async (req: Request) => {
     if (!workDays.includes('إلى')) workDays = "الأحد إلى الخميس";
 
     const shiftTime = cleanText(url.searchParams.get("time"), "من 08:00 ص إلى 02:00 م");
-    const regions = cleanText(url.searchParams.get("regions"), "اليرموك، المنصور، الحارثية، زيونة");
-    const destination = cleanText(url.searchParams.get("destination"), "جامعة أوروك");
+    const rawRegions = cleanText(url.searchParams.get("regions"), "اليرموك، المنصور");
+    const rawDestination = cleanText(url.searchParams.get("destination"), "جامعة أوروك");
+
+    // Clean out phone numbers, car details, greetings, or text dumps that ruin the poster
+    function sanitizeForPoster(str: string): string {
+      return str
+        .replace(/(?:07[3-9]\d{8}|\+9647[3-9]\d{8}|07\d{2}\s?\d{3}\s?\d{4}|\d{7,})/g, '')
+        .replace(/(صاحب الخط|سائق|سايق|طالب|طالبة|طالبه|النترا|ستاركس|كوستر|كيا|توسان|خصوصي|سلام عليكم|مرحبا|متوفر خط|يوجد خط|في الكلية|في الكليه|علما|فرع|للاستفسار|للحجز)/gi, '')
+        .replace(/[()\/\\#@_=+]/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    }
+
+    const sanitizedRegions = sanitizeForPoster(rawRegions) || "بغداد";
+    const destination = sanitizeForPoster(rawDestination) || "الجامعة";
+
+    // Split into clean area chips (max 3 areas)
+    const areaList = sanitizedRegions
+      .split(/[،,-]/)
+      .map(s => s.trim())
+      .filter(s => s.length > 1 && s.length < 35)
+      .slice(0, 3);
+
+    const primaryOrigin = areaList[0] || sanitizedRegions.substring(0, 25) || "نقطة الانطلاق";
+    const regions = areaList.length > 0 ? areaList.join('، ') : primaryOrigin;
     
     let rawFare = cleanText(url.searchParams.get("fare"), "45,000 د.ع");
     if (!rawFare.includes('د.ع')) rawFare = `${rawFare} د.ع`;
@@ -193,7 +216,7 @@ serve(async (req: Request) => {
               <span style="font-size: 20px; color: #ffffff; font-weight: bold;">${fixAr('الانطلاق من')}</span>
             </div>
             <div style="display: flex; flex-direction: row; align-items: center; gap: 8px;">
-              <span style="font-size: 32px; font-weight: bold; color: #1e1b4b;">${fixAr(regions.split('،')[0] || regions.split(',')[0] || regions)}</span>
+              <span style="font-size: 32px; font-weight: bold; color: #1e1b4b;">${fixAr(primaryOrigin.length > 25 ? primaryOrigin.substring(0, 25) + '...' : primaryOrigin)}</span>
               <img src="${svgImg(SVGS.pin)}" width="24" height="24" />
             </div>
             <span style="font-size: 20px; color: #6b7280; font-weight: bold; margin-top: 2px;">${fixAr('نقطة الانطلاق')}</span>
@@ -211,9 +234,9 @@ serve(async (req: Request) => {
             </div>
             <div style="display: flex; flex-direction: row; align-items: center; gap: 8px;">
               <img src="${svgImg(SVGS.pin)}" width="24" height="24" />
-              <span style="font-size: 32px; font-weight: bold; color: #1e1b4b;">${fixAr(destination)}</span>
+              <span style="font-size: 32px; font-weight: bold; color: #1e1b4b;">${fixAr(destination.length > 25 ? destination.substring(0, 25) + '...' : destination)}</span>
             </div>
-            <span style="font-size: 20px; color: #6b7280; font-weight: bold; margin-top: 2px;">${fixAr(destination)}</span>
+            <span style="font-size: 20px; color: #6b7280; font-weight: bold; margin-top: 2px;">${fixAr(destination.length > 25 ? destination.substring(0, 25) + '...' : destination)}</span>
           </div>
         </div>
 
@@ -290,7 +313,7 @@ serve(async (req: Request) => {
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-start; flex: 1;">
               <span style="font-size: 18px; color: #6b7280; font-weight: bold; margin-bottom: 4px;">${fixAr('المرور والمناطق')}</span>
-              <span style="font-size: 21px; color: #1e1b4b; font-weight: bold; line-height: 1.4;">${fixAr(regions)}</span>
+              <span style="font-size: 21px; color: #1e1b4b; font-weight: bold; line-height: 1.4;">${fixAr(regions.length > 60 ? regions.substring(0, 60) + '...' : regions)}</span>
             </div>
           </div>
 

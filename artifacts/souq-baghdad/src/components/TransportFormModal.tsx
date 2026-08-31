@@ -145,7 +145,18 @@ export function TransportFormModal({ onClose, onSubmit, user, lines = [], editAd
   // ── Region chip helpers ──────────────────────────────────────────
   const addRegion = (val: string) => {
     const trimmed = val.trim();
-    if (!trimmed || selectedRegions.includes(trimmed)) return;
+    if (!trimmed) return;
+    const hasPhone = /(?:07[3-9]\d{8}|\+9647[3-9]\d{8}|07\d{2}\s?\d{3}\s?\d{4}|\d{7,})/.test(trimmed);
+    const hasBadDump = /(صاحب الخط|سائق|سايق|طالب|طالبة|النترا|ستاركس|كوستر|كيا|توسان|خصوصي|سلام عليكم|مرحبا|متوفر خط)/i.test(trimmed);
+    if (hasPhone || hasBadDump || trimmed.length > 25) {
+      alert("يرجى كتابة اسم المنطقة فقط (مثال: المنصور، زيونة) بدون أرقام هواتف أو جمل طويلة 🌹");
+      return;
+    }
+    if (selectedRegions.length >= 4) {
+      alert("الحد الأقصى لمناطق الانطلاق هو 4 مناطق رئيسية لترتيب الإعلان 🌹");
+      return;
+    }
+    if (selectedRegions.includes(trimmed)) return;
     setSelectedRegions(prev => [...prev, trimmed]);
     setRegionInput('');
     regionInputRef.current?.focus();
