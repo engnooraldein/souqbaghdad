@@ -97,10 +97,17 @@ async function callAiEngine(userText: string | null, audioUrl: string | null, ph
 
 🧠 شخصيتك وأسلوبك بالحديث:
 1. تتحدث بلهجة عراقية بغدادية فصيحة، ذكية جداً، راقية، دافئة، غاية في اللباقة وخفة الظل (مثل: يا هلا بيك عيوني، تدلل يالغالي، فدوة لقلبك، من عيوني، كفو منك).
-2. إذا سلم عليك المستخدم (هلو، مرحبا، شلونك، صباح الخير، مساء الخير): رد عليه بترحيب عراقي دافئ جداً ومميز، واسأله شلون تكدر تخدمه اليوم (سيارات، خطوط نقل للجامعات، بيع وشراء).
-3. تفهم كل تفاصيل الشارع العراقي والسوق والجامعات وخطوط النقل والسيارات.
-4. التسامح الفوري مع الأخطاء الإملائية والعامية السريعة وافهم قصد المستخدم فوراً.
-5. لا تكرر نفس الجملة كالبوت الجامد، بل نوع في أسلوبك وخفة دمك وذكائك العراقي اللطيف!
+2. إذا سلم عليك المستخدم (هلو، مرحبا، شلونك، صباح الخير): رد بترحيب عراقي دافئ جداً ومميز واسأله كيف تساعده اليوم (خطوط نقل، سيارات، بيع وشراء، نقاط).
+3. تفهم كل تفاصيل الشارع العراقي، المناطق، الجامعات (الرافدين، دجلة، التراث، بغداد، المستنصرية، النهرين، التكنولوجية، الإسراء.. إلخ)، وخطوط النقل والسيارات.
+4. التسامح الفوري مع الأخطاء الإملائية والعامية السريعة وافهم قصد المستخدم فوراً وأجبه بدقة واختصار مفيد.
+
+📚 قاعدة معرفتك الشاملة بمنصة سوق بغداد:
+• 🪙 **نظام النقاط:** يحصل كل حساب جديد على 100 نقطة مجانية. يمكن كسب نقاط يومية مجانية بتسجيل الدخول، ومشاركة رابط الإحالة، أو إدخال كود الهدية من قسم الحساب.
+• 🚌 **خطوط النقل:** نشر الخطوط مجاني وسريع للكباتن بـ 9 خطوات سهلة، مع توليد بطاقة ستوري احترافية ونشرها في قنوات التيليجرام والفيسبوك فوراً. يمكن للكابتن تعديل المقاعد الشاغرة أو إغلاق الخط بضغطة زر.
+• 💺 **حجز المقاعد:** يمكن للطلاب حجز مقعد بضغطة زر ترسل إشعاراً عاجلاً لهاتف الكابتن مع محادثة واتساب سريعة.
+• 🪪 **توثيق الحسابات:** يمكن للسائق رفع هويته وبطاقة السكن لنيل شارة "كابتن موثوق 🎖️" الذهبية لزيادة ثقة الركاب.
+• 🚗 **سوق السيارات والمنتجات:** بيع وشراء السيارات والهواتف والسلع مع أرقام التواصل وميزة "تم البيع" الحية.
+• 🔒 **الأمان واسترجاع الرمز:** الحسابات محمية برمز PIN سري يمكن استرجاعه برقم الهاتف الموثق.
 ${dbContext ? `\n[بيانات حية من قاعدة بيانات سوق بغداد]:\n${dbContext}\n` : ''}`;
 
   // 1. Google Gemini 2.0 Flash / 1.5 Flash
@@ -1515,17 +1522,36 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
       } catch(e) {}
     }
 
-    const card = buildTransportCard(matchedLines, 0, fromName, finalOrigin, finalDestination, isGroup);
-
     if (isGroup) {
-      // In group, send directly to group so user & members see results without obstruction
-      await sendOrReplaceGroupMessage(chatId, card.text, card.markup, supabase, userMessageId);
+      const userMention = fromUser?.username ? `@${fromUser.username}` : (fromName || 'عزيزنا');
+      const routeParam = `route_${encodeURIComponent(finalOrigin)}_${encodeURIComponent(finalDestination)}`;
+      const routeLink = `https://t.me/${BOT_USERNAME}?start=${routeParam}`;
+
+      const groupNoticeText = 
+        `👋 <b>يا هلا ${userMention} 🌹</b>\n` +
+        `وجدنا خطوطاً مقترحة متوفرة لمسارك:\n` +
+        `📍 <b>[ ${finalOrigin} ⬅️ ${finalDestination} ]</b>\n\n` +
+        `👇 <i>اضغط الزر أدناه لفتح تفاصيل الخطوط وحجز مقعدك بالخاص 🔒</i>\n` +
+        `⏳ <i>[ يختفي هذا التنبيه تلقائياً خلال 30 ثانية لتنظيم الكروب ]</i>`;
+
+      const groupNoticeMarkup = {
+        inline_keyboard: [
+          [{ text: '⚡ فتح واستلام خطوط مساري بالخاص 🔒', url: routeLink }],
+          [{ text: '🚌 تصفح باقي الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }]
+        ]
+      };
+
+      await sendOrReplaceGroupMessage(chatId, groupNoticeText, groupNoticeMarkup, supabase, userMessageId);
+
+      // If user already started the bot, also deliver the full rich card straight to their private DM!
       if (fromUser?.id) {
         try {
-          await sendMessage(fromUser.id, card.text, card.markup);
+          const privateCard = buildTransportCard(matchedLines, 0, fromName, finalOrigin, finalDestination, false);
+          await sendMessage(fromUser.id, privateCard.text, privateCard.markup);
         } catch(e) {}
       }
     } else {
+      const card = buildTransportCard(matchedLines, 0, fromName, finalOrigin, finalDestination, false);
       await sendMessage(chatId, card.text, card.markup);
     }
     return;
@@ -6317,6 +6343,7 @@ Deno.serve(async (req: any) => {
           { text: '🔄 تبديل الصِفة (أنا طالب)', callback_data: 'change_my_role' },
           { text: '💼 حسابي وخدمات ⚙️', callback_data: 'account_services' }
         ]);
+        menuRows.push([{ text: '❓ الأسئلة الشائعة والمساعد الذكي 💡', callback_data: 'faq_hub_main' }]);
       } else {
         // 🎓 Passenger / Student tailored menu
         menuRows.push([{ text: '🔔 إشعار آلي عند توفر خط بمنطقتي 📡', callback_data: 'start_route_radar' }]);
@@ -6328,6 +6355,7 @@ Deno.serve(async (req: any) => {
           { text: '🔄 تبديل الصِفة (أنا كابتن)', callback_data: 'change_my_role' },
           { text: '💼 حسابي وخدمات ⚙️', callback_data: 'account_services' }
         ]);
+        menuRows.push([{ text: '❓ الأسئلة الشائعة والمساعد الذكي 💡', callback_data: 'faq_hub_main' }]);
       }
 
       const menuMarkup = { inline_keyboard: menuRows };
@@ -8066,6 +8094,62 @@ Deno.serve(async (req: any) => {
         }
       }
 
+      // 🚌 Deep-Link: Transport Route Matching (/start route_ORIGIN_DEST)
+      if (text.startsWith('/start route_')) {
+        const rawPayload = text.replace('/start route_', '').trim();
+        const parts = rawPayload.split('_');
+        const orig = decodeURIComponent(parts[0] || '').trim();
+        const dest = decodeURIComponent(parts[1] || '').trim();
+
+        const { data: allActiveLines } = await supabase
+          .from('ads')
+          .select('*')
+          .eq('category', 'transport')
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(60);
+
+        const activeDriverLines = (allActiveLines || []).filter((ad: any) => {
+          const t = (ad.title || '').toLowerCase();
+          const isStudentRequest = ad.type === 'request' || t.includes('ابحث') || t.includes('أبحث') || t.includes('محتاج') || t.includes('ادور');
+          const isCompleted = ad.status === 'sold' || ad.status === 'matched' || ad.status === 'archived' || ad.status === 'closed';
+          return !isStudentRequest && !isCompleted;
+        });
+
+        let matched = activeDriverLines;
+        if (orig && dest) {
+          matched = activeDriverLines.filter((ad: any) => {
+            const fullAdText = `${ad.title || ''} ${ad.location || ''} ${ad.city || ''} ${ad.description || ''}`.toLowerCase();
+            return (isLocationMatch(orig, fullAdText) || fullAdText.includes(orig.toLowerCase())) && isDestinationMatch(dest, fullAdText, ad.city || '');
+          });
+        } else if (orig) {
+          matched = activeDriverLines.filter((ad: any) => {
+            const fullAdText = `${ad.title || ''} ${ad.location || ''} ${ad.city || ''} ${ad.description || ''}`.toLowerCase();
+            return isLocationMatch(orig, fullAdText) || fullAdText.includes(orig.toLowerCase());
+          });
+        }
+
+        if (matched.length > 0) {
+          const card = buildTransportCard(matched, 0, fromName, orig, dest, false);
+          await sendMessage(chatId, card.text, card.markup);
+          return new Response('OK', { status: 200 });
+        } else {
+          await sendMessage(chatId, 
+            `🚌 <b>يا هلا بيك ${fromName || ''} 🌹</b>\n\n` +
+            `بحَثنا عن خطوط متوفرة لمسارك من [<b>${orig || 'منطقتك'}</b>] إلى [<b>${dest || 'وجهتك'}</b>]، ولكن يبدو أن مقاعد هذا المسار اكتملت للتو!\n\n` +
+            `🔔 <i>تم تفعيل رادار الإشعارات لمسارك، وسنرسل لك إشعاراً خاصاً فور نشر أي كابتن لخط جديد يمر بمنطقتك ⚡</i>`,
+            {
+              inline_keyboard: [
+                [{ text: '🔔 إدارة مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' }],
+                [{ text: '🚌 تصفح باقي الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }],
+                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+              ]
+            }
+          );
+          return new Response('OK', { status: 200 });
+        }
+      }
+
       // 🚗 Deep-Link: Publish Transport (/start pubtrans or /start publish_transport)
       if (text === '/start pubtrans' || text === '/start publish_transport') {
         const driverState = {
@@ -8337,6 +8421,150 @@ Deno.serve(async (req: any) => {
 
         await updateOrSend(changeRoleMsg, roleMarkup);
         return new Response('OK', { status: 200 });
+      }
+      
+      // ❓ FAQ & SMART ASSISTANT HUB
+      if (action === 'faq_hub_main') {
+        const faqMsg = 
+          `❓ <b>مركز الأسئلة الشائعة والمساعد الذكي 💡</b>\n\n` +
+          `يا هلا بيك! أنا هنا لمساعدتك والإجابة على كافة استفساراتك حول المنصة بضغطة زر.\n\n` +
+          `اختر الموضوع الذي تحتاج مساعدة بشأنه أدناه، أو ببساطة <b>اكتب سؤالك كرسالة عادية</b> وسأجيبك فوراً 🤖💬:`;
+
+        const faqMarkup = {
+          inline_keyboard: [
+            [{ text: '🪙 النقاط: كيف أكسبها وماذا أفعل إذا نفدت؟', callback_data: 'faq_points' }],
+            [{ text: '🚌 كيف أنشر خط نقل وأعدل المقاعد؟', callback_data: 'faq_pub_trans' }],
+            [{ text: '💺 كيف أحجز مقعد مع الكابتن؟', callback_data: 'faq_book_seat' }],
+            [{ text: '🪪 توثيق الحساب وهوية الكابتن (شارة الثقة)', callback_data: 'faq_verification' }],
+            [{ text: '🚗 نشر سيارة أو منتج للبيع', callback_data: 'faq_pub_goods' }],
+            [{ text: '🔒 استرجاع الرمز السري والأمان', callback_data: 'faq_security' }],
+            [{ text: '💬 اسأل المساعد الذكي أي سؤال', callback_data: 'faq_ai_chat' }],
+            [{ text: '🏠 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]
+          ]
+        };
+        return await updateOrSend(faqMsg, faqMarkup);
+      }
+
+      if (action === 'faq_points') {
+        const ptsMsg = 
+          `🪙 <b>نظام النقاط والمكافآت في سوق بغداد 🎁</b>\n\n` +
+          `• <b>الهدية الترحيبية:</b> يحصل كل مستخدم جديد على <b>100 نقطة مجانية</b> فور تفعيل حسابه!\n` +
+          `• <b>شحن النقاط مجاناً:</b>\n` +
+          `  1. تسجيل الدخول اليومي يمنحك نقاطاً مجانية.\n` +
+          `  2. دعوة أصدقائك عبر رابط الإحالة يمنحك نقاطاً عن كل مستخدم ينضم.\n` +
+          `  3. أكواد الخصم والهدايا التي تنشرها إدارة المنصة.\n\n` +
+          `• <b>إذا نفدت نقاطك:</b> يمكنك إدخال كود هدية، أو دعوة أصدقاء، أو التواصل مع المالك لشحن رصيدك فوراً!`;
+
+        const ptsMarkup = {
+          inline_keyboard: [
+            [{ text: '🎁 إدخال كود هدية', callback_data: 'redeem_promo' }, { text: '🔗 رابط الإحالة ومكافآتي', callback_data: 'referral_program' }],
+            [{ text: '🔙 عودة لمركز المساعدة', callback_data: 'faq_hub_main' }, { text: '🏠 الرئيسية', callback_data: 'main_menu' }]
+          ]
+        };
+        return await updateOrSend(ptsMsg, ptsMarkup);
+      }
+
+      if (action === 'faq_pub_trans') {
+        const pubMsg = 
+          `🚌 <b>دليل نشر وإدارة خطوط النقل 📍</b>\n\n` +
+          `1. اضغط على <b>«نشر خط نقل جديد»</b> من القائمة الرئيسية.\n` +
+          `2. اختر مناطق الانطلاق أو اكتبها بدقة، وحدد الكلية أو الوجهة.\n` +
+          `3. حدد نوع السيارة، وقت الدوام (صباحي/مسائي)، وعدد المقاعد الشاغرة.\n` +
+          `4. سيقوم البوت فورياً بتوليد <b>صورة ستوري وبطاقة مسار احترافية</b> ونشرها في قنوات التيليجرام وفيسبوك!\n\n` +
+          `💺 <b>تعديل المقاعد:</b> يمكنك زيادة أو تقليل المقاعد من «إدارة خطوطي» وسيتعدل المنشور في القنوات لحظياً.\n` +
+          `🔒 <b>إغلاق الخط:</b> عند امتلاء الخط، اضغط «قبط واكتمل العدد» ليتحول المنشور إلى مغلق.`;
+
+        const pubMarkup = {
+          inline_keyboard: [
+            [{ text: '🚌 نشر خط نقل جديد الآن ⚡', callback_data: 'publish_transport' }],
+            [{ text: '📦 إدارة خطوطي النشطة', callback_data: 'manage_cat_trans' }],
+            [{ text: '🔙 عودة لمركز المساعدة', callback_data: 'faq_hub_main' }]
+          ]
+        };
+        return await updateOrSend(pubMsg, pubMarkup);
+      }
+
+      if (action === 'faq_book_seat') {
+        const bookMsg = 
+          `💺 <b>كيفية حجز مقعد والتواصل مع الكابتن 🚌</b>\n\n` +
+          `• عند العثور على خط يناسب مسارك، اضغط على زر <b>«📩 إرسال طلب حجز مقعد للكابتن»</b>.\n` +
+          `• سيصل إشعار فوري لهاتف الكابتن بطلبك لتأكيد الحجز فوراً.\n` +
+          `• كما يمكنك الضغط على <b>«💬 تواصل واتساب 🟢»</b> لمراسلة الكابتن مباشرة والاستفسار عن تفاصيل الرحلة والأوقات.\n\n` +
+          `⭐ <b>الأمان:</b> تأكد دائماً من شارة <b>«كابتن موثوق 🎖️»</b> وتقييم النجوم لضمان أفضل تجربة.`;
+
+        const bookMarkup = {
+          inline_keyboard: [
+            [{ text: '🚌 تصفح الخطوط المتوفرة بالموقع', url: 'https://www.souqbaghdad.store/transport' }],
+            [{ text: '🔔 تفعيل رادار الإشعارات لمساري', callback_data: 'start_route_radar' }],
+            [{ text: '🔙 عودة لمركز المساعدة', callback_data: 'faq_hub_main' }]
+          ]
+        };
+        return await updateOrSend(bookMsg, bookMarkup);
+      }
+
+      if (action === 'faq_verification') {
+        const verMsg = 
+          `🪪 <b>توثيق الهوية وشارة الكابتن الموثوق 🎖️</b>\n\n` +
+          `• لزيادة ثقة الركاب والطلاب، يمكن لجميع السائقين والكباتن توثيق حساباتهم رسمياً.\n` +
+          `• التوثيق يتطلب رفع صورة بطاقة السكن وهوية الكلية أو رخصة القيادة بشكل آمن ومحمي 100%.\n` +
+          `• بعد مراجعة الإدارة، يحصل الكابتن على <b>شارة التوثيق الذهبية 🎖️</b> وتظهر في جميع إعلاناته ككابتن معتمد.`;
+
+        const verMarkup = {
+          inline_keyboard: [
+            [{ text: '🪪 توثيق حسابي الآن', callback_data: 'verify_account_prompt' }],
+            [{ text: '🔙 عودة لمركز المساعدة', callback_data: 'faq_hub_main' }]
+          ]
+        };
+        return await updateOrSend(verMsg, verMarkup);
+      }
+
+      if (action === 'faq_pub_goods') {
+        const goodsMsg = 
+          `🚗 <b>نشر إعلانات السيارات والمنتجات 🛍️</b>\n\n` +
+          `• <b>عرض سيارة للبيع:</b> حدد نوع السيارة، الموديل، السعر، والمواصفات وسيتم نشرها في قناة السيارات وصفحة الفيسبوك مع صورها الكاملة.\n` +
+          `• <b>نشر منتجات وهواتف:</b> انشر أي منتج في قسم السوق العام مع رقم هاتفك للتواصل المباشر مع المشترين.\n` +
+          `• <b>حالة تم البيع:</b> يمكنك الضغط على «تم البيع» في أي وقت لإغلاق الإعلان وتحديث المنشورات فوراً.`;
+
+        const goodsMarkup = {
+          inline_keyboard: [
+            [{ text: '🚗 عرض سيارتي للبيع', callback_data: 'publish_car' }, { text: '🛍️ نشر إعلان منتج', callback_data: 'publish_product' }],
+            [{ text: '🔙 عودة لمركز المساعدة', callback_data: 'faq_hub_main' }]
+          ]
+        };
+        return await updateOrSend(goodsMsg, goodsMarkup);
+      }
+
+      if (action === 'faq_security') {
+        const secMsg = 
+          `🔒 <b>الأمان واسترجاع الرمز السري 🛡️</b>\n\n` +
+          `• <b>الرمز السري (PIN):</b> يحمي حسابك وإعلاناتك من أي تعديل غير مصرح به.\n` +
+          `• <b>نسيت رمزك؟</b> يمكنك طلب استرجاع الرمز السري بضغطة زر وسيتم إرساله أو تأكيده عبر رقم هاتفك الموثق.\n` +
+          `• <b>حماية الخصوصية:</b> بياناتك وهوياتك مشفرة ولا يتم مشاركتها مع أي طرف ثالث.`;
+
+        const secMarkup = {
+          inline_keyboard: [
+            [{ text: '🔑 طلب استرجاع الرمز السري', callback_data: 'forgot_pin_prompt' }],
+            [{ text: '🔙 عودة لمركز المساعدة', callback_data: 'faq_hub_main' }]
+          ]
+        };
+        return await updateOrSend(secMsg, secMarkup);
+      }
+
+      if (action === 'faq_ai_chat') {
+        const chatPromptMsg = 
+          `💬 <b>المساعد الذكي لسوق بغداد جاهز للرد عليك! 🤖✨</b>\n\n` +
+          `اكتب أي سؤال يخطر ببالك الآن كرسالة عادية (مثال:\n` +
+          `• <i>"شلون أحصل نقاط إضافية؟"</i>\n` +
+          `• <i>"متوفر خطوط لكلية دجلة؟"</i>\n` +
+          `• <i>"شلون أوثق سيارتي؟"</i>)\n\n` +
+          `وسأجيبك فوراً وبدقة تامة 🌹`;
+
+        const chatPromptMarkup = {
+          inline_keyboard: [
+            [{ text: '🔙 عودة لمركز المساعدة', callback_data: 'faq_hub_main' }, { text: '🏠 الرئيسية', callback_data: 'main_menu' }]
+          ]
+        };
+        return await updateOrSend(chatPromptMsg, chatPromptMarkup);
       }
       
       // 🔔 START ROUTE RADAR WIZARD (إشعار آلي عند توفر خط بمنطقتي)
