@@ -5786,6 +5786,19 @@ Deno.serve(async (req: any) => {
         const hasBadWords = /(?:^|[\s\p{P}])(كحبه|قحبه|منيوك|قندرة|ديوث|شرموط|شرموطه|عير|مفرخة|دعارة|اباحي|بنات ليل|1xbet|betting)(?:$|[\s\p{P}])/iu.test(text) ||
                             /(?:^|[\s\p{P}])(كس|طيز|زب|نعل|سكس)(?:$|[\s\p{P}])/iu.test(text);
 
+        // Privacy Shield: Check for raw phone numbers advertising lines in group
+        const hasRawPhone = /(?:07[3-9]\d{8}|\+9647[3-9]\d{8}|07\d{2}\s?\d{3}\s?\d{4})/.test(text);
+        const isAdvertisingPhone = hasRawPhone && (text.includes('خط') || text.includes('سايق') || text.includes('سائق') || text.includes('مقاعد') || text.includes('سيارة') || text.includes('توصيل'));
+        if (isAdvertisingPhone) {
+          if (messageId) await deleteMessage(chatId, messageId);
+          const safeNotice = 
+            `🔒 <b>تنبيه لحماية الخصوصية:</b> يرجى نشر خطك والتواصل عبر البوت الرسمي بدلاً من كتابة الأرقام بالعام لحماية خصوصية الأعضاء 🌹`;
+          await sendOrReplaceGroupMessage(chatId, safeNotice, {
+            inline_keyboard: [[{ text: '➕ نشر خطي الموثق عبر البوت ⚡', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]]
+          }, supabase);
+          return new Response('OK', { status: 200 });
+        }
+
         if (hasForbiddenLink || hasBadWords) {
           if (messageId) await deleteMessage(chatId, messageId);
 
