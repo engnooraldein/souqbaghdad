@@ -1549,69 +1549,6 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     }
     return;
   }
-
-  // Not found in active driver lines -> Register in waitlist & notify
-  const finalOrigin = origin || 'بغداد';
-  const finalDest = destination || (norm.includes('رافدين') || norm.includes('رفدين') ? 'كلية الرافدين' : 'الجامعة');
-
-  try {
-    const userTgId = fromUser?.id ? String(fromUser.id) : null;
-    const userChatIdStr = String(chatId);
-    
-    // Check if user already has an active pending request for this origin to prevent duplicate alerts
-    const { data: existingReq } = await supabase
-      .from('transport_requests')
-      .select('id, origin, destination')
-      .or(`telegram_chat_id.eq.${userChatIdStr}${userTgId ? `,telegram_user_id.eq.${userTgId}` : ''}`)
-      .eq('status', 'pending');
-
-    const isDuplicate = existingReq?.some((r: any) => 
-      isLocationMatch(r.origin, finalOrigin) && 
-      (!finalDest || !r.destination || getCoreLocationKeyword(r.destination) === getCoreLocationKeyword(finalDest))
-    );
-
-    if (!isDuplicate) {
-      await supabase.from('transport_requests').insert({
-        telegram_chat_id: userChatIdStr,
-        telegram_user_id: userTgId,
-        user_name: fromName,
-        origin: finalOrigin,
-        destination: finalDest,
-        raw_query: rawText,
-        status: 'pending'
-      });
-    }
-  } catch(e) {
-    console.error('Error saving transport request:', e);
-  }
-
-  if (isGroup) {
-    // Ultra-short 1-line confirmation in group
-    const shortWaitlistMsg = `📝 <b>يا هلا ${fromName} 🌹</b> سجلت طلبك لمسار (<b>${finalOrigin} ⬅️ ${finalDest}</b>)، وراح أدزلك تنبيه بالخاص أول ما يتوفر سائق ✨`;
-    const shortMarkup = {
-      inline_keyboard: [
-        [{ text: '💬 التحدث مع البوت بالخاص 🌹', url: `https://t.me/${BOT_USERNAME}?start=group_help` }],
-        [{ text: '🚌 تصفح خطوط الموقع', url: 'https://www.souqbaghdad.store/transport' }]
-      ]
-    };
-    await sendOrReplaceGroupMessage(chatId, shortWaitlistMsg, shortMarkup, supabase, userMessageId);
-  } else {
-    const waitlistMsg = 
-      `📝 <b>تم تسجيل مسارك بنجاح يالغالي! ✨</b>\n\n` +
-      `📍 <b>المسار المطلوب:</b> من <b>${finalOrigin}</b> ⬅️ إلى <b>${finalDest}</b>\n` +
-      `👤 <b>صاحب المسار:</b> ${fromName}\n\n` +
-      `🔔 <i>حالياً لا يوجد سائق نشط بهذا المسار، لكن <b>سجلت مسارك بالنظام</b>، وأول ما ينزل خط جديد يمر بمنطقتك راح أنبهك فوراً برسالة خاصة ورابط حجز مباشر! 🌹</i>\n\n` +
-      `💡 <i>يمكنك إدارة مساراتك المسجلة أو إيقافها بأي وقت من زر «إعلاناتي النشطة».</i>`;
-
-    const markup = {
-      inline_keyboard: [
-        [{ text: '🔔 إدارة مساراتي المسجلة', callback_data: 'manage_my_routes' }],
-        [{ text: '🚌 تصفح خطوط سوق بغداد الحالية', url: 'https://www.souqbaghdad.store/transport' }],
-        [{ text: '➕ نشر إعلان خط كسائق', url: 'https://www.souqbaghdad.store/post-ad' }]
-      ]
-    };
-    await sendMessage(chatId, waitlistMsg, markup);
-  }
 }
 
 async function notifyWaitingStudents(ad: any, supabase: any) {
