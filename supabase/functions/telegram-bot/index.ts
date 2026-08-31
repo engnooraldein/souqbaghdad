@@ -473,7 +473,7 @@ async function transcribeVoiceWithAi(fileUrl: string): Promise<{ text: string | 
   return { text: null, base64: null };
 }
 
-async function scheduleMessageDeletion(chatId: string | number, botMessageId: number, userMessageId?: number | string, delayMs = 3600000) {
+async function scheduleMessageDeletion(chatId: string | number, botMessageId: number, userMessageId?: number | string, delayMs = 300000) {
   if (!botMessageId) return;
   try {
     await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -510,9 +510,9 @@ async function sendOrReplaceGroupMessage(chatId: string | number, text: string, 
       } catch(e) {}
     }
 
-    // Keep response visible in group for 1 hour (3600000ms), then delete both bot reply and user question
+    // Keep response visible in group for 5 minutes (300000ms), then delete bot reply automatically
     if (typeof (globalThis as any).EdgeRuntime?.waitUntil === 'function') {
-      (globalThis as any).EdgeRuntime.waitUntil(scheduleMessageDeletion(chatId, newMsgId, replyToUserMsgId, 3600000));
+      (globalThis as any).EdgeRuntime.waitUntil(scheduleMessageDeletion(chatId, newMsgId, replyToUserMsgId, 300000));
     }
   }
   return res;
@@ -731,9 +731,12 @@ function buildTransportCard(
       inlineButtons.push(navRow);
     }
 
-    // Row 4: Resolution & Explore
+    // Row 4: Resolution & Delete on demand
     inlineButtons.push([
       { text: '🛑 لكيت خط خلاص', callback_data: `matched_req_direct_${cleanPhone || 'ok'}` },
+      { text: '🗑️ حذف هذا الرد', callback_data: 'del_group_msg' }
+    ]);
+    inlineButtons.push([
       { text: '🚌 باقي الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }
     ]);
 
@@ -1509,7 +1512,10 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     const noMatchMarkup = {
       inline_keyboard: [
         [{ text: '💬 التحدث مع البوت بالخاص 🌹', url: `https://t.me/${BOT_USERNAME}` }],
-        [{ text: '🚌 تصفح جميع خطوط الموقع', url: 'https://www.souqbaghdad.store/transport' }]
+        [
+          { text: '🚌 تصفح جميع خطوط الموقع', url: 'https://www.souqbaghdad.store/transport' },
+          { text: '🗑️ حذف هذا الرد', callback_data: 'del_group_msg' }
+        ]
       ]
     };
 
@@ -5397,6 +5403,45 @@ Deno.serve(async (req: any) => {
       
       const editMsg = `✅ <b>ألف مبروك يالغالي! 🎉</b>\nتم تثبيت أنك حصلت على خط نقل، وتم إيقاف جميع التنبيهات والتاكات بنجاح.\nبالتوفيق بدوامك، وسوق بغداد بخدمتك دائماً 🌹`;
       await updateOrSend(editMsg);
+      return new Response('OK', { status: 200 });
+    }
+
+    // 🗑️ Delete Bot Group Message on demand
+    if (text === 'del_group_msg' || text?.startsWith('del_bot_msg')) {
+      if (callbackMsgId) {
+        try {
+          await deleteMessage(chatId, callbackMsgId);
+        } catch(e) {}
+      }
+      if (callbackQueryId) {
+        try {
+          await answerCallbackQuery(callbackQueryId, '🗑️ تم حذف الرسالة', false);
+        } catch(e) {}
+      }
+      return new Response('OK', { status: 200 });
+    }
+
+    // 🛑 Directly mark line request as matched and delete message
+    if (text?.startsWith('matched_req_direct_')) {
+      const fromId = callbackQuery?.from?.id;
+      if (fromId) {
+        try {
+          await supabase
+            .from('transport_requests')
+            .update({ status: 'matched' })
+            .eq('telegram_user_id', String(fromId));
+        } catch(e) {}
+      }
+      if (callbackMsgId) {
+        try {
+          await deleteMessage(chatId, callbackMsgId);
+        } catch(e) {}
+      }
+      if (callbackQueryId) {
+        try {
+          await answerCallbackQuery(callbackQueryId, '🎉 ألف مبروك! تم تثبيت حصولك على خط وإيقاف التنبيهات.', true);
+        } catch(e) {}
+      }
       return new Response('OK', { status: 200 });
     }
 
