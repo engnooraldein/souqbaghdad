@@ -7473,7 +7473,7 @@ Deno.serve(async (req: any) => {
       // Check if clicking user is a captain
       let isCaptain = false;
       if (lineAd?.seller_id && userId && lineAd.seller_id === userId) isCaptain = true;
-      if (cleanPhone && userPhone && cleanPhone.replace(/\D/g, '').endsWith(userPhone.replace(/\D/g, '').slice(-8))) isCaptain = true;
+      if (cleanPhone && phone && cleanPhone.replace(/\D/g, '').endsWith(phone.replace(/\D/g, '').slice(-8))) isCaptain = true;
       
       // If user has other active captain lines
       if (!isCaptain && userId) {
@@ -7576,7 +7576,7 @@ Deno.serve(async (req: any) => {
         // 🛡️ Check if the user clicking is the captain himself!
         let isCaptain = false;
         if (lineAd.seller_id && userId && lineAd.seller_id === userId) isCaptain = true;
-        if (cleanPhone && userPhone && cleanPhone.replace(/\D/g, '').endsWith(userPhone.replace(/\D/g, '').slice(-8))) isCaptain = true;
+        if (cleanPhone && phone && cleanPhone.replace(/\D/g, '').endsWith(phone.replace(/\D/g, '').slice(-8))) isCaptain = true;
 
         if (isCaptain) {
           const ownerMsg = 
@@ -10466,7 +10466,7 @@ Deno.serve(async (req: any) => {
         // 🛡️ Check if the user clicking is the captain himself!
         let isCaptain = false;
         if (lineAd?.seller_id && userId && lineAd.seller_id === userId) isCaptain = true;
-        if (cleanPhone && userPhone && cleanPhone.replace(/\D/g, '').endsWith(userPhone.replace(/\D/g, '').slice(-8))) isCaptain = true;
+        if (cleanPhone && phone && cleanPhone.replace(/\D/g, '').endsWith(phone.replace(/\D/g, '').slice(-8))) isCaptain = true;
 
         if (isCaptain) {
           if (callbackQueryId) {
