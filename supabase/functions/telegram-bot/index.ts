@@ -7717,7 +7717,7 @@ Deno.serve(async (req: any) => {
       return new Response('OK', { status: 200 });
     }
 
-    // --- Start / Register Command (Captures Referral Code) ---
+    // --- Start / Register Command (Captures Referral Code & Deep-links) ---
     if (text === '/start' || text.startsWith('/start ') || text === '/relink') {
       if (text === '/relink') {
         await supabase.from('telegram_users').delete().eq('telegram_chat_id', chatId);
@@ -7733,6 +7733,114 @@ Deno.serve(async (req: any) => {
             bot_state: state
           }, { onConflict: 'telegram_chat_id' });
         }
+      }
+
+      // 🚌 Deep-Link: Direct Line Booking & Details (/start book_ADID)
+      if (text.startsWith('/start book_')) {
+        const lineId = text.replace('/start book_', '').trim();
+        let adQuery = supabase.from('ads').select('*');
+        if (lineId.length >= 30) {
+          adQuery = adQuery.eq('id', lineId);
+        } else {
+          adQuery = adQuery.or(`short_id.eq.${lineId},id.eq.${lineId}`);
+        }
+        const { data: lineAd } = await adQuery.maybeSingle();
+
+        if (lineAd) {
+          const fareText = formatTgPrice(lineAd.price);
+          const descPhoneMatch = (lineAd.description || '').match(/(?:07[3-9]\d{8}|\+9647[3-9]\d{8}|07\d{2}\s?\d{3}\s?\d{4})/);
+          const rawPhone = lineAd.phone || (descPhoneMatch ? descPhoneMatch[0] : '');
+          const cleanPhone = rawPhone.replace(/[^0-9+]/g, '');
+          let waPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
+
+          let cleanDetails = '';
+          if (lineAd.description) {
+            try {
+              const rawDesc = String(lineAd.description).trim();
+              if (rawDesc.startsWith('{') && rawDesc.endsWith('}')) {
+                const d = JSON.parse(rawDesc);
+                const parts = [];
+                if (d.targetAudience) parts.push(`👥 ${d.targetAudience}`);
+                if (d.shift) parts.push(`⏰ ${d.shift}`);
+                if (d.vehicleType) parts.push(`🚗 ${d.vehicleType} (${d.seats || 4} مقاعد)`);
+                if (d.note) parts.push(`📝 ${d.note}`);
+                cleanDetails = parts.join(' | ');
+              } else {
+                cleanDetails = rawDesc.substring(0, 150);
+              }
+            } catch(e) {
+              cleanDetails = String(lineAd.description).substring(0, 150);
+            }
+          }
+
+          const cardMsg = 
+            `🚌 <b>تفاصيل خط النقل وحجز المقعد 🌹</b>\n\n` +
+            `━━━━━━━━━━━━━━━━━━\n` +
+            `🏷️ <b>اسم الخط:</b> ${lineAd.title || 'خط نقل معتمد'} [🟢 نشط]\n` +
+            `📍 <b>مناطق الانطلاق والمسار:</b> ${lineAd.location || 'بغداد'}\n` +
+            `🏢 <b>الوجهة:</b> ${lineAd.city || 'الجامعة'}\n` +
+            `💰 <b>الأجرة الشهرية:</b> ${fareText}\n` +
+            (cleanPhone ? `📞 <b>هاتف الكابتن:</b> <code>${cleanPhone}</code>\n` : '') +
+            (cleanDetails ? `📝 <b>المواصفات:</b> ${cleanDetails}\n` : '') +
+            `━━━━━━━━━━━━━━━━━━\n\n` +
+            `👇 <b>اختر الإجراء المناسب للتواصل وحجز مقعدك:</b>`;
+
+          const btns: any[][] = [];
+          // 1-Click Direct Request to Captain
+          btns.push([{ text: '📩 إرسال طلب حجز مقعد للكابتن الآن ⚡', callback_data: `req_seat_${lineAd.id}` }]);
+
+          const commRow: any[] = [];
+          if (waPhone) {
+            const prefill = encodeURIComponent('السلام عليكم كابتن، شفت خطك بسوق بغداد وحابة استفسر عن حجز مقعد');
+            commRow.push({ text: '💬 تواصل واتساب مع الكابتن 🟢', url: `https://wa.me/${waPhone}?text=${prefill}` });
+          }
+          if (cleanPhone) {
+            commRow.push({ text: '📞 اتصال بالسائق', url: `https://t.me/share/url?url=${encodeURIComponent(`tel:${cleanPhone}`)}&text=${encodeURIComponent(`رقم الكابتن: ${cleanPhone}`)}` });
+          }
+          if (commRow.length > 0) btns.push(commRow);
+
+          btns.push([
+            { text: '🌐 عرض بطاقة الخط بالموقع', url: `https://www.souqbaghdad.store/transport?search=${encodeURIComponent(lineAd.location || '')}` },
+            { text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }
+          ]);
+
+          await sendMessage(chatId, cardMsg, { inline_keyboard: btns });
+          return new Response('OK', { status: 200 });
+        } else {
+          await sendMessage(chatId, '❌ <b>عذراً، لم نتمكن من العثور على هذا الخط (قد يكون تم إيقافه أو حذفه).</b>', {
+            inline_keyboard: [[{ text: '🚌 تصفح باقي الخطوط المتاحة', url: 'https://www.souqbaghdad.store/transport' }]]
+          });
+          return new Response('OK', { status: 200 });
+        }
+      }
+
+      // 🚗 Deep-Link: Publish Transport (/start pubtrans or /start publish_transport)
+      if (text === '/start pubtrans' || text === '/start publish_transport') {
+        const driverState = {
+          step: 'trans_cat',
+          data: {
+            type: 'offer',
+            phone: phone || null
+          }
+        };
+        await supabase.from('telegram_users').update({ bot_state: driverState }).eq('telegram_chat_id', chatId);
+
+        const driverPrivateMsg = 
+          `👋 <b>يا هلا بالسائق العزيز كابتن ${fromName} 🚌✨</b>\n\n` +
+          `لتثبيت خطك رسمياً ومطابقته بدقة مع طلبات الركاب ونشره في القنوات والموقع مجاناً:\n` +
+          `🚀 <b>ابدأ نشر إعلان خطك الآن (9 خطوات سريعة):</b>\n\n` +
+          `👇 <b>الخطوة 2 من 9 — فئة الخط</b>\nالخط مخصص لمن؟ اختر الفئة للمتابعة:`;
+
+        const wizardMarkup = {
+          inline_keyboard: [
+            [{ text: '🎓 خط طلاب جامعات / كليات', callback_data: 'trans_cat_student' }],
+            [{ text: '💼 خط موظفين وشركات', callback_data: 'trans_cat_employee' }],
+            [{ text: '🚨 نقل خاص وطارئ / مناسبات', callback_data: 'trans_cat_emergency' }],
+            [{ text: '❌ إلغاء النشر', callback_data: 'cancel_wizard' }]
+          ]
+        };
+        await sendMessage(chatId, driverPrivateMsg, wizardMarkup);
+        return new Response('OK', { status: 200 });
       }
 
       // 🚀 If user is already registered, show the Main Menu directly!
