@@ -5183,6 +5183,30 @@ Deno.serve(async (req: any) => {
     let userId = tgUser?.user_id;
     let phone = tgUser?.phone_number;
 
+    // 🛡️ ANTI-QUEUE FLOODING & LATEST MESSAGE GUARANTEE (اعتماد آخر رسالة وتجاهل التراكمات القديمة)
+    const incomingMsgDate = update.message?.date || update.callback_query?.message?.date || Math.floor(Date.now() / 1000);
+    const incomingMsgId = update.message?.message_id || update.callback_query?.message?.message_id || 0;
+    const nowSeconds = Math.floor(Date.now() / 1000);
+
+    // If this update is an older message that arrived after a newer one was already processed
+    if (incomingMsgId && state.last_processed_msg_id && incomingMsgId < state.last_processed_msg_id) {
+      console.log(`[QUEUE FILTER] Ignored outdated queued message (id: ${incomingMsgId} < latest: ${state.last_processed_msg_id})`);
+      return new Response('OK', { status: 200, headers: corsHeaders });
+    }
+
+    // If message was stuck in Telegram queue for more than 120 seconds, ignore stale conversational triggers
+    const isStaleQueue = (nowSeconds - incomingMsgDate) > 120;
+    if (isStaleQueue && !callbackQuery && text !== '/start' && !contact) {
+      console.log(`[QUEUE FILTER] Dropped stale queued message (${nowSeconds - incomingMsgDate}s old): "${text}"`);
+      return new Response('OK', { status: 200, headers: corsHeaders });
+    }
+
+    // Update latest processed pointer
+    if (incomingMsgId > (state.last_processed_msg_id || 0)) {
+      state.last_processed_msg_id = incomingMsgId;
+      state.last_processed_date = incomingMsgDate;
+    }
+
     const tgUsernameLower = (fromUser?.username || '').toLowerCase();
     const isOwnerByUsername = 
       tgUsernameLower === 'nooraldeinsbah' || 
