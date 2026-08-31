@@ -1675,8 +1675,12 @@ async function notifyWaitingStudents(ad: any, supabase: any) {
           ].filter(r => r.length > 0)
         };
 
-        if (req.telegram_chat_id) {
-          await sendMessage(req.telegram_chat_id, notifyMsg, markup);
+        // NEVER send radar notifications to group chats! Send strictly to student's private DM!
+        const privateTarget = req.telegram_user_id || (req.telegram_chat_id && !String(req.telegram_chat_id).startsWith('-') ? req.telegram_chat_id : null);
+        if (privateTarget) {
+          try {
+            await sendMessage(privateTarget, notifyMsg, markup);
+          } catch(e) {}
         }
 
         await supabase
@@ -5786,18 +5790,7 @@ Deno.serve(async (req: any) => {
         const hasBadWords = /(?:^|[\s\p{P}])(كحبه|قحبه|منيوك|قندرة|ديوث|شرموط|شرموطه|عير|مفرخة|دعارة|اباحي|بنات ليل|1xbet|betting)(?:$|[\s\p{P}])/iu.test(text) ||
                             /(?:^|[\s\p{P}])(كس|طيز|زب|نعل|سكس)(?:$|[\s\p{P}])/iu.test(text);
 
-        // Privacy Shield: Check for raw phone numbers advertising lines in group
-        const hasRawPhone = /(?:07[3-9]\d{8}|\+9647[3-9]\d{8}|07\d{2}\s?\d{3}\s?\d{4})/.test(text);
-        const isAdvertisingPhone = hasRawPhone && (text.includes('خط') || text.includes('سايق') || text.includes('سائق') || text.includes('مقاعد') || text.includes('سيارة') || text.includes('توصيل'));
-        if (isAdvertisingPhone) {
-          if (messageId) await deleteMessage(chatId, messageId);
-          const safeNotice = 
-            `🔒 <b>تنبيه لحماية الخصوصية:</b> يرجى نشر خطك والتواصل عبر البوت الرسمي بدلاً من كتابة الأرقام بالعام لحماية خصوصية الأعضاء 🌹`;
-          await sendOrReplaceGroupMessage(chatId, safeNotice, {
-            inline_keyboard: [[{ text: '➕ نشر خطي الموثق عبر البوت ⚡', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]]
-          }, supabase);
-          return new Response('OK', { status: 200 });
-        }
+
 
         if (hasForbiddenLink || hasBadWords) {
           if (messageId) await deleteMessage(chatId, messageId);
@@ -6383,6 +6376,7 @@ Deno.serve(async (req: any) => {
       
       const ownerMarkup = {
         inline_keyboard: [
+          [{ text: '🗑️ حذف إعلان أو حظر معلن (بالكود/الرقم) 🚫', callback_data: 'owner_del_ad_prompt' }],
           [{ text: '📋 سجلات الاتفاقات والحجوزات 🚌', callback_data: 'owner_bookings_0' }],
           [{ text: '🚫 حظر مستخدم / هاتف', callback_data: 'owner_ban_prompt' }, { text: '🟢 فك الحظر', callback_data: 'owner_unban_prompt' }],
           [{ text: '📋 قائمة المحظورين (Banned List)', callback_data: 'owner_banned_list_0' }],
@@ -6753,6 +6747,185 @@ Deno.serve(async (req: any) => {
       return await sendMessage(chatId, `🎉 <b>تمت الإذاعة بنجاح!</b>\n\nتم تسليم الرسالة إلى: <b>${sentSuccess}</b> مستخدم.`, {
         inline_keyboard: [[{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]]
       });
+    }
+
+    // ==========================================
+    // 🗑️ OWNER ACTION: DELETE AD OR BAN ADVERTISER (BY CODE OR PHONE)
+    // ==========================================
+    if (isOwner && trimmedText === 'owner_del_ad_prompt') {
+      state = { step: 'owner_del_ad_waiting' };
+      if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+      return await updateOrSend(
+        `🗑️ <b>حذف إعلان / حظر معلن 🚫</b>\n\n` +
+        `أرسل <b>رمز الإعلان</b> (مثال: <code>02CU5</code> أو <code>#02CU5</code>) أو <b>رقم هاتف المعلن</b> (مثال: <code>07716065797</code>):\n\n` +
+        `<i>سيعرض البوت تفاصيل الإعلان فوراً مع خيارات الحذف المباشر أو الحذف مع الحظر الدائم للمعلن وحذف كافة إعلاناته.</i>`,
+        { inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'owner_hub_main' }]] }
+      );
+    }
+
+    if (isOwner && state?.step === 'owner_del_ad_waiting') {
+      state = {};
+      if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+      const queryTerm = trimmedText.replace('#', '').trim();
+      const isNumeric = /^\d+$/.test(queryTerm);
+
+      const { data: matchedAds } = await supabase
+        .from('ads')
+        .select('*')
+        .or(`short_id.ilike.%${queryTerm}%,phone.ilike.%${queryTerm}%${isNumeric ? `,id.eq.${queryTerm}` : ''}`)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (!matchedAds || matchedAds.length === 0) {
+        return await sendMessage(
+          chatId,
+          `❌ <b>لم يتم العثور على أي إعلان يطابق «${queryTerm}»!</b>\nيرجى التأكد من كتابة كود الإعلان أو رقم الهاتف بشكل صحيح.`,
+          {
+            inline_keyboard: [
+              [{ text: '🔍 بحث عن إعلان آخر', callback_data: 'owner_del_ad_prompt' }],
+              [{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
+            ]
+          }
+        );
+      }
+
+      for (const a of matchedAds) {
+        const shortCode = a.short_id || a.id;
+        const categoryLabel = a.category === 'transport' ? '🚌 خط نقل' : (a.category === 'cars' ? '🚗 سيارة' : '📦 منتج');
+        const formattedPrice = a.price && a.price !== '0' ? `${Number(a.price).toLocaleString('en-US')} د.ع` : (a.category === 'transport' ? 'حسب الاتفاق' : 'بدون سعر');
+
+        const adInfoMsg = 
+          `📢 <b>إعلان كود: #${shortCode}</b>\n` +
+          `🏷️ <b>الفئة:</b> ${categoryLabel} (${a.type === 'offer' ? 'عرض' : 'طلب'})\n` +
+          `📝 <b>العنوان / التفاصيل:</b> ${a.title || a.location || 'بدون عنوان'}\n` +
+          (a.location && a.city ? `📍 <b>المسار:</b> ${a.location} ⬅️ ${a.city}\n` : '') +
+          `💰 <b>السعر:</b> ${formattedPrice}\n` +
+          `👤 <b>المعلن:</b> ${a.seller_name || 'غير معروف'} | 📞 <code>${a.phone || 'بدون رقم'}</code>\n` +
+          `📊 <b>الحالة الحالية:</b> <b>${a.status}</b>\n` +
+          `📅 <b>تاريخ النشر:</b> ${new Date(a.created_at).toLocaleDateString('ar-EG')}\n\n` +
+          `👇 <b>اختر الإجراء المطلوب لهذا الإعلان:</b>`;
+
+        const adActions = {
+          inline_keyboard: [
+            [{ text: '🗑️ حذف هذا الإعلان فقط', callback_data: `owner_act_del_${a.id}` }],
+            [{ text: '🚫 حذف الإعلان + حظر رقم الهاتف نهائياً ⛔', callback_data: `owner_act_bandel_${a.id}` }],
+            [{ text: '🔍 بحث عن إعلان آخر', callback_data: 'owner_del_ad_prompt' }, { text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
+          ]
+        };
+
+        await sendMessage(chatId, adInfoMsg, adActions);
+      }
+      return new Response('OK', { status: 200 });
+    }
+
+    if (isOwner && trimmedText.startsWith('owner_act_del_')) {
+      const adId = trimmedText.replace('owner_act_del_', '');
+      const { data: adToDel } = await supabase.from('ads').select('*').eq('id', adId).maybeSingle();
+
+      if (adToDel) {
+        await supabase.from('ads').delete().eq('id', adId);
+        if (adToDel.telegram_message_id) {
+          try {
+            const channel = adToDel.category === 'transport' ? LINES_CHANNEL : (adToDel.category === 'cars' ? CARS_CHANNEL : GENERAL_ADS_CHANNEL);
+            await deleteMessage(channel, adToDel.telegram_message_id);
+          } catch(e) {}
+        }
+      }
+
+      const doneMsg = `✅ <b>تم حذف الإعلان #${adToDel?.short_id || adId} بنجاح من قاعدة البيانات والمنصة! 🗑️</b>`;
+      const doneMarkup = {
+        inline_keyboard: [
+          [{ text: '🔍 حذف أو حظر إعلان آخر', callback_data: 'owner_del_ad_prompt' }],
+          [{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
+        ]
+      };
+      return await updateOrSend(doneMsg, doneMarkup);
+    }
+
+    if (isOwner && trimmedText.startsWith('owner_act_bandel_')) {
+      const adId = trimmedText.replace('owner_act_bandel_', '');
+      const { data: adToBan } = await supabase.from('ads').select('*').eq('id', adId).maybeSingle();
+
+      const bannedPhone = adToBan?.phone || '';
+      const sellerId = adToBan?.seller_id || '';
+
+      // 1. Delete Ad
+      if (adToBan) {
+        await supabase.from('ads').delete().eq('id', adId);
+        if (adToBan.telegram_message_id) {
+          try {
+            const channel = adToBan.category === 'transport' ? LINES_CHANNEL : (adToBan.category === 'cars' ? CARS_CHANNEL : GENERAL_ADS_CHANNEL);
+            await deleteMessage(channel, adToBan.telegram_message_id);
+          } catch(e) {}
+        }
+      }
+
+      // 2. Ban Phone & Seller
+      if (bannedPhone) {
+        const cleanP = bannedPhone.replace(/[^0-9]/g, '');
+        const localP = cleanP.startsWith('964') ? '0' + cleanP.substring(3) : cleanP;
+        const intlP = cleanP.startsWith('964') ? '+' + cleanP : '+964' + cleanP.replace(/^0/, '');
+
+        await supabase.from('banned_identifiers').upsert({
+          identifier_type: 'phone',
+          identifier_value: localP,
+          reason: `حظر دائم من المالك - حذف إعلان #${adToBan?.short_id || adId}`
+        }, { onConflict: 'identifier_value' });
+
+        await supabase.from('banned_identifiers').upsert({
+          identifier_type: 'phone',
+          identifier_value: intlP,
+          reason: `حظر دائم من المالك - حذف إعلان #${adToBan?.short_id || adId}`
+        }, { onConflict: 'identifier_value' });
+
+        // Also insert into group_warnings BANNED_DRIVERS
+        await supabase.from('group_warnings').upsert({
+          chat_id: 'BANNED_DRIVERS',
+          user_id: localP,
+          username: 'BANNED_BY_OWNER',
+          warning_count: 99,
+          last_reason: `حظر دائم من المالك - إعلان #${adToBan?.short_id || adId}`,
+          updated_at: new Date().toISOString()
+        });
+      }
+
+      if (sellerId) {
+        await supabase.from('banned_identifiers').upsert({
+          identifier_type: 'user_id',
+          identifier_value: String(sellerId),
+          reason: `حظر دائم من المالك - حذف إعلان #${adToBan?.short_id || adId}`
+        }, { onConflict: 'identifier_value' });
+
+        await supabase.from('profiles').update({
+          is_banned: true,
+          ban_reason: `حظر دائم من المالك - إعلان #${adToBan?.short_id || adId}`
+        }).eq('id', sellerId);
+      }
+
+      // Delete or archive all other active ads for this phone / seller
+      if (bannedPhone) {
+        await supabase.from('ads').delete().ilike('phone', `%${bannedPhone}%`);
+      }
+      if (sellerId) {
+        await supabase.from('ads').delete().eq('seller_id', sellerId);
+      }
+
+      const banDoneMsg = 
+        `🚫 <b>تم حذف الإعلان وحظر المعلن نهائياً! 🛡️</b>\n\n` +
+        `🔖 <b>كود الإعلان المحذوف:</b> <code>#${adToBan?.short_id || adId}</code>\n` +
+        `📞 <b>رقم الهاتف المحظور:</b> <code>${bannedPhone || 'غير متوفر'}</code>\n` +
+        `👤 <b>المعلن:</b> ${adToBan?.seller_name || 'مستخدم'}\n\n` +
+        `🔒 <i>تم حظر هذا الرقم ومعرف الحساب وحذف كافة إعلاناته من قاعدة البيانات، ولن يتمكن من النشر مجدداً!</i>`;
+
+      const banDoneMarkup = {
+        inline_keyboard: [
+          [{ text: '🔍 حذف أو حظر إعلان آخر', callback_data: 'owner_del_ad_prompt' }],
+          [{ text: '📋 قائمة المحظورين', callback_data: 'owner_banned_list_0' }],
+          [{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
+        ]
+      };
+      return await updateOrSend(banDoneMsg, banDoneMarkup);
     }
 
     // --- Owner Action: Lookup Prompt ---
@@ -12292,8 +12465,8 @@ Deno.serve(async (req: any) => {
                 return searchLoc.split(/[\s,،-]+/).some(w => w.length > 2 && full.includes(w));
               });
               for (const st of matched) {
-                const stChatId = st.telegram_chat_id || st.telegram_user_id;
-                if (stChatId && stChatId !== chatId) {
+                const stChatId = st.telegram_user_id || (st.telegram_chat_id && !String(st.telegram_chat_id).startsWith('-') ? st.telegram_chat_id : null);
+                if (stChatId && String(stChatId) !== String(chatId)) {
                   try {
                     const rushMsg = 
                       `🔥 <b>فرصة أخيرة عاجلة لمسارك! 💺⚡</b>\n\n` +
