@@ -1071,16 +1071,16 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
 
   const lowerRaw = rawText.toLowerCase();
 
-  let fromName = fromUser?.first_name || 'عزيزنا';
+  let rawFirstName = fromUser?.first_name || '';
+  // Clean special characters, emojis, symbols, and take the first clean word
+  let cleanFirstWord = rawFirstName.replace(/[^\p{L}\p{N}\s]/gu, '').trim().split(/\s+/)[0] || '';
+  let fromName = cleanFirstWord || fromUser?.first_name || 'عزيزنا';
   let contactHandle = fromUser?.username ? `@${fromUser.username}` : fromName;
   if (fromUser?.username) {
     const u = fromUser.username.toLowerCase();
     if (u.includes('anonymous') || u.includes('bot')) {
-      fromName = 'مديرنا العزيز';
+      fromName = 'عزيزنا';
       contactHandle = 'الكروب';
-    } else {
-      fromName = fromUser.first_name || `@${fromUser.username}`;
-      contactHandle = `@${fromUser.username}`;
     }
   }
 
@@ -1379,22 +1379,13 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   let matchedLines: any[] = [];
   if (activeDriverLines.length > 0) {
     if (origin && destination) {
-      // Must match ORIGIN area AND DESTINATION with fuzzy tolerance
-      const coreDest = getCoreLocationKeyword(destination);
+      // Must match BOTH ORIGIN AND DESTINATION strictly using isDestinationMatch!
       matchedLines = activeDriverLines.filter((ad: any) => {
         const fullAdText = `${ad.title || ''} ${ad.location || ''} ${ad.city || ''} ${ad.description || ''}`.toLowerCase();
-        const coreDestMatch = !coreDest || fullAdText.includes(coreDest) || getCoreLocationKeyword(ad.city || '') === coreDest;
         const originMatch = isLocationMatch(origin, fullAdText) || fullAdText.includes(origin.toLowerCase());
-        return originMatch && coreDestMatch;
+        const destMatch = isDestinationMatch(destination, fullAdText, ad.city || '');
+        return originMatch && destMatch;
       }).slice(0, 3);
-
-      // If strict both not found, check if line at least covers student's ORIGIN area
-      if (matchedLines.length === 0 && origin) {
-        matchedLines = activeDriverLines.filter((ad: any) => {
-          const fullAdText = `${ad.title || ''} ${ad.location || ''} ${ad.city || ''} ${ad.description || ''}`.toLowerCase();
-          return isLocationMatch(origin, fullAdText) || fullAdText.includes(origin.toLowerCase());
-        }).slice(0, 3);
-      }
     } else if (origin) {
       // User specified origin only (e.g. محتاج خط من البنوك)
       matchedLines = activeDriverLines.filter((ad: any) => {
@@ -1404,13 +1395,16 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     }
   }
 
+  const finalOrigin = origin || 'بغداد';
+  const finalDestination = destination || 'الجامعة';
+
   if (origin && (fromUser?.id || chatId)) {
     const targetChatId = fromUser?.id || chatId;
     try {
       const { data: u } = await supabase.from('telegram_users').select('bot_state').eq('telegram_chat_id', targetChatId).maybeSingle();
       const s = u?.bot_state || {};
-      s.last_origin = origin;
-      s.last_dest = destination || 'كلية الرافدين';
+      s.last_origin = finalOrigin;
+      s.last_dest = finalDestination;
       if (matchedLines && matchedLines.length > 0) {
         s.last_driver_phone = matchedLines[0].phone || '';
       }
@@ -1426,8 +1420,8 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
         telegram_chat_id: String(chatId),
         telegram_user_id: fromUser?.id ? String(fromUser.id) : null,
         user_name: fromName,
-        origin: origin || 'بغداد',
-        destination: destination || (norm.includes('رافدين') || norm.includes('رفدين') ? 'كلية الرافدين' : 'الجامعة'),
+        origin: finalOrigin,
+        destination: finalDestination,
         raw_query: rawText,
         status: 'pending'
       });
@@ -1448,13 +1442,13 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
           description: ad.description
         }));
         s.seeker_name = fromName;
-        s.seeker_origin = origin || 'بغداد';
-        s.seeker_destination = destination || 'كلية الرافدين الجامعة';
+        s.seeker_origin = finalOrigin;
+        s.seeker_destination = finalDestination;
         await supabase.from('telegram_users').update({ bot_state: s }).eq('telegram_chat_id', chatId);
       } catch(e) {}
     }
 
-    const card = buildTransportCard(matchedLines, 0, fromName, origin || 'بغداد', destination || 'كلية الرافدين الجامعة', isGroup);
+    const card = buildTransportCard(matchedLines, 0, fromName, finalOrigin, finalDestination, isGroup);
 
     if (isGroup) {
       // In group, send directly to group so user & members see results without obstruction
@@ -1466,6 +1460,44 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
       }
     } else {
       await sendMessage(chatId, card.text, card.markup);
+    }
+    return;
+  }
+
+  // 🔔 If NO line matched this specific destination: Register request & politely inform student
+  if (origin || destination) {
+    try {
+      await supabase.from('transport_requests').insert({
+        telegram_chat_id: String(chatId),
+        telegram_user_id: fromUser?.id ? String(fromUser.id) : null,
+        user_name: fromName,
+        origin: finalOrigin,
+        destination: finalDestination,
+        raw_query: rawText,
+        status: 'pending'
+      });
+    } catch(e) {}
+
+    const noMatchMsg = 
+      `📝 <b>يا هلا ${fromName} 🌹 سجلت طلبك لمسار (${finalOrigin} ⬅️ ${finalDestination})</b>\n\n` +
+      `🔍 <i>حالياً لا يوجد خط مباشر متوفر لنفس هذه الوجهة، وراح يوصلك تنبيه فوري بالخاص أول ما ينشر أي كابتن يمر بمسارك! ✨</i>`;
+
+    const noMatchMarkup = {
+      inline_keyboard: [
+        [{ text: '💬 التحدث مع البوت بالخاص 🌹', url: `https://t.me/${BOT_USERNAME}` }],
+        [{ text: '🚌 تصفح جميع خطوط الموقع', url: 'https://www.souqbaghdad.store/transport' }]
+      ]
+    };
+
+    if (isGroup) {
+      await sendOrReplaceGroupMessage(chatId, noMatchMsg, noMatchMarkup, supabase, userMessageId);
+      if (fromUser?.id) {
+        try {
+          await sendMessage(fromUser.id, noMatchMsg, noMatchMarkup);
+        } catch(e) {}
+      }
+    } else {
+      await sendMessage(chatId, noMatchMsg, noMatchMarkup);
     }
     return;
   }
