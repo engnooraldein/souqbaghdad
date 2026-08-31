@@ -699,6 +699,10 @@ function buildTransportCard(
   const idx = Math.max(0, Math.min(pageIndex, total - 1));
   const l = lines[idx];
   const fareText = formatTgPrice(l.price);
+  const seatsCount = l.available_seats !== undefined && l.available_seats !== null ? l.available_seats : 4;
+  const ratingAvg = l.rating_avg || 5.0;
+  const trustBadge = ratingAvg >= 4.5 ? `⭐ ${ratingAvg} | 🎖️ كابتن موثوق` : `⭐ ${ratingAvg}`;
+  const seatsText = seatsCount === 1 ? '🔥 مقعد أخير متبقي!' : (seatsCount > 0 ? `${seatsCount} مقاعد شاغرة` : '🔒 الخط مكتمل');
   
   const descPhoneMatch = (l.description || '').match(/(?:07[3-9]\d{8}|\+9647[3-9]\d{8}|07\d{2}\s?\d{3}\s?\d{4})/);
   const rawPhone = l.phone || (descPhoneMatch ? descPhoneMatch[0] : '');
@@ -736,6 +740,7 @@ function buildTransportCard(
     cardText = 
       `🚌 <b>يا هلا ${fromName} 🌹 مسار مقترح متوفر:</b>\n` +
       `📍 <b>المسار:</b> ${l.location || origin || 'بغداد'} ⬅️ ${l.city || destination || 'الجامعة'}\n` +
+      `💺 <b>المقاعد:</b> ${seatsText} | 🎖️ ${trustBadge}\n` +
       `💰 <b>الأجرة:</b> ${fareText}` + (cleanPhone ? ` | 📞 <code>${cleanPhone}</code>` : '') + `\n` +
       `<i>اضغط أدناه لحجز مقعدك والتواصل بالخاص 🔒</i>`;
 
@@ -780,6 +785,8 @@ function buildTransportCard(
       `🚌 <b>يا هلا بيك ${fromName}! 🌹 وجدنا لك (${total}) خطوط متوفرة لمسارك:</b>\n\n` +
       `━━━━━━━━━━━━━━━━━━\n` +
       `🏷️ <b>الخط [${idx + 1} من ${total}]: ${l.title}</b> [🟢 نشط]\n` +
+      `🎖️ <b>تقييم الكابتن:</b> <b>${trustBadge}</b>\n` +
+      `💺 <b>المقاعد الشاغرة:</b> <b>${seatsText}</b>\n` +
       `📍 <b>المناطق:</b> ${l.location || origin || 'بغداد'}\n` +
       `🏢 <b>الوجهة:</b> ${l.city || destination || 'الجامعة'}\n` +
       `💰 <b>الأجرة:</b> ${fareText}\n` +
@@ -10831,19 +10838,27 @@ Deno.serve(async (req: any) => {
           const typeText = t.type === 'offer' ? 'أوفر خط' : 'أبحث عن خط';
           const priceText = formatTgPrice(t.price);
           const isVip = t.is_vip || t.is_featured;
+          const curSeats = t.available_seats !== undefined && t.available_seats !== null ? t.available_seats : 4;
           const transCardText = 
             `🚌 <b>${t.title}</b> (${typeText}) [🟢 نشط${isVip ? ' ⭐ مميز VIP' : ''}]\n` +
+            `💺 <b>المقاعد الشاغرة حالياً:</b> <b>${curSeats > 0 ? `${curSeats} مقاعد` : '🔒 ممتلئ'}</b>\n` +
             `💰 <b>الأجرة:</b> ${priceText}\n` +
             `📍 <b>المناطق:</b> ${t.location || 'غير محدد'}\n` +
             `🏢 <b>الوجهة:</b> ${t.city || 'غير محدد'}\n` +
             `📞 <b>الهاتف:</b> <code>${t.phone || 'غير مسجل'}</code>`;
 
           const buttons = [
+            [
+              { text: `💺 المقاعد: ${curSeats === 1 ? '✅ [1]' : '1'}`, callback_data: `set_seats_${t.id}_1` },
+              { text: `${curSeats === 2 ? '✅ [2]' : '2'}`, callback_data: `set_seats_${t.id}_2` },
+              { text: `${curSeats === 3 ? '✅ [3]' : '3'}`, callback_data: `set_seats_${t.id}_3` },
+              { text: `${curSeats >= 4 ? '✅ [4+]' : '4+'}`, callback_data: `set_seats_${t.id}_4` }
+            ],
             [{ text: '👥 عرض الطلاب المحتاجين لخطك فوراً 🎯', callback_data: `match_students_${t.id}` }],
             [{ text: '📢 ترويج ونشر مخصص بالمنصات (بالنقاط) 🎯', callback_data: `promo_menu_${t.id}` }],
             [{ text: '🚀 ترويج وتمييز شامل VIP (5 نقاط) ⭐', callback_data: `boost_ad_${t.id}` }],
             [{ text: '💰 تعديل الأجرة', callback_data: `edit_trans_price_${t.id}` }, { text: '📞 تعديل الهاتف', callback_data: `edit_trans_phone_${t.id}` }],
-            [{ text: '🔒 إغلاق الخط (اكتمل العدد)', callback_data: `solve_trans_${t.id}` }],
+            [{ text: '🔒 إغلاق الخط (قبط واكتمل العدد)', callback_data: `solve_trans_${t.id}` }],
             [{ text: '🗑️ حذف الخط نهائياً', callback_data: `del_trans_${t.id}` }]
           ];
 
@@ -11163,6 +11178,16 @@ Deno.serve(async (req: any) => {
               passCommRow.push({ text: '💬 تواصل واتساب مع الكابتن 🟢', url: `https://wa.me/${waCapPhone}?text=${encodeURIComponent(`السلام عليكم كابتن، تم تأكيد حجز مقعدي بكود #${bCode}`)}` });
             }
             if (passCommRow.length > 0) passBtns.push(passCommRow);
+            const drvTarget = booking.captain_id || booking.captain_chat_id;
+            if (drvTarget) {
+              passBtns.push([
+                { text: '⭐ تقييم الكابتن: [5]', callback_data: `rate_driver_${drvTarget}_5` },
+                { text: '[4]', callback_data: `rate_driver_${drvTarget}_4` },
+                { text: '[3]', callback_data: `rate_driver_${drvTarget}_3` },
+                { text: '[2]', callback_data: `rate_driver_${drvTarget}_2` },
+                { text: '[1]', callback_data: `rate_driver_${drvTarget}_1` }
+              ]);
+            }
             passBtns.push([{ text: '🛑 إيقاف التنبيهات (حصلت خط خلاص) 🌹', callback_data: `stop_alert_${booking.ad_id || 'user'}` }]);
 
             await sendMessage(booking.passenger_chat_id, passAlert, { inline_keyboard: passBtns });
@@ -12231,6 +12256,97 @@ Deno.serve(async (req: any) => {
           {
             inline_keyboard: [
               [{ text: '📋 إدارة خطوطي النشطة', callback_data: 'manage_cat_trans' }],
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      // 💺 Set Available Seats for Transport Line (تحديث المقاعد الشاغرة فورياً)
+      if (action.startsWith('set_seats_')) {
+        const parts = action.replace('set_seats_', '').split('_');
+        const transId = parts[0];
+        const numSeats = parseInt(parts[1], 10) || 0;
+
+        if (numSeats === 0) {
+          // If 0, treat as solve_trans (قبط الخط)
+          action = `solve_trans_${transId}`;
+        } else {
+          const { data: updatedTrans } = await supabase.from('ads').update({ available_seats: numSeats }).eq('id', transId).select().single();
+          if (updatedTrans) {
+            // If only 1 seat left, send priority radar alert to waiting students!
+            if (numSeats === 1) {
+              const searchLoc = (updatedTrans.location || updatedTrans.city || '').toLowerCase();
+              const { data: waitingList } = await supabase.from('transport_requests').select('*').eq('status', 'pending').order('created_at', { ascending: false }).limit(20);
+              const matched = (waitingList || []).filter((r: any) => {
+                const full = `${r.origin || ''} ${r.destination || ''} ${r.raw_query || ''}`.toLowerCase();
+                return searchLoc.split(/[\s,،-]+/).some(w => w.length > 2 && full.includes(w));
+              });
+              for (const st of matched) {
+                const stChatId = st.telegram_chat_id || st.telegram_user_id;
+                if (stChatId && stChatId !== chatId) {
+                  try {
+                    const rushMsg = 
+                      `🔥 <b>فرصة أخيرة عاجلة لمسارك! 💺⚡</b>\n\n` +
+                      `أعلن الكابتن (<b>${updatedTrans.title || 'كابتن الخط'}</b>) عن توفر <b>مقعد أخير فقط</b> في خطه!\n` +
+                      `📍 <b>المسار:</b> ${updatedTrans.location || ''} ⬅️ ${updatedTrans.city || ''}\n` +
+                      `💰 <b>الأجرة:</b> ${formatTgPrice(updatedTrans.price)}\n\n` +
+                      `سارع بالحجز فوراً قبل اكتمال العدد 👇`;
+                    await sendMessage(stChatId, rushMsg, {
+                      inline_keyboard: [
+                        [{ text: '📩 إرسال طلب حجز المقعد الأخير ⚡', callback_data: `req_seat_${updatedTrans.id}` }],
+                        (updatedTrans.phone ? [{ text: '💬 تواصل واتساب سريع 🟢', url: `https://wa.me/${updatedTrans.phone.replace(/[^0-9]/g, '')}` }] : [])
+                      ]
+                    });
+                  } catch(e) {}
+                }
+              }
+            }
+
+            if (callbackQueryId) {
+              await answerCallbackQuery(callbackQueryId, `✅ تم تحديث المقاعد الشاغرة إلى (${numSeats}) مقاعد! 💺`, true);
+            }
+            await sendMessage(chatId, `✅ <b>تم تحديث عدد المقاعد الشاغرة لخطك إلى (${numSeats}) مقاعد بنجاح! 💺✨</b>`, {
+              inline_keyboard: [[{ text: '📋 إدارة خطوطي النشطة', callback_data: 'manage_cat_trans' }]]
+            });
+            return new Response('OK', { status: 200 });
+          }
+        }
+      }
+
+      // ⭐ Rate Driver Handler (تقييم الكابتن بالنجوم)
+      if (action.startsWith('rate_driver_')) {
+        const parts = action.replace('rate_driver_', '').split('_');
+        const driverId = parts[0];
+        const stars = Math.max(1, Math.min(5, parseInt(parts[1], 10) || 5));
+
+        await supabase.from('driver_ratings').insert({
+          driver_id: driverId,
+          student_chat_id: String(chatId),
+          rating: stars
+        });
+
+        // Compute average
+        const { data: allRatings } = await supabase.from('driver_ratings').select('rating').eq('driver_id', driverId);
+        if (allRatings && allRatings.length > 0) {
+          const sum = allRatings.reduce((acc: number, r: any) => acc + (r.rating || 5), 0);
+          const avg = parseFloat((sum / allRatings.length).toFixed(1));
+          const count = allRatings.length;
+
+          await supabase.from('profiles').update({ rating_avg: avg, rating_count: count }).eq('id', driverId);
+          await supabase.from('ads').update({ rating_avg: avg, rating_count: count }).eq('seller_id', driverId);
+        }
+
+        if (callbackQueryId) {
+          await answerCallbackQuery(callbackQueryId, `🌟 شكراً لتقييمك (${stars} نجوم)! تم احتساب التقييم بنجاح 🌹`, true);
+        }
+        await updateOrSend(
+          `🌟 <b>شكراً جزيلاً لتقييمك (${stars} من 5) ⭐!</b>\n\n` +
+          `تقييمك يساعدنا في تمييز الكباتن الموثوقين وضمان أعلى مستويات الأمان والراحة لجميع الطلاب والركاب 🌹✨`,
+          {
+            inline_keyboard: [
+              [{ text: '🚌 تصفح خدمات النقل', url: 'https://www.souqbaghdad.store/transport' }],
               [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
             ]
           }
@@ -14115,6 +14231,58 @@ Deno.serve(async (req: any) => {
             return new Response('OK', { status: 200 });
           }
 
+          // 0.B Owner Smart Weekly Push Command (تذكير الطلاب الأسبوعي بالخطوط)
+          const isWeeklyPushCommand = isOwner && (
+            cleanP.includes('تذكير اسبوعي') || cleanP.includes('تذكير أسبوعي') || cleanP.includes('ارسال تذكير') ||
+            cleanP.includes('تذكير الطلاب') || cleanP.includes('تذكير الخطوط') || cleanP.includes('weekly_push')
+          );
+
+          if (isWeeklyPushCommand) {
+            sendChatAction(chatId, 'typing');
+            await sendMessage(chatId, `🫡 <b>يا هلا بمديرنا الغالي نورالدين 🌹!</b>\n⏳ <b>جاري فحص مسارات الطلاب المسجلة وإرسال رسائل التذكير الذكية لدوام الأسبوع...</b>`);
+
+            const { data: waitingStudents } = await supabase.from('transport_requests').select('*').eq('status', 'pending').order('created_at', { ascending: false }).limit(50);
+            const { data: activeLines } = await supabase.from('ads').select('*').eq('status', 'active').or('category.eq.transport,type.eq.transport');
+
+            let studentCount = 0;
+            const seenChatIds = new Set<string>();
+
+            for (const st of (waitingStudents || [])) {
+              const stChatId = st.telegram_chat_id || st.telegram_user_id;
+              if (stChatId && !seenChatIds.has(stChatId) && stChatId !== String(chatId)) {
+                seenChatIds.add(stChatId);
+                const sOrig = st.origin || '';
+                const sDest = st.destination || '';
+                const matched = (activeLines || []).filter((ad: any) => {
+                  const fullAdText = `${ad.title || ''} ${ad.location || ''} ${ad.city || ''} ${ad.description || ''}`;
+                  return (!sOrig || isLocationMatch(sOrig, fullAdText)) && (!sDest || isDestinationMatch(sDest, fullAdText, ad.city || ''));
+                });
+
+                if (matched.length > 0) {
+                  try {
+                    const pushMsg = 
+                      `👋 <b>صباح الخير والبركة عيوني ${st.user_name || ''} 🌹✨</b>\n\n` +
+                      `📅 <b>تذكير بداية الأسبوع والدوام:</b>\n` +
+                      `وجدنا لك (<b>${matched.length}</b>) خطوط نشطة ومتاحة لمسارك من (<b>${sOrig}</b>) إلى (<b>${sDest || 'كليتك'}</b>)!\n\n` +
+                      `👇 <i>اضغط على الزر أدناه لتصفح الخطوط واختيار الكابتن المناسب وحجز مقعدك:</i>`;
+
+                    const pushBtns = [
+                      [{ text: `🔍 فحص الخطوط المتاحة لمساري (${matched.length}) 🚌`, callback_data: `search_route_${st.id}` }],
+                      [{ text: '🛑 حصلت خط خلاص (إيقاف)', callback_data: `stop_alert_${st.id}` }],
+                      [{ text: '🚌 تصفح جميع الخطوط', url: 'https://www.souqbaghdad.store/transport' }]
+                    ];
+
+                    await sendMessage(stChatId, pushMsg, { inline_keyboard: pushBtns });
+                    studentCount++;
+                  } catch(e) {}
+                }
+              }
+            }
+
+            await sendMessage(chatId, `✅ <b>تم إرسال رسائل التذكير الذكية لـ (${studentCount}) طالب بنجاح! 🚀✨</b>`);
+            return new Response('OK', { status: 200 });
+          }
+
           // 1. Check if user is a Channel / Group Owner requesting bot services
           const isChannelOwnerIntent = 
             cleanP.includes('صاحب قناة') || cleanP.includes('صاحب كروب') || cleanP.includes('عندي قناة') || 
@@ -14182,18 +14350,20 @@ Deno.serve(async (req: any) => {
             return new Response('OK', { status: 200 });
           }
 
-          // 2.A Check if user is SEEKING a line (طالب / موظف يبحث عن خط) -> Smart Transport Search & Radar
+          // 2.A Check if user is SEEKING a line (طالب / موظف يبحث عن خط أو تسجيل صوتي) -> Smart Transport Search & Radar
+          const hasRoutePattern = (cleanP.includes(' من ') || cleanP.startsWith('من ')) && (cleanP.includes(' الى ') || cleanP.includes(' لـ') || cleanP.includes(' للـ') || cleanP.includes(' لل') || cleanP.includes(' لجامعة') || cleanP.includes(' لكلية'));
           const isSeekerTransportDirect = 
             cleanP.includes('محتاج خط') || cleanP.includes('محتاجة خط') || cleanP.includes('محتاجه خط') || 
             cleanP.includes('اريد خط') || cleanP.includes('أريد خط') || cleanP.includes('نريد خط') || cleanP.includes('محتاجين خط') || 
             cleanP.includes('ادور خط') || cleanP.includes('أدور خط') || cleanP.includes('ندور خط') || cleanP.includes('ابحث عن خط') || 
             cleanP.includes('رايد خط') || cleanP.includes('رايده خط') || cleanP.includes('رايدة خط') || 
             cleanP.includes('محتاج سايق') || cleanP.includes('محتاجه سايق') || cleanP.includes('محتاجة سايق') || cleanP.includes('اريد سايق') || 
-            cleanP.includes('طالبه محتاجه') || cleanP.includes('طالبة محتاجة') || cleanP.includes('طالب محتاج') || cleanP.includes('عفيه اريد خط') || cleanP.includes('عفية اريد خط');
+            cleanP.includes('طالبه محتاجه') || cleanP.includes('طالبة محتاجة') || cleanP.includes('طالب محتاج') || cleanP.includes('عفيه اريد خط') || cleanP.includes('عفية اريد خط') ||
+            (Boolean(originalVoiceText) && (hasRoutePattern || cleanP.includes('خط') || cleanP.includes('جامعة') || cleanP.includes('كلية')));
 
           if (isSeekerTransportDirect) {
             sendChatAction(chatId, 'typing');
-            await handleSmartTransportSearch(chatId, userCaption || text, fromUser, supabase, false);
+            await handleSmartTransportSearch(chatId, userCaption || text || originalVoiceText, fromUser, supabase, false);
             return new Response('OK', { status: 200 });
           }
 
