@@ -91,26 +91,22 @@ async function callAiEngine(userText: string | null, audioUrl: string | null, ph
   }
 
   const systemPrompt = 
-    `أنت عقل ومحرك ذكاء اصطناعي فائق التطور (ChatGPT / GPT-4o Level) مصمم كـ "المستشار والمساعد الذكي الأقوى في العراق" لمنصة سوق بغداد (https://www.souqbaghdad.store).
+    `أنت عقل ومحرك ذكاء اصطناعي فائق التطور مصمم كـ "المستشار والمساعد الذكي الأقوى في العراق" لمنصة سوق بغداد (https://www.souqbaghdad.store).
 
-🧠 قدراتك ومستواك المعرفي:
-1. تمتلك ذكاءً وثقافة واسعة جداً تعادل أقوى نماذج الذكاء الاصطناعي العالمية (ChatGPT):
-   - تجيب ببراعة وعمق عن أي سؤال في الحياة، الدراسة والجامعات، التكنولوجيا، النصائح، التحليل، الحسابات، ميكانيكا السيارات، والطرق والمسافات.
-   - إذا سألك المستخدم عن أي موضوع عام (نصيحة دراسية، مقارنة سيارات، فحص أعطال، حل مشكلة، دردشة عامة): جاوبه بذكاء وتحليل منطقي مذهل وأسلوب عراقي مشوق وممتع.
-
-💬 شخصيتك وأسلوبك بالحديث:
-1. تتحدث بلهجة عراقية بغدادية فصيحة، ذكية جداً، راقية، دافئة، غاية في اللباقة وخفة الظل (مثل: تدلل عيوني، يا هلا وكل الهلا بيك، فدوة لقلبك، من عيوني، بالخدمة يالغالي، كفو منك).
-2. تفهم كل تفاصيل الشارع العراقي والسوق (أسعار السيارات بالمفرد والوارد، المعارض، المرور والتحويل، أوقات الزحام ببغداد، كليات وجامعات العراق وأقسامها، مناطق الرصافة والكرخ).
-3. التسامح الفوري والذكي مع الأخطاء الإملائية والعامية السريعة مهما كانت مدمجة، وافهم القصد دون أي تردد.
-4. الربط الذكي مع خدمات سوق بغداد: عندما يكون السؤال متعلقاً بالسيارات أو الخطوط أو البيع، دله بلباقة على خدمات وبوت سوق بغداد المجانية.
+🧠 شخصيتك وأسلوبك بالحديث:
+1. تتحدث بلهجة عراقية بغدادية فصيحة، ذكية جداً، راقية، دافئة، غاية في اللباقة وخفة الظل (مثل: يا هلا بيك عيوني، تدلل يالغالي، فدوة لقلبك، من عيوني، كفو منك).
+2. إذا سلم عليك المستخدم (هلو، مرحبا، شلونك، صباح الخير، مساء الخير): رد عليه بترحيب عراقي دافئ جداً ومميز، واسأله شلون تكدر تخدمه اليوم (سيارات، خطوط نقل للجامعات، بيع وشراء).
+3. تفهم كل تفاصيل الشارع العراقي والسوق والجامعات وخطوط النقل والسيارات.
+4. التسامح الفوري مع الأخطاء الإملائية والعامية السريعة وافهم قصد المستخدم فوراً.
+5. لا تكرر نفس الجملة كالبوت الجامد، بل نوع في أسلوبك وخفة دمك وذكائك العراقي اللطيف!
 ${dbContext ? `\n[بيانات حية من قاعدة بيانات سوق بغداد]:\n${dbContext}\n` : ''}`;
 
-  // 1. Google Gemini 2.0 Flash (with multi-turn conversational memory + native audio support)
+  // 1. Google Gemini 2.0 Flash / 1.5 Flash
   if (GEMINI_API_KEY && (userText || audioUrl || photoUrl || audioBase64)) {
     for (const model of ['gemini-2.0-flash', 'gemini-1.5-flash']) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
 
         const contents: any[] = [];
         if (history && Array.isArray(history)) {
@@ -121,9 +117,12 @@ ${dbContext ? `\n[بيانات حية من قاعدة بيانات سوق بغد
           }
         }
 
-        const userParts: any[] = [
-          { text: `${systemPrompt}\n\nالمستخدم (${name}) يكتب/يتحدث:\n"${userText || 'أرسل بصمة صوتية'}"` }
-        ];
+        const userParts: any[] = [];
+        if (userText) {
+          userParts.push({ text: `المستخدم (${name}) يقول:\n${userText}` });
+        } else {
+          userParts.push({ text: `المستخدم (${name}) أرسل بصمة صوتية:` });
+        }
 
         if (audioBase64) {
           userParts.push({
@@ -140,6 +139,9 @@ ${dbContext ? `\n[بيانات حية من قاعدة بيانات سوق بغد
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            systemInstruction: {
+              parts: [{ text: systemPrompt }]
+            },
             contents,
             generationConfig: { maxOutputTokens: 600, temperature: 0.7 }
           }),
@@ -148,7 +150,7 @@ ${dbContext ? `\n[بيانات حية من قاعدة بيانات سوق بغد
         clearTimeout(timeoutId);
         const data = await resp.json();
         const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (aiText) return aiText.trim();
+        if (aiText && aiText.trim()) return aiText.trim();
       } catch(e) {
         console.warn(`Gemini model ${model} failed:`, e);
       }
@@ -159,7 +161,7 @@ ${dbContext ? `\n[بيانات حية من قاعدة بيانات سوق بغد
   if (OPENAI_API_KEY && userText) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       const resp = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
@@ -167,7 +169,7 @@ ${dbContext ? `\n[بيانات حية من قاعدة بيانات سوق بغد
           model: 'gpt-4o-mini',
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: `${name} يسأل: "${userText}"` }
+            { role: 'user', content: `${name} يقول: "${userText}"` }
           ],
           max_tokens: 500,
           temperature: 0.7
@@ -177,13 +179,22 @@ ${dbContext ? `\n[بيانات حية من قاعدة بيانات سوق بغد
       clearTimeout(timeoutId);
       const data = await resp.json();
       const aiText = data.choices?.[0]?.message?.content;
-      if (aiText) return aiText.trim();
+      if (aiText && aiText.trim()) return aiText.trim();
     } catch(e) {
       console.warn('OpenAI fallback failed:', e);
     }
   }
 
-  // 3. Fallback
+  // 3. Dynamic Local Iraqi AI Greetings Fallback
+  if (['هلو', 'هلا', 'مرحبا', 'مرحباً', 'سلام', 'السلام عليكم', 'سلام عليكم', 'صباح الخير', 'مساء الخير', 'شلونك', 'شلونك عيني', 'شلونكم'].some(g => cleanQ === g || cleanQ.startsWith(g + ' '))) {
+    const greetings = [
+      `يا هلا وكل الهلا بيك عيوني ${name} 🌹 نورتنا!\nشلون أكدر أخدمك اليوم؟ تبحث عن خط نقل لجامعتك، أو تدور سيارة نظيفة، أو تحب تنشر إعلان مجاني بسوق بغداد؟ ✨`,
+      `أهلاً وسهلاً بيك يالغالي ${name} 🌹 يا رب تكون بألف خير وصحة.\nأنا مستشارك الذكي بسوق بغداد، كلي شنو اللي ببالك وتدلل من عيوني! 🚗🚌`,
+      `يا مية هلا بيك عيوني ${name} 🌹 نورت البوت.\nكلي شلون أساعدك اليوم؟ محتاج خط، تدور سيارة، أو عندك استفسار عن الكليات والأسعار؟ 🤝`
+    ];
+    return greetings[Math.floor(Math.random() * greetings.length)];
+  }
+
   return `يا هلا بيك عيوني ${name} 🌹 أنا في خدمتك دائماً في منصة سوق بغداد. تكدر تبحث عن سيارة أو خط نقل أو تنشر إعلانك مجاناً عبر الأزرار أدناه 👇`;
 }
 
@@ -243,22 +254,25 @@ ${contextInfo ? `بيانات حية من المنصة:\n${contextInfo}` : ''}`;
   if (GEMINI_API_KEY) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
       const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: systemPrompt }]
+          },
           contents: [
-            { role: 'user', parts: [{ text: `${systemPrompt}\n\nالسائل (${userName}) يكتب: "${userText}"` }] }
+            { role: 'user', parts: [{ text: `${userName} يقول: "${userText}"` }] }
           ],
-          generationConfig: { maxOutputTokens: 120, temperature: 0.6 }
+          generationConfig: { maxOutputTokens: 200, temperature: 0.7 }
         }),
         signal: controller.signal
       });
       clearTimeout(timeoutId);
       const data = await resp.json();
       const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (aiText) return aiText.trim();
+      if (aiText && aiText.trim()) return aiText.trim();
     } catch(e) {}
   }
 
