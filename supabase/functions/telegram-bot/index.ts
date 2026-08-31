@@ -12444,19 +12444,70 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
-      // 💺 Set Available Seats for Transport Line (تحديث المقاعد الشاغرة فورياً)
+      // 💺 Set Available Seats for Transport Line (تحديث المقاعد الشاغرة فورياً وتعديل البوستات)
       if (action.startsWith('set_seats_')) {
         const parts = action.replace('set_seats_', '').split('_');
         const transId = parts[0];
         const numSeats = parseInt(parts[1], 10) || 0;
 
         if (numSeats === 0) {
-          // If 0, treat as solve_trans (قبط الخط)
+          // If 0, treat as solve_trans (قبط الخط واكتمل العدد)
           action = `solve_trans_${transId}`;
         } else {
           const { data: updatedTrans } = await supabase.from('ads').update({ available_seats: numSeats }).eq('id', transId).select().single();
           if (updatedTrans) {
-            // If only 1 seat left, send priority radar alert to waiting students!
+            // 1. Live Channel Edit: Update channel post(s) to reflect the new available seats!
+            const msgId = updatedTrans.telegram_message_id;
+            const rucMsgId = updatedTrans.sync_status?.ruc_telegram_message_id;
+
+            const seatsBadge = numSeats === 1 
+              ? '🔥 [ متبقي مقعد أخير فقط! ]' 
+              : `💺 [ متبقي ${numSeats} مقاعد شاغرة ]`;
+
+            const updatedCaption = 
+              `🚌 <b>إعلان خط نقل جديد — سوق بغداد</b> 📌\n\n` +
+              `📍 <b>المسار:</b> ${updatedTrans.title || updatedTrans.location}\n` +
+              (updatedTrans.location && updatedTrans.city ? `🗺️ <b>المناطق:</b> ${updatedTrans.location} ⬅️ ${updatedTrans.city}\n` : '') +
+              `💰 <b>الأجرة:</b> ${formatTgPrice(updatedTrans.price)}\n` +
+              `💺 <b>المقاعد الشاغرة:</b> <b>${seatsBadge}</b>\n` +
+              (updatedTrans.phone ? `📞 <b>هاتف الكابتن:</b> <code>${updatedTrans.phone}</code>\n\n` : '\n') +
+              `💡 <i>اضغط على زر الحجز أدناه لإرسال طلبك فوراً إلى هاتف الكابتن:</i>`;
+
+            const cleanPhone = (updatedTrans.phone || '').replace(/[^0-9+]/g, '');
+            const waPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
+            const contactRow: any[] = [];
+            if (waPhone) {
+              const prefill = encodeURIComponent(`السلام عليكم كابتن، بخصوص خطك (${updatedTrans.title || ''}) حاب استفسر عن حجز مقعد`);
+              contactRow.push({ text: '💬 تواصل واتساب سريع 🟢', url: `https://wa.me/${waPhone}?text=${prefill}` });
+            }
+
+            const seatBtnText = numSeats === 1 ? '📩 إرسال طلب حجز المقعد الأخير ⚡' : `📩 إرسال طلب حجز مقعد (${numSeats} شاغر) ⚡`;
+
+            const updatedMarkup = {
+              inline_keyboard: [
+                [{ text: seatBtnText, callback_data: `req_seat_${updatedTrans.id}` }],
+                contactRow,
+                [{ text: '🚌 تفاصيل الخط بالموقع', url: 'https://www.souqbaghdad.store/transport' }]
+              ].filter(r => r.length > 0)
+            };
+
+            if (msgId) {
+              const channelsToTry = Array.from(new Set([LINES_CHANNEL_ID, LINES_CHANNEL, '@souqbaghdad_lines', '@souqbaghdad_line'].filter(Boolean)));
+              for (const ch of channelsToTry) {
+                try {
+                  const res = await editChannelMessage(ch, parseInt(msgId, 10), updatedCaption, updatedMarkup);
+                  if (res?.ok) break;
+                } catch(e) {}
+              }
+            }
+
+            if (rucMsgId && ALRAFDAIN_TELEGRAM_CHANNEL) {
+              try {
+                await editChannelMessage(ALRAFDAIN_TELEGRAM_CHANNEL, parseInt(rucMsgId, 10), updatedCaption, updatedMarkup);
+              } catch(e) {}
+            }
+
+            // 2. If only 1 seat left, send priority radar alert to waiting students strictly in Private DMs!
             if (numSeats === 1) {
               const searchLoc = (updatedTrans.location || updatedTrans.city || '').toLowerCase();
               const { data: waitingList } = await supabase.from('transport_requests').select('*').eq('status', 'pending').order('created_at', { ascending: false }).limit(20);
@@ -12486,9 +12537,9 @@ Deno.serve(async (req: any) => {
             }
 
             if (callbackQueryId) {
-              await answerCallbackQuery(callbackQueryId, `✅ تم تحديث المقاعد الشاغرة إلى (${numSeats}) مقاعد! 💺`, true);
+              await answerCallbackQuery(callbackQueryId, `✅ تم تحديث المقاعد الشاغرة إلى (${numSeats}) وتعديل المنشورات بالقنوات! 💺✨`, true);
             }
-            await sendMessage(chatId, `✅ <b>تم تحديث عدد المقاعد الشاغرة لخطك إلى (${numSeats}) مقاعد بنجاح! 💺✨</b>`, {
+            await sendMessage(chatId, `✅ <b>تم تحديث عدد المقاعد الشاغرة لخطك إلى (${numSeats}) مقاعد، وتعديل المنشورات في القنوات فورياً! 💺✨</b>`, {
               inline_keyboard: [[{ text: '📋 إدارة خطوطي النشطة', callback_data: 'manage_cat_trans' }]]
             });
             return new Response('OK', { status: 200 });
