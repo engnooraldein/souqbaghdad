@@ -1822,6 +1822,17 @@ async function checkBotIsAdmin(channelId: string | number): Promise<{ ok: boolea
   }
 }
 
+async function getChatMemberCount(channelId: string | number): Promise<number | null> {
+  try {
+    const res = await fetch(`${tgUrl}/getChatMemberCount?chat_id=${encodeURIComponent(String(channelId))}`);
+    const data = await res.json();
+    if (data.ok && typeof data.result === 'number') {
+      return data.result;
+    }
+  } catch(e) {}
+  return null;
+}
+
 // Broadcast Ad to Partner Channels Network
 async function broadcastToPartnerChannels(record: any, category: 'transport' | 'vehicles' | 'products', caption: string, photoUrl: string | string[], replyMarkup: any, supabaseClient: any) {
   try {
@@ -6925,7 +6936,7 @@ Deno.serve(async (req: any) => {
       });
     }
 
-    // --- Owner Partner Channels List ---
+    // --- Owner Partner Channels List & Pulse Diagnostics ---
     if (isOwner && trimmedText === 'owner_partner_list') {
       const { data: partners } = await supabase
         .from('partner_channels')
@@ -6945,21 +6956,132 @@ Deno.serve(async (req: any) => {
         );
       }
 
-      let listText = `📋 <b>قنوات وكروبات الشركاء المسجلة (${partners.length}):</b>\n\n`;
+      let listText = `📋 <b>قنوات وكروبات الشركاء المسجلة (${partners.length}):</b>\n\n` +
+                     `<i>اضغط على أي قناة أدناه لكشف نبضها وفحص صلاحياتها وإحصائياتها الحية:</i>\n\n`;
       const pBtns: any[] = [];
 
       partners.forEach((p: any, idx: number) => {
         const isAct = p.status === 'active' || p.is_active === true;
-        const stIcon = isAct ? '🟢 نشطة' : (p.status === 'pending_setup' ? '⏳ بانتظار الربط' : '🔴 متوقفة');
+        const stIcon = isAct ? '🟢 نشطة' : (p.status === 'pending_setup' ? '⏳ قيد الربط' : '🔴 متوقفة');
         listText += `${idx + 1}. <b>${p.channel_title || p.channel_username || p.channel_id || 'قناة جديدة'}</b> (${stIcon})\n`;
-        listText += `   🎓 الفئة: <b>${p.university || p.category}</b> | 📱 هاتف: <code>${p.phone || 'غير مسجل'}</code>\n`;
-        listText += `   🔑 كود: <code>${p.invite_code || '-'}</code>\n\n`;
+        listText += `   🎓 الفئة: <b>${p.university || p.category}</b> | 📊 المنشورات: <b>${p.posts_count || 0}</b> | 📱: <code>${p.phone || 'غير مسجل'}</code>\n\n`;
+
+        pBtns.push([{ text: `🔍 نبض: ${p.channel_title || p.university || 'قناة'} (${stIcon})`, callback_data: `owner_pview_${p.id}` }]);
       });
 
       pBtns.push([{ text: '📡 إنشاء دعوة شريك جديدة ➕', callback_data: 'owner_partner_invite_start' }]);
       pBtns.push([{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]);
 
       return await updateOrSend(listText, { inline_keyboard: pBtns });
+    }
+
+    // --- Owner Partner Channel Live Pulse View ---
+    if (isOwner && trimmedText.startsWith('owner_pview_')) {
+      const pId = trimmedText.replace('owner_pview_', '');
+      const { data: p } = await supabase.from('partner_channels').select('*').eq('id', pId).maybeSingle();
+
+      if (!p) {
+        return await updateOrSend('⚠️ لم يتم العثور على بيانات هذه القناة.', {
+          inline_keyboard: [[{ text: '🔙 عودة لقائمة الشركاء', callback_data: 'owner_partner_list' }]]
+        });
+      }
+
+      let adminStatusText = '⏳ قيد الفحص';
+      let memberCountText = 'غير متاح';
+
+      if (p.channel_id) {
+        const adminCheck = await checkBotIsAdmin(p.channel_id);
+        adminStatusText = adminCheck.ok ? '🟢 مشرف نشط (صلاحيات كاملة ✅)' : `⚠️ خطأ: ${adminCheck.error || 'البوت ليس مشرفاً'}`;
+        
+        const count = await getChatMemberCount(p.channel_id);
+        if (count !== null) {
+          memberCountText = `${count.toLocaleString()} عضو 👥`;
+        }
+      }
+
+      const isAct = p.status === 'active' || p.is_active === true;
+      const stBadge = isAct ? '🟢 متصلة ومفعلة للنشر' : (p.status === 'pending_setup' ? '⏳ بانتظار رفع البوت والربط' : '🔴 متوقفة مؤقتاً');
+
+      const pulseReport = 
+        `👑 <b>كشف نبض وأداء القناة الشريكة 📊✨</b>\n\n` +
+        `📢 <b>اسم القناة:</b> <b>${p.channel_title || 'بدون اسم'}</b>\n` +
+        `🔗 <b>المعرف / الآيدي:</b> <code>${p.channel_username || p.channel_id || 'غير متصل بعد'}</code>\n` +
+        `🎓 <b>الكلية / الفئة:</b> <b>${p.university || p.category}</b>\n` +
+        `📱 <b>هاتف الشريك:</b> <code>${p.phone || 'غير مسجل'}</code>\n` +
+        `🔑 <b>كود الدعوة:</b> <code>${p.invite_code || '-'}</code>\n\n` +
+        `━━━━━━━━━━━━━━━━━━\n` +
+        `📈 <b>المؤشرات الفنية والنبض اللحظي:</b>\n` +
+        `• ⚡ <b>حالة النشر:</b> ${stBadge}\n` +
+        `• 🤖 <b>حالة البوت بالقناة:</b> ${adminStatusText}\n` +
+        `• 👥 <b>جمهور القناة:</b> <b>${memberCountText}</b>\n` +
+        `• 📊 <b>إجمالي الإعلانات المرحّلة:</b> <b>${p.posts_count || 0}</b> منشور\n` +
+        `• 🪙 <b>النقاط المكتسبة للشريك:</b> <b>${p.earned_points || 0}</b> نقطة\n` +
+        `• 📅 <b>تاريخ الإنشاء:</b> ${new Date(p.created_at).toLocaleDateString('ar-IQ')}\n\n` +
+        `<i>يمكنك إدارة القناة وإرسال منشور فحص تجريبي عبر الأزرار أدناه:</i>`;
+
+      const pActions: any[] = [];
+      if (p.channel_id) {
+        pActions.push([{ text: '⚡ إرسال منشور فحص تجريبي (Ping)', callback_data: `owner_pping_${p.id}` }]);
+      }
+      pActions.push([
+        { text: isAct ? '⏸️ إيقاف مؤقت للقناة' : '🟢 تشغيل وتفعيل القناة', callback_data: `owner_ptoggle_${p.id}` },
+        { text: '🗑️ حذف وفصل الشراكة', callback_data: `owner_pdel_${p.id}` }
+      ]);
+      pActions.push([{ text: '🔙 عودة لقائمة الشركاء', callback_data: 'owner_partner_list' }]);
+
+      return await updateOrSend(pulseReport, { inline_keyboard: pActions });
+    }
+
+    // --- Owner Action: Test Ping Post to Partner Channel ---
+    if (isOwner && trimmedText.startsWith('owner_pping_')) {
+      const pId = trimmedText.replace('owner_pping_', '');
+      const { data: p } = await supabase.from('partner_channels').select('*').eq('id', pId).maybeSingle();
+
+      if (p && p.channel_id) {
+        const pingMsg = 
+          `🟢 <b>فحص نبض الاتصال والتكامل بنجاح 📡✨</b>\n\n` +
+          `🎓 القناة متصلة رسمياً بشبكة سوق بغداد — قسم [ <b>${p.university || p.category}</b> ].\n` +
+          `⚡ النشر التلقائي ومزامنة المقاعد يعملان بأعلى دقة على مدار الساعة 🌹`;
+
+        try {
+          await sendMessage(p.channel_id, pingMsg, {
+            inline_keyboard: [[{ text: '🚌 تصفح خدمات سوق بغداد', url: 'https://www.souqbaghdad.store/transport' }]]
+          });
+          await sendMessage(chatId, `✅ <b>تم إرسال منشور الفحص التجريبي إلى القناة (${p.channel_title}) بنجاح!</b>`);
+        } catch(e: any) {
+          await sendMessage(chatId, `❌ <b>فشل إرسال البوست التجريبي:</b> ${e?.message || e}`);
+        }
+      }
+      return await updateOrSend(
+        `✅ تم تنفيذ اختبار النبض.`,
+        { inline_keyboard: [[{ text: '🔙 عودة لتفاصيل القناة', callback_data: `owner_pview_${pId}` }]] }
+      );
+    }
+
+    // --- Owner Action: Toggle Partner Channel Active State ---
+    if (isOwner && trimmedText.startsWith('owner_ptoggle_')) {
+      const pId = trimmedText.replace('owner_ptoggle_', '');
+      const { data: p } = await supabase.from('partner_channels').select('*').eq('id', pId).maybeSingle();
+      if (p) {
+        const newStatus = p.status === 'active' ? 'paused' : 'active';
+        const newIsActive = newStatus === 'active';
+        await supabase.from('partner_channels').update({ status: newStatus, is_active: newIsActive }).eq('id', pId);
+        await sendMessage(chatId, `✅ تم تغيير حالة القناة إلى: <b>${newIsActive ? '🟢 نشطة ومفعلة' : '⏸️ متوقفة مؤقتاً'}</b>`);
+      }
+      return await updateOrSend(
+        `✅ تم التحديث.`,
+        { inline_keyboard: [[{ text: '🔙 عودة لتفاصيل القناة', callback_data: `owner_pview_${pId}` }]] }
+      );
+    }
+
+    // --- Owner Action: Delete Partner Channel ---
+    if (isOwner && trimmedText.startsWith('owner_pdel_')) {
+      const pId = trimmedText.replace('owner_pdel_', '');
+      await supabase.from('partner_channels').delete().eq('id', pId);
+      return await updateOrSend(
+        `🗑️ <b>تم حذف وفصل قناة الشريك بنجاح!</b>`,
+        { inline_keyboard: [[{ text: '🔙 عودة لقائمة الشركاء', callback_data: 'owner_partner_list' }]] }
+      );
     }
 
     // ==========================================
