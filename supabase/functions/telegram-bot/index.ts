@@ -4347,31 +4347,39 @@ Deno.serve(async (req: any) => {
           ? 'https://www.souqbaghdad.store/vehicles' 
           : (isTransport ? 'https://www.souqbaghdad.store/transport' : 'https://www.souqbaghdad.store/products');
           
+        const isSeeker = isTransport && (actualAd.type === 'request' || record?.type === 'request');
+
         const soldTag = isTransport 
-          ? '✅ <b>[اكتمل العدد / الخط مغلق]</b>' 
-          : (isCar ? '⚠️ <b>[تم البيع / مباعة]</b>' : '⚠️ <b>[تم البيع / غير متوفر]</b>');
+          ? (isSeeker ? '✅ <b>[تم الاتفاق / حصلت على خط 🎓]</b>' : '✅ <b>[اكتمل العدد / الخط مغلق 🔒]</b>')
+          : (isCar ? '⚠️ <b>[تم البيع / مباعة 🚗]</b>' : '⚠️ <b>[تم البيع / غير متوفر 🛍️]</b>');
 
         const buttonText = isTransport 
-          ? '🚌 تصفح خطوط أخرى متاحة 🌐' 
+          ? (isSeeker ? '🚌 تصفح طلبات وخطوط أخرى 🌐' : '🚌 تصفح خطوط أخرى متاحة 🌐')
           : (isCar ? '🚗 تم بيع هذه السيارة — تصفح المزيد 🔍' : '🛍️ تم البيع — تصفح أحدث العروض 🌐');
 
         const postNewText = isTransport
-          ? '🚌 اعرض خطك مجاناً عبر البوت'
+          ? (isSeeker ? '🚌 انشر طلب خط نقل جديد مجاناً' : '🚌 اعرض خطك مجاناً عبر البوت')
           : (isCar ? '🚗 اعرض سيارتك للبيع مجاناً عبر البوت' : '📦 اعرض سلعتك مجاناً عبر البوت');
 
         const soldButtons = {
           inline_keyboard: [
             [{ text: buttonText, url: browseUrl }],
-            [{ text: postNewText, url: `https://t.me/${BOT_USERNAME}` }]
+            [{ text: postNewText, url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
           ]
         };
 
-        const iconType = isTransport ? '🚌' : (isCar ? '🚗' : '🛍️');
-        const soldCaption = `${soldTag}\n\n` +
-                            `${iconType} <b>${actualAd.title || 'إعلان'}</b>\n` +
-                            `💰 <b>تمت العملية بنجاح عبر منصة سوق بغداد</b>\n` +
-                            `📍 ${actualAd.location || actualAd.city || 'العراق'}\n\n` +
-                            `📣 لم يعد هذا الإعلان متاحاً للتواصل. يمكنك تصفح العروض المشابهة عبر الزر أدناه 👇`;
+        const iconType = isTransport ? (isSeeker ? '🎓' : '🚌') : (isCar ? '🚗' : '🛍️');
+        const soldCaption = isSeeker
+          ? `${soldTag}\n\n` +
+            `🎓 <b>${actualAd.title || 'طلب خط نقل'}</b>\n` +
+            `🤝 <b>تم الاتفاق مع كابتن بنجاح عبر منصة سوق بغداد</b>\n` +
+            `📍 ${actualAd.location || 'بغداد'} ⬅️ ${actualAd.city || 'الجامعة'}\n\n` +
+            `🔒 <i>تم إغلاق الطلب واكتمال التنسيق بنجاح.</i>`
+          : `${soldTag}\n\n` +
+            `${iconType} <b>${actualAd.title || 'إعلان'}</b>\n` +
+            `💰 <b>تمت العملية بنجاح عبر منصة سوق بغداد</b>\n` +
+            `📍 ${actualAd.location || actualAd.city || 'العراق'}\n\n` +
+            `📣 لم يعد هذا الإعلان متاحاً للتواصل. يمكنك تصفح العروض المشابهة عبر الزر أدناه 👇`;
 
         // 1. Update main Telegram channel
         if (msgId) {
@@ -4422,7 +4430,9 @@ Deno.serve(async (req: any) => {
         const rafdainFbPostId = actualAd.sync_status?.rafdain_facebook_post_id || record?.sync_status?.rafdain_facebook_post_id || oldRecord?.sync_status?.rafdain_facebook_post_id;
 
         const fbSoldText = isTransport 
-          ? `✅ [اكتمل العدد / الخط مغلق]\n\n🚌 ${actualAd.title || 'إعلان خط'}\n💰 تمت العملية بنجاح عبر منصة سوق بغداد\n\nلم يعد هذا الخط متاحاً للتسجيل. تصفح الخطوط المتاحة عبر:\nhttps://www.souqbaghdad.store/transport`
+          ? (isSeeker 
+              ? `✅ [تم الاتفاق / حصل الطالب على خط 🎓]\n\n🎓 ${actualAd.title || 'طلب خط نقل'}\n🤝 تم الاتفاق مع كابتن بنجاح عبر منصة سوق بغداد\n\nتصفح أو انشر طلب خط نقل جديد مجاناً عبر:\nhttps://www.souqbaghdad.store/transport`
+              : `✅ [اكتمل العدد / الخط مغلق]\n\n🚌 ${actualAd.title || 'إعلان خط'}\n💰 تمت العملية بنجاح عبر منصة سوق بغداد\n\nلم يعد هذا الخط متاحاً للتسجيل. تصفح الخطوط المتاحة عبر:\nhttps://www.souqbaghdad.store/transport`)
           : (isCar
             ? `⚠️ [تم البيع / مباعة]\n\n🚗 ${actualAd.title || 'سيارة للبيع'}\n💰 تم البيع بنجاح عبر منصة سوق بغداد\n\nتصفح المزيد من السيارات المتاحة عبر:\nhttps://www.souqbaghdad.store/vehicles`
             : `⚠️ [تم البيع / غير متوفر]\n\n🛍️ ${actualAd.title || 'منتج'}\n💰 تم البيع بنجاح عبر منصة سوق بغداد\n\nتصفح المزيد من العروض عبر:\nhttps://www.souqbaghdad.store/products`);
@@ -6614,15 +6624,15 @@ Deno.serve(async (req: any) => {
         ]);
         menuRows.push([{ text: 'الأسئلة الشائعة والمساعدة', callback_data: 'faq_hub_main' }]);
       } else {
-        // Passenger / Student tailored menu
-        menuRows.push([{ text: 'إشعار آلي عند توفر خط بمنطقتي', callback_data: 'start_route_radar' }]);
-        menuRows.push([{ text: 'نشر طلب خط نقل', callback_data: 'publish_transport' }]);
-        menuRows.push([{ text: 'مساراتي وطلباتي النشطة', callback_data: 'manage_my_routes' }]);
+        // Passenger / Student tailored menu - 1-click access to published requests and management
+        menuRows.push([{ text: '📋 طلباتي وإعلاناتي المنشورة (تعديل / حصلت على خط) ⚡', callback_data: 'manage_cat_trans' }]);
+        menuRows.push([{ text: '🔔 مساراتي وتنبيهات الرادار الذكي', callback_data: 'manage_my_routes' }]);
+        menuRows.push([{ text: '➕ نشر طلب خط نقل جديد 🚌', callback_data: 'publish_transport' }]);
         menuRows.push([
-          { text: 'تصفح خطوط بغداد', callback_data: 'tpage_all_0' }
+          { text: '🔍 تصفح خطوط بغداد', callback_data: 'tpage_all_0' },
+          { text: '🌐 خطوط النقل بالموقع', url: 'https://www.souqbaghdad.store/transport' }
         ]);
-        menuRows.push([{ text: 'تصفح الموقع الإلكتروني', url: 'https://www.souqbaghdad.store/transport' }]);
-        menuRows.push([{ text: 'إدارة إعلاناتي ومساراتي', callback_data: 'manage_my_ads' }]);
+        menuRows.push([{ text: '📦 إدارة كافة إعلاناتي وحسابي', callback_data: 'manage_my_ads' }]);
         menuRows.push([
           { text: 'تبديل الصفة (كابتن)', callback_data: 'change_my_role' },
           { text: 'حسابي والخدمات', callback_data: 'account_services' }
@@ -9861,6 +9871,11 @@ Deno.serve(async (req: any) => {
 
         const routeButtons: any[][] = [];
 
+        // Row 0 (Top Priority): Direct link to published ads/requests if any exist
+        if (myAdsReqs.length > 0) {
+          routeButtons.push([{ text: `📢 طلباتي المنشورة بالقناة (${myAdsReqs.length}) (تعديل / حصلت على خط) ⚡`, callback_data: 'manage_cat_trans' }]);
+        }
+
         // Row 1: Search live driver lines (حسب الطلب والمسار + عرض الكل)
         routeButtons.push([
           { text: `🔍 فحص خطوط مساري 🚌`, callback_data: `search_route_${curRoute.id}` },
@@ -9873,9 +9888,12 @@ Deno.serve(async (req: any) => {
           { text: `🏢 تعديل / إضافة وجهة`, callback_data: `edit_req_dest_${curRoute.id}` }
         ]);
 
-        // Row 3: Delete route
+        // Row 3: Got a line or Stop/Delete route
         routeButtons.push([
-          { text: `🛑 إيقاف وحذف هذا المسار`, callback_data: `del_route_req_${curRoute.id}_${curIdx}` }
+          { text: `✅ حصلت على خط (إيقاف تنبيهات هذا المسار) 🤝`, callback_data: `stop_alert_${curRoute.id}` }
+        ]);
+        routeButtons.push([
+          { text: `🛑 حذف هذا المسار من الرادار`, callback_data: `del_route_req_${curRoute.id}_${curIdx}` }
         ]);
 
         // Row 4: Pagination (السابق / التالي) if multiple routes
@@ -9891,10 +9909,7 @@ Deno.serve(async (req: any) => {
           routeButtons.push(navRow);
         }
 
-        // Row 5: Add new route & Main Menu
-        if (myAdsReqs.length > 0) {
-          routeButtons.push([{ text: `📢 طلباتي وإعلاناتي المنشورة بالقناة (${myAdsReqs.length}) ⚡`, callback_data: 'manage_cat_trans' }]);
-        }
+        // Bottom row: Add new route & Main Menu
         routeButtons.push([
           { text: '➕ تسجيل مسار إضافي 🔔', callback_data: 'start_route_radar' }
         ]);
@@ -10766,6 +10781,13 @@ Deno.serve(async (req: any) => {
           if (fbLink) adBtns.push({ text: `📘 عرض المنشور — فيسبوك`, url: fbLink });
           if (adBtns.length > 0) allButtons.push(adBtns);
           if (igLink) allButtons.push([{ text: `📸 عرض المنشور — انستغرام`, url: igLink }]);
+
+          // If ad is active, provide 1-click button to close/match and update posts
+          if (ad.status === 'active') {
+            const isSeekerAd = ad.type === 'request';
+            const closeTag = isSeekerAd ? '✅ حصلت على خط (إغلاق الطلب) 🤝' : (ad.category === 'transport' ? '🔒 إغلاق الخط (اكتمل العدد)' : '🏷️ تعليم كمباع');
+            allButtons.push([{ text: closeTag, callback_data: `solve_trans_${ad.id}` }]);
+          }
         }
 
         allButtons.push(...navButtons);
@@ -12131,9 +12153,11 @@ Deno.serve(async (req: any) => {
         const immediateButtons = stateData.type === 'request'
           ? [
               [{ text: '📢 شاهد طلبك بالقناة', url: channelLink }, { text: '🌐 عرض البطاقة بالموقع', url: link }],
+              [{ text: '✅ حصلت على خط (تم الاتفاق وإغلاق الطلب) 🤝', callback_data: `solve_trans_${insertedId}` }],
+              [{ text: '💰 تعديل الأجرة المقترحة', callback_data: `edit_trans_price_${insertedId}` }, { text: '📞 تعديل وسيلة التواصل', callback_data: `edit_trans_phone_${insertedId}` }],
               [{ text: '🔍 فحص الخطوط المتاحة لمساري الآن 🚌', callback_data: `search_route_${insertedId}` }],
-              [{ text: '📋 مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' }],
-              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+              [{ text: '📋 إدارة طلبي وإعلاناتي ⚡', callback_data: 'manage_cat_trans' }, { text: '🔔 مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' }],
+              [{ text: '🗑️ حذف أو إلغاء الطلب', callback_data: `del_trans_${insertedId}` }, { text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
             ]
           : [
               [{ text: '🌐 عرض بطاقتي بالموقع', url: link }, { text: '📢 شاهد بالقناة', url: channelLink }],
@@ -12432,7 +12456,14 @@ Deno.serve(async (req: any) => {
                 if (viewRow2.length > 0) reportButtons.push(viewRow2);
 
                 reportButtons.push([{ text: '🌐 بطاقة الخط بالموقع', url: link }]);
-                if (!isSeeker) {
+                if (isSeeker) {
+                  reportButtons.push([{ text: '✅ حصلت على خط (تم الاتفاق وإغلاق الطلب) 🤝', callback_data: `solve_trans_${insertedTrans.id}` }]);
+                  reportButtons.push([
+                    { text: '💰 تعديل الأجرة', callback_data: `edit_trans_price_${insertedTrans.id}` },
+                    { text: '📞 تعديل الهاتف', callback_data: `edit_trans_phone_${insertedTrans.id}` }
+                  ]);
+                  reportButtons.push([{ text: '📋 إدارة طلبي وإعلاناتي ⚡', callback_data: 'manage_cat_trans' }]);
+                } else {
                   reportButtons.push([{ text: '🚀 ترويج VIP — صدارة المنصات', callback_data: `promo_menu_${insertedTrans.id}` }]);
                 }
                 reportButtons.push([{ text: '📲 مشاركة مع الأصدقاء', url: shareUrl }]);
@@ -12805,6 +12836,11 @@ Deno.serve(async (req: any) => {
               `📢 <i>منشور في قناة خطوط النقل ومنصة سوق بغداد.</i>`;
 
             const reqButtons = [
+              [{ text: '✅ حصلت على خط (تم الاتفاق وإغلاق الطلب) 🤝', callback_data: `solve_trans_${t.id}` }],
+              [
+                { text: '💰 تعديل الأجرة المقترحة', callback_data: `edit_trans_price_${t.id}` },
+                { text: '📞 تعديل وسيلة التواصل', callback_data: `edit_trans_phone_${t.id}` }
+              ],
               [{ text: '🚗 فحص وعرض الكباتن المتوفرين لمساري ⚡', callback_data: `search_route_${t.id}` }],
               [{ text: '🌐 مشاهدة طلبي بالموقع', url: `https://www.souqbaghdad.store/transport/card/${shortCode}` }],
               [{ text: '🗑️ حذف أو إلغاء الطلب ❌', callback_data: `del_trans_${t.id}` }]
@@ -13406,6 +13442,18 @@ Deno.serve(async (req: any) => {
           await supabase.from('transport_requests').update({ status: 'matched' }).eq('id', reqId);
         }
 
+        // 🛡️ Also close any published request ads for this passenger to update Telegram & Facebook posts
+        try {
+          if (userId) {
+            await supabase.from('ads').update({ status: 'matched' }).eq('seller_id', userId).eq('type', 'request').eq('status', 'active');
+          } else if (chatId) {
+            const { data: u } = await supabase.from('telegram_users').select('user_id').eq('telegram_chat_id', chatId).maybeSingle();
+            if (u?.user_id) {
+              await supabase.from('ads').update({ status: 'matched' }).eq('seller_id', u.user_id).eq('type', 'request').eq('status', 'active');
+            }
+          }
+        } catch(e) {}
+
         const isGroupChat = Number(chatId) < 0;
         const successReply = 
           `🎉 <b>ألف مبروك! نتمنى لك دوام التوفيق والراحة برحلاتك اليومية 🌹</b>\n\n` +
@@ -13530,23 +13578,46 @@ Deno.serve(async (req: any) => {
         }
 
         const shortCode = itemToClose.short_id || itemToClose.id;
-        const tagText = isProduct ? 'تم تعليم المنتج كـ مباع 🛍️' : (isCar ? 'تم تعليم السيارة كـ مباعة 🚗' : 'تم إغلاق الخط واكتمال العدد 🔒');
+        const isSeekerAd = targetTable === 'ads' && itemToClose.type === 'request';
+        
+        // If passenger closed their request, also mark matching transport_requests as matched
+        if (isSeekerAd) {
+          try {
+            if (userId) {
+              await supabase.from('transport_requests').update({ status: 'matched' }).eq('user_id', userId).eq('status', 'pending');
+            }
+            if (chatId) {
+              await supabase.from('transport_requests').update({ status: 'matched' }).eq('telegram_chat_id', String(chatId)).eq('status', 'pending');
+            }
+          } catch(e) {}
+        }
+
+        const tagText = isProduct 
+          ? 'تم تعليم المنتج كـ مباع 🛍️' 
+          : (isCar 
+              ? 'تم تعليم السيارة كـ مباعة 🚗' 
+              : (isSeekerAd ? 'تم تأكيد اتفاقك وحصولك على خط بنجاح 🎓🤝' : 'تم إغلاق الخط واكتمال العدد 🔒'));
         
         const archiveButton = isProduct 
           ? { text: '🛍️ إدارة منتجاتي', callback_data: 'manage_cat_ads' }
           : { text: '📂 عرض الأرشيف', callback_data: isCar ? 'manage_cars_archive' : 'manage_trans_archive' };
 
+        const closeDetails = isSeekerAd
+          ? `• تم تحديث منشورك في قناة تيليجرام وصفحات التواصل إلى [✅ تم الاتفاق / حصلت على خط].\n` +
+            `• تم إيقاف رادار التنبيهات لمسارك ونقل الطلب للأرشيف لراحتك التامة.`
+          : `• تم تحديث المنشورات في قنوات تيليجرام وصفحات التواصل لتصبح مباعة أو مكتملة.\n` +
+            `• تم نقل الإعلان إلى <b>الأرشيف</b> ولن يزعجك أحد بالاتصال.`;
+
         await sendMessage(chatId,
           `✅ <b>${tagText} (#${shortCode}) بنجاح!</b>\n\n` +
-          `• تم تحديث المنشورات في قنوات تيليجرام وصفحات التواصل لتصبح مباعة أو مكتملة.\n` +
-          `• تم نقل الإعلان إلى <b>الأرشيف</b> ولن يزعجك أحد بالاتصال.\n\n` +
+          `${closeDetails}\n\n` +
           `💡 <b>هل تريد إعادة فتح الإعلان مستقبلاً؟</b>\n` +
-          `• يمكنك الدخول للأرشيف والضغط على <b>«🔄 إعادة تفعيل»</b> أو تعديل بياناته.\n` +
-          `• يمكنك عمل <b>«ترويج بالنقاط»</b> لإعادة نشره في الصدارة كإعلان جديد كلياً!`,
+          `• يمكنك الدخول للأرشيف والضغط على <b>«🔄 إعادة تفعيل»</b> في أي وقت.\n` +
+          `• كما يمكنك نشر طلب أو خط جديد مجاناً متى ما احتجت! 🌹`,
           {
             inline_keyboard: [
               [archiveButton],
-              [{ text: isProduct ? '🛒 نشر منتج جديد' : (isCar ? '🚗 إدارة سياراتي' : '🚌 إدارة خطوطي'), callback_data: isProduct ? 'publish_product' : (isCar ? 'manage_cat_cars' : 'manage_cat_trans') }],
+              [{ text: isProduct ? '🛒 نشر منتج جديد' : (isCar ? '🚗 إدارة سياراتي' : (isSeekerAd ? '🚌 طلب خط جديد' : '🚌 إدارة خطوطي')), callback_data: isProduct ? 'publish_product' : (isCar ? 'manage_cat_cars' : (isSeekerAd ? 'publish_transport' : 'manage_cat_trans')) }],
               [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
             ]
           }
@@ -15972,32 +16043,46 @@ Deno.serve(async (req: any) => {
             const adId = updatedTrans.short_id || updatedTrans.id;
             const link = `https://www.souqbaghdad.store/transport/card/${adId}`;
 
-            const newMsg = `🚌 <b>إعلان خط نقل — سوق بغداد (سعر محدث)</b>\n\n` +
-                           `📌 <b>النوع:</b> ${updatedTrans.type === 'offer' ? '🚗 أوفر خط نقل' : '🙋‍♂️ أبحث عن خط نقل'}\n` +
-                           `🏷️ <b>الفئة:</b> ${catType} (${targetStr})\n` +
-                           `📍 <b>مناطق الانطلاق:</b> ${updatedTrans.location}\n` +
-                           `🏢 <b>الوجهة:</b> ${updatedTrans.city}\n` +
-                           `⏰ <b>وقت الدوام:</b> ${desc?.shift || 'صباحي'}\n` +
-                           `🚗 <b>المركبة:</b> ${desc?.vehicleType || 'صالون'}\n` +
-                           `💰 <b>الأجرة المحدثة:</b> ${formattedPrice}\n` +
-                           (updatedTrans.phone ? `📞 <b>التواصل:</b> ${updatedTrans.phone}\n\n` : `\n`) +
-                           `📣 <b>#رقم_الخط_${adId}</b> | @${BOT_USERNAME}`;
+            const isSeekerAd = updatedTrans.type === 'request';
+            const newMsg = isSeekerAd
+              ? `🎓 <b>طلب خط نقل — طالب / راكب يبحث عن خط (أجرة محدثة) 🚌</b>\n\n` +
+                `🏷️ <b>الفئة:</b> ${catType} (${targetStr})\n` +
+                `📍 <b>مناطق الانطلاق:</b> ${updatedTrans.location}\n` +
+                `🏢 <b>الوجهة:</b> ${updatedTrans.city}\n` +
+                `⏰ <b>وقت الدوام:</b> ${desc?.shift || 'صباحي'}\n` +
+                `💰 <b>الأجرة المقترحة المحدثة:</b> ${formattedPrice}\n` +
+                (updatedTrans.phone && updatedTrans.phone !== 'telegram' ? `📞 <b>هاتف التواصل:</b> <code>${updatedTrans.phone}</code>\n\n` : `🔒 <b>التواصل:</b> تليكرام\n\n`) +
+                `📣 <b>#طلب_خط_${adId}</b> | @${BOT_USERNAME}`
+              : `🚌 <b>إعلان خط نقل — سوق بغداد (سعر محدث)</b>\n\n` +
+                `📌 <b>النوع:</b> 🚗 أوفر خط نقل\n` +
+                `🏷️ <b>الفئة:</b> ${catType} (${targetStr})\n` +
+                `📍 <b>مناطق الانطلاق:</b> ${updatedTrans.location}\n` +
+                `🏢 <b>الوجهة:</b> ${updatedTrans.city}\n` +
+                `⏰ <b>وقت الدوام:</b> ${desc?.shift || 'صباحي'}\n` +
+                `🚗 <b>المركبة:</b> ${desc?.vehicleType || 'صالون'}\n` +
+                `💰 <b>الأجرة المحدثة:</b> ${formattedPrice}\n` +
+                (updatedTrans.phone ? `📞 <b>التواصل:</b> ${updatedTrans.phone}\n\n` : `\n`) +
+                `📣 <b>#رقم_الخط_${adId}</b> | @${BOT_USERNAME}`;
 
             let cleanPhone = (updatedTrans.phone || '').replace(/[^0-9+]/g, '');
             if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
             else cleanPhone = cleanPhone.replace('+', '');
 
             const contactRow = [];
-            if (cleanPhone) {
+            if (cleanPhone && cleanPhone.length >= 8) {
               contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-              
             }
 
-            const inlineKeyboard = [
-              [{ text: '🌐 التفاصيل الكاملة وحجز المقعد', url: link }]
-            ];
-            if (contactRow.length > 0) inlineKeyboard.push(contactRow);
-            inlineKeyboard.push([{ text: '🚌 انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}` }]);
+            const inlineKeyboard = isSeekerAd
+              ? [
+                  ...(contactRow.length > 0 ? [contactRow] : []),
+                  [{ text: '🚌 تحتاج خط نقل؟ انشر طلبك مجاناً', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
+                ]
+              : [
+                  [{ text: '🌐 التفاصيل الكاملة وحجز المقعد', url: link }],
+                  ...(contactRow.length > 0 ? [contactRow] : []),
+                  [{ text: '🚌 انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
+                ];
 
             const replyMarkup = { inline_keyboard: inlineKeyboard };
 
@@ -16011,7 +16096,7 @@ Deno.serve(async (req: any) => {
             }
 
             await sendMessage(chatId, `✅ <b>تم تحديث الأجرة بنجاح!</b>\nالأجرة الجديدة: <b>${formattedPrice}</b>\nتم تحديث المنشور في القناة مباشرة.`, {
-              inline_keyboard: [[{ text: '🚌 العودة لخطوطي', callback_data: 'manage_cat_trans' }], [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
+              inline_keyboard: [[{ text: isSeekerAd ? '📋 العودة لطلباتي' : '🚌 العودة لخطوطي', callback_data: 'manage_cat_trans' }], [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
             });
           }
         }
@@ -16036,32 +16121,46 @@ Deno.serve(async (req: any) => {
             const adId = updatedTrans.short_id || updatedTrans.id;
             const link = `https://www.souqbaghdad.store/transport/card/${adId}`;
 
-            const newMsg = `🚌 <b>إعلان خط نقل — سوق بغداد</b>\n\n` +
-                           `📌 <b>النوع:</b> ${updatedTrans.type === 'offer' ? '🚗 أوفر خط نقل' : '🙋‍♂️ أبحث عن خط نقل'}\n` +
-                           `🏷️ <b>الفئة:</b> ${catType} (${targetStr})\n` +
-                           `📍 <b>مناطق الانطلاق:</b> ${updatedTrans.location}\n` +
-                           `🏢 <b>الوجهة:</b> ${updatedTrans.city}\n` +
-                           `⏰ <b>وقت الدوام:</b> ${desc?.shift || 'صباحي'}\n` +
-                           `🚗 <b>المركبة:</b> ${desc?.vehicleType || 'صالون'}\n` +
-                           `💰 <b>الأجرة:</b> ${formatTgPrice(updatedTrans.price)}\n` +
-                           `📞 <b>التواصل:</b> ${newPhone}\n\n` +
-                           `📣 <b>#رقم_الخط_${adId}</b> | @${BOT_USERNAME}`;
+            const isSeekerAd = updatedTrans.type === 'request';
+            const newMsg = isSeekerAd
+              ? `🎓 <b>طلب خط نقل — طالب / راكب يبحث عن خط (هاتف محدث) 🚌</b>\n\n` +
+                `🏷️ <b>الفئة:</b> ${catType} (${targetStr})\n` +
+                `📍 <b>مناطق الانطلاق:</b> ${updatedTrans.location}\n` +
+                `🏢 <b>الوجهة:</b> ${updatedTrans.city}\n` +
+                `⏰ <b>وقت الدوام:</b> ${desc?.shift || 'صباحي'}\n` +
+                `💰 <b>الأجرة المقترحة:</b> ${formatTgPrice(updatedTrans.price)}\n` +
+                `📞 <b>هاتف التواصل المحدث:</b> <code>${newPhone}</code>\n\n` +
+                `📣 <b>#طلب_خط_${adId}</b> | @${BOT_USERNAME}`
+              : `🚌 <b>إعلان خط نقل — سوق بغداد</b>\n\n` +
+                `📌 <b>النوع:</b> 🚗 أوفر خط نقل\n` +
+                `🏷️ <b>الفئة:</b> ${catType} (${targetStr})\n` +
+                `📍 <b>مناطق الانطلاق:</b> ${updatedTrans.location}\n` +
+                `🏢 <b>الوجهة:</b> ${updatedTrans.city}\n` +
+                `⏰ <b>وقت الدوام:</b> ${desc?.shift || 'صباحي'}\n` +
+                `🚗 <b>المركبة:</b> ${desc?.vehicleType || 'صالون'}\n` +
+                `💰 <b>الأجرة:</b> ${formatTgPrice(updatedTrans.price)}\n` +
+                `📞 <b>التواصل:</b> ${newPhone}\n\n` +
+                `📣 <b>#رقم_الخط_${adId}</b> | @${BOT_USERNAME}`;
 
             let cleanPhone = newPhone.replace(/[^0-9+]/g, '');
             if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
             else cleanPhone = cleanPhone.replace('+', '');
 
             const contactRow = [];
-            if (cleanPhone) {
+            if (cleanPhone && cleanPhone.length >= 8) {
               contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-              
             }
 
-            const inlineKeyboard = [
-              [{ text: '🌐 التفاصيل الكاملة وحجز المقعد', url: link }]
-            ];
-            if (contactRow.length > 0) inlineKeyboard.push(contactRow);
-            inlineKeyboard.push([{ text: '🚌 انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}` }]);
+            const inlineKeyboard = isSeekerAd
+              ? [
+                  ...(contactRow.length > 0 ? [contactRow] : []),
+                  [{ text: '🚌 تحتاج خط نقل؟ انشر طلبك مجاناً', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
+                ]
+              : [
+                  [{ text: '🌐 التفاصيل الكاملة وحجز المقعد', url: link }],
+                  ...(contactRow.length > 0 ? [contactRow] : []),
+                  [{ text: '🚌 انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
+                ];
 
             const replyMarkup = { inline_keyboard: inlineKeyboard };
 
@@ -16075,7 +16174,7 @@ Deno.serve(async (req: any) => {
             }
 
             await sendMessage(chatId, `✅ <b>تم تحديث رقم الهاتف بنجاح!</b>\nالرقم الجديد: <b>${newPhone}</b>\nتم تحديث المنشور في القناة مباشرة.`, {
-              inline_keyboard: [[{ text: '🚌 العودة لخطوطي', callback_data: 'manage_cat_trans' }], [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
+              inline_keyboard: [[{ text: isSeekerAd ? '📋 العودة لطلباتي' : '🚌 العودة لخطوطي', callback_data: 'manage_cat_trans' }], [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
             });
           }
         }
@@ -16967,6 +17066,62 @@ Deno.serve(async (req: any) => {
                 `اكتب مسارك برسالة واحدة (مثال: <i>محتاجة خط من جميلة إلى الرافدين</i>) وسأسجله لك برادار التنبيهات فوراً! ✨`;
               await sendMessage(chatId, askFormMsg, {
                 inline_keyboard: [[{ text: '🚌 تصفح خطوط الموقع', url: 'https://www.souqbaghdad.store/transport' }]]
+              });
+              return new Response('OK', { status: 200 });
+            }
+          }
+
+          // 3.9 Check if user is asking to manage/update/close their line request or ad (حصلت على خط / تعديل طلبي / إعلاناتي)
+          const isManageOrCloseIntent = 
+            cleanP.includes('حصلت') || cleanP.includes('لكيت') || cleanP.includes('لقيت') || cleanP.includes('تم الاتفاق') ||
+            cleanP.includes('تعديل طلبي') || cleanP.includes('تعديل اعلاني') || cleanP.includes('طلباتي') || cleanP.includes('مساراتي') || cleanP.includes('اعلاناتي') || cleanP.includes('خطوطي') || cleanP.includes('اريد اعدل') || cleanP.includes('الغاء طلبي') || cleanP.includes('حذف طلبي');
+
+          if (isManageOrCloseIntent) {
+            const userTgIdStr = fromUser?.id ? String(fromUser.id) : '';
+            const orFilters = [`telegram_chat_id.eq.${chatId}`];
+            if (userId) orFilters.push(`user_id.eq.${userId}`);
+            if (userTgIdStr) orFilters.push(`telegram_user_id.eq.${userTgIdStr}`);
+
+            const { data: userActiveAds } = await supabase
+              .from('ads')
+              .select('id, short_id, title, type, status, price, location, city')
+              .eq('category', 'transport')
+              .eq('status', 'active')
+              .or(orFilters.join(','))
+              .order('created_at', { ascending: false })
+              .limit(3);
+
+            const isGotLine = cleanP.includes('حصلت') || cleanP.includes('لكيت') || cleanP.includes('لقيت') || cleanP.includes('تم الاتفاق');
+
+            if (userActiveAds && userActiveAds.length > 0) {
+              const latestAd = userActiveAds[0];
+              const isReq = latestAd.type === 'request';
+              const manageMarkup = {
+                inline_keyboard: [
+                  [{ text: isReq ? '✅ حصلت على خط (إغلاق الطلب وتحديث القناة) 🤝' : '🔒 إغلاق الخط (اكتمل العدد)', callback_data: `solve_trans_${latestAd.id}` }],
+                  [
+                    { text: '💰 تعديل الأجرة', callback_data: `edit_trans_price_${latestAd.id}` },
+                    { text: '📞 تعديل الهاتف', callback_data: `edit_trans_phone_${latestAd.id}` }
+                  ],
+                  [{ text: '📋 عرض وإدارة كافة طلباتي', callback_data: 'manage_cat_trans' }],
+                  [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+                ]
+              };
+              const replyTxt = isGotLine
+                ? `🎉 <b>ألف مبروك يالغالي! عسى التوفيق يرافقك دائماً 🌹</b>\n\nاضغط أدناه لتأكيد «حصلت على خط» حتى يتم تحديث منشورك في القناة وصفحات التواصل فوراً وإيقاف استقبال الاتصالات:`
+                : `📋 <b>إدارة طلبك المنشور (#${latestAd.short_id || latestAd.id}):</b>\nمسارك: <b>${latestAd.location} ⬅️ ${latestAd.city}</b>\n\nيمكنك تعديل تفاصيل الطلب أو إغلاقه مباشرة عبر الأزرار أدناه:`;
+              await sendMessage(chatId, replyTxt, manageMarkup);
+              return new Response('OK', { status: 200 });
+            } else {
+              const replyTxt = isGotLine
+                ? `🎉 <b>ألف مبروك حصولك على خط نقل! 🌹</b>\nيمكنك التأكد من إيقاف أي تنبيهات أو إدارة مساراتك عبر الأزرار أدناه:`
+                : `📋 <b>إدارة طلباتك ومساراتك:</b>\nيمكنك الدخول لإعلاناتك أو مساراتك المسجلة عبر الأزرار أدناه:`;
+              await sendMessage(chatId, replyTxt, {
+                inline_keyboard: [
+                  [{ text: '📋 طلباتي المنشورة بالقناة', callback_data: 'manage_cat_trans' }],
+                  [{ text: '🔔 مساراتي وتنبيهات الرادار', callback_data: 'manage_my_routes' }],
+                  [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+                ]
               });
               return new Response('OK', { status: 200 });
             }
