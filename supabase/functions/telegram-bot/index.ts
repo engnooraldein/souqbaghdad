@@ -978,7 +978,7 @@ async function showRadarDestPicker(chatId: string | number, origin: string, supa
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// 📞 STEP 3: Ask for phone number (optional, can skip)
+// 📞 STEP 3: Ask for contact / phone preferences (Privacy Choice)
 // ═══════════════════════════════════════════════════════════════════
 async function showSeekerPhoneStep(chatId: string | number, origin: string, destination: string, supabase: any, callbackMsgId?: number) {
   const state = { step: 'seeker_phone', data: { origin, destination } };
@@ -987,16 +987,28 @@ async function showSeekerPhoneStep(chatId: string | number, origin: string, dest
   const phoneText =
     `📍 <b>منطقة الانطلاق:</b> <b>${origin}</b> ✅\n` +
     `🏢 <b>الوجهة:</b> <b>${destination}</b> ✅\n\n` +
-    `📞 <b>الخطوة 3 من 4 — رقم هاتفك (اختياري)</b>\n` +
-    `<i>أرسل رقمك ليتواصل معك الكابتن مباشرةً عند توفر خط.\nأو اضغط «تخطي» للمتابعة بدون رقم:</i>`;
+    `🔒 <b>الخطوة 3 من 4 — طريقة التواصل والخصوصية:</b>\n` +
+    `<i>خدمة نشر طلبات النقل مجانية 100% للطلاب والركاب 🎓</i>\n\n` +
+    `👇 <b>اختر كيف ترغب بأن يتواصل معك السائقون والكباتن:</b>`;
 
   const skipData = `seeker_skip_phone_${encodeURIComponent(origin)}_${encodeURIComponent(destination)}`;
+  const phoneData = `seeker_enter_phone_${encodeURIComponent(origin)}_${encodeURIComponent(destination)}`;
+
+  const buttons = [
+    [{ text: '🔒 تواصل تليكرام فقط (بدون إظهار رقمي بالقناة)', callback_data: skipData }],
+    [{ text: '📞 إظهار رقم الهاتف والواتساب (تواصل مباشر)', callback_data: phoneData }],
+    [{ text: '🔙 تغيير الوجهة', callback_data: 'start_route_radar' }]
+  ];
+
+  if (callbackMsgId) {
+    try {
+      const editRes = await editMessageText(chatId, callbackMsgId, phoneText, { inline_keyboard: buttons });
+      if (editRes?.ok) return editRes;
+    } catch(e) {}
+  }
 
   await sendMessage(chatId, phoneText, {
-    inline_keyboard: [
-      [{ text: '⏭️ تخطي — بدون رقم', callback_data: skipData }],
-      [{ text: '🔙 تغيير الوجهة', callback_data: 'start_route_radar' }]
-    ],
+    inline_keyboard: buttons,
     keyboard: [[{ text: '📱 مشاركة رقمي تلقائياً', request_contact: true }]],
     one_time_keyboard: true,
     resize_keyboard: true
@@ -1006,28 +1018,38 @@ async function showSeekerPhoneStep(chatId: string | number, origin: string, dest
 // ═══════════════════════════════════════════════════════════════════
 // ✅ STEP 4: Confirmation Screen — Preview before publishing
 // ═══════════════════════════════════════════════════════════════════
-async function showSeekerConfirmation(chatId: string | number, origin: string, destination: string, phone: string, fromUser: any, supabase: any) {
+async function showSeekerConfirmation(chatId: string | number, origin: string, destination: string, phone: string, fromUser: any, supabase: any, callbackMsgId?: number) {
   const fromName = fromUser?.first_name || 'عزيزنا';
   const state = { step: 'seeker_confirm', data: { origin, destination, phone } };
   await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+  const contactDisplay = phone ? `<code>${phone}</code> (مباشر واتساب)` : '🔒 تليكرام فقط (رقمك محمي ومخفي)';
 
   const confirmText =
     `🎓 <b>مراجعة طلب النقل — ${fromName}</b>\n\n` +
     `┌─────────────────────────┐\n` +
     `│ 📍 <b>المنطقة:</b>  ${origin}\n` +
     `│ 🏢 <b>الوجهة:</b>   ${destination}\n` +
-    `│ 📞 <b>الهاتف:</b>   ${phone || '—  (لم يُضف)'}\n` +
-    `│ 🔔 <b>الرادار:</b>  سيُفعَّل 24/7\n` +
+    `│ 📞 <b>التواصل:</b>  ${contactDisplay}\n` +
+    `│ 🎁 <b>التكلفة:</b>  مجاناً 100% 🎓\n` +
+    `│ 🔔 <b>الرادار:</b>  مفعّل 24/7\n` +
     `└─────────────────────────┘\n\n` +
-    `<i>✅ بعد التأكيد سنسجل طلبك فوراً وسيصلك إشعار خاص لحظة توفر كابتن بمسارك ⚡</i>`;
+    `<i>✅ بعد التأكيد سنسجل طلبك وننشره بقناة الخطوط بالبطاقة الزرقاء المميزة ويصلك إشعار خاص لحظة توفر كابتن بمسارك ⚡</i>`;
 
-  await sendMessage(chatId, confirmText, {
-    inline_keyboard: [
-      [{ text: '✅ تأكيد النشر والتسجيل 🚀', callback_data: 'seeker_confirm_yes' }],
-      [{ text: '✏️ تعديل المسار', callback_data: 'start_route_radar' }],
-      [{ text: '❌ إلغاء', callback_data: 'main_menu' }]
-    ]
-  });
+  const buttons = [
+    [{ text: '✅ تأكيد النشر والتسجيل مجاناً 🚀', callback_data: 'seeker_confirm_yes' }],
+    [{ text: '✏️ تعديل المسار', callback_data: 'start_route_radar' }],
+    [{ text: '❌ إلغاء', callback_data: 'main_menu' }]
+  ];
+
+  if (callbackMsgId) {
+    try {
+      const editRes = await editMessageText(chatId, callbackMsgId, confirmText, { inline_keyboard: buttons });
+      if (editRes?.ok) return editRes;
+    } catch(e) {}
+  }
+
+  await sendMessage(chatId, confirmText, { inline_keyboard: buttons });
 }
 
 async function finishRadarRegistration(chatId: string | number, origin: string, destination: string, fromUser: any, supabase: any, callbackMsgId?: number, phone = '') {
@@ -1802,6 +1824,8 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
 
 async function notifyWaitingStudents(ad: any, supabase: any) {
   if (!ad || (ad.category !== 'transport' && ad.type !== 'transport')) return;
+  // 🛡️ Passenger requests are NOT offers from captains! Never notify waiting students about other students' requests!
+  if (ad.type === 'request') return;
   const adText = `${ad.title || ''} ${ad.location || ''} ${ad.description || ''}`.toLowerCase();
   
   try {
@@ -1816,6 +1840,10 @@ async function notifyWaitingStudents(ad: any, supabase: any) {
     const notifiedUserIds = new Set<string>();
 
     for (const req of pendingRequests) {
+      // 🛡️ Never notify publisher about their own ad
+      if (ad.seller_id && req.user_id && String(req.user_id) === String(ad.seller_id)) continue;
+      if (ad.chat_id && req.telegram_chat_id && String(req.telegram_chat_id) === String(ad.chat_id)) continue;
+
       const orig = req.origin || '';
       const dest = req.destination || '';
 
@@ -8348,6 +8376,99 @@ Deno.serve(async (req: any) => {
       return new Response('OK', { status: 200 });
     }
 
+    // 🎓 Deep-Link Direct Passenger Line Match / Contact (تواصل مباشر مع الراكب / الطالب)
+    if (text.startsWith('/start match_')) {
+      const matchParam = text.replace('/start match_', '').trim();
+      let reqQuery = supabase.from('ads').select('*');
+      if (matchParam.length >= 30) {
+        reqQuery = reqQuery.eq('id', matchParam);
+      } else {
+        reqQuery = reqQuery.or(`short_id.eq.${matchParam},id.eq.${matchParam}`);
+      }
+      const { data: reqAd } = await reqQuery.maybeSingle();
+
+      if (!reqAd) {
+        await updateOrSend('⚠️ عذراً، لم يتم العثور على هذا الطلب أو ربما تم إغلاقه.', {
+          inline_keyboard: [[{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
+        });
+        return new Response('OK', { status: 200 });
+      }
+
+      // Fetch publisher details from telegram_users
+      let pubTgUser: any = null;
+      if (reqAd.seller_id) {
+        const { data: u } = await supabase.from('telegram_users').select('*').eq('user_id', reqAd.seller_id).maybeSingle();
+        pubTgUser = u;
+      }
+      if (!pubTgUser && reqAd.phone && reqAd.phone !== 'telegram') {
+        const { data: u } = await supabase.from('telegram_users').select('*').eq('phone_number', reqAd.phone).maybeSingle();
+        pubTgUser = u;
+      }
+
+      const isSelf = (userId && reqAd.seller_id === userId) || (pubTgUser && String(pubTgUser.telegram_chat_id) === String(chatId));
+      if (isSelf) {
+        await updateOrSend(
+          `👋 <b>أهلاً بك! هذا هو طلب النقل الخاص بك 🎓</b>\n\n` +
+          `📍 <b>المسار:</b> ${reqAd.location} ⬅️ ${reqAd.city}\n` +
+          `💰 <b>الأجرة المقترحة:</b> ${formatTgPrice(reqAd.price)}\n\n` +
+          `✅ <i>طلبك منشور بنجاح في القناة والمنصة، وسيقوم الكباتن بالتواصل معك فور توفر خط لمسارك!</i>`,
+          {
+            inline_keyboard: [
+              [{ text: '📊 تقارير إعلاناتي', callback_data: 'my_publish_reports' }],
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      const passengerName = reqAd.seller_name || pubTgUser?.first_name || 'الراكب / الطالب';
+      const passengerUsername = pubTgUser?.username ? `@${pubTgUser.username}` : (reqAd.phone && reqAd.phone.startsWith('@') ? reqAd.phone : '');
+      const passengerChatId = pubTgUser?.telegram_chat_id;
+
+      let descObj: any = {};
+      try {
+        descObj = typeof reqAd.description === 'string' ? JSON.parse(reqAd.description) : reqAd.description;
+      } catch(e) {}
+
+      const shiftStr = descObj?.shift || 'صباحي';
+      const audienceStr = descObj?.targetAudience || 'الجميع';
+
+      let detailsMsg =
+        `🎓 <b>طلب خط نقل — طالب / راكب يبحث عن خط 🚌</b>\n\n` +
+        `👤 <b>صاحب الطلب:</b> ${passengerName}\n` +
+        `📍 <b>منطقة الانطلاق:</b> ${reqAd.location}\n` +
+        `🏢 <b>الوجهة:</b> ${reqAd.city}\n` +
+        `⏰ <b>وقت الدوام:</b> ${shiftStr}\n` +
+        `👥 <b>الفئة:</b> ${audienceStr}\n` +
+        `💰 <b>الأجرة المقترحة:</b> ${formatTgPrice(reqAd.price)}\n\n`;
+
+      const matchBtns: any[][] = [];
+
+      // If passenger has public username, add direct Telegram chat button
+      if (passengerUsername) {
+        matchBtns.push([{ text: `💬 مراسلة ${passengerName} مباشرة عبر تليكرام`, url: `https://t.me/${passengerUsername.replace('@', '')}` }]);
+      } else if (passengerChatId) {
+        detailsMsg +=
+          `💬 <b>مراسلة تليكرام المباشرة:</b>\n` +
+          `<a href="tg://user?id=${passengerChatId}">👤 اضغط هنا لفتح محادثة خاصة فوراً مع ${passengerName} ⚡</a>\n\n`;
+      }
+
+      // Add direct offer/message button via the bot
+      matchBtns.push([{ text: '✍️ إرسال عرض توصيل / رسالة للراكب عبر البوت ⚡', callback_data: `offer_seeker_${reqAd.id}` }]);
+
+      const cleanReqPhone = (reqAd.phone || '').replace(/[^0-9+]/g, '');
+      if (cleanReqPhone && cleanReqPhone.length >= 8 && reqAd.phone !== 'telegram') {
+        let waPhone = cleanReqPhone.startsWith('07') ? '964' + cleanReqPhone.substring(1) : cleanReqPhone.replace('+', '');
+        matchBtns.push([{ text: '🟢 تواصل عبر واتساب', url: `https://wa.me/${waPhone}?text=${encodeURIComponent('السلام عليكم، شفت طلبك لخط النقل وأني كابتن أمر بمسارك')}` }]);
+      }
+
+      matchBtns.push([{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]);
+
+      await updateOrSend(detailsMsg, { inline_keyboard: matchBtns });
+      return new Response('OK', { status: 200 });
+    }
+
     // --- Deep-Link Direct Line Booking from Group (حجز الخط ونقل كامل المحادثة لخاص البوت) ---
     if (text.startsWith('/start book_') || text.startsWith('/start line_')) {
       const lineId = text.replace('/start book_', '').replace('/start line_', '').trim();
@@ -10368,13 +10489,34 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
-      // Step 3 (Skip phone button clicked):
+      // Step 3 (Contact privacy option clicked):
+      if (action.startsWith('seeker_enter_phone_')) {
+        const raw = action.replace('seeker_enter_phone_', '');
+        const parts = raw.split('_');
+        const origin = decodeURIComponent(parts[0] || state.data?.origin || 'بغداد');
+        const dest = decodeURIComponent(parts[1] || state.data?.destination || 'الجامعة');
+        state = { step: 'seeker_phone', data: { origin, destination: dest } };
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        await updateOrSend(
+          `📞 <b>أرسل رقم هاتفك للتواصل الآن:</b>\n` +
+          `<i>(مثال: <code>07701234567</code> أو اضغط زر مشاركة الرقم أدناه)</i>\n\n` +
+          `سيظهر هذا الرقم وزر الواتساب في بطاقة طلبك ليتواصل معك الكباتن مباشرة.`,
+          {
+            inline_keyboard: [
+              [{ text: '🔒 تراجع — تواصل تليكرام فقط (بدون رقم)', callback_data: `seeker_skip_phone_${encodeURIComponent(origin)}_${encodeURIComponent(dest)}` }],
+              [{ text: '🔙 السابق', callback_data: `rad_d_${encodeURIComponent(dest)}` }]
+            ]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
       if (action.startsWith('seeker_skip_phone_')) {
         const raw = action.replace('seeker_skip_phone_', '');
         const parts = raw.split('_');
         const origin = decodeURIComponent(parts[0] || state.data?.origin || 'بغداد');
         const dest = decodeURIComponent(parts[1] || state.data?.destination || 'الجامعة');
-        await showSeekerConfirmation(chatId, origin, dest, '', fromUser, supabase);
+        await showSeekerConfirmation(chatId, origin, dest, '', fromUser, supabase, callbackMsgId);
         return new Response('OK', { status: 200 });
       }
 
@@ -10414,7 +10556,8 @@ Deno.serve(async (req: any) => {
 
         const reqOrigin = targetReq.origin || 'بغداد';
         const reqDest = targetReq.destination || 'الجامعة';
-        const reqPhone = targetReq.phone || phone || '';
+        const isTgOnlyReq = !targetReq.phone || targetReq.phone === 'telegram' || targetReq.phone === 'none';
+        const reqPhone = isTgOnlyReq ? 'telegram' : targetReq.phone;
 
         const shortId = Math.random().toString(36).substring(2, 7).toUpperCase();
         const adTitle = `أبحث عن خط من ${reqOrigin} إلى ${reqDest}`;
@@ -10446,21 +10589,35 @@ Deno.serve(async (req: any) => {
         }
 
         const directLink = `https://www.souqbaghdad.store/transport/card/${shortId}`;
-        const dynamicCardUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(adTitle)}&regions=${encodeURIComponent(reqOrigin)}&destination=${encodeURIComponent(reqDest)}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(reqPhone || '07800000000')}&ad_type=request`;
+        const cardPhone = reqPhone || 'telegram';
+        const dynamicCardUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(adTitle)}&regions=${encodeURIComponent(reqOrigin)}&destination=${encodeURIComponent(reqDest)}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(cardPhone)}&ad_type=request`;
 
-        let formattedPhone = reqPhone.startsWith('07') ? '964' + reqPhone.substring(1) : reqPhone.replace('+', '');
+        const userUn = (fromUser?.username || tgUser?.username || '').replace('@', '').trim();
+        const tgContactUrl = userUn 
+          ? `https://t.me/${userUn}` 
+          : `https://t.me/${BOT_USERNAME}?start=match_${insertedAdId}`;
+
+        let formattedPhone = (reqPhone || '').startsWith('07') ? '964' + reqPhone.substring(1) : (reqPhone || '').replace('+', '');
         const chKeyboard: any[] = [];
-        if (reqPhone) {
-          chKeyboard.push([{ text: '💬 تواصل واتساب مع الطالب/الراكب 🟢', url: `https://wa.me/${formattedPhone}?text=${encodeURIComponent('السلام عليكم، شفت طلبك لخط النقل وأني كابتن أمر بمسارك')}` }]);
+        const seekerRow1: any[] = [];
+        
+        seekerRow1.push({ text: '💬 مراسلة تليكرام', url: tgContactUrl });
+
+        if (reqPhone && reqPhone !== 'telegram' && reqPhone !== '07800000000') {
+          seekerRow1.push({ 
+            text: '🟢 تواصل واتساب', 
+            url: `https://wa.me/${formattedPhone}?text=${encodeURIComponent('السلام عليكم، شفت طلبك لخط النقل وأني كابتن أمر بمسارك')}` 
+          });
         }
-        chKeyboard.push([{ text: '🚗 كابتن وتوفر هذا المسار؟ تواصل عبر البوت ⚡', url: `https://t.me/${BOT_USERNAME}?start=match_${insertedAdId}` }]);
-        chKeyboard.push([{ text: '🚌 كابتن؟ اعرض خطك مجاناً بالقناة', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]);
+        chKeyboard.push(seekerRow1);
+        chKeyboard.push([{ text: '🚌 تحتاج خط نقل؟ انشر طلبك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]);
 
         const chMsg = 
-          `🎓 <b>طلب خط نقل جديد — طالب / راكب يبحث عن خط 🚌</b>\n\n` +
+          `🎓 <b>طلب خط نقل جديد — طالب / راكب يبحث عن خط 🚌</b>\n` +
+          `<i>خدمة مجانية 100% للطلاب والركاب 🎓</i>\n\n` +
           `📍 <b>منطقة الانطلاق:</b> ${reqOrigin}\n` +
           `🏢 <b>الوجهة:</b> ${reqDest}\n` +
-          (reqPhone ? `📞 <b>هاتف الطالب/الراكب:</b> <code>${reqPhone}</code>\n\n` : `\n`) +
+          (reqPhone && reqPhone !== 'telegram' ? `📞 <b>هاتف التواصل:</b> <code>${reqPhone}</code>\n\n` : `🔒 <b>التواصل:</b> تليكرام فقط (حماية الخصوصية)\n\n`) +
           `📣 <b>#طلب_خط_${shortId}</b> | @${BOT_USERNAME}`;
 
         const targetChannel = LINES_CHANNEL_ID || LINES_CHANNEL;
@@ -10492,18 +10649,20 @@ Deno.serve(async (req: any) => {
         }
 
         const channelLink = `https://t.me/${LINES_CHANNEL.replace('@', '')}`;
-        await updateOrSend(
-          `🎉 <b>عاشت إيدك! تم نشر طلبك في قناة خطوط النقل بنجاح 🚀</b>\n\n` +
+        const userConfirmMsg =
+          `🎉 <b>تم نشر طلبك وتفعيل الرادار بنجاح 🎓✨</b>\n\n` +
           `📍 <b>المسار:</b> ${reqOrigin} ⬅️ ${reqDest}\n` +
-          (reqPhone ? `📞 <b>الهاتف:</b> <code>${reqPhone}</code>\n` : '') +
-          `🔖 <b>كود الطلب:</b> <code>#${shortId}</code>\n\n` +
-          `📢 <i>تم إرسال بطاقة طلبك باللون المميز إلى القناة مع رابط الواتساب وسيتواصل معك الكباتن مباشرة!</i>`,
+          (reqPhone && reqPhone !== 'telegram' ? `📞 <b>التواصل:</b> <code>${reqPhone}</code> (مباشر واتساب)\n` : `🔒 <b>الخصوصية:</b> تليكرام فقط (رقم هاتفك محمي ومخفي)\n`) +
+          `🔖 <b>رمز الطلب:</b> <code>#${shortId}</code>\n\n` +
+          `📡 <b>الرادار الذكي نشط 24/7:</b> سنرسل لك إشعاراً فورياً على الخاص لحظة توفر كابتن يمر بمسارك!`;
+
+        await updateOrSend(
+          userConfirmMsg,
           {
             inline_keyboard: [
               [{ text: '📢 شاهد طلبك بالقناة الآن', url: channelLink }],
-              [{ text: '🌐 عرض بطاقتك بالموقع', url: directLink }],
-              [{ text: '📋 مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' }],
-              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+              [{ text: '🔍 فحص الخطوط المتوفرة لمساري الآن 🚌', callback_data: `search_route_${insertedAdId}` }],
+              [{ text: '📋 مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' }, { text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
             ]
           }
         );
@@ -11639,15 +11798,53 @@ Deno.serve(async (req: any) => {
         state.step = 'trans_phone';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
+        const isPassenger = state.data?.type === 'request';
         const currentPhone = phone || '';
         const phoneButtons = [];
+        if (isPassenger) {
+          phoneButtons.push([{ text: '🔒 تواصل تليكرام فقط (بدون إظهار رقمي بالقناة)', callback_data: 'trans_phone_tg_only' }]);
+        }
         if (currentPhone) {
           phoneButtons.push([{ text: `📱 استخدام رقمي الحالي (${currentPhone})`, callback_data: 'trans_phone_current' }]);
         }
         phoneButtons.push([{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
 
-        await updateOrSend(`📞 <b>الخطوة 9 من 9 — رقم الهاتف للتواصل</b>\n\nاكتب رقم الهاتف للتواصل، أو اضغط على الزر لاستخدام رقمك المسجل:`, {
+        const phonePrompt = isPassenger
+          ? `🔒 <b>الخطوة 9 من 9 — طريقة التواصل والخصوصية</b>\n\n` +
+            `<i>خدمة نشر طلبات النقل مجانية 100% للطلاب والركاب 🎓</i>\n\n` +
+            `👇 اختر هل ترغب بالتواصل عبر تليكرام فقط لحماية خصوصيتك، أو كتابة رقم هاتفك للتواصل المباشر والواتساب:`
+          : `📞 <b>الخطوة 9 من 9 — رقم الهاتف للتواصل</b>\n\nاكتب رقم الهاتف للتواصل، أو اضغط على الزر لاستخدام رقمك المسجل:`;
+
+        await updateOrSend(phonePrompt, {
           inline_keyboard: phoneButtons
+        });
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'trans_phone_tg_only') {
+        state.data.phone = 'telegram';
+        state.data.isTelegramOnly = true;
+        if (fromUser?.username) state.data.username = fromUser.username;
+        state.step = 'trans_review';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const typeStr = '🙋‍♂️ أبحث عن خط نقل (مطلوب)';
+        const fareStr = formatTgPrice(state.data.price);
+        const reviewText = `🔍 <b>مراجعة إعلان طلب الخط قبل النشر</b>\nتأكد من صحة المعلومات، ثم اضغط «✅ نشر إعلان الخط الآن»:\n\n` +
+                           `📌 <b>النوع:</b> ${typeStr}\n` +
+                           `🏷️ <b>الفئة:</b> ${state.data.categoryType === 'employee' ? '💼 موظفين' : '🎓 طلاب'} (${state.data.targetAudience || 'الجميع'})\n` +
+                           `📍 <b>مناطق الانطلاق:</b> ${state.data.regions || 'بغداد'}\n` +
+                           `🏢 <b>الوجهة:</b> ${state.data.destination || 'بغداد'}\n` +
+                           `⏰ <b>الدوام:</b> ${state.data.shift || 'صباحي'}\n` +
+                           `💰 <b>الأجرة:</b> ${fareStr}\n` +
+                           `📞 <b>التواصل:</b> 🔒 تليكرام فقط (رقمك محمي ومخفي)\n` +
+                           `🎁 <b>التكلفة:</b> مجاني 100% للطلاب والركاب 🎓\n`;
+
+        await updateOrSend(reviewText, {
+          inline_keyboard: [
+            [{ text: '✅ نشر إعلان الخط الآن مجاناً 🚀', callback_data: 'trans_confirm_publish' }],
+            [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+          ]
         });
         return new Response('OK', { status: 200 });
       }
@@ -11801,7 +11998,7 @@ Deno.serve(async (req: any) => {
 
         await updateOrSend('⏳ جاري نشر إعلان الخط في المنصة وقناة خطوط النقل...');
 
-        const cost = 1 * costMultiplier;
+        const cost = (state.data?.type === 'request' ? 0 : 1) * costMultiplier;
         if (!isOwnerOrAdmin && cost > 0) {
           if (!userProfile || (userProfile.points || 0) < cost) {
             await updateOrSend(`❌ عذراً، رصيدك غير كافٍ. التكلفة المطلوبة (${cost} نقطة). يرجى شحن المحفظة.`, {
@@ -11841,8 +12038,12 @@ Deno.serve(async (req: any) => {
           .trim()
           .substring(0, 45) || 'الجامعة';
 
+        const isSeekerAd = state.data.type === 'request';
+        const isTgOnlyAd = state.data.isTelegramOnly === true || state.data.phone === 'telegram' || state.data.phone === 'none' || (isSeekerAd && !state.data.phone);
+        const savedPhoneVal = isTgOnlyAd ? 'telegram' : (state.data.phone || (isSeekerAd ? 'telegram' : phone));
+
         const { data: insertedTrans, error: transInsertError } = await supabase.from('ads').insert({
-          type: state.data.type === 'offer' ? 'offer' : 'request',
+          type: isSeekerAd ? 'request' : 'offer',
           title: transTitle,
           description: transDescJson,
           price: state.data.price ? state.data.price.replace(/[^0-9]/g, '') : '0',
@@ -11850,7 +12051,7 @@ Deno.serve(async (req: any) => {
           location: cleanSavedLocation,
           city: cleanSavedCity,
           images: [],
-          phone: state.data.phone || phone,
+          phone: savedPhoneVal,
           status: 'active',
           is_demo: false,
           seller_id: userId,
@@ -11894,33 +12095,57 @@ Deno.serve(async (req: any) => {
           : `https://t.me/${LINES_CHANNEL.replace('@', '')}`;
 
         // Immediately send success message to user before heavy background tasks (same as cars section)
-        const immediateReportLines = [
-          isReplacedDuplicate
-            ? `♻️ <b>تم حذف الخط السابق ونشر إعلان خطك الجديد بنجاح! 🚀</b>`
-            : `🎉 <b>ألف مبروك! تم نشر إعلان خطك بنجاح 🚌✨</b>`,
-          ``,
-          `📋 <b>ملخص الإعلان:</b>`,
-          ...(isReplacedDuplicate ? [`🗑️ <i>تم حذف الإعلان السابق من القناة والمنصة تلقائياً لعدم التكرار.</i>`] : []),
-          `🚌 <b>المسار:</b> ${stateData.regions || cleanRegions} ⬅️ ${stateData.destination || cleanDestination}`,
-          `💰 <b>الأجرة:</b> ${cleanFare}`,
-          `🔖 <b>كود الخط:</b> <code>#${shortId}</code>`,
-          ``,
-          `📡 <b>حالة النشر على المنصات:</b>`,
-          `✅ تيليجرام — <a href="${channelLink}">عرض القناة</a>`,
-          `⏳ فيسبوك — قيد النشر التلقائي`,
-          `⏳ إنستغرام — قيد النشر التلقائي`,
-          ``,
-          `📌 <b>سيصلك تقرير النشر الكامل لجميع المنصات خلال لحظات!</b>`,
-        ];
+        const immediateReportLines = stateData.type === 'request'
+          ? [
+              `🎉 <b>تم نشر طلب خطك وتفعيل الرادار بنجاح 🎓✨</b>`,
+              ``,
+              `📋 <b>ملخص طلبك:</b>`,
+              `🚌 <b>المسار:</b> ${stateData.regions || cleanRegions} ⬅️ ${stateData.destination || cleanDestination}`,
+              `💰 <b>الأجرة المقترحة:</b> ${cleanFare}`,
+              `🔖 <b>رمز الطلب:</b> <code>#${shortId}</code>`,
+              `🎁 <b>النشر:</b> مجاني 100% للطلاب والركاب 🎓`,
+              ``,
+              `📡 <b>حالة النشر:</b>`,
+              `✅ تم النشر في قناة خطوط النقل بالبطاقة الزرقاء المميزة`,
+              `🔔 رادارك الذكي مفعل لتنبيهك بأي كابتن يمر بمسارك 24/7 ⚡`
+            ]
+          : [
+              isReplacedDuplicate
+                ? `♻️ <b>تم حذف الخط السابق ونشر إعلان خطك الجديد بنجاح! 🚀</b>`
+                : `🎉 <b>ألف مبروك! تم نشر إعلان خطك بنجاح 🚌✨</b>`,
+              ``,
+              `📋 <b>ملخص الإعلان:</b>`,
+              ...(isReplacedDuplicate ? [`🗑️ <i>تم حذف الإعلان السابق من القناة والمنصة تلقائياً لعدم التكرار.</i>`] : []),
+              `🚌 <b>المسار:</b> ${stateData.regions || cleanRegions} ⬅️ ${stateData.destination || cleanDestination}`,
+              `💰 <b>الأجرة:</b> ${cleanFare}`,
+              `🔖 <b>كود الخط:</b> <code>#${shortId}</code>`,
+              ``,
+              `📡 <b>حالة النشر على المنصات:</b>`,
+              `✅ تيليجرام — <a href="${channelLink}">عرض القناة</a>`,
+              `⏳ فيسبوك — قيد النشر التلقائي`,
+              `⏳ إنستغرام — قيد النشر التلقائي`,
+              ``,
+              `📌 <b>سيصلك تقرير النشر الكامل لجميع المنصات خلال لحظات!</b>`,
+            ];
+
+        const immediateButtons = stateData.type === 'request'
+          ? [
+              [{ text: '📢 شاهد طلبك بالقناة', url: channelLink }, { text: '🌐 عرض البطاقة بالموقع', url: link }],
+              [{ text: '🔍 فحص الخطوط المتاحة لمساري الآن 🚌', callback_data: `search_route_${insertedId}` }],
+              [{ text: '📋 مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' }],
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ]
+          : [
+              [{ text: '🌐 عرض بطاقتي بالموقع', url: link }, { text: '📢 شاهد بالقناة', url: channelLink }],
+              [{ text: '🚀 ترويج البوست في صدارة فيسبوك وانستغرام (VIP)', callback_data: `promo_menu_${insertedId}` }],
+              [{ text: '💰 تعديل الأجرة', callback_data: `edit_trans_price_${insertedId}` }, { text: '📞 تعديل الهاتف', callback_data: `edit_trans_phone_${insertedId}` }],
+              [{ text: '✅ إغلاق الخط (اكتمل العدد)', callback_data: `solve_trans_${insertedId}` }, { text: '🗑️ حذف الخط نهائياً', callback_data: `del_trans_${insertedId}` }],
+              [{ text: '🚌 نشر خط آخر', callback_data: 'publish_transport' }, { text: '📦 إدارة خطوطي', callback_data: 'manage_cat_trans' }],
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ];
+
         await updateOrSend(immediateReportLines.join('\n'), {
-          inline_keyboard: [
-            [{ text: '🌐 عرض بطاقتي بالموقع', url: link }, { text: '📢 شاهد بالقناة', url: channelLink }],
-            [{ text: '🚀 ترويج البوست في صدارة فيسبوك وانستغرام (VIP)', callback_data: `promo_menu_${insertedId}` }],
-            [{ text: '💰 تعديل الأجرة', callback_data: `edit_trans_price_${insertedId}` }, { text: '📞 تعديل الهاتف', callback_data: `edit_trans_phone_${insertedId}` }],
-            [{ text: '✅ إغلاق الخط (اكتمل العدد)', callback_data: `solve_trans_${insertedId}` }, { text: '🗑️ حذف الخط نهائياً', callback_data: `del_trans_${insertedId}` }],
-            [{ text: '🚌 نشر خط آخر', callback_data: 'publish_transport' }, { text: '📦 إدارة خطوطي', callback_data: 'manage_cat_trans' }],
-            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
-          ]
+          inline_keyboard: immediateButtons
         });
 
         // Reset state so user can do other things
@@ -11930,7 +12155,10 @@ Deno.serve(async (req: any) => {
         // Background task for publishing to channels and social media
         const publishBackground = async () => {
           try {
-            let rawPhone = stateData.phone || phone || '';
+            const isSeeker = stateData.type === 'request';
+            const isTelegramOnly = stateData.isTelegramOnly === true || stateData.phone === 'telegram' || stateData.phone === 'none' || (isSeeker && (!stateData.phone || stateData.phone === 'telegram'));
+
+            let rawPhone = isTelegramOnly ? 'telegram' : (stateData.phone || (!isSeeker ? phone : '') || '');
             let cleanDisplayPhone = String(rawPhone).replace(/[^\d+]/g, '').trim();
             if (cleanDisplayPhone.startsWith('964')) {
               cleanDisplayPhone = '0' + cleanDisplayPhone.substring(3);
@@ -11938,25 +12166,38 @@ Deno.serve(async (req: any) => {
             if (cleanDisplayPhone.startsWith('+964')) {
               cleanDisplayPhone = '0' + cleanDisplayPhone.substring(4);
             }
-            if (!cleanDisplayPhone) cleanDisplayPhone = '0770 000 0000';
+            const hasPhone = !isTelegramOnly && Boolean(cleanDisplayPhone && cleanDisplayPhone.length >= 8 && cleanDisplayPhone !== '0770 000 0000' && cleanDisplayPhone !== '0780 000 0000' && cleanDisplayPhone !== 'telegram');
+            if (!hasPhone) cleanDisplayPhone = isSeeker ? 'telegram' : '0770 000 0000';
 
             const daysStr = stateData.days || 'الأحد إلى الخميس';
             const shiftVal = stateData.shift || 'صباحي';
             const targetAudienceVal = stateData.targetAudience || targetStr || 'الجميع';
+            const cardPhoneParam = isSeeker ? (hasPhone ? cleanDisplayPhone : 'telegram') : cleanDisplayPhone;
 
-            const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(cleanDisplayPhone)}&audience=${encodeURIComponent(targetAudienceVal)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}&ad_type=${stateData.type === 'request' ? 'request' : 'offer'}`;
-            const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(cleanDisplayPhone)}&audience=${encodeURIComponent(targetAudienceVal)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}&ad_type=${stateData.type === 'request' ? 'request' : 'offer'}`;
+            const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(cardPhoneParam)}&audience=${encodeURIComponent(targetAudienceVal)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}&ad_type=${stateData.type === 'request' ? 'request' : 'offer'}`;
+            const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(cardPhoneParam)}&audience=${encodeURIComponent(targetAudienceVal)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}&ad_type=${stateData.type === 'request' ? 'request' : 'offer'}`;
 
             const cleanPhone = cleanDisplayPhone;
             let formattedPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
 
-            const isSeeker = stateData.type === 'request';
+            const tgUsername = (stateData.username || fromUser?.username || tgUser?.username || '').replace('@', '').trim();
+            const tgContactUrl = tgUsername 
+              ? `https://t.me/${tgUsername}` 
+              : `https://t.me/${BOT_USERNAME}?start=match_${insertedTrans.id}`;
+
+            const seekerRow1: any[] = [];
+            seekerRow1.push({ text: '💬 مراسلة تليكرام', url: tgContactUrl });
+            if (hasPhone) {
+              seekerRow1.push({ 
+                text: '🟢 تواصل واتساب', 
+                url: `https://wa.me/${formattedPhone}?text=${encodeURIComponent('السلام عليكم، شفت طلبك لخط النقل وأني كابتن أمر بمسارك')}` 
+              });
+            }
 
             const channelKeyboard = isSeeker
               ? [
-                  [{ text: '💬 تواصل واتساب مع الطالب/الراكب 🟢', url: `https://wa.me/${formattedPhone}?text=${encodeURIComponent('السلام عليكم، شفت طلبك لخط النقل وأني كابتن أمر بمسارك')}` }],
-                  [{ text: '🚗 كابتن وتوفر هذا المسار؟ تواصل عبر البوت ⚡', url: `https://t.me/${BOT_USERNAME}?start=match_${insertedTrans.id}` }],
-                  [{ text: '🚌 كابتن؟ اعرض خطك مجاناً بالقناة', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
+                  seekerRow1,
+                  [{ text: '🚌 تحتاج خط نقل؟ انشر طلبك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
                 ]
               : [
                   [{ text: '📩 مراسلة وحجز مقعد عبر تليكرام ⚡', url: `https://t.me/${BOT_USERNAME}?start=book_${insertedTrans.id}` }],
@@ -11969,13 +12210,14 @@ Deno.serve(async (req: any) => {
                 ];
 
             const channelMsg = isSeeker
-              ? `🎓 <b>طلب خط نقل جديد — طالب / راكب يبحث عن خط 🚌</b>\n\n` +
+              ? `🎓 <b>طلب خط نقل جديد — طالب / راكب يبحث عن خط 🚌</b>\n` +
+                `<i>خدمة مجانية 100% للطلاب والركاب 🎓</i>\n\n` +
                 `🏷️ <b>الفئة:</b> ${catType} (${targetStr})\n` +
                 `📍 <b>مناطق الانطلاق:</b> ${cleanRegions}\n` +
                 `🏢 <b>الوجهة:</b> ${cleanDestination}\n` +
                 `⏰ <b>وقت الدوام:</b> ${stateData.shift || 'صباحي'}\n` +
                 `💰 <b>الأجرة المقترحة:</b> ${cleanFare}\n` +
-                (cleanPhone ? `📞 <b>هاتف الطالب/الراكب:</b> <code>${cleanPhone}</code>\n\n` : `\n`) +
+                (hasPhone ? `📞 <b>هاتف التواصل:</b> <code>${cleanPhone}</code>\n\n` : `🔒 <b>التواصل:</b> تليكرام فقط (حماية الخصوصية)\n\n`) +
                 `📣 <b>#طلب_خط_${shortId}</b> | @${BOT_USERNAME}`
               : `🚌 <b>إعلان خط نقل جديد — سوق بغداد</b>\n\n` +
                 `📌 <b>النوع:</b> ${typeStr}\n` +
@@ -12165,12 +12407,17 @@ Deno.serve(async (req: any) => {
 
                 const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(`🚌 خط نقل: ${cleanRegions} ← ${cleanDestination}`)}`;
 
-                const receiptMsg =
-                  `📊 <b>تقرير النشر — #${shortId}</b>\n` +
-                  `🚌 ${cleanRegions} ⬅️ ${cleanDestination} | 💰 ${cleanFare}\n\n` +
-                  platformLines.join('\n') + '\n\n' +
-                  `🌐 بطاقة تفاعلية بالموقع ✅\n` +
-                  `❤️ <i>شكراً لثقتك بمنصة سوق بغداد 🤝</i>`;
+                const receiptMsg = isSeeker
+                  ? `📊 <b>تقرير النشر — #${shortId}</b>\n` +
+                    `🎓 <b>طلب خط نقل:</b> ${cleanRegions} ⬅️ ${cleanDestination} | 💰 ${cleanFare}\n\n` +
+                    platformLines.join('\n') + '\n\n' +
+                    `🌐 بطاقة تفاعلية بالموقع ✅\n` +
+                    `❤️ <i>شكراً لثقتك بمنصة سوق بغداد 🤝</i>`
+                  : `📊 <b>تقرير النشر — #${shortId}</b>\n` +
+                    `🚌 ${cleanRegions} ⬅️ ${cleanDestination} | 💰 ${cleanFare}\n\n` +
+                    platformLines.join('\n') + '\n\n' +
+                    `🌐 بطاقة تفاعلية بالموقع ✅\n` +
+                    `❤️ <i>شكراً لثقتك بمنصة سوق بغداد 🤝</i>`;
 
                 // Build buttons with direct post view links
                 const reportButtons: any[][] = [];
@@ -12185,69 +12432,78 @@ Deno.serve(async (req: any) => {
                 if (viewRow2.length > 0) reportButtons.push(viewRow2);
 
                 reportButtons.push([{ text: '🌐 بطاقة الخط بالموقع', url: link }]);
-                reportButtons.push([{ text: '🚀 ترويج VIP — صدارة المنصات', callback_data: `promo_menu_${insertedTrans.id}` }]);
+                if (!isSeeker) {
+                  reportButtons.push([{ text: '🚀 ترويج VIP — صدارة المنصات', callback_data: `promo_menu_${insertedTrans.id}` }]);
+                }
                 reportButtons.push([{ text: '📲 مشاركة مع الأصدقاء', url: shareUrl }]);
                 reportButtons.push([{ text: '📊 تقارير إعلاناتي', callback_data: 'my_publish_reports' }, { text: '🏠 الرئيسية', callback_data: 'main_menu' }]);
 
                 await sendMessage(chatId, receiptMsg, { inline_keyboard: reportButtons });
 
-                // 🎯 Also deliver matched waiting passengers directly to the driver!
-                await notifyDriverOfWaitingPassengers(chatId, fromUser?.first_name || 'الكابتن', cleanRegions, cleanDestination, supabase, cleanPhone || undefined);
+                // 🛡️ ONLY deliver matched passengers & alert waiting students if publisher is a DRIVER OFFER (!isSeeker)
+                if (!isSeeker) {
+                  // 🎯 Also deliver matched waiting passengers directly to the driver!
+                  await notifyDriverOfWaitingPassengers(chatId, fromUser?.first_name || 'الكابتن', cleanRegions, cleanDestination, supabase, cleanPhone || undefined);
 
-                // 🔔 Notify all waiting students whose origin/destination matches this newly published verified line!
-                try {
-                  const { data: waitingStudents } = await supabase
-                    .from('transport_requests')
-                    .select('*')
-                    .eq('status', 'pending');
+                  // 🔔 Notify all waiting students whose origin/destination matches this newly published verified line!
+                  try {
+                    const { data: waitingStudents } = await supabase
+                      .from('transport_requests')
+                      .select('*')
+                      .eq('status', 'pending');
 
-                  if (waitingStudents && waitingStudents.length > 0) {
-                    const notifiedTargets = new Set<string>();
+                    if (waitingStudents && waitingStudents.length > 0) {
+                      const notifiedTargets = new Set<string>();
 
-                    for (const st of waitingStudents) {
-                      const stOrig = (st.origin || '').trim();
-                      const stDest = (st.destination || '').trim();
-                      const originMatch = isLocationMatch(stOrig, cleanRegions);
-                      const destMatch = !stDest || isLocationMatch(stDest, cleanDestination) || getCoreLocationKeyword(stDest) === getCoreLocationKeyword(cleanDestination);
-                      
-                      // 🛡️ STRICT PRIVACY: Radar notifications must ONLY go to user's private DM, NEVER to a group chat!
-                      const privateTarget = (st.telegram_user_id && !String(st.telegram_user_id).startsWith('-'))
-                        ? String(st.telegram_user_id)
-                        : (st.telegram_chat_id && !String(st.telegram_chat_id).startsWith('-') ? String(st.telegram_chat_id) : null);
+                      for (const st of waitingStudents) {
+                        const stOrig = (st.origin || '').trim();
+                        const stDest = (st.destination || '').trim();
+                        const originMatch = isLocationMatch(stOrig, cleanRegions);
+                        const destMatch = !stDest || isLocationMatch(stDest, cleanDestination) || getCoreLocationKeyword(stDest) === getCoreLocationKeyword(cleanDestination);
+                        
+                        // 🛡️ STRICT PRIVACY: Radar notifications must ONLY go to user's private DM, NEVER to a group chat!
+                        const privateTarget = (st.telegram_user_id && !String(st.telegram_user_id).startsWith('-'))
+                          ? String(st.telegram_user_id)
+                          : (st.telegram_chat_id && !String(st.telegram_chat_id).startsWith('-') ? String(st.telegram_chat_id) : null);
 
-                      if (originMatch && destMatch && privateTarget) {
-                        if (notifiedTargets.has(privateTarget)) continue;
-                        notifiedTargets.add(privateTarget);
+                        // 🛡️ NEVER notify the publisher about their own ad!
+                        if (privateTarget && String(privateTarget) === String(chatId)) continue;
+                        if (st.user_id && userId && String(st.user_id) === String(userId)) continue;
 
-                        const studentAlert = 
-                          `📍 <b>إشعار رادار: توفر خط نقل يمر بمنطقتك (${st.origin})</b>\n\n` +
-                          `• <b>الكابتن:</b> ${fromUser?.first_name || 'سائق معتمد'}\n` +
-                          `• <b>المسار:</b> ${cleanRegions} إلى ${cleanDestination}\n` +
-                          `• <b>الأجرة:</b> ${cleanFare}\n` +
-                          (cleanPhone ? `• <b>هاتف التواصل:</b> <code>${cleanPhone}</code>\n\n` : '\n') +
-                          `يمكنك حجز المقعد أو التواصل المباشر عبر الخيارات أدناه:`;
+                        if (originMatch && destMatch && privateTarget) {
+                          if (notifiedTargets.has(privateTarget)) continue;
+                          notifiedTargets.add(privateTarget);
 
-                        const waPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
-                        const alertRow: any[] = [];
-                        if (waPhone) alertRow.push({ text: 'تواصل عبر واتساب', url: `https://wa.me/${waPhone}` });
+                          const studentAlert = 
+                            `📍 <b>إشعار رادار: توفر خط نقل يمر بمنطقتك (${st.origin})</b>\n\n` +
+                            `• <b>الكابتن:</b> ${fromUser?.first_name || 'سائق معتمد'}\n` +
+                            `• <b>المسار:</b> ${cleanRegions} إلى ${cleanDestination}\n` +
+                            `• <b>الأجرة:</b> ${cleanFare}\n` +
+                            (cleanPhone ? `• <b>هاتف التواصل:</b> <code>${cleanPhone}</code>\n\n` : '\n') +
+                            `يمكنك حجز المقعد أو التواصل المباشر عبر الخيارات أدناه:`;
 
-                        const studentMarkup = {
-                          inline_keyboard: [
-                            [{ text: 'إرسال طلب حجز مقعد للكابتن', callback_data: `req_seat_${insertedTrans.id}` }],
-                            alertRow,
-                            [{ text: 'تم الاتفاق وتوقف التنبيه', callback_data: `matched_req_${st.id}_${cleanPhone}` }],
-                            [{ text: 'تفاصيل الخط بالموقع', url: link }]
-                          ].filter(r => r.length > 0)
-                        };
+                          const waPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
+                          const alertRow: any[] = [];
+                          if (waPhone) alertRow.push({ text: 'تواصل عبر واتساب', url: `https://wa.me/${waPhone}` });
 
-                        try {
-                          await sendMessage(privateTarget, studentAlert, studentMarkup);
-                        } catch(e) {}
+                          const studentMarkup = {
+                            inline_keyboard: [
+                              [{ text: 'إرسال طلب حجز مقعد للكابتن', callback_data: `req_seat_${insertedTrans.id}` }],
+                              alertRow,
+                              [{ text: 'تم الاتفاق وتوقف التنبيه', callback_data: `matched_req_${st.id}_${cleanPhone}` }],
+                              [{ text: 'تفاصيل الخط بالموقع', url: link }]
+                            ].filter(r => r.length > 0)
+                          };
+
+                          try {
+                            await sendMessage(privateTarget, studentAlert, studentMarkup);
+                          } catch(e) {}
+                        }
                       }
                     }
+                  } catch(e) {
+                    console.error('Error notifying waiting students on official publish:', e);
                   }
-                } catch(e) {
-                  console.error('Error notifying waiting students on official publish:', e);
                 }
               } catch (msgErr) {
                 console.error('Error sending social receipt to chat:', msgErr);
@@ -12715,6 +12971,29 @@ Deno.serve(async (req: any) => {
         if (callbackQueryId) {
           await answerCallbackQuery(callbackQueryId, '📄 رقم الصفحة الحالية من إجمالي الخطوط', false);
         }
+        return new Response('OK', { status: 200 });
+      }
+
+      // 🚗 Captain sends ride offer / message to Passenger (إرسال عرض توصيل للراكب عبر البوت)
+      if (action.startsWith('offer_seeker_')) {
+        const reqId = action.replace('offer_seeker_', '');
+        state = { step: 'trans_offer_seeker_text', targetAdId: reqId };
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        if (callbackQueryId) {
+          await answerCallbackQuery(callbackQueryId, '✍️ اكتب رسالتك أو عرضك للراكب الآن', false);
+        }
+
+        await updateOrSend(
+          `✍️ <b>إرسال عرض توصيل للراكب / الطالب 🚗✨</b>\n\n` +
+          `اكتب رسالتك الآن في المحادثة (مثال: نوع سيارتك، موعد مرورك، أو الأجرة المقترحة):\n\n` +
+          `<i>سيتم تسليم رسالتك فوراً إلى هاتف الراكب داخل البوت مع وسيلة اتصالك ⚡</i>`,
+          {
+            inline_keyboard: [
+              [{ text: '❌ إلغاء', callback_data: 'main_menu' }]
+            ]
+          }
+        );
         return new Response('OK', { status: 200 });
       }
 
@@ -15563,40 +15842,115 @@ Deno.serve(async (req: any) => {
         state.step = 'trans_phone';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
+        const isPassenger = state.data?.type === 'request';
         const currentPhone = phone || '';
         const phoneButtons = [];
+        if (isPassenger) {
+          phoneButtons.push([{ text: '🔒 تواصل تليكرام فقط (بدون إظهار رقمي بالقناة)', callback_data: 'trans_phone_tg_only' }]);
+        }
         if (currentPhone) {
           phoneButtons.push([{ text: `📱 استخدام رقمي الحالي (${currentPhone})`, callback_data: 'trans_phone_current' }]);
         }
         phoneButtons.push([{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
 
-        await sendMessage(chatId, `📞 <b>الخطوة 9 من 9 — رقم الهاتف للتواصل</b>\n\nاكتب رقم الهاتف الخاص بك للتواصل، أو اضغط على الزر أدناه:`, {
+        const phonePrompt = isPassenger
+          ? `🔒 <b>الخطوة 9 من 9 — طريقة التواصل والخصوصية</b>\n\n` +
+            `<i>خدمة نشر طلبات النقل مجانية 100% للطلاب والركاب 🎓</i>\n\n` +
+            `👇 اختر هل ترغب بالتواصل عبر تليكرام فقط لحماية خصوصيتك، أو كتابة رقم هاتفك للتواصل المباشر والواتساب:`
+          : `📞 <b>الخطوة 9 من 9 — رقم الهاتف للتواصل</b>\n\nاكتب رقم الهاتف الخاص بك للتواصل، أو اضغط على الزر أدناه:`;
+
+        await sendMessage(chatId, phonePrompt, {
           inline_keyboard: phoneButtons
         });
         return new Response('OK', { status: 200 });
       }
       else if (state.step === 'trans_phone' && text) {
-        state.data.phone = text.trim();
+        const trimmed = text.trim();
+        const isPassenger = state.data?.type === 'request';
+        const isUsername = trimmed.startsWith('@') || (!/^\+?\d{8,15}$/.test(trimmed.replace(/[\s-]/g, '')) && isPassenger);
+
+        if (isUsername && isPassenger) {
+          state.data.username = trimmed.startsWith('@') ? trimmed.substring(1) : trimmed;
+          state.data.phone = 'telegram';
+          state.data.isTelegramOnly = true;
+        } else {
+          state.data.phone = trimmed;
+          state.data.isTelegramOnly = false;
+        }
         state.step = 'trans_review';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         const typeStr = state.data.type === 'offer' ? '🚗 أوفر خط نقل (سائق)' : '🙋‍♂️ أبحث عن خط نقل (مطلوب)';
         const fareStr = formatTgPrice(state.data.price);
+        const contactDisplay = state.data.isTelegramOnly ? '🔒 تليكرام فقط (رقمك محمي ومخفي)' : state.data.phone;
         const reviewText = `🔍 <b>مراجعة إعلان الخط قبل النشر</b>\nتأكد من صحة المعلومات، ثم اضغط «✅ نشر إعلان الخط الآن»:\n\n` +
                            `📌 <b>النوع:</b> ${typeStr}\n` +
                            `🏷️ <b>الفئة:</b> ${state.data.categoryType === 'employee' ? '💼 موظفين' : '🎓 طلاب'} (${state.data.targetAudience || 'الجميع'})\n` +
                            `📍 <b>مناطق الانطلاق:</b> ${state.data.regions || 'بغداد'}\n` +
                            `🏢 <b>الوجهة:</b> ${state.data.destination || 'بغداد'}\n` +
                            `⏰ <b>الدوام:</b> ${state.data.shift || 'صباحي'}\n` +
-                           `🚗 <b>المركبة:</b> ${state.data.vehicleType || 'صالون'}\n` +
+                           (state.data.type === 'offer' ? `🚗 <b>المركبة:</b> ${state.data.vehicleType || 'صالون'}\n` : '') +
                            `💰 <b>الأجرة:</b> ${fareStr}\n` +
-                           `📞 <b>التواصل:</b> ${state.data.phone}\n`;
+                           `📞 <b>التواصل:</b> ${contactDisplay}\n`;
 
         await sendMessage(chatId, reviewText, {
           inline_keyboard: [
-            [{ text: '✅ نشر إعلان الخط الآن', callback_data: 'trans_confirm_publish' }],
+            [{ text: isPassenger ? '✅ نشر إعلان الخط الآن مجاناً 🚀' : '✅ نشر إعلان الخط الآن', callback_data: 'trans_confirm_publish' }],
             [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
           ]
+        });
+        return new Response('OK', { status: 200 });
+      }
+      else if (state.step === 'trans_offer_seeker_text' && text) {
+        const adId = state.targetAdId;
+        const driverOfferText = text.trim();
+        const { data: reqAd } = await supabase.from('ads').select('*').eq('id', adId).maybeSingle();
+        
+        let passengerChatId: string | null = null;
+        let passengerName = reqAd?.seller_name || 'الراكب';
+        if (reqAd?.seller_id) {
+          const { data: u } = await supabase.from('telegram_users').select('telegram_chat_id, first_name').eq('user_id', reqAd.seller_id).maybeSingle();
+          passengerChatId = u?.telegram_chat_id || null;
+          if (u?.first_name) passengerName = u.first_name;
+        }
+
+        const driverName = fromUser?.first_name || userProfile?.full_name || 'كابتن خط';
+        const driverPhone = phone || userProfile?.phone || '';
+        const driverUsername = fromUser?.username ? `@${fromUser.username}` : '';
+
+        if (passengerChatId) {
+          let alertMsg =
+            `🔔 <b>وصلك عرض توصيل جديد لطلب خطك! 🚗✨</b>\n\n` +
+            `• <b>الكابتن:</b> ${driverName}\n` +
+            `• <b>المسار المطلوب:</b> ${reqAd?.location} ⬅️ ${reqAd?.city}\n\n` +
+            `💬 <b>رسالة الكابتن:</b>\n<i>"${driverOfferText}"</i>\n\n` +
+            `يمكنك التواصل مع الكابتن مباشرة عبر الخيارات أدناه:`;
+
+          const alertBtns: any[][] = [];
+          if (driverUsername) {
+            alertBtns.push([{ text: `💬 مراسلة الكابتن (${driverName}) عبر تليكرام`, url: `https://t.me/${driverUsername.replace('@', '')}` }]);
+          } else {
+            alertMsg += `\n<a href="tg://user?id=${chatId}">👤 اضغط هنا لفتح محادثة تليكرام مع الكابتن مباشرة ⚡</a>`;
+          }
+          if (driverPhone) {
+            const cleanDPhone = driverPhone.replace(/[^0-9+]/g, '');
+            const waDPhone = cleanDPhone.startsWith('07') ? '964' + cleanDPhone.substring(1) : cleanDPhone.replace('+', '');
+            alertBtns.push([{ text: '🟢 تواصل عبر واتساب', url: `https://wa.me/${waDPhone}` }]);
+          }
+          alertBtns.push([{ text: '🏠 الرئيسية', callback_data: 'main_menu' }]);
+
+          try {
+            await sendMessage(passengerChatId, alertMsg, { inline_keyboard: alertBtns });
+          } catch(e) {
+            console.error('Error delivering driver offer to passenger:', e);
+          }
+        }
+
+        state = {};
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        await updateOrSend(`✅ <b>تم إرسال عرضك بنجاح إلى ${passengerName}! 🚀</b>\n\nسيتم إشعارك فور قيام الراكب بالتواصل معك.`, {
+          inline_keyboard: [[{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
         });
         return new Response('OK', { status: 200 });
       }

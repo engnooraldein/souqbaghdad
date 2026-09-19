@@ -32,8 +32,8 @@ function fixAr(text: string): string {
     if (typeof fn === 'function') {
       const shaped = fn(clean);
       // Reverse shaped characters so words read correctly from right to left,
-      // while re-reversing numbers/times so they stay left-to-right (e.g. 2,000 and 08:00)
-      return shaped.split('').reverse().join('').replace(/[0-9]+([.:,/-][0-9]+)*/g, (num: string) => {
+      // while re-reversing numbers, prices, and times so they stay left-to-right (e.g. 50,000 and 08:00)
+      return shaped.split('').reverse().join('').replace(/[\d,.:]+/g, (num: string) => {
         return num.split('').reverse().join('');
       });
     }
@@ -78,6 +78,10 @@ const SVGS = {
   tag: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><circle cx="7" cy="7" r=".5" fill="#c084fc"/></svg>`,
   
   star: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+
+  telegram: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`,
+
+  logoBlue: `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 40 40"><rect width="40" height="40" rx="12" fill="#0284c7"/><path d="M20 9C14 9 11 12 11 15C11 18.5 15 19.5 20 20.5C25 21.5 29 22.5 29 26C29 29.5 25 32 20 32C14 32 11 29 11 29" stroke="white" stroke-width="4" stroke-linecap="round"/><circle cx="27" cy="12" r="3" fill="#38bdf8"/></svg>`,
 };
 
 let cachedNotoData: ArrayBuffer | null = null;
@@ -86,8 +90,8 @@ let cachedAlmaraiData: ArrayBuffer | null = null;
 serve(async (req: Request) => {
   try {
     const url = new URL(req.url);
-    const mode = url.searchParams.get("type") || "post"; // "post" (1080x1350) or "story" (1080x1920)
-    let adType = (url.searchParams.get("ad_type") || "").toLowerCase();
+    const mode = (url.searchParams.get("type") === "story" || url.searchParams.get("type") === "post") ? url.searchParams.get("type") : "post";
+    let adType = (url.searchParams.get("ad_type") || (url.searchParams.get("type") !== "story" && url.searchParams.get("type") !== "post" ? url.searchParams.get("type") : "") || "").toLowerCase();
     const checkText = (url.searchParams.get("title") || "") + " " + (url.searchParams.get("subdesc") || "") + " " + (url.searchParams.get("subtitle") || "");
     if (!adType) {
       if (checkText.includes('طلب') || checkText.includes('ابحث') || checkText.includes('أبحث') || checkText.includes('محتاج') || checkText.includes('مطلوب')) {
@@ -126,7 +130,7 @@ serve(async (req: Request) => {
     const canvasHeight = isPost ? 1350 : 1920;
 
     // 3. Clean Input Parameters
-    const shortId = cleanText(url.searchParams.get("short_id"), "GVR37#");
+    const shortId = cleanText(url.searchParams.get("short_id") || url.searchParams.get("shortId"), "GVR37#");
     const formattedId = shortId.endsWith('#') ? shortId : `${shortId}#`;
     
     const audience = cleanText(url.searchParams.get("audience"), "طالبات نقل");
@@ -141,34 +145,32 @@ serve(async (req: Request) => {
     // Clean out phone numbers, car details, greetings, or text dumps that ruin the poster
     function sanitizeForPoster(str: string): string {
       return str
-        .replace(/(?:07[3-9]\d{8}|\+9647[3-9]\d{8}|07\d{2}\s?\d{3}\s?\d{4}|\d{7,})/g, '')
-        .replace(/(صاحب الخط|سائق|سايق|طالب|طالبة|طالبه|النترا|ستاركس|كوستر|كيا|توسان|خصوصي|سلام عليكم|مرحبا|متوفر خط|يوجد خط|في الكلية|في الكليه|علما|فرع|للاستفسار|للحجز)/gi, '')
-        .replace(/[()\/\\#@_=+]/g, ' ')
+        .replace(/(07[3-9][0-9]{8}|(\+?964|00964)[0-9]{8,10})/g, '')
+        .replace(/([0-9]{3,4}[\s\-]?[0-9]{3,4}[\s\-]?[0-9]{3,4})/g, '')
+        .replace(/(سيارة|كيا|تويوتا|هيونداي|سايبا|طيبة|النترا|سوناتا|اكسنت|صالون|باص|ستاركس|فورد|تكسي|خصوصي|موديل|حديثة|مكيفة)[^\n,]*/gi, '')
+        .replace(/(السلام عليكم|صباح الخير|مساء الخير|مرحبا|اهلا وسهلا|تحياتي|يا هلا|هلا وغلا)[^\n,]*/gi, '')
+        .replace(/(يوجد لدينا|يتوفر لدينا|لدينا خط|متوفر خط|للتواصل|الاتصال|ملاحظة|ملاحظه)[^\n,]*/gi, '')
+        .replace(/[^\u0600-\u06FFa-zA-Z0-9\s,،\-\/]/g, ' ')
         .replace(/\s{2,}/g, ' ')
         .trim();
     }
 
-    const sanitizedRegions = sanitizeForPoster(rawRegions) || "بغداد";
-    const destination = sanitizeForPoster(rawDestination) || "الجامعة";
+    const regions = sanitizeForPoster(rawRegions) || "اليرموك، المنصور";
+    const destination = sanitizeForPoster(rawDestination) || "جامعة أوروك";
 
-    // Split into clean area chips (max 3 areas)
-    const areaList = sanitizedRegions
+    const areaList = regions
       .split(/[،,-]/)
       .map(s => s.trim())
       .filter(s => s.length > 1 && s.length < 35)
       .slice(0, 3);
 
-    const primaryOrigin = areaList[0] || sanitizedRegions.substring(0, 25) || "نقطة الانطلاق";
-    const regions = areaList.length > 0 ? areaList.join('، ') : primaryOrigin;
-    
-    let rawFareParam = url.searchParams.get("fare") || "";
-    let rawFare = cleanText(rawFareParam, adType === "request" ? "حسب الاتفاق" : "45,000 د.ع");
-    const fareDigits = rawFare.replace(/[^0-9]/g, '');
-    if (fareDigits === '0' || rawFare.includes('اتفاق') || rawFare.includes('حسب') || rawFare === '0 د.ع' || rawFare === '0' || !fareDigits) {
-      rawFare = "حسب الاتفاق";
-    } else if (!rawFare.includes('د.ع')) {
-      rawFare = `${rawFare} د.ع`;
+    const primaryOrigin = areaList[0] || regions.substring(0, 25) || "نقطة الانطلاق";
+
+    let fare = cleanText(url.searchParams.get("fare") || url.searchParams.get("price"), "45,000 د.ع");
+    if (!fare.includes("د.ع") && !fare.includes("الف") && !fare.includes("ألف") && !fare.includes("مجاني") && !fare.includes("مجاناً") && !fare.includes("حسب الاتفاق")) {
+      fare = `${fare} د.ع`;
     }
+    const rawFare = fare;
 
     let phone = cleanText(url.searchParams.get("phone"), "0780 000 0000");
     if (phone === "0780 000 0000" || phone.length < 5) {
@@ -177,30 +179,36 @@ serve(async (req: Request) => {
 
     const cleanShortId = shortId.replace(/[^a-zA-Z0-9]/g, '');
     const shortUrlDisplay = `souqbaghdad.store/ad/${cleanShortId || 'transport'}`;
-    const directAdUrl = `https://www.souqbaghdad.store/transport/card/${cleanShortId}`;
 
-    // Generate QR Code data URL using public API
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&format=png&data=${encodeURIComponent(directAdUrl)}`;
+    const isRequest = adType === "request";
 
     // Badges & Titles
-    const badgeLabel = adType === "request" ? "مطلوب" : "جديد";
-    const mainTitle1 = adType === "request" ? "طلب نقل" : "نقل خط";
-    const mainTitle2 = adType === "request" ? "مباشر" : "توفير";
-    const subHeadline = adType === "request" ? "بحث عن خط نقل مريح وآمن" : "رحلتك مريحة.. بسعر أوفر";
-    const fareTitle = adType === "request" ? "الأجرة المقترحة" : "سعر الأجرة";
+    const badgeLabel = isRequest ? "مطلوب خط نقل" : "جديد";
+    const mainTitle1 = isRequest ? "أبحث عن خط" : "نقل خط";
+    const mainTitle2 = isRequest ? "طالب / راكب" : "توفير";
+    const subHeadline = isRequest ? "خدمة مجانية 100% للطلاب والركاب 🎓" : "رحلتك مريحة.. بسعر أوفر";
+    const fareTitle = isRequest ? "الميزانية المقترحة" : "سعر الأجرة";
 
-    // 🎨 Color Scheme: Green (Seeker/Request) vs Purple (Driver/Offer)
-    const isRequest = adType === "request";
-    const colorPrimary   = isRequest ? "#065f46" : "#2e0854";   // badge & dark bg
-    const colorAccent    = isRequest ? "#059669" : "#7c3aed";   // title accent & icons
-    const colorAccentBg  = isRequest ? "#d1fae5" : "#f5f3ff";   // header gradient start
-    const colorAccentBg2 = isRequest ? "#a7f3d0" : "#ede9fe";   // header gradient end
-    const colorBorder    = isRequest ? "#6ee7b7" : "#e9d5ff";   // card border
-    const colorRadial    = isRequest ? "rgba(5,150,105,0.15)"  : "rgba(124,58,237,0.15)"; // radial glow
-    const colorDarkBg    = isRequest ? "#064e3b" : "#230b3d";   // price card bg
-    const colorDarkInner = isRequest ? "#065f46" : "#3b0764";   // price icon circle
-    const colorDarkBorder= isRequest ? "#059669" : "#7c3aed";   // price icon border
-    const colorSubText   = isRequest ? "#a7f3d0" : "#d8b4fe";   // fare subtitle text
+    // 🎨 Color Scheme: Royal Blue & Cyan (Seeker/Request) vs Purple (Driver/Offer)
+    const colorPrimary   = isRequest ? "#1e40af" : "#2e0854";   // badge & dark bg
+    const colorAccent    = isRequest ? "#0284c7" : "#7c3aed";   // title accent & icons
+    const colorAccentBg  = isRequest ? "#e0f2fe" : "#f5f3ff";   // header gradient start
+    const colorAccentBg2 = isRequest ? "#bae6fd" : "#ede9fe";   // header gradient end
+    const colorBorder    = isRequest ? "#93c5fd" : "#e9d5ff";   // card border
+    const colorRadial    = isRequest ? "rgba(2,132,199,0.18)"  : "rgba(124,58,237,0.15)"; // radial glow
+    const colorDarkBg    = isRequest ? "#0f172a" : "#230b3d";   // price card bg
+    const colorDarkInner = isRequest ? "#1e293b" : "#3b0764";   // price icon circle
+    const colorDarkBorder= isRequest ? "#0284c7" : "#7c3aed";   // price icon border
+    const colorSubText   = isRequest ? "#38bdf8" : "#d8b4fe";   // fare subtitle text
+    const colorCardBorder= isRequest ? "#bfdbfe" : "#e9d5ff";
+    const colorCardIconBg= isRequest ? "#f0f9ff" : "#faf5ff";
+    const colorThemeBtn  = isRequest ? "#0284c7" : "#7c3aed";
+    const colorFooterBg  = isRequest ? "#0f172a" : "#1e0836";
+    const colorFooterSub = isRequest ? "#38bdf8" : "#c084fc";
+
+    const isTelegramOnly = !phone || phone === "0780 000 0000" || phone === 'telegram' || phone.includes('تليكرام') || phone === 'none' || phone.startsWith('@');
+    const contactLabel = isTelegramOnly ? "طريقة التواصل" : "للتفاصيل والتواصل";
+    const contactDisplay = isTelegramOnly ? (phone && phone.startsWith('@') ? phone : "مراسلة تليكرام فقط 🔒") : phone;
 
     // 4. Build Exact Editorial Template HTML (Clean LTR Flow with Pre-shaped Arabic)
     const markup = html`
@@ -211,7 +219,7 @@ serve(async (req: Request) => {
         <div style="position: absolute; top: -50px; left: -50px; width: 350px; height: 350px; border-radius: 175px; background: radial-gradient(circle, ${colorRadial} 0%, rgba(245,243,255,0) 70%); display: flex;"></div>
 
         <!-- 1. Top Header Row (Logo Left + Main Title Right) -->
-        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; width: 100%; position: relative; z-index: 10; margin-bottom: 20px; margin-top: 8px;">
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; width: 100%; position: relative; margin-bottom: 20px; margin-top: 8px;">
           
           <!-- Right side: Title & Headline -->
           <div style="display: flex; flex-direction: column; align-items: flex-start;">
@@ -239,7 +247,7 @@ serve(async (req: Request) => {
         </div>
 
         <!-- 2. Route Card (Floating White Card) -->
-        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #ffffff; border: 1.5px solid ${colorBorder}; border-radius: 28px; padding: 22px 32px; box-shadow: 0 10px 30px rgba(76,29,149,0.06); position: relative; z-index: 10;">
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #ffffff; border: 1.5px solid ${colorBorder}; border-radius: 28px; padding: 22px 32px; box-shadow: 0 10px 30px rgba(76,29,149,0.06); position: relative;">
           
           <!-- الانطلاق من (Right in layout) -->
           <div style="display: flex; flex-direction: column; align-items: flex-start; flex: 1;">
@@ -272,7 +280,7 @@ serve(async (req: Request) => {
         </div>
 
         <!-- 3. Price & Ad Code Row (Two Cards) -->
-        <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; gap: 20px; position: relative; z-index: 10;">
+        <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; gap: 20px; position: relative;">
           
           <!-- Price Card (Dark bg - dynamic color) -->
           <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; flex: 1.1; background: ${colorDarkBg}; border-radius: 24px; padding: 20px 28px; box-shadow: 0 10px 25px rgba(35,11,61,0.25);">
@@ -298,11 +306,11 @@ serve(async (req: Request) => {
         </div>
 
         <!-- 4. Schedule & Details Pill Row (3 Columns Card) -->
-        <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 24px; padding: 18px 24px; box-shadow: 0 8px 20px rgba(76,29,149,0.04); position: relative; z-index: 10;">
+        <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; background: #ffffff; border: 1.5px solid ${colorCardBorder}; border-radius: 24px; padding: 18px 24px; box-shadow: 0 8px 20px rgba(76,29,149,0.04); position: relative;">
           
           <!-- Column 1: نوع الخط -->
           <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; flex: 0.95;">
-            <div style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 24px;">
+            <div style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: ${colorCardIconBg}; border: 1.5px solid ${colorCardBorder}; border-radius: 24px;">
               <img src="${svgImg(SVGS.bus)}" width="24" height="24" />
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-start;">
@@ -312,8 +320,8 @@ serve(async (req: Request) => {
           </div>
 
           <!-- Column 2: أيام الدوام -->
-          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; flex: 1.15; border-right: 1.5px solid #f3e8ff; border-left: 1.5px solid #f3e8ff; padding: 0 16px;">
-            <div style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 24px;">
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; flex: 1.15; border-right: 1.5px solid ${colorCardBorder}; border-left: 1.5px solid ${colorCardBorder}; padding: 0 16px;">
+            <div style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: ${colorCardIconBg}; border: 1.5px solid ${colorCardBorder}; border-radius: 24px;">
               <img src="${svgImg(SVGS.calendar)}" width="24" height="24" />
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-start;">
@@ -324,7 +332,7 @@ serve(async (req: Request) => {
 
           <!-- Column 3: أوقات الدوام -->
           <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; flex: 1.4;">
-            <div style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 24px;">
+            <div style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: ${colorCardIconBg}; border: 1.5px solid ${colorCardBorder}; border-radius: 24px;">
               <img src="${svgImg(SVGS.clock)}" width="24" height="24" />
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-start;">
@@ -335,11 +343,11 @@ serve(async (req: Request) => {
         </div>
 
         <!-- 5. Secondary Details (2 Columns) -->
-        <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; gap: 20px; position: relative; z-index: 10;">
+        <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; gap: 20px; position: relative;">
           
           <!-- Right Box: المرور والمناطق -->
-          <div style="display: flex; flex-direction: row; align-items: flex-start; gap: 16px; flex: 1.3; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 24px; padding: 18px 24px; box-shadow: 0 8px 20px rgba(76,29,149,0.04);">
-            <div style="display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 25px;">
+          <div style="display: flex; flex-direction: row; align-items: flex-start; gap: 16px; flex: 1.3; background: #ffffff; border: 1.5px solid ${colorCardBorder}; border-radius: 24px; padding: 18px 24px; box-shadow: 0 8px 20px rgba(76,29,149,0.04);">
+            <div style="display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: ${colorCardIconBg}; border: 1.5px solid ${colorCardBorder}; border-radius: 25px;">
               <img src="${svgImg(SVGS.pin)}" width="24" height="24" />
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-start; flex: 1;">
@@ -349,8 +357,8 @@ serve(async (req: Request) => {
           </div>
 
           <!-- Left Box: الفئة المستهدفة -->
-          <div style="display: flex; flex-direction: row; align-items: flex-start; gap: 16px; flex: 1; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 24px; padding: 18px 24px; box-shadow: 0 8px 20px rgba(76,29,149,0.04);">
-            <div style="display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 25px;">
+          <div style="display: flex; flex-direction: row; align-items: flex-start; gap: 16px; flex: 1; background: #ffffff; border: 1.5px solid ${colorCardBorder}; border-radius: 24px; padding: 18px 24px; box-shadow: 0 8px 20px rgba(76,29,149,0.04);">
+            <div style="display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: ${colorCardIconBg}; border: 1.5px solid ${colorCardBorder}; border-radius: 25px;">
               <img src="${svgImg(SVGS.users)}" width="26" height="26" />
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-start;">
@@ -361,47 +369,47 @@ serve(async (req: Request) => {
         </div>
 
         <!-- 6. Contact & QR Code Card -->
-        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 24px; padding: 18px 28px; box-shadow: 0 8px 20px rgba(76,29,149,0.04); position: relative; z-index: 10;">
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #ffffff; border: 1.5px solid ${colorCardBorder}; border-radius: 24px; padding: 18px 28px; box-shadow: 0 8px 20px rgba(76,29,149,0.04); position: relative;">
           
-          <!-- Contact Phone -->
+          <!-- Contact Phone / Telegram -->
           <div style="display: flex; flex-direction: row; align-items: center; gap: 14px;">
-            <div style="display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; background: #7c3aed; border-radius: 26px; box-shadow: 0 4px 12px rgba(124,58,237,0.3);">
-              <img src="${svgImg(SVGS.phone)}" width="24" height="24" />
+            <div style="display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; background: ${colorThemeBtn}; border-radius: 26px; box-shadow: 0 4px 12px ${isRequest ? 'rgba(2,132,199,0.3)' : 'rgba(124,58,237,0.3)'};">
+              <img src="${svgImg(isTelegramOnly ? SVGS.telegram : SVGS.phone)}" width="24" height="24" />
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-start;">
-              <span style="font-size: 18px; color: #6b7280; font-weight: bold;">${fixAr('للتفاصيل والتواصل')}</span>
-              <span style="font-size: 26px; color: #1e1b4b; font-weight: bold; letter-spacing: 0.5px;">${phone}</span>
+              <span style="font-size: 18px; color: #6b7280; font-weight: bold;">${fixAr(contactLabel)}</span>
+              <span style="font-size: ${isTelegramOnly ? '22px' : '26px'}; color: #1e1b4b; font-weight: bold; letter-spacing: 0.5px;">${isTelegramOnly ? fixAr(contactDisplay) : contactDisplay}</span>
             </div>
           </div>
 
-          <!-- QR Code (Center) -->
-          <div style="display: flex; align-items: center; justify-content: center; width: 84px; height: 84px; background: #ffffff; border: 1.5px solid #ddd6fe; border-radius: 14px; padding: 4px;">
-            <img src="${qrUrl}" width="76" height="76" style="border-radius: 8px;" />
+          <!-- Brand Badge (Center) -->
+          <div style="display: flex; align-items: center; justify-content: center; width: 68px; height: 68px; background: ${colorCardIconBg}; border: 1.5px solid ${colorCardBorder}; border-radius: 18px;">
+            <img src="${svgImg(isRequest ? SVGS.logoBlue : SVGS.logo)}" width="44" height="44" />
           </div>
 
           <!-- Direct Link Pill -->
           <div style="display: flex; flex-direction: row; align-items: center; gap: 14px;">
             <div style="display: flex; flex-direction: column; align-items: flex-end;">
               <span style="font-size: 18px; color: #6b7280; font-weight: bold; margin-bottom: 4px;">${fixAr('اضغط على الرابط')}</span>
-              <div style="display: flex; background: #7c3aed; border-radius: 12px; padding: 6px 18px;">
+              <div style="display: flex; background: ${colorThemeBtn}; border-radius: 12px; padding: 6px 18px;">
                 <span style="font-size: 17px; color: #ffffff; font-weight: bold;">${shortUrlDisplay}</span>
               </div>
             </div>
-            <div style="display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; background: #7c3aed; border-radius: 26px; box-shadow: 0 4px 12px rgba(124,58,237,0.3);">
+            <div style="display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; background: ${colorThemeBtn}; border-radius: 26px; box-shadow: 0 4px 12px ${isRequest ? 'rgba(2,132,199,0.3)' : 'rgba(124,58,237,0.3)'};">
               <img src="${svgImg(SVGS.link)}" width="24" height="24" />
             </div>
           </div>
         </div>
 
-        <!-- 7. Bottom Dark Purple Footer Bar -->
-        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #1e0836; border-radius: 24px; padding: 18px 30px; position: relative; z-index: 10;">
+        <!-- 7. Bottom Footer Bar -->
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: ${colorFooterBg}; border-radius: 24px; padding: 18px 30px; position: relative;">
           
           <!-- Feature 1 -->
           <div style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
             <img src="${svgImg(SVGS.shield)}" width="24" height="24" />
             <div style="display: flex; flex-direction: column; align-items: flex-start;">
               <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('راحة وأمان')}</span>
-              <span style="font-size: 13px; color: #c084fc;">${fixAr('رحلات مريحة وآمنة')}</span>
+              <span style="font-size: 13px; color: ${colorFooterSub};">${fixAr('رحلات مريحة وآمنة')}</span>
             </div>
           </div>
 
@@ -410,7 +418,7 @@ serve(async (req: Request) => {
             <img src="${svgImg(SVGS.timeCommit)}" width="24" height="24" />
             <div style="display: flex; flex-direction: column; align-items: flex-start;">
               <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('التزام بالوقت')}</span>
-              <span style="font-size: 13px; color: #c084fc;">${fixAr('نصل بك في الوقت المحدد')}</span>
+              <span style="font-size: 13px; color: ${colorFooterSub};">${fixAr('نصل بك في الوقت المحدد')}</span>
             </div>
           </div>
 
@@ -419,7 +427,7 @@ serve(async (req: Request) => {
             <img src="${svgImg(SVGS.tag)}" width="24" height="24" />
             <div style="display: flex; flex-direction: column; align-items: flex-start;">
               <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('أسعار مناسبة')}</span>
-              <span style="font-size: 13px; color: #c084fc;">${fixAr('أفضل الأسعار للجميع')}</span>
+              <span style="font-size: 13px; color: ${colorFooterSub};">${fixAr('أفضل الأسعار للجميع')}</span>
             </div>
           </div>
 
@@ -428,7 +436,7 @@ serve(async (req: Request) => {
             <img src="${svgImg(SVGS.star)}" width="24" height="24" />
             <div style="display: flex; flex-direction: column; align-items: flex-start;">
               <span style="font-size: 18px; color: #ffffff; font-weight: bold;">${fixAr('خدمة مميزة')}</span>
-              <span style="font-size: 13px; color: #c084fc;">${fixAr('نهتم براحتك دائماً')}</span>
+              <span style="font-size: 13px; color: ${colorFooterSub};">${fixAr('نهتم براحتك دائماً')}</span>
             </div>
           </div>
 
