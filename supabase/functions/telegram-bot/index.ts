@@ -5705,37 +5705,89 @@ Deno.serve(async (req: any) => {
 
     if (update.my_chat_member) {
       const myChat = update.my_chat_member.chat;
-      const newStatus = update.my_chat_member.new_chat_member?.status;
-      if (myChat && (newStatus === 'administrator' || newStatus === 'member')) {
+      const newMemberObj = update.my_chat_member.new_chat_member;
+      const oldMemberObj = update.my_chat_member.old_chat_member;
+      const newStatus = newMemberObj?.status;
+      const oldStatus = oldMemberObj?.status;
+      const fromUser = update.my_chat_member.from;
+      
+      if (myChat) {
         const title = myChat.title || 'الكروب';
-        const isTransport = title.includes('خط') || title.includes('نقل') || title.includes('رافدين') || title.includes('جامع') || title.includes('كلية');
-        
-        let introText = `👋 <b>يا هلا وكل الهلا بيكم في "${title}"! 🇮🇶✨</b>\n\n` +
-          `🤖 أنا <b>مساعد سوق بغداد وشبكة النقل الذكي</b>.\n` +
-          `تم تفعيل حماية الكروب والمساعد الذكي بنجاح:\n\n`;
+        const isJoined = newStatus === 'administrator' || newStatus === 'member';
+        const isLeft = newStatus === 'left' || newStatus === 'kicked';
+        const isAdmin = newStatus === 'administrator';
+        const groupCat = detectGroupCategory(title);
 
-        if (isTransport) {
-          introText += 
-            `🚌 <b>مطابق خطوط النقل:</b> اكتب طلبك (مثال: محتاج خط للرافدين) وسأعرض لك خطوط النقل المتوفرة فوراً.\n` +
-            `💺 <b>تنبيه مقاعد شاغرة:</b> السائق يكتب <code>/seats 2 المنصور الرافدين</code> لنشر بطاقة المقاعد.\n`;
-        } else {
-          introText += 
-            `🚗 <b>رادار السيارات:</b> اكتب <code>/car النترا</code> للبحث عن سيارات معروضة.\n` +
-            `💰 <b>استعلام الأسعار:</b> اكتب <code>/price توسان 2020</code> للحصول على متوسط السعر بالسوق.\n`;
+        // Upsert group into telegram_groups and alert owner
+        if (typeof (globalThis as any).EdgeRuntime?.waitUntil === 'function') {
+          (globalThis as any).EdgeRuntime.waitUntil((async () => {
+            try {
+              await supabase.from('telegram_groups').upsert({
+                chat_id: String(myChat.id),
+                title: title,
+                category: groupCat,
+                added_by_id: fromUser?.id ? String(fromUser.id) : null,
+                added_by_name: fromUser?.first_name ? `${fromUser.first_name}${fromUser.username ? ' (@' + fromUser.username + ')' : ''}` : null,
+                is_active: isJoined,
+                is_admin: isAdmin,
+                last_activity_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              }, { onConflict: 'chat_id' });
+
+              if (isJoined && oldStatus !== newStatus) {
+                const adminStatusText = isAdmin ? '🛡️ بصلاحية مشرف (Admin كامل)' : '👤 كعضو عادي';
+                const adderName = fromUser?.first_name ? `${fromUser.first_name}${fromUser.username ? ' (@' + fromUser.username + ')' : ''}` : 'عضو';
+                const ownerAlert = 
+                  `🔔 <b>إشعار لايف: تحديث حالة البوت في كروب! 👥✨</b>\n\n` +
+                  `🏛️ <b>اسم الكروب:</b> «${title}»\n` +
+                  `🆔 <b>معرف الكروب:</b> <code>${myChat.id}</code>\n` +
+                  `👤 <b>بواسطة:</b> ${adderName}\n` +
+                  `⚙️ <b>الرتبة الحالية:</b> ${adminStatusText}\n` +
+                  `🏷️ <b>التصنيف:</b> ${groupCat === 'university' ? '🎓 جامعات وطلاب' : groupCat === 'cars' ? '🚗 سيارات' : '🌐 عام'}\n` +
+                  `⏱️ <b>التوقيت:</b> ${new Date().toLocaleTimeString('ar-IQ')}`;
+
+                await sendMessage('6474465462', ownerAlert, {
+                  inline_keyboard: [[{ text: '📊 فحص الكروبات بلوحة المالك', callback_data: 'owner_groups_hub_0' }]]
+                });
+              } else if (isLeft) {
+                await supabase.from('telegram_groups').update({
+                  is_active: false,
+                  updated_at: new Date().toISOString()
+                }).eq('chat_id', String(myChat.id));
+              }
+            } catch(e) {
+              console.error('Error recording my_chat_member to telegram_groups:', e);
+            }
+          })());
         }
 
-        introText += 
-          `🛡️ <b>نظام الحماية:</b> منع الروابط الإعلانية والسبام بنظام الإنذارات الثلاثية.\n` +
-          `💬 <b>للتحدث معي:</b> فقط سوّي (Reply / رد) على أي رسالة مني وسأجيبك فوراً!\n\n` +
-          `<i>نتشرف بخدمتكم جميعاً 🌹</i>`;
+        if (isJoined && oldStatus !== 'member' && oldStatus !== 'administrator') {
+          let introText = `👋 <b>يا هلا وكل الهلا بأعضاء وإدارة «${title}»! 🎓🚌✨</b>\n\n` +
+            `🤖 أنا <b>مساعد خطوط النقل الذكي</b> لمنصة سوق بغداد في العراق 🇮🇶\n\n` +
+            `<b>📌 خدماتي التلقائية لأعضاء الكروب:</b>\n` +
+            `🔍 <b>للطالب:</b> بس اكتب طلبك بالكروب (مثال: <i>محتاج خط من المنصور للكلية</i>) وسأبحث لك عن السائقين والخطوط المتوفرة فوراً.\n` +
+            `💺 <b>للكابتن:</b> اكتب <code>/seats 2 المنصور</code> لنشر بطاقة المقاعد الشاغرة وربطك بالطلاب مباشرة مجاناً.\n` +
+            `🛡️ <b>حماية الكروب 24/7:</b> حظر السبام والروابط الإعلانية المزعجة تلقائياً.\n` +
+            `💬 <b>للتحدث معي:</b> سوّي (Reply / رد) على أي رسالة مني وسأجيبك فوراً!\n\n` +
+            `👇 <b>اختر من الأزرار أدناه للبحث أو النشر:</b>`;
 
-        await sendMessage(myChat.id, introText, {
-          inline_keyboard: [
-            [{ text: '🚗 سيارات سوق بغداد', url: 'https://www.souqbaghdad.store' }, { text: '🚌 خطوط النقل', url: 'https://www.souqbaghdad.store/transport' }],
-            [{ text: '🤖 فتح محادثة خاصة مع البوت', url: `https://t.me/${BOT_USERNAME}` }]
-          ]
-        });
-        return new Response('OK', { status: 200 });
+          await sendMessage(myChat.id, introText, {
+            inline_keyboard: [
+              [
+                { text: '🔍 ابحث عن خط نقل لدوامك', url: `https://t.me/${BOT_USERNAME}?start=line` },
+                { text: '📢 انشر طلب خط مجاناً', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }
+              ],
+              [
+                { text: '➕ أضف البوت لكروب دفعتك / كليتك 🚀', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }
+              ],
+              [
+                { text: '🚌 تصفح خطوط النقل بالموقع', url: 'https://www.souqbaghdad.store/transport' },
+                { text: '💬 محادثة البوت بالخاص', url: `https://t.me/${BOT_USERNAME}` }
+              ]
+            ]
+          });
+          return new Response('OK', { status: 200 });
+        }
       }
     }
 
@@ -6056,9 +6108,17 @@ Deno.serve(async (req: any) => {
                 `<i>نتمنى لكم دوام التوفيق والنجاح بدوامكم! 🌹</i>`;
 
               buttons = [
-                [{ text: '🚌 تصفح خطوط النقل المتاحة 🌐', url: 'https://www.souqbaghdad.store/transport' }],
-                [{ text: '🤖 فتح محادثة خاصة مع البوت', url: `https://t.me/${BOT_USERNAME}` }],
-                [{ text: '➕ إضافة البوت لمجموعات أخرى 🛡️', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }]
+                [
+                  { text: '🔍 ابحث عن خط نقل', url: `https://t.me/${BOT_USERNAME}?start=line` },
+                  { text: '📢 انشر طلب خط مجاناً', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }
+                ],
+                [
+                  { text: '➕ أضف البوت لكروب دفعتك / كليتك 🚀', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }
+                ],
+                [
+                  { text: '🚌 خطوط النقل بالموقع', url: 'https://www.souqbaghdad.store/transport' },
+                  { text: '💬 محادثة البوت بالخاص', url: `https://t.me/${BOT_USERNAME}` }
+                ]
               ];
             } else if (groupCat === 'cars') {
               welcomeCard = 
@@ -6077,18 +6137,27 @@ Deno.serve(async (req: any) => {
               ];
             } else {
               welcomeCard = 
-                `👋 <b>يا هلا وكل الهلا بأعضاء وإدارة «${chatTitle}»! 🇮🇶✨</b>\n\n` +
-                `🤖 أنا <b>المساعد الذكي وحامي الكروب الرسمي</b> من منصة سوق بغداد.\n` +
-                `تم تفعيل خدمات المجموعة الذكية والحماية 24/7:\n\n` +
-                `🛡️ <b>حماية الكروب:</b> منع الروابط والسبام والألفاظ غير اللائقة بنظام الإنذارات الثلاثية.\n` +
-                `🔍 <b>استعلام وبحث:</b> اسألني عن أي سيارة أو خط نقل أو سلعة وسأجيبك فوراً.\n` +
-                `🚗 <b>عرض إعلان:</b> افتح الخاص وانشر إعلاناتك مجاناً لتصل لآلاف المشترين.\n\n` +
-                `<i>نتشرف بخدمتكم جميعاً بكل محبة وتقدير 🌹</i>`;
+                `👋 <b>يا هلا وكل الهلا بأعضاء وإدارة «${chatTitle}»! 🎓🚌✨</b>\n\n` +
+                `🤖 أنا <b>مساعد خطوط النقل وحامي الكروب الذكي</b> لمنصة سوق بغداد 🇮🇶\n\n` +
+                `<b>📌 خدماتي التلقائية داخل الكروب:</b>\n` +
+                `🔍 <b>للطالب:</b> اكتب بالكروب (مثال: <i>محتاج خط من المنصور للكلية</i>) وسأبحث لك عن الخطوط والسائقين المتوفرين فوراً.\n` +
+                `💺 <b>للكابتن:</b> اكتب <code>/seats 2 المنصور</code> لنشر مقاعدك الشاغرة وربطك بالطلاب مجاناً.\n` +
+                `🛡️ <b>حماية الكروب 24/7:</b> منع الروابط والإعلانات المزعجة بنظام إنذارات ذكي لحفظ أمان الأعضاء.\n` +
+                `💬 <b>للتحدث معي:</b> سوّي رد (Reply) على أي رسالة مني وسأجيبك فوراً!\n\n` +
+                `<i>أهلاً بكم جميعاً ونتمنى لكم دواماً موفقاً 🌹</i>`;
 
               buttons = [
-                [{ text: '🚗 سيارات سوق بغداد', url: 'https://www.souqbaghdad.store' }, { text: '🚌 خطوط النقل', url: 'https://www.souqbaghdad.store/transport' }],
-                [{ text: '🤖 فتح محادثة خاصة مع البوت', url: `https://t.me/${BOT_USERNAME}` }],
-                [{ text: '➕ إضافة البوت لمجموعات أخرى 🛡️', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }]
+                [
+                  { text: '🔍 ابحث عن خط نقل', url: `https://t.me/${BOT_USERNAME}?start=line` },
+                  { text: '📢 انشر طلب خط مجاناً', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }
+                ],
+                [
+                  { text: '➕ أضف البوت لكروب دفعتك / كليتك 🚀', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }
+                ],
+                [
+                  { text: '🚌 خطوط النقل بالموقع', url: 'https://www.souqbaghdad.store/transport' },
+                  { text: '💬 محادثة البوت بالخاص', url: `https://t.me/${BOT_USERNAME}` }
+                ]
               ];
             }
 
@@ -6105,6 +6174,22 @@ Deno.serve(async (req: any) => {
           }
         }
         return new Response('OK', { status: 200 });
+      }
+
+      // Auto-record & keep group pulse updated in telegram_groups
+      if (typeof (globalThis as any).EdgeRuntime?.waitUntil === 'function') {
+        (globalThis as any).EdgeRuntime.waitUntil((async () => {
+          try {
+            const groupCat = detectGroupCategory(chatTitle);
+            await supabase.from('telegram_groups').upsert({
+              chat_id: String(chatId),
+              title: chatTitle,
+              category: groupCat,
+              is_active: true,
+              last_activity_at: new Date().toISOString()
+            }, { onConflict: 'chat_id' });
+          } catch(e) {}
+        })());
       }
 
       // Check if Sender is Group Admin or Owner
@@ -6147,8 +6232,9 @@ Deno.serve(async (req: any) => {
               `• أو سوّي رد (Reply) على رسالتي وسأجيبك فوراً.\n`;
           } else {
             introMsg += 
-              `• اكتب <code>/price توسان 2020</code> لمعرفة أسعار السوق الحية.\n` +
-              `• اكتب <code>محتاج خط للجامعة</code> للبحث عن خطوط نقل.\n` +
+              `🎓 <b>لخدمات النقل والجامعات:</b>\n` +
+              `• اكتب طلبك بالكروب (مثال: <i>محتاج خط من المنصور للجامعة</i>) لأجد لك السائقين فوراً.\n` +
+              `• السائق يكتب <code>/seats 2 المنصور</code> لنشر مقاعد شاغرة.\n` +
               `• أو سوّي رد (Reply) على رسالتي وسأجيبك فوراً.\n`;
           }
 
@@ -6156,9 +6242,15 @@ Deno.serve(async (req: any) => {
 
           await sendOrReplaceGroupMessage(chatId, introMsg, {
             inline_keyboard: [
-              [{ text: '🚗 سيارات سوق بغداد', url: 'https://www.souqbaghdad.store' }, { text: '🚌 خطوط النقل', url: 'https://www.souqbaghdad.store/transport' }],
-              [{ text: '🤖 فتح محادثة خاصة مع البوت', url: `https://t.me/${BOT_USERNAME}` }],
-              [{ text: '➕ إضافة البوت لكروب آخر 🛡️', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }]
+              [
+                { text: '🔍 ابحث عن خط نقل', url: `https://t.me/${BOT_USERNAME}?start=line` },
+                { text: '📢 انشر طلب خط مجاناً', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }
+              ],
+              [{ text: '➕ أضف البوت لكروب دفعتك / كليتك 🚀', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }],
+              [
+                { text: '🚌 خطوط النقل بالموقع', url: 'https://www.souqbaghdad.store/transport' },
+                { text: '💬 محادثة البوت بالخاص', url: `https://t.me/${BOT_USERNAME}` }
+              ]
             ]
           }, supabase);
           return new Response('OK', { status: 200 });
@@ -6317,6 +6409,18 @@ Deno.serve(async (req: any) => {
             await banChatMember(chatId, fromId);
             await sendOrReplaceGroupMessage(chatId, `🚫 <b>تم طرد وحظر ${fromUsername} نهائياً (3/3) لتكرار المخالفات لحماية الكروب.</b>`, undefined, supabase);
           }
+
+          if (typeof (globalThis as any).EdgeRuntime?.waitUntil === 'function') {
+            (globalThis as any).EdgeRuntime.waitUntil((async () => {
+              try {
+                const { data: curG } = await supabase.from('telegram_groups').select('spam_blocked_count').eq('chat_id', String(chatId)).maybeSingle();
+                await supabase.from('telegram_groups').update({
+                  spam_blocked_count: (curG?.spam_blocked_count || 0) + 1,
+                  last_activity_at: new Date().toISOString()
+                }).eq('chat_id', String(chatId));
+              } catch(e) {}
+            })());
+          }
           return new Response('OK', { status: 200 });
         }
       }
@@ -6339,6 +6443,17 @@ Deno.serve(async (req: any) => {
           ((cleanMsg.includes('من ') || cleanMsg.includes('الى ') || cleanMsg.includes('إلى ') || cleanMsg.includes('لـ')) && (cleanMsg.includes('رافدين') || cleanMsg.includes('رفدين') || cleanMsg.includes('جامع') || cleanMsg.includes('كلية') || cleanMsg.includes('دورة') || cleanMsg.includes('جميل') || cleanMsg.includes('سيدي') || cleanMsg.includes('منصور') || cleanMsg.includes('شعب') || cleanMsg.includes('كراد') || cleanMsg.includes('بياع') || cleanMsg.includes('يرموك')));
 
         if (isTransportIntent && (cleanMsg.includes('اريد') || cleanMsg.includes('أريد') || cleanMsg.includes('محتاج') || cleanMsg.includes('محتاجة') || cleanMsg.includes('ادور') || cleanMsg.includes('أدور') || cleanMsg.includes('اكو') || cleanMsg.includes('متوفر') || cleanMsg.includes('من') || cleanMsg.includes('الى') || cleanMsg.includes('لـ') || cleanMsg.includes('سعر'))) {
+          if (typeof (globalThis as any).EdgeRuntime?.waitUntil === 'function') {
+            (globalThis as any).EdgeRuntime.waitUntil((async () => {
+              try {
+                const { data: curG } = await supabase.from('telegram_groups').select('transport_queries_count').eq('chat_id', String(chatId)).maybeSingle();
+                await supabase.from('telegram_groups').update({
+                  transport_queries_count: (curG?.transport_queries_count || 0) + 1,
+                  last_activity_at: new Date().toISOString()
+                }).eq('chat_id', String(chatId));
+              } catch(e) {}
+            })());
+          }
           await handleSmartTransportSearch(chatId, text, fromUser, supabase, true, messageId);
           return new Response('OK', { status: 200 });
         }
@@ -6872,6 +6987,7 @@ Deno.serve(async (req: any) => {
           { text: 'تبديل الصفة (طالب)', callback_data: 'change_my_role' },
           { text: 'حسابي والخدمات', callback_data: 'account_services' }
         ]);
+        menuRows.push([{ text: '➕ أضف البوت لكروب دفعتك / كليتك 🛡️', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }]);
         menuRows.push([{ text: 'الأسئلة الشائعة والمساعدة', callback_data: 'faq_hub_main' }]);
       } else {
         // Passenger / Student tailored menu - 1-click access to published requests and management
@@ -6887,6 +7003,7 @@ Deno.serve(async (req: any) => {
           { text: 'تبديل الصفة (كابتن)', callback_data: 'change_my_role' },
           { text: 'حسابي والخدمات', callback_data: 'account_services' }
         ]);
+        menuRows.push([{ text: '➕ أضف البوت لكروب دفعتك / كليتك 🛡️', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }]);
         menuRows.push([{ text: 'الأسئلة الشائعة والمساعدة', callback_data: 'faq_hub_main' }]);
       }
 
@@ -6938,6 +7055,7 @@ Deno.serve(async (req: any) => {
       
       const ownerMarkup = {
         inline_keyboard: [
+          [{ text: '👥 إحصائيات ونشاط الكروبات (Live) 🚀', callback_data: 'owner_groups_hub_0' }],
           [{ text: '📡 إنشاء دعوة شريك قناة / كروب ➕', callback_data: 'owner_partner_invite_start' }, { text: '📋 قنوات الشركاء المرتبطة', callback_data: 'owner_partner_list' }],
           [{ text: '🗑️ حذف إعلان أو حظر معلن (بالكود/الرقم) 🚫', callback_data: 'owner_del_ad_prompt' }],
           [{ text: '📋 سجلات الاتفاقات والحجوزات 🚌', callback_data: 'owner_bookings_0' }],
@@ -7309,6 +7427,161 @@ Deno.serve(async (req: any) => {
 
       return await sendMessage(chatId, `🎉 <b>تمت الإذاعة بنجاح!</b>\n\nتم تسليم الرسالة إلى: <b>${sentSuccess}</b> مستخدم.`, {
         inline_keyboard: [[{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]]
+      });
+    }
+
+    // =========================================================================
+    // 👥 OWNER ACTION: GROUPS HUB & LIVE STATS (إحصائيات ونشاط الكروبات)
+    // =========================================================================
+    if (isOwner && (trimmedText.startsWith('owner_groups_hub') || trimmedText.startsWith('owner_group_ping_') || trimmedText === 'owner_group_broadcast_prompt')) {
+      // 1. Send Ping Message to a specific group
+      if (trimmedText.startsWith('owner_group_ping_')) {
+        const targetChatId = trimmedText.replace('owner_group_ping_', '');
+        try {
+          const testMsg = `🤖 <b>فحص اتصال المساعد الذكي:</b> البوت متصل وشغال بنجاح في هذا الكروب لخدمتكم 24/7! 🎓🚌✨\n\n<i>(رسالة فحص دورية مجدولة من الإدارة)</i>`;
+          await sendMessage(targetChatId, testMsg);
+          if (callbackQueryId) await answerCallbackQuery(callbackQueryId, '✅ تم إرسال رسالة فحص الاتصال للكروب بنجاح!', true);
+        } catch(e: any) {
+          if (callbackQueryId) await answerCallbackQuery(callbackQueryId, `❌ تعذر الإرسال: ${e?.message || 'تحقق من صلاحيات البوت بالكروب'}`, true);
+        }
+        trimmedText = 'owner_groups_hub_0';
+      }
+
+      // 2. Prompt Broadcast to All Groups
+      if (trimmedText === 'owner_group_broadcast_prompt') {
+        state = { step: 'owner_group_broadcasting' };
+        if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        return await updateOrSend(
+          `📢 <b>الإذاعة الجماعية لجميع كروبات وتجمعات الطلاب 👥🚌</b>\n\n` +
+          `أرسل الآن الرسالة أو الإعلان الذي تريد نشره بجميع الكروبات المتصلة بالبوت:\n\n` +
+          `<i>💡 سيتم إرسالها تلقائياً لكل الكروبات النشطة مع التوقيع الرسمي للبوت.</i>`,
+          { inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'owner_groups_hub_0' }]] }
+        );
+      }
+
+      // 3. Display Groups Hub & Live Stats
+      const pageStr = trimmedText.replace('owner_groups_hub_', '').replace('owner_groups_hub', '') || '0';
+      const pageIndex = parseInt(pageStr, 10) || 0;
+      const pageSize = 5;
+
+      const { data: allGroups, count: totalGroups } = await supabase
+        .from('telegram_groups')
+        .select('*', { count: 'exact' })
+        .order('last_activity_at', { ascending: false })
+        .limit(100);
+
+      const total = totalGroups || (allGroups ? allGroups.length : 0);
+
+      if (!allGroups || allGroups.length === 0) {
+        return await updateOrSend(
+          `👥 <b>لوحة نشاط وإحصائيات الكروبات — مباشر 📊✨</b>\n\n` +
+          `<i>لا توجد مجموعات مسجلة حالياً في قاعدة البيانات.</i>\n\n` +
+          `💡 <b>كيف يبدأ التسجيل؟</b>\n` +
+          `مجرد إضافة البوت إلى أي كروب بواسطة أي طالب أو مشرف، سيظهر الكروب هنا تلقائياً مع كافة إحصائياته الحية وتنبيه فوري لك! 🚀`,
+          {
+            inline_keyboard: [
+              [{ text: '➕ رابط إضافة البوت لكروب', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }],
+              [{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]
+            ]
+          }
+        );
+      }
+
+      const activeCount = allGroups.filter((g: any) => g.is_active !== false).length;
+      const adminCount = allGroups.filter((g: any) => g.is_admin === true).length;
+      const totalQueries = allGroups.reduce((acc: number, g: any) => acc + (g.transport_queries_count || 0), 0);
+      const totalSpam = allGroups.reduce((acc: number, g: any) => acc + (g.spam_blocked_count || 0), 0);
+
+      const totalPages = Math.ceil(allGroups.length / pageSize);
+      const safePage = Math.min(Math.max(0, pageIndex), Math.max(0, totalPages - 1));
+      const pageGroups = allGroups.slice(safePage * pageSize, (safePage + 1) * pageSize);
+
+      let groupsMsg = 
+        `👥 <b>لوحة نشاط وإحصائيات الكروبات — مباشر 📊✨</b>\n\n` +
+        `📈 <b>النبض العام للمجموعات:</b>\n` +
+        `• إجمالي الكروبات المسجلة: <b>${total} مجموعة</b>\n` +
+        `• المجموعات النشطة حالياً: <b>${activeCount} 🟢</b>\n` +
+        `• مجموعات بصلاحية مشرف: <b>${adminCount} 🛡️</b>\n` +
+        `• إجمالي استعلامات الخطوط: <b>${totalQueries} طلب 🚌</b>\n` +
+        `• السبام والروابط المحظورة: <b>${totalSpam} مخالفة 🚫</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━\n` +
+        `📋 <b>قائمة الكروبات (صفحة ${safePage + 1} من ${totalPages || 1}):</b>\n\n`;
+
+      const gButtons: any[][] = [];
+
+      pageGroups.forEach((g: any, idx: number) => {
+        const itemNum = safePage * pageSize + idx + 1;
+        const statusIcon = g.is_active !== false ? '🟢 نشط' : '🔴 متوقف';
+        const roleIcon = g.is_admin ? '🛡️ مشرف' : '👤 عضو';
+        const catLabel = g.category === 'university' ? '🎓 جامعة' : g.category === 'cars' ? '🚗 سيارات' : '🌐 عام';
+        const lastSeen = g.last_activity_at ? new Date(g.last_activity_at).toLocaleString('ar-IQ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'غير محدد';
+
+        groupsMsg += 
+          `<b>${itemNum}. «${g.title || 'مجموعة'}»</b> (${statusIcon})\n` +
+          `   🆔 <code>${g.chat_id}</code> | ${roleIcon} | ${catLabel}\n` +
+          `   🚌 طلبات خطوط: <b>${g.transport_queries_count || 0}</b> | 🚫 سبام محظور: <b>${g.spam_blocked_count || 0}</b>\n` +
+          `   👤 أضافه: <b>${g.added_by_name || 'غير محدد'}</b> | ⏱️ تفاعل: <b>${lastSeen}</b>\n\n`;
+
+        gButtons.push([
+          { text: `📡 فحص اتصال: «${(g.title || 'الكروب').substring(0, 18)}»`, callback_data: `owner_group_ping_${g.chat_id}` }
+        ]);
+      });
+
+      const navRow: any[] = [];
+      if (safePage > 0) {
+        navRow.push({ text: '⬅️ السابق', callback_data: `owner_groups_hub_${safePage - 1}` });
+      }
+      if (totalPages > 1) {
+        navRow.push({ text: `📄 [ ${safePage + 1} / ${totalPages} ]`, callback_data: `owner_groups_hub_${safePage}` });
+      }
+      if (safePage < totalPages - 1) {
+        navRow.push({ text: 'التالي ➡️', callback_data: `owner_groups_hub_${safePage + 1}` });
+      }
+      if (navRow.length > 0) gButtons.push(navRow);
+
+      gButtons.push([
+        { text: '📢 إرسال إعلان/رسالة لجميع الكروبات 🚀', callback_data: 'owner_group_broadcast_prompt' }
+      ]);
+      gButtons.push([
+        { text: '🔄 تحديث البيانات الحية', callback_data: `owner_groups_hub_${safePage}` },
+        { text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }
+      ]);
+
+      return await updateOrSend(groupsMsg, { inline_keyboard: gButtons });
+    }
+
+    // 4. Handle Broadcast Input to All Groups
+    if (isOwner && state?.step === 'owner_group_broadcasting') {
+      state = {};
+      if (userId) await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+      const { data: actGroups } = await supabase
+        .from('telegram_groups')
+        .select('chat_id, title')
+        .eq('is_active', true)
+        .limit(100);
+
+      const targetGroups = actGroups || [];
+      await sendMessage(chatId, `⏳ <i>جاري إرسال الإعلان إلى ${targetGroups.length} كروب نشط...</i>`);
+
+      let sentCount = 0;
+      for (const grp of targetGroups) {
+        try {
+          if (photo && photo.length > 0) {
+            const fileId = photo[photo.length - 1].file_id;
+            await sendPhoto(grp.chat_id, fileId, text || '');
+          } else {
+            await sendMessage(grp.chat_id, `📢 <b>إعلان وتنبيه هام من منصة سوق بغداد للخطوط:</b>\n\n${text}\n\n🤖 @${BOT_USERNAME}`);
+          }
+          sentCount++;
+        } catch(e) {}
+      }
+
+      return await sendMessage(chatId, `🎉 <b>تم نشر الإذاعة في الكروبات بنجاح! 🚀✨</b>\n\nتم تسليم الإعلان إلى: <b>${sentCount}</b> كروب من أصل ${targetGroups.length}.`, {
+        inline_keyboard: [
+          [{ text: '👥 عودة للوحة الكروبات', callback_data: 'owner_groups_hub_0' }],
+          [{ text: '👑 لوحة المالك الرئيسية', callback_data: 'owner_hub_main' }]
+        ]
       });
     }
 
@@ -8538,6 +8811,28 @@ Deno.serve(async (req: any) => {
       return new Response('OK', { status: 200 });
     }
 
+    // ➕ Add Bot to Group Guide & Action
+    if (trimmedText === '/group' || trimmedText === '/groups' || trimmedText === 'add_bot_to_group' || trimmedText === '/add_to_group') {
+      const groupGuideMsg = 
+        `🛡️ <b>إضافة البوت إلى كروبات التيليجرام — سوق بغداد</b> 🎓🚌\n\n` +
+        `أضف البوت إلى كروب دفعتك، كليتك، أو منطقتك ليعمل كمساعد ذكي 24/7:\n\n` +
+        `✨ <b>مميزات البوت داخل الكروب:</b>\n` +
+        `• 🔍 <b>بحث تلقائي عن الخطوط:</b> أي طالب يكتب (محتاج خط للرافدين أو للمنصور) سيقوم البوت فوراً بالرد بالخطوط المتوفرة.\n` +
+        `• 💺 <b>تنبيه المقاعد للكباتن:</b> يستطيع السائق كتابة <code>/seats 2 المنصور</code> للإعلان عن مقاعد شاغرة.\n` +
+        `• 🛡️ <b>حماية الكروب:</b> حظر السبام والروابط الإعلانية المزعجة تلقائياً بنظام إنذارات ذكي.\n` +
+        `• 💬 <b>خصوصية كاملة:</b> البوت لا يزعج الأعضاء ولا يتدخل إلا عند مناداته أو طلب مساعدة.\n\n` +
+        `👇 <b>اضغط على الزر أدناه واختر الكروب لإضافته مباشرة:</b>`;
+
+      const groupGuideMarkup = {
+        inline_keyboard: [
+          [{ text: '➕ أضف البوت إلى كروبك الآن 🚀', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }],
+          [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+        ]
+      };
+      await updateOrSend(groupGuideMsg, groupGuideMarkup);
+      return new Response('OK', { status: 200 });
+    }
+
     // 🔔 Auto-Activate Route Radar for specific line clicked in channel/ad (مخصص للزبائن والطلاب فقط)
     if (text.startsWith('/start radline_') || text.startsWith('/start radar_')) {
       const lineId = text.replace('/start radline_', '').replace('/start radar_', '').trim();
@@ -8776,6 +9071,7 @@ Deno.serve(async (req: any) => {
 
         let driverNotified = false;
         let driverChatId: string | null = null;
+        let captainTgUrl: string | null = null;
 
         try {
           let drvQuery = supabase.from('telegram_users').select('telegram_chat_id');
@@ -8786,6 +9082,35 @@ Deno.serve(async (req: any) => {
           }
           const { data: drvUser } = await drvQuery.maybeSingle();
           driverChatId = drvUser?.telegram_chat_id || null;
+
+          // Check if captain has a Telegram username in profile
+          let driverTgUsername: string | null = null;
+          if (lineAd.seller_id) {
+            const { data: drvProf } = await supabase.from('profiles').select('username').eq('id', lineAd.seller_id).maybeSingle();
+            if (drvProf?.username) {
+              driverTgUsername = drvProf.username.replace('@', '').trim();
+            }
+          }
+
+          if (!driverTgUsername && driverChatId) {
+            try {
+              const chatInfoRes = await fetch(`${tgUrl}/getChat?chat_id=${driverChatId}`).then(r => r.json());
+              if (chatInfoRes?.ok && chatInfoRes.result?.username) {
+                driverTgUsername = chatInfoRes.result.username;
+              }
+            } catch(e) {}
+          }
+
+          if (!driverTgUsername && lineAd.description) {
+            const descMatch = String(lineAd.description).match(/@([a-zA-Z0-9_]{4,})/);
+            if (descMatch) driverTgUsername = descMatch[1];
+          }
+
+          if (driverTgUsername) {
+            captainTgUrl = `https://t.me/${driverTgUsername}`;
+          } else if (driverChatId) {
+            captainTgUrl = `tg://user?id=${driverChatId}`;
+          }
 
           await supabase.from('transport_bookings').insert({
             booking_code: bookingCode,
@@ -8841,18 +9166,16 @@ Deno.serve(async (req: any) => {
           (driverNotified 
             ? `📲 <b>تم إشعار الكابتن بطلبك فوراً عبر تيليجرام</b> وسيقوم بتأكيد المقعد وتثبيته وسنرسل لك التأكيد هنا بالخاص.\n` 
             : `📲 تم توثيق طلبك رسمياً بنظام سوق بغداد.\n`) +
-          `\n💡 <i>يمكنك أيضاً مراسلة الكابتن مباشرة عبر الواتساب أو الاتصال أدناه للتأكيد السريع:</i>`;
+          `\n💡 <i>يمكنك أيضاً مراسلة الكابتن مباشرة عبر التيليجرام أو الواتساب للتأكيد السريع:</i>`;
 
         const confirmBtns: any[] = [];
-        const commRow: any[] = [];
+        if (captainTgUrl) {
+          confirmBtns.push([{ text: '💬 مراسلة تليكرام مع الكابتن ✈️', url: captainTgUrl }]);
+        }
         if (waPhone) {
-          const prefill = encodeURIComponent(`السلام عليكم كابتن، شفت خطك بسوق بغداد وحابة استفسر عن حجز مقعد - كود الحجز #${bookingCode}`);
-          commRow.push({ text: '💬 تواصل واتساب مع الكابتن 🟢', url: `https://wa.me/${waPhone}?text=${prefill}` });
+          const prefill = encodeURIComponent(`السلام عليكم كابتن، شفت خطك بسوق بغداد وحاب استفسر عن حجز مقعد - كود الحجز #${bookingCode}`);
+          confirmBtns.push([{ text: '🟢 تواصل واتساب مع الكابتن', url: `https://wa.me/${waPhone}?text=${prefill}` }]);
         }
-        if (cleanPhone) {
-          
-        }
-        if (commRow.length > 0) confirmBtns.push(commRow);
         confirmBtns.push([{ text: '✅ اتفقت ولكيت خط خلاص', callback_data: `matched_req_direct_${cleanPhone}` }]);
         confirmBtns.push([{ text: '🚌 تصفح باقي الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }]);
 
@@ -12741,6 +13064,7 @@ Deno.serve(async (req: any) => {
                 } else {
                   reportButtons.push([{ text: '🚀 ترويج VIP — صدارة المنصات', callback_data: `promo_menu_${insertedTrans.id}` }]);
                 }
+                reportButtons.push([{ text: '➕ أضف البوت لكروب دفعتك / كليتك 🛡️', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }]);
                 reportButtons.push([{ text: '📲 مشاركة مع الأصدقاء', url: shareUrl }]);
                 reportButtons.push([{ text: '📊 تقارير إعلاناتي', callback_data: 'my_publish_reports' }, { text: '🏠 الرئيسية', callback_data: 'main_menu' }]);
 
@@ -13373,6 +13697,7 @@ Deno.serve(async (req: any) => {
         // 1. Try to notify driver on Telegram if registered
         let driverNotified = false;
         let driverChatId: string | null = null;
+        let captainTgUrl: string | null = null;
 
         if (lineAd) {
           try {
@@ -13384,6 +13709,35 @@ Deno.serve(async (req: any) => {
             }
             const { data: drvUser } = await drvQuery.maybeSingle();
             driverChatId = drvUser?.telegram_chat_id || null;
+
+            // Check if captain has a Telegram username in profile
+            let driverTgUsername: string | null = null;
+            if (lineAd.seller_id) {
+              const { data: drvProf } = await supabase.from('profiles').select('username').eq('id', lineAd.seller_id).maybeSingle();
+              if (drvProf?.username) {
+                driverTgUsername = drvProf.username.replace('@', '').trim();
+              }
+            }
+
+            if (!driverTgUsername && driverChatId) {
+              try {
+                const chatInfoRes = await fetch(`${tgUrl}/getChat?chat_id=${driverChatId}`).then(r => r.json());
+                if (chatInfoRes?.ok && chatInfoRes.result?.username) {
+                  driverTgUsername = chatInfoRes.result.username;
+                }
+              } catch(e) {}
+            }
+
+            if (!driverTgUsername && lineAd.description) {
+              const descMatch = String(lineAd.description).match(/@([a-zA-Z0-9_]{4,})/);
+              if (descMatch) driverTgUsername = descMatch[1];
+            }
+
+            if (driverTgUsername) {
+              captainTgUrl = `https://t.me/${driverTgUsername}`;
+            } else if (driverChatId) {
+              captainTgUrl = `tg://user?id=${driverChatId}`;
+            }
 
             // 💾 Record the agreement in transport_bookings table with PASSENGER PRIVATE CHAT ID
             await supabase.from('transport_bookings').insert({
@@ -13437,18 +13791,16 @@ Deno.serve(async (req: any) => {
           (driverNotified 
             ? `📲 <b>تم إشعار الكابتن بطلبك فوراً عبر تيليجرام</b> وسيقوم بتأكيد الحجز.\n` 
             : `📲 تم توثيق طلبك رسمياً بالنظام لضمان حقك وأمانك.\n`) +
-          `\n💡 <i>يمكنك أيضاً مراسلته مباشرة عبر الواتساب أو الاتصال أدناه للتأكيد السريع:</i>`;
+          `\n💡 <i>يمكنك أيضاً مراسلته مباشرة عبر التيليجرام أو الواتساب للتأكيد السريع:</i>`;
 
         const confirmBtns: any[] = [];
-        const commRow: any[] = [];
+        if (captainTgUrl) {
+          confirmBtns.push([{ text: '💬 مراسلة تليكرام مع الكابتن ✈️', url: captainTgUrl }]);
+        }
         if (waPhone) {
-          const prefill = encodeURIComponent(`السلام عليكم كابتن، شفت خطك بسوق بغداد وحابة استفسر عن حجز مقعد - كود الحجز #${bookingCode}`);
-          commRow.push({ text: '💬 تواصل واتساب مع الكابتن 🟢', url: `https://wa.me/${waPhone}?text=${prefill}` });
+          const prefill = encodeURIComponent(`السلام عليكم كابتن، شفت خطك بسوق بغداد وحاب استفسر عن حجز مقعد - كود الحجز #${bookingCode}`);
+          confirmBtns.push([{ text: '🟢 تواصل واتساب مع الكابتن', url: `https://wa.me/${waPhone}?text=${prefill}` }]);
         }
-        if (cleanPhone) {
-          
-        }
-        if (commRow.length > 0) confirmBtns.push(commRow);
         confirmBtns.push([{ text: '✅ اتفقت ولكيت خط خلاص', callback_data: `matched_req_direct_${cleanPhone}` }]);
         confirmBtns.push([{ text: '🚌 تصفح باقي الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }]);
 
@@ -17044,10 +17396,10 @@ Deno.serve(async (req: any) => {
               `1️⃣ ضيف البوت (<b>@${BOT_USERNAME}</b>) مشرف (Admin) بالكروب أو القناة مع صلاحيات إرسال وحذف الرسائل.\n` +
               `2️⃣ <b>والباقي كله عليه تلقائياً! 🚀</b>\n\n` +
               `✨ <b>الخدمات التي ستتفعل فوراً في مجموعتك:</b>\n` +
-              `• 🚌 <b>مطابقة خطوط النقل التلقائية</b> لخدمة الطلاب والسائقين.\n` +
-              `• 🚗 <b>رادار السيارات واستعلام الأسعار الذكي</b>.\n` +
-              `• 🛡️ <b>حماية الكروب الفائقة</b> من الروابط والإعلانات المزعجة والسبام.\n` +
-              `• 🤖 <b>المساعد والذكاء الاصطناعي</b> للرد على استفسارات الأعضاء 24 ساعة.\n\n` +
+              `• 🚌 <b>مطابقة خطوط النقل تلقائياً:</b> أي طالب يكتب طلبه بالكروب أو سائق يعرض مقاعده يتم ربطهم فوراً.\n` +
+              `• 💺 <b>نظام حجز المقاعد الشاغرة:</b> للسائقين عبر أمر بسيط وسريع <code>/seats</code>.\n` +
+              `• 🛡️ <b>حماية الكروب 24/7:</b> حظر السبام والروابط والإعلانات المكررة تلقائياً بدون تعب المشرفين.\n` +
+              `• 🤖 <b>مساعد ذكي للطلاب:</b> إجابة استفسارات الدوام ومساعدتهم مجاناً.\n\n` +
               `<i>اضغط الزر أدناه لإضافة البوت مباشرة لمجموعتك:</i>`;
 
             const ownerMarkup = {
