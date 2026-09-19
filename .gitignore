@@ -55,6 +55,7 @@ replit.md
 # Scratch/temp files
 scratch/
 scratch_*.cjs
+test_files/
 
 # Java crash logs
 hs_err_pid*

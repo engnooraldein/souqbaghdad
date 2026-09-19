@@ -46,11 +46,15 @@ async function sendMessage(chatId: string | number, text: string, replyMarkup?: 
 }
 
 async function answerCallbackQuery(callbackQueryId: string, text: string = '', showAlert = false) {
-  fetch(`${tgUrl}/answerCallbackQuery`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ callback_query_id: callbackQueryId, text, show_alert: showAlert })
-  }).catch(() => {});
+  try {
+    return await fetch(`${tgUrl}/answerCallbackQuery`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ callback_query_id: callbackQueryId, text, show_alert: showAlert })
+    });
+  } catch (e) {
+    return null;
+  }
 }
 
 async function sendChatAction(chatId: string | number, action = 'typing') {
@@ -338,6 +342,52 @@ async function sendPhoto(chatId: string | number, photoUrl: string, caption: str
     console.error('sendPhoto exception, falling back to sendMessage:', e);
     return await sendMessage(chatId, caption, replyMarkup, true);
   }
+}
+
+// 🧠 Smart Gender Detector from Arabic Names (كشف ذكي لجنس المستخدم من الاسم: طالب / طالبة)
+function detectGenderFromName(name: string): 'female' | 'male' | 'unknown' {
+  if (!name) return 'unknown';
+  const clean = name.trim().toLowerCase();
+  
+  const femaleNames = [
+    'فاطمة', 'فاطمه', 'زهراء', 'زينب', 'مريم', 'سارة', 'ساره', 'نور', 'هدى', 'هديل', 
+    'شهد', 'ريم', 'رند', 'آية', 'اية', 'دانية', 'دانيه', 'ياسمين', 'بنين', 'حنين', 
+    'طيبة', 'طيبه', 'جنات', 'مروة', 'مروه', 'تبارك', 'رسل', 'إسراء', 'اسراء', 'رقية', 
+    'رقيه', 'شمس', 'ورود', 'ملاك', 'دلال', 'فرح', 'تمارا', 'نبأ', 'نبا', 'تقى', 
+    'سجى', 'ضحى', 'روان', 'رغد', 'غدير', 'خلود', 'سها', 'شروق', 'إيناس', 'ايناس', 
+    'عذراء', 'ولاء', 'نجلاء', 'حوراء', 'زهور', 'ريام', 'يقين', 'أمل', 'امل', 'زينب'
+  ];
+  
+  const words = clean.split(/[\s_\.\-]+/).filter(Boolean);
+  if (words.length === 0) return 'unknown';
+  const firstWord = words[0];
+
+  if (femaleNames.some(fn => clean.includes(fn) || firstWord === fn)) {
+    return 'female';
+  }
+
+  // Common feminine patterns in Arabic names
+  const exceptionsNotFemale = ['حمزة', 'حمزه', 'أسامة', 'اسامه', 'قتيبة', 'طلحة', 'حذيفة', 'عروة', 'معاوية', 'عبيدة'];
+  if ((firstWord.endsWith('ة') || firstWord.endsWith('ه')) && !exceptionsNotFemale.includes(firstWord)) {
+    return 'female';
+  }
+  if (clean.includes('بنت ') || clean.includes('أم ') || clean.includes('ام ')) {
+    return 'female';
+  }
+
+  const maleNames = [
+    'محمد', 'علي', 'احمد', 'أحمد', 'حسين', 'عباس', 'كرار', 'سجاد', 'مصطفى', 'حيدر', 
+    'يوسف', 'حسن', 'مهدي', 'عمر', 'عثمان', 'إبراهيم', 'ابراهيم', 'خالد', 'جعفر', 
+    'منتظر', 'همام', 'أمير', 'امير', 'سيف', 'عبد', 'رضا', 'باقر', 'صادق', 'حمزة', 
+    'اسامة', 'ضرغام', 'مهند', 'ليث', 'زيد', 'عمار', 'فهد', 'عادل', 'ياسر', 'طارق', 
+    'كابتن', 'حارث', 'بلال', 'وليد', 'ماجد', 'فراس', 'وسام', 'قصي', 'لؤي', 'بشير'
+  ];
+
+  if (maleNames.some(mn => clean.includes(mn) || firstWord === mn) || clean.includes('ابو ') || clean.includes('أبو ') || clean.includes('بن ')) {
+    return 'male';
+  }
+
+  return 'unknown';
 }
 
 async function deleteMessage(chatId: string | number, messageId: number | string) {
@@ -739,8 +789,9 @@ function buildTransportCard(
   let cardText = '';
   const inlineButtons: any[][] = [];
 
-  const prevCb = reqId ? `tpage_${reqId}_${idx - 1}` : `tpage_${idx - 1}`;
-  const nextCb = reqId ? `tpage_${reqId}_${idx + 1}` : `tpage_${idx + 1}`;
+  const targetIdKey = reqId || 'route';
+  const prevCb = `tpage_${targetIdKey}_${idx - 1}`;
+  const nextCb = `tpage_${targetIdKey}_${idx + 1}`;
 
   if (isGroup) {
     // 📱 ULTRA-COMPACT MINI CARD FOR PUBLIC GROUPS (صغيرة ومختصرة جداً لمنع الفوضى بكروب)
@@ -788,8 +839,11 @@ function buildTransportCard(
 
   } else {
     // 💬 RICH DETAILED CARD FOR PRIVATE CHAT (بخاص نفسها بتفاصيل كاملة)
+    const isAllMode = targetIdKey.startsWith('all');
     cardText = 
-      `🚌 <b>يا هلا بيك ${fromName}! 🌹 وجدنا لك (${total}) خطوط متوفرة لمسارك:</b>\n\n` +
+      (isAllMode 
+        ? `🚌 <b>يا هلا بيك ${fromName}! 🌹 تصفح كافة خطوط بغداد العامة (${total}):</b>\n\n`
+        : `🚌 <b>يا هلا بيك ${fromName}! 🌹 وجدنا لك (${total}) خطوط متوفرة لمسارك:</b>\n\n`) +
       `━━━━━━━━━━━━━━━━━━\n` +
       `🏷️ <b>الخط [${idx + 1} من ${total}]: ${l.title}</b> [🟢 نشط]\n` +
       `🎖️ <b>تقييم الكابتن:</b> <b>${trustBadge}</b>\n` +
@@ -818,22 +872,35 @@ function buildTransportCard(
     if (total > 1) {
       const navRow: any[] = [];
       if (idx > 0) {
-        navRow.push({ text: '⬅️ السابق', callback_data: `tpage_${idx - 1}` });
+        navRow.push({ text: '⬅️ السابق', callback_data: prevCb });
       }
       navRow.push({ text: `📄 [ ${idx + 1} / ${total} ]`, callback_data: 'noop_page' });
       if (idx < total - 1) {
-        navRow.push({ text: 'التالي ➡️', callback_data: `tpage_${idx + 1}` });
+        navRow.push({ text: 'التالي ➡️', callback_data: nextCb });
       }
       inlineButtons.push(navRow);
     }
 
-    // Row 4: My Routes & Resolution
+    // Row 4: Mode Switcher (عرض الكل vs حسب الطلب والمسار)
+    if (isAllMode) {
+      const returnTarget = targetIdKey.includes(':') ? targetIdKey.split(':')[1] : 'route';
+      inlineButtons.push([
+        { text: `🎯 عرض الخطوط حسب طلبي ومساري (${origin || 'منطقتي'})`, callback_data: `tpage_${returnTarget}_0` }
+      ]);
+    } else {
+      const allTarget = targetIdKey && targetIdKey !== 'route' ? `all:${targetIdKey}` : 'all';
+      inlineButtons.push([
+        { text: '🌐 تصفح كافة خطوط بغداد (عرض الكل)', callback_data: `tpage_${allTarget}_0` }
+      ]);
+    }
+
+    // Row 5: My Routes & Resolution (أزرار واضحة بدون انقطاع نصوص)
     inlineButtons.push([
-      { text: '📋 مساراتي وتنبيهاتي المسجلة', callback_data: 'manage_my_routes' },
+      { text: '📋 مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' },
       { text: '🛑 لكيت خط خلاص', callback_data: `matched_req_direct_${cleanPhone || 'ok'}` }
     ]);
 
-    // Row 5: Main Menu & Explore
+    // Row 6: Main Menu & Explore
     inlineButtons.push([
       { text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' },
       { text: '🚌 تصفح الكل بالموقع', url: 'https://www.souqbaghdad.store/transport' }
@@ -910,7 +977,60 @@ async function showRadarDestPicker(chatId: string | number, origin: string, supa
   return await sendMessage(chatId, radarDestText, { inline_keyboard: destRows });
 }
 
-async function finishRadarRegistration(chatId: string | number, origin: string, destination: string, fromUser: any, supabase: any, callbackMsgId?: number) {
+// ═══════════════════════════════════════════════════════════════════
+// 📞 STEP 3: Ask for phone number (optional, can skip)
+// ═══════════════════════════════════════════════════════════════════
+async function showSeekerPhoneStep(chatId: string | number, origin: string, destination: string, supabase: any, callbackMsgId?: number) {
+  const state = { step: 'seeker_phone', data: { origin, destination } };
+  await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+  const phoneText =
+    `📍 <b>منطقة الانطلاق:</b> <b>${origin}</b> ✅\n` +
+    `🏢 <b>الوجهة:</b> <b>${destination}</b> ✅\n\n` +
+    `📞 <b>الخطوة 3 من 4 — رقم هاتفك (اختياري)</b>\n` +
+    `<i>أرسل رقمك ليتواصل معك الكابتن مباشرةً عند توفر خط.\nأو اضغط «تخطي» للمتابعة بدون رقم:</i>`;
+
+  const skipData = `seeker_skip_phone_${encodeURIComponent(origin)}_${encodeURIComponent(destination)}`;
+
+  await sendMessage(chatId, phoneText, {
+    inline_keyboard: [
+      [{ text: '⏭️ تخطي — بدون رقم', callback_data: skipData }],
+      [{ text: '🔙 تغيير الوجهة', callback_data: 'start_route_radar' }]
+    ],
+    keyboard: [[{ text: '📱 مشاركة رقمي تلقائياً', request_contact: true }]],
+    one_time_keyboard: true,
+    resize_keyboard: true
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ✅ STEP 4: Confirmation Screen — Preview before publishing
+// ═══════════════════════════════════════════════════════════════════
+async function showSeekerConfirmation(chatId: string | number, origin: string, destination: string, phone: string, fromUser: any, supabase: any) {
+  const fromName = fromUser?.first_name || 'عزيزنا';
+  const state = { step: 'seeker_confirm', data: { origin, destination, phone } };
+  await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+  const confirmText =
+    `🎓 <b>مراجعة طلب النقل — ${fromName}</b>\n\n` +
+    `┌─────────────────────────┐\n` +
+    `│ 📍 <b>المنطقة:</b>  ${origin}\n` +
+    `│ 🏢 <b>الوجهة:</b>   ${destination}\n` +
+    `│ 📞 <b>الهاتف:</b>   ${phone || '—  (لم يُضف)'}\n` +
+    `│ 🔔 <b>الرادار:</b>  سيُفعَّل 24/7\n` +
+    `└─────────────────────────┘\n\n` +
+    `<i>✅ بعد التأكيد سنسجل طلبك فوراً وسيصلك إشعار خاص لحظة توفر كابتن بمسارك ⚡</i>`;
+
+  await sendMessage(chatId, confirmText, {
+    inline_keyboard: [
+      [{ text: '✅ تأكيد النشر والتسجيل 🚀', callback_data: 'seeker_confirm_yes' }],
+      [{ text: '✏️ تعديل المسار', callback_data: 'start_route_radar' }],
+      [{ text: '❌ إلغاء', callback_data: 'main_menu' }]
+    ]
+  });
+}
+
+async function finishRadarRegistration(chatId: string | number, origin: string, destination: string, fromUser: any, supabase: any, callbackMsgId?: number, phone = '') {
   const userTgId = fromUser?.id ? String(fromUser.id) : null;
   const userChatIdStr = String(chatId);
   const fromName = fromUser?.first_name || 'عزيزنا';
@@ -932,32 +1052,49 @@ async function finishRadarRegistration(chatId: string | number, origin: string, 
     if (match) {
       reqId = match.id;
     } else {
-      const { data: insertedReq } = await supabase.from('transport_requests').insert({
-        telegram_chat_id: userChatIdStr,
-        telegram_user_id: userTgId,
+      const safeChatId = (userChatIdStr && !userChatIdStr.startsWith('-')) 
+        ? userChatIdStr 
+        : (userTgId && !userTgId.startsWith('-') ? userTgId : null);
+
+      const reqPayload: any = {
+        telegram_chat_id: safeChatId,
+        telegram_user_id: (userTgId && !userTgId.startsWith('-')) ? userTgId : null,
         user_name: fromName,
         origin: origin,
         destination: destination,
-        raw_query: `رادار: ${origin} إلى ${destination}`,
+        raw_query: phone ? `رادار: ${origin} إلى ${destination} | هاتف: ${phone}` : `رادار: ${origin} إلى ${destination}`,
         status: 'pending'
-      }).select('id').maybeSingle();
+      };
+      if (phone) reqPayload.phone = phone;
+
+      const { data: insertedReq } = await supabase.from('transport_requests').insert(reqPayload).select('id').maybeSingle();
       reqId = insertedReq?.id || null;
     }
   } catch(e) {
     console.error('Error in finishRadarRegistration:', e);
   }
 
-  // Reset state
+  // Save seeker route in state so pagination stays locked to this route
   try {
-    await supabase.from('telegram_users').update({ bot_state: { is_subscribed: true } }).eq('telegram_chat_id', chatId);
+    await supabase.from('telegram_users').update({
+      bot_state: {
+        is_subscribed: true,
+        seeker_origin: origin,
+        seeker_destination: destination,
+        last_origin: origin,
+        last_dest: destination,
+        last_req_id: reqId
+      }
+    }).eq('telegram_chat_id', chatId);
   } catch(e) {}
 
   // 2. Check if active driver lines exist right now!
   const { data: activeDrivers } = await supabase
     .from('ads')
-    .select('*')
+    .select('id, short_id, title, location, description, price, phone, user_id, telegram_message_id, image_url, images')
     .eq('status', 'active')
-    .or('category.eq.transport,type.eq.transport');
+    .or('category.eq.transport,type.eq.transport')
+    .limit(100);
 
   const matchedLines = (activeDrivers || []).filter((ad: any) => {
     const adText = `${ad.title || ''} ${ad.location || ''} ${ad.description || ''}`.toLowerCase();
@@ -975,7 +1112,7 @@ async function finishRadarRegistration(chatId: string | number, origin: string, 
       `🔥 <b>ولحسن الحظ، وجدنا لك (${matchedLines.length}) خطوط متوفرة حالياً لمسارك! تصفحها أدناه:</b>`;
 
     const noticeBtns = [
-      [{ text: '📋 مساراتي وتنبيهاتي المسجلة', callback_data: 'manage_my_routes' }],
+      [{ text: '📋 مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' }],
       [{ text: '➕ تسجيل مسار إضافي 🔔', callback_data: 'start_route_radar' }]
     ];
 
@@ -988,7 +1125,7 @@ async function finishRadarRegistration(chatId: string | number, origin: string, 
     } else {
       await sendMessage(chatId, noticeText, { inline_keyboard: noticeBtns });
     }
-    const card = buildTransportCard(matchedLines, 0, fromName, origin, destination, false);
+    const card = buildTransportCard(matchedLines, 0, fromName, origin, destination, false, reqId || 'route');
     await sendMessage(chatId, card.text, card.markup);
   } else {
     const confirmMsg = 
@@ -1000,6 +1137,7 @@ async function finishRadarRegistration(chatId: string | number, origin: string, 
       `💡 <i>يمكنك في أي وقت إيقاف التنبيهات أو حذف المسار من زر «مساراتي المسجلة».</i>`;
 
     const confirmBtns = [
+      [{ text: '📢 نشر طلبي في قناة التلغرام أيضاً 🚀', callback_data: `publish_radar_channel_${reqId || 'user'}` }],
       [{ text: '🛑 إيقاف التنبيهات لهذا المسار', callback_data: `del_route_req_${reqId || 'user'}` }],
       [{ text: '📋 مساراتي المسجلة للإشعارات', callback_data: 'manage_my_routes' }],
       [{ text: '➕ تسجيل مسار إضافي 🔔', callback_data: 'start_route_radar' }],
@@ -1434,7 +1572,7 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
   // 1. Fetch strictly ACTIVE driver line offers (exclude completed, sold, matched, or student search ads)
   const { data: allActiveLines } = await supabase
     .from('ads')
-    .select('*')
+    .select('id, short_id, title, location, city, description, price, phone, user_id, telegram_message_id, type, status, category, image_url, images, created_at')
     .eq('category', 'transport')
     .eq('status', 'active')
     .order('created_at', { ascending: false })
@@ -1527,42 +1665,45 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
       const routeParam = `route_${encodeURIComponent(finalOrigin)}_${encodeURIComponent(finalDestination)}`;
       const routeLink = `https://t.me/${BOT_USERNAME}?start=${routeParam}`;
 
+      // 🎓 بطاقة الطالب في الكروب - شكل مختلف تماماً عن بطاقة الكابتن
       const groupNoticeText = 
-        `👋 <b>يا هلا ${userMention} 🌹</b>\n` +
-        `وجدنا خطوطاً مقترحة متوفرة لمسارك:\n` +
-        `📍 <b>[ ${finalOrigin} ⬅️ ${finalDestination} ]</b>\n\n` +
-        `👇 <i>اضغط الزر أدناه لفتح تفاصيل الخطوط وحجز مقعدك بالخاص 🔒</i>\n` +
-        `⏳ <i>[ يختفي هذا التنبيه تلقائياً خلال 60 ثانية لتنظيم الكروب ]</i>`;
+        `🎓 <b>${userMention} يبحث عن خط نقل</b>\n` +
+        `📍 <b>المسار المطلوب:</b> ${finalOrigin} ⬅️ ${finalDestination}\n\n` +
+        `✅ وجدنا (${matchedLines.length}) خط متوفر لهذا المسار!\n` +
+        `<i>👇 تفاصيل الخطوط والحجز بالخاص مع البوت مباشرة:</i>\n` +
+        `⏳ <i>[ يختفي تلقائياً خلال 60 ثانية ]</i>`;
 
       const groupNoticeMarkup = {
         inline_keyboard: [
-          [{ text: '⚡ فتح واستلام خطوط مساري بالخاص 🔒', url: routeLink }],
-          [{ text: '🚌 تصفح باقي الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }]
+          [{ text: '🚌 استلام تفاصيل الخطوط بالخاص ⚡', url: routeLink }],
+          [{ text: '🔔 تفعيل رادار إشعار المسار', url: `https://t.me/${BOT_USERNAME}?start=radar_${encodeURIComponent(finalOrigin)}_${encodeURIComponent(finalDestination)}` }]
         ]
       };
 
-      await sendOrReplaceGroupMessage(chatId, groupNoticeText, groupNoticeMarkup, supabase, userMessageId);
+      await sendOrReplaceGroupMessage(chatId, groupNoticeText, groupNoticeMarkup, supabase, userMessageId, 60000);
 
-      // If user already started the bot, also deliver the full rich card straight to their private DM!
+      // أرسل البطاقة الكاملة بالخاص فوراً إذا فتح المستخدم البوت من قبل
       if (fromUser?.id) {
         try {
-          const privateCard = buildTransportCard(matchedLines, 0, fromName, finalOrigin, finalDestination, false);
+          const privateCard = buildTransportCard(matchedLines, 0, fromName, finalOrigin, finalDestination, false, 'route');
           await sendMessage(fromUser.id, privateCard.text, privateCard.markup);
         } catch(e) {}
       }
     } else {
-      const card = buildTransportCard(matchedLines, 0, fromName, finalOrigin, finalDestination, false);
+      const card = buildTransportCard(matchedLines, 0, fromName, finalOrigin, finalDestination, false, 'route');
       await sendMessage(chatId, card.text, card.markup);
     }
     return;
   }
 
-  // 🔔 In GROUP: If no matching line found or missing origin/destination -> Stay completely silent in group!
+  // 🔔 In GROUP: If no matching line found -> Register seeker in DB (private DM only!) then stay silent!
   if (isGroup) {
     if (origin && destination) {
       try {
+        // ⚠️ مهم: نحفظ فقط telegram_user_id (الخاص) وليس chat_id الكروب
+        // حتى يصل إشعار الرادار للمستخدم بالخاص وليس للكروب
         await supabase.from('transport_requests').insert({
-          telegram_chat_id: String(chatId),
+          telegram_chat_id: fromUser?.id ? String(fromUser.id) : null, // private DM ID فقط
           telegram_user_id: fromUser?.id ? String(fromUser.id) : null,
           user_name: fromName,
           origin: finalOrigin,
@@ -1571,8 +1712,24 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
           status: 'pending'
         });
       } catch(e) {}
+
+      // رسالة مختصرة بالكروب للطالب
+      const userMention = fromUser?.username ? `@${fromUser.username}` : fromName;
+      const radarLink = `https://t.me/${BOT_USERNAME}?start=radar_${encodeURIComponent(finalOrigin)}_${encodeURIComponent(finalDestination)}`;
+      const noLineGroupMsg =
+        `🎓 <b>${userMention} — طلب خط نقل</b>\n` +
+        `📍 <b>${finalOrigin} ⬅️ ${finalDestination}</b>\n\n` +
+        `⚠️ لا يوجد خط متوفر حالياً لهذا المسار\n` +
+        `<i>سجّل رادارك واستلم إشعاراً فورياً بالخاص عند توفر خط! ⏰</i>`;
+      const noLineMarkup = {
+        inline_keyboard: [
+          [{ text: '🔔 تفعيل رادار المسار (خاص)', url: radarLink }],
+          [{ text: '🚌 تصفح الخطوط المتاحة', url: 'https://www.souqbaghdad.store/transport' }]
+        ]
+      };
+      await sendOrReplaceGroupMessage(chatId, noLineGroupMsg, noLineMarkup, supabase, userMessageId, 60000);
     }
-    return; // Stay completely silent in group!
+    return; // Stay silent otherwise!
   }
 
   // 🔔 In PRIVATE CHAT: If NO line matched this specific destination: Register request & politely inform student
@@ -1676,30 +1833,29 @@ async function notifyWaitingStudents(ad: any, supabase: any) {
         }
 
         const notifyMsg = 
-          `🔔 <b>بشرى سارة! توفر خط نقل يطابق مسارك المطلوب! 🚌✨</b>\n\n` +
-          `يا هلا بيك ${userTag} 🌹\n` +
-          `نزل للتو خط جديد يمر بمنطقتك:\n` +
-          `📍 <b>المسار:</b> ${ad.title}\n` +
-          `📍 <b>المناطق:</b> ${ad.location || 'بغداد'}\n` +
-          `💰 <b>الأجرة:</b> ${formatTgPrice(ad.price)}\n` +
-          (ad.phone ? `📞 <b>هاتف السائق:</b> <code>${ad.phone}</code>\n\n` : '\n') +
-          `💡 <i>اضغط على زر الحجز أدناه لإرسال طلبك فوراً إلى هاتف الكابتن:</i>`;
+          `📍 <b>إشعار رادار: توفر خط نقل يطابق مسارك</b>\n\n` +
+          `مرحباً بك ${userTag}\n` +
+          `توفر خط جديد يمر بالمسار المطلوب:\n` +
+          `• <b>المسار:</b> ${ad.title}\n` +
+          `• <b>المناطق:</b> ${ad.location || 'بغداد'}\n` +
+          `• <b>الأجرة:</b> ${formatTgPrice(ad.price)}\n` +
+          (ad.phone ? `• <b>هاتف التواصل:</b> <code>${ad.phone}</code>\n\n` : '\n') +
+          `يمكنك إرسال طلب حجز مقعد أو التواصل المباشر عبر الخيارات أدناه:`;
 
         const cleanPhone = (ad.phone || '').replace(/[^0-9+]/g, '');
         const waPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
         const contactRow: any[] = [];
-        if (waPhone) contactRow.push({ text: '💬 تواصل واتساب 🟢', url: `https://wa.me/${waPhone}` });
-        
+        if (waPhone) contactRow.push({ text: 'تواصل عبر واتساب', url: `https://wa.me/${waPhone}` });
 
         const drvRepPhone = cleanPhone || 'nophone';
         const drvRepTitle = encodeURIComponent((ad.title || 'سائق خط').substring(0, 20));
         const markup = {
           inline_keyboard: [
-            [{ text: '📩 إرسال طلب حجز مقعد للكابتن ⚡', callback_data: `req_seat_${ad.id}` }],
+            [{ text: 'إرسال طلب حجز مقعد للكابتن', callback_data: `req_seat_${ad.id}` }],
             contactRow,
-            [{ text: '🚌 تفاصيل الخط بالموقع', url: 'https://www.souqbaghdad.store/transport' }],
-            [{ text: '✅ اتفقت ولكيت خط خلاص (إيقاف)', callback_data: `stop_alert_${req.id}` }],
-            [{ text: '⚠️ إبلاغ عن مشكلة مع الكابتن', callback_data: `rep_drv_${drvRepTitle}_${drvRepPhone}` }]
+            [{ text: 'تفاصيل الخط بالموقع', url: 'https://www.souqbaghdad.store/transport' }],
+            [{ text: 'تم الاتفاق وتوقف التنبيه', callback_data: `stop_alert_${req.id}` }],
+            [{ text: 'إبلاغ عن مشكلة', callback_data: `rep_drv_${drvRepTitle}_${drvRepPhone}` }]
           ].filter(r => r.length > 0)
         };
 
@@ -2680,7 +2836,7 @@ async function syncAndHealAd(ad: any, supabaseClient: any): Promise<{ healed: bo
     
     let photoUrl: any = null;
     if (ad.category === 'transport') {
-      const dynUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(ad.title)}&regions=${encodeURIComponent(ad.location || '')}&destination=${encodeURIComponent(ad.city || '')}&short_id=${shortId}&phone=${encodeURIComponent(ad.phone || '')}`;
+      const dynUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(ad.title)}&regions=${encodeURIComponent(ad.location || '')}&destination=${encodeURIComponent(ad.city || '')}&short_id=${shortId}&phone=${encodeURIComponent(ad.phone || '')}&ad_type=${ad.type === 'request' ? 'request' : 'offer'}&fare=${encodeURIComponent(ad.price || '')}`;
       photoUrl = `https://wsrv.nl/?url=${encodeURIComponent(dynUrl)}&output=png`;
     } else {
       photoUrl = extractImages(ad);
@@ -2769,7 +2925,11 @@ async function prepareStoryBufferAndUrl(photoUrl: string): Promise<{ publicUrl: 
       const ext = isPng ? 'png' : 'jpg';
       const mime = isPng ? 'image/png' : 'image/jpeg';
       const fileName = `story-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
-      const { data, error } = await supabase.storage.from('ad-images').upload(fileName, arrayBuf, {
+      const sbClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        serviceKey
+      );
+      const { data, error } = await sbClient.storage.from('ad-images').upload(fileName, arrayBuf, {
         contentType: mime,
         upsert: true
       });
@@ -2777,7 +2937,7 @@ async function prepareStoryBufferAndUrl(photoUrl: string): Promise<{ publicUrl: 
       if (error) console.error(`[STORY PREPARE] Upload error:`, error);
 
       if (!error && data) {
-        const { data: pubData } = supabase.storage.from('ad-images').getPublicUrl(fileName);
+        const { data: pubData } = sbClient.storage.from('ad-images').getPublicUrl(fileName);
         console.log(`[STORY PREPARE] Cached permanent 9:16 story to:`, pubData.publicUrl);
         const blob = new Blob([arrayBuf], { type: mime });
         return { publicUrl: pubData.publicUrl, blob };
@@ -4439,19 +4599,20 @@ Deno.serve(async (req: any) => {
           if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
           else cleanPhone = cleanPhone.replace('+', '');
 
-          const contactRow = [];
+          const contactRow: any[] = [];
           if (cleanPhone) {
-            contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-            
+            const waText = encodeURIComponent('السلام عليكم، شفت إعلان سيارتك بسوق بغداد وحابة استفسر');
+            contactRow.push({ text: '💬 تواصل مع البائع (واتساب)', url: `https://wa.me/${cleanPhone}?text=${waText}` });
           }
 
-          const inlineKeyboard = [
+          const inlineKeyboard: any[] = [
             [{ text: detailsButtonText, url: link }]
           ];
           if (contactRow.length > 0) {
             inlineKeyboard.push(contactRow);
           }
-          inlineKeyboard.push([{ text: '🚗 اعرض سيارتك للبيع مجاناً', url: `https://t.me/${BOT_USERNAME}` }]);
+          // زر نشر سيارة عبر البوت مع deep-link مباشر لخطوة النشر
+          inlineKeyboard.push([{ text: '🚗 انشر سيارتك عبر البوت ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]);
 
           const replyMarkup = { inline_keyboard: inlineKeyboard };
 
@@ -4878,25 +5039,24 @@ Deno.serve(async (req: any) => {
 
           const replyMarkup = { inline_keyboard: inlineKeyboard };
                       
-          const cleanTitle = 'خط نقل جديد في بغداد';
+          const isRequestType = record.type === 'request';
+          const cleanTitle = isRequestType ? 'طلب خط نقل جديد' : 'خط نقل جديد في بغداد';
           const cleanSubtitle = (record.university || record.city || 'كلية الرافدين').replace(/<[^>]*>?/gm, '').trim();
-          const cleanSubdesc = `${catType} (${targetStr})`.replace(/<[^>]*>?/gm, '').trim();
+          const cleanSubdesc = isRequestType ? `طلب خط نقل طالب / راكب (${targetStr})` : `${catType} (${targetStr})`.replace(/<[^>]*>?/gm, '').trim();
           
           // Pure regions text without HTML tags
           const rawReg = record.regions || record.location || 'بغداد';
           const cleanRegions = rawReg.replace(/<[^>]*>?/gm, '').replace(/&lt;.*?&gt;/gm, '').trim();
           const cleanDestination = (record.city || record.university || 'كلية الرافدين').replace(/<[^>]*>?/gm, '').trim();
           
-          // Format fare accurately (match 100,000 د.ع)
+          // Format fare accurately (match 100,000 د.ع or حسب الاتفاق)
           let cleanFare = 'حسب الاتفاق';
-          if (record.price) {
+          if (!isRequestType && record.price) {
             const rawNum = String(record.price).replace(/[^0-9]/g, '');
             if (rawNum && Number(rawNum) > 0) {
               cleanFare = `${Number(rawNum).toLocaleString('en-US')} د.ع`;
-            } else if (typeof record.price === 'string' && record.price.trim()) {
-              cleanFare = record.price.trim();
             }
-          } else if (record.fare) {
+          } else if (!isRequestType && record.fare && !String(record.fare).includes('0')) {
             cleanFare = record.fare;
           }
 
@@ -4914,9 +5074,9 @@ Deno.serve(async (req: any) => {
           const shiftVal = desc?.shift || 'من 08:00 ص إلى 02:00 م';
           const targetAudienceVal = desc?.targetAudience || targetStr || 'طالبات فقط';
 
-          // Dynamic Programmatic Templates (1080x1350 Post & 1080x1920 Story)
-          const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}&phone=${encodeURIComponent(cleanDisplayPhone)}&audience=${encodeURIComponent(targetAudienceVal)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}`;
-          const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}&phone=${encodeURIComponent(cleanDisplayPhone)}&audience=${encodeURIComponent(targetAudienceVal)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}`;
+          // Dynamic Programmatic Templates (1080x1350 Post & 1080x1920 Story) with ad_type support
+          const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}&phone=${encodeURIComponent(cleanDisplayPhone)}&audience=${encodeURIComponent(targetAudienceVal)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}&ad_type=${isRequestType ? 'request' : 'offer'}`;
+          const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(adId)}&phone=${encodeURIComponent(cleanDisplayPhone)}&audience=${encodeURIComponent(targetAudienceVal)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}&ad_type=${isRequestType ? 'request' : 'offer'}`;
 
           const descStr = typeof record.description === 'string' ? record.description : JSON.stringify(record.description || {});
           const rafdainTerms = ['الرافدين', 'الرفدين', 'ruc'];
@@ -5247,12 +5407,13 @@ Deno.serve(async (req: any) => {
       }
     }
     
-    let chatId: number;
+    let chatId: number | undefined = undefined;
     let text = '';
     let contact = null;
     let photo = null;
     let voice = null;
-    let callbackQuery = null;
+    let callbackQuery: any = null;
+    let callbackQueryId: string | undefined = undefined;
 
     if (update.my_chat_member) {
       const myChat = update.my_chat_member.chat;
@@ -5333,10 +5494,12 @@ Deno.serve(async (req: any) => {
     }
 
     const fromUser = update.message?.from || update.callback_query?.from;
-    const callbackQueryId = callbackQuery?.id;
+    callbackQueryId = callbackQuery?.id;
+    const callbackMsgId = callbackQuery?.message?.message_id;
+    const messageId = update.message?.message_id || callbackMsgId;
     if (callbackQueryId && text !== 'check_subscription') {
       // Dismiss Telegram loading spinner immediately so buttons never hang
-      answerCallbackQuery(callbackQueryId);
+      await answerCallbackQuery(callbackQueryId);
     }
 
     const supabase = createClient(
@@ -5380,10 +5543,21 @@ Deno.serve(async (req: any) => {
       tgUsernameLower === 'nhuguyg' || 
       tgUsernameLower === 'nooraldein';
 
-    // Auto-link owner profile if recognized by username
-    if (!userId && isOwnerByUsername) {
+    const isOwnerQuick = 
+      String(chatId) === '777557036' || 
+      String(chatId) === '6474465462' || 
+      String(chatId) === '7083049103' || 
+      String(chatId) === '108892492' || 
+      phone?.includes('7700028170') || 
+      phone?.includes('7701109692') || 
+      userId === '8f660ea2-ec84-401c-a7c6-18a907ef6f76' ||
+      userId === '1bf7e012-4d5d-46f3-8c2a-2848defffc11' ||
+      isOwnerByUsername;
+
+    // Auto-link owner profile if recognized by username, chatId, or phone
+    if (!userId && isOwnerQuick) {
       userId = '1bf7e012-4d5d-46f3-8c2a-2848defffc11';
-      phone = '07701109692';
+      phone = phone || '07701109692';
       try {
         await supabase.from('telegram_users').upsert({
           telegram_chat_id: chatId,
@@ -5395,75 +5569,36 @@ Deno.serve(async (req: any) => {
       } catch(e) {}
     }
 
-    // Fetch profile role if user exists
-    let userRole = '';
-    if (userId) {
-      const { data: userProf } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle();
-      userRole = userProf?.role || '';
-    }
+    let userRole = isOwnerQuick ? 'owner' : '';
+    let isOwner = isOwnerQuick;
 
-    const isOwner = 
-      String(chatId) === '777557036' || 
-      String(chatId) === '6474465462' || 
-      String(chatId) === '7083049103' || 
-      String(chatId) === '108892492' || 
-      phone?.includes('7700028170') || 
-      phone?.includes('7701109692') || 
-      userId === '8f660ea2-ec84-401c-a7c6-18a907ef6f76' ||
-      userId === '1bf7e012-4d5d-46f3-8c2a-2848defffc11' ||
-      isOwnerByUsername ||
-      userRole === 'owner' || 
-      userRole === 'admin';
-
-
-
-    const callbackMsgId = callbackQuery?.message?.message_id;
-    const messageId = update.message?.message_id || callbackQuery?.message?.message_id;
-
-    // 🛡️ STRONG BAN SECURITY CHECK (فحص الحظر الأمني القوي المباشر)
+    // 🛡️ PARALLELIZED PROFILE & BAN SECURITY CHECK (تسريع فحص الحظر والرتبة بالتوازي)
     if (!isOwner) {
+      const cleanP = phone ? phone.replace(/[^0-9]/g, '') : '';
+      const localP = cleanP.startsWith('964') ? '0' + cleanP.substring(3) : cleanP;
+
+      const [profRes, banChatRes, banPhoneRes] = await Promise.all([
+        userId ? supabase.from('profiles').select('role, is_banned, ban_reason').eq('id', userId).maybeSingle() : Promise.resolve({ data: null }),
+        supabase.from('banned_identifiers').select('reason').eq('identifier_value', String(chatId)).maybeSingle(),
+        phone ? supabase.from('banned_identifiers').select('reason').or(`identifier_value.eq.${phone},identifier_value.eq.${cleanP},identifier_value.eq.${localP}`).maybeSingle() : Promise.resolve({ data: null })
+      ]);
+
+      userRole = profRes?.data?.role || '';
+      isOwner = userRole === 'owner' || userRole === 'admin';
+
       let isBanned = false;
       let banReason = 'مخالفة معايير الأمان وشروط الاستخدام';
 
-      // 1. Check by telegram_chat_id
-      const { data: bannedByChat } = await supabase
-        .from('banned_identifiers')
-        .select('*')
-        .eq('identifier_value', String(chatId))
-        .maybeSingle();
-
-      if (bannedByChat) {
-        isBanned = true;
-        banReason = bannedByChat.reason || banReason;
-      }
-
-      // 2. Check by phone
-      if (!isBanned && phone) {
-        const cleanP = phone.replace(/[^0-9]/g, '');
-        const localP = cleanP.startsWith('964') ? '0' + cleanP.substring(3) : cleanP;
-        const { data: bannedByPhone } = await supabase
-          .from('banned_identifiers')
-          .select('*')
-          .or(`identifier_value.eq.${phone},identifier_value.eq.${cleanP},identifier_value.eq.${localP}`)
-          .maybeSingle();
-
-        if (bannedByPhone) {
+      if (!isOwner) {
+        if (banChatRes?.data) {
           isBanned = true;
-          banReason = bannedByPhone.reason || banReason;
-        }
-      }
-
-      // 3. Check by userId / profile is_banned
-      if (!isBanned && userId) {
-        const { data: profBanned } = await supabase
-          .from('profiles')
-          .select('is_banned, ban_reason')
-          .eq('id', userId)
-          .maybeSingle();
-
-        if (profBanned?.is_banned) {
+          banReason = banChatRes.data.reason || banReason;
+        } else if (banPhoneRes?.data) {
           isBanned = true;
-          banReason = profBanned.ban_reason || banReason;
+          banReason = banPhoneRes.data.reason || banReason;
+        } else if (profRes?.data?.is_banned) {
+          isBanned = true;
+          banReason = profRes.data.ban_reason || banReason;
         }
       }
 
@@ -5611,7 +5746,7 @@ Deno.serve(async (req: any) => {
       }
 
       const chatTitle = update.message?.chat?.title || update.callback_query?.message?.chat?.title || 'الكروب';
-      const messageId = update.message?.message_id;
+      const grpMessageId = update.message?.message_id;
 
       // 1. Welcome New Members or Bot Added to Group
       if (update.message?.new_chat_members && update.message.new_chat_members.length > 0) {
@@ -6353,32 +6488,79 @@ Deno.serve(async (req: any) => {
     // Helper: Reset & Show Main Menu
     const showMainMenu = async (aiText?: string, editCurrent = false) => {
       state = {};
-      if (userId) {
-        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+      await supabase.from('telegram_users').update({ bot_state: null }).eq('telegram_chat_id', chatId);
+
+      // Determine current role (Driver vs Passenger/Student) with Smart First-Time Auto-Detection
+      const { data: currentTgUser } = await supabase.from('telegram_users').select('user_role').eq('telegram_chat_id', chatId).maybeSingle();
+      let currentRole = currentTgUser?.user_role || tgUser?.user_role;
+
+      // Smart Auto-Role Detection for first time / unassigned role:
+      // If user has an active transport offer line (driver/captain), treat as driver. Otherwise default to passenger.
+      if (!currentRole) {
+        if (userId) {
+          const { data: activeOffers } = await supabase
+            .from('ads')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('category', 'transport')
+            .eq('type', 'offer')
+            .eq('status', 'active')
+            .limit(1);
+
+          if (activeOffers && activeOffers.length > 0) {
+            currentRole = 'driver';
+          } else {
+            currentRole = 'passenger';
+          }
+        } else {
+          currentRole = 'passenger';
+        }
+        await supabase.from('telegram_users').update({ user_role: currentRole }).eq('telegram_chat_id', chatId);
       }
 
-      // Determine current role (Driver vs Passenger/Student)
-      const { data: currentTgUser } = await supabase.from('telegram_users').select('user_role').eq('telegram_chat_id', chatId).maybeSingle();
-      const currentRole = currentTgUser?.user_role || tgUser?.user_role || 'passenger';
       const isDriver = currentRole === 'driver';
       
       let userInfo = '';
+      let welcomeTitle = '';
+      let rawName = fromUser?.first_name || 'عزيزنا';
+      let userPoints = 0;
+
       if (userId) {
         const { data: profile } = await supabase.from('profiles').select('full_name, points').eq('id', userId).maybeSingle();
         if (profile) {
-          const roleBadge = isDriver ? '🚗 كابتن / سائق' : '🎓 طالب / راكب';
-          userInfo = `👤 <b>${profile.full_name || 'مستخدم'}</b> (${roleBadge})\n🪙 <b>رصيد النقاط:</b> ${profile.points || 0}\n\n`;
+          if (profile.full_name) rawName = profile.full_name;
+          userPoints = profile.points || 0;
         }
       }
 
-      let messageToSend = `🚗 <b>بوت سوق بغداد — المنصة الذكية الأولى</b> 🇮🇶\n\n${userInfo}ماذا تريد أن تفعل اليوم؟\n<i>ملاحظة: يمكنك التحدث معي كبشر وسأفهم طلبك مباشرة! 🤖💬</i>`;
+      const gender = detectGenderFromName(rawName);
+      let roleBadge = '';
+      if (isDriver) {
+        roleBadge = 'كابتن';
+        welcomeTitle = `مرحباً بك كابتن <b>${rawName}</b>`;
+      } else {
+        if (gender === 'female') {
+          roleBadge = 'طالبة';
+          welcomeTitle = `أهلاً بكِ عزيزتي الطالبة <b>${rawName}</b>`;
+        } else if (gender === 'male') {
+          roleBadge = 'طالب';
+          welcomeTitle = `أهلاً بك عزيزي الطالب <b>${rawName}</b>`;
+        } else {
+          roleBadge = 'طالب / راكب';
+          welcomeTitle = `أهلاً بك <b>${rawName}</b>`;
+        }
+      }
+
+      userInfo = `👤 <b>${rawName}</b> (${roleBadge}) | الرصيد: <b>${userPoints} نقطة</b>\n\n`;
+
+      let messageToSend = `🏛️ <b>سوق بغداد — المنصة الرقمية</b>\n\n${welcomeTitle ? welcomeTitle + '\n' : ''}${userInfo}كيف يمكننا مساعدتك اليوم؟\n<i>(يمكنك كتابة استفسارك أو إرسال بصمة صوتية مباشرة)</i>`;
       if (aiText) {
-        messageToSend = aiText + `\n\n${userInfo}👇 <b>القائمة الرئيسية:</b>`;
+        messageToSend = aiText + `\n\n${userInfo}<b>القائمة الرئيسية:</b>`;
       }
 
       const menuRows: any[] = [];
       if (isOwner) {
-        menuRows.push([{ text: '👑 لوحة تحكم المالك', callback_data: 'owner_hub_main' }]);
+        menuRows.push([{ text: 'لوحة تحكم الإدارة', callback_data: 'owner_hub_main' }]);
       }
 
       // Check if user is a verified channel partner
@@ -6389,33 +6571,35 @@ Deno.serve(async (req: any) => {
         .or(`partner_tg_user_id.eq.${tgUserIdStr},partner_tg_chat_id.eq.${String(chatId)},owner_telegram_id.eq.${chatId}`)
         .limit(1);
       if (userPartnerChs && userPartnerChs.length > 0) {
-        menuRows.push([{ text: '👑 لوحة تحكم الشريك وإحصائياتي 📊', callback_data: 'partner_dashboard_main' }]);
+        menuRows.push([{ text: 'لوحة تحكم الشريك والإحصائيات', callback_data: 'partner_dashboard_main' }]);
       }
       
       if (isDriver) {
-        // 🚗 Driver / Captain tailored menu
-        menuRows.push([{ text: '🚌 نشر خط نقل جديد (كابتن) ⚡', callback_data: 'publish_transport' }]);
-        menuRows.push([{ text: '📦 إدارة خطوطي النشطة والأرشيف', callback_data: 'manage_cat_trans' }]);
-        menuRows.push([{ text: '🚗 عرض سيارتي للبيع', callback_data: 'publish_car' }]);
-        menuRows.push([{ text: '📦 نشر إعلان آخر (منتجات)', callback_data: 'publish_product' }]);
-        menuRows.push([{ text: '📊 تقارير إعلاناتي النشطة والمؤرشفة', callback_data: 'my_publish_reports' }]);
+        // Driver / Captain tailored menu
+        menuRows.push([{ text: 'نشر خط نقل جديد', callback_data: 'publish_transport' }]);
+        menuRows.push([{ text: 'إدارة خطوطي النشطة والأرشيف', callback_data: 'manage_cat_trans' }]);
+        menuRows.push([{ text: 'عرض سيارة للبيع', callback_data: 'publish_car' }]);
+        menuRows.push([{ text: 'تقارير إعلاناتي النشطة', callback_data: 'my_publish_reports' }]);
         menuRows.push([
-          { text: '🔄 تبديل الصِفة (أنا طالب)', callback_data: 'change_my_role' },
-          { text: '💼 حسابي وخدمات ⚙️', callback_data: 'account_services' }
+          { text: 'تبديل الصفة (طالب)', callback_data: 'change_my_role' },
+          { text: 'حسابي والخدمات', callback_data: 'account_services' }
         ]);
-        menuRows.push([{ text: '❓ الأسئلة الشائعة والمساعد الذكي 💡', callback_data: 'faq_hub_main' }]);
+        menuRows.push([{ text: 'الأسئلة الشائعة والمساعدة', callback_data: 'faq_hub_main' }]);
       } else {
-        // 🎓 Passenger / Student tailored menu
-        menuRows.push([{ text: '🔔 إشعار آلي عند توفر خط بمنطقتي 📡', callback_data: 'start_route_radar' }]);
-        menuRows.push([{ text: '📋 مساراتي وتنبيهاتي المسجلة', callback_data: 'manage_my_routes' }]);
-        menuRows.push([{ text: '🚌 تصفح الخطوط المتوفرة بالموقع', url: 'https://www.souqbaghdad.store/transport' }]);
-        menuRows.push([{ text: '🚗 عرض سيارتي للبيع', callback_data: 'publish_car' }]);
-        menuRows.push([{ text: '🟢 إعلاناتي ومساراتي النشطة', callback_data: 'manage_my_ads' }]);
+        // Passenger / Student tailored menu
+        menuRows.push([{ text: 'إشعار آلي عند توفر خط بمنطقتي', callback_data: 'start_route_radar' }]);
+        menuRows.push([{ text: 'نشر طلب خط نقل', callback_data: 'publish_transport' }]);
+        menuRows.push([{ text: 'مساراتي وطلباتي النشطة', callback_data: 'manage_my_routes' }]);
         menuRows.push([
-          { text: '🔄 تبديل الصِفة (أنا كابتن)', callback_data: 'change_my_role' },
-          { text: '💼 حسابي وخدمات ⚙️', callback_data: 'account_services' }
+          { text: 'تصفح خطوط بغداد', callback_data: 'tpage_all_0' }
         ]);
-        menuRows.push([{ text: '❓ الأسئلة الشائعة والمساعد الذكي 💡', callback_data: 'faq_hub_main' }]);
+        menuRows.push([{ text: 'تصفح الموقع الإلكتروني', url: 'https://www.souqbaghdad.store/transport' }]);
+        menuRows.push([{ text: 'إدارة إعلاناتي ومساراتي', callback_data: 'manage_my_ads' }]);
+        menuRows.push([
+          { text: 'تبديل الصفة (كابتن)', callback_data: 'change_my_role' },
+          { text: 'حسابي والخدمات', callback_data: 'account_services' }
+        ]);
+        menuRows.push([{ text: 'الأسئلة الشائعة والمساعدة', callback_data: 'faq_hub_main' }]);
       }
 
       const menuMarkup = { inline_keyboard: menuRows };
@@ -8039,7 +8223,7 @@ Deno.serve(async (req: any) => {
     // ==========================================
     // 🎁 VIRAL REFERRAL SYSTEM (شارك واكسب نقاط)
     // ==========================================
-    if (trimmedText === 'invite_and_earn') {
+    if (trimmedText === 'invite_and_earn' || trimmedText === 'referral_program') {
       const myRefCode = userId || String(chatId);
       const inviteLink = `https://t.me/${BOT_USERNAME}?start=ref_${myRefCode}`;
       const shortShare = encodeURIComponent(`🚗 انضم لبوت سوق بغداد وتصفح السيارات وخطوط النقل مجاناً واحصل على 10 نقاط هدية 🎁`);
@@ -8145,22 +8329,22 @@ Deno.serve(async (req: any) => {
       return new Response('OK', { status: 200 });
     }
 
-    // 🚌 Deep link to publish transport line directly for captains
+    // 🚌 Deep link to publish transport line directly
     if (text === '/start pubtrans' || text === '/start publish_transport') {
-      const transWizardState = { step: 'trans_type', data: {} };
-      await supabase.from('telegram_users').update({ bot_state: transWizardState }).eq('telegram_chat_id', chatId);
-      await updateOrSend(
-        '🚌 <b>نشر إعلان خط نقل جديد — كابتن سوق بغداد</b>\n\n' +
-        'اختر نوع الخط لنشره فوراً بالقنوات والمنصات:',
-        {
-          inline_keyboard: [
-            [{ text: '🚗 سيارة صالون (4 مقاعد)', callback_data: 'trans_vtype_salon' }],
-            [{ text: '🚐 ستاراكس / ميني باص (7-11 راكب)', callback_data: 'trans_vtype_minibus' }],
-            [{ text: '🚌 كوستر / باص كبير', callback_data: 'trans_vtype_coaster' }],
-            [{ text: '🔙 إلغاء', callback_data: 'cancel_wizard' }]
-          ]
-        }
-      );
+      state = { step: 'trans_type', data: { phone: phone || null } };
+      await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+      const transPrompt = 
+        `<b>نشر إعلان خط نقل في سوق بغداد</b>\n\n` +
+        `اختر نوع الإعلان:\nهل أنت كابتن توفر خطاً، أم راكب تبحث عن خط؟`;
+
+      const wizardMarkup = {
+        inline_keyboard: [
+          [{ text: 'توفير خط نقل (سائق / كابتن)', callback_data: 'trans_type_offer' }],
+          [{ text: 'طلب خط نقل (راكب / طالب / موظف)', callback_data: 'trans_type_request' }],
+          [{ text: 'إلغاء العملية', callback_data: 'cancel_wizard' }]
+        ]
+      };
+      await sendMessage(chatId, transPrompt, wizardMarkup);
       return new Response('OK', { status: 200 });
     }
 
@@ -8446,6 +8630,10 @@ Deno.serve(async (req: any) => {
 
     // --- Start / Register Command (Captures Referral Code & Deep-links) ---
     if (text === '/start' || text.startsWith('/start ') || text === '/relink') {
+      if (text === '/start' || text === '/relink') {
+        state = {};
+        await supabase.from('telegram_users').update({ bot_state: null }).eq('telegram_chat_id', chatId);
+      }
       if (text === '/relink') {
         await supabase.from('telegram_users').delete().eq('telegram_chat_id', chatId);
       }
@@ -8597,6 +8785,42 @@ Deno.serve(async (req: any) => {
         }
       }
 
+      // 🔔 Deep-Link: Radar Activation (/start radar_ORIGIN_DEST)
+      if (text.startsWith('/start radar_')) {
+        const rawPayload = text.replace('/start radar_', '').trim();
+        const parts = rawPayload.split('_');
+        const radarOrig = decodeURIComponent(parts[0] || '').trim();
+        const radarDest = decodeURIComponent(parts[1] || '').trim();
+
+        // حفظ طلب الرادار بالخاص
+        try {
+          await supabase.from('transport_requests').upsert({
+            telegram_chat_id: String(chatId),
+            telegram_user_id: String(chatId),
+            user_name: fromName,
+            origin: radarOrig,
+            destination: radarDest,
+            raw_query: `radar: ${radarOrig} → ${radarDest}`,
+            status: 'pending'
+          }, { onConflict: 'telegram_chat_id,origin,destination' });
+        } catch(e) {}
+
+        const radarConfirmMsg =
+          `🔔 <b>تم تفعيل رادار المسار! ✅</b>\n\n` +
+          `📍 <b>منطقة الانطلاق:</b> ${radarOrig || '---'}\n` +
+          `🎓 <b>الوجهة:</b> ${radarDest || '---'}\n\n` +
+          `<i>⚡ سيصلك إشعار مباشر بالخاص هنا فور نشر أي كابتن خط يمر بمسارك!</i>`;
+
+        await sendMessage(chatId, radarConfirmMsg, {
+          inline_keyboard: [
+            [{ text: '🚌 تصفح الخطوط المتاحة الآن', url: 'https://www.souqbaghdad.store/transport' }],
+            [{ text: '🔔 إدارة تنبيهاتي', callback_data: 'manage_my_routes' }],
+            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+          ]
+        });
+        return new Response('OK', { status: 200 });
+      }
+
       // 📡 Deep-Link: Partner Channel Setup (/start partner_CODE)
       if (text.startsWith('/start partner_') || text.startsWith('/start partner')) {
         const code = text.replace('/start partner_', '').replace('/start partner', '').trim();
@@ -8680,32 +8904,63 @@ Deno.serve(async (req: any) => {
         }
       }
 
-      // 🚗 Deep-Link: Publish Transport (/start pubtrans or /start publish_transport)
-      if (text === '/start pubtrans' || text === '/start publish_transport') {
-        const driverState = {
-          step: 'trans_cat',
-          data: {
-            type: 'offer',
-            phone: phone || null
-          }
-        };
-        await supabase.from('telegram_users').update({ bot_state: driverState }).eq('telegram_chat_id', chatId);
+      // 🚗 Deep-Link / Text Command: Publish Transport
+      const cleanLowerText = (text || '').trim().toLowerCase();
+      const isPublishTransportCmd = 
+        cleanLowerText === '/start pubtrans' || 
+        cleanLowerText === '/start publish_transport' || 
+        cleanLowerText === 'نشر خط' || 
+        cleanLowerText === 'انشر خط' || 
+        cleanLowerText === 'اريد انشر خط' || 
+        cleanLowerText === 'أريد انشر خط' || 
+        cleanLowerText === 'نشر خط نقل' || 
+        cleanLowerText === 'تسجيل خط' || 
+        cleanLowerText === 'عندي خط';
 
-        const driverPrivateMsg = 
-          `👋 <b>يا هلا بالسائق العزيز كابتن ${fromName} 🚌✨</b>\n\n` +
-          `لتثبيت خطك رسمياً ومطابقته بدقة مع طلبات الركاب ونشره في القنوات والموقع مجاناً:\n` +
-          `🚀 <b>ابدأ نشر إعلان خطك الآن (9 خطوات سريعة):</b>\n\n` +
-          `👇 <b>الخطوة 2 من 9 — فئة الخط</b>\nالخط مخصص لمن؟ اختر الفئة للمتابعة:`;
+      if (isPublishTransportCmd) {
+        state = { step: 'trans_type', data: { phone: phone || null } };
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const transPrompt = 
+          `🚌 <b>يا هلا بيك عيوني ${fromName}! 🌹</b>\n\n` +
+          `🚀 <b>نشر إعلان خط نقل في سوق بغداد مجاناً!</b>\n` +
+          `سيصل إعلانك لآلاف الطلاب والركاب في القنوات والموقع ⚡\n\n` +
+          `👇 <b>الخطوة 1 من 9 — نوع إعلان الخط:</b>\nهل أنت كابتن توفر خطاً، أم راكب تبحث عن خط؟`;
 
         const wizardMarkup = {
           inline_keyboard: [
-            [{ text: '🎓 خط طلاب جامعات / كليات', callback_data: 'trans_cat_student' }],
-            [{ text: '💼 خط موظفين وشركات', callback_data: 'trans_cat_employee' }],
-            [{ text: '🚨 نقل خاص وطارئ / مناسبات', callback_data: 'trans_cat_emergency' }],
-            [{ text: '❌ إلغاء النشر', callback_data: 'cancel_wizard' }]
+            [{ text: '🚗 أوفر خط نقل (سائق / صاحب خط)', callback_data: 'trans_type_offer' }],
+            [{ text: '🙋‍♂️ أبحث عن خط نقل (راكب / طالب / موظف)', callback_data: 'trans_type_request' }],
+            [{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]
           ]
         };
-        await sendMessage(chatId, driverPrivateMsg, wizardMarkup);
+        await sendMessage(chatId, transPrompt, wizardMarkup);
+        return new Response('OK', { status: 200 });
+      }
+
+      // 🚗 Deep-Link: Publish Car (/start publish_car)
+      if (text === '/start publish_car' || (text && text.startsWith('/start ') && text.includes('publish_car'))) {
+        const carState = {
+          step: 'car_brand',
+          data: { type: 'car' }
+        };
+        await supabase.from('telegram_users').update({ bot_state: carState }).eq('telegram_chat_id', chatId);
+
+        const carPublishMsg =
+          `🚗 <b>يا هلا بيك عيوني ${fromName}! 🌹</b>\n\n` +
+          `🚀 <b>نشر إعلان سيارتك مجاناً في سوق بغداد!</b>\n` +
+          `سيصل إعلانك فوراً لقنوات التيليكرام وصفحات الفيسبوك وآلاف الزوار يومياً ✨\n\n` +
+          `👇 <b>الخطوة الأولى — ما هي ماركة سيارتك؟</b>`;
+
+        const carBrands = [
+          [{ text: '🏎️ تويوتا', callback_data: 'car_brand_toyota' }, { text: '🚗 كيا', callback_data: 'car_brand_kia' }],
+          [{ text: '🚙 هيونداي', callback_data: 'car_brand_hyundai' }, { text: '🚐 نيسان', callback_data: 'car_brand_nissan' }],
+          [{ text: '🏎️ دوج', callback_data: 'car_brand_dodge' }, { text: '🚗 شيفرولي', callback_data: 'car_brand_chevy' }],
+          [{ text: '🚙 ميتسوبيشي', callback_data: 'car_brand_mitsubishi' }, { text: '🚗 هوندا', callback_data: 'car_brand_honda' }],
+          [{ text: '✍️ ماركة أخرى (اكتبها)', callback_data: 'car_brand_other' }],
+          [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+        ];
+        await sendMessage(chatId, carPublishMsg, { inline_keyboard: carBrands });
         return new Response('OK', { status: 200 });
       }
 
@@ -8836,6 +9091,20 @@ Deno.serve(async (req: any) => {
         }
       }
 
+      if (state?.step === 'seeker_phone') {
+        const origin = state.data?.origin || 'بغداد';
+        const dest = state.data?.destination || 'الجامعة';
+        await supabase.from('telegram_users').upsert({
+          user_id: matchedUserId,
+          telegram_chat_id: chatId,
+          phone_number: localPhone || phoneNumber,
+          bot_state: { step: 'seeker_confirm', data: { origin, destination: dest, phone: localPhone || phoneNumber } }
+        }, { onConflict: 'telegram_chat_id' });
+        await sendMessage(chatId, `✅ <b>تم استلام رقمك بنجاح (${localPhone || phoneNumber})</b>`, { remove_keyboard: true });
+        await showSeekerConfirmation(chatId, origin, dest, localPhone || phoneNumber, fromUser, supabase);
+        return new Response('OK', { status: 200 });
+      }
+
       await supabase.from('telegram_users').upsert({
         user_id: matchedUserId,
         telegram_chat_id: chatId,
@@ -8884,7 +9153,6 @@ Deno.serve(async (req: any) => {
     // --- Handle Callback Queries (Button Actions) ---
     if (callbackQuery) {
       let action = callbackQuery.data || text;
-      const callbackMsgId = callbackQuery?.message?.message_id;
       if (callbackQuery.id) {
         try { await answerCallbackQuery(callbackQuery.id); } catch(e) {}
       }
@@ -9310,6 +9578,48 @@ Deno.serve(async (req: any) => {
         return await updateOrSend(secMsg, secMarkup);
       }
 
+      if (action === 'verify_account_prompt') {
+        const verPromptMsg = 
+          `🪪 <b>توثيق الحساب وشارة الكابتن المعتمد 🎖️</b>\n\n` +
+          `يا هلا بيك كابتن! لتوثيق حسابك ونيل الشارة الذهبية:\n\n` +
+          `1️⃣ يرجى إرسال صورة واضحة لـ (إجازة السوق أو البطاقة الموحدة) بالإضافة لبطاقة السكن.\n` +
+          `2️⃣ يمكنك إرسال الصور مباشرة هنا أو التواصل مع إدارة المنصة للمراجعة والتوثيق الفوري.\n\n` +
+          `🛡️ <i>بياناتك مشفرة ومحفوظة بسرية تامة وتُستخدم لأغراض التحقق والأمان فقط.</i>`;
+        const verPromptMarkup = {
+          inline_keyboard: [
+            [{ text: '💬 مراسلة الإدارة للتوثيق المباشر 👑', url: 'https://t.me/souqbaghdad_support' }],
+            [{ text: '🔙 عودة للأسئلة الشائعة', callback_data: 'faq_hub_main' }],
+            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+          ]
+        };
+        return await updateOrSend(verPromptMsg, verPromptMarkup);
+      }
+
+      if (action === 'forgot_pin_prompt') {
+        if (!phone) {
+          await updateOrSend('⚠️ <b>لم نتمكن من العثور على رقم هاتف موثق لحسابك.</b>\n\nيرجى مشاركة رقم هاتفك عبر البوت أولاً للتحقق من هويتك وتصفير الرمز السري.', {
+            inline_keyboard: [
+              [{ text: '📱 تفعيل رقم الهاتف الآن', callback_data: 'share_phone_prompt' }],
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ]
+          });
+          return new Response('OK', { status: 200 });
+        }
+        await updateOrSend(
+          `🔑 <b>استرجاع الرمز السري وكلمة المرور 🛡️</b>\n\n` +
+          `رقم الهاتف المرتبط: <code>${phone}</code>\n\n` +
+          `هل ترغب بإعادة تعيين كلمة المرور وتوليد رمز سري جديد فوراً؟`,
+          {
+            inline_keyboard: [
+              [{ text: '🔄 نعم، توليد رمز سري جديد الآن', callback_data: 'reset_password_now' }],
+              [{ text: '🔙 عودة للأمان', callback_data: 'faq_security' }],
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
       if (action === 'faq_ai_chat') {
         const chatPromptMsg = 
           `💬 <b>المساعد الذكي لسوق بغداد جاهز للرد عليك! 🤖✨</b>\n\n` +
@@ -9327,10 +9637,15 @@ Deno.serve(async (req: any) => {
         return await updateOrSend(chatPromptMsg, chatPromptMarkup);
       }
       
-      // 🔔 START ROUTE RADAR WIZARD (إشعار آلي عند توفر خط بمنطقتي)
-      if (action === 'start_route_radar') {
+      // 🔔 START ROUTE RADAR WIZARD (إشعار آلي عند توفر خط بمنطقتي / البحث عن خط)
+      if (action === 'start_route_radar' || action === 'publish_seeker_prompt' || action === 'search_transport_interactive') {
         await showRadarAreaPicker(chatId, supabase, callbackMsgId);
         return new Response('OK', { status: 200 });
+      }
+
+      // 🔔 MANAGE ALERTS (تحويل مباشر لإدارة المسارات والتنبيهات)
+      if (action === 'manage_alerts') {
+        action = 'manage_my_routes';
       }
 
       // 📋 MANAGE MY REGISTERED ROUTES (عرض تفاعلي بنظام السابق والتالي لرسالة واحدة)
@@ -9342,34 +9657,60 @@ Deno.serve(async (req: any) => {
 
         const userTgId = fromUser?.id ? String(fromUser.id) : '';
         const userChatIdStr = String(chatId);
-        let orFilters = [`telegram_chat_id.eq.${userChatIdStr}`];
-        if (userTgId && userTgId !== userChatIdStr) {
-          orFilters.push(`telegram_user_id.eq.${userTgId}`);
-          orFilters.push(`telegram_chat_id.eq.${userTgId}`);
+        const userPhone = phone || (tgUser as any)?.phone_number || '';
+
+        const orFilters: string[] = [];
+        if (userChatIdStr) orFilters.push(`telegram_chat_id.eq.${userChatIdStr}`);
+        if (userTgId) orFilters.push(`telegram_user_id.eq.${userTgId}`);
+        if (userPhone) {
+          const cleanP = userPhone.replace(/[^0-9]/g, '');
+          orFilters.push(`phone.eq.${cleanP}`);
+          if (cleanP.startsWith('964')) orFilters.push(`phone.eq.0${cleanP.substring(3)}`);
+          if (cleanP.startsWith('0')) orFilters.push(`phone.eq.964${cleanP.substring(1)}`);
         }
+
         const { data: myReqs } = await supabase
           .from('transport_requests')
           .select('*')
           .or(orFilters.join(','))
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(100);
 
         const activeReqs = (myReqs || []).filter((r: any) => r.status === 'pending');
         const closedReqs = (myReqs || []).filter((r: any) => r.status === 'matched' || r.status === 'notified' || r.status === 'cancelled');
 
+        const orAdFilters = [];
+        if (userId) orAdFilters.push(`seller_id.eq.${userId}`);
+        if (phone) orAdFilters.push(`phone.eq.${phone}`);
+        let myAdsReqs: any[] = [];
+        if (orAdFilters.length > 0) {
+          const { data: adsData } = await supabase
+            .from('ads')
+            .select('id, short_id, title, location, city, price, type, status')
+            .eq('category', 'transport')
+            .eq('status', 'active')
+            .or(orAdFilters.join(','))
+            .limit(10);
+          myAdsReqs = adsData || [];
+        }
+
         if (activeReqs.length === 0) {
-          const emptyRows: any[][] = [
-            [{ text: '➕ تسجيل مسار جديد لتلقي التنبيهات 🔔', callback_data: 'start_route_radar' }]
-          ];
+          const emptyRows: any[][] = [];
+          if (myAdsReqs.length > 0) {
+            emptyRows.push([{ text: `📢 طلباتي وإعلاناتي المنشورة بالقناة (${myAdsReqs.length}) ⚡`, callback_data: 'manage_cat_trans' }]);
+          }
+          emptyRows.push([{ text: '➕ تسجيل مسار جديد لتلقي التنبيهات 🔔', callback_data: 'start_route_radar' }]);
           if (closedReqs.length > 0) {
             emptyRows.push([{ text: `📂 المسارات السابقة والمؤرشفة (${closedReqs.length})`, callback_data: 'manage_routes_archive' }]);
           }
+          emptyRows.push([{ text: '🌐 تصفح كافة خطوط بغداد (عرض الكل) 🚌', callback_data: 'tpage_all_0' }]);
           emptyRows.push([{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]);
 
-          return await updateOrSend(
-            '📭 <b>ليس لديك مسارات نشطة مسجلة برادار الخطوط حالياً.</b>\n\n' +
-            '💡 يمكنك تسجيل مسارك المفضل (مثل: من الطالبية إلى كلية الرافدين) وسيقوم رادار سوق بغداد الذكي بتنبيهك فوراً برسالة خاصة أول ما يتوفر أي خط جديد يمر بمنطقتك! ✨',
-            { inline_keyboard: emptyRows }
-          );
+          const introMsg = myAdsReqs.length > 0
+            ? `📢 <b>لديك (${myAdsReqs.length}) إعلانات/طلبات نقل منشورة بالقناة والمنصة!</b>\nيمكنك إدارتها والاطلاع على تفاصيلها عبر الزر أدناه:`
+            : '📭 <b>ليس لديك مسارات نشطة مسجلة برادار الخطوط حالياً.</b>\n\n💡 يمكنك تسجيل مسارك المفضل (مثل: من جميلة إلى كلية الرافدين) وسيقوم رادار سوق بغداد الذكي بتنبيهك فوراً برسالة خاصة أول ما يتوفر أي خط جديد يمر بمنطقتك! ✨\n\nأو يمكنك الضغط أدناه لتصفح كافة الخطوط المعروضة حالياً.';
+
+          return await updateOrSend(introMsg, { inline_keyboard: emptyRows });
         }
 
         // Group & Deduplicate active routes by origin + destination
@@ -9399,9 +9740,10 @@ Deno.serve(async (req: any) => {
 
         const routeButtons: any[][] = [];
 
-        // Row 1: Search live driver lines
+        // Row 1: Search live driver lines (حسب الطلب والمسار + عرض الكل)
         routeButtons.push([
-          { text: `🔍 فحص الخطوط لمساري 🚌`, callback_data: `search_route_${curRoute.id}` }
+          { text: `🔍 فحص خطوط مساري 🚌`, callback_data: `search_route_${curRoute.id}` },
+          { text: `🌐 تصفح كافة الخطوط (عرض الكل)`, callback_data: `tpage_all:${curRoute.id}_0` }
         ]);
 
         // Row 2: Edit Origin / Destination
@@ -9429,6 +9771,9 @@ Deno.serve(async (req: any) => {
         }
 
         // Row 5: Add new route & Main Menu
+        if (myAdsReqs.length > 0) {
+          routeButtons.push([{ text: `📢 طلباتي وإعلاناتي المنشورة بالقناة (${myAdsReqs.length}) ⚡`, callback_data: 'manage_cat_trans' }]);
+        }
         routeButtons.push([
           { text: '➕ تسجيل مسار إضافي 🔔', callback_data: 'start_route_radar' }
         ]);
@@ -9937,9 +10282,11 @@ Deno.serve(async (req: any) => {
           
           const { data: activeDrivers } = await supabase
             .from('ads')
-            .select('*')
+            .select('id, short_id, title, location, city, description, price, phone, user_id, telegram_message_id, type, status, category, image_url, images, created_at')
             .eq('status', 'active')
-            .or('category.eq.transport,type.eq.transport');
+            .or('category.eq.transport,type.eq.transport')
+            .order('created_at', { ascending: false })
+            .limit(100);
 
           const matchedLines = (activeDrivers || []).filter((ad: any) => {
             const adText = `${ad.title || ''} ${ad.location || ''} ${ad.description || ''}`;
@@ -9957,7 +10304,10 @@ Deno.serve(async (req: any) => {
               `👇 تصفح تفاصيل الخطوط وتواصل مباشرة مع الكباتن:`;
 
             const headerBtns = [
-              [{ text: '📋 العودة لمساراتي المسجلة', callback_data: 'manage_my_routes' }]
+              [
+                { text: '📋 العودة لمساراتي', callback_data: 'manage_my_routes' },
+                { text: '🌐 تصفح كافة الخطوط (عرض الكل)', callback_data: `tpage_all:${reqId}_0` }
+              ]
             ];
 
             await updateOrSend(headerMsg, { inline_keyboard: headerBtns });
@@ -9965,9 +10315,11 @@ Deno.serve(async (req: any) => {
           } else {
             const noLinesMsg = 
               `📭 <b>لا توجد حالياً خطوط معروضة تمر بـ (${origin}) مباشرة.</b>\n\n` +
-              `📡 <b>رادارك الذكي نشط 24/7:</b> أول ما يسجل أي كابتن خطاً يمر بمنطقتك، سنرسل لك إشعاراً فورياً على الخاص مع رقم الكابتن وزر الحجز المباشر ⚡`;
+              `📡 <b>رادارك الذكي نشط 24/7:</b> أول ما يسجل أي كابتن خطاً يمر بمنطقتك، سنرسل لك إشعاراً فورياً على الخاص مع رقم الكابتن وزر الحجز المباشر ⚡\n\n` +
+              `💡 يمكنك الضغط أدناه لتصفح جميع خطوط النقل العامة في بغداد:`;
 
             const noLinesBtns = [
+              [{ text: '🌐 تصفح كافة خطوط بغداد (عرض الكل) 🚌', callback_data: `tpage_all:${reqId}_0` }],
               [{ text: '📋 مساراتي وتنبيهاتي المسجلة', callback_data: 'manage_my_routes' }],
               [{ text: '➕ تسجيل مسار إضافي 🔔', callback_data: 'start_route_radar' }],
               [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
@@ -10012,7 +10364,149 @@ Deno.serve(async (req: any) => {
           );
           return new Response('OK', { status: 200 });
         }
-        await finishRadarRegistration(chatId, origin, destVal, fromUser, supabase, callbackMsgId);
+        await showSeekerPhoneStep(chatId, origin, destVal, supabase, callbackMsgId);
+        return new Response('OK', { status: 200 });
+      }
+
+      // Step 3 (Skip phone button clicked):
+      if (action.startsWith('seeker_skip_phone_')) {
+        const raw = action.replace('seeker_skip_phone_', '');
+        const parts = raw.split('_');
+        const origin = decodeURIComponent(parts[0] || state.data?.origin || 'بغداد');
+        const dest = decodeURIComponent(parts[1] || state.data?.destination || 'الجامعة');
+        await showSeekerConfirmation(chatId, origin, dest, '', fromUser, supabase);
+        return new Response('OK', { status: 200 });
+      }
+
+      // Step 4 (Confirm registration button clicked):
+      if (action === 'seeker_confirm_yes') {
+        const origin = state.data?.origin || 'بغداد';
+        const dest = state.data?.destination || 'الجامعة';
+        const phone = state.data?.phone || '';
+        await finishRadarRegistration(chatId, origin, dest, fromUser, supabase, callbackMsgId, phone);
+        return new Response('OK', { status: 200 });
+      }
+
+      // 📢 Publish Route Radar Request directly to Telegram Channel
+      if (action.startsWith('publish_radar_channel_')) {
+        const reqId = action.replace('publish_radar_channel_', '');
+        let targetReq: any = null;
+        if (reqId && reqId !== 'user') {
+          const { data } = await supabase.from('transport_requests').select('*').eq('id', reqId).maybeSingle();
+          targetReq = data;
+        }
+        if (!targetReq) {
+          const { data } = await supabase.from('transport_requests')
+            .select('*')
+            .eq('telegram_chat_id', String(chatId))
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          targetReq = data;
+        }
+
+        if (!targetReq) {
+          await updateOrSend('⚠️ لم يتم العثور على مسار مسجل لنشره.', {
+            inline_keyboard: [[{ text: '➕ تسجيل مسار جديد', callback_data: 'start_route_radar' }]]
+          });
+          return new Response('OK', { status: 200 });
+        }
+
+        const reqOrigin = targetReq.origin || 'بغداد';
+        const reqDest = targetReq.destination || 'الجامعة';
+        const reqPhone = targetReq.phone || phone || '';
+
+        const shortId = Math.random().toString(36).substring(2, 7).toUpperCase();
+        const adTitle = `أبحث عن خط من ${reqOrigin} إلى ${reqDest}`;
+        
+        let insertedAdId = shortId;
+        try {
+          const { data: newAd } = await supabase.from('ads').insert({
+            seller_id: userId,
+            category: 'transport',
+            type: 'request',
+            title: adTitle,
+            location: reqOrigin,
+            city: reqDest,
+            price: 0,
+            phone: reqPhone,
+            short_id: shortId,
+            status: 'active',
+            description: JSON.stringify({
+              origin: reqOrigin,
+              destination: reqDest,
+              phone: reqPhone,
+              categoryType: 'student',
+              type: 'request'
+            })
+          }).select('id, short_id').maybeSingle();
+          if (newAd?.id) insertedAdId = newAd.id;
+        } catch(e) {
+          console.error('Error creating ad for radar channel post:', e);
+        }
+
+        const directLink = `https://www.souqbaghdad.store/transport/card/${shortId}`;
+        const dynamicCardUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(adTitle)}&regions=${encodeURIComponent(reqOrigin)}&destination=${encodeURIComponent(reqDest)}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(reqPhone || '07800000000')}&ad_type=request`;
+
+        let formattedPhone = reqPhone.startsWith('07') ? '964' + reqPhone.substring(1) : reqPhone.replace('+', '');
+        const chKeyboard: any[] = [];
+        if (reqPhone) {
+          chKeyboard.push([{ text: '💬 تواصل واتساب مع الطالب/الراكب 🟢', url: `https://wa.me/${formattedPhone}?text=${encodeURIComponent('السلام عليكم، شفت طلبك لخط النقل وأني كابتن أمر بمسارك')}` }]);
+        }
+        chKeyboard.push([{ text: '🚗 كابتن وتوفر هذا المسار؟ تواصل عبر البوت ⚡', url: `https://t.me/${BOT_USERNAME}?start=match_${insertedAdId}` }]);
+        chKeyboard.push([{ text: '🚌 كابتن؟ اعرض خطك مجاناً بالقناة', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]);
+
+        const chMsg = 
+          `🎓 <b>طلب خط نقل جديد — طالب / راكب يبحث عن خط 🚌</b>\n\n` +
+          `📍 <b>منطقة الانطلاق:</b> ${reqOrigin}\n` +
+          `🏢 <b>الوجهة:</b> ${reqDest}\n` +
+          (reqPhone ? `📞 <b>هاتف الطالب/الراكب:</b> <code>${reqPhone}</code>\n\n` : `\n`) +
+          `📣 <b>#طلب_خط_${shortId}</b> | @${BOT_USERNAME}`;
+
+        const targetChannel = LINES_CHANNEL_ID || LINES_CHANNEL;
+        let finalCardUrl = dynamicCardUrl;
+        try {
+          const cardFetch = await fetch(dynamicCardUrl);
+          if (cardFetch.ok) {
+            const cardBlob = await cardFetch.blob();
+            const cardBytes = new Uint8Array(await cardBlob.arrayBuffer());
+            const cardFileName = `transport-card-${shortId}-${Date.now()}.png`;
+            const { data: uploadResult } = await supabase.storage
+              .from('ad-images')
+              .upload(cardFileName, cardBytes, { contentType: 'image/png', upsert: true });
+            if (uploadResult) {
+              const { data: pubUrlData } = supabase.storage.from('ad-images').getPublicUrl(cardFileName);
+              if (pubUrlData?.publicUrl) finalCardUrl = pubUrlData.publicUrl;
+            }
+          }
+        } catch(e) {}
+
+        await sendPhoto(targetChannel, finalCardUrl, chMsg, { inline_keyboard: chKeyboard });
+
+        // If destination is Al-Rafdain, also post to @ruc_1
+        const isRuc = reqDest.toLowerCase().includes('رافدين') || reqOrigin.toLowerCase().includes('رافدين');
+        if (isRuc && ALRAFDAIN_TELEGRAM_CHANNEL) {
+          try {
+            await sendPhoto(ALRAFDAIN_TELEGRAM_CHANNEL, finalCardUrl, chMsg, { inline_keyboard: chKeyboard });
+          } catch(e) {}
+        }
+
+        const channelLink = `https://t.me/${LINES_CHANNEL.replace('@', '')}`;
+        await updateOrSend(
+          `🎉 <b>عاشت إيدك! تم نشر طلبك في قناة خطوط النقل بنجاح 🚀</b>\n\n` +
+          `📍 <b>المسار:</b> ${reqOrigin} ⬅️ ${reqDest}\n` +
+          (reqPhone ? `📞 <b>الهاتف:</b> <code>${reqPhone}</code>\n` : '') +
+          `🔖 <b>كود الطلب:</b> <code>#${shortId}</code>\n\n` +
+          `📢 <i>تم إرسال بطاقة طلبك باللون المميز إلى القناة مع رابط الواتساب وسيتواصل معك الكباتن مباشرة!</i>`,
+          {
+            inline_keyboard: [
+              [{ text: '📢 شاهد طلبك بالقناة الآن', url: channelLink }],
+              [{ text: '🌐 عرض بطاقتك بالموقع', url: directLink }],
+              [{ text: '📋 مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' }],
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ]
+          }
+        );
         return new Response('OK', { status: 200 });
       }
 
@@ -10245,51 +10739,6 @@ Deno.serve(async (req: any) => {
           inline_keyboard: [[{ text: '❌ إلغاء', callback_data: `admin_autopublish_cat_${category}` }]]
         });
         return new Response('OK', { status: 200 });
-      }
-
-      if (action.startsWith('td_p') || action.startsWith('trans_dest_pick_') || action.startsWith('trans_dest_')) {
-        let destVal = '';
-        if (action.startsWith('td_p')) {
-          const match = action.match(/^td_p(\d+)_r(\d+)_c(\d+)$/);
-          if (match) {
-            const pIdx = parseInt(match[1], 10);
-            const rIdx = parseInt(match[2], 10);
-            const cIdx = parseInt(match[3], 10);
-            destVal = TRANSPORT_DESTINATIONS_PAGES[pIdx]?.rows[rIdx]?.[cIdx] || '';
-          }
-        } else if (action.startsWith('trans_dest_pick_')) {
-          destVal = action.replace('trans_dest_pick_', '');
-        } else {
-          destVal = action.replace('trans_dest_', '');
-        }
-
-        if (destVal === 'custom') {
-          state.step = 'trans_dest_custom_input';
-          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-          return await updateOrSend(
-            `🏢 <b>اكتب الوجهة</b> (اسم الجامعة أو الكلية أو مكان العمل أو المستشفى):\n\n<i>أرسل رسالة نصية بالوجهة الآن:</i>`,
-            { inline_keyboard: [[{ text: '◀️ العودة للقائمة', callback_data: 'trans_back_to_dest' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]] }
-          );
-        }
-
-        state.data = state.data || {};
-        state.data.destination = destVal;
-        state.step = 'trans_shift';
-        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-
-        const shiftButtons = TRANSPORT_SHIFTS.map(row => row.map(s => ({ text: s, callback_data: `trans_shift_${s}` })));
-        shiftButtons.push([
-          { text: '◀️ السابق (الوجهة)', callback_data: 'trans_dest_page_0' },
-          { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
-        ]);
-
-        return await updateOrSend(
-          `⏰ <b>الخطوة 5 من 9 — أوقات الدوام (الشفت)</b>\n\n` +
-          `📍 مناطق الانطلاق: <b>${state.data?.regions || 'بغداد'}</b>\n` +
-          `🏢 الوجهة: <b>${destVal}</b>\n\n` +
-          `اختر وقت الدوام المناسب لخطك أو اكتبه بنفسك 👇`,
-          { inline_keyboard: shiftButtons }
-        );
       }
 
       // ==========================================
@@ -10644,7 +11093,7 @@ Deno.serve(async (req: any) => {
               `نفس تفاصيل السيارة منشورة حالياً في المنصة. لمنع التكرار، يرجى <b>تعديل إعلانك السابق</b> أو <b>حذفه</b> إذا كنت ترغب بنشره من جديد.`,
               {
                 inline_keyboard: [
-                  [{ text: '🚗 عرض وتعديل إعلاناتي', callback_data: 'my_ads' }],
+                  [{ text: '🚗 عرض وتعديل إعلاناتي', callback_data: 'manage_my_ads' }],
                   [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
                 ]
               }
@@ -10853,18 +11302,10 @@ Deno.serve(async (req: any) => {
       // 🚌 TRANSPORT WIZARD (Interactive Step-by-Step)
       // ==========================================
       if (action === 'publish_transport') {
-        const { data: profile } = await supabase.from('profiles').select('points, role').eq('id', userId).maybeSingle();
-        if (profile?.role !== 'admin' && profile?.role !== 'owner' && (profile?.points || 0) < 1) {
-          await updateOrSend('❌ عذراً، رصيد النقاط الخاص بك غير كافٍ لنشر إعلان. يرجى شحن المحفظة أولاً.', {
-            inline_keyboard: [[{ text: '💳 شراء نقاط', callback_data: 'buy_points' }], [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
-          });
-          return new Response('OK', { status: 200 });
-        }
-
         state = { step: 'trans_type', data: {} };
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        await updateOrSend(`🚌 <b>الخطوة 1 من 9 — نوع إعلان الخط</b>\n\nهل أنت سائق توفر خطاً، أم راكب تبحث عن خط؟ 👇`, {
+        await updateOrSend(`🚌 <b>الخطوة 1 من 9 — نوع إعلان الخط</b>\n\nهل أنت كابتن توفر خطاً، أم راكب تبحث عن خط؟ 👇`, {
           inline_keyboard: [
             [{ text: '🚗 أوفر خط نقل (سائق / صاحب خط)', callback_data: 'trans_type_offer' }],
             [{ text: '🙋‍♂️ أبحث عن خط نقل (راكب / طالب / موظف)', callback_data: 'trans_type_request' }],
@@ -10876,15 +11317,58 @@ Deno.serve(async (req: any) => {
 
       if (action.startsWith('trans_type_')) {
         const tType = action.replace('trans_type_', '');
+        if (tType === 'request') {
+          // Auto-set role to passenger (طالب / راكب)
+          await supabase.from('telegram_users').update({ user_role: 'passenger' }).eq('telegram_chat_id', chatId);
+          await updateOrSend(
+            `🎓 <b>طلب خط نقل (راكب / طالب / موظف) 🚌</b>\n\n` +
+            `يا هلا بيك! وفرنا لك خيارين للبحث عن أفضل خط:\n\n` +
+            `1️⃣ <b>📢 نشر إعلان طلب خط في القناة:</b>\n` +
+            `لتوليد بوست وبطاقة طلب مميزة ونشرها في قناة خطوط النقل وسوق بغداد ليتواصل معك السائقون فوراً.\n\n` +
+            `2️⃣ <b>🔔 تفعيل رادار الإشعارات الذكي (خاص):</b>\n` +
+            `لتسجيل مسارك وتلقي تنبيه آلي خاص بالبوت أول ما يتوفر أي خط مناسب لمسارك دون نشر طلبك بالقناة.`,
+            {
+              inline_keyboard: [
+                [{ text: '📢 نشر طلب خط بالقناة والقوائم', callback_data: 'trans_seeker_publish_channel' }],
+                [{ text: '🔔 تفعيل رادار الإشعارات الخاص فقط', callback_data: 'start_route_radar' }],
+                [{ text: '◀️ السابق', callback_data: 'publish_transport' }],
+                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+              ]
+            }
+          );
+          return new Response('OK', { status: 200 });
+        }
         state.data.type = tType;
         state.step = 'trans_cat';
-        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        // Auto-set role to driver (كابتن) when offering a line
+        if (tType === 'offer') {
+          await supabase.from('telegram_users').update({ user_role: 'driver', bot_state: state }).eq('telegram_chat_id', chatId);
+        } else {
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        }
 
         await updateOrSend(`🚌 <b>الخطوة 2 من 9 — فئة الخط</b>\n\nالخط مخصص لمن؟ 👇`, {
           inline_keyboard: [
             [{ text: '🎓 خط طلاب جامعات / كليات', callback_data: 'trans_cat_student' }],
             [{ text: '💼 خط موظفين وشركات', callback_data: 'trans_cat_employee' }],
             [{ text: '🚨 نقل خاص وطارئ / مناسبات', callback_data: 'trans_cat_emergency' }],
+            [{ text: '◀️ السابق', callback_data: 'publish_transport' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+          ]
+        });
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'trans_seeker_publish_channel') {
+        state.data = state.data || {};
+        state.data.type = 'request';
+        state.step = 'trans_cat';
+        await supabase.from('telegram_users').update({ user_role: 'passenger', bot_state: state }).eq('telegram_chat_id', chatId);
+
+        await updateOrSend(`🚌 <b>طلب خط — الخطوة 2 من 7 — فئة الخط</b>\n\nالطلب مخصص لمن؟ 👇`, {
+          inline_keyboard: [
+            [{ text: '🎓 طالب / طالبة جامعة أو كلية', callback_data: 'trans_cat_student' }],
+            [{ text: '💼 موظف / موظفة قطاع عام أو خاص', callback_data: 'trans_cat_employee' }],
+            [{ text: '🚨 نقل خاص ومناسبات', callback_data: 'trans_cat_emergency' }],
             [{ text: '◀️ السابق', callback_data: 'publish_transport' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
           ]
         });
@@ -11020,6 +11504,8 @@ Deno.serve(async (req: any) => {
 
       if (action.startsWith('trans_dest_page_')) {
         const pageIdx = parseInt(action.replace('trans_dest_page_', ''), 10) || 0;
+        state.step = 'trans_dest';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
         const curPage = TRANSPORT_DESTINATIONS_PAGES[pageIdx] || TRANSPORT_DESTINATIONS_PAGES[0];
         const destMarkup = buildTransportDestinationsMarkup(state, pageIdx);
         await updateOrSend(
@@ -11032,7 +11518,7 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
-      if (action.startsWith('td_p') || action.startsWith('trans_dest_pick_') || action.startsWith('trans_dest_')) {
+      if (!action.startsWith('trans_dest_page_') && action !== 'trans_back_to_dest' && (action.startsWith('td_p') || action.startsWith('trans_dest_pick_') || action.startsWith('trans_dest_'))) {
         let destVal = '';
         if (action.startsWith('td_p')) {
           const match = action.match(/^td_p(\d+)_r(\d+)_c(\d+)$/);
@@ -11064,7 +11550,7 @@ Deno.serve(async (req: any) => {
 
         const shiftButtons = TRANSPORT_SHIFTS.map(row => row.map(s => ({ text: s, callback_data: `trans_shift_${s}` })));
         shiftButtons.push([
-          { text: '◀️ السابق (الوجهة)', callback_data: 'trans_dest_page_0' },
+          { text: '◀️ السابق (الوجهة)', callback_data: 'trans_back_to_dest' },
           { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
         ]);
 
@@ -11084,7 +11570,7 @@ Deno.serve(async (req: any) => {
         await updateOrSend(
           `🏢 <b>الخطوة 4 من 9 — الوجهة (الجامعة أو العمل)</b>\n\n` +
           `📍 مناطق الانطلاق المعتمدة: <b>${state.data?.regions || 'بغداد'}</b>\n\n` +
-          `اختر الوجهة المطلوبة 👇`,
+          `اختر الوجهة المطلوبة من القوائم أدناه أو اكتبها بنفسك 👇`,
           destMarkup
         );
         return new Response('OK', { status: 200 });
@@ -11193,7 +11679,7 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
-      if (action === 'trans_confirm_publish' || action === 'trans_bypass_publish') {
+      if (action === 'trans_confirm_publish' || action === 'trans_bypass_publish' || action.startsWith('trans_replace_dup_')) {
         if (state.step === 'publishing' || !state.data || !state.data.destination) {
           return new Response('OK', { status: 200 });
         }
@@ -11206,11 +11692,16 @@ Deno.serve(async (req: any) => {
         const isOwnerOrAdmin = userProfile?.role === 'admin' || userProfile?.role === 'owner';
 
         // 1. 🛡️ فحص ومنع تكرار إعلانات الخطوط لنفس الوجهة والمسار
+        let isReplacedDuplicate = false;
         if (action.startsWith('trans_replace_dup_')) {
           const oldAdId = action.replace('trans_replace_dup_', '');
+          isReplacedDuplicate = true;
           try {
-            await supabase.from('ads').update({ status: 'matched' }).eq('id', oldAdId);
-          } catch(e) {}
+            await supabase.from('ads').delete().eq('id', oldAdId);
+            console.log(`[TRANS PUBLISH] Successfully deleted previous duplicate ad: ${oldAdId}`);
+          } catch(e) {
+            console.error('Error deleting replaced duplicate ad:', e);
+          }
         } else {
           const sellerPhone = (state.data.phone || phone || '').replace(/[^0-9]/g, '');
           const curDest = (state.data.destination || '').toLowerCase().trim();
@@ -11250,16 +11741,15 @@ Deno.serve(async (req: any) => {
               const dupDest = matchedDup.city || 'الجامعة';
 
               const dupWarningMsg = 
-                `⚠️ <b>تنبيه — لديك خط نشط مسبقاً لنفس الوجهة والمسار! 🛑</b>\n\n` +
-                `🔖 <b>كود خطك الحالي:</b> <code>#${dupCode}</code>\n` +
+                `⚠️ <b>تنبيه — لديك خط نشط مسبقاً لنفس المسار أو الوجهة! 🛑</b>\n\n` +
+                `🔖 <b>كود خطك السابق:</b> <code>#${dupCode}</code>\n` +
                 `📍 <b>المسار المسجل:</b> ${dupOrigin} ⬅️ ${dupDest}\n\n` +
-                `💡 <i>حفاظاً على تنظيم القناة وجودة الخدمة ومنع التكرار، <b>لم يتم خصم أي نقاط</b>. يمكنك اختيار أحد الإجراءات أدناه:</i>`;
+                `💡 لمنع تكرار الإعلانات في القناة ولضمان ظهور أحدث بياناتك، يمكنك الضغط على <b>[تأكيد نشر الحالي وحذف السابق]</b> أدناه، وسيقوم النظام فوراً بحذف الخط السابق ونشر إعلانك الجديد بالصدارة ✨`;
 
               const dupButtons = [
-                [{ text: '✏️ تعديل تفاصيل خطي الحالي (مجاناً)', callback_data: `manage_cat_trans` }],
-                [{ text: '🚀 تمييز وترويج خطي الحالي VIP', callback_data: `boost_ad_${matchedDup.id}` }],
-                [{ text: '🔒 إغلاق الخط السابق ونشر هذا الجديد بدلاً منه', callback_data: `trans_replace_dup_${matchedDup.id}` }],
-                [{ text: '🔙 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]
+                [{ text: '✅ تأكيد نشر الحالي وحذف السابق 🗑️', callback_data: `trans_replace_dup_${matchedDup.id}` }],
+                [{ text: '✏️ الإبقاء على السابق وتعديل بياناته', callback_data: `manage_cat_trans` }],
+                [{ text: '🔙 إلغاء والعودة للقائمة الرئيسية', callback_data: 'main_menu' }]
               ];
 
               await updateOrSend(dupWarningMsg, { inline_keyboard: dupButtons });
@@ -11270,7 +11760,7 @@ Deno.serve(async (req: any) => {
 
         // 2. فحص مهلة الـ 15 دقيقة (Cooldown)
         let costMultiplier = 1;
-        if (!isOwnerOrAdmin && action !== 'trans_bypass_publish') {
+        if (!isOwnerOrAdmin && action !== 'trans_bypass_publish' && !action.startsWith('trans_replace_dup_')) {
           const { data: recentAds } = await supabase
             .from('ads')
             .select('created_at')
@@ -11405,9 +11895,12 @@ Deno.serve(async (req: any) => {
 
         // Immediately send success message to user before heavy background tasks (same as cars section)
         const immediateReportLines = [
-          `🎉 <b>ألف مبروك! تم نشر إعلان خطك بنجاح 🚌✨</b>`,
+          isReplacedDuplicate
+            ? `♻️ <b>تم حذف الخط السابق ونشر إعلان خطك الجديد بنجاح! 🚀</b>`
+            : `🎉 <b>ألف مبروك! تم نشر إعلان خطك بنجاح 🚌✨</b>`,
           ``,
           `📋 <b>ملخص الإعلان:</b>`,
+          ...(isReplacedDuplicate ? [`🗑️ <i>تم حذف الإعلان السابق من القناة والمنصة تلقائياً لعدم التكرار.</i>`] : []),
           `🚌 <b>المسار:</b> ${stateData.regions || cleanRegions} ⬅️ ${stateData.destination || cleanDestination}`,
           `💰 <b>الأجرة:</b> ${cleanFare}`,
           `🔖 <b>كود الخط:</b> <code>#${shortId}</code>`,
@@ -11451,32 +11944,49 @@ Deno.serve(async (req: any) => {
             const shiftVal = stateData.shift || 'صباحي';
             const targetAudienceVal = stateData.targetAudience || targetStr || 'الجميع';
 
-            const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(cleanDisplayPhone)}&audience=${encodeURIComponent(targetAudienceVal)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}`;
-            const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(cleanDisplayPhone)}&audience=${encodeURIComponent(targetAudienceVal)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}`;
+            const dynamicPostUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(cleanDisplayPhone)}&audience=${encodeURIComponent(targetAudienceVal)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}&ad_type=${stateData.type === 'request' ? 'request' : 'offer'}`;
+            const dynamicStoryUrl = `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=story&title=${encodeURIComponent(cleanTitle)}&subtitle=${encodeURIComponent(cleanSubtitle)}&subdesc=${encodeURIComponent(cleanSubdesc)}&regions=${encodeURIComponent(cleanRegions)}&destination=${encodeURIComponent(cleanDestination)}&fare=${encodeURIComponent(cleanFare)}&link=${encodeURIComponent(link)}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(cleanDisplayPhone)}&audience=${encodeURIComponent(targetAudienceVal)}&days=${encodeURIComponent(daysStr)}&time=${encodeURIComponent(shiftVal)}&ad_type=${stateData.type === 'request' ? 'request' : 'offer'}`;
 
             const cleanPhone = cleanDisplayPhone;
             let formattedPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
 
-            const channelKeyboard = [
-              [{ text: '📩 مراسلة وحجز مقعد عبر تليكرام ⚡', url: `https://t.me/${BOT_USERNAME}?start=book_${insertedTrans.id}` }],
-              [{ text: '💬 واتساب الكابتن 🟢', url: `https://wa.me/${formattedPhone}?text=${encodeURIComponent('السلام عليكم كابتن، شفت خطك بسوق بغداد وحاب استفسر عن حجز مقعد')}` }],
-              [
-                { text: '🔔 نبهني أول ما يتوفر خط لمساري ⚡', url: `https://t.me/${BOT_USERNAME}?start=radline_${insertedTrans.id}` },
-                { text: '🚌 تفاصيل الخط بالموقع 🌐', url: link }
-              ],
-              [{ text: '🚌 كابتن؟ انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
-            ];
+            const isSeeker = stateData.type === 'request';
 
-            const channelMsg = `🚌 <b>إعلان خط نقل جديد — سوق بغداد</b>\n\n` +
-                               `📌 <b>النوع:</b> ${typeStr}\n` +
-                               `🏷️ <b>الفئة:</b> ${catType} (${targetStr})\n` +
-                               `📍 <b>مناطق الانطلاق:</b> ${cleanRegions}\n` +
-                               `🏢 <b>الوجهة:</b> ${cleanDestination}\n` +
-                               `⏰ <b>وقت الدوام:</b> ${stateData.shift || 'صباحي'}\n` +
-                               `🚗 <b>المركبة:</b> ${stateData.vehicleType || 'صالون'} | <b>المقاعد:</b> ${stateData.seats || '4'} مقاعد\n` +
-                               `💰 <b>الأجرة:</b> ${cleanFare}\n` +
-                               (cleanPhone ? `📞 <b>التواصل:</b> ${cleanPhone}\n\n` : `\n`) +
-                               `📣 <b>#رقم_الخط_${shortId}</b> | @${BOT_USERNAME}`;
+            const channelKeyboard = isSeeker
+              ? [
+                  [{ text: '💬 تواصل واتساب مع الطالب/الراكب 🟢', url: `https://wa.me/${formattedPhone}?text=${encodeURIComponent('السلام عليكم، شفت طلبك لخط النقل وأني كابتن أمر بمسارك')}` }],
+                  [{ text: '🚗 كابتن وتوفر هذا المسار؟ تواصل عبر البوت ⚡', url: `https://t.me/${BOT_USERNAME}?start=match_${insertedTrans.id}` }],
+                  [{ text: '🚌 كابتن؟ اعرض خطك مجاناً بالقناة', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
+                ]
+              : [
+                  [{ text: '📩 مراسلة وحجز مقعد عبر تليكرام ⚡', url: `https://t.me/${BOT_USERNAME}?start=book_${insertedTrans.id}` }],
+                  [{ text: '💬 واتساب الكابتن 🟢', url: `https://wa.me/${formattedPhone}?text=${encodeURIComponent('السلام عليكم كابتن، شفت خطك بسوق بغداد وحاب استفسر عن حجز مقعد')}` }],
+                  [
+                    { text: '🔔 نبهني أول ما يتوفر خط لمساري ⚡', url: `https://t.me/${BOT_USERNAME}?start=radline_${insertedTrans.id}` },
+                    { text: '🚌 تفاصيل الخط بالموقع 🌐', url: link }
+                  ],
+                  [{ text: '🚌 كابتن؟ انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
+                ];
+
+            const channelMsg = isSeeker
+              ? `🎓 <b>طلب خط نقل جديد — طالب / راكب يبحث عن خط 🚌</b>\n\n` +
+                `🏷️ <b>الفئة:</b> ${catType} (${targetStr})\n` +
+                `📍 <b>مناطق الانطلاق:</b> ${cleanRegions}\n` +
+                `🏢 <b>الوجهة:</b> ${cleanDestination}\n` +
+                `⏰ <b>وقت الدوام:</b> ${stateData.shift || 'صباحي'}\n` +
+                `💰 <b>الأجرة المقترحة:</b> ${cleanFare}\n` +
+                (cleanPhone ? `📞 <b>هاتف الطالب/الراكب:</b> <code>${cleanPhone}</code>\n\n` : `\n`) +
+                `📣 <b>#طلب_خط_${shortId}</b> | @${BOT_USERNAME}`
+              : `🚌 <b>إعلان خط نقل جديد — سوق بغداد</b>\n\n` +
+                `📌 <b>النوع:</b> ${typeStr}\n` +
+                `🏷️ <b>الفئة:</b> ${catType} (${targetStr})\n` +
+                `📍 <b>مناطق الانطلاق:</b> ${cleanRegions}\n` +
+                `🏢 <b>الوجهة:</b> ${cleanDestination}\n` +
+                `⏰ <b>وقت الدوام:</b> ${stateData.shift || 'صباحي'}\n` +
+                `🚗 <b>المركبة:</b> ${stateData.vehicleType || 'صالون'} | <b>المقاعد:</b> ${stateData.seats || '4'} مقاعد\n` +
+                `💰 <b>الأجرة:</b> ${cleanFare}\n` +
+                (cleanPhone ? `📞 <b>التواصل:</b> ${cleanPhone}\n\n` : `\n`) +
+                `📣 <b>#رقم_الخط_${shortId}</b> | @${BOT_USERNAME}`;
 
             // 0. Generate and save permanent PNG card & story in Storage for robust social posting
             let finalPostPhotoUrl = dynamicPostUrl;
@@ -11700,35 +12210,38 @@ Deno.serve(async (req: any) => {
                       const originMatch = isLocationMatch(stOrig, cleanRegions);
                       const destMatch = !stDest || isLocationMatch(stDest, cleanDestination) || getCoreLocationKeyword(stDest) === getCoreLocationKeyword(cleanDestination);
                       
-                      if (originMatch && destMatch && st.telegram_chat_id) {
-                        const targetChat = String(st.telegram_chat_id);
-                        if (notifiedTargets.has(targetChat)) continue;
-                        notifiedTargets.add(targetChat);
+                      // 🛡️ STRICT PRIVACY: Radar notifications must ONLY go to user's private DM, NEVER to a group chat!
+                      const privateTarget = (st.telegram_user_id && !String(st.telegram_user_id).startsWith('-'))
+                        ? String(st.telegram_user_id)
+                        : (st.telegram_chat_id && !String(st.telegram_chat_id).startsWith('-') ? String(st.telegram_chat_id) : null);
+
+                      if (originMatch && destMatch && privateTarget) {
+                        if (notifiedTargets.has(privateTarget)) continue;
+                        notifiedTargets.add(privateTarget);
 
                         const studentAlert = 
-                          `🔔 <b>بشرى سارة! توفر خط رسمي جديد يمر بمنطقتك (${st.origin}) 🚌✨</b>\n\n` +
-                          `👤 <b>الكابتن:</b> ${fromUser?.first_name || 'سائق معتمد'}\n` +
-                          `📍 <b>المسار:</b> ${cleanRegions} ⬅️ ${cleanDestination}\n` +
-                          `💰 <b>الأجرة:</b> ${cleanFare}\n` +
-                          (cleanPhone ? `📞 <b>هاتف الكابتن:</b> <code>${cleanPhone}</code>\n\n` : '\n') +
-                          `💡 <i>اضغط على زر الحجز أدناه لإرسال طلبك فوراً إلى هاتف الكابتن:</i>`;
+                          `📍 <b>إشعار رادار: توفر خط نقل يمر بمنطقتك (${st.origin})</b>\n\n` +
+                          `• <b>الكابتن:</b> ${fromUser?.first_name || 'سائق معتمد'}\n` +
+                          `• <b>المسار:</b> ${cleanRegions} إلى ${cleanDestination}\n` +
+                          `• <b>الأجرة:</b> ${cleanFare}\n` +
+                          (cleanPhone ? `• <b>هاتف التواصل:</b> <code>${cleanPhone}</code>\n\n` : '\n') +
+                          `يمكنك حجز المقعد أو التواصل المباشر عبر الخيارات أدناه:`;
 
                         const waPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
                         const alertRow: any[] = [];
-                        if (waPhone) alertRow.push({ text: '💬 تواصل واتساب 🟢', url: `https://wa.me/${waPhone}` });
-                        
+                        if (waPhone) alertRow.push({ text: 'تواصل عبر واتساب', url: `https://wa.me/${waPhone}` });
 
                         const studentMarkup = {
                           inline_keyboard: [
-                            [{ text: '📩 إرسال طلب حجز مقعد للكابتن ⚡', callback_data: `req_seat_${insertedTrans.id}` }],
+                            [{ text: 'إرسال طلب حجز مقعد للكابتن', callback_data: `req_seat_${insertedTrans.id}` }],
                             alertRow,
-                            [{ text: '✅ اتفقت ولكيت خط خلاص (إيقاف)', callback_data: `matched_req_${st.id}_${cleanPhone}` }],
-                            [{ text: '🚌 تفاصيل الخط بالموقع', url: link }]
+                            [{ text: 'تم الاتفاق وتوقف التنبيه', callback_data: `matched_req_${st.id}_${cleanPhone}` }],
+                            [{ text: 'تفاصيل الخط بالموقع', url: link }]
                           ].filter(r => r.length > 0)
                         };
 
                         try {
-                          await sendMessage(st.telegram_chat_id, studentAlert, studentMarkup);
+                          await sendMessage(privateTarget, studentAlert, studentMarkup);
                         } catch(e) {}
                       }
                     }
@@ -11803,12 +12316,19 @@ Deno.serve(async (req: any) => {
       // ==========================================
       // 📋 MANAGE MY ADS (WITH CARS, TRANSPORTS & ROUTES)
       // ==========================================
-      if (action === 'manage_my_ads') {
+      if (action === 'manage_my_ads' || action === 'my_ads') {
+        const { data: userRoleRow } = await supabase.from('telegram_users').select('user_role').eq('telegram_chat_id', chatId).maybeSingle();
+        const userIsCaptain = userRoleRow?.user_role === 'driver';
+
+        const transBtnLabel = userIsCaptain 
+          ? '🚌 خطوط النقل الخاصة بي (كابتن)' 
+          : '🎓 إعلانات طلب خط (طلباتي النشطة)';
+
         await updateOrSend('📦 <b>إدارة إعلاناتي ومساراتي</b>\n\nاختر القسم الذي ترغب بإدارته أو تعديل تفاصيله أو تعليمه كمباع/مكتمل:', {
           inline_keyboard: [
-            [{ text: '🚗 سياراتي المعروضة', callback_data: 'manage_cat_cars' }],
-            [{ text: '🚌 خطوط النقل الخاصة بي (كابتن)', callback_data: 'manage_cat_trans' }],
+            [{ text: transBtnLabel, callback_data: 'manage_cat_trans' }],
             [{ text: '🔔 مساراتي المسجلة (رادار التنبيهات)', callback_data: 'manage_my_routes' }],
+            [{ text: '🚗 سياراتي المعروضة', callback_data: 'manage_cat_cars' }],
             [{ text: '📢 إعلاناتي ومنتجاتي الأخرى', callback_data: 'manage_cat_ads' }],
             [{ text: '🏠 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]
           ]
@@ -11974,15 +12494,18 @@ Deno.serve(async (req: any) => {
 
       // Submenu: Manage Transports (Active First + Clean Archive)
       if (action === 'manage_cat_trans') {
-        const { data: myTransports } = await supabase.from('ads')
-          .select('*')
-          .eq('seller_id', userId)
-          .eq('category', 'transport')
-          .order('created_at', { ascending: false });
+        const orConditions = [];
+        if (userId) orConditions.push(`seller_id.eq.${userId}`);
+        if (phone) orConditions.push(`phone.eq.${phone}`);
+        let transQuery = supabase.from('ads').select('*').eq('category', 'transport');
+        if (orConditions.length > 0) {
+          transQuery = transQuery.or(orConditions.join(','));
+        }
+        const { data: myTransports } = await transQuery.order('created_at', { ascending: false }).limit(50);
 
         if (!myTransports || myTransports.length === 0) {
-          await sendMessage(chatId, '📭 ليس لديك خطوط نقل منشورة حالياً.', {
-            inline_keyboard: [[{ text: '🚌 انشر خط نقل الآن', callback_data: 'publish_transport' }], [{ text: '🔙 العودة', callback_data: 'manage_my_ads' }]]
+          await sendMessage(chatId, '📭 ليس لديك إعلانات أو خطوط نقل منشورة حالياً.', {
+            inline_keyboard: [[{ text: '🚌 نشر خط أو طلب نقل الآن', callback_data: 'publish_transport' }], [{ text: '🔙 العودة', callback_data: 'manage_my_ads' }]]
           });
           return new Response('OK', { status: 200 });
         }
@@ -11991,27 +12514,55 @@ Deno.serve(async (req: any) => {
         const closedTrans = myTransports.filter(t => t.status === 'matched' || t.status === 'inactive');
 
         if (activeTrans.length === 0) {
-          const bottomBtns = [[{ text: '🚌 انشر خط نقل الآن', callback_data: 'publish_transport' }]];
+          const bottomBtns = [[{ text: '🚌 نشر خط أو طلب نقل الآن', callback_data: 'publish_transport' }]];
           if (closedTrans.length > 0) {
             bottomBtns.push([{ text: `📂 عرض الخطوط المكتملة سابقاً (${closedTrans.length})`, callback_data: 'manage_trans_archive' }]);
           }
           bottomBtns.push([{ text: '🔙 العودة لإدارة الإعلانات', callback_data: 'manage_my_ads' }]);
 
-          await sendMessage(chatId, '📭 <b>لا توجد خطوط نقل نشطة حالياً.</b>\nجميع خطوطك السابقة تم إغلاقها واكتمال عددها.', {
+          await sendMessage(chatId, '📭 <b>لا توجد خطوط أو طلبات نقل نشطة حالياً.</b>\nجميع خطوطك وطلباتك السابقة تمت أرشفتها أو اكتمالها.', {
             inline_keyboard: bottomBtns
           });
           return new Response('OK', { status: 200 });
         }
 
-        await sendMessage(chatId, `🚌 <b>خطوط النقل النشطة الخاصة بك (${activeTrans.length}):</b>`);
+        await sendMessage(chatId, `📋 <b>إعلاناتك وخطوطك النشطة (${activeTrans.length}):</b>`);
 
         for (const t of activeTrans) {
-          const typeText = t.type === 'offer' ? 'أوفر خط' : 'أبحث عن خط';
-          const priceText = formatTgPrice(t.price);
+          const isRequest = t.type === 'request';
+          const typeText = isRequest ? 'طلب خط (طالب / راكب)' : 'أوفر خط (كابتن)';
+          const priceText = t.price && Number(t.price) > 0 ? formatTgPrice(t.price) : 'حسب الاتفاق';
           const isVip = t.is_vip || t.is_featured;
+          const shortCode = t.short_id || t.id;
+
+          if (isRequest) {
+            // 🎓 Student Request Card
+            const reqCardText = 
+              `🎓 <b>طلب خط نقل — طالب / راكب [🟢 نشط]</b>\n` +
+              `🏷️ <b>كود الإعلان:</b> <code>#${shortCode}</code>\n` +
+              `━━━━━━━━━━━━━━━━━━\n` +
+              `📍 <b>منطقة الانطلاق:</b> <b>${t.location || 'غير محدد'}</b>\n` +
+              `🏢 <b>الوجهة:</b> <b>${t.city || 'غير محدد'}</b>\n` +
+              `💰 <b>الأجرة المقترحة:</b> ${priceText}\n` +
+              `📞 <b>الهاتف:</b> <code>${t.phone || 'غير مسجل'}</code>\n` +
+              `━━━━━━━━━━━━━━━━━━\n` +
+              `📢 <i>منشور في قناة خطوط النقل ومنصة سوق بغداد.</i>`;
+
+            const reqButtons = [
+              [{ text: '🚗 فحص وعرض الكباتن المتوفرين لمساري ⚡', callback_data: `search_route_${t.id}` }],
+              [{ text: '🌐 مشاهدة طلبي بالموقع', url: `https://www.souqbaghdad.store/transport/card/${shortCode}` }],
+              [{ text: '🗑️ حذف أو إلغاء الطلب ❌', callback_data: `del_trans_${t.id}` }]
+            ];
+
+            await sendMessage(chatId, reqCardText, { inline_keyboard: reqButtons });
+            continue;
+          }
+
+          // 🚗 Captain Offer Line Card
           const curSeats = t.available_seats !== undefined && t.available_seats !== null ? t.available_seats : 4;
           const transCardText = 
             `🚌 <b>${t.title}</b> (${typeText}) [🟢 نشط${isVip ? ' ⭐ مميز VIP' : ''}]\n` +
+            `🏷️ <b>كود الخط:</b> <code>#${shortCode}</code>\n` +
             `💺 <b>المقاعد الشاغرة حالياً:</b> <b>${curSeats > 0 ? `${curSeats} مقاعد` : '🔒 ممتلئ'}</b>\n` +
             `💰 <b>الأجرة:</b> ${priceText}\n` +
             `📍 <b>المناطق:</b> ${t.location || 'غير محدد'}\n` +
@@ -12038,43 +12589,75 @@ Deno.serve(async (req: any) => {
 
         const navBtns = [];
         if (closedTrans.length > 0) {
-          navBtns.push([{ text: `📂 أرشيف الخطوط المكتملة (${closedTrans.length})`, callback_data: 'manage_trans_archive' }]);
+          navBtns.push([{ text: `📂 أرشيف الخطوط والطلبات المكتملة (${closedTrans.length})`, callback_data: 'manage_trans_archive' }]);
         }
         navBtns.push([{ text: '🔙 العودة لإدارة الإعلانات', callback_data: 'manage_my_ads' }]);
 
-        await sendMessage(chatId, 'اختر الإجراء المطلوب أسفل كل خط أعلاه 👇', { inline_keyboard: navBtns });
+        await sendMessage(chatId, 'اختر الإجراء المطلوب أسفل كل خط أو طلب أعلاه 👇', { inline_keyboard: navBtns });
         return new Response('OK', { status: 200 });
       }
 
-      // 📄 Seamless In-Place Transport Pagination (السابق / التالي للخطوط)
+      // 📄 Seamless In-Place Transport Pagination (السابق / التالي للخطوط مع الحفاظ على مسار الطالب أو عرض الكل)
       if (action.startsWith('tpage_')) {
-        const parts = action.split('_');
+        const afterPrefix = action.substring('tpage_'.length);
         let targetReqId = '';
         let targetPage = 0;
+        let isAllMode = false;
+        let returnRouteId = '';
 
-        if (parts.length >= 3) {
-          targetReqId = parts[1];
-          targetPage = parseInt(parts[2], 10) || 0;
+        const lastUnderscore = afterPrefix.lastIndexOf('_');
+        let keyPart = '';
+        if (lastUnderscore !== -1) {
+          keyPart = afterPrefix.substring(0, lastUnderscore);
+          targetPage = parseInt(afterPrefix.substring(lastUnderscore + 1), 10) || 0;
         } else {
-          targetPage = parseInt(parts[1], 10) || 0;
+          targetPage = parseInt(afterPrefix, 10) || 0;
+        }
+
+        if (keyPart.startsWith('all')) {
+          isAllMode = true;
+          if (keyPart.includes(':')) {
+            returnRouteId = keyPart.split(':')[1] || '';
+          }
+          targetReqId = keyPart;
+        } else if (keyPart) {
+          targetReqId = keyPart;
         }
         
         let sName = fromUser?.first_name || 'عزيزنا';
         let sOrig = state.seeker_origin || state.last_origin || '';
         let sDest = state.seeker_destination || state.last_dest || '';
 
-        // If request ID is present, fetch the exact registered route details
-        if (targetReqId && targetReqId !== 'all') {
-          const { data: tReq } = await supabase.from('transport_requests').select('*').eq('id', targetReqId).maybeSingle();
+        // If request/route ID is present, fetch the exact registered route details
+        const effectiveReqId = returnRouteId || (targetReqId.startsWith('all') ? '' : targetReqId);
+        if (effectiveReqId && effectiveReqId !== 'route') {
+          const { data: tReq } = await supabase.from('transport_requests').select('id, origin, destination').eq('id', effectiveReqId).maybeSingle();
           if (tReq) {
             sOrig = tReq.origin || sOrig;
             sDest = tReq.destination || sDest;
           }
         }
 
+        // 🛡️ Fallback: If not in 'all' mode and origin/dest are missing, recover user's registered route from transport_requests
+        if (!isAllMode && !sOrig && !sDest && chatId) {
+          const { data: lastReq } = await supabase
+            .from('transport_requests')
+            .select('id, origin, destination')
+            .or(`telegram_chat_id.eq.${chatId}${fromUser?.id ? `,telegram_user_id.eq.${fromUser.id}` : ''}`)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (lastReq) {
+            sOrig = lastReq.origin || '';
+            sDest = lastReq.destination || '';
+            if (!targetReqId || targetReqId === 'route') targetReqId = lastReq.id;
+          }
+        }
+
         const { data: allActiveLines } = await supabase
           .from('ads')
-          .select('*')
+          .select('id, short_id, title, location, city, description, price, phone, user_id, telegram_message_id, type, status, category, image_url, images, created_at')
           .eq('status', 'active')
           .or('category.eq.transport,type.eq.transport')
           .order('created_at', { ascending: false })
@@ -12087,8 +12670,9 @@ Deno.serve(async (req: any) => {
           return !isStudentRequest && !isCompleted;
         });
 
+        // If in 'all' mode, display all active driver lines; otherwise, lock strictly to student's route
         let linesList = activeDriverLines;
-        if (sOrig || sDest) {
+        if (!isAllMode && (sOrig || sDest)) {
           linesList = activeDriverLines.filter((ad: any) => {
             const fullAdText = `${ad.title || ''} ${ad.location || ''} ${ad.city || ''} ${ad.description || ''}`;
             const origMatch = !sOrig || isLocationMatch(sOrig, fullAdText);
@@ -12097,12 +12681,26 @@ Deno.serve(async (req: any) => {
           });
         }
 
-        const targetMsgId = messageId || callbackMsgId || callbackQuery?.message?.message_id;
+        const targetMsgId = callbackMsgId || callbackQuery?.message?.message_id || messageId;
 
         if (linesList && linesList.length > 0 && targetMsgId) {
           const isGroupChat = Number(chatId) < 0;
-          const card = buildTransportCard(linesList, targetPage, sName, sOrig, sDest, isGroupChat, targetReqId);
+          const card = buildTransportCard(linesList, targetPage, sName, sOrig, sDest, isGroupChat, targetReqId || 'route');
           await editMessageText(chatId, targetMsgId, card.text, card.markup);
+          if (callbackQueryId) {
+            await answerCallbackQuery(callbackQueryId);
+          }
+          return new Response('OK', { status: 200 });
+        } else if (targetMsgId) {
+          const emptyCardText = 
+            `📭 <b>لا توجد حالياً خطوط معروضة تطابق مسارك (${sOrig || 'منطقتك'} ⬅️ ${sDest || 'الوجهة'}) مباشرة.</b>\n\n` +
+            `💡 يمكنك الضغط على زر <b>[🌐 تصفح كافة خطوط بغداد (عرض الكل)]</b> أدناه لرؤية جميع خطوط النقل المتوفرة حالياً، أو سيتكفل رادارك بتنبيهك فور توفر خط لمسارك ⚡`;
+          const emptyBtns = [
+            [{ text: '🌐 تصفح كافة خطوط بغداد (عرض الكل) 🚌', callback_data: `tpage_all${effectiveReqId ? ':' + effectiveReqId : ''}_0` }],
+            [{ text: '📋 مساراتي وتنبيهاتي المسجلة', callback_data: 'manage_my_routes' }],
+            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+          ];
+          await editMessageText(chatId, targetMsgId, emptyCardText, { inline_keyboard: emptyBtns });
           if (callbackQueryId) {
             await answerCallbackQuery(callbackQueryId);
           }
@@ -12882,7 +13480,7 @@ Deno.serve(async (req: any) => {
         const primaryImg = allImages.length > 0 ? allImages[0] : '';
         const postImg: string | string[] = allImages.length > 0 
           ? allImages 
-          : `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&category=${encodeURIComponent(targetAd.category || 'transport')}&title=${encodeURIComponent(targetAd.title)}&regions=${encodeURIComponent(targetAd.location || '')}&destination=${encodeURIComponent(targetAd.city || '')}&fare=${encodeURIComponent(targetAd.price || '')}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(targetAd.phone || '')}`;
+          : `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&category=${encodeURIComponent(targetAd.category || 'transport')}&title=${encodeURIComponent(targetAd.title)}&regions=${encodeURIComponent(targetAd.location || '')}&destination=${encodeURIComponent(targetAd.city || '')}&fare=${encodeURIComponent(targetAd.price || '')}&short_id=${encodeURIComponent(shortId)}&phone=${encodeURIComponent(targetAd.phone || '')}&ad_type=${targetAd.type === 'request' ? 'request' : 'offer'}`;
 
         const storyImg = buildStoryImageUrl(targetAd, targetAd.category || (isTransport ? 'transport' : 'car'), targetAd.images || primaryImg);
 
@@ -13234,7 +13832,7 @@ Deno.serve(async (req: any) => {
           const feedCaption = await generateSocialCaption(targetAd, isTransport ? 'transport' : 'car', adLink);
           const postImg = (targetAd.images && targetAd.images.length > 0)
             ? targetAd.images[0]
-            : `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(targetAd.title)}&regions=${encodeURIComponent(targetAd.location || '')}&destination=${encodeURIComponent(targetAd.city || '')}&fare=${encodeURIComponent(targetAd.price || '')}&short_id=${encodeURIComponent(targetAd.short_id || targetAd.id)}&phone=${encodeURIComponent(targetAd.phone || '')}`;
+            : `https://lyhqnccpudwgvexqinxa.supabase.co/functions/v1/generate-story-image?type=post&title=${encodeURIComponent(targetAd.title)}&regions=${encodeURIComponent(targetAd.location || '')}&destination=${encodeURIComponent(targetAd.city || '')}&fare=${encodeURIComponent(targetAd.price || '')}&short_id=${encodeURIComponent(targetAd.short_id || targetAd.id)}&phone=${encodeURIComponent(targetAd.phone || '')}&ad_type=${targetAd.type === 'request' ? 'request' : 'offer'}`;
 
           const storyImg = postImg; // نفس الصورة للستوري
 
@@ -13795,6 +14393,15 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
+      if (action === 'share_phone_prompt') {
+        await sendMessage(chatId, '📱 <b>تفعيل رقم الهاتف</b>\n\nيرجى الضغط على الزر أدناه لمشاركة رقم هاتفك تلقائياً، أو اكتب رقم هاتفك كرسالة عادية (مثال: <code>07701234567</code>):', {
+          keyboard: [[{ text: '📱 مشاركة رقم الهاتف', request_contact: true }]],
+          one_time_keyboard: true,
+          resize_keyboard: true
+        });
+        return new Response('OK', { status: 200 });
+      }
+
       // Redeem Promo Code Action
       if (action === 'redeem_promo') {
         if (!userId) {
@@ -13895,6 +14502,42 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
+      if (action === 'view_ads_recent' || action === 'view_ads_month' || action === 'view_ads_active' || action === 'view_ads_all') {
+        const showArchived = action === 'view_ads_all';
+        const statusFilter = showArchived ? ['sold', 'matched', 'archived', 'closed', 'active'] : ['active'];
+        const { data: myAds } = await supabase
+          .from('ads')
+          .select('id, short_id, title, category, status, created_at, price, phone')
+          .eq('seller_id', userId)
+          .in('status', statusFilter)
+          .order('created_at', { ascending: false })
+          .limit(action === 'view_ads_recent' ? 2 : 8);
+
+        if (!myAds || myAds.length === 0) {
+          await updateOrSend('📭 لا توجد إعلانات مطابقة لخيارات العرض المحددة.', {
+            inline_keyboard: [
+              [{ text: '➕ نشر إعلان جديد', callback_data: 'publish_transport' }],
+              [{ text: '🔙 العودة', callback_data: 'manage_cat_ads' }],
+              [{ text: '🏠 الرئيسية', callback_data: 'main_menu' }]
+            ]
+          });
+          return new Response('OK', { status: 200 });
+        }
+
+        let adsListMsg = `📢 <b>إعلاناتك (${myAds.length}):</b>\n\n`;
+        const itemButtons: any[] = [];
+        myAds.forEach((ad: any, idx: number) => {
+          const catLabel = ad.category === 'transport' ? '🚌 خط' : (ad.category === 'vehicles' || ad.category === 'cars') ? '🚗 سيارة' : '📦 منتج';
+          adsListMsg += `<b>${idx + 1}.</b> ${catLabel}: <b>${ad.title}</b> [${ad.status === 'active' ? '🟢 نشط' : '📂 مؤرشف'}]\n`;
+          itemButtons.push([{ text: `🗑️ حذف #${ad.short_id || idx + 1}`, callback_data: `del_trans_${ad.id}` }]);
+        });
+        itemButtons.push([{ text: '🔙 العودة لإدارة الإعلانات', callback_data: 'manage_cat_ads' }]);
+        itemButtons.push([{ text: '🏠 الرئيسية', callback_data: 'main_menu' }]);
+
+        await updateOrSend(adsListMsg, { inline_keyboard: itemButtons });
+        return new Response('OK', { status: 200 });
+      }
+
       // Delete Ads/Transports/Products
       if (action.startsWith('del_prod_')) {
         const prodId = action.replace('del_prod_', '');
@@ -13971,7 +14614,7 @@ Deno.serve(async (req: any) => {
       }
 
       // Support Wizard
-      if (action === 'contact_support') {
+      if (action === 'contact_support' || action === 'support') {
         state = { step: 'support_message', data: {} };
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
         await sendMessage(chatId, '📞 <b>الدعم الفني للاستفسارات والشكاوى</b>\n\nيرجى كتابة رسالتك أو استفسارك بالتفصيل وسيقوم فريق الدعم بالرد عليك بأقرب وقت:', { inline_keyboard: [[{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]] });
@@ -14243,9 +14886,9 @@ Deno.serve(async (req: any) => {
     if (text || photo || voice) {
       const cleanRawInput = (text || '').trim().toLowerCase();
 
-      if (text === '/cancel' || cleanRawInput === 'الغاء' || cleanRawInput === 'إلغاء') {
+      if (text === '/cancel' || text === '/start' || cleanRawInput === 'الغاء' || cleanRawInput === 'إلغاء' || cleanRawInput === 'القائمة الرئيسية' || cleanRawInput === 'رجوع') {
         state = {};
-        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        await supabase.from('telegram_users').update({ bot_state: null }).eq('telegram_chat_id', chatId);
         await showMainMenu();
         return new Response('OK', { status: 200 });
       }
@@ -14290,7 +14933,16 @@ Deno.serve(async (req: any) => {
       if (state.step === 'radar_custom_dest' && text) {
         const customDest = text.trim();
         const origin = state.data?.origin || 'بغداد';
-        await finishRadarRegistration(chatId, origin, customDest, fromUser, supabase);
+        await showSeekerPhoneStep(chatId, origin, customDest, supabase);
+        return new Response('OK', { status: 200 });
+      }
+
+      // 📞 Seeker Phone Text Input (عندما يكتب الطالب رقمه بالرسائل)
+      if (state.step === 'seeker_phone' && text) {
+        const inputPhone = text.trim();
+        const origin = state.data?.origin || 'بغداد';
+        const dest = state.data?.destination || 'الجامعة';
+        await showSeekerConfirmation(chatId, origin, dest, inputPhone, fromUser, supabase);
         return new Response('OK', { status: 200 });
       }
 
@@ -16059,11 +16711,14 @@ Deno.serve(async (req: any) => {
           const cleanInput = (userCaption || '').toLowerCase();
           const smartButtons: any[] = [];
           if (cleanInput.includes('سيار') || cleanInput.includes('سعر') || cleanInput.includes('توسان') || cleanInput.includes('النترا') || cleanInput.includes('كورولا') || cleanInput.includes('بيع') || cleanInput.includes('شراء')) {
-            smartButtons.push([{ text: '🚗 عرض سيارة للبيع مجاناً', callback_data: 'publish_car' }, { text: '🌐 تصفح سيارات الموقع', url: 'https://www.souqbaghdad.store' }]);
+            smartButtons.push([{ text: '🚗 عرض سيارة للبيع مجاناً', callback_data: 'publish_car' }]);
+            smartButtons.push([{ text: '🌐 تصفح سيارات الموقع', url: 'https://www.souqbaghdad.store' }]);
           } else if (cleanInput.includes('خط') || cleanInput.includes('نقل') || cleanInput.includes('رافدين') || cleanInput.includes('جامع') || cleanInput.includes('كلية') || cleanInput.includes('سايق')) {
-            smartButtons.push([{ text: '🚌 تصفح خطوط النقل النشطة', url: 'https://www.souqbaghdad.store/transport' }, { text: '➕ نشر خط نقل (أوفر / أطلب)', callback_data: 'publish_transport' }]);
+            smartButtons.push([{ text: '🚌 نشر خط نقل جديد ⚡', callback_data: 'publish_transport' }]);
+            smartButtons.push([{ text: '🌐 تصفح خطوط النقل النشطة', url: 'https://www.souqbaghdad.store/transport' }]);
           } else {
-            smartButtons.push([{ text: '🌐 تصفح منصة سوق بغداد', url: 'https://www.souqbaghdad.store' }, { text: '➕ نشر إعلان جديد مجاناً', callback_data: 'publish_choose' }]);
+            smartButtons.push([{ text: '➕ نشر إعلان جديد مجاناً', callback_data: 'publish_choose' }]);
+            smartButtons.push([{ text: '🌐 تصفح منصة سوق بغداد', url: 'https://www.souqbaghdad.store' }]);
           }
           smartButtons.push([{ text: '📋 القائمة الرئيسية للخدمات', callback_data: 'main_menu' }]);
 
@@ -16089,7 +16744,28 @@ Deno.serve(async (req: any) => {
     return new Response('OK', { status: 200 });
 
   } catch (error: any) {
-    console.error('Error handling request:', error);
+    console.error('CRITICAL: Error handling telegram bot request:', error);
+    try {
+      if (typeof callbackQueryId !== 'undefined' && callbackQueryId) {
+        await answerCallbackQuery(callbackQueryId);
+      }
+      if (typeof chatId !== 'undefined' && chatId) {
+        await sendMessage(
+          chatId,
+          `🤖 <b>مساعد سوق بغداد الذكي</b>\n\n` +
+          `تم تحديث النظام ومعالجة الموقف بنجاح تلقائياً! ⚡\n` +
+          `اضغط على الزر أدناه لمتابعة استخدام البوت دون أي انقطاع:`,
+          {
+            inline_keyboard: [
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }],
+              [{ text: '🚌 تصفح ونشر خطوط النقل', callback_data: 'publish_transport' }]
+            ]
+          }
+        );
+      }
+    } catch (recoveryErr) {
+      console.error('Error during self-healing recovery:', recoveryErr);
+    }
     return new Response(JSON.stringify({ ok: true, error: error.message }), { 
       status: 200, 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

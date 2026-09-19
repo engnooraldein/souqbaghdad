@@ -87,7 +87,19 @@ serve(async (req: Request) => {
   try {
     const url = new URL(req.url);
     const mode = url.searchParams.get("type") || "post"; // "post" (1080x1350) or "story" (1080x1920)
-    const adType = (url.searchParams.get("ad_type") || "offer").toLowerCase();
+    let adType = (url.searchParams.get("ad_type") || "").toLowerCase();
+    const checkText = (url.searchParams.get("title") || "") + " " + (url.searchParams.get("subdesc") || "") + " " + (url.searchParams.get("subtitle") || "");
+    if (!adType) {
+      if (checkText.includes('طلب') || checkText.includes('ابحث') || checkText.includes('أبحث') || checkText.includes('محتاج') || checkText.includes('مطلوب')) {
+        adType = "request";
+      } else {
+        adType = "offer";
+      }
+    } else if (adType !== "request") {
+      if (checkText.includes('أبحث عن خط') || checkText.includes('ابحث عن خط') || checkText.includes('طلب خط') || checkText.includes('مطلوب')) {
+        adType = "request";
+      }
+    }
 
     // 1. Initialize WASM for Resvg
     if (!wasmInitialized) {
@@ -149,8 +161,14 @@ serve(async (req: Request) => {
     const primaryOrigin = areaList[0] || sanitizedRegions.substring(0, 25) || "نقطة الانطلاق";
     const regions = areaList.length > 0 ? areaList.join('، ') : primaryOrigin;
     
-    let rawFare = cleanText(url.searchParams.get("fare"), "45,000 د.ع");
-    if (!rawFare.includes('د.ع')) rawFare = `${rawFare} د.ع`;
+    let rawFareParam = url.searchParams.get("fare") || "";
+    let rawFare = cleanText(rawFareParam, adType === "request" ? "حسب الاتفاق" : "45,000 د.ع");
+    const fareDigits = rawFare.replace(/[^0-9]/g, '');
+    if (fareDigits === '0' || rawFare.includes('اتفاق') || rawFare.includes('حسب') || rawFare === '0 د.ع' || rawFare === '0' || !fareDigits) {
+      rawFare = "حسب الاتفاق";
+    } else if (!rawFare.includes('د.ع')) {
+      rawFare = `${rawFare} د.ع`;
+    }
 
     let phone = cleanText(url.searchParams.get("phone"), "0780 000 0000");
     if (phone === "0780 000 0000" || phone.length < 5) {
@@ -171,34 +189,47 @@ serve(async (req: Request) => {
     const subHeadline = adType === "request" ? "بحث عن خط نقل مريح وآمن" : "رحلتك مريحة.. بسعر أوفر";
     const fareTitle = adType === "request" ? "الأجرة المقترحة" : "سعر الأجرة";
 
+    // 🎨 Color Scheme: Green (Seeker/Request) vs Purple (Driver/Offer)
+    const isRequest = adType === "request";
+    const colorPrimary   = isRequest ? "#065f46" : "#2e0854";   // badge & dark bg
+    const colorAccent    = isRequest ? "#059669" : "#7c3aed";   // title accent & icons
+    const colorAccentBg  = isRequest ? "#d1fae5" : "#f5f3ff";   // header gradient start
+    const colorAccentBg2 = isRequest ? "#a7f3d0" : "#ede9fe";   // header gradient end
+    const colorBorder    = isRequest ? "#6ee7b7" : "#e9d5ff";   // card border
+    const colorRadial    = isRequest ? "rgba(5,150,105,0.15)"  : "rgba(124,58,237,0.15)"; // radial glow
+    const colorDarkBg    = isRequest ? "#064e3b" : "#230b3d";   // price card bg
+    const colorDarkInner = isRequest ? "#065f46" : "#3b0764";   // price icon circle
+    const colorDarkBorder= isRequest ? "#059669" : "#7c3aed";   // price icon border
+    const colorSubText   = isRequest ? "#a7f3d0" : "#d8b4fe";   // fare subtitle text
+
     // 4. Build Exact Editorial Template HTML (Clean LTR Flow with Pre-shaped Arabic)
     const markup = html`
       <div style="display: flex; flex-direction: column; width: 1080px; height: ${canvasHeight}px; background: #fbfbfe; color: #1e1b4b; padding: 48px 52px; font-family: 'Noto Sans Arabic', 'Almarai', sans-serif; box-sizing: border-box; justify-content: space-between; position: relative;">
         
         <!-- Decorative Header Background Curves -->
-        <div style="position: absolute; top: 0; right: 0; left: 0; height: 380px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-bottom-left-radius: 60px; border-bottom-right-radius: 60px; opacity: 0.8; display: flex;"></div>
-        <div style="position: absolute; top: -50px; left: -50px; width: 350px; height: 350px; border-radius: 175px; background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, rgba(245,243,255,0) 70%); display: flex;"></div>
+        <div style="position: absolute; top: 0; right: 0; left: 0; height: 380px; background: linear-gradient(135deg, ${colorAccentBg} 0%, ${colorAccentBg2} 100%); border-bottom-left-radius: 60px; border-bottom-right-radius: 60px; opacity: 0.8; display: flex;"></div>
+        <div style="position: absolute; top: -50px; left: -50px; width: 350px; height: 350px; border-radius: 175px; background: radial-gradient(circle, ${colorRadial} 0%, rgba(245,243,255,0) 70%); display: flex;"></div>
 
         <!-- 1. Top Header Row (Logo Left + Main Title Right) -->
         <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; width: 100%; position: relative; z-index: 10; margin-bottom: 20px; margin-top: 8px;">
           
           <!-- Right side: Title & Headline -->
           <div style="display: flex; flex-direction: column; align-items: flex-start;">
-            <!-- Badge "جديد" -->
-            <div style="display: flex; background: #2e0854; border-radius: 20px; padding: 6px 28px; margin-bottom: 14px;">
+            <!-- Badge "جديد" / "مطلوب" -->
+            <div style="display: flex; background: ${colorPrimary}; border-radius: 20px; padding: 6px 28px; margin-bottom: 14px;">
               <span style="font-size: 24px; color: #ffffff; font-weight: bold;">${fixAr(badgeLabel)}</span>
             </div>
             <!-- Huge Title -->
             <div style="display: flex; flex-direction: row; align-items: baseline; gap: 14px; margin-top: 6px; margin-bottom: 6px;">
               <span style="font-size: 72px; font-weight: bold; color: #1e1b4b; line-height: 1;">${fixAr(mainTitle1)}</span>
-              <span style="font-size: 72px; font-weight: bold; color: #7c3aed; line-height: 1;">${fixAr(mainTitle2)}</span>
+              <span style="font-size: 72px; font-weight: bold; color: ${colorAccent}; line-height: 1;">${fixAr(mainTitle2)}</span>
             </div>
             <!-- Subtitle -->
             <span style="font-size: 26px; color: #4b5563; font-weight: bold; margin-top: 8px;">${fixAr(subHeadline)}</span>
           </div>
 
           <!-- Left side: Brand Logo -->
-          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; background: #ffffff; padding: 12px 22px; border-radius: 22px; box-shadow: 0 4px 15px rgba(124,58,237,0.08); border: 1.5px solid #ede9fe; margin-top: 4px;">
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; background: #ffffff; padding: 12px 22px; border-radius: 22px; box-shadow: 0 4px 15px rgba(124,58,237,0.08); border: 1.5px solid ${colorBorder}; margin-top: 4px;">
             <div style="display: flex; flex-direction: column; align-items: flex-end;">
               <span style="font-size: 26px; font-weight: bold; color: #1e1b4b; line-height: 1.1;">${fixAr('سوق بغداد')}</span>
               <span style="font-size: 13px; color: #6b7280; letter-spacing: 1.5px; font-weight: bold;">SOUQ BAGHDAD</span>
@@ -208,11 +239,11 @@ serve(async (req: Request) => {
         </div>
 
         <!-- 2. Route Card (Floating White Card) -->
-        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 28px; padding: 22px 32px; box-shadow: 0 10px 30px rgba(76,29,149,0.06); position: relative; z-index: 10;">
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #ffffff; border: 1.5px solid ${colorBorder}; border-radius: 28px; padding: 22px 32px; box-shadow: 0 10px 30px rgba(76,29,149,0.06); position: relative; z-index: 10;">
           
           <!-- الانطلاق من (Right in layout) -->
           <div style="display: flex; flex-direction: column; align-items: flex-start; flex: 1;">
-            <div style="display: flex; background: #2e0854; border-radius: 14px; padding: 6px 18px; margin-bottom: 8px;">
+            <div style="display: flex; background: ${colorPrimary}; border-radius: 14px; padding: 6px 18px; margin-bottom: 8px;">
               <span style="font-size: 20px; color: #ffffff; font-weight: bold;">${fixAr('الانطلاق من')}</span>
             </div>
             <div style="display: flex; flex-direction: row; align-items: center; gap: 8px;">
@@ -229,7 +260,7 @@ serve(async (req: Request) => {
 
           <!-- الوجهة إلى (Left in layout) -->
           <div style="display: flex; flex-direction: column; align-items: flex-end; flex: 1;">
-            <div style="display: flex; background: #2e0854; border-radius: 14px; padding: 6px 18px; margin-bottom: 8px;">
+            <div style="display: flex; background: ${colorPrimary}; border-radius: 14px; padding: 6px 18px; margin-bottom: 8px;">
               <span style="font-size: 20px; color: #ffffff; font-weight: bold;">${fixAr('الوجهة إلى')}</span>
             </div>
             <div style="display: flex; flex-direction: row; align-items: center; gap: 8px;">
@@ -243,13 +274,13 @@ serve(async (req: Request) => {
         <!-- 3. Price & Ad Code Row (Two Cards) -->
         <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; gap: 20px; position: relative; z-index: 10;">
           
-          <!-- Price Card (Dark Purple) -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; flex: 1.1; background: #230b3d; border-radius: 24px; padding: 20px 28px; box-shadow: 0 10px 25px rgba(35,11,61,0.25);">
+          <!-- Price Card (Dark bg - dynamic color) -->
+          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; flex: 1.1; background: ${colorDarkBg}; border-radius: 24px; padding: 20px 28px; box-shadow: 0 10px 25px rgba(35,11,61,0.25);">
             <div style="display: flex; flex-direction: column; align-items: flex-start;">
-              <span style="font-size: 20px; color: #d8b4fe; font-weight: bold; margin-bottom: 4px;">${fixAr(fareTitle)}</span>
+              <span style="font-size: 20px; color: ${colorSubText}; font-weight: bold; margin-bottom: 4px;">${fixAr(fareTitle)}</span>
               <span style="font-size: 38px; color: #ffffff; font-weight: bold;">${fixAr(rawFare)}</span>
             </div>
-            <div style="display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: #3b0764; border: 1.5px solid #7c3aed; border-radius: 28px;">
+            <div style="display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: ${colorDarkInner}; border: 1.5px solid ${colorDarkBorder}; border-radius: 28px;">
               <img src="${svgImg(SVGS.wallet)}" width="30" height="30" />
             </div>
           </div>
