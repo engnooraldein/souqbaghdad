@@ -6301,7 +6301,29 @@ Deno.serve(async (req: any) => {
       const trimmedText = (text || '').trim();
 
       // 2. Group Admin Commands (/warn, /unwarn, /mute, /ban, /seats, /car, /line, /price, /start, /help)
-      if (trimmedText.startsWith('/')) {
+      if (trimmedText === '/' || trimmedText === '\\') {
+        const userMention = fromUser?.username ? `@${fromUser.username}` : (fromUsername || 'عزيزنا');
+        await sendOrReplaceGroupMessage(chatId,
+          `👋 <b>يا هلا بيك ${userMention}! 🚌🎓</b>\n\n` +
+          `🤖 <b>أنا مساعد خطوط النقل والجامعات الذكي</b> (سوق بغداد)\n\n` +
+          `💡 <b>للحصول على أفضل خدمة بخصوصية تامة وبدون تعقيد:</b>\n` +
+          `راسل البوت بالخاص لتحديد منطقتك وكليتك والبحث عن السائقين أو نشر مقاعدك فوراً بنقرة واحدة!\n\n` +
+          `👇 <b>اضغط على الزر المناسب لك للبدء بالخاص:</b>`,
+          {
+            inline_keyboard: [
+              [{ text: '🎓 أنا طالب (ابحث عن خط بالخاص) ⚡', url: `https://t.me/${BOT_USERNAME}?start=line` }],
+              [{ text: '🚖 أنا كابتن (انشر خطك ومقاعدك) 📢', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }],
+              [{ text: '➕ أضف البوت لكروب دفعتك / كليتك 🚀', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }]
+            ]
+          },
+          supabase,
+          grpMessageId,
+          60000
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (trimmedText.startsWith('/') || trimmedText.startsWith('\\')) {
         const cmdParts = trimmedText.split(/\s+/);
         const cmd = cmdParts[0].toLowerCase().split('@')[0];
 
@@ -6448,14 +6470,16 @@ Deno.serve(async (req: any) => {
           if (!routeInfo) {
             await sendOrReplaceGroupMessage(chatId,
               `👋 <b>يا هلا بكابتن الخط ${userMention}! 🚖🚌</b>\n\n` +
-              `💺 <b>لتنبيه الطلاب بمقاعدك الشاغرة بالكروب:</b>\n` +
-              `اكتب عدد المقاعد ومسارك بعد الأمر، مثال:\n` +
-              `👉 <code>/seats 2 المنصور الى الرافدين</code>\n` +
-              `👉 <code>/seats مقعدين شاغرة من الدورة</code>\n\n` +
-              `<i>أو انشر خطك كاملاً لنوصلك بالطلاب مجاناً:</i>`,
+              `📢 <b>أسهل طريقة لنشر خطك ومقاعدك الشاغرة:</b>\n` +
+              `راسل البوت بالخاص لتسجيل مسارك ومقاعدك لنوصلك بطلاب كليتك مجاناً ⚡\n\n` +
+              `✨ <b>المميزات:</b>\n` +
+              `• نشر فوري بموقع سوق بغداد وقنوات التليكرام الرسمية.\n` +
+              `• حجز مباشر وسريع من الطلاب المهتمين بمسارك.\n\n` +
+              `👇 <b>اضغط على الزر أدناه لنشر خطك بالخاص فوراً:</b>`,
               {
                 inline_keyboard: [
-                  [{ text: '📢 انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
+                  [{ text: '📢 انشر خطك ومقاعدك بالخاص ⚡', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }],
+                  [{ text: '💬 فتح محادثة مباشرة مع البوت', url: `https://t.me/${BOT_USERNAME}` }]
                 ]
               },
               supabase,
@@ -6512,15 +6536,18 @@ Deno.serve(async (req: any) => {
           if (!queryText) {
             await sendOrReplaceGroupMessage(chatId,
               `👋 <b>يا هلا بيك ${userMention}! 🚌🎓</b>\n\n` +
-              `🔎 <b>للبحث عن خط لدوامك الجامعي:</b>\n` +
-              `اكتب اسم منطقتك بعد الأمر، مثال:\n` +
-              `👉 <code>/line المنصور</code>\n` +
-              `👉 <code>/line من الدورة لكلية الرافدين</code>\n\n` +
-              `<i>أو اضغط على الزر أدناه لاختيار منطقتك والبحث بالخاص فوراً:</i>`,
+              `🤖 <b>أسهل وأسرع طريقة للبحث عن خط لدوامك الجامعي:</b>\n` +
+              `راسل البوت بالخاص لتحديد منطقتك وكليتك بنقرة واحدة وبخصوصية تامة 🔐\n\n` +
+              `✨ <b>مميزات المراسلة بالخاص:</b>\n` +
+              `• 🔐 <b>رقمك يبقى مخفي تماماً</b> (حماية كاملة للخصوصية).\n` +
+              `• 📍 <b>تحديد منطقتك وكليتك</b> بضغطة زر بدون كتابة معقدة.\n` +
+              `• ⚡ <b>ربط فوري ومباشر</b> بالسائقين المتوفرين لمسارك.\n\n` +
+              `👇 <b>اضغط على الزر أدناه لبدء المحادثة والبحث فوراً:</b>`,
               {
                 inline_keyboard: [
-                  [{ text: '🔍 ابحث عن خط بالخاص ⚡', url: `https://t.me/${BOT_USERNAME}?start=line` }],
-                  [{ text: '📢 انشر طلب خط مجاناً', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
+                  [{ text: '🔍 ابحث عن خطك بالخاص ⚡', url: `https://t.me/${BOT_USERNAME}?start=line` }],
+                  [{ text: '📢 انشر طلب خط جديد مجاناً', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }],
+                  [{ text: '💬 فتح محادثة مباشرة مع البوت', url: `https://t.me/${BOT_USERNAME}` }]
                 ]
               },
               supabase,
