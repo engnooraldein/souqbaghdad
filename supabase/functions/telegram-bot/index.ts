@@ -3475,6 +3475,8 @@ const generateSocialCaption = async (record: any, type: 'car' | 'product' | 'tra
       descObj = record.description;
     }
 
+    const isSeeker = record.type === 'request' || descObj?.type === 'request' || (record.title && (record.title.includes('أبحث عن خط') || record.title.includes('ابحث عن خط') || record.title.includes('طلب خط') || record.title.includes('طالب')));
+
     const destination = record.university || record.destination || record.city || 'الجامعة / مكان العمل';
     const regions = record.regions || record.location || record.city || 'بغداد';
     const audience = descObj?.targetAudience || record.targetAudience || 'طالبات / طلاب / موظفين';
@@ -3484,7 +3486,22 @@ const generateSocialCaption = async (record: any, type: 'car' | 'product' | 'tra
 
     const b = (txt: string) => isHtml ? `<b>${txt}</b>` : txt;
 
-    return `🚌 ${b('توفير نقل خط جديد — سوق بغداد')}\n\n` +
+    if (isSeeker) {
+      return `🎓 ${b('طلب خط نقل جديد — طالب / راكب يبحث عن خط 🚌')}\n` +
+             `✨ ${b('يتوفر طالب يبحث عن خط نقل بالمسار التالي:')}\n\n` +
+             `📍 ${b('مناطق الانطلاق:')} ${regions}\n` +
+             `🏢 ${b('الوجهة:')} ${destination}\n` +
+             `👥 ${b('الفئة:')} ${audience}\n` +
+             `⏰ ${b('أوقات الدوام:')} ${shift}\n` +
+             `📅 ${b('أيام الدوام:')} ${days}\n` +
+             `💰 ${b('الأجرة المقترحة:')} ${price}\n` +
+             (shortId ? `🆔 ${b('كود الطلب:')} #${shortId}\n\n` : `\n`) +
+             `🔗 ${b('كابتن وعندك مجال بمسارك؟ للتواصل والتفاصيل:')}\n${link}\n\n` +
+             `💬 اكتب "تم" أو راسلنا بالتعليقات وتوصلك كافة تفاصيل الطلب على الخاص 📩\n\n` +
+             `#سوق_بغداد #طلب_خط #خطوط_نقل #خط_جامعة #خطوط_بغداد #جامعة_الرافدين #باصات_بغداد #العراق`;
+    }
+
+    return `🚌 ${b('توفير خط نقل جديد (كابتن) — سوق بغداد')}\n\n` +
            `🏢 ${b('الوجهة:')} ${destination}\n` +
            `📍 ${b('مناطق الانطلاق:')} ${regions}\n` +
            `👥 ${b('نوع الخط:')} ${audience}\n` +
@@ -3492,7 +3509,7 @@ const generateSocialCaption = async (record: any, type: 'car' | 'product' | 'tra
            `📅 ${b('أيام الدوام:')} ${days}\n` +
            `💰 ${b('الأجرة:')} ${price}\n` +
            (shortId ? `🆔 ${b('كود الإعلان:')} #${shortId}\n\n` : `\n`) +
-           `🔗 ${b('لمشاهدة تفاصيل الخط ورقم التواصل:')}\n${link}\n\n` +
+           `🔗 ${b('لمشاهدة تفاصيل الخط وحجز المقعد:')}\n${link}\n\n` +
            `💬 اكتب "تم" أو راسلنا بالتعليقات وتوصلك كافة تفاصيل الخط على الخاص 📩\n\n` +
            `#سوق_بغداد #خطوط_نقل #خط_جامعة #خطوط_بغداد #جامعة_الرافدين #باصات_بغداد #العراق`;
   }
@@ -12497,7 +12514,11 @@ Deno.serve(async (req: any) => {
             // 0. Generate and save permanent PNG card & story in Storage for robust social posting
             let finalPostPhotoUrl = dynamicPostUrl;
             try {
-              const cardFetch = await fetch(dynamicPostUrl);
+              let cardFetch = await fetch(dynamicPostUrl);
+              if (!cardFetch.ok) {
+                await new Promise(r => setTimeout(r, 1500));
+                cardFetch = await fetch(dynamicPostUrl);
+              }
               if (cardFetch.ok) {
                 const cardBlob = await cardFetch.blob();
                 const cardBytes = new Uint8Array(await cardBlob.arrayBuffer());
@@ -12508,14 +12529,21 @@ Deno.serve(async (req: any) => {
 
                 if (!uploadErr && uploadResult) {
                   const { data: pubUrlData } = supabase.storage.from('ad-images').getPublicUrl(cardFileName);
-                  if (pubUrlData?.publicUrl) finalPostPhotoUrl = pubUrlData.publicUrl;
+                  if (pubUrlData?.publicUrl) {
+                    finalPostPhotoUrl = pubUrlData.publicUrl;
+                    await supabase.from('ads').update({ images: [pubUrlData.publicUrl] }).eq('id', insertedTrans.id);
+                  }
                 }
               }
             } catch(e) { console.error('Error saving transport card PNG:', e); }
 
             let finalStoryPhotoUrl = dynamicStoryUrl;
             try {
-              const storyFetch = await fetch(dynamicStoryUrl);
+              let storyFetch = await fetch(dynamicStoryUrl);
+              if (!storyFetch.ok) {
+                await new Promise(r => setTimeout(r, 1500));
+                storyFetch = await fetch(dynamicStoryUrl);
+              }
               if (storyFetch.ok) {
                 const storyBlob = await storyFetch.blob();
                 const storyBytes = new Uint8Array(await storyBlob.arrayBuffer());
@@ -12530,6 +12558,13 @@ Deno.serve(async (req: any) => {
                 }
               }
             } catch(e) { console.error('Error saving transport story PNG:', e); }
+
+            // 🛡️ Bulletproof Fallback: If story upload failed, adapt the verified stored card PNG onto a vertical 9:16 canvas
+            if (!finalStoryPhotoUrl || finalStoryPhotoUrl.includes('generate-story-image')) {
+              if (finalPostPhotoUrl && !finalPostPhotoUrl.includes('generate-story-image')) {
+                finalStoryPhotoUrl = `https://wsrv.nl/?url=${encodeURIComponent(finalPostPhotoUrl)}&w=1080&h=1920&fit=contain&cbg=18191a&output=jpg`;
+              }
+            }
 
             // 1. Post to @souqbaghdad_lines
             const targetLinesChannel = LINES_CHANNEL_ID || LINES_CHANNEL;
