@@ -1781,7 +1781,11 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
       const groupNoticeMarkup = {
         inline_keyboard: [
           [{ text: '🚌 استلام تفاصيل الخطوط بالخاص ⚡', url: routeLink }],
-          [{ text: '🔔 تفعيل رادار إشعار المسار', url: `https://t.me/${BOT_USERNAME}?start=radar_${encodeURIComponent(finalOrigin)}_${encodeURIComponent(finalDestination)}` }]
+          [{ text: '🔔 نبّهني أول ما ينزل خط إضافي', url: `https://t.me/${BOT_USERNAME}?start=radar_${encodeURIComponent(finalOrigin)}_${encodeURIComponent(finalDestination)}` }],
+          [
+            { text: '🌐 تصفح الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' },
+            { text: '📢 انشر طلبك مجاناً', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }
+          ]
         ]
       };
 
@@ -1801,14 +1805,12 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
     return;
   }
 
-  // 🔔 In GROUP: If no matching line found -> Register seeker in DB (private DM only!) then stay silent!
+  // 🔔 In GROUP: If no matching line found -> Register seeker in DB (private DM only!)
   if (isGroup) {
     if (origin && destination) {
       try {
-        // ⚠️ مهم: نحفظ فقط telegram_user_id (الخاص) وليس chat_id الكروب
-        // حتى يصل إشعار الرادار للمستخدم بالخاص وليس للكروب
         await supabase.from('transport_requests').insert({
-          telegram_chat_id: fromUser?.id ? String(fromUser.id) : null, // private DM ID فقط
+          telegram_chat_id: fromUser?.id ? String(fromUser.id) : null,
           telegram_user_id: fromUser?.id ? String(fromUser.id) : null,
           user_name: fromName,
           origin: finalOrigin,
@@ -1818,18 +1820,29 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
         });
       } catch(e) {}
 
-      // رسالة مختصرة بالكروب للطالب
+      // رسالة ذكية ومفيدة بالكروب للطالب مع أزرار عملية
       const userMention = fromUser?.username ? `@${fromUser.username}` : fromName;
       const radarLink = `https://t.me/${BOT_USERNAME}?start=radar_${encodeURIComponent(finalOrigin)}_${encodeURIComponent(finalDestination)}`;
+      const pubLink = `https://t.me/${BOT_USERNAME}?start=pubtrans`;
       const noLineGroupMsg =
-        `🎓 <b>${userMention} — طلب خط نقل</b>\n` +
-        `📍 <b>${finalOrigin} ⬅️ ${finalDestination}</b>\n\n` +
-        `⚠️ لا يوجد خط متوفر حالياً لهذا المسار\n` +
-        `<i>سجّل رادارك واستلم إشعاراً فورياً بالخاص عند توفر خط! ⏰</i>`;
+        `🎓 <b>${userMention} — طلب خط نقل 🚌</b>\n` +
+        `📍 <b>المسار المطلوب:</b> ${finalOrigin} ⬅️ ${finalDestination}\n\n` +
+        `⚠️ <b>لا يوجد كابتن مسجل بهذا المسار المباشر حالياً.</b>\n` +
+        `💡 <i>انشر طلبك مجاناً لنوصلك بالسائقين، أو فعّل الرادار لتنبيهك فور توفر خط!</i>\n\n` +
+        `⏳ <i>[ تختفي الرسالة تلقائياً خلال 60 ثانية لحفظ نظافة الكروب ]</i>`;
+
       const noLineMarkup = {
         inline_keyboard: [
-          [{ text: '🔔 تفعيل رادار المسار (خاص)', url: radarLink }],
-          [{ text: '🚌 تصفح الخطوط المتاحة', url: 'https://www.souqbaghdad.store/transport' }]
+          [
+            { text: '📢 انشر طلبي لمساري مجاناً 🚀', url: pubLink }
+          ],
+          [
+            { text: '🔔 نبّهني بالخاص أول ما ينزل خط ⚡', url: radarLink }
+          ],
+          [
+            { text: '🌐 تصفح خطوط النقل بالموقع', url: 'https://www.souqbaghdad.store/transport' },
+            { text: '🚖 كابتن؟ اعرض خطك هنا', url: pubLink }
+          ]
         ]
       };
       await sendOrReplaceGroupMessage(chatId, noLineGroupMsg, noLineMarkup, supabase, userMessageId, 60000);
