@@ -417,7 +417,25 @@ async function sendPhoto(chatId: string | number, photoUrl: string, caption: str
     });
     const data = await res.json();
     if (!data.ok) {
-      console.warn('sendPhoto failed, falling back to sendMessage:', data.description);
+      console.warn('sendPhoto failed, attempting fallback photo before text:', data.description);
+      const fallbackPhoto = 'https://lyhqnccpudwgvexqinxa.supabase.co/storage/v1/object/public/ad-images/transport-story-OQL5S-1789864881859.png';
+      if (photoUrl !== fallbackPhoto) {
+        try {
+          body.photo = fallbackPhoto;
+          const retryRes = await fetch(`${tgUrl}/sendPhoto`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          const retryData = await retryRes.json();
+          if (retryData.ok) {
+            console.log('[sendPhoto] Recovered successfully using verified fallback photo!');
+            return retryData;
+          }
+        } catch (e2) {
+          console.error('[sendPhoto] Fallback photo retry failed:', e2);
+        }
+      }
       return await sendMessage(chatId, caption, replyMarkup, true);
     }
     return data;
@@ -5420,17 +5438,35 @@ Deno.serve(async (req: any) => {
           if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
           else cleanPhone = cleanPhone.replace('+', '');
 
-          const contactRow = [];
+          const isReq = record.type === 'request';
+          const driverRow1: any[] = [
+            { text: '⚡ حجز مقعد 📩', url: `https://t.me/${BOT_USERNAME}?start=book_${record.id}` }
+          ];
           if (cleanPhone) {
-            contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-            
+            driverRow1.push({
+              text: '🟢 تواصل واتساب',
+              url: `https://wa.me/${cleanPhone}?text=${encodeURIComponent('السلام عليكم كابتن، شفت خطك بسوق بغداد وحاب استفسر عن حجز مقعد')}`
+            });
           }
 
-          const inlineKeyboard = [
-            [{ text: '🌐 التفاصيل الكاملة وحجز المقعد', url: link }]
-          ];
-          if (contactRow.length > 0) inlineKeyboard.push(contactRow);
-          inlineKeyboard.push([{ text: '🚌 انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}` }]);
+          const seekerRow1: any[] = [];
+          if (cleanPhone) {
+            seekerRow1.push({
+              text: '🟢 تواصل واتساب',
+              url: `https://wa.me/${cleanPhone}?text=${encodeURIComponent('السلام عليكم، شفت طلبك لخط النقل وأني كابتن أمر بمسارك')}`
+            });
+          }
+          seekerRow1.push({ text: '💬 مراسلة تليكرام', url: `https://t.me/${BOT_USERNAME}?start=match_${record.id}` });
+
+          const inlineKeyboard = isReq
+            ? [
+                seekerRow1,
+                [{ text: '🚌 تحتاج خط نقل؟ انشر طلبك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
+              ]
+            : [
+                driverRow1,
+                [{ text: '🚌 كابتن؟ انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
+              ];
 
           const replyMarkup = { inline_keyboard: inlineKeyboard };
                       
@@ -5494,42 +5530,68 @@ Deno.serve(async (req: any) => {
 
           const imagesToPost = await ensurePublicImages(record, 'ads', supabase);
           
-          let finalPostPhotoUrl = dynamicPostUrl;
+          let finalPostPhotoUrl = '';
           if (imagesToPost.length > 0) {
             finalPostPhotoUrl = imagesToPost[0];
           } else {
-            // Upload generated PNG card to Storage to guarantee Instagram and Facebook accept the direct image
-            try {
-              console.log(`[TRANSPORT CARD STORAGE] Generating and storing permanent PNG card for ad ${adId}...`);
-              const cardFetch = await fetch(dynamicPostUrl);
-              if (cardFetch.ok) {
-                const cardBlob = await cardFetch.blob();
-                const cardBytes = new Uint8Array(await cardBlob.arrayBuffer());
-                const cardFileName = `transport-card-${adId}-${Date.now()}.png`;
-                const { data: uploadResult, error: uploadErr } = await supabase.storage
-                  .from('ad-images')
-                  .upload(cardFileName, cardBytes, { contentType: 'image/png', upsert: true });
+            // 🛡️ Intelligent retry loop (up to 3 attempts with progressive backoff) for generating & storing permanent PNG card
+            let cardStorageUrl = '';
+            for (let attempt = 1; attempt <= 3; attempt++) {
+              try {
+                console.log(`[TRANSPORT CARD STORAGE] Generating PNG card attempt ${attempt} for ad ${adId}...`);
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 10000);
+                const cardFetch = await fetch(dynamicPostUrl, { signal: controller.signal });
+                clearTimeout(timer);
+                if (cardFetch.ok) {
+                  const cardBlob = await cardFetch.blob();
+                  const cardBytes = new Uint8Array(await cardBlob.arrayBuffer());
+                  const cardFileName = `transport-card-${adId}-${Date.now()}.png`;
+                  const { data: uploadResult, error: uploadErr } = await supabase.storage
+                    .from('ad-images')
+                    .upload(cardFileName, cardBytes, { contentType: 'image/png', upsert: true });
 
-                if (!uploadErr && uploadResult) {
-                  const { data: pubUrlData } = supabase.storage.from('ad-images').getPublicUrl(cardFileName);
-                  if (pubUrlData?.publicUrl) {
-                    finalPostPhotoUrl = pubUrlData.publicUrl;
-                    console.log('[TRANSPORT CARD STORAGE] Stored permanent image successfully:', finalPostPhotoUrl);
+                  if (!uploadErr && uploadResult) {
+                    const { data: pubUrlData } = supabase.storage.from('ad-images').getPublicUrl(cardFileName);
+                    if (pubUrlData?.publicUrl) {
+                      cardStorageUrl = pubUrlData.publicUrl;
+                      console.log('[TRANSPORT CARD STORAGE] Stored permanent image successfully:', cardStorageUrl);
+                      break;
+                    }
                   }
                 } else {
-                  console.warn('Storage upload error for card image, using dynamic url fallback:', uploadErr);
+                  console.warn(`[TRANSPORT CARD STORAGE] Attempt ${attempt} returned status: ${cardFetch.status}`);
                 }
+              } catch (storageException) {
+                console.warn(`[TRANSPORT CARD STORAGE] Attempt ${attempt} exception:`, storageException);
               }
-            } catch (storageException) {
-              console.error('Exception storing transport card image:', storageException);
+              if (attempt < 3) await new Promise(r => setTimeout(r, 1200 * attempt));
+            }
+
+            if (cardStorageUrl) {
+              finalPostPhotoUrl = cardStorageUrl;
+              updates.images = [cardStorageUrl];
+              try {
+                await supabase.from('ads').update({ images: [cardStorageUrl] }).eq('id', record.id);
+              } catch (_) {}
             }
           }
 
-          let finalStoryPhotoUrl = dynamicStoryUrl;
+          let finalStoryPhotoUrl = '';
           try {
-            console.log(`[TRANSPORT STORY STORAGE] Generating and storing permanent Story PNG for ad ${adId}...`);
-            const storyFetch = await fetch(dynamicStoryUrl);
-            if (storyFetch.ok) {
+            console.log(`[TRANSPORT STORY STORAGE] Generating permanent Story PNG for ad ${adId}...`);
+            let storyFetch: any = null;
+            for (let attempt = 1; attempt <= 2; attempt++) {
+              try {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 9000);
+                const resp = await fetch(dynamicStoryUrl, { signal: controller.signal });
+                clearTimeout(timer);
+                if (resp.ok) { storyFetch = resp; break; }
+              } catch (_) {}
+              if (attempt < 2) await new Promise(r => setTimeout(r, 1000));
+            }
+            if (storyFetch && storyFetch.ok) {
               const storyBlob = await storyFetch.blob();
               const storyBytes = new Uint8Array(await storyBlob.arrayBuffer());
               const storyFileName = `transport-story-${adId}-${Date.now()}.png`;
@@ -5547,6 +5609,26 @@ Deno.serve(async (req: any) => {
             }
           } catch (storyStorageErr) {
             console.error('Exception storing transport story image:', storyStorageErr);
+          }
+
+          // 🛡️ Bulletproof Bi-Directional Fallbacks:
+          // 1. If card failed but story succeeded -> use verified story image!
+          if (!finalPostPhotoUrl || finalPostPhotoUrl.includes('generate-story-image')) {
+            if (finalStoryPhotoUrl && !finalStoryPhotoUrl.includes('generate-story-image')) {
+              finalPostPhotoUrl = finalStoryPhotoUrl;
+            } else {
+              // 2. Ultimate reliable fallback: verified hosted transport banner
+              finalPostPhotoUrl = 'https://lyhqnccpudwgvexqinxa.supabase.co/storage/v1/object/public/ad-images/transport-story-OQL5S-1789864881859.png';
+            }
+          }
+
+          // If story failed but card succeeded -> adapt card onto story
+          if (!finalStoryPhotoUrl || finalStoryPhotoUrl.includes('generate-story-image')) {
+            if (finalPostPhotoUrl && !finalPostPhotoUrl.includes('generate-story-image')) {
+              finalStoryPhotoUrl = `https://wsrv.nl/?url=${encodeURIComponent(finalPostPhotoUrl)}&w=1080&h=1920&fit=contain&cbg=18191a&output=jpg`;
+            } else {
+              finalStoryPhotoUrl = finalPostPhotoUrl;
+            }
           }
 
           const transportPhoto = finalPostPhotoUrl;
@@ -6327,24 +6409,35 @@ Deno.serve(async (req: any) => {
         const cmdParts = trimmedText.split(/\s+/);
         const cmd = cmdParts[0].toLowerCase().split('@')[0];
 
-        // --- /start or /help Command in Group ---
-        if (cmd === '/start' || cmd === '/help') {
-          // Suppress duplicate welcome card if bot was added in the last 15 seconds
-          try {
-            const { data: recentGroup } = await supabase
-              .from('telegram_groups')
-              .select('updated_at')
-              .eq('chat_id', String(chatId))
-              .maybeSingle();
+        // --- /help Command in Group ---
+        if (cmd === '/help') {
+          const userMention = fromUser?.username ? `@${fromUser.username}` : (fromUsername || 'عزيزنا');
+          const helpGroupMsg =
+            `👋 <b>دليل خدمات البوت وحماية الكروب لـ ${userMention} 🎓🚌🛡️</b>\n\n` +
+            `📌 <b>أوامر الطلاب والركاب:</b>\n` +
+            `• <code>/line</code> — للبحث عن خط لدوامك الجامعي ومراسلة البوت بالخاص 🔍\n` +
+            `• أو اكتب طلبك مباشرة بالكروب (مثال: <i>محتاج خط من المنصور للكلية</i>) ⚡\n\n` +
+            `🚖 <b>أوامر الكباتن وأصحاب الخطوط:</b>\n` +
+            `• <code>/seats</code> — لنشر مقاعدك الشاغرة وربطك بالطلاب مجاناً 💺\n\n` +
+            `🛡️ <b>أوامر إدارة وحماية الكروب (للمشرفين فقط):</b>\n` +
+            `• <code>/warn</code> — بالرد على رسالة المخالف لإنذاره (3 إنذارات = طرد تلقائي)\n` +
+            `• <code>/mute</code> — بالرد على العضو لكتمه لمدة ساعتين\n` +
+            `• <code>/ban</code> — بالرد على العضو لطرده وحظره نهائياً\n` +
+            `• <code>/unwarn</code> — لتصفير إنذارات العضو وفك الحظر\n\n` +
+            `👇 <b>اضغط على الزر المناسب لك للبدء بالخاص فوراً:</b>`;
 
-            if (recentGroup && recentGroup.updated_at) {
-              const diffMs = Date.now() - new Date(recentGroup.updated_at).getTime();
-              if (diffMs < 15000) {
-                return new Response('OK', { status: 200 });
-              }
-            }
-          } catch(e) {}
+          const helpButtons = [
+            [{ text: '🎓 أنا طالب (ابحث عن خط بالخاص) ⚡', url: `https://t.me/${BOT_USERNAME}?start=line` }],
+            [{ text: '🚖 أنا كابتن (انشر خطك ومقاعدك) 📢', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }],
+            [{ text: '➕ أضف البوت لكروب دفعتك / كليتك 🚀', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }]
+          ];
 
+          await sendOrReplaceGroupMessage(chatId, helpGroupMsg, { inline_keyboard: helpButtons }, supabase, grpMessageId, 60000);
+          return new Response('OK', { status: 200 });
+        }
+
+        // --- /start Command in Group ---
+        if (cmd === '/start') {
           const groupCat = detectGroupCategory(chatTitle);
           let introMsg = '';
           let buttons: any[] = [];
@@ -6392,75 +6485,117 @@ Deno.serve(async (req: any) => {
             ];
           }
 
-          await sendOrReplaceGroupMessage(chatId, introMsg, { inline_keyboard: buttons }, supabase);
+          await sendOrReplaceGroupMessage(chatId, introMsg, { inline_keyboard: buttons }, supabase, grpMessageId, 60000);
           return new Response('OK', { status: 200 });
         }
 
         // --- /warn Command (Admin only) ---
-        if (cmd === '/warn' && isSenderAdmin) {
-          const replyTo = update.message?.reply_to_message;
-          const targetUser = replyTo?.from;
-          if (targetUser && !targetUser.is_bot) {
-            const targetId = targetUser.id;
-            const targetName = targetUser.username ? `@${targetUser.username}` : targetUser.first_name;
-            
-            const { data: curWarn } = await supabase.from('group_warnings').select('warning_count').eq('chat_id', String(chatId)).eq('user_id', String(targetId)).maybeSingle();
-            const count = (curWarn?.warning_count || 0) + 1;
-            
-            await supabase.from('group_warnings').upsert({
-              chat_id: String(chatId),
-              user_id: String(targetId),
-              username: targetName,
-              warning_count: count,
-              last_reason: 'تحذير يدوي من الأدمن',
-              updated_at: new Date().toISOString()
-            });
-
-            if (replyTo.message_id) await deleteMessage(chatId, replyTo.message_id);
-
-            if (count === 1) {
-              await sendOrReplaceGroupMessage(chatId, `⚠️ <b>تحذير يدوي (1/3) لـ ${targetName}:</b> يرجى الالتزام بقوانين الكروب وعدم تكرار المخالفة.`, undefined, supabase);
-            } else if (count === 2) {
-              await restrictChatMember(chatId, targetId, { can_send_messages: false }, Math.floor(Date.now()/1000) + 3600);
-              await sendOrReplaceGroupMessage(chatId, `⚠️ <b>تحذير (2/3) لـ ${targetName}:</b> تم كتمك لمدة ساعة بسبب تكرار المخالفة! 🔇`, undefined, supabase);
-            } else {
-              await banChatMember(chatId, targetId);
-              await sendOrReplaceGroupMessage(chatId, `🚫 <b>تم طرد وحظر ${targetName} نهائياً (3/3) لتكرار المخالفات لحماية الكروب.</b>`, undefined, supabase);
-            }
+        if (cmd === '/warn') {
+          if (!isSenderAdmin) {
+            await sendOrReplaceGroupMessage(chatId, `⚠️ <b>عذراً، أمر الإنذار مخصص لمشرفي وإدارة الكروب فقط.</b>`, undefined, supabase, grpMessageId, 30000);
             return new Response('OK', { status: 200 });
           }
+          const replyTo = update.message?.reply_to_message;
+          const targetUser = replyTo?.from;
+          if (!targetUser || targetUser.is_bot) {
+            await sendOrReplaceGroupMessage(chatId,
+              `⚠️ <b>طريقة استخدام أمر الإنذار:</b>\n` +
+              `سوّي رد (Reply) على رسالة العضو المخالف واكتب: <code>/warn</code>\n` +
+              `📌 <i>النظام يعطي العضو 3 إنذارات، وفي الإنذار الثالث يتم طرده وحظره تلقائياً لحماية الكروب.</i>`,
+              undefined, supabase, grpMessageId, 45000
+            );
+            return new Response('OK', { status: 200 });
+          }
+          const targetId = targetUser.id;
+          const targetName = targetUser.username ? `@${targetUser.username}` : targetUser.first_name;
+          
+          const { data: curWarn } = await supabase.from('group_warnings').select('warning_count').eq('chat_id', String(chatId)).eq('user_id', String(targetId)).maybeSingle();
+          const count = (curWarn?.warning_count || 0) + 1;
+          
+          await supabase.from('group_warnings').upsert({
+            chat_id: String(chatId),
+            user_id: String(targetId),
+            username: targetName,
+            warning_count: count,
+            last_reason: 'تحذير يدوي من الأدمن',
+            updated_at: new Date().toISOString()
+          });
+
+          if (replyTo.message_id) await deleteMessage(chatId, replyTo.message_id);
+
+          if (count === 1) {
+            await sendOrReplaceGroupMessage(chatId, `⚠️ <b>تحذير يدوي (1/3) لـ ${targetName}:</b> يرجى الالتزام بقوانين الكروب وعدم تكرار المخالفة.`, undefined, supabase);
+          } else if (count === 2) {
+            await restrictChatMember(chatId, targetId, { can_send_messages: false }, Math.floor(Date.now()/1000) + 3600);
+            await sendOrReplaceGroupMessage(chatId, `⚠️ <b>تحذير (2/3) لـ ${targetName}:</b> تم كتمك لمدة ساعة بسبب تكرار المخالفة! 🔇`, undefined, supabase);
+          } else {
+            await banChatMember(chatId, targetId);
+            await sendOrReplaceGroupMessage(chatId, `🚫 <b>تم طرد وحظر ${targetName} نهائياً (3/3) لتكرار المخالفات لحماية الكروب.</b>`, undefined, supabase);
+          }
+          return new Response('OK', { status: 200 });
         }
 
         // --- /unwarn Command (Admin only) ---
-        if (cmd === '/unwarn' && isSenderAdmin) {
-          const replyTo = update.message?.reply_to_message;
-          const targetUser = replyTo?.from;
-          if (targetUser) {
-            await supabase.from('group_warnings').delete().eq('chat_id', String(chatId)).eq('user_id', String(targetUser.id));
-            await unbanChatMember(chatId, targetUser.id);
-            await sendOrReplaceGroupMessage(chatId, `✅ <b>تم تصفير جميع إنذارات ${targetUser.first_name} بنجاح!</b>`, undefined, supabase);
+        if (cmd === '/unwarn') {
+          if (!isSenderAdmin) {
+            await sendOrReplaceGroupMessage(chatId, `⚠️ <b>عذراً، هذا الأمر مخصص لمشرفي وإدارة الكروب فقط.</b>`, undefined, supabase, grpMessageId, 30000);
             return new Response('OK', { status: 200 });
           }
+          const replyTo = update.message?.reply_to_message;
+          const targetUser = replyTo?.from;
+          if (!targetUser) {
+            await sendOrReplaceGroupMessage(chatId,
+              `🍏 <b>طريقة استخدام أمر تصفير الإنذارات:</b>\n` +
+              `سوّي رد (Reply) على رسالة العضو واكتب: <code>/unwarn</code> لمسح كافة إنذاراته وفك أي كتم عنه.`,
+              undefined, supabase, grpMessageId, 45000
+            );
+            return new Response('OK', { status: 200 });
+          }
+          await supabase.from('group_warnings').delete().eq('chat_id', String(chatId)).eq('user_id', String(targetUser.id));
+          await unbanChatMember(chatId, targetUser.id);
+          await sendOrReplaceGroupMessage(chatId, `✅ <b>تم تصفير جميع إنذارات ${targetUser.first_name} وفك الحظر بنجاح! 🍏</b>`, undefined, supabase);
+          return new Response('OK', { status: 200 });
         }
 
         // --- /ban /kick Command (Admin only) ---
-        if ((cmd === '/ban' || cmd === '/kick') && isSenderAdmin) {
-          const replyTo = update.message?.reply_to_message;
-          if (replyTo?.from) {
-            await banChatMember(chatId, replyTo.from.id);
-            await sendOrReplaceGroupMessage(chatId, `🚫 <b>تم طرد وحظر ${replyTo.from.first_name} من الكروب بواسطة الأدمن.</b>`, undefined, supabase);
+        if (cmd === '/ban' || cmd === '/kick') {
+          if (!isSenderAdmin) {
+            await sendOrReplaceGroupMessage(chatId, `⚠️ <b>عذراً، أمر الحظر مخصص لمشرفي وإدارة الكروب فقط.</b>`, undefined, supabase, grpMessageId, 30000);
             return new Response('OK', { status: 200 });
           }
+          const replyTo = update.message?.reply_to_message;
+          if (!replyTo?.from) {
+            await sendOrReplaceGroupMessage(chatId,
+              `🚫 <b>طريقة استخدام أمر الطرد والحظر:</b>\n` +
+              `سوّي رد (Reply) على رسالة العضو المخالف واكتب: <code>/ban</code> ليتم طرده وحظره نهائياً من الكروب.`,
+              undefined, supabase, grpMessageId, 45000
+            );
+            return new Response('OK', { status: 200 });
+          }
+          await banChatMember(chatId, replyTo.from.id);
+          if (replyTo.message_id) await deleteMessage(chatId, replyTo.message_id);
+          await sendOrReplaceGroupMessage(chatId, `🚫 <b>تم طرد وحظر ${replyTo.from.first_name} من الكروب نهائياً بواسطة الأدمن.</b>`, undefined, supabase);
+          return new Response('OK', { status: 200 });
         }
 
         // --- /mute Command (Admin only) ---
-        if (cmd === '/mute' && isSenderAdmin) {
-          const replyTo = update.message?.reply_to_message;
-          if (replyTo?.from) {
-            await restrictChatMember(chatId, replyTo.from.id, { can_send_messages: false }, Math.floor(Date.now()/1000) + 7200);
-            await sendOrReplaceGroupMessage(chatId, `🔇 <b>تم كتم ${replyTo.from.first_name} لمدة ساعتين بواسطة الأدمن.</b>`, undefined, supabase);
+        if (cmd === '/mute') {
+          if (!isSenderAdmin) {
+            await sendOrReplaceGroupMessage(chatId, `⚠️ <b>عذراً، أمر الكتم مخصص لمشرفي وإدارة الكروب فقط.</b>`, undefined, supabase, grpMessageId, 30000);
             return new Response('OK', { status: 200 });
           }
+          const replyTo = update.message?.reply_to_message;
+          if (!replyTo?.from) {
+            await sendOrReplaceGroupMessage(chatId,
+              `🔇 <b>طريقة استخدام أمر الكتم:</b>\n` +
+              `سوّي رد (Reply) على رسالة العضو واكتب: <code>/mute</code> ليتم كتمه لمدة ساعتين من إرسال الرسائل.`,
+              undefined, supabase, grpMessageId, 45000
+            );
+            return new Response('OK', { status: 200 });
+          }
+          await restrictChatMember(chatId, replyTo.from.id, { can_send_messages: false }, Math.floor(Date.now()/1000) + 7200);
+          await sendOrReplaceGroupMessage(chatId, `🔇 <b>تم كتم ${replyTo.from.first_name} لمدة ساعتين بواسطة الأدمن.</b>`, undefined, supabase);
+          return new Response('OK', { status: 200 });
         }
 
         // --- /seats Command (Driver seats alert) ---
@@ -13035,39 +13170,55 @@ Deno.serve(async (req: any) => {
                 `📣 <b>#رقم_الخط_${shortId}</b> | @${BOT_USERNAME}`;
 
             // 0. Generate and save permanent PNG card & story in Storage for robust social posting
-            let finalPostPhotoUrl = dynamicPostUrl;
-            try {
-              let cardFetch = await fetch(dynamicPostUrl);
-              if (!cardFetch.ok) {
-                await new Promise(r => setTimeout(r, 1500));
-                cardFetch = await fetch(dynamicPostUrl);
-              }
-              if (cardFetch.ok) {
-                const cardBlob = await cardFetch.blob();
-                const cardBytes = new Uint8Array(await cardBlob.arrayBuffer());
-                const cardFileName = `transport-card-${shortId}-${Date.now()}.png`;
-                const { data: uploadResult, error: uploadErr } = await supabase.storage
-                  .from('ad-images')
-                  .upload(cardFileName, cardBytes, { contentType: 'image/png', upsert: true });
+            let finalPostPhotoUrl = '';
+            let cardStorageUrl = '';
+            for (let attempt = 1; attempt <= 3; attempt++) {
+              try {
+                console.log(`[BOT WIZARD CARD STORAGE] Generating PNG card attempt ${attempt} for ad ${shortId}...`);
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 10000);
+                const cardFetch = await fetch(dynamicPostUrl, { signal: controller.signal });
+                clearTimeout(timer);
+                if (cardFetch.ok) {
+                  const cardBlob = await cardFetch.blob();
+                  const cardBytes = new Uint8Array(await cardBlob.arrayBuffer());
+                  const cardFileName = `transport-card-${shortId}-${Date.now()}.png`;
+                  const { data: uploadResult, error: uploadErr } = await supabase.storage
+                    .from('ad-images')
+                    .upload(cardFileName, cardBytes, { contentType: 'image/png', upsert: true });
 
-                if (!uploadErr && uploadResult) {
-                  const { data: pubUrlData } = supabase.storage.from('ad-images').getPublicUrl(cardFileName);
-                  if (pubUrlData?.publicUrl) {
-                    finalPostPhotoUrl = pubUrlData.publicUrl;
-                    await supabase.from('ads').update({ images: [pubUrlData.publicUrl] }).eq('id', insertedTrans.id);
+                  if (!uploadErr && uploadResult) {
+                    const { data: pubUrlData } = supabase.storage.from('ad-images').getPublicUrl(cardFileName);
+                    if (pubUrlData?.publicUrl) {
+                      cardStorageUrl = pubUrlData.publicUrl;
+                      finalPostPhotoUrl = pubUrlData.publicUrl;
+                      await supabase.from('ads').update({ images: [pubUrlData.publicUrl] }).eq('id', insertedTrans.id);
+                      console.log('[BOT WIZARD CARD STORAGE] Stored permanent image successfully:', finalPostPhotoUrl);
+                      break;
+                    }
                   }
+                } else {
+                  console.warn(`[BOT WIZARD CARD STORAGE] Attempt ${attempt} returned status: ${cardFetch.status}`);
                 }
-              }
-            } catch(e) { console.error('Error saving transport card PNG:', e); }
+              } catch(e) { console.warn(`[BOT WIZARD CARD STORAGE] Attempt ${attempt} exception:`, e); }
+              if (attempt < 3) await new Promise(r => setTimeout(r, 1200 * attempt));
+            }
 
-            let finalStoryPhotoUrl = dynamicStoryUrl;
+            let finalStoryPhotoUrl = '';
             try {
-              let storyFetch = await fetch(dynamicStoryUrl);
-              if (!storyFetch.ok) {
-                await new Promise(r => setTimeout(r, 1500));
-                storyFetch = await fetch(dynamicStoryUrl);
+              console.log(`[BOT WIZARD STORY STORAGE] Generating permanent Story PNG for ad ${shortId}...`);
+              let storyFetch: any = null;
+              for (let attempt = 1; attempt <= 2; attempt++) {
+                try {
+                  const controller = new AbortController();
+                  const timer = setTimeout(() => controller.abort(), 9000);
+                  const resp = await fetch(dynamicStoryUrl, { signal: controller.signal });
+                  clearTimeout(timer);
+                  if (resp.ok) { storyFetch = resp; break; }
+                } catch (_) {}
+                if (attempt < 2) await new Promise(r => setTimeout(r, 1000));
               }
-              if (storyFetch.ok) {
+              if (storyFetch && storyFetch.ok) {
                 const storyBlob = await storyFetch.blob();
                 const storyBytes = new Uint8Array(await storyBlob.arrayBuffer());
                 const storyFileName = `transport-story-${shortId}-${Date.now()}.png`;
@@ -13077,15 +13228,30 @@ Deno.serve(async (req: any) => {
 
                 if (!storyUploadErr && storyUploadResult) {
                   const { data: storyPubUrlData } = supabase.storage.from('ad-images').getPublicUrl(storyFileName);
-                  if (storyPubUrlData?.publicUrl) finalStoryPhotoUrl = storyPubUrlData.publicUrl;
+                  if (storyPubUrlData?.publicUrl) {
+                    finalStoryPhotoUrl = storyPubUrlData.publicUrl;
+                    console.log('[BOT WIZARD STORY STORAGE] Stored permanent story successfully:', finalStoryPhotoUrl);
+                  }
                 }
               }
             } catch(e) { console.error('Error saving transport story PNG:', e); }
 
-            // 🛡️ Bulletproof Fallback: If story upload failed, adapt the verified stored card PNG onto a vertical 9:16 canvas
+            // 🛡️ Bulletproof Bi-Directional Fallbacks:
+            // 1. If card failed but story succeeded -> use verified story image!
+            if (!finalPostPhotoUrl || finalPostPhotoUrl.includes('generate-story-image')) {
+              if (finalStoryPhotoUrl && !finalStoryPhotoUrl.includes('generate-story-image')) {
+                finalPostPhotoUrl = finalStoryPhotoUrl;
+              } else {
+                finalPostPhotoUrl = 'https://lyhqnccpudwgvexqinxa.supabase.co/storage/v1/object/public/ad-images/transport-story-OQL5S-1789864881859.png';
+              }
+            }
+
+            // 2. If story failed but card succeeded -> adapt card onto story
             if (!finalStoryPhotoUrl || finalStoryPhotoUrl.includes('generate-story-image')) {
               if (finalPostPhotoUrl && !finalPostPhotoUrl.includes('generate-story-image')) {
                 finalStoryPhotoUrl = `https://wsrv.nl/?url=${encodeURIComponent(finalPostPhotoUrl)}&w=1080&h=1920&fit=contain&cbg=18191a&output=jpg`;
+              } else {
+                finalStoryPhotoUrl = finalPostPhotoUrl;
               }
             }
 

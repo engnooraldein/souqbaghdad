@@ -86,6 +86,23 @@ const SVGS = {
 
 let cachedNotoData: ArrayBuffer | null = null;
 let cachedAlmaraiData: ArrayBuffer | null = null;
+async function fetchWithFallback(urls: string[], timeoutMs = 7000): Promise<ArrayBuffer> {
+  let lastErr;
+  for (const url of urls) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timer);
+      if (res.ok) {
+        return await res.arrayBuffer();
+      }
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw new Error(`Failed to fetch from sources: ${urls.join(', ')} - ${lastErr}`);
+}
 
 serve(async (req: Request) => {
   try {
@@ -105,25 +122,49 @@ serve(async (req: Request) => {
       }
     }
 
-    // 1. Initialize WASM for Resvg
+    // 1 & 2. Initialize WASM and Fonts in Parallel with Fast CDNs + Fallback
+    const initTasks: Promise<any>[] = [];
+
     if (!wasmInitialized) {
-      const wasmRes = await fetch('https://unpkg.com/@resvg/resvg-wasm@2.6.2/index_bg.wasm');
-      const wasmBuffer = await wasmRes.arrayBuffer();
-      await initWasm(wasmBuffer);
-      wasmInitialized = true;
+      initTasks.push(
+        fetchWithFallback([
+          'https://cdn.jsdelivr.net/npm/@resvg/resvg-wasm@2.6.2/index_bg.wasm',
+          'https://unpkg.com/@resvg/resvg-wasm@2.6.2/index_bg.wasm'
+        ]).then(async (buf) => {
+          await initWasm(buf);
+          wasmInitialized = true;
+        })
+      );
     }
 
-    // 2. Fetch Complete Arabic (Noto) + Latin (Almarai) Fonts (Cached)
-    if (!cachedNotoData || !cachedAlmaraiData) {
-      const [notoRes, almaraiRes] = await Promise.all([
-        fetch('https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf'),
-        fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/almarai/Almarai-Bold.ttf')
-      ]);
-      cachedNotoData = await notoRes.arrayBuffer();
-      cachedAlmaraiData = await almaraiRes.arrayBuffer();
+    if (!cachedNotoData) {
+      initTasks.push(
+        fetchWithFallback([
+          'https://cdn.jsdelivr.net/gh/googlefonts/noto-fonts@main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf',
+          'https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf'
+        ]).then((buf) => {
+          cachedNotoData = buf;
+        })
+      );
     }
-    const notoData = cachedNotoData;
-    const almaraiData = cachedAlmaraiData;
+
+    if (!cachedAlmaraiData) {
+      initTasks.push(
+        fetchWithFallback([
+          'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/almarai/Almarai-Bold.ttf',
+          'https://raw.githubusercontent.com/google/fonts/main/ofl/almarai/Almarai-Bold.ttf'
+        ]).then((buf) => {
+          cachedAlmaraiData = buf;
+        })
+      );
+    }
+
+    if (initTasks.length > 0) {
+      await Promise.all(initTasks);
+    }
+
+    const notoData = cachedNotoData!;
+    const almaraiData = cachedAlmaraiData!;
 
     const isPost = mode === "post";
     const canvasWidth = 1080;
@@ -472,11 +513,11 @@ serve(async (req: Request) => {
     const pngData = resvg.render();
     const pngBuffer = pngData.asPng();
 
-    // 7. Return the image
+    // 7. Return the image with edge-caching enabled
     return new Response(pngBuffer, {
       headers: {
         'Content-Type': 'image/png',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Cache-Control': 'public, max-age=604800, s-maxage=604800, stale-while-revalidate=86400',
         'Access-Control-Allow-Origin': '*'
       },
     });
