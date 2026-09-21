@@ -2932,19 +2932,34 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
   const keywords = state.data.filter_keywords || [];
   const onlyMyAds = state.data.only_my_ads === true || category === 'my_store';
   const targetUni = state.data.target_university || state.data.university || (category === 'transport' ? 'كل الجامعات (عام)' : null);
+  const editingDbId = state.data.editing_channel_db_id;
 
-  const { error } = await supabaseClient.from('partner_channels').upsert({
-    owner_telegram_id: chatId,
-    channel_id: channelId,
-    channel_title: channelTitle,
-    category: category,
-    sub_category: subCategory,
-    university: targetUni,
-    filter_keywords: keywords,
-    only_my_ads: onlyMyAds,
-    is_active: true,
-    updated_at: new Date().toISOString()
-  }, { onConflict: 'channel_id' });
+  let error: any = null;
+  if (editingDbId) {
+    const res = await supabaseClient.from('partner_channels').update({
+      category: category,
+      sub_category: subCategory,
+      university: targetUni,
+      filter_keywords: keywords,
+      only_my_ads: onlyMyAds,
+      updated_at: new Date().toISOString()
+    }).eq('id', editingDbId).eq('owner_telegram_id', chatId);
+    error = res.error;
+  } else {
+    const res = await supabaseClient.from('partner_channels').upsert({
+      owner_telegram_id: chatId,
+      channel_id: channelId,
+      channel_title: channelTitle,
+      category: category,
+      sub_category: subCategory,
+      university: targetUni,
+      filter_keywords: keywords,
+      only_my_ads: onlyMyAds,
+      is_active: true,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'channel_id' });
+    error = res.error;
+  }
 
   if (error) {
     console.error('Error saving partner channel:', error);
@@ -3081,8 +3096,12 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
   state = {};
   await supabaseClient.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
+  const successTitle = editingDbId 
+    ? '✅ <b>تم تحديث وتعديل تخصص قناتك بنجاح!</b> 🎯' 
+    : '✅ <b>تم ربط قناتك بنجاح!</b> 🎉';
+
   await updateOrSend(
-    `✅ <b>تم ربط قناتك بنجاح!</b> 🎉\n\n` +
+    `${successTitle}\n\n` +
     `📢 <b>القناة:</b> ${channelTitle} (${channelId})\n` +
     (onlyMyAds 
       ? `👑 <b>الوضع المختار:</b> إعلانات متجرك الخاص فقط. أي منتج أو إعلان تنشره في الموقع أو البوت سينزل في قناتك فورياً وبتصميم مرتب!`
@@ -12579,7 +12598,7 @@ Deno.serve(async (req: any) => {
       }
 
       if (action === 'partner_my_channels') {
-        const { data: myChannels } = await supabase.from('partner_channels').select('*').eq('owner_telegram_id', chatId);
+        const { data: myChannels } = await supabase.from('partner_channels').select('*').eq('owner_telegram_id', chatId).order('created_at', { ascending: false });
         if (!myChannels || myChannels.length === 0) {
           await updateOrSend('ليس لديك أي قنوات مربوطة حالياً.', {
             inline_keyboard: [
@@ -12593,12 +12612,26 @@ Deno.serve(async (req: any) => {
         let listText = `📋 <b>قنواتك المربوطة بشبكة سوق بغداد:</b>\n\n`;
         const channelButtons: any[] = [];
         myChannels.forEach((c: any, i: number) => {
+          const uniLabel = c.university || (c.filter_keywords && c.filter_keywords.length > 0 ? c.filter_keywords[0] : null);
           const catName = c.only_my_ads || c.category === 'my_store'
-            ? '👑 إعلانات متجري / إعلاناتي الشخصية فقط'
-            : (c.category === 'transport' ? '🚌 خطوط نقل' : (c.category === 'vehicles' ? '🚗 سيارات' : (c.category === 'products' ? '🛍️ منتجات ومتاجر' : '🌐 الكل')));
-          const subInfo = c.filter_keywords && c.filter_keywords.length > 0 ? ` (${c.filter_keywords.join('، ')})` : '';
-          listText += `${i + 1}. <b>${c.channel_title || c.channel_id}</b>\n• التخصص: ${catName}${subInfo}\n• الحالة: ${c.is_active ? '✅ نشطة وتستلم الإعلانات' : '⏸️ متوقفة'}\n\n`;
-          channelButtons.push([{ text: `❌ حذف ${c.channel_title || c.channel_id}`, callback_data: `partner_delete_${c.id}` }]);
+            ? '👑 إعلانات متجري فقط'
+            : (c.category === 'transport' 
+                ? (uniLabel && !uniLabel.includes('عام') ? `🚌 خطوط نقل [ ${uniLabel} ]` : '🚌 خطوط نقل (كل الجامعات)') 
+                : (c.category === 'vehicles' ? '🚗 سيارات' : (c.category === 'products' ? '🛍️ منتجات ومتاجر' : '🌐 الكل')));
+          
+          listText += 
+            `${i + 1}. <b>${c.channel_title || c.channel_id}</b>\n` +
+            `• المعرف: <code>${c.channel_id}</code>\n` +
+            `• التخصص: ${catName}\n` +
+            `• الحالة: ${c.is_active ? '✅ نشطة وتستلم الإعلانات' : '⏸️ متوقفة مؤقتاً'}\n\n`;
+
+          channelButtons.push([
+            { text: `⚙️ تعديل الكلية / التخصص: ${c.channel_title || c.channel_id}`, callback_data: `partner_manage_${c.id}` }
+          ]);
+          channelButtons.push([
+            { text: c.is_active ? '⏸️ إيقاف مؤقت' : '▶️ استئناف النشر', callback_data: `partner_toggle_${c.id}` },
+            { text: '❌ فك ربط', callback_data: `partner_delete_${c.id}` }
+          ]);
         });
 
         channelButtons.push([{ text: '➕ ربط قناة أخرى', callback_data: 'partner_connect_start' }]);
@@ -12608,11 +12641,149 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
+      // Channel Management Dashboard
+      if (action.startsWith('partner_manage_')) {
+        const pId = action.replace('partner_manage_', '');
+        const { data: c } = await supabase.from('partner_channels').select('*').eq('id', pId).eq('owner_telegram_id', chatId).maybeSingle();
+        if (!c) {
+          await updateOrSend('⚠️ القناة غير موجودة أو تم حذفها.');
+          return new Response('OK', { status: 200 });
+        }
+
+        const uniLabel = c.university || (c.filter_keywords && c.filter_keywords.length > 0 ? c.filter_keywords[0] : null);
+        const catName = c.only_my_ads || c.category === 'my_store'
+          ? '👑 إعلانات متجري فقط'
+          : (c.category === 'transport' 
+              ? (uniLabel && !uniLabel.includes('عام') ? `🚌 خطوط نقل [ ${uniLabel} ]` : '🚌 خطوط نقل (كل الجامعات)') 
+              : (c.category === 'vehicles' ? '🚗 سيارات' : (c.category === 'products' ? '🛍️ منتجات ومتاجر' : '🌐 الكل')));
+
+        const manageText = 
+          `⚙️ <b>لوحة إدارة وتعديل القناة:</b>\n\n` +
+          `📢 <b>اسم القناة:</b> <b>${c.channel_title || c.channel_id}</b>\n` +
+          `🆔 <b>معرف القناة:</b> <code>${c.channel_id}</code>\n` +
+          `📌 <b>التخصص الحالي:</b> <b>${catName}</b>\n` +
+          `⚡ <b>الحالة:</b> ${c.is_active ? '🟢 نشطة وتستلم الإعلانات فورياً' : '🔴 متوقفة مؤقتاً'}\n` +
+          `📊 <b>الإحصائيات:</b> ${c.posts_count || 0} منشور | 🪙 ${c.earned_points || 0} نقطة مكافأة\n\n` +
+          `👇 <b>اختر الإجراء الذي تريد تطبيقه:</b>`;
+
+        const manageButtons = {
+          inline_keyboard: [
+            [{ text: '🎓 تغيير الكلية / نطاق خطوط النقل (دليل شامل) 🚌', callback_data: `partner_edit_uni_${c.id}` }],
+            [{ text: '🔄 تغيير قسم القناة (سيارات / منتجات / متجري)', callback_data: `partner_edit_cat_${c.id}` }],
+            [{ text: c.is_active ? '⏸️ إيقاف استلام الإعلانات مؤقتاً' : '▶️ استئناف تفعيل استقبال الإعلانات', callback_data: `partner_toggle_${c.id}` }],
+            [{ text: '🔄 إعادة مزامنة ونشر أحدث الإعلانات الآن', callback_data: `partner_resync_${c.id}` }],
+            [{ text: '❌ فك ربط وحذف القناة نهائياً', callback_data: `partner_delete_${c.id}` }],
+            [{ text: '⬅️ العودة لقائمة القنوات', callback_data: 'partner_my_channels' }]
+          ]
+        };
+
+        await updateOrSend(manageText, manageButtons);
+        return new Response('OK', { status: 200 });
+      }
+
+      // Quick Edit University Callback
+      if (action.startsWith('partner_edit_uni_')) {
+        const pId = action.replace('partner_edit_uni_', '');
+        const { data: c } = await supabase.from('partner_channels').select('*').eq('id', pId).eq('owner_telegram_id', chatId).maybeSingle();
+        if (!c) return new Response('OK', { status: 200 });
+
+        state.step = 'partner_transport_filter';
+        state.data = {
+          editing_channel_db_id: c.id,
+          channel_id: c.channel_id,
+          channel_title: c.channel_title,
+          category: 'transport',
+          uni_cat: 'pvt_bg',
+          uni_page: 0
+        };
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const { text: uniMsg, markup: uniMarkup } = renderUniversityScopeKeyboard('pvt_bg', 0);
+        await updateOrSend(
+          `✏️ <b>تعديل كلية القناة:</b> [ <b>${c.channel_title}</b> ]\n\n` + uniMsg, 
+          uniMarkup
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      // Quick Edit Category Callback
+      if (action.startsWith('partner_edit_cat_')) {
+        const pId = action.replace('partner_edit_cat_', '');
+        const { data: c } = await supabase.from('partner_channels').select('*').eq('id', pId).eq('owner_telegram_id', chatId).maybeSingle();
+        if (!c) return new Response('OK', { status: 200 });
+
+        state.data = {
+          editing_channel_db_id: c.id,
+          channel_id: c.channel_id,
+          channel_title: c.channel_title
+        };
+        state.step = 'partner_category_select';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const catMsg = 
+          `🔄 <b>تعديل تخصص وقسم القناة:</b> [ <b>${c.channel_title}</b> ]\n\n` +
+          `اختر القسم الجديد الذي ترغب في نشر إعلاناته بالقناة:`;
+
+        const catMarkup = {
+          inline_keyboard: [
+            [{ text: '👑 إعلانات متجري / إعلاناتي الشخصية فقط', callback_data: 'partner_cat_my_store' }],
+            [{ text: '🚌 خطوط نقل طلاب وموظفين', callback_data: 'partner_cat_transport' }],
+            [{ text: '🚗 سيارات ومحركات للبيع', callback_data: 'partner_cat_vehicles' }],
+            [{ text: '🛍️ منتجات ومتاجر وتسوق عام', callback_data: 'partner_cat_products' }],
+            [{ text: '🌐 كل الإعلانات العامة بالمنصة', callback_data: 'partner_cat_all' }],
+            [{ text: '⬅️ العودة لإدارة القناة', callback_data: `partner_manage_${c.id}` }]
+          ]
+        };
+
+        await updateOrSend(catMsg, catMarkup);
+        return new Response('OK', { status: 200 });
+      }
+
+      // Toggle Channel Active / Paused Status
+      if (action.startsWith('partner_toggle_')) {
+        const pId = action.replace('partner_toggle_', '');
+        const { data: c } = await supabase.from('partner_channels').select('*').eq('id', pId).eq('owner_telegram_id', chatId).maybeSingle();
+        if (c) {
+          const newStatus = !c.is_active;
+          await supabase.from('partner_channels').update({ is_active: newStatus, updated_at: new Date().toISOString() }).eq('id', pId);
+          const statusMsg = newStatus 
+            ? `🟢 <b>تم تفعيل واستئناف استقبال الإعلانات في [ ${c.channel_title || c.channel_id} ] بنجاح!</b>` 
+            : `⏸️ <b>تم إيقاف استقبال الإعلانات مؤقتاً في [ ${c.channel_title || c.channel_id} ].</b>\nلن يتم نشر أي إعلانات بها حتى تعيد التفعيل.`;
+          await updateOrSend(statusMsg, {
+            inline_keyboard: [
+              [{ text: '⚙️ إدارة هذه القناة', callback_data: `partner_manage_${pId}` }],
+              [{ text: '📋 عرض كل قنواتي', callback_data: 'partner_my_channels' }]
+            ]
+          });
+        }
+        return new Response('OK', { status: 200 });
+      }
+
+      // Manual Ads Resync for Channel
+      if (action.startsWith('partner_resync_')) {
+        const pId = action.replace('partner_resync_', '');
+        const { data: c } = await supabase.from('partner_channels').select('*').eq('id', pId).eq('owner_telegram_id', chatId).maybeSingle();
+        if (c) {
+          await updateOrSend(`🔄 <b>جاري مزامنة ونشر أحدث الإعلانات في قناتك [ ${c.channel_title} ] الآن...</b> ✨\n\nيرجى التأكد من بقاء البوت مشرفاً بصلاحية نشر الرسائل في القناة.`, {
+            inline_keyboard: [
+              [{ text: '⚙️ العودة لإدارة القناة', callback_data: `partner_manage_${pId}` }],
+              [{ text: '📋 قائمة قنواتي', callback_data: 'partner_my_channels' }]
+            ]
+          });
+        }
+        return new Response('OK', { status: 200 });
+      }
+
+      // Delete Channel
       if (action.startsWith('partner_delete_')) {
         const channelDbId = action.replace('partner_delete_', '');
         await supabase.from('partner_channels').delete().eq('id', channelDbId).eq('owner_telegram_id', chatId);
-        await updateOrSend('✅ تم فك ربط القناة بنجاح.');
-        await showMainMenu(undefined, true);
+        await updateOrSend('✅ تم فك ربط وحذف القناة بنجاح.', {
+          inline_keyboard: [
+            [{ text: '📋 عرض قنواتي المتبقية', callback_data: 'partner_my_channels' }],
+            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+          ]
+        });
         return new Response('OK', { status: 200 });
       }
 
