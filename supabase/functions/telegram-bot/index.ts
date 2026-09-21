@@ -3042,6 +3042,44 @@ async function editChannelMessage(chatId: string | number, messageId: number, ca
   }
 }
 
+async function findAndEditPartnerChannelPost(
+  channelId: string | number,
+  shortId: string,
+  soldCaption: string,
+  soldButtons: any
+): Promise<number | null> {
+  if (!channelId || !shortId) return null;
+  const cleanShortId = shortId.trim().toUpperCase();
+
+  for (let msgId = 1; msgId <= 50; msgId++) {
+    try {
+      const res = await fetch(`${tgUrl}/editMessageReplyMarkup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: channelId, message_id: msgId, reply_markup: soldButtons })
+      });
+      const data = await res.json();
+      if (data?.ok && data.result) {
+        const cap = (data.result.caption || data.result.text || '').toUpperCase();
+        if (cap.includes(cleanShortId)) {
+          console.log(`[PARTNER SCAN] Matched ad #${cleanShortId} in ${channelId} at msgId ${msgId}! Updating caption...`);
+          await editMessageCaption(channelId, msgId, soldCaption, soldButtons);
+          return msgId;
+        } else {
+          if (data.result.reply_markup) {
+            await fetch(`${tgUrl}/editMessageReplyMarkup`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: channelId, message_id: msgId, reply_markup: data.result.reply_markup })
+            });
+          }
+        }
+      }
+    } catch(e) {}
+  }
+  return null;
+}
+
 
 
 // Channel IDs from environment variables
@@ -3220,15 +3258,27 @@ async function broadcastToPartnerChannels(record: any, category: 'transport' | '
         // 💾 Store partner channel message IDs so we can update them on [تم الاتفاق / حصلت على خط]
         if (pMsgId && record.id) {
           try {
-            const { data: curAd } = await supabaseClient.from('ads').select('sync_status').eq('id', record.id).maybeSingle();
+            const table = (category === 'products' && record.seller_id) ? 'products' : 'ads';
+            const { data: curAd } = await supabaseClient.from(table).select('partner_messages, sync_status').eq('id', record.id).maybeSingle();
+            
+            const existingPartnerMsgs = (curAd?.partner_messages && typeof curAd.partner_messages === 'object')
+              ? { ...curAd.partner_messages }
+              : {};
+            existingPartnerMsgs[String(partner.channel_id)] = pMsgId;
+
             const currentSync = curAd?.sync_status || {};
-            const partnerMsgs = currentSync.partner_messages || {};
-            partnerMsgs[partner.channel_id] = pMsgId;
-            await supabaseClient.from('ads').update({
-              sync_status: { ...currentSync, partner_messages: partnerMsgs }
+            const syncPartnerMsgs = (currentSync.partner_messages && typeof currentSync.partner_messages === 'object')
+              ? { ...currentSync.partner_messages }
+              : {};
+            syncPartnerMsgs[String(partner.channel_id)] = pMsgId;
+
+            await supabaseClient.from(table).update({
+              partner_messages: existingPartnerMsgs,
+              sync_status: { ...currentSync, partner_messages: syncPartnerMsgs }
             }).eq('id', record.id);
+            console.log(`[PARTNER SYNDICATION] ✅ Saved partner message ID ${pMsgId} for ${partner.channel_id} in table ${table} ID ${record.id}`);
           } catch(e) {
-            console.error('Error saving partner message ID to ad sync_status:', e);
+            console.error('Error saving partner message ID to ad partner_messages:', e);
           }
         }
 
@@ -5362,6 +5412,156 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+async function syncAdSoldStateToChannels(actualAd: any, supabaseClient: any) {
+  if (!actualAd) return { success: false, error: 'No ad' };
+  const targetDbTable = actualAd.seller_id ? 'products' : 'ads';
+  const isTransport = actualAd.category === 'transport';
+  const isCar = actualAd.category === 'vehicles' || actualAd.category === 'cars' || actualAd.category === 'car' || (actualAd.category || '').toLowerCase().includes('car');
+  const isProduct = !isTransport && !isCar;
+
+  const msgId = actualAd.telegram_message_id;
+  const rucMsgId = actualAd.sync_status?.ruc_telegram_message_id;
+
+  const browseUrl = isCar 
+    ? 'https://www.souqbaghdad.store/vehicles' 
+    : (isTransport ? 'https://www.souqbaghdad.store/transport' : 'https://www.souqbaghdad.store/products');
+    
+  const isSeeker = isTransport && actualAd.type === 'request';
+
+  const soldTag = isTransport 
+    ? (isSeeker ? '✅ <b>[تم الاتفاق / حصلت على خط 🎓]</b>' : '✅ <b>[اكتمل العدد / الخط مغلق 🔒]</b>')
+    : (isCar ? '⚠️ <b>[تم البيع / مباعة 🚗]</b>' : '⚠️ <b>[تم البيع / غير متوفر 🛍️]</b>');
+
+  const buttonText = isTransport 
+    ? (isSeeker ? '🚌 تصفح طلبات وخطوط أخرى 🌐' : '🚌 تصفح خطوط أخرى متاحة 🌐')
+    : (isCar ? '🚗 تم بيع هذه السيارة — تصفح المزيد 🔍' : '🛍️ تم البيع — تصفح أحدث العروض 🌐');
+
+  const postNewText = isTransport
+    ? (isSeeker ? '🚌 انشر طلب خط نقل جديد مجاناً' : '🚌 اعرض خطك مجاناً عبر البوت')
+    : (isCar ? '🚗 اعرض سيارتك للبيع مجاناً عبر البوت' : '📦 اعرض سلعتك مجاناً عبر البوت');
+
+  const soldButtons = {
+    inline_keyboard: [
+      [{ text: buttonText, url: browseUrl }],
+      [{ text: postNewText, url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
+    ]
+  };
+
+  const iconType = isTransport ? (isSeeker ? '🎓' : '🚌') : (isCar ? '🚗' : '🛍️');
+  const soldCaption = isSeeker
+    ? `${soldTag}\n\n` +
+      `🎓 <b>${actualAd.title || 'طلب خط نقل'}</b>\n` +
+      `🤝 <b>تم الاتفاق مع كابتن بنجاح عبر منصة سوق بغداد</b>\n` +
+      `📍 ${actualAd.location || 'بغداد'} ⬅️ ${actualAd.city || 'الجامعة'}\n\n` +
+      `🔒 <i>تم إغلاق الطلب واكتمال التنسيق بنجاح.</i>`
+    : `${soldTag}\n\n` +
+      `${iconType} <b>${actualAd.title || 'إعلان'}</b>\n` +
+      `💰 <b>تمت العملية بنجاح عبر منصة سوق بغداد</b>\n` +
+      `📍 ${actualAd.location || actualAd.city || 'العراق'}\n\n` +
+      `📣 لم يعد هذا الإعلان متاحاً للتواصل. يمكنك تصفح العروض المشابهة عبر الزر أدناه 👇`;
+
+  const results: any = { telegram: false, rafdain: false, partners: [] };
+
+  // 1. Update main Telegram channel
+  if (msgId) {
+    const channelsToTry = isTransport 
+      ? [LINES_CHANNEL_ID || LINES_CHANNEL, EXTRA_CHANNEL, PRODUCT_CHANNEL]
+      : (isCar ? [CAR_CHANNEL_ID || CAR_CHANNEL, PRODUCT_CHANNEL] : [PRODUCT_CHANNEL, EXTRA_CHANNEL]);
+
+    for (const ch of channelsToTry) {
+      try {
+        const res = await editChannelMessage(ch, parseInt(msgId, 10), soldCaption, soldButtons);
+        if (res?.ok) {
+          results.telegram = true;
+          break;
+        }
+      } catch(e) {}
+    }
+  }
+
+  // 2. Update Al-Rafdain channel
+  const descStr = typeof actualAd.description === 'string' ? actualAd.description : JSON.stringify(actualAd.description || {});
+  const rafdainTerms = ['الرافدين', 'الرفدين', 'ruc'];
+  const isAlRafdain = isTransport && rafdainTerms.some(t => 
+    (actualAd.title && actualAd.title.toLowerCase().includes(t)) ||
+    (actualAd.university && actualAd.university.toLowerCase().includes(t)) ||
+    (actualAd.city && actualAd.city.toLowerCase().includes(t)) ||
+    (actualAd.destination && actualAd.destination.toLowerCase().includes(t)) ||
+    (actualAd.location && actualAd.location.toLowerCase().includes(t)) ||
+    (actualAd.regions && actualAd.regions.toLowerCase().includes(t)) ||
+    descStr.toLowerCase().includes(t)
+  );
+
+  if ((isAlRafdain || rucMsgId) && ALRAFDAIN_TELEGRAM_CHANNEL && rucMsgId) {
+    try {
+      const rucRes = await editChannelMessage(ALRAFDAIN_TELEGRAM_CHANNEL, parseInt(rucMsgId, 10), soldCaption, soldButtons);
+      results.rafdain = rucRes?.ok;
+    } catch(e) {}
+  }
+
+  // 3. Update Partner Channels
+  const partnerMsgs: Record<string, any> = {
+    ...(actualAd.partner_messages && typeof actualAd.partner_messages === 'object' ? actualAd.partner_messages : {}),
+    ...(actualAd.sync_status?.partner_messages && typeof actualAd.sync_status.partner_messages === 'object' ? actualAd.sync_status.partner_messages : {})
+  };
+  const updatedPartners = new Set<string>();
+
+  for (const [chId, chMsgId] of Object.entries(partnerMsgs)) {
+    if (chId && chMsgId) {
+      const msgIdNum = parseInt(String(chMsgId), 10);
+      if (isNaN(msgIdNum)) continue;
+      try {
+        const editRes = await editChannelMessage(chId, msgIdNum, soldCaption, soldButtons);
+        if (editRes?.ok) {
+          updatedPartners.add(chId);
+          results.partners.push({ channel: chId, msgId: msgIdNum, status: 'edited' });
+        }
+      } catch(e) {}
+    }
+  }
+
+  // Smart scan partner channels
+  try {
+    const shortCode = (actualAd.short_id || '').trim();
+    const { data: allPartners } = await supabaseClient.from('partner_channels').select('*').eq('is_active', true).limit(50);
+    for (const pc of allPartners || []) {
+      if (updatedPartners.has(String(pc.channel_id))) continue;
+      const ch = pc.category || 'all';
+      if (isTransport && ch !== 'all' && ch !== 'transport' && ch !== 'my_store') continue;
+      if (isCar && ch !== 'all' && ch !== 'vehicles') continue;
+      if (!isTransport && !isCar && ch !== 'all' && ch !== 'products' && ch !== 'my_store') continue;
+
+      if (isTransport && pc.university && pc.university !== 'all' && !pc.university.includes('عام')) {
+        const targetUni = pc.university.trim();
+        const fullText = `${actualAd.title || ''} ${actualAd.destination || ''} ${actualAd.city || ''} ${actualAd.location || ''} ${actualAd.regions || ''}`.toLowerCase();
+        const isUniMatch = isDestinationMatch(targetUni, fullText, actualAd.city || '') || 
+                           fullText.includes(targetUni.toLowerCase()) ||
+                           normArabic(fullText).includes(normArabic(targetUni));
+        if (!isUniMatch) continue;
+      }
+
+      console.log(`[SYNC AD SOLD] Scanning partner channel ${pc.channel_id} for #${shortCode}...`);
+      const foundMsgId = await findAndEditPartnerChannelPost(pc.channel_id, shortCode, soldCaption, soldButtons);
+      if (foundMsgId) {
+        updatedPartners.add(String(pc.channel_id));
+        partnerMsgs[String(pc.channel_id)] = String(foundMsgId);
+        results.partners.push({ channel: pc.channel_id, msgId: foundMsgId, status: 'found_and_edited' });
+      }
+    }
+
+    if (Object.keys(partnerMsgs).length > 0) {
+      await supabaseClient.from(targetDbTable).update({
+        partner_messages: partnerMsgs,
+        sync_status: { ...(actualAd.sync_status || {}), partner_messages: partnerMsgs }
+      }).eq('id', actualAd.id);
+    }
+  } catch(e) {
+    console.error('[SYNC AD SOLD] Error during partner scan:', e);
+  }
+
+  return { success: true, results };
+}
+
 let hasSyncedBotCommands = false;
 
 Deno.serve(async (req: any) => {
@@ -5464,6 +5664,48 @@ Deno.serve(async (req: any) => {
           status: 500
         });
       }
+    }
+
+    if (payload.action === 'fix_partner_ad_post' || payload.action === 'sync_partner_post') {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+      const shortId = (payload.short_id || '0IE9W').trim();
+      const { data: targetAd } = await supabase.from('ads').select('*').or(`short_id.eq.${shortId},short_id.ilike.%${shortId}%`).maybeSingle();
+      if (!targetAd) {
+        return new Response(JSON.stringify({ error: 'Ad not found' }), { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+          status: 404 
+        });
+      }
+
+      // If manual channel_id and msg_id provided in payload:
+      if (payload.channel_id && payload.message_id) {
+        const pMsgs = targetAd.partner_messages || {};
+        pMsgs[payload.channel_id] = payload.message_id;
+        await supabase.from('ads').update({ partner_messages: pMsgs }).eq('id', targetAd.id);
+        targetAd.partner_messages = pMsgs;
+      }
+      
+      const diag: any = {};
+      const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || Deno.env.get("BOT_TOKEN") || "";
+      for (const ch of ['@alisra111', '@alisra22', '@lines_als']) {
+        try {
+          const cRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChat?chat_id=${ch}`);
+          const cData = await cRes.json();
+          diag[ch] = { ok: cData.ok, title: cData.result?.title, error: cData.description };
+        } catch(e: any) {
+          diag[ch] = { error: e.message };
+        }
+      }
+
+      const res = await syncAdSoldStateToChannels(targetAd, supabase);
+      const { data: updatedAd } = await supabase.from('ads').select('partner_messages, sync_status').eq('id', targetAd.id).maybeSingle();
+      return new Response(JSON.stringify({ success: true, diag, res, partner_messages: updatedAd?.partner_messages }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      });
     }
 
     // Check if it's a manual or cron Sync Watchdog call
@@ -5862,17 +6104,63 @@ Deno.serve(async (req: any) => {
           }
 
           // 2b. Also update all Partner Channels where this ad was syndicated
-          const partnerMsgs = actualAd.sync_status?.partner_messages || record?.sync_status?.partner_messages || {};
+          const partnerMsgs: Record<string, any> = {
+            ...(actualAd.partner_messages && typeof actualAd.partner_messages === 'object' ? actualAd.partner_messages : {}),
+            ...(actualAd.sync_status?.partner_messages && typeof actualAd.sync_status.partner_messages === 'object' ? actualAd.sync_status.partner_messages : {}),
+            ...(record?.partner_messages && typeof record?.partner_messages === 'object' ? record.partner_messages : {}),
+            ...(record?.sync_status?.partner_messages && typeof record?.sync_status.partner_messages === 'object' ? record.sync_status.partner_messages : {})
+          };
+          const updatedPartners = new Set<string>();
           for (const [chId, chMsgId] of Object.entries(partnerMsgs)) {
             if (chId && chMsgId) {
+              const msgIdNum = parseInt(String(chMsgId), 10);
+              if (isNaN(msgIdNum)) continue;
               try {
                 console.log(`[PARTNER UPDATE WEBHOOK] Updating post in partner channel ${chId} with msgId ${chMsgId}`);
-                await editChannelMessage(chId, parseInt(String(chMsgId), 10), soldCaption, soldButtons);
+                const editRes = await editChannelMessage(chId, msgIdNum, soldCaption, soldButtons);
+                if (editRes?.ok) {
+                  updatedPartners.add(chId);
+                  console.log(`[PARTNER UPDATE WEBHOOK] ✅ Edited partner channel ${chId} msg ${chMsgId}`);
+                }
               } catch(err) {
                 console.error(`Failed to update partner channel ${chId} msg ${chMsgId}:`, err);
               }
             }
           }
+
+          // Smart scan for missing partner channels
+          try {
+            const shortCode = actualAd.short_id || record?.short_id || '';
+            const { data: allPartners } = await supabaseClient.from('partner_channels').select('*').eq('is_active', true).limit(50);
+            for (const pc of allPartners || []) {
+              if (updatedPartners.has(String(pc.channel_id))) continue;
+              const ch = pc.category || 'all';
+              if (isTransport && ch !== 'all' && ch !== 'transport') continue;
+              if (isCar && ch !== 'all' && ch !== 'vehicles') continue;
+              if (!isTransport && !isCar && ch !== 'all' && ch !== 'products' && ch !== 'my_store') continue;
+
+              if (isTransport && pc.university && pc.university !== 'all' && !pc.university.includes('عام')) {
+                const targetUni = pc.university.trim();
+                const fullText = `${actualAd.title || ''} ${actualAd.destination || ''} ${actualAd.city || ''} ${actualAd.location || ''} ${actualAd.regions || ''}`.toLowerCase();
+                const isUniMatch = isDestinationMatch(targetUni, fullText, actualAd.city || '') || 
+                                   fullText.includes(targetUni.toLowerCase()) ||
+                                   normArabic(fullText).includes(normArabic(targetUni));
+                if (!isUniMatch) continue;
+              }
+
+              const foundMsgId = await findAndEditPartnerChannelPost(pc.channel_id, shortCode, soldCaption, soldButtons);
+              if (foundMsgId) {
+                updatedPartners.add(String(pc.channel_id));
+                partnerMsgs[String(pc.channel_id)] = String(foundMsgId);
+                try {
+                  await supabaseClient.from(targetDbTable).update({
+                    partner_messages: partnerMsgs,
+                    sync_status: { ...(actualAd.sync_status || {}), partner_messages: partnerMsgs }
+                  }).eq('id', actualAd.id);
+                } catch(_) {}
+              }
+            }
+          } catch(e) {}
         }
 
         // 3. Update Facebook post text (with smart lookup for unindexed/past posts)
@@ -6942,10 +7230,18 @@ Deno.serve(async (req: any) => {
             }
           };
 
-          updates.sync_status = syncStatus;
-          finalSyncStatus = syncStatus;
+          const targetTable = (payload.table === 'transport_ads' || payload.table === 'lines') ? 'ads' : payload.table;
+          const { data: freshBeforeSave } = await supabase.from(targetTable).select('sync_status, partner_messages').eq('id', record.id).maybeSingle();
+          syncStatus.partner_messages = {
+            ...(freshBeforeSave?.sync_status?.partner_messages || {}),
+            ...(freshBeforeSave?.partner_messages || {})
+          };
+          updates.sync_status = {
+            ...(freshBeforeSave?.sync_status || {}),
+            ...syncStatus
+          };
+          finalSyncStatus = updates.sync_status;
           if (Object.keys(updates).length > 0) {
-             const targetTable = (payload.table === 'transport_ads' || payload.table === 'lines') ? 'ads' : payload.table;
              console.log(`[SOCIAL WEBHOOK] Saving publish updates to table ${targetTable} for ID ${record.id}:`, JSON.stringify(updates));
              await supabase.from(targetTable).update(updates).eq('id', record.id);
           }
@@ -16185,7 +16481,14 @@ Deno.serve(async (req: any) => {
 
             // Save telegram_message_id and ruc_telegram_message_id to prevent DB webhook from publishing again (dedup)
             if (tgMsgId || rucMsgId) {
-              const syncStatus: any = { telegram: 'success', facebook: 'pending', instagram: 'pending' };
+              const { data: freshAd } = await supabase.from('ads').select('sync_status, partner_messages').eq('id', insertedTrans.id).maybeSingle();
+              const syncStatus: any = { 
+                ...(freshAd?.sync_status || {}),
+                telegram: 'success', 
+                facebook: 'pending', 
+                instagram: 'pending',
+                partner_messages: freshAd?.sync_status?.partner_messages || freshAd?.partner_messages || {}
+              };
               if (rucMsgId) syncStatus.ruc_telegram_message_id = rucMsgId;
               const updateData: any = { sync_status: syncStatus };
               if (tgMsgId) updateData.telegram_message_id = tgMsgId;
@@ -16274,7 +16577,15 @@ Deno.serve(async (req: any) => {
                 console.error('[BOT SOCIAL] Souq Baghdad IG Story Error:', igSouqErr);
               }
 
-              socialUpdates.sync_status = currentSync;
+              const { data: freshBeforeSocial } = await supabase.from('ads').select('sync_status, partner_messages').eq('id', insertedTrans.id).maybeSingle();
+              socialUpdates.sync_status = {
+                ...(freshBeforeSocial?.sync_status || {}),
+                ...currentSync,
+                partner_messages: {
+                  ...(freshBeforeSocial?.sync_status?.partner_messages || {}),
+                  ...(freshBeforeSocial?.partner_messages || {})
+                }
+              };
               await supabase.from('ads').update(socialUpdates).eq('id', insertedTrans.id);
 
               // Send concise verification report with direct post links
@@ -17632,20 +17943,104 @@ Deno.serve(async (req: any) => {
           }
 
           // 2. Edit all Partner Channels where this ad was published
-          const partnerMsgs = itemToClose.sync_status?.partner_messages || {};
+          let partnerMsgs: Record<string, any> = {
+            ...(itemToClose.partner_messages && typeof itemToClose.partner_messages === 'object' ? itemToClose.partner_messages : {}),
+            ...(itemToClose.sync_status?.partner_messages && typeof itemToClose.sync_status.partner_messages === 'object' ? itemToClose.sync_status.partner_messages : {})
+          };
+          try {
+            const { data: freshAd } = await supabase.from('ads').select('partner_messages, sync_status').eq('id', itemToClose.id).maybeSingle();
+            if (freshAd?.partner_messages && typeof freshAd.partner_messages === 'object') {
+              partnerMsgs = { ...partnerMsgs, ...freshAd.partner_messages };
+            }
+            if (freshAd?.sync_status?.partner_messages && typeof freshAd.sync_status.partner_messages === 'object') {
+              partnerMsgs = { ...partnerMsgs, ...freshAd.sync_status.partner_messages };
+            }
+            console.log(`[SOLVE TRANS] Fetched partner_messages from DB:`, JSON.stringify(partnerMsgs));
+          } catch(e) {}
+
+          // If we have partner message IDs, edit the posts to [تم الاتفاق / حصلت على خط]
+          const updatedPartnerChannels = new Set<string>();
           for (const [chId, chMsgId] of Object.entries(partnerMsgs)) {
             if (chId && chMsgId) {
+              const msgIdNum = parseInt(String(chMsgId), 10);
+              if (isNaN(msgIdNum)) continue;
               try {
                 console.log(`[SOLVE TRANS] Updating partner channel ${chId} msg ${chMsgId}`);
-                await editChannelMessage(chId, parseInt(String(chMsgId), 10), soldCaption, soldButtons);
-              } catch(e){}
+                const editRes = await editChannelMessage(chId, msgIdNum, soldCaption, soldButtons);
+                if (editRes?.ok) {
+                  updatedPartnerChannels.add(chId);
+                  console.log(`[SOLVE TRANS] ✅ Edited partner channel ${chId} msg ${chMsgId}`);
+                } else {
+                  console.warn(`[SOLVE TRANS] editChannelMessage failed for ${chId} msg ${chMsgId}:`, editRes?.description);
+                }
+              } catch(e){
+                console.error(`[SOLVE TRANS] Error editing partner channel ${chId}:`, e);
+              }
             }
+          }
+
+          // 2b. Smart Scanner: If matching active partner channels are missing from partner_messages,
+          // scan the channel to find the post for this ad (#shortId) and edit it directly!
+          try {
+            const shortCodeToMatch = itemToClose.short_id || '';
+            const { data: allPartners } = await supabase
+              .from('partner_channels')
+              .select('*')
+              .eq('is_active', true)
+              .limit(50);
+
+            for (const pc of allPartners || []) {
+              if (updatedPartnerChannels.has(String(pc.channel_id))) continue; // already updated
+
+              // Check category relevance
+              const ch = pc.category || 'all';
+              if (isTransport && ch !== 'all' && ch !== 'transport') continue;
+              if (isCar && ch !== 'all' && ch !== 'vehicles') continue;
+              if (isProduct && ch !== 'all' && ch !== 'products' && ch !== 'my_store') continue;
+
+              // Check university match for transport
+              if (isTransport && pc.university && pc.university !== 'all' && !pc.university.includes('عام')) {
+                const targetUni = pc.university.trim();
+                const fullText = `${itemToClose.title || ''} ${itemToClose.destination || ''} ${itemToClose.city || ''} ${itemToClose.location || ''} ${itemToClose.regions || ''}`.toLowerCase();
+                const isUniMatch = isDestinationMatch(targetUni, fullText, itemToClose.city || '') || 
+                                   fullText.includes(targetUni.toLowerCase()) ||
+                                   normArabic(fullText).includes(normArabic(targetUni));
+                if (!isUniMatch) continue;
+              }
+
+              // Scan and edit the original post in this partner channel!
+              console.log(`[SOLVE TRANS] 🔍 Scanning partner channel ${pc.channel_id} for ad #${shortCodeToMatch}...`);
+              const foundMsgId = await findAndEditPartnerChannelPost(pc.channel_id, shortCodeToMatch, soldCaption, soldButtons);
+              if (foundMsgId) {
+                updatedPartnerChannels.add(String(pc.channel_id));
+                partnerMsgs[String(pc.channel_id)] = String(foundMsgId);
+                console.log(`[SOLVE TRANS] ✅ Successfully found and edited post in ${pc.channel_id} at msgId ${foundMsgId}`);
+                
+                try {
+                  await supabase.from('ads').update({
+                    partner_messages: partnerMsgs,
+                    sync_status: { ...(itemToClose.sync_status || {}), partner_messages: partnerMsgs }
+                  }).eq('id', itemToClose.id);
+                } catch(_) {}
+              }
+            }
+          } catch(allPartnersErr) {
+            console.error('[SOLVE TRANS SCAN] Error finding and updating partner channels:', allPartnersErr);
           }
 
           // Also check if Al-Rafdain rucMsgId exists
           const rucMsgId = itemToClose.sync_status?.ruc_telegram_message_id;
           if (rucMsgId && ALRAFDAIN_TELEGRAM_CHANNEL) {
-            try { await editChannelMessage(ALRAFDAIN_TELEGRAM_CHANNEL, parseInt(rucMsgId, 10), soldCaption, soldButtons); } catch(e){}
+            const rucMsgIdNum = parseInt(rucMsgId, 10);
+            try {
+              const editRes = await editChannelMessage(ALRAFDAIN_TELEGRAM_CHANNEL, rucMsgIdNum, soldCaption, soldButtons);
+              if (!editRes?.ok) {
+                const closureNote = isSeekerAd
+                  ? `✅ <b>تم الاتفاق / حصل الراكب على خط 🎓🤝</b>\n🔒 <i>تم إغلاق هذا الطلب.</i>`
+                  : `✅ <b>اكتمل العدد / الخط مغلق 🔒</b>\n🚫 <i>تم إغلاق هذا الخط.</i>`;
+                await sendMessage(ALRAFDAIN_TELEGRAM_CHANNEL, closureNote, undefined, true, rucMsgIdNum);
+              }
+            } catch(e){}
           }
         } catch(e) {
           console.error('[SOLVE_TRANS] Error updating channels immediately:', e);
@@ -18671,6 +19066,22 @@ Deno.serve(async (req: any) => {
               await editChannelMessage(ALRAFDAIN_TELEGRAM_CHANNEL, parseInt(rucMsgId, 10), closedCaption, closedButtons);
             } catch(e2) {
               console.error('Al-Rafdain (ruc_1) caption update error:', e2);
+            }
+          }
+
+          // 2b. Update all Partner Channels
+          const partnerMsgs: Record<string, any> = {
+            ...(updatedTrans.partner_messages && typeof updatedTrans.partner_messages === 'object' ? updatedTrans.partner_messages : {}),
+            ...(updatedTrans.sync_status?.partner_messages && typeof updatedTrans.sync_status.partner_messages === 'object' ? updatedTrans.sync_status.partner_messages : {})
+          };
+          for (const [chId, chMsgId] of Object.entries(partnerMsgs)) {
+            if (chId && chMsgId) {
+              const msgIdNum = parseInt(String(chMsgId), 10);
+              if (!isNaN(msgIdNum)) {
+                try {
+                  await editChannelMessage(chId, msgIdNum, closedCaption, closedButtons);
+                } catch(e) {}
+              }
             }
           }
 
