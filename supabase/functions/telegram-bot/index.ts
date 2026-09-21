@@ -15881,13 +15881,17 @@ Deno.serve(async (req: any) => {
         const stateData = state.data || {};
 
         // Auto publish to Telegram channels and Socials with dynamic template
-        const typeStr = stateData.type === 'offer' ? '🚗 أوفر خط نقل (سائق)' : '🙋‍♂️ أبحث عن خط نقل (مطلوب)';
+        const isSeeker = stateData.type === 'request';
+        const typeStr = isSeeker ? '🙋‍♂️ أبحث عن خط نقل (مطلوب)' : '🚗 أوفر خط نقل (سائق)';
         const catType = stateData.categoryType === 'employee' ? '💼 خط موظفين' : (stateData.categoryType === 'emergency' ? '🚨 نقل خاص' : '🎓 خط طلاب');
         const targetStr = stateData.targetAudience || 'الجميع';
         const link = `https://www.souqbaghdad.store/transport/card/${shortId}`;
-        const cleanTitle = 'خط نقل جديد في بغداد';
+        // ✅ Title & subdesc depend on whether it's a student request or a captain offer
+        const cleanTitle = isSeeker ? 'طلب خط نقل — راكب' : 'خط نقل جديد في بغداد';
         const cleanSubtitle = (stateData.destination || 'كلية الرافدين الجامعة').replace(/<[^>]*>?/gm, '').trim();
-        const cleanSubdesc = `${catType} (${targetStr})`.replace(/<[^>]*>?/gm, '').trim();
+        const cleanSubdesc = isSeeker
+          ? `طلب راكب / طالب (${targetStr})`.replace(/<[^>]*>?/gm, '').trim()
+          : `${catType} (${targetStr})`.replace(/<[^>]*>?/gm, '').trim();
         const cleanRegions = (stateData.regions || 'بغداد').replace(/<[^>]*>?/gm, '').trim();
         const cleanDestination = (stateData.destination || 'كلية الرافدين الجامعة').replace(/<[^>]*>?/gm, '').trim();
         const cleanFare = formatTgPrice(stateData.price);
