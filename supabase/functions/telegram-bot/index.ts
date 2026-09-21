@@ -804,7 +804,7 @@ function isSingleDestinationMatch(targetDest: string, adText: string, adCity = '
   const colleges: { [key: string]: string[] } = {
     // بغداد
     'اسراء': ['اسراء', 'israa', 'alisraa'],
-    'رافدين': ['رافدين', 'rafidain', 'ruc'],
+    'رافدين': ['رافدين', 'رفدين', 'rafidain', 'ruc'],
     'مستنصريه': ['مستنصريه', 'mustansiriyah'],
     'بغداد': ['جامعه بغداد', 'الجادريه', 'باب المعظم', 'طب بغداد', 'هندسه بغداد'],
     'تكنولوجيه': ['تكنولوجيه', 'تكنلوجيه', 'تكنلوجيا', 'تكنولوجي', 'صناعه', 'uot'],
@@ -871,7 +871,14 @@ function isSingleDestinationMatch(targetDest: string, adText: string, adCity = '
     'تقنيه جنوبيه': ['التقنيه الجنوبيه'],
     'تقنيه شماليه': ['التقنيه الشماليه'],
     'فرات اوسط تقنيه': ['الفرات الاوسط'],
-    'صادق': ['الامام الصادق', 'جامعه الامام الصادق']
+    'صادق': ['الامام الصادق', 'جامعه الامام الصادق'],
+    // دوائر ومؤسسات
+    'مدينة الطب': ['مدينة الطب', 'مدينه الطب', 'دار التمريض'],
+    'مطار': ['مطار بغداد', 'مطار'],
+    'نفط': ['وزارة النفط', 'وزاره النفط', 'شركة نفط'],
+    'كهرباء': ['وزارة الكهرباء', 'وزاره الكهرباء'],
+    'صحة': ['وزارة الصحة', 'وزاره الصحه'],
+    'خضراء': ['المنطقة الخضراء', 'المنطقه الخضراء']
   };
 
   // Check if target matches one of the known distinct universities
@@ -880,6 +887,28 @@ function isSingleDestinationMatch(targetDest: string, adText: string, adCity = '
       // Must match one of target university aliases in the ad text
       return aliases.some(a => fullAd.includes(a));
     }
+  }
+
+  // Check comprehensive IRAQI_UNIVERSITIES directory if available
+  try {
+    if (typeof IRAQI_UNIVERSITIES !== 'undefined' && Array.isArray(IRAQI_UNIVERSITIES)) {
+      const matchedInst = IRAQI_UNIVERSITIES.find(inst => {
+        const instNameNorm = normAr(inst.name);
+        return instNameNorm.includes(cleanTarget) || cleanTarget.includes(instNameNorm) ||
+               inst.keywords.some(k => {
+                 const kn = normAr(k);
+                 return kn === cleanTarget || kn.includes(cleanTarget) || cleanTarget.includes(kn);
+               });
+      });
+
+      if (matchedInst && Array.isArray(matchedInst.keywords)) {
+        if (matchedInst.keywords.some(k => fullAd.includes(normAr(k)))) {
+          return true;
+        }
+      }
+    }
+  } catch (e) {
+    // Ignore scope error if called during initialization
   }
 
   // Direct word match if other destination
@@ -905,7 +934,7 @@ function isDestinationMatch(targetDest: string, adText: string, adCity = ''): bo
 interface IraqiAcademicInstitution {
   id: string;
   name: string;
-  category: 'pvt_bg' | 'gov_bg' | 'south' | 'north';
+  category: 'pvt_bg' | 'gov_bg' | 'south' | 'north' | 'org_gov';
   keywords: string[];
 }
 
@@ -1422,15 +1451,263 @@ const IRAQI_UNIVERSITIES: IraqiAcademicInstitution[] = [
     name: 'جامعة دهوك',
     category: 'north',
     keywords: ['جامعة دهوك', 'دهوك']
+  },
+
+  // ==========================================
+  // 🏢 5. وزارات ومؤسسات ودوائر وشركات كبرى (org_gov)
+  // ==========================================
+  {
+    id: 'u_city_of_medicine',
+    name: 'مدينة الطب والمستشفيات التابعة',
+    category: 'org_gov',
+    keywords: ['مدينة الطب', 'مدينه الطب', 'مستشفى بغداد', 'التمريض الخاص', 'حماية الاطفال', 'دار التمريض']
+  },
+  {
+    id: 'u_ministry_oil',
+    name: 'وزارة النفط والشركات النفطية',
+    category: 'org_gov',
+    keywords: ['وزارة النفط', 'وزاره النفط', 'شركة نفط الوسط', 'النفط والغاز', 'معهد التدريب النفطي']
+  },
+  {
+    id: 'u_ministry_electricity',
+    name: 'وزارة الكهرباء والدوائر التابعة',
+    category: 'org_gov',
+    keywords: ['وزارة الكهرباء', 'وزاره الكهرباء', 'دائرة الكهرباء', 'توزيع كهرباء']
+  },
+  {
+    id: 'u_ministry_health',
+    name: 'وزارة الصحة ودوائر الصحة',
+    category: 'org_gov',
+    keywords: ['وزارة الصحة', 'وزاره الصحه', 'دائرة صحة الرصافة', 'دائرة صحة الكرخ']
+  },
+  {
+    id: 'u_ministry_higher_edu',
+    name: 'وزارة التعليم العالي والبحث العلمي',
+    category: 'org_gov',
+    keywords: ['وزارة التعليم العالي', 'وزاره التعليم', 'التعليم العالي']
+  },
+  {
+    id: 'u_baghdad_airport',
+    name: 'مطار بغداد الدولي والخطوط الجوية',
+    category: 'org_gov',
+    keywords: ['مطار بغداد', 'مطار بغداد الدولي', 'الخطوط الجوية العراقية']
+  },
+  {
+    id: 'u_green_zone',
+    name: 'المنطقة الخضراء والدوائر الحكومية',
+    category: 'org_gov',
+    keywords: ['المنطقة الخضراء', 'المنطقه الخضراء', 'مجلس الوزراء', 'البرلمان']
+  },
+  {
+    id: 'u_central_bank',
+    name: 'البنك المركزي العراقي والمصارف',
+    category: 'org_gov',
+    keywords: ['البنك المركزي', 'مصرف الرافدين', 'مصرف الرشيد', 'المصرف العراقي للتجارة']
+  },
+  {
+    id: 'u_kindi_hospital',
+    name: 'مستشفى الكندي والمجمع الطبي',
+    category: 'org_gov',
+    keywords: ['مستشفى الكندي', 'مستشفي الكندي', 'الكندي']
+  },
+  {
+    id: 'u_yarmouk_hospital',
+    name: 'مستشفى اليرموك ومجمع الكرخ',
+    category: 'org_gov',
+    keywords: ['مستشفى اليرموك', 'مستشفي اليرموك', 'اليرموك']
+  },
+  {
+    id: 'u_malls_commercial',
+    name: 'المجمعات والمولات التجارية الكبرى',
+    category: 'org_gov',
+    keywords: ['مول بغداد', 'مول الحارثية', 'مول المنصور', 'زيونة مول', 'مول بابلون']
+  },
+  {
+    id: 'u_ministry_education',
+    name: 'وزارة التربية ومديريات التربية',
+    category: 'org_gov',
+    keywords: ['وزارة التربية', 'وزاره التربيه', 'تربية الرصافة', 'تربية الكرخ', 'التربية']
+  },
+  {
+    id: 'u_ministry_interior',
+    name: 'وزارة الداخلية والدوائر التابعة (المرور / الجوازات)',
+    category: 'org_gov',
+    keywords: ['وزارة الداخلية', 'وزاره الداخليه', 'المرور العامة', 'الجوازات', 'البطاقة الوطنية', 'الداخلية']
+  },
+  {
+    id: 'u_ministry_defense',
+    name: 'وزارة الدفاع والدوائر العسكرية',
+    category: 'org_gov',
+    keywords: ['وزارة الدفاع', 'وزاره الدفاع', 'الكلية العسكرية', 'الدفاع']
+  },
+  {
+    id: 'u_ministry_trade',
+    name: 'وزارة التجارة ومعرض بغداد والشركات العامة',
+    category: 'org_gov',
+    keywords: ['وزارة التجارة', 'وزاره التجاره', 'معرض بغداد', 'الشركة العامة لتجارة الحبوب', 'التجارة']
+  },
+  {
+    id: 'u_ministry_finance',
+    name: 'وزارة المالية والهيئة العامة للضرائب والكمارك',
+    category: 'org_gov',
+    keywords: ['وزارة المالية', 'وزاره الماليه', 'الضرائب', 'الكمارك', 'عقارات الدولة', 'المالية']
+  },
+  {
+    id: 'u_ministry_labor',
+    name: 'وزارة العمل والشؤون الاجتماعية (الرعاية)',
+    category: 'org_gov',
+    keywords: ['وزارة العمل', 'وزاره العمل', 'الرعاية الاجتماعية', 'الضمان الاجتماعي', 'دائرة العمل']
+  },
+  {
+    id: 'u_ministry_telecom',
+    name: 'وزارة الاتصالات والبريد العراقي',
+    category: 'org_gov',
+    keywords: ['وزارة الاتصالات', 'وزاره الاتصالات', 'البريد العراقي', 'بدالة', 'الاتصالات']
+  },
+  {
+    id: 'u_ministry_foreign',
+    name: 'وزارة الخارجية والسفارات',
+    category: 'org_gov',
+    keywords: ['وزارة الخارجية', 'وزاره الخارجيه', 'الخارجية']
+  },
+  {
+    id: 'u_supreme_judicial',
+    name: 'مجلس القضاء الأعلى والمحاكم (قصر العدالة)',
+    category: 'org_gov',
+    keywords: ['مجلس القضاء', 'قصر العدالة', 'محكمة الكرخ', 'محكمة الرصافة', 'محكمة التمييز', 'المحاكم']
+  },
+  {
+    id: 'u_syndicates',
+    name: 'النقابات المهنية (المهندسين، الأطباء، المحامين)',
+    category: 'org_gov',
+    keywords: ['نقابة المهندسين', 'نقابة الاطباء', 'نقابة المحامين', 'نقابة المعلمين', 'النقابات']
+  },
+  {
+    id: 'u_bismayah',
+    name: 'مجمع بسماية السكني ومجمعات الإسكان',
+    category: 'org_gov',
+    keywords: ['بسماية', 'بسمايه', 'مجمع بسماية', 'بوابة بسماية']
+  },
+  {
+    id: 'u_telecom_companies',
+    name: 'شركات الاتصالات الأهلية الكبرى (زين، آسيا، إيرثلنك)',
+    category: 'org_gov',
+    keywords: ['زين العراق', 'اسيا سيل', 'آسيا سيل', 'ايرثلنك', 'كورك']
+  },
+  {
+    id: 'u_ashur',
+    name: 'كلية آشور الجامعة (بغداد)',
+    category: 'pvt_bg',
+    keywords: ['آشور', 'اشور', 'كلية آشور', 'كلية اشور', 'جامعة اشور']
+  },
+  {
+    id: 'u_iraq_open_edu',
+    name: 'الكلية التربوية المفتوحة',
+    category: 'gov_bg',
+    keywords: ['التربوية المفتوحة', 'التربويه المفتوحه', 'الكلية التربوية']
+  },
+  {
+    id: 'u_karkh_science',
+    name: 'جامعة الكرخ للعلوم',
+    category: 'gov_bg',
+    keywords: ['جامعة الكرخ', 'الكرخ للعلوم', 'جامعه الكرخ']
+  },
+  {
+    id: 'u_ibn_sina',
+    name: 'جامعة ابن سينا للعلوم الطبية والصيدلانية',
+    category: 'gov_bg',
+    keywords: ['جامعة ابن سينا', 'ابن سينا الطبية', 'جامعه ابن سينا']
+  },
+  {
+    id: 'u_inst_tech',
+    name: 'معهد التكنولوجيا (الزعفرانية)',
+    category: 'gov_bg',
+    keywords: ['معهد التكنولوجيا', 'التكنولوجيا الزعفرانية', 'تكنولوجيا بغداد']
+  },
+  {
+    id: 'u_inst_admin_rusafa',
+    name: 'معهد الإدارة (الرصافة)',
+    category: 'gov_bg',
+    keywords: ['معهد الادارة الرصافة', 'معهد الاداره', 'ادارة الرصافة']
+  },
+  {
+    id: 'u_inst_admin_mansour',
+    name: 'معهد الإدارة (المنصور)',
+    category: 'gov_bg',
+    keywords: ['معهد الادارة المنصور', 'معهد الاداره المنصور', 'ادارة المنصور']
+  },
+  {
+    id: 'u_inst_med_bab',
+    name: 'المعهد الطبي التقني (باب المعظم)',
+    category: 'gov_bg',
+    keywords: ['المعهد الطبي باب المعظم', 'طبي باب المعظم', 'المعهد الطبي']
+  },
+  {
+    id: 'u_inst_med_mansour',
+    name: 'المعهد الطبي التقني (المنصور)',
+    category: 'gov_bg',
+    keywords: ['المعهد الطبي المنصور', 'طبي المنصور']
+  },
+  {
+    id: 'u_fine_arts',
+    name: 'معهد وكلية الفنون الجميلة',
+    category: 'gov_bg',
+    keywords: ['الفنون الجميلة', 'فنون جميلة', 'معهد الفنون']
   }
 ];
+
+function searchIraqiInstitutions(query: string): IraqiAcademicInstitution[] {
+  if (!query || query.trim().length === 0) return [];
+  const cleanQ = normArabic(query)
+    .replace(/^(كليه|جامعه|معهد|الجامعه|الكليه|المعهد|دائره|وزاره|مستشفي|مستشفى|شركه|لـكليه|لـجامعه|لكليه|لجامعه)\s+/, '')
+    .trim();
+
+  const queryTerms = cleanQ.split(/\s+/).filter(t => t.length >= 2);
+  const qNorm = normArabic(query);
+
+  const scored: { inst: IraqiAcademicInstitution; score: number }[] = [];
+
+  for (const inst of IRAQI_UNIVERSITIES) {
+    let score = 0;
+    const instNameNorm = normArabic(inst.name);
+    
+    // Direct matches in official name
+    if (instNameNorm === qNorm || instNameNorm === cleanQ) {
+      score += 150;
+    } else if (instNameNorm.includes(cleanQ)) {
+      score += 100;
+    } else if (cleanQ.includes(instNameNorm)) {
+      score += 80;
+    }
+
+    // Check aliases and keywords
+    for (const kw of inst.keywords) {
+      const kwNorm = normArabic(kw);
+      if (kwNorm === qNorm || kwNorm === cleanQ) {
+        score += 120;
+      } else if (kwNorm.includes(cleanQ) || cleanQ.includes(kwNorm)) {
+        score += 70;
+      } else if (queryTerms.some(t => kwNorm.includes(t))) {
+        score += 30;
+      }
+    }
+
+    if (score > 0) {
+      scored.push({ inst, score });
+    }
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 6).map(s => s.inst);
+}
 
 function renderUniversityScopeKeyboard(activeCategory = 'pvt_bg', pageNum = 0) {
   const catTitles: { [k: string]: string } = {
     pvt_bg: '🎓 كليات وجامعات بغداد الأهلية',
     gov_bg: '🏛️ جامعات بغداد الحكومية والمعاهد',
     south: '🕌 جامعات الفرات الأوسط والجنوب',
-    north: '🌄 جامعات المحافظات الشمالية والغربية'
+    north: '🌄 جامعات المحافظات الشمالية والغربية',
+    org_gov: '🏢 وزارات ومؤسسات وشركات كبرى'
   };
 
   const PAGE_SIZE = 8;
@@ -1440,6 +1717,12 @@ function renderUniversityScopeKeyboard(activeCategory = 'pvt_bg', pageNum = 0) {
   const pageItems = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const inline_keyboard: any[][] = [];
+
+  // Top search bar button
+  inline_keyboard.push([
+    { text: '🔍 بحث سريع بالاسم (جامعات / كليات / دوائر)', callback_data: 'partner_trans_search_prompt' }
+  ]);
+
   for (let i = 0; i < pageItems.length; i += 2) {
     const row = [];
     row.push({
@@ -1475,6 +1758,9 @@ function renderUniversityScopeKeyboard(activeCategory = 'pvt_bg', pageNum = 0) {
     { text: activeCategory === 'south' ? '🔘 🕌 الفرات والجنوب' : '🕌 الفرات والجنوب', callback_data: 'partner_uni_p_south_0' },
     { text: activeCategory === 'north' ? '🔘 🌄 الشمال والغربية' : '🌄 الشمال والغربية', callback_data: 'partner_uni_p_north_0' }
   ]);
+  inline_keyboard.push([
+    { text: activeCategory === 'org_gov' ? '🔘 🏢 وزارات ومؤسسات' : '🏢 وزارات ومؤسسات', callback_data: 'partner_uni_p_org_gov_0' }
+  ]);
 
   // Fallback / Custom / Cancel options
   inline_keyboard.push([
@@ -1488,8 +1774,8 @@ function renderUniversityScopeKeyboard(activeCategory = 'pvt_bg', pageNum = 0) {
   const text = 
     `🚌 <b>تحديد نطاق خطوط النقل لقناتك:</b>\n\n` +
     `📍 <b>القسم المختار:</b> <b>${catTitles[activeCategory] || activeCategory}</b>\n\n` +
-    `اختر كليتك أو جامعتك مباشرة للربط المعتمد غير القابل للخطأ 🎯\n` +
-    `<i>(استخدم أزرار السابق والتالي ⬅️ ➡️ أو اختر قسماً آخر من الأزرار أدناه)</i>`;
+    `اختر كليتك أو مؤسستك مباشرة للربط المعتمد غير القابل للخطأ 🎯\n` +
+    `<i>(يمكنك استخدام زر 🔍 البحث بالاسم، أو أزرار السابق والتالي ⬅️ ➡️)</i>`;
 
   return { text, markup: { inline_keyboard } };
 }
@@ -2855,29 +3141,39 @@ async function broadcastToPartnerChannels(record: any, category: 'transport' | '
         ].join(' ').toLowerCase();
 
         // Keyword Matcher Check (with Arabic normalization)
-        if (partner.filter_keywords && partner.filter_keywords.length > 0) {
-          const match = partner.filter_keywords.some((kw: string) => {
+        let kwMatched = false;
+        const hasKw = Boolean(partner.filter_keywords && partner.filter_keywords.length > 0);
+        if (hasKw) {
+          kwMatched = partner.filter_keywords.some((kw: string) => {
             const cleanKw = kw.toLowerCase().trim();
             if (!cleanKw) return false;
             return fullAdSearch.includes(cleanKw) || 
                    normArabic(fullAdSearch).includes(normArabic(cleanKw));
           });
-          if (!match) continue; // Skip if no keyword matched
         }
 
         // Subcategory check for products
-        if (category === 'products' && partner.sub_category && partner.sub_category !== 'all') {
-          if (record.category !== partner.sub_category) continue;
+        if (category === 'products') {
+          if (partner.sub_category && partner.sub_category !== 'all') {
+            if (record.category !== partner.sub_category) continue;
+          }
+          if (hasKw && !kwMatched) continue;
         }
 
         // University / College targeted match for transport lines
-        if (category === 'transport' && partner.university && partner.university !== 'all' && !partner.university.includes('عام')) {
-          const targetUni = partner.university.trim();
-          const isUniMatch = isDestinationMatch(targetUni, fullAdSearch, record.city || '') || 
-                             fullAdSearch.includes(targetUni.toLowerCase()) ||
-                             normArabic(fullAdSearch).includes(normArabic(targetUni));
-          if (!isUniMatch) {
-            console.log(`[PARTNER SYNDICATION] Skipping partner ${partner.channel_id} (university ${partner.university} does not match ad)`);
+        if (category === 'transport') {
+          const hasTargetUni = Boolean(partner.university && partner.university !== 'all' && !partner.university.includes('عام'));
+          if (hasTargetUni) {
+            const targetUni = partner.university.trim();
+            const isUniMatch = isDestinationMatch(targetUni, fullAdSearch, record.city || '') || 
+                               fullAdSearch.includes(targetUni.toLowerCase()) ||
+                               normArabic(fullAdSearch).includes(normArabic(targetUni));
+            // Match if EITHER isUniMatch is true OR kwMatched is true (handles all spelling variations & aliases seamlessly)
+            if (!isUniMatch && !kwMatched) {
+              console.log(`[PARTNER SYNDICATION] Skipping partner ${partner.channel_id} (neither university ${partner.university} nor keywords matched ad)`);
+              continue;
+            }
+          } else if (hasKw && !kwMatched) {
             continue;
           }
         }
@@ -12883,10 +13179,37 @@ Deno.serve(async (req: any) => {
         } else if (choice === 'custom') {
           state.step = 'partner_trans_custom_input';
           await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-          await updateOrSend('✏️ اكتب اسم الكلية أو المناطق التي ترغب باستلام إعلاناتها حصراً في قناتك:');
+          await updateOrSend('✏️ اكتب اسم الكلية أو المؤسسة أو النطاق المطلوب لقناتك:');
           return new Response('OK', { status: 200 });
         }
 
+        return await finalizePartnerChannel(chatId, state, supabase, updateOrSend);
+      }
+
+      if (action === 'partner_trans_search_prompt') {
+        state.step = 'partner_trans_search';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        await updateOrSend(
+          `🔍 <b>البحث الذكي في الجامعات والمعاهد والوزارات والشركات:</b>\n\n` +
+          `أرسل اسم أو جزء من اسم كليتك أو مؤسستك بالرسائل الآن ✍️\n` +
+          `<i>(مثال: الرفدين، الكفيل، المستنصرية، التراث، الفراهيدي، بابل، كربلاء، مدينة الطب، وزارة النفط، مطار بغداد...)</i>`,
+          {
+            inline_keyboard: [
+              [{ text: '⬅️ العودة لقائمة الجامعات', callback_data: 'partner_uni_p_pvt_bg_0' }],
+              [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+            ]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'partner_force_custom') {
+        const rawText = state?.data?.pending_custom_text || state?.data?.university || 'عام';
+        const customKeywords = rawText.split(/[,،\n]/).map((k: string) => k.trim()).filter((k: string) => k.length > 0);
+        state.data = state.data || {};
+        state.data.filter_keywords = customKeywords;
+        state.data.university = rawText;
+        state.data.target_university = rawText;
         return await finalizePartnerChannel(chatId, state, supabase, updateOrSend);
       }
 
@@ -17406,12 +17729,54 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
-      if (state.step === 'partner_trans_custom_input' && text) {
-        const customKeywords = text.split(/[,،\n]/).map(k => k.trim()).filter(k => k.length > 0);
-        state.data.filter_keywords = customKeywords;
-        state.data.university = customKeywords.join(' / ');
-        state.data.target_university = customKeywords.join(' / ');
-        return await finalizePartnerChannel(chatId, state, supabase, updateOrSend);
+      if ((state.step === 'partner_trans_custom_input' || state.step === 'partner_trans_search') && text) {
+        const queryText = text.trim();
+        const matches = searchIraqiInstitutions(queryText);
+
+        state.data = state.data || {};
+        state.data.pending_custom_text = queryText;
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        if (matches && matches.length > 0) {
+          const inline_keyboard: any[][] = [];
+          for (const m of matches.slice(0, 5)) {
+            inline_keyboard.push([
+              { text: `🏛️ اعتماد: ${m.name}`, callback_data: `partner_sel_${m.id}` }
+            ]);
+          }
+
+          inline_keyboard.push([
+            { text: `✏️ لا، اعتمد كاسم مخصص: "${queryText.slice(0, 20)}"`, callback_data: 'partner_force_custom' }
+          ]);
+          inline_keyboard.push([
+            { text: '🔍 بحث عن اسم آخر', callback_data: 'partner_trans_search_prompt' },
+            { text: '⬅️ استعراض الدليل الشامل', callback_data: 'partner_uni_p_pvt_bg_0' }
+          ]);
+
+          const suggestMsg =
+            `💡 <b>المطابقة الذكية مع الدليل المعتمد:</b>\n\n` +
+            `أنت كتبت: "<code>${queryText}</code>"\n\n` +
+            `🎯 <b>وجدنا لك الاسم المعتمد رسمياً:</b>\n` +
+            `<i>(ننصحك باختيار الاسم الرسمي لضمان وصول 100% من طلبات وإعلانات خطوط النقل لقناتك دون أن يفوتك أي إعلان بسبب خطأ إملائي أو اختلاف في التسمية)</i>\n\n` +
+            `👇 <b>اضغط على الكلية أو المؤسسة لاعتمادها فوراً:</b>`;
+
+          await updateOrSend(suggestMsg, { inline_keyboard });
+          return new Response('OK', { status: 200 });
+        } else {
+          // No direct matches found
+          const noMatchMsg =
+            `🔍 <b>لم نجد كليّة أو مؤسسة مسجلة تطابق:</b> "<code>${queryText}</code>"\n\n` +
+            `هل ترغب باعتماد هذا الاسم كنطاق مخصص لقناتك، أو تفضل إعادة البحث باسم آخر؟`;
+
+          await updateOrSend(noMatchMsg, {
+            inline_keyboard: [
+              [{ text: `✅ نعم، اعتمد: "${queryText.slice(0, 22)}"`, callback_data: 'partner_force_custom' }],
+              [{ text: '🔍 بحث مرة أخرى بالاسم', callback_data: 'partner_trans_search_prompt' }],
+              [{ text: '🏛️ استعراض الدليل الشامل', callback_data: 'partner_uni_p_pvt_bg_0' }]
+            ]
+          });
+          return new Response('OK', { status: 200 });
+        }
       }
 
       if (!isActivelyFilling && Object.keys(state).length > 0 && text && !text.startsWith('car_') && !text.startsWith('trans_') && !['تم', 'تم ✅'].includes(text.trim())) {
