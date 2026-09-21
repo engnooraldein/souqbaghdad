@@ -7633,20 +7633,60 @@ Deno.serve(async (req: any) => {
 
     // --- Owner Action: Sync Ads ---
     if (isOwner && trimmedText === 'owner_sync_ads') {
-      await sendMessage(chatId, '⏳ <i>جاري فحص ومزامنة الإعلانات النشطة...</i>');
-      const { data: recentAds } = await supabase.from('ads').select('*').order('created_at', { ascending: false }).limit(5);
-      let healedCount = 0;
-      
-      // Run concurrently to avoid webhook timeout (which causes the infinite loop)
-      await Promise.all((recentAds || []).map(async (ad) => {
-        const res = await syncAndHealAd(ad, supabase);
-        if (res?.healed) healedCount++;
-      }));
+      if (state.is_syncing_ads) {
+        if (callbackQueryId) await answerCallbackQuery(callbackQueryId, '⏳ المزامنة قيد التشغيل بالفعل، يرجى الانتظار...');
+        return new Response('OK', { status: 200 });
+      }
 
-      const syncReport = `✅ <b>تم فحص ومزامنة ${recentAds?.length || 0} إعلان!</b>\n\n🛠️ تم تصحيح: ${healedCount} إعلان بنجاح.`;
-      return await sendMessage(chatId, syncReport, {
-        inline_keyboard: [[{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]]
-      });
+      state.is_syncing_ads = true;
+      await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+      if (callbackQueryId) {
+        await answerCallbackQuery(callbackQueryId, '⏳ جاري الفحص والمزامنة...');
+      }
+
+      const progressMsg = '⏳ <b>جاري فحص ومزامنة الإعلانات النشطة...</b>\n\nيرجى الانتظار لحظات، يتم فحص وتصحيح الإعلانات تلقائياً.';
+      const targetMsgId = callbackMsgId;
+      if (targetMsgId) {
+        await editMessageText(chatId, targetMsgId, progressMsg, {
+          inline_keyboard: [[{ text: '⏳ قيد المعالجة...', callback_data: 'noop' }]]
+        });
+      }
+
+      // Execute sync in background so Telegram webhook never times out or retries
+      EdgeRuntime.waitUntil((async () => {
+        try {
+          const { data: recentAds } = await supabase.from('ads').select('*').order('created_at', { ascending: false }).limit(5);
+          let healedCount = 0;
+          
+          await Promise.all((recentAds || []).map(async (ad: any) => {
+            try {
+              const res = await syncAndHealAd(ad, supabase);
+              if (res?.healed) healedCount++;
+            } catch (err) {
+              console.error('Error in syncAndHealAd:', err);
+            }
+          }));
+
+          const syncReport = `✅ <b>تم فحص ومزامنة ${recentAds?.length || 0} إعلان!</b>\n\n🛠️ تم تصحيح: ${healedCount} إعلان بنجاح.`;
+          const markup = {
+            inline_keyboard: [[{ text: '🔙 عودة للوحة المالك', callback_data: 'owner_hub_main' }]]
+          };
+
+          if (targetMsgId) {
+            await editMessageText(chatId, targetMsgId, syncReport, markup);
+          } else {
+            await sendMessage(chatId, syncReport, markup);
+          }
+        } catch (e) {
+          console.error('Error during owner_sync_ads:', e);
+        } finally {
+          state.is_syncing_ads = false;
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        }
+      })());
+
+      return new Response('OK', { status: 200 });
     }
 
     // --- Owner Action: Platform Stats ---
