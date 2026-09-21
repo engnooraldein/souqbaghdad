@@ -781,24 +781,29 @@ function isLocationMatch(userLoc: string, adLoc: string): boolean {
   return isSingleLocationMatch(userLoc, adLoc);
 }
 
-function isSingleDestinationMatch(targetDest: string, adText: string, adCity = ''): boolean {
-  if (!targetDest || targetDest === 'الجامعة' || targetDest === 'غير محدد') return true;
-  
-  const normAr = (s: string) => (s || '').toLowerCase()
+function normArabic(s: string): string {
+  return (s || '').toLowerCase()
     .replace(/[إأآا]/g, 'ا')
     .replace(/[ةه]/g, 'ه')
     .replace(/[ىي]/g, 'ي')
     .replace(/[ؤئ]/g, 'ء')
+    .replace(/[\u064B-\u065F]/g, '')
     .trim();
+}
 
+function isSingleDestinationMatch(targetDest: string, adText: string, adCity = ''): boolean {
+  if (!targetDest || targetDest === 'الجامعة' || targetDest === 'غير محدد') return true;
+  
+  const normAr = normArabic;
   const fullAd = normAr(`${adCity} ${adText}`);
   const cleanTarget = normAr(targetDest)
     .replace(/^(كليه|جامعه|معهد|الجامعه|الكليه|المعهد|لـكليه|لـجامعه|لكليه|لجامعه|للجامعه|للكليه)\s+/, '')
     .trim();
 
-  // Known Universities in Baghdad
+  // Known Universities and Colleges across Iraq
   const colleges: { [key: string]: string[] } = {
-    'اسراء': ['اسراء', 'israa'],
+    // بغداد
+    'اسراء': ['اسراء', 'israa', 'alisraa'],
     'رافدين': ['رافدين', 'rafidain', 'ruc'],
     'مستنصريه': ['مستنصريه', 'mustansiriyah'],
     'بغداد': ['جامعه بغداد', 'الجادريه', 'باب المعظم', 'طب بغداد', 'هندسه بغداد'],
@@ -810,13 +815,63 @@ function isSingleDestinationMatch(targetDest: string, adText: string, adCity = '
     'مامون': ['مامون', 'mamoun'],
     'دجله': ['دجله', 'dijlah'],
     'بيان': ['بيان', 'bayan'],
-    'عراقيه': ['عراقيه', 'iraqia'],
+    'عراقيه': ['عراقيه', 'iraqia', 'سبع ابكار'],
     'فارابي': ['فارابي', 'farabi'],
-    'سلام': ['جامعه السلام', 'كليه السلام'],
+    'سلام': ['جامعه السلام', 'كليه السلام', 'salam'],
     'معارف': ['معارف'],
     'حكمه': ['حكمه'],
-    'مشرق': ['مشرق'],
-    'مستقبل': ['مستقبل']
+    'مشرق': ['مشرق', 'mashreq'],
+    'مستقبل': ['مستقبل', 'mustaqbal'],
+    'منصور': ['كليه المنصور', 'المنصور الجامعه', 'mansour'],
+    'نسور': ['كليه النسور', 'النسور الجامعه', 'nsoor'],
+    'رشيد': ['كليه الرشيد', 'الرشيد الجامعه', 'rasheed'],
+    'نخبه': ['كليه النخبه', 'النخبه'],
+    'هادي': ['كليه الهادي', 'الهادي'],
+    'يرموك': ['كليه اليرموك', 'اليرموك'],
+    'ابن خلدون': ['ابن خلدون'],
+    'اصول الدين': ['اصول الدين'],
+    'علوم اقتصاديه': ['بغداد للعلوم الاقتصاديه', 'العلوم الاقتصاديه'],
+    'مدينه العلم': ['مدينه العلم'],
+    'امام اعظم': ['الامام الاعظم', 'امام اعظم'],
+    'امام كاظم': ['الامام الكاظم', 'امام كاظم'],
+    'تقنيه وسطي': ['التقنيه الوسطى', 'التقنيه الوسطي', 'معهد التكنولوجيا', 'معهد الاداره', 'معهد المنصور', 'معهد الزعفرانيه'],
+    // المحافظات
+    'كفيل': ['كفيل', 'kafeel', 'alkafeel'],
+    'كوفه': ['كوفه', 'kufa'],
+    'بصره': ['بصره', 'basra', 'كرمه علي', 'باب الزبير'],
+    'بابل': ['جامعه بابل', 'بابل'],
+    'كربلاء': ['جامعه كربلاء', 'كربلاء'],
+    'وارث': ['وارث الانبياء', 'وارث'],
+    'عميد': ['جامعه العميد', 'العميد'],
+    'موصل': ['جامعه الموصل', 'الموصل'],
+    'كركوك': ['جامعه كركوك', 'كركوك'],
+    'انبار': ['جامعه الانبار', 'الانبار', 'رمادي'],
+    'فلوجه': ['جامعه الفلوجه', 'الفلوجه'],
+    'تكريت': ['جامعه تكريت', 'تكريت'],
+    'ديالى': ['جامعه ديالى', 'ديالى', 'بعقوبه'],
+    'قادسيه': ['جامعه القادسيه', 'القادسيه', 'ديوانيه'],
+    'ذي قار': ['جامعه ذي قار', 'ذي قار', 'ناصريه'],
+    'عين': ['جامعه العين', 'العين'],
+    'ميسان': ['جامعه ميسان', 'ميسان', 'عماره'],
+    'واسط': ['جامعه واسط', 'واسط', 'كوت'],
+    'مثنى': ['جامعه المثنى', 'المثنى', 'سماوه'],
+    'اهل البيت': ['اهل البيت'],
+    'زهراء': ['جامعه الزهراء', 'الزهراء للبنات'],
+    'قاسم': ['القاسم الخضراء'],
+    'معقل': ['جامعه المعقل', 'المعقل'],
+    'كنز': ['كليه الكنز', 'الكنز'],
+    'سومر': ['جامعه سومر', 'سومر'],
+    'مناره': ['جامعه المناره', 'المناره'],
+    'نور': ['جامعه النور', 'كليه النور'],
+    'حدباء': ['كليه الحدباء', 'الحدباء'],
+    'قلم': ['كليه القلم', 'القلم'],
+    'كتاب': ['جامعه الكتاب', 'الكتاب'],
+    'سامراء': ['جامعه سامراء', 'سامراء'],
+    'بلاد الرافدين': ['بلاد الرافدين', 'بلاد الرفدين'],
+    'تقنيه جنوبيه': ['التقنيه الجنوبيه'],
+    'تقنيه شماليه': ['التقنيه الشماليه'],
+    'فرات اوسط تقنيه': ['الفرات الاوسط'],
+    'صادق': ['الامام الصادق', 'جامعه الامام الصادق']
   };
 
   // Check if target matches one of the known distinct universities
@@ -842,6 +897,601 @@ function isDestinationMatch(targetDest: string, adText: string, adCity = ''): bo
     return parts.some(p => isSingleDestinationMatch(p, adText, adCity));
   }
   return isSingleDestinationMatch(targetDest, adText, adCity);
+}
+
+// =========================================================================
+// 🏛️ جامع دليل الجامعات والكليات والمعاهد في العراق (بغداد والمحافظات)
+// =========================================================================
+interface IraqiAcademicInstitution {
+  id: string;
+  name: string;
+  category: 'pvt_bg' | 'gov_bg' | 'south' | 'north';
+  keywords: string[];
+}
+
+const IRAQI_UNIVERSITIES: IraqiAcademicInstitution[] = [
+  // ==========================================
+  // 🎓 1. كليات وجامعات بغداد الأهلية (pvt_bg)
+  // ==========================================
+  {
+    id: 'u_rafdain',
+    name: 'كلية الرافدين الجامعة',
+    category: 'pvt_bg',
+    keywords: ['الرافدين', 'الرفدين', 'rafidain', 'ruc', 'كلية الرافدين']
+  },
+  {
+    id: 'u_israa',
+    name: 'كلية الإسراء الجامعة',
+    category: 'pvt_bg',
+    keywords: ['الإسراء', 'الاسراء', 'israa', 'alisraa', 'كلية الاسراء', 'جامعة الاسراء']
+  },
+  {
+    id: 'u_dijlah',
+    name: 'جامعة دجلة (الدورة)',
+    category: 'pvt_bg',
+    keywords: ['دجلة', 'دجله', 'dijlah', 'كلية دجلة', 'جامعة دجلة']
+  },
+  {
+    id: 'u_turath',
+    name: 'جامعة التراث (المنصور)',
+    category: 'pvt_bg',
+    keywords: ['التراث', 'turath', 'كلية التراث', 'جامعة التراث']
+  },
+  {
+    id: 'u_faraheedi',
+    name: 'جامعة الفراهيدي (الدورة)',
+    category: 'pvt_bg',
+    keywords: ['الفراهيدي', 'faraheedi', 'جامعة الفراهيدي', 'كلية الفراهيدي']
+  },
+  {
+    id: 'u_bayan',
+    name: 'جامعة البيان (السيدية)',
+    category: 'pvt_bg',
+    keywords: ['البيان', 'bayan', 'جامعة البيان', 'كلية البيان']
+  },
+  {
+    id: 'u_uruk',
+    name: 'جامعة أوروك (الكرادة)',
+    category: 'pvt_bg',
+    keywords: ['أوروك', 'اوروك', 'uruk', 'جامعة اوروك']
+  },
+  {
+    id: 'u_mamoun',
+    name: 'كلية المأمون الجامعة (الإسكان)',
+    category: 'pvt_bg',
+    keywords: ['المأمون', 'المامون', 'mamoun', 'كلية المأمون']
+  },
+  {
+    id: 'u_mansour',
+    name: 'كلية المنصور الجامعة (البلديات)',
+    category: 'pvt_bg',
+    keywords: ['كلية المنصور', 'المنصور الجامعة', 'mansour']
+  },
+  {
+    id: 'u_nsoor',
+    name: 'كلية النسور الجامعة (اليرموك)',
+    category: 'pvt_bg',
+    keywords: ['النسور', 'nsoor', 'nisoor', 'كلية النسور']
+  },
+  {
+    id: 'u_rasheed',
+    name: 'كلية الرشيد الجامعة (الكرخ)',
+    category: 'pvt_bg',
+    keywords: ['كلية الرشيد', 'الرشيد الجامعة', 'rasheed']
+  },
+  {
+    id: 'u_salam',
+    name: 'جامعة السلام (السيدية)',
+    category: 'pvt_bg',
+    keywords: ['جامعة السلام', 'كلية السلام', 'salam']
+  },
+  {
+    id: 'u_mashreq',
+    name: 'جامعة المشرق (اليرموك)',
+    category: 'pvt_bg',
+    keywords: ['المشرق', 'mashreq', 'جامعة المشرق']
+  },
+  {
+    id: 'u_farabi',
+    name: 'كلية الفارابي الجامعة (الدورة)',
+    category: 'pvt_bg',
+    keywords: ['الفارابي', 'farabi', 'كلية الفارابي']
+  },
+  {
+    id: 'u_ibn_khaldun',
+    name: 'جامعة ابن خلدون (حي الجامعة)',
+    category: 'pvt_bg',
+    keywords: ['ابن خلدون', 'جامعة ابن خلدون']
+  },
+  {
+    id: 'u_usul_deen',
+    name: 'كلية أصول الدين الجامعة (الوزيرية)',
+    category: 'pvt_bg',
+    keywords: ['أصول الدين', 'اصول الدين', 'كلية اصول الدين']
+  },
+  {
+    id: 'u_baghdad_econ',
+    name: 'كلية بغداد للعلوم الاقتصادية',
+    category: 'pvt_bg',
+    keywords: ['بغداد للعلوم الاقتصادية', 'العلوم الاقتصادية', 'كلية بغداد للعلوم الاقتصادية']
+  },
+  {
+    id: 'u_nukhba',
+    name: 'كلية النخبة الجامعة (اليرموك)',
+    category: 'pvt_bg',
+    keywords: ['النخبة', 'النخبه', 'كلية النخبة']
+  },
+  {
+    id: 'u_hadi',
+    name: 'كلية الهادي الجامعة (الرصافة)',
+    category: 'pvt_bg',
+    keywords: ['الهادي الجامعة', 'كلية الهادي']
+  },
+  {
+    id: 'u_hikma',
+    name: 'كلية الحكمة الجامعة (اليرموك)',
+    category: 'pvt_bg',
+    keywords: ['الحكمة الجامعة', 'كلية الحكمة']
+  },
+  {
+    id: 'u_yarmouk',
+    name: 'كلية اليرموك الجامعة (بغداد)',
+    category: 'pvt_bg',
+    keywords: ['كلية اليرموك', 'اليرموك الجامعة']
+  },
+  {
+    id: 'u_madenat_elem',
+    name: 'كلية مدينة العلم الجامعة (الكاظمية)',
+    category: 'pvt_bg',
+    keywords: ['مدينة العلم', 'كلية مدينة العلم']
+  },
+  {
+    id: 'u_future_bg',
+    name: 'جامعة المستقبل (فرع بغداد)',
+    category: 'pvt_bg',
+    keywords: ['المستقبل بغداد', 'جامعة المستقبل بغداد']
+  },
+  {
+    id: 'u_middle_east',
+    name: 'جامعة الشرق الأوسط (بغداد)',
+    category: 'pvt_bg',
+    keywords: ['الشرق الأوسط', 'الشرق الاوسط', 'جامعة الشرق الاوسط']
+  },
+
+  // ==========================================
+  // 🏛️ 2. جامعات بغداد الحكومية والمعاهد (gov_bg)
+  // ==========================================
+  {
+    id: 'u_bg_jadriya',
+    name: 'جامعة بغداد (الجادرية)',
+    category: 'gov_bg',
+    keywords: ['جامعة بغداد', 'جامعه بغداد', 'الجادرية', 'الجادريه', 'بغداد الجادرية', 'مجمع الجادرية']
+  },
+  {
+    id: 'u_bg_bab_muadham',
+    name: 'جامعة بغداد (باب المعظم)',
+    category: 'gov_bg',
+    keywords: ['باب المعظم', 'مجمع باب المعظم', 'طب بغداد', 'صيدلة بغداد', 'تمريض بغداد', 'لغات بغداد', 'تربية ابن الهيثم', 'ابن الهيثم']
+  },
+  {
+    id: 'u_mustansiriyah',
+    name: 'الجامعة المستنصرية (الرئيسي وفلسطين)',
+    category: 'gov_bg',
+    keywords: ['المستنصرية', 'المستنصريه', 'mustansiriyah', 'شارع فلسطين المستنصرية', 'مجمع المستنصرية']
+  },
+  {
+    id: 'u_mustansiriyah_med',
+    name: 'المستنصرية (المجمع الطبي / القادسية)',
+    category: 'gov_bg',
+    keywords: ['طب المستنصرية', 'صيدلة المستنصرية', 'مستنصرية القادسية', 'اليرموك المستنصرية']
+  },
+  {
+    id: 'u_tech',
+    name: 'الجامعة التكنولوجية (شارع الصناعة)',
+    category: 'gov_bg',
+    keywords: ['التكنولوجية', 'التكنولوجيه', 'التكنلوجية', 'التكنلوجيه', 'uot', 'الصناعة', 'شارع الصناعة']
+  },
+  {
+    id: 'u_nahrain_jadriya',
+    name: 'جامعة النهرين (الجادرية)',
+    category: 'gov_bg',
+    keywords: ['النهرين', 'nahrain', 'جامعة النهرين', 'نهرين الجادرية', 'هندسة النهرين']
+  },
+  {
+    id: 'u_nahrain_kadhim',
+    name: 'جامعة النهرين (الكاظمية / الطب)',
+    category: 'gov_bg',
+    keywords: ['طب النهرين', 'نهرين الكاظمية', 'مدينة الكاظمية الطبية']
+  },
+  {
+    id: 'u_iraqia',
+    name: 'الجامعة العراقية (سبع أبكار)',
+    category: 'gov_bg',
+    keywords: ['الجامعة العراقية', 'الجامعه العراقيه', 'العراقية', 'سبع ابكار', 'سبع أبكار', 'iraqia']
+  },
+  {
+    id: 'u_mtu',
+    name: 'الجامعة التقنية الوسطى والمعاهد',
+    category: 'gov_bg',
+    keywords: ['التقنية الوسطى', 'التقنيه الوسطى', 'معهد التكنولوجيا', 'معهد الإدارة', 'معهد الادارة', 'معهد المنصور', 'معهد الزعفرانية', 'الكلية التقنية الهندسية', 'الكلية التقنية الطبية']
+  },
+  {
+    id: 'u_imam_adham',
+    name: 'كلية الإمام الأعظم (سبع أبكار)',
+    category: 'gov_bg',
+    keywords: ['الإمام الأعظم', 'الامام الاعظم', 'كلية الامام الاعظم']
+  },
+  {
+    id: 'u_imam_kadhim',
+    name: 'كلية الإمام الكاظم (حي أور)',
+    category: 'gov_bg',
+    keywords: ['الإمام الكاظم', 'الامام الكاظم', 'كلية الامام الكاظم']
+  },
+
+  // ==========================================
+  // 🕌 3. جامعات الفرات الأوسط والجنوب (south)
+  // ==========================================
+  {
+    id: 'u_kafeel',
+    name: 'جامعة الكفيل (النجف الأشرف)',
+    category: 'south',
+    keywords: ['الكفيل', 'alkafeel', 'جامعة الكفيل', 'جامعه الكفيل']
+  },
+  {
+    id: 'u_kufa',
+    name: 'جامعة الكوفة (النجف الأشرف)',
+    category: 'south',
+    keywords: ['جامعة الكوفة', 'جامعه الكوفه', 'الكوفة', 'الكوفه', 'kufa']
+  },
+  {
+    id: 'u_jaber_hayyan',
+    name: 'جامعة جابر بن حيان الطبية (النجف)',
+    category: 'south',
+    keywords: ['جابر بن حيان', 'جامعة جابر بن حيان']
+  },
+  {
+    id: 'u_islamic_najaf',
+    name: 'الجامعة الإسلامية (النجف الأشرف)',
+    category: 'south',
+    keywords: ['الجامعة الإسلامية بالنجف', 'الاسلامية في النجف', 'كلية الفقه']
+  },
+  {
+    id: 'u_karbala',
+    name: 'جامعة كربلاء (كربلاء المقدسة)',
+    category: 'south',
+    keywords: ['جامعة كربلاء', 'جامعه كربلاء', 'karbala', 'كليات كربلاء']
+  },
+  {
+    id: 'u_warith',
+    name: 'جامعة وارث الأنبياء (كربلاء)',
+    category: 'south',
+    keywords: ['وارث الأنبياء', 'وارث الانبياء', 'warith', 'جامعة وارث']
+  },
+  {
+    id: 'u_ahl_bait',
+    name: 'جامعة أهل البيت (كربلاء المقدسة)',
+    category: 'south',
+    keywords: ['أهل البيت', 'اهل البيت', 'جامعة اهل البيت']
+  },
+  {
+    id: 'u_alzahra',
+    name: 'جامعة الزهراء للبنات (كربلاء)',
+    category: 'south',
+    keywords: ['جامعة الزهراء', 'الزهراء للبنات']
+  },
+  {
+    id: 'u_alameed',
+    name: 'جامعة العميد (كربلاء المقدسة)',
+    category: 'south',
+    keywords: ['العميد', 'جامعة العميد', 'alameed']
+  },
+  {
+    id: 'u_babil',
+    name: 'جامعة بابل (الحلة)',
+    category: 'south',
+    keywords: ['جامعة بابل', 'جامعه بابل', 'babil', 'كليات الحلة', 'الحلة']
+  },
+  {
+    id: 'u_mustaqbal',
+    name: 'جامعة المستقبل (بابل / الحلة)',
+    category: 'south',
+    keywords: ['جامعة المستقبل', 'جامعه المستقبل', 'كلية المستقبل', 'mustaqbal']
+  },
+  {
+    id: 'u_qasim',
+    name: 'جامعة القاسم الخضراء (بابل)',
+    category: 'south',
+    keywords: ['القاسم الخضراء', 'جامعة القاسم']
+  },
+  {
+    id: 'u_hilla',
+    name: 'كلية الحلة الجامعة (بابل)',
+    category: 'south',
+    keywords: ['الحلة الجامعة', 'الحله الجامعه', 'كلية الحلة']
+  },
+  {
+    id: 'u_basrah',
+    name: 'جامعة البصرة (كرمة علي / الزبير)',
+    category: 'south',
+    keywords: ['جامعة البصرة', 'جامعه البصره', 'باب الزبير', 'كرمة علي', 'كرمه علي', 'basra']
+  },
+  {
+    id: 'u_basrah_oil',
+    name: 'جامعة البصرة للنفط والغاز',
+    category: 'south',
+    keywords: ['البصرة للنفط والغاز', 'نفط وغاز']
+  },
+  {
+    id: 'u_maaqal',
+    name: 'جامعة المعقل (البصرة)',
+    category: 'south',
+    keywords: ['المعقل', 'جامعة المعقل', 'almaaqal']
+  },
+  {
+    id: 'u_kanz',
+    name: 'كلية الكنز الجامعة (البصرة)',
+    category: 'south',
+    keywords: ['كلية الكنز', 'الكنز']
+  },
+  {
+    id: 'u_thiqar',
+    name: 'جامعة ذي قار (الناصرية)',
+    category: 'south',
+    keywords: ['جامعة ذي قار', 'ذي قار', 'الناصرية', 'الناصريه']
+  },
+  {
+    id: 'u_sumer',
+    name: 'جامعة سومر (الرفاعي / ذي قار)',
+    category: 'south',
+    keywords: ['جامعة سومر', 'سومر', 'الرفاعي']
+  },
+  {
+    id: 'u_ain',
+    name: 'جامعة العين العراقية (ذي قار)',
+    category: 'south',
+    keywords: ['جامعة العين', 'كلية العين', 'al-ayn', 'العين']
+  },
+  {
+    id: 'u_maysan',
+    name: 'جامعة ميسان (العمارة)',
+    category: 'south',
+    keywords: ['جامعة ميسان', 'ميسان', 'العمارة', 'العماره']
+  },
+  {
+    id: 'u_manara',
+    name: 'جامعة المنارة (ميسان)',
+    category: 'south',
+    keywords: ['المنارة', 'كلية المنارة', 'جامعة المنارة']
+  },
+  {
+    id: 'u_qadisiyah',
+    name: 'جامعة القادسية (الديوانية)',
+    category: 'south',
+    keywords: ['جامعة القادسية', 'جامعه القادسيه', 'الديوانية', 'الديوانيه']
+  },
+  {
+    id: 'u_muthanna',
+    name: 'جامعة المثنى (السماوة)',
+    category: 'south',
+    keywords: ['جامعة المثنى', 'المثنى', 'السماوة', 'السماوه']
+  },
+  {
+    id: 'u_wasit',
+    name: 'جامعة واسط (الكوت)',
+    category: 'south',
+    keywords: ['جامعة واسط', 'واسط', 'الكوت']
+  },
+  {
+    id: 'u_kut',
+    name: 'كلية الكوت الجامعة (واسط)',
+    category: 'south',
+    keywords: ['كلية الكوت', 'الكوت الجامعة']
+  },
+  {
+    id: 'u_stu',
+    name: 'الجامعة التقنية الجنوبية',
+    category: 'south',
+    keywords: ['التقنية الجنوبية', 'التقنيه الجنوبيه']
+  },
+  {
+    id: 'u_atu',
+    name: 'جامعة الفرات الأوسط التقنية',
+    category: 'south',
+    keywords: ['الفرات الأوسط التقنية', 'الفرات الاوسط التقنيه']
+  },
+
+  // ==========================================
+  // 🌄 4. جامعات الشمال والغربية والوسط (north)
+  // ==========================================
+  {
+    id: 'u_mosul',
+    name: 'جامعة الموصل (نينوى)',
+    category: 'north',
+    keywords: ['جامعة الموصل', 'جامعه الموصل', 'الموصل']
+  },
+  {
+    id: 'u_nineveh',
+    name: 'جامعة نينوى',
+    category: 'north',
+    keywords: ['جامعة نينوى', 'جامعه نينوى', 'نينوى']
+  },
+  {
+    id: 'u_hamdaniya',
+    name: 'جامعة الحمدانية (سهل نينوى)',
+    category: 'north',
+    keywords: ['الحمدانية', 'الحمدانيه', 'جامعة الحمدانية']
+  },
+  {
+    id: 'u_alnoor',
+    name: 'جامعة النور (نينوى / برطلة)',
+    category: 'north',
+    keywords: ['جامعة النور', 'كلية النور', 'النور']
+  },
+  {
+    id: 'u_hadbaa',
+    name: 'كلية الحدباء الجامعة (الموصل)',
+    category: 'north',
+    keywords: ['كلية الحدباء', 'الحدباء']
+  },
+  {
+    id: 'u_kirkuk',
+    name: 'جامعة كركوك',
+    category: 'north',
+    keywords: ['جامعة كركوك', 'كركوك']
+  },
+  {
+    id: 'u_qalam',
+    name: 'كلية القلم الجامعة (كركوك)',
+    category: 'north',
+    keywords: ['كلية القلم', 'القلم']
+  },
+  {
+    id: 'u_kitab',
+    name: 'جامعة الكتاب (كركوك)',
+    category: 'north',
+    keywords: ['جامعة الكتاب', 'كلية الكتاب', 'الكتاب']
+  },
+  {
+    id: 'u_anbar',
+    name: 'جامعة الأنبار (الرمادي)',
+    category: 'north',
+    keywords: ['جامعة الأنبار', 'جامعه الانبار', 'الانبار', 'الأنبار', 'الرمادي']
+  },
+  {
+    id: 'u_fallujah',
+    name: 'جامعة الفلوجة (الأنبار)',
+    category: 'north',
+    keywords: ['جامعة الفلوجة', 'جامعه الفلوجه', 'الفلوجة', 'الفلوجه']
+  },
+  {
+    id: 'u_maarif',
+    name: 'كلية المعارف الجامعة (الأنبار)',
+    category: 'north',
+    keywords: ['المعارف الجامعة', 'كلية المعارف', 'المعارف']
+  },
+  {
+    id: 'u_tikrit',
+    name: 'جامعة تكريت (صلاح الدين)',
+    category: 'north',
+    keywords: ['جامعة تكريت', 'تكريت', 'صلاح الدين']
+  },
+  {
+    id: 'u_samarra',
+    name: 'جامعة سامراء',
+    category: 'north',
+    keywords: ['جامعة سامراء', 'سامراء']
+  },
+  {
+    id: 'u_balad',
+    name: 'جامعة بلد (صلاح الدين)',
+    category: 'north',
+    keywords: ['جامعة بلد', 'بلد']
+  },
+  {
+    id: 'u_diyala',
+    name: 'جامعة ديالى (بعقوبة)',
+    category: 'north',
+    keywords: ['جامعة ديالى', 'ديالى', 'بعقوبة']
+  },
+  {
+    id: 'u_bilad_rafdain',
+    name: 'كلية بلاد الرافدين (ديالى)',
+    category: 'north',
+    keywords: ['بلاد الرافدين', 'بلاد الرفدين']
+  },
+  {
+    id: 'u_ntu',
+    name: 'الجامعة التقنية الشمالية',
+    category: 'north',
+    keywords: ['التقنية الشمالية', 'التقنيه الشماليه']
+  },
+  {
+    id: 'u_erbil_salahaddin',
+    name: 'جامعة صلاح الدين (أربيل)',
+    category: 'north',
+    keywords: ['صلاح الدين أربيل', 'جامعة أربيل', 'أربيل']
+  },
+  {
+    id: 'u_sulaimani',
+    name: 'جامعة السليمانية',
+    category: 'north',
+    keywords: ['جامعة السليمانية', 'السليمانية']
+  },
+  {
+    id: 'u_duhok',
+    name: 'جامعة دهوك',
+    category: 'north',
+    keywords: ['جامعة دهوك', 'دهوك']
+  }
+];
+
+function renderUniversityScopeKeyboard(activeCategory = 'pvt_bg', pageNum = 0) {
+  const catTitles: { [k: string]: string } = {
+    pvt_bg: '🎓 كليات وجامعات بغداد الأهلية',
+    gov_bg: '🏛️ جامعات بغداد الحكومية والمعاهد',
+    south: '🕌 جامعات الفرات الأوسط والجنوب',
+    north: '🌄 جامعات المحافظات الشمالية والغربية'
+  };
+
+  const PAGE_SIZE = 8;
+  const filtered = IRAQI_UNIVERSITIES.filter(u => u.category === activeCategory);
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+  const page = Math.max(0, Math.min(pageNum, totalPages - 1));
+  const pageItems = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const inline_keyboard: any[][] = [];
+  for (let i = 0; i < pageItems.length; i += 2) {
+    const row = [];
+    row.push({
+      text: pageItems[i].name,
+      callback_data: `partner_sel_${pageItems[i].id}`
+    });
+    if (i + 1 < pageItems.length) {
+      row.push({
+        text: pageItems[i + 1].name,
+        callback_data: `partner_sel_${pageItems[i + 1].id}`
+      });
+    }
+    inline_keyboard.push(row);
+  }
+
+  // Navigation pagination bar
+  const navRow: any[] = [];
+  if (page > 0) {
+    navRow.push({ text: '⬅️ السابق', callback_data: `partner_uni_p_${activeCategory}_${page - 1}` });
+  }
+  navRow.push({ text: `📄 صفحة ${page + 1} من ${totalPages}`, callback_data: `partner_uni_p_${activeCategory}_${page}` });
+  if (page < totalPages - 1) {
+    navRow.push({ text: 'التالي ➡️', callback_data: `partner_uni_p_${activeCategory}_${page + 1}` });
+  }
+  inline_keyboard.push(navRow);
+
+  // Category Selector Tabs
+  inline_keyboard.push([
+    { text: activeCategory === 'pvt_bg' ? '🔘 🎓 أهلي بغداد' : '🎓 أهلي بغداد', callback_data: 'partner_uni_p_pvt_bg_0' },
+    { text: activeCategory === 'gov_bg' ? '🔘 🏛️ حكومي بغداد' : '🏛️ حكومي بغداد', callback_data: 'partner_uni_p_gov_bg_0' }
+  ]);
+  inline_keyboard.push([
+    { text: activeCategory === 'south' ? '🔘 🕌 الفرات والجنوب' : '🕌 الفرات والجنوب', callback_data: 'partner_uni_p_south_0' },
+    { text: activeCategory === 'north' ? '🔘 🌄 الشمال والغربية' : '🌄 الشمال والغربية', callback_data: 'partner_uni_p_north_0' }
+  ]);
+
+  // Fallback / Custom / Cancel options
+  inline_keyboard.push([
+    { text: '🌐 كل الجامعات (عام)', callback_data: 'partner_trans_kw_all' },
+    { text: '✏️ كتابة اسم مخصص', callback_data: 'partner_trans_kw_custom' }
+  ]);
+  inline_keyboard.push([
+    { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+  ]);
+
+  const text = 
+    `🚌 <b>تحديد نطاق خطوط النقل لقناتك:</b>\n\n` +
+    `📍 <b>القسم المختار:</b> <b>${catTitles[activeCategory] || activeCategory}</b>\n\n` +
+    `اختر كليتك أو جامعتك مباشرة للربط المعتمد غير القابل للخطأ 🎯\n` +
+    `<i>(استخدم أزرار السابق والتالي ⬅️ ➡️ أو اختر قسماً آخر من الأزرار أدناه)</i>`;
+
+  return { text, markup: { inline_keyboard } };
 }
 
 function buildTransportCard(
@@ -2192,16 +2842,25 @@ async function broadcastToPartnerChannels(record: any, category: 'transport' | '
           }
         }
 
-        // Keyword Matcher Check
+        // Unified searchable text for partner matching
+        const fullAdSearch = [
+          record.title || '',
+          record.destination || '',
+          record.university || '',
+          record.city || '',
+          record.location || '',
+          record.regions || '',
+          record.governorate || '',
+          typeof record.description === 'string' ? record.description : JSON.stringify(record.description || {})
+        ].join(' ').toLowerCase();
+
+        // Keyword Matcher Check (with Arabic normalization)
         if (partner.filter_keywords && partner.filter_keywords.length > 0) {
           const match = partner.filter_keywords.some((kw: string) => {
             const cleanKw = kw.toLowerCase().trim();
-            return cleanKw && (
-              recordTitle.includes(cleanKw) || 
-              recordDesc.includes(cleanKw) || 
-              recordCity.includes(cleanKw) || 
-              recordUni.includes(cleanKw)
-            );
+            if (!cleanKw) return false;
+            return fullAdSearch.includes(cleanKw) || 
+                   normArabic(fullAdSearch).includes(normArabic(cleanKw));
           });
           if (!match) continue; // Skip if no keyword matched
         }
@@ -2214,9 +2873,9 @@ async function broadcastToPartnerChannels(record: any, category: 'transport' | '
         // University / College targeted match for transport lines
         if (category === 'transport' && partner.university && partner.university !== 'all' && !partner.university.includes('عام')) {
           const targetUni = partner.university.trim();
-          const fullMatchStr = `${recordTitle} ${recordDesc} ${recordCity} ${recordUni}`;
-          const isUniMatch = isDestinationMatch(targetUni, fullMatchStr, recordCity) || 
-                             fullMatchStr.includes(targetUni.toLowerCase());
+          const isUniMatch = isDestinationMatch(targetUni, fullAdSearch, record.city || '') || 
+                             fullAdSearch.includes(targetUni.toLowerCase()) ||
+                             normArabic(fullAdSearch).includes(normArabic(targetUni));
           if (!isUniMatch) {
             console.log(`[PARTNER SYNDICATION] Skipping partner ${partner.channel_id} (university ${partner.university} does not match ad)`);
             continue;
@@ -2272,6 +2931,7 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
   const subCategory = state.data.sub_category || 'all';
   const keywords = state.data.filter_keywords || [];
   const onlyMyAds = state.data.only_my_ads === true || category === 'my_store';
+  const targetUni = state.data.target_university || state.data.university || (category === 'transport' ? 'كل الجامعات (عام)' : null);
 
   const { error } = await supabaseClient.from('partner_channels').upsert({
     owner_telegram_id: chatId,
@@ -2279,6 +2939,7 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
     channel_title: channelTitle,
     category: category,
     sub_category: subCategory,
+    university: targetUni,
     filter_keywords: keywords,
     only_my_ads: onlyMyAds,
     is_active: true,
@@ -2295,7 +2956,9 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
   try {
     const catName = onlyMyAds 
       ? '🛍️ إعلانات متجري / إعلاناتي الشخصية فقط'
-      : (category === 'transport' ? '🚌 خطوط نقل' : (category === 'vehicles' ? '🚗 سيارات' : (category === 'products' ? '🛍️ منتجات ومتاجر' : '🌐 كل الإعلانات')));
+      : (category === 'transport' 
+          ? (targetUni && !targetUni.includes('عام') ? `🚌 خطوط نقل [ ${targetUni} ] 🎓` : '🚌 خطوط نقل (كل الجامعات)') 
+          : (category === 'vehicles' ? '🚗 سيارات' : (category === 'products' ? '🛍️ منتجات ومتاجر' : '🌐 كل الإعلانات')));
     
     const testMsg = 
       `🎉 <b>تم ربط القناة بنجاح مع منصة سوق بغداد الرقمي!</b> 🇮🇶\n\n` +
@@ -2309,7 +2972,7 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
     // Sync Existing / Past Active Ads to the newly connected channel
     EdgeRuntime.waitUntil((async () => {
       try {
-        console.log(`[PARTNER SYNC PAST ADS] Starting sync for ${channelId}, onlyMyAds=${onlyMyAds}, category=${category}`);
+        console.log(`[PARTNER SYNC PAST ADS] Starting sync for ${channelId}, onlyMyAds=${onlyMyAds}, category=${category}, uni=${targetUni}`);
         const { data: tgUser } = await supabaseClient.from('telegram_users').select('user_id').eq('telegram_chat_id', chatId).maybeSingle();
         const sellerUserId = tgUser?.user_id;
 
@@ -2358,10 +3021,31 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
             for (const ad of pastAds) {
               try {
                 // Filter keyword check for transport
-                if (category === 'transport' && keywords.length > 0) {
-                  const adText = ((ad.title || '') + ' ' + (ad.destination || '') + ' ' + (ad.regions || '') + ' ' + (ad.university || '')).toLowerCase();
-                  const match = keywords.some((k: string) => adText.includes(k.toLowerCase().trim()));
-                  if (!match) continue;
+                if (category === 'transport') {
+                  const adText = [
+                    ad.title || '',
+                    ad.destination || '',
+                    ad.regions || '',
+                    ad.university || '',
+                    ad.city || '',
+                    ad.location || '',
+                    typeof ad.description === 'string' ? ad.description : JSON.stringify(ad.description || {})
+                  ].join(' ').toLowerCase();
+
+                  if (keywords.length > 0) {
+                    const match = keywords.some((k: string) => {
+                      const cleanK = k.toLowerCase().trim();
+                      return adText.includes(cleanK) || normArabic(adText).includes(normArabic(cleanK));
+                    });
+                    if (!match) continue;
+                  }
+
+                  if (targetUni && !targetUni.includes('عام')) {
+                    const isUniMatch = isDestinationMatch(targetUni, adText, ad.city || '') || 
+                                       adText.includes(targetUni.toLowerCase()) || 
+                                       normArabic(adText).includes(normArabic(targetUni));
+                    if (!isUniMatch) continue;
+                  }
                 }
 
                 const adType = ad.category === 'transport' ? 'transport' : 'car';
@@ -2402,7 +3086,7 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
     `📢 <b>القناة:</b> ${channelTitle} (${channelId})\n` +
     (onlyMyAds 
       ? `👑 <b>الوضع المختار:</b> إعلانات متجرك الخاص فقط. أي منتج أو إعلان تنشره في الموقع أو البوت سينزل في قناتك فورياً وبتصميم مرتب!`
-      : `⚡ <b>الوضع المختار:</b> استلام إعلانات المنصة المطابقة لتخصص قناتك تلقائياً وبأعلى جودة!\n\nشكراً لانضمامك إلى شبكة سوق بغداد الرقمي 🤝`),
+      : `⚡ <b>الوضع المختار:</b> استلام إعلانات ${targetUni && !targetUni.includes('عام') ? `[ <b>${targetUni}</b> ]` : 'المنصة'} تلقائياً وبأعلى جودة!\n\nشكراً لانضمامك إلى شبكة سوق بغداد الرقمي 🤝`),
     {
       inline_keyboard: [
         [{ text: '📋 عرض قنواتي المربوطة', callback_data: 'partner_my_channels' }],
@@ -11938,21 +12622,11 @@ Deno.serve(async (req: any) => {
 
         if (selectedCat === 'transport') {
           state.step = 'partner_transport_filter';
+          state.data.uni_cat = 'pvt_bg';
+          state.data.uni_page = 0;
           await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-          await updateOrSend(
-            `🚌 <b>تحديد نطاق خطوط النقل لقناتك:</b>\n\n` +
-            `اختر ما يناسب قناتك: هل تريد استلام إعلانات كل الجامعات أم جامعة/كلية محددة؟`,
-            {
-              inline_keyboard: [
-                [{ text: '🎓 كل الجامعات والكليات في بغداد', callback_data: 'partner_trans_kw_all' }],
-                [{ text: '🏛️ كلية الرافدين الجامعة', callback_data: 'partner_trans_kw_alrafdain' }, { text: '🏛️ كلية الإسراء الجامعة', callback_data: 'partner_trans_kw_israa' }],
-                [{ text: '🏛️ جامعة بغداد (الجادرية / باب المعظم)', callback_data: 'partner_trans_kw_baghdad' }],
-                [{ text: '🏛️ الجامعة التكنولوجية', callback_data: 'partner_trans_kw_tech' }, { text: '🏛️ جامعة النهرين', callback_data: 'partner_trans_kw_nahrain' }],
-                [{ text: '✏️ كتابة اسم كلية / منطقة مخصصة', callback_data: 'partner_trans_kw_custom' }],
-                [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
-              ]
-            }
-          );
+          const { text: uniMsg, markup: uniMarkup } = renderUniversityScopeKeyboard('pvt_bg', 0);
+          await updateOrSend(uniMsg, uniMarkup);
           return new Response('OK', { status: 200 });
         }
 
@@ -11980,20 +12654,61 @@ Deno.serve(async (req: any) => {
         return await finalizePartnerChannel(chatId, state, supabase, updateOrSend);
       }
 
+      // University Pagination & Category Tab Handler
+      if (action.startsWith('partner_uni_p_')) {
+        const parts = action.replace('partner_uni_p_', '').split('_');
+        const pageStr = parts.pop();
+        const catKey = parts.join('_') || 'pvt_bg';
+        const pageNum = parseInt(pageStr || '0', 10) || 0;
+
+        state.step = 'partner_transport_filter';
+        state.data.uni_cat = catKey;
+        state.data.uni_page = pageNum;
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const { text: uniMsg, markup: uniMarkup } = renderUniversityScopeKeyboard(catKey, pageNum);
+        await updateOrSend(uniMsg, uniMarkup);
+        return new Response('OK', { status: 200 });
+      }
+
+      // Direct University Selection Handler (ربط مضبوط غير قابل للخطأ)
+      if (action.startsWith('partner_sel_')) {
+        const instId = action.replace('partner_sel_', '');
+        const inst = IRAQI_UNIVERSITIES.find(u => u.id === instId);
+        if (inst) {
+          state.data.filter_keywords = inst.keywords;
+          state.data.university = inst.name;
+          state.data.target_university = inst.name;
+        }
+        return await finalizePartnerChannel(chatId, state, supabase, updateOrSend);
+      }
+
       if (action.startsWith('partner_trans_kw_')) {
         const choice = action.replace('partner_trans_kw_', '');
         if (choice === 'all') {
           state.data.filter_keywords = [];
+          state.data.university = 'كل الجامعات (عام)';
+          state.data.target_university = 'كل الجامعات (عام)';
         } else if (choice === 'alrafdain') {
           state.data.filter_keywords = ['الرافدين', 'الرفدين', 'ruc'];
+          state.data.university = 'كلية الرافدين الجامعة';
+          state.data.target_university = 'كلية الرافدين الجامعة';
         } else if (choice === 'israa') {
           state.data.filter_keywords = ['الإسراء', 'الاسراء'];
+          state.data.university = 'كلية الإسراء الجامعة';
+          state.data.target_university = 'كلية الإسراء الجامعة';
         } else if (choice === 'baghdad') {
           state.data.filter_keywords = ['جامعة بغداد', 'الجادرية', 'باب المعظم'];
+          state.data.university = 'جامعة بغداد';
+          state.data.target_university = 'جامعة بغداد';
         } else if (choice === 'tech') {
           state.data.filter_keywords = ['التكنولوجية'];
+          state.data.university = 'الجامعة التكنولوجية';
+          state.data.target_university = 'الجامعة التكنولوجية';
         } else if (choice === 'nahrain') {
           state.data.filter_keywords = ['النهرين'];
+          state.data.university = 'جامعة النهرين';
+          state.data.target_university = 'جامعة النهرين';
         } else if (choice === 'custom') {
           state.step = 'partner_trans_custom_input';
           await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
@@ -16523,6 +17238,8 @@ Deno.serve(async (req: any) => {
       if (state.step === 'partner_trans_custom_input' && text) {
         const customKeywords = text.split(/[,،\n]/).map(k => k.trim()).filter(k => k.length > 0);
         state.data.filter_keywords = customKeywords;
+        state.data.university = customKeywords.join(' / ');
+        state.data.target_university = customKeywords.join(' / ');
         return await finalizePartnerChannel(chatId, state, supabase, updateOrSend);
       }
 
