@@ -1836,7 +1836,8 @@ function buildTransportCard(
       `🚌 <b>يا هلا ${fromName} 🌹 مسار مقترح متوفر:</b>\n` +
       `📍 <b>المسار:</b> ${l.location || origin || 'بغداد'} ⬅️ ${l.city || destination || 'الجامعة'}\n` +
       `💺 <b>المقاعد:</b> ${seatsText} | 🎖️ ${trustBadge}\n` +
-      `💰 <b>الأجرة:</b> ${fareText}` + (cleanPhone ? ` | 📞 <code>${cleanPhone}</code>` : '') + `\n` +
+      `💰 <b>الأجرة:</b> ${fareText}` + (cleanPhone ? ` | 📞 <code>${cleanPhone}</code>` : '') + `\n\n` +
+      `⚠️ <i>ملاحظة: هذه المجموعة للطلاب الي يحتاجون خطوط أو يريدون يسوون خطوط لتسهيل أمرهم. نحن غير مسؤولين عن أصحاب الخطوط أو عن الطلاب، وبالتوفيق للجميع 🌹</i>\n\n` +
       `<i>اضغط أدناه لحجز مقعدك والتواصل بالخاص 🔒</i>`;
 
     // Row 1: Primary Private Booking Deep-Link Button
@@ -1885,16 +1886,34 @@ function buildTransportCard(
       `🏷️ <b>الخط [${idx + 1} من ${total}]: ${l.title}</b> [🟢 نشط]\n` +
       `🎖️ <b>تقييم الكابتن:</b> <b>${trustBadge}</b>\n` +
       `💺 <b>المقاعد الشاغرة:</b> <b>${seatsText}</b>\n` +
-      `📍 <b>المناطق:</b> ${l.location || origin || 'بغداد'}\n` +
+      `📍 <b>المناطق:</b> ${l.location || origin || 'بغداد'}` +
+      (l.pickup_lat && l.pickup_lng 
+        ? `\n   └ 📍 <a href="https://www.google.com/maps/search/?api=1&query=${l.pickup_lat},${l.pickup_lng}">خرائط Google</a> | <a href="https://waze.com/ul?ll=${l.pickup_lat},${l.pickup_lng}&navigate=yes">تطبيق Waze</a>` 
+        : '') + `\n` +
       `🏢 <b>الوجهة:</b> ${l.city || destination || 'الجامعة'}\n` +
       `💰 <b>الأجرة:</b> ${fareText}\n` +
       (cleanPhone ? `📞 <b>هاتف الكابتن:</b> <code>${cleanPhone}</code>\n` : '') +
       (cleanDetails ? `📝 <b>التفاصيل:</b> ${cleanDetails}\n` : '') +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      `⚠️ <b>تنبيه وشروط الاستخدام:</b>\n` +
+      `هذه الخدمة مخصصة للطلاب الي يحتاجون خطوط أو يريدون يسوون خطوط لتسهيل أمرهم.\n` +
+      `📌 <b>ملاحظة:</b> نحن غير مسؤولين عن أصحاب الخطوط أو عن الطلاب.\n` +
+      `وبالتوفيق للجميع 🌹\n` +
       `━━━━━━━━━━━━━━━━━━\n\n` +
       `💡 <i>تصفحي الخطوط بالأزرار أدناه (السابق / التالي) وتواصلي مباشرة مع الكابتن المناسب:</i>`;
 
     // Row 1: 1-Click Direct Request to Captain
     inlineButtons.push([{ text: '📩 إرسال طلب حجز مقعد للكابتن ⚡', callback_data: `req_seat_${l.id}` }]);
+
+    // Location Map Button if available
+    if (l.pickup_lat && l.pickup_lng) {
+      const gLink = `https://www.google.com/maps/search/?api=1&query=${l.pickup_lat},${l.pickup_lng}`;
+      const wLink = `https://waze.com/ul?ll=${l.pickup_lat},${l.pickup_lng}&navigate=yes`;
+      inlineButtons.push([
+        { text: '🚙 فتح في تطبيق Waze 🚗', url: wLink },
+        { text: '📍 خرائط Google', url: gLink }
+      ]);
+    }
 
     // Row 2: WhatsApp direct chat
     const commRow: any[] = [];
@@ -1931,13 +1950,18 @@ function buildTransportCard(
       ]);
     }
 
-    // Row 5: My Routes & Resolution (أزرار واضحة بدون انقطاع نصوص)
+    // Row 5: My Routes & Resolution
     inlineButtons.push([
       { text: '📋 مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' },
       { text: '🛑 لكيت خط خلاص', callback_data: `matched_req_direct_${cleanPhone || 'ok'}` }
     ]);
 
-    // Row 6: Main Menu & Explore
+    // Row 6: Terms & Disclaimer
+    inlineButtons.push([
+      { text: '📜 شروط الاستخدام وإخلاء المسؤولية', callback_data: 'terms_transport' }
+    ]);
+
+    // Row 7: Main Menu & Explore
     inlineButtons.push([
       { text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' },
       { text: '🚌 تصفح الكل بالموقع', url: 'https://www.souqbaghdad.store/transport' }
@@ -2729,7 +2753,8 @@ async function handleSmartTransportSearch(chatId: string | number, rawText: stri
         `🎓 <b>${userMention} يبحث عن خط نقل</b>\n` +
         `📍 <b>المسار المطلوب:</b> ${finalOrigin} ⬅️ ${finalDestination}\n\n` +
         `✅ وجدنا (${matchedLines.length}) خط متوفر لهذا المسار!\n` +
-        `<i>👇 تفاصيل الخطوط والحجز بالخاص مع البوت مباشرة:</i>\n` +
+        `<i>👇 تفاصيل الخطوط والحجز بالخاص مع البوت مباشرة:</i>\n\n` +
+        `⚠️ <i>ملاحظة: هذه المجموعة للطلاب الي يحتاجون خطوط أو يريدون يسوون خطوط لتسهيل أمرهم. نحن غير مسؤولين عن أصحاب الخطوط أو عن الطلاب، وبالتوفيق للجميع 🌹</i>\n` +
         `⏳ <i>[ يختفي تلقائياً خلال 60 ثانية ]</i>`;
 
       const groupNoticeMarkup = {
@@ -5506,18 +5531,34 @@ Deno.serve(async (req: any) => {
                 url: `https://wa.me/${formattedPhone}?text=${encodeURIComponent('السلام عليكم كابتن، شفت خطك بسوق بغداد وحاب استفسر عن حجز مقعد')}`
               });
             }
-            channelKeyboard = {
-              inline_keyboard: [
-                driverRow1,
-                [{ text: '🚌 كابتن؟ انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
-              ]
-            };
+            let locationLinksText = '';
+            const aLat = ad.pickup_lat || desc?.pickup_lat;
+            const aLng = ad.pickup_lng || desc?.pickup_lng;
+            if (aLat && aLng) {
+              const gLink = `https://www.google.com/maps/search/?api=1&query=${aLat},${aLng}`;
+              const wLink = `https://waze.com/ul?ll=${aLat},${aLng}&navigate=yes`;
+              locationLinksText = `\n   └ 📍 <a href="${gLink}">خرائط Google</a> | <a href="${wLink}">تطبيق Waze</a>`;
+            }
+
+            const reactivateBtns: any[][] = [
+              driverRow1,
+              [{ text: '🚌 كابتن؟ انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
+            ];
+            if (aLat && aLng) {
+              const gLink = `https://www.google.com/maps/search/?api=1&query=${aLat},${aLng}`;
+              const wLink = `https://waze.com/ul?ll=${aLat},${aLng}&navigate=yes`;
+              reactivateBtns.unshift([
+                { text: '🚙 فتح في تطبيق Waze 🚗', url: wLink },
+                { text: '📍 خرائط Google', url: gLink }
+              ]);
+            }
+            channelKeyboard = { inline_keyboard: reactivateBtns };
 
             channelMsg =
               `🚌 <b>إعلان خط نقل جديد — سوق بغداد</b>\n\n` +
               `📌 <b>النوع:</b> 🚗 أوفر خط نقل\n` +
               `🏷️ <b>الفئة:</b> ${catType} (${targetStr})\n` +
-              `📍 <b>مناطق الانطلاق:</b> ${ad.location || 'بغداد'}\n` +
+              `📍 <b>مناطق الانطلاق:</b> ${ad.location || 'بغداد'}${locationLinksText}\n` +
               `🏢 <b>الوجهة:</b> ${ad.city || 'الجامعة'}\n` +
               `⏰ <b>وقت الدوام:</b> ${desc?.shift || 'صباحي'}\n` +
               `🚗 <b>المركبة:</b> ${desc?.vehicleType || 'صالون'} | <b>المقاعد:</b> ${curSeats} مقاعد\n` +
@@ -7096,11 +7137,11 @@ Deno.serve(async (req: any) => {
       reviewText += `📞 <b>التواصل:</b> ${contactDisplay}\n`;
 
       if (st.data?.pickup_lat && st.data?.pickup_lng) {
-        const latVal = Number(st.data.pickup_lat).toFixed(4);
-        const lngVal = Number(st.data.pickup_lng).toFixed(4);
-        reviewText += `🗺️ <b>الموقع الجغرافي (GPS):</b> مثبت ومربوط بالخريطة تلقائياً ✅ (<code>${latVal}, ${lngVal}</code>)\n`;
+        const gLink = `https://www.google.com/maps/search/?api=1&query=${st.data.pickup_lat},${st.data.pickup_lng}`;
+        const wLink = `https://waze.com/ul?ll=${st.data.pickup_lat},${st.data.pickup_lng}&navigate=yes`;
+        reviewText += `🗺️ <b>الموقع الجغرافي (GPS):</b> مثبت ومربوط بالخريطة ✅\n   └ 📍 <a href="${gLink}">خرائط Google</a> | <a href="${wLink}">تطبيق Waze</a>\n`;
       } else {
-        reviewText += `🗺️ <b>الموقع الجغرافي:</b> اسم المنطقة فقط\n`;
+        reviewText += `🗺️ <b>الموقع الجغرافي:</b> اسم المنطقة فقط (بدون خريطة)\n`;
       }
 
       if (isPassenger) {
@@ -7119,41 +7160,28 @@ Deno.serve(async (req: any) => {
     };
 
     const proceedToLocationOrReview = async (cId: string | number, st: any, uData: any) => {
-      // 💡 Smart auto-detection: Check if user already has saved location
-      const { data: freshUser } = await supabase.from('telegram_users').select('saved_lat, saved_lng').eq('telegram_chat_id', cId).maybeSingle();
-      const savedLat = freshUser?.saved_lat || uData?.saved_lat;
-      const savedLng = freshUser?.saved_lng || uData?.saved_lng;
+      st.step = 'trans_ask_location_opt';
+      await supabase.from('telegram_users').update({ bot_state: st }).eq('telegram_chat_id', cId);
 
-      if (savedLat && savedLng) {
-        st.data = st.data || {};
-        st.data.pickup_lat = savedLat;
-        st.data.pickup_lng = savedLng;
-        st.step = 'trans_review';
-        await supabase.from('telegram_users').update({ bot_state: st }).eq('telegram_chat_id', cId);
+      const isOffer = st.data?.type === 'offer';
+      const askText = 
+        `📍 <b>مشاركة الموقع الجغرافي (GPS) — خطوة اختيارية 🗺️</b>\n\n` +
+        `هل ترغب في مشاركة وتثبيت موقعك الدقيق مع نص الإعلان؟\n\n` +
+        `✨ <b>إذا اخترت (نعم):</b>\n` +
+        `ستظهر روابط خريطة تفاعلية أسفل إعلانك:\n` +
+        `└ 📍 <b>خرائط Google | تطبيق Waze</b>\n` +
+        `لتوجيه ${isOffer ? 'الركاب والطلاب لنقطة انطلاقك' : 'الكابتن لنقطة صعودك'} بدقة وبنقرة واحدة 🚗💨\n\n` +
+        `⚪ <b>إذا اخترت (لا):</b>\n` +
+        `سيتم الاكتفاء باسم المنطقة المكتوب فقط بدون روابط خريطة.`;
 
-        return await renderTransportReviewCard(cId, st);
-      } else {
-        st.step = 'trans_waiting_location';
-        await supabase.from('telegram_users').update({ bot_state: st }).eq('telegram_chat_id', cId);
+      const optRows = [
+        [{ text: '📍 نعم، أريد مشاركة موقعي (GPS)', callback_data: 'trans_loc_opt_yes' }],
+        [{ text: '⏩ لا، الاكتفاء باسم المنطقة فقط', callback_data: 'trans_loc_opt_no' }],
+        [{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]
+      ];
 
-        const isOffer = st.data?.type === 'offer';
-        const locPrompt = 
-          `📍 <b>الخطوة — تحديد موقع ${isOffer ? 'انطلاق السيارة' : 'صعودك للخط'} (GPS) 🗺️</b>\n\n` +
-          `لضمان توجيه ${isOffer ? 'الركاب والطلاب لنقطة انطلاقك' : 'الكابتن لنقطة صعودك'} بدقة عبر خرائط Google و Waze، شارك موقعك بالزر أدناه 👇\n\n` +
-          `<i>💡 بمجرد مشاركته لمرة واحدة، سيتم حفظه تلقائياً لجميع رحلاتك القادمة ولن يُطلب منك مجدداً!</i>\n` +
-          `<i>(يمكنك أيضاً التخطي والاعتماد على اسم المنطقة فقط)</i>`;
-
-        await sendMessage(cId, locPrompt, {
-          keyboard: [
-            [{ text: '📍 إرسال موقعي الحالي (GPS)', request_location: true }],
-            [{ text: '⏩ تخطي هذه الخطوة (الاعتماد على اسم المنطقة)' }],
-            [{ text: '❌ إلغاء' }]
-          ],
-          resize_keyboard: true,
-          one_time_keyboard: true
-        });
-        return new Response('OK', { status: 200, headers: corsHeaders });
-      }
+      await sendMessage(cId, askText, { inline_keyboard: optRows });
+      return new Response('OK', { status: 200, headers: corsHeaders });
     };
 
     // 📍 HANDLE TELEGRAM LOCATION MESSAGE (تثبيت وحفظ الموقع الجغرافي الدائم)
@@ -7223,13 +7251,111 @@ Deno.serve(async (req: any) => {
       }
     }
 
-    if (text === '❌ إلغاء والعودة' || (text === '❌ إلغاء' && (state?.step === 'hub_waiting_location' || state?.step === 'trans_waiting_location'))) {
-      if (state) state.step = '';
+    if (text === '❌ إلغاء والعودة' || (text === '❌ إلغاء' && (state?.step === 'hub_waiting_location' || state?.step === 'trans_waiting_location' || state?.step === 'hub_cpt_waiting_eta_input' || state?.step === 'hub_cpt_waiting_one_eta'))) {
+      if (state) {
+        state.step = '';
+        state.target_booking_id = null;
+      }
       await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
       await sendMessage(chatId, '❌ تم إلغاء العملية.', {
         reply_markup: { remove_keyboard: true }
       });
       await showMainMenu();
+      return new Response('OK', { status: 200, headers: corsHeaders });
+    }
+
+    // Captain Custom ETA text broadcast
+    if (text && state && state.step === 'hub_cpt_waiting_eta_input') {
+      state.step = '';
+      await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+      const todayDate = new Date().toISOString().split('T')[0];
+      const { data: bookings } = await supabase
+        .from('transport_bookings')
+        .select('*')
+        .eq('captain_chat_id', String(chatId))
+        .in('status', ['confirmed', 'active'])
+        .limit(30);
+
+      const stuMap = new Map();
+      for (const b of (bookings || [])) {
+        const key = b.passenger_chat_id || b.id;
+        if (!stuMap.has(key)) stuMap.set(key, b);
+      }
+      const targets = Array.from(stuMap.values()).filter((b: any) => !(b.daily_status === 'excused' && b.daily_status_date === todayDate));
+      const cptName = tgUser?.first_name || tgUser?.name || 'كابتن الخط';
+
+      for (const b of targets) {
+        if (b.passenger_chat_id) {
+          try {
+            await sendMessage(
+              b.passenger_chat_id,
+              `⏱️ <b>تحديث وقت الوصول من كابتن خطك (${cptName}):</b>\n\n` +
+              `⏰ <b>موعد الوصول المتوقع لنقطة صعودك:</b> <b>${text}</b>\n\n` +
+              `يرجى التواجد في الموعد المحدد لضمان سير مسار الخط 🎒🌹`,
+              {
+                inline_keyboard: [
+                  [{ text: '👍 تمام كابتن، سأكون بالموعد', callback_data: `hub_stu_ready_${b.id}` }],
+                  [{ text: '🚖 فتح لوحة رحلتي', callback_data: 'daily_ride_hub' }]
+                ]
+              }
+            );
+          } catch(e){}
+        }
+      }
+
+      await sendMessage(
+        chatId,
+        `✅ <b>تم إرسال موعد الوصول المخصص (${text}) إلى ${targets.length} طالب!</b>\n\nرحلة موفقة وآمنة إن شاء الله 🌹`,
+        {
+          inline_keyboard: [
+            [{ text: '🚖 فتح لوحة الخط', callback_data: 'daily_ride_hub' }],
+            [{ text: '🏠 الرئيسية', callback_data: 'main_menu' }]
+          ]
+        }
+      );
+
+      return new Response('OK', { status: 200, headers: corsHeaders });
+    }
+
+    // Captain Custom ETA to single student
+    if (text && state && state.step === 'hub_cpt_waiting_one_eta') {
+      const bId = state.target_booking_id;
+      state.step = '';
+      state.target_booking_id = null;
+      await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+      const { data: bData } = await supabase.from('transport_bookings').select('*').eq('id', bId).maybeSingle();
+      const cptName = tgUser?.first_name || tgUser?.name || 'كابتن الخط';
+
+      if (bData && bData.passenger_chat_id) {
+        try {
+          await sendMessage(
+            bData.passenger_chat_id,
+            `⏱️ <b>تنبيه موعد وصول خاص من كابتن خطك (${cptName}):</b>\n\n` +
+            `⏰ <b>موعد الوصول المتوقع لنقطة صعودك:</b> <b>${text}</b>\n\n` +
+            `يرجى التواجد في الموعد المحدد 🎒🌹`,
+            {
+              inline_keyboard: [
+                [{ text: '👍 تمام كابتن، سأكون بالموعد', callback_data: `hub_stu_ready_${bId}` }],
+                [{ text: '🚖 فتح لوحة رحلتي', callback_data: 'daily_ride_hub' }]
+              ]
+            }
+          );
+        } catch(e){}
+      }
+
+      await sendMessage(
+        chatId,
+        `✅ <b>تم إرسال موعد الوصول (${text}) إلى الطالب (${bData?.passenger_name || 'الراكب'}) بنجاح!</b>`,
+        {
+          inline_keyboard: [
+            [{ text: '🚖 فتح لوحة الخط', callback_data: 'daily_ride_hub' }],
+            [{ text: '🏠 الرئيسية', callback_data: 'main_menu' }]
+          ]
+        }
+      );
+
       return new Response('OK', { status: 200, headers: corsHeaders });
     }
 
@@ -10648,6 +10774,51 @@ Deno.serve(async (req: any) => {
             captainTgUrl = `tg://user?id=${driverChatId}`;
           }
 
+          // 🛡️ Check if this passenger already has an active, confirmed, or pending booking for this ad
+          const { data: existingBookings } = await supabase
+            .from('transport_bookings')
+            .select('*')
+            .eq('ad_id', lineAd.id)
+            .eq('passenger_chat_id', String(chatId))
+            .in('status', ['confirmed', 'active', 'pending'])
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          const existingBooking = existingBookings && existingBookings.length > 0 ? existingBookings[0] : null;
+
+          if (existingBooking) {
+            const isAlreadyConfirmed = existingBooking.status === 'confirmed' || existingBooking.status === 'active';
+            const alreadyMsg = isAlreadyConfirmed
+              ? `ℹ️ <b>يا هلا بيك عيوني ${studentName}! 🌹</b>\n\n` +
+                `✅ <b>أنت مشترك ومثبت بالفعل في هذا الخط مع الكابتن (${existingBooking.captain_name || 'الكابتن'})!</b>\n\n` +
+                `🔖 <b>كود حجزك الرقمي:</b> <code>#${existingBooking.booking_code}</code>\n` +
+                `📍 <b>المسار:</b> ${existingBooking.route_origin} ⬅️ ${existingBooking.route_destination}\n\n` +
+                `⚡ <b>مقعدك محجوز ونشط؛</b> وتصلك إشعارات الكابتن اليومية (5 دقائق / 10 دقائق / بالباب) تلقائياً هنا.\n` +
+                `إذا كنت ترغب بإلغاء اشتراكك، يمكنك ذلك بسهولة من الزر أدناه 👇`
+              : `⏳ <b>يا هلا بيك عيوني ${studentName}! 🌹</b>\n\n` +
+                `📋 <b>لديك طلب حجز مقعد سابق قيد المراجعة في هذا الخط:</b>\n\n` +
+                `🔖 <b>كود الطلب:</b> <code>#${existingBooking.booking_code}</code>\n` +
+                `📍 <b>المسار:</b> ${existingBooking.route_origin} ⬅️ ${existingBooking.route_destination}\n\n` +
+                `📲 تم إشعار الكابتن بطلبك مسبقاً، وسيقوم بالموافقة وتثبيت المقعد قريباً.\n` +
+                `💡 <i>يمكنك مراسلته مباشرة بالخاص أو سحب الطلب إذا غيرت رأيك:</i>`;
+
+            const alreadyBtns: any[][] = [];
+            if (captainTgUrl) {
+              alreadyBtns.push([{ text: '💬 مراسلة الكابتن بالخاص تليكرام ✈️', url: captainTgUrl }]);
+            }
+            if (waPhone) {
+              alreadyBtns.push([{ text: '🟢 تواصل واتساب مع الكابتن', url: `https://wa.me/${waPhone}` }]);
+            }
+            if (isAlreadyConfirmed) {
+              alreadyBtns.push([{ text: '🚖 فتح مسار رحلتي وتنبيهات الخط', callback_data: 'daily_ride_hub' }]);
+            }
+            alreadyBtns.push([{ text: '❌ إلغاء هذا الحجز وتحرير المقعد', callback_data: `hub_stu_unb_p_${existingBooking.id}` }]);
+            alreadyBtns.push([{ text: '🚌 تصفح باقي الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }]);
+
+            await sendMessage(chatId, alreadyMsg, { inline_keyboard: alreadyBtns });
+            return new Response('OK', { status: 200 });
+          }
+
           await supabase.from('transport_bookings').insert({
             booking_code: bookingCode,
             ad_id: lineAd.id,
@@ -10672,6 +10843,7 @@ Deno.serve(async (req: any) => {
               `📍 <b>مسار خطك:</b> ${lineAd.location} ⬅️ ${lineAd.city}\n` +
               (studentHandle ? `💬 <b>معرف التيليجرام:</b> ${studentHandle}\n` : '') +
               `🔖 <b>كود الحجز الرقمي:</b> <code>#${bookingCode}</code>\n\n` +
+              `⚠️ <i>ملاحظة: هذه المنصة لتسهيل أمر الطلاب والكباتن، ونحن غير مسؤولين عن أصحاب الخطوط أو عن الطلاب. وبالتوفيق للجميع 🌹</i>\n\n` +
               `<i>هل توافق على تثبيت المقعد لهذا الراكب وتأكيد الحجز؟</i>`;
 
             const drvBtns: any[][] = [
@@ -10702,7 +10874,13 @@ Deno.serve(async (req: any) => {
           (driverNotified 
             ? `📲 <b>تم إشعار الكابتن بطلبك فوراً عبر تيليجرام</b> وسيقوم بتأكيد المقعد وتثبيته وسنرسل لك التأكيد هنا بالخاص.\n` 
             : `📲 تم توثيق طلبك رسمياً بنظام سوق بغداد.\n`) +
-          `\n💡 <i>يمكنك أيضاً مراسلة الكابتن مباشرة عبر التيليجرام أو الواتساب للتأكيد السريع:</i>`;
+          `\n━━━━━━━━━━━━━━━━━━\n` +
+          `⚠️ <b>تنبيه وشروط الاستخدام:</b>\n` +
+          `هذه الخدمة مخصصة للطلاب الي يحتاجون خطوط أو يريدون يسوون خطوط لتسهيل أمرهم.\n` +
+          `📌 <b>ملاحظة:</b> نحن غير مسؤولين عن أصحاب الخطوط أو عن الطلاب.\n` +
+          `وبالتوفيق للجميع 🌹\n` +
+          `━━━━━━━━━━━━━━━━━━\n\n` +
+          `💡 <i>يمكنك أيضاً مراسلة الكابتن مباشرة عبر التيليجرام أو الواتساب للتأكيد السريع:</i>`;
 
         const confirmBtns: any[] = [];
         if (captainTgUrl) {
@@ -11707,11 +11885,19 @@ Deno.serve(async (req: any) => {
             .from('transport_bookings')
             .select('*')
             .eq('captain_chat_id', String(chatId))
-            .in('status', ['confirmed', 'pending', 'active'])
+            .in('status', ['confirmed', 'active'])
             .order('created_at', { ascending: false })
-            .limit(15);
+            .limit(30);
 
-          const studentList = bookings || [];
+          // Deduplicate by passenger so each confirmed student appears only once
+          const stuMap = new Map();
+          for (const b of (bookings || [])) {
+            const key = b.passenger_chat_id || b.id;
+            if (!stuMap.has(key)) {
+              stuMap.set(key, b);
+            }
+          }
+          const studentList = Array.from(stuMap.values());
           const totalStudents = studentList.length;
           const excusedStudents = studentList.filter((b: any) => b.daily_status === 'excused' && b.daily_status_date === todayDate);
           const delayedStudents = studentList.filter((b: any) => b.daily_status === 'delayed' && b.daily_status_date === todayDate);
@@ -11720,12 +11906,13 @@ Deno.serve(async (req: any) => {
           let captainMsg = 
             `🚖 <b>لوحة مسار خط اليوم — كابتن ☀️</b>\n\n` +
             `📅 <b>تاريخ اليوم:</b> <code>${todayDate}</code>\n` +
-            `👥 <b>الطلاب المرتبطين:</b> <b>${totalStudents}</b> (✅ <b>${readyCount}</b> جاهزون | ❌ <b>${excusedStudents.length}</b> مجازون | ⏱️ <b>${delayedStudents.length}</b> متأخرون)\n\n`;
+            `👥 <b>الطلاب المشتركون المؤكدون:</b> <b>${totalStudents}</b> (✅ <b>${readyCount}</b> جاهزون | ❌ <b>${excusedStudents.length}</b> مجازون | ⏱️ <b>${delayedStudents.length}</b> متأخرون)\n\n`;
 
           if (totalStudents === 0) {
             captainMsg += 
-              `ℹ️ <i>لا يوجد طلاب مرتبطون بسيارتك مسجلين في خطك اليومي حالياً.</i>\n\n` +
-              `يمكنك تثبيت نقطة انطلاقك الدائمة بالـ GPS لتظهر للطلاب، أو نشر خط جديد.`;
+              `ℹ️ <b>لا يوجد طلاب مشتركون في خطك حالياً.</b>\n\n` +
+              `✨ <i>يظهر اسم الطالب وموقع صعوده في هذه اللوحة تلقائياً بعد موافقتك على طلب حجز المقعد.</i>\n\n` +
+              `💡 عندما يطلب أي طالب حجز مقعد وتوافق عليه، سيظهر هنا مع رابط موقعه GPS، وستتمكن من تنبيهه بالوصول أو تحديد موعد وصولك بضغطة زر.`;
           } else {
             captainMsg += `📋 <b>حالة الطلاب ومواقع صعودهم لليوم:</b>\n`;
             studentList.forEach((b: any, idx: number) => {
@@ -11751,7 +11938,20 @@ Deno.serve(async (req: any) => {
           const captainRows: any[][] = [];
           if (totalStudents > 0) {
             captainRows.push([
-              { text: '⚠️ اعتذار للكافة عن خط اليوم (عطل/مرض/عطلة)', callback_data: 'hub_cpt_excuse_all' }
+              { text: '⏳ سأصل خلال 5 دقائق (للجميع)', callback_data: 'hub_cpt_near_5m' },
+              { text: '⏳ سأصل خلال 10 دقائق (للجميع)', callback_data: 'hub_cpt_near_10m' }
+            ]);
+            captainRows.push([
+              { text: '📍 وصلت بالباب (هورن للجميع) 🚗💨', callback_data: 'hub_cpt_arrived_all' }
+            ]);
+            captainRows.push([
+              { text: '👤 إرسال تنبيه لشخص واحد فقط 🔔', callback_data: 'hub_cpt_eta_menu' }
+            ]);
+            captainRows.push([
+              { text: `👥 سجل المشتركين (${totalStudents}) وإلغاء مقعد`, callback_data: 'hub_cpt_manage_subscribers' }
+            ]);
+            captainRows.push([
+              { text: '⚠️ اعتذار للجميع عن خط اليوم (عطل/عطلة)', callback_data: 'hub_cpt_excuse_all' }
             ]);
           }
           captainRows.push([
@@ -11772,7 +11972,7 @@ Deno.serve(async (req: any) => {
             .from('transport_bookings')
             .select('*')
             .eq('passenger_chat_id', String(chatId))
-            .in('status', ['confirmed', 'pending', 'active'])
+            .in('status', ['confirmed', 'active'])
             .order('created_at', { ascending: false })
             .limit(1);
 
@@ -11794,8 +11994,10 @@ Deno.serve(async (req: any) => {
             }
 
             studentMsg += 
-              `🚗 <b>الكابتن:</b> <b>${cptName}</b>\n` +
-              `📍 <b>مسار خطك:</b> من ${myBooking.route_origin || 'منطقتك'} إلى ${myBooking.route_destination || 'الجامعة'}\n` +
+              `🚗 <b>كابتن خطك الحالي:</b> <b>${cptName}</b>\n` +
+              (myBooking.captain_phone ? `📞 <b>هاتف الكابتن:</b> <code>${myBooking.captain_phone}</code>\n` : '') +
+              `📍 <b>مسار خطك:</b> من <b>${myBooking.route_origin || 'منطقتك'}</b> إلى <b>${myBooking.route_destination || 'الجامعة'}</b>\n` +
+              `🔖 <b>رمز اشتراكك المعتمد:</b> <code>#${myBooking.booking_code || myBooking.id.substring(0, 8).toUpperCase()}</code>\n` +
               `⚡ <b>حالتك المسجلة لليوم:</b> <b>${myStatusStr}</b>\n\n`;
 
             if (myBooking.captain_daily_excuse && myBooking.captain_daily_excuse_date === todayDate) {
@@ -11811,15 +12013,27 @@ Deno.serve(async (req: any) => {
             studentRows.push([
               { text: '👋 أنا جاهز وبالباب بانتظارك', callback_data: `hub_stu_ready_${myBooking.id}` }
             ]);
+            studentRows.push([
+              { text: '📍 تثبيت / تحديث موقع صعودي (GPS)', callback_data: 'hub_pin_location' }
+            ]);
+            studentRows.push([
+              { text: '❌ إلغاء اشتراكي من هذا الخط 🚫', callback_data: `hub_stu_unb_p_${myBooking.id}` }
+            ]);
           } else {
             studentMsg += 
-              `ℹ️ <i>لم يتم ربطك بكابتن خط محدد في سجلات البوت حتى الآن.</i>\n\n` +
-              `يمكنك تثبيت موقع بيتك الدائم بالـ GPS ليظهر للكباتن عند الاتفاق، أو طلب خط رجعة طارئ.`;
+              `ℹ️ <b>أنت غير مشترك في أي خط نقل حالياً.</b>\n\n` +
+              `هل تبحث عن خط دوام يومي للجامعة، المدرسة، أو الدائرة؟\n` +
+              `يمكنك تصفح الخطوط المتاحة والاشتراك بضغطة زر مع كابتن منطقتك، أو نشر طلب خط جديد:`;
+
+            studentRows.push([
+              { text: '🔍 تصفح الخطوط المتاحة والاشتراك 🚖', callback_data: 'tpage_all_0' },
+              { text: '🚀 نشر طلب خط جديد', callback_data: 'publish_transport' }
+            ]);
+            studentRows.push([
+              { text: '📍 تثبيت موقع صعودي الدائم (GPS)', callback_data: 'hub_pin_location' }
+            ]);
           }
 
-          studentRows.push([
-            { text: '📍 تثبيت / تحديث موقع صعودي (GPS)', callback_data: 'hub_pin_location' }
-          ]);
           studentRows.push([
             { text: '🆘 محتاج خط رجعة طارئ اليوم (3 ساعات)', callback_data: 'hub_sos_return' }
           ]);
@@ -12036,9 +12250,15 @@ Deno.serve(async (req: any) => {
           .from('transport_bookings')
           .select('*')
           .eq('captain_chat_id', String(chatId))
-          .in('status', ['confirmed', 'pending', 'active']);
+          .in('status', ['confirmed', 'active'])
+          .limit(30);
 
-        const studentList = bookings || [];
+        const stuMap = new Map();
+        for (const b of (bookings || [])) {
+          const key = b.passenger_chat_id || b.id;
+          if (!stuMap.has(key)) stuMap.set(key, b);
+        }
+        const studentList = Array.from(stuMap.values());
 
         await supabase
           .from('transport_bookings')
@@ -12074,6 +12294,644 @@ Deno.serve(async (req: any) => {
             inline_keyboard: [
               [{ text: '🚖 العودة للوحة رحلتي', callback_data: 'daily_ride_hub' }],
               [{ text: '🏠 الرئيسية', callback_data: 'main_menu_home' }]
+            ]
+          }
+        );
+      }
+
+      // --- Student Unsubscribe / Cancel Flow ---
+      if (action.startsWith('hub_stu_unb_p_')) {
+        const bId = action.replace('hub_stu_unb_p_', '');
+        const { data: bData } = await supabase.from('transport_bookings').select('*').eq('id', bId).maybeSingle();
+        const cptName = bData?.captain_name || 'الكابتن';
+        const routeStr = `${bData?.route_origin || 'منطقتك'} ⬅️ ${bData?.route_destination || 'الجامعة'}`;
+
+        return await updateOrSend(
+          `⚠️ <b>تأكيد إلغاء الاشتراك من الخط:</b>\n\n` +
+          `🚗 <b>كابتن الخط:</b> <b>${cptName}</b>\n` +
+          `📍 <b>المسار:</b> ${routeStr}\n` +
+          `🔖 <b>رمز الحجز:</b> <code>#${bData?.booking_code || bId.substring(0, 8).toUpperCase()}</code>\n\n` +
+          `هل أنت متأكد من رغبتك في إلغاء اشتراكك وتحرير مقعدك في هذا الخط؟\n` +
+          `<i>(سيتم إشعار الكابتن بأن المقعد أصبح متاحاً لطلاب آخرين، وستتمكن من الاشتراك في أي خط جديد فوراً)</i>`,
+          {
+            inline_keyboard: [
+              [{ text: '❌ نعم، إلغاء اشتراكي فوراً', callback_data: `hub_stu_unb_c_${bId}` }],
+              [{ text: '⬅️ تراجع، البقاء في الخط', callback_data: 'daily_ride_hub' }]
+            ]
+          }
+        );
+      }
+
+      if (action.startsWith('hub_stu_unb_c_')) {
+        const bId = action.replace('hub_stu_unb_c_', '');
+        const { data: bData } = await supabase.from('transport_bookings').select('*').eq('id', bId).maybeSingle();
+        if (bData) {
+          await supabase
+            .from('transport_bookings')
+            .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+            .eq('id', bId);
+
+          // Archive all bookings for this passenger so no old pending bookings linger
+          await supabase
+            .from('transport_bookings')
+            .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+            .eq('passenger_chat_id', String(chatId));
+
+          if (bData.captain_chat_id) {
+            try {
+              const pName = bData.passenger_name || 'أحد الركاب';
+              await sendMessage(
+                bData.captain_chat_id,
+                `🔔 <b>إشعار تحرير مقعد / إلغاء اشتراك 💺:</b>\n\n` +
+                `قام الطالب/ة: <b>${pName}</b> بإلغاء اشتراكه في خطك.\n` +
+                `📍 <b>المسار:</b> ${bData.route_origin || 'نقطة الانطلاق'} ⬅️ ${bData.route_destination || 'الوجهة'}\n\n` +
+                `✨ <b>أصبح المقعد شاغراً الآن في سيارتك ويمكنك استقبال ركاب جدد!</b>`,
+                {
+                  inline_keyboard: [
+                    [{ text: '🚖 فتح مسار اليوم', callback_data: 'daily_ride_hub' }]
+                  ]
+                }
+              );
+            } catch(e){}
+          }
+        }
+
+        return await updateOrSend(
+          `✅ <b>تم إلغاء اشتراكك ونقله إلى الأرشيف بنجاح!</b>\n\n` +
+          `أنت الآن غير مرتبط بأي خط نقل، وتم تحرير مقعدك وإشعار الكابتن بذلك.\n` +
+          `يمكنك تصفح الخطوط المتاحة والاشتراك مع كابتن آخر في أي وقت:`,
+          {
+            inline_keyboard: [
+              [{ text: '🔍 تصفح خطوط النقل والاشتراك 🚖', callback_data: 'tpage_all_0' }],
+              [{ text: '🚀 نشر طلب خط جديد', callback_data: 'publish_transport' }],
+              [{ text: '🚖 فتح لوحة رحلتي للتأكد', callback_data: 'daily_ride_hub' }],
+              [{ text: '🏠 الرئيسية', callback_data: 'main_menu_home' }]
+            ]
+          }
+        );
+      }
+
+      // --- Captain Manage Subscribers & Cancel Student ---
+      if (action === 'hub_cpt_manage_subscribers') {
+        const { data: bookings } = await supabase
+          .from('transport_bookings')
+          .select('*')
+          .eq('captain_chat_id', String(chatId))
+          .in('status', ['confirmed', 'active'])
+          .limit(30);
+
+        const stuMap = new Map();
+        for (const b of (bookings || [])) {
+          const key = b.passenger_chat_id || b.id;
+          if (!stuMap.has(key)) stuMap.set(key, b);
+        }
+        const studentList = Array.from(stuMap.values());
+
+        if (studentList.length === 0) {
+          return await updateOrSend(
+            `ℹ️ <b>لا يوجد ركاب أو طلاب مثبتون في خطك حالياً.</b>\n\n` +
+            `يظهر الطلاب هنا تلقائياً بمجرد موافقتك على طلبات حجز المقاعد.`,
+            { inline_keyboard: [[{ text: '🚖 رجوع للوحة الخط', callback_data: 'daily_ride_hub' }]] }
+          );
+        }
+
+        let msg = 
+          `👥 <b>سجل ركاب ومشتركي خطك النشطين (${studentList.length}):</b>\n\n` +
+          `يمكنك التواصل مع أي طالب أو إلغاء اشتراكه وإخلاء مقعده إذا غادر الخط:\n\n`;
+
+        const rows: any[][] = [];
+        studentList.forEach((b: any, idx: number) => {
+          const pName = b.passenger_name || 'راكب';
+          const pOrigin = b.route_origin || 'نقطة الانطلاق';
+          msg += `<b>${idx + 1}. ${pName}</b> — ${pOrigin}\n`;
+          if (b.passenger_username) msg += `   └ معرف تليكرام: @${b.passenger_username.replace('@', '')}\n`;
+          msg += `   └ رمز الحجز: <code>#${b.booking_code || b.id.substring(0, 8).toUpperCase()}</code>\n\n`;
+
+          const btnRow: any[] = [];
+          if (b.passenger_username) {
+            btnRow.push({ text: `💬 مراسلة ${pName}`, url: `https://t.me/${b.passenger_username.replace('@', '')}` });
+          }
+          btnRow.push({ text: `❌ إنهاء اشتراك ${pName}`, callback_data: `cpt_cancel_stu_p_${b.id}` });
+          rows.push(btnRow);
+        });
+
+        rows.push([{ text: '🚖 العودة للوحة مسار اليوم', callback_data: 'daily_ride_hub' }]);
+
+        return await updateOrSend(msg, { inline_keyboard: rows });
+      }
+
+      if (action.startsWith('cpt_cancel_stu_p_')) {
+        const bId = action.replace('cpt_cancel_stu_p_', '');
+        const { data: bData } = await supabase.from('transport_bookings').select('*').eq('id', bId).maybeSingle();
+        const pName = bData?.passenger_name || 'الطالب';
+
+        return await updateOrSend(
+          `⚠️ <b>تأكيد إنهاء اشتراك الطالب (${pName}):</b>\n\n` +
+          `📍 نقطة صعوده: ${bData?.route_origin || 'المسار'}\n` +
+          `🔖 رمز الحجز: <code>#${bData?.booking_code}</code>\n\n` +
+          `هل أنت متأكد من إنهاء اشتراك هذا الراكب وإخلاء مقعده في سيارتك؟\n` +
+          `<i>(سيتم إشعار الطالب برسالة خاصة وإيقاف وصول تنبيهات مسارك اليومية إليه)</i>`,
+          {
+            inline_keyboard: [
+              [{ text: `❌ نعم، إنهاء اشتراك ${pName} فوراً`, callback_data: `cpt_cancel_stu_c_${bId}` }],
+              [{ text: '⬅️ تراجع', callback_data: 'hub_cpt_manage_subscribers' }]
+            ]
+          }
+        );
+      }
+
+      if (action.startsWith('cpt_cancel_stu_c_')) {
+        const bId = action.replace('cpt_cancel_stu_c_', '');
+        const { data: bData } = await supabase.from('transport_bookings').select('*').eq('id', bId).maybeSingle();
+        if (bData) {
+          await supabase
+            .from('transport_bookings')
+            .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+            .eq('id', bId);
+
+          if (bData.passenger_chat_id) {
+            try {
+              await sendMessage(
+                bData.passenger_chat_id,
+                `ℹ️ <b>تنبيه من كابتن خطك (${bData.captain_name || 'الكابتن'}):</b>\n\n` +
+                `تم إنهاء اشتراكك في الخط (${bData.route_origin} ⬅️ ${bData.route_destination}) وإخلاء المقعد.\n\n` +
+                `إذا كان هذا الإجراء بالخطأ أو تود إعادة الاشتراك، يمكنك التواصل مع الكابتن أو حجز مقعد جديد في أي وقت 🌹`,
+                {
+                  inline_keyboard: [
+                    [{ text: '🔍 تصفح باقي الخطوط المتاحة', callback_data: 'tpage_all_0' }],
+                    [{ text: '🚖 فتح مسار اليوم', callback_data: 'daily_ride_hub' }]
+                  ]
+                }
+              );
+            } catch(e){}
+          }
+        }
+
+        if (callbackQueryId) {
+          try {
+            await answerCallbackQuery(callbackQueryId, '✅ تم إنهاء اشتراك الطالب وإخلاء المقعد بنجاح!', true);
+          } catch(e){}
+        }
+
+        return await updateOrSend(
+          `✅ <b>تم إنهاء اشتراك الطالب بنجاح!</b>\n\n` +
+          `أصبح المقعد شاغراً الآن في خطك ويمكنك استقبال ركاب وطلاب جدد في أي وقت.`,
+          {
+            inline_keyboard: [
+              [{ text: '👥 إدارة باقي المشتركين', callback_data: 'hub_cpt_manage_subscribers' }],
+              [{ text: '🚖 العودة للوحة الخط ومسار اليوم', callback_data: 'daily_ride_hub' }]
+            ]
+          }
+        );
+      }
+
+      // --- Student Walking Out / Stepping Down ---
+      if (action.startsWith('hub_stu_walk_')) {
+        const bId = action.replace('hub_stu_walk_', '');
+        const { data: bData } = await supabase.from('transport_bookings').select('*').eq('id', bId).maybeSingle();
+        if (bData && bData.captain_chat_id) {
+          try {
+            const pName = bData.passenger_name || 'الراكب';
+            await sendMessage(
+              bData.captain_chat_id,
+              `🏃‍♂️ <b>إشعار نزول للسيارة:</b>\n\nالطالب/ة <b>${pName}</b>: خارج لك هسة ونازل للشارع! 🚗💨`
+            );
+          } catch(e){}
+        }
+        return await updateOrSend(
+          `👍 <b>تم إشعار الكابتن بأنك نازل للسيارة! 🚗💨</b>\n\nنتمنى لك رحلة موفقة وآمنة 🌹`,
+          {
+            inline_keyboard: [
+              [{ text: '🚖 العودة للوحة رحلتي', callback_data: 'daily_ride_hub' }]
+            ]
+          }
+        );
+      }
+
+      // --- Captain Proximity Alert: 5 Minutes ---
+      if (action === 'hub_cpt_near_5m') {
+        const todayDate = new Date().toISOString().split('T')[0];
+        const { data: bookings } = await supabase
+          .from('transport_bookings')
+          .select('*')
+          .eq('captain_chat_id', String(chatId))
+          .in('status', ['confirmed', 'active'])
+          .limit(30);
+
+        const stuMap = new Map();
+        for (const b of (bookings || [])) {
+          const key = b.passenger_chat_id || b.id;
+          if (!stuMap.has(key)) stuMap.set(key, b);
+        }
+        const targets = Array.from(stuMap.values()).filter((b: any) => !(b.daily_status === 'excused' && b.daily_status_date === todayDate));
+        const cptName = tgUser?.first_name || tgUser?.name || 'كابتن الخط';
+
+        if (targets.length === 0) {
+          return await updateOrSend(
+            `ℹ️ لا يوجد طلاب نشطون جاهزون للصعود اليوم لتنبيههم (إما معتذرون أو لا يوجد ركاب مؤكدون).`,
+            { inline_keyboard: [[{ text: '🚖 رجوع', callback_data: 'daily_ride_hub' }]] }
+          );
+        }
+
+        for (const b of targets) {
+          if (b.passenger_chat_id) {
+            try {
+              await sendMessage(
+                b.passenger_chat_id,
+                `⏳ <b>تنبيه عاجل من كابتن خطك (${cptName}):</b>\n\n` +
+                `🚗 <b>السيارة قريبة جداً وستصل خلال 5 دقائق تقريباً!</b>\n\n` +
+                `يرجى تجهيز أغراضك والنزول للشارع / الباب لتفادي التأخير في مسار الخط 🎒🌹`,
+                {
+                  inline_keyboard: [
+                    [{ text: '👍 تمام كابتن، أنا جاهز وبالباب', callback_data: `hub_stu_ready_${b.id}` }],
+                    [{ text: '🚖 فتح لوحة رحلتي', callback_data: 'daily_ride_hub' }]
+                  ]
+                }
+              );
+            } catch(e){}
+          }
+        }
+
+        const nowTime = new Date().toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Baghdad' });
+
+        return await updateOrSend(
+          `✅ <b>تم إرسال تنبيه (سأصل خلال 5 دقائق) إلى ${targets.length} طالب! ⏳</b>\n` +
+          `⏰ <i>وقت آخر تنبيه: ${nowTime}</i>\n\n` +
+          `تم إشعار ركابك للاستعداد والنزول للشارع فوراً.`,
+          {
+            inline_keyboard: [
+              [{ text: '📢 تكرار تنبيه 5 دقائق للجميع', callback_data: 'hub_cpt_near_5m' }],
+              [{ text: '📍 وصلت بالباب (هورن للجميع) 🚗💨', callback_data: 'hub_cpt_arrived_all' }],
+              [{ text: '🚖 العودة للوحة الخط', callback_data: 'daily_ride_hub' }]
+            ]
+          }
+        );
+      }
+
+      // --- Captain Proximity Alert: 10 Minutes ---
+      if (action === 'hub_cpt_near_10m') {
+        const todayDate = new Date().toISOString().split('T')[0];
+        const { data: bookings } = await supabase
+          .from('transport_bookings')
+          .select('*')
+          .eq('captain_chat_id', String(chatId))
+          .in('status', ['confirmed', 'active'])
+          .limit(30);
+
+        const stuMap = new Map();
+        for (const b of (bookings || [])) {
+          const key = b.passenger_chat_id || b.id;
+          if (!stuMap.has(key)) stuMap.set(key, b);
+        }
+        const targets = Array.from(stuMap.values()).filter((b: any) => !(b.daily_status === 'excused' && b.daily_status_date === todayDate));
+        const cptName = tgUser?.first_name || tgUser?.name || 'كابتن الخط';
+
+        if (targets.length === 0) {
+          return await updateOrSend(
+            `ℹ️ لا يوجد طلاب نشطون جاهزون للصعود اليوم لتنبيههم.`,
+            { inline_keyboard: [[{ text: '🚖 رجوع', callback_data: 'daily_ride_hub' }]] }
+          );
+        }
+
+        for (const b of targets) {
+          if (b.passenger_chat_id) {
+            try {
+              await sendMessage(
+                b.passenger_chat_id,
+                `⏳ <b>تنبيه من كابتن خطك (${cptName}):</b>\n\n` +
+                `🚗 <b>الكابتن سيمر بك خلال 10 دقائق تقريباً!</b>\n\n` +
+                `يرجى الاستعداد وتجهيز نفسك للصعود 🎒`,
+                {
+                  inline_keyboard: [
+                    [{ text: '👍 تمام كابتن، أنا جاهز', callback_data: `hub_stu_ready_${b.id}` }],
+                    [{ text: '🚖 فتح لوحة رحلتي', callback_data: 'daily_ride_hub' }]
+                  ]
+                }
+              );
+            } catch(e){}
+          }
+        }
+
+        const nowTime = new Date().toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Baghdad' });
+
+        return await updateOrSend(
+          `✅ <b>تم إرسال تنبيه (سأصل خلال 10 دقائق) إلى ${targets.length} طالب! ⏳</b>\n` +
+          `⏰ <i>وقت آخر تنبيه: ${nowTime}</i>`,
+          {
+            inline_keyboard: [
+              [{ text: '📢 تكرار تنبيه 10 دقائق للجميع', callback_data: 'hub_cpt_near_10m' }],
+              [{ text: '⏳ سأصل خلال 5 دقائق (للجميع)', callback_data: 'hub_cpt_near_5m' }],
+              [{ text: '📍 وصلت بالباب (هورن للجميع) 🚗💨', callback_data: 'hub_cpt_arrived_all' }],
+              [{ text: '🚖 العودة للوحة الخط', callback_data: 'daily_ride_hub' }]
+            ]
+          }
+        );
+      }
+
+      // --- Captain Arrival Alert: Arrived at Door (Horn) ---
+      if (action === 'hub_cpt_arrived_all') {
+        const todayDate = new Date().toISOString().split('T')[0];
+        const { data: bookings } = await supabase
+          .from('transport_bookings')
+          .select('*')
+          .eq('captain_chat_id', String(chatId))
+          .in('status', ['confirmed', 'active'])
+          .limit(30);
+
+        const stuMap = new Map();
+        for (const b of (bookings || [])) {
+          const key = b.passenger_chat_id || b.id;
+          if (!stuMap.has(key)) stuMap.set(key, b);
+        }
+        const targets = Array.from(stuMap.values()).filter((b: any) => !(b.daily_status === 'excused' && b.daily_status_date === todayDate));
+        const cptName = tgUser?.first_name || tgUser?.name || 'كابتن الخط';
+        const nowTime = new Date().toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Baghdad' });
+
+        if (targets.length === 0) {
+          return await updateOrSend(
+            `ℹ️ لا يوجد طلاب نشطون جاهزون للصعود اليوم لتنبيههم.`,
+            { inline_keyboard: [[{ text: '🚖 رجوع', callback_data: 'daily_ride_hub' }]] }
+          );
+        }
+
+        for (const b of targets) {
+          if (b.passenger_chat_id) {
+            try {
+              await sendMessage(
+                b.passenger_chat_id,
+                `🚗💨 <b>تنبيه وصول (هورن بالباب 📢) من كابتن خطك (${cptName}):</b>\n\n` +
+                `📍 <b>الكابتن وصل الآن بالباب وهو بانتظارك! 🎺</b>\n` +
+                `⏰ <b>الوقت:</b> ${nowTime}\n\n` +
+                `يرجى الصعود للسيارة للانطلاق لوجهتكم في الموعد. رحلة موفقة وآمنة 🌹`,
+                {
+                  inline_keyboard: [
+                    [{ text: '🏃‍♂️ خارج لك هسة / نازل للسيارة', callback_data: `hub_stu_walk_${b.id}` }],
+                    [{ text: '🚖 فتح مسار اليوم', callback_data: 'daily_ride_hub' }]
+                  ]
+                }
+              );
+            } catch(e){}
+          }
+        }
+
+        if (callbackQueryId) {
+          try {
+            await answerCallbackQuery(callbackQueryId, '📢 تم إرسال تنبيه الهورن لجميع الطلاب فوراً!', false);
+          } catch(e){}
+        }
+
+        return await updateOrSend(
+          `✅ <b>تم إرسال إشعار الوصول بالباب (هورن) إلى الطلاب! 🚗💨</b>\n` +
+          `⏰ <i>وقت آخر تنبيه: ${nowTime}</i>\n\n` +
+          `💡 <b>إذا تأخر الطلاب بالنزول أو تعتقد أن أحدهم لم يسمع الهورن، يمكنك تكراره بالزر أدناه:</b>`,
+          {
+            inline_keyboard: [
+              [{ text: '📢 تكرار التنبيه للجميع (هورن بالباب 🚗💨)', callback_data: 'hub_cpt_arrived_all' }],
+              [{ text: '🚖 العودة للوحة الخط', callback_data: 'daily_ride_hub' }]
+            ]
+          }
+        );
+      }
+
+      // --- Captain ETA & Single Student Menu ---
+      if (action === 'hub_cpt_eta_menu') {
+        const todayDate = new Date().toISOString().split('T')[0];
+        const { data: bookings } = await supabase
+          .from('transport_bookings')
+          .select('*')
+          .eq('captain_chat_id', String(chatId))
+          .in('status', ['confirmed', 'active'])
+          .limit(30);
+
+        const stuMap = new Map();
+        for (const b of (bookings || [])) {
+          const key = b.passenger_chat_id || b.id;
+          if (!stuMap.has(key)) stuMap.set(key, b);
+        }
+        const targets = Array.from(stuMap.values()).filter((b: any) => !(b.daily_status === 'excused' && b.daily_status_date === todayDate));
+
+        let etaPrompt = 
+          `⏱️ <b>تحديد موعد وصول أو تنبيه طالب محدد 🚗:</b>\n\n` +
+          `اختر وقت الوصول للجميع، أو حدد طالباً معيناً لتنبيهه بمفرده عند الاقتراب من بيته:`;
+
+        const etaRows: any[][] = [
+          [
+            { text: '⏱️ بعد 15 دقيقة (للجميع)', callback_data: 'hub_cpt_pre_15' },
+            { text: '⏱️ بعد 20 دقيقة (للجميع)', callback_data: 'hub_cpt_pre_20' }
+          ],
+          [
+            { text: '⏱️ بعد 30 دقيقة (للجميع)', callback_data: 'hub_cpt_pre_30' },
+            { text: '✍️ كتابة وقت مخصص (للجميع)', callback_data: 'hub_cpt_eta_custom' }
+          ]
+        ];
+
+        if (targets.length > 0) {
+          targets.forEach((b: any, idx: number) => {
+            const pName = b.passenger_name || `طالب ${idx + 1}`;
+            etaRows.push([
+              { text: `🔔 تنبيه خاص: ${pName} (${b.route_origin || 'نقطة صعوده'})`, callback_data: `hub_cpt_one_m_${b.id}` }
+            ]);
+          });
+        }
+
+        etaRows.push([{ text: '⬅️ العودة للوحة الخط', callback_data: 'daily_ride_hub' }]);
+
+        return await updateOrSend(etaPrompt, { inline_keyboard: etaRows });
+      }
+
+      // --- Captain Preset ETAs ---
+      if (action.startsWith('hub_cpt_pre_')) {
+        const mins = action.replace('hub_cpt_pre_', '');
+        const todayDate = new Date().toISOString().split('T')[0];
+        const { data: bookings } = await supabase
+          .from('transport_bookings')
+          .select('*')
+          .eq('captain_chat_id', String(chatId))
+          .in('status', ['confirmed', 'active'])
+          .limit(30);
+
+        const stuMap = new Map();
+        for (const b of (bookings || [])) {
+          const key = b.passenger_chat_id || b.id;
+          if (!stuMap.has(key)) stuMap.set(key, b);
+        }
+        const targets = Array.from(stuMap.values()).filter((b: any) => !(b.daily_status === 'excused' && b.daily_status_date === todayDate));
+        const cptName = tgUser?.first_name || tgUser?.name || 'كابتن الخط';
+
+        for (const b of targets) {
+          if (b.passenger_chat_id) {
+            try {
+              await sendMessage(
+                b.passenger_chat_id,
+                `⏱️ <b>تحديث وقت الوصول من كابتن خطك (${cptName}):</b>\n\n` +
+                `⏰ <b>سوف يصل الكابتن لنقطة صعودك بعد حوالي ${mins} دقيقة!</b>\n\n` +
+                `يرجى الاستعداد والتواجد في الموعد لضمان سير الخط 🎒🌹`,
+                {
+                  inline_keyboard: [
+                    [{ text: '👍 تمام كابتن، سأكون بالموعد', callback_data: `hub_stu_ready_${b.id}` }],
+                    [{ text: '🚖 فتح مسار اليوم', callback_data: 'daily_ride_hub' }]
+                  ]
+                }
+              );
+            } catch(e){}
+          }
+        }
+
+        return await updateOrSend(
+          `✅ <b>تم إرسال موعد الوصول (بعد ${mins} دقيقة) إلى ${targets.length} طالب!</b>`,
+          {
+            inline_keyboard: [
+              [{ text: '🚖 العودة للوحة الخط', callback_data: 'daily_ride_hub' }]
+            ]
+          }
+        );
+      }
+
+      // --- Captain Custom ETA Input Prompt ---
+      if (action === 'hub_cpt_eta_custom') {
+        state.step = 'hub_cpt_waiting_eta_input';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        return await updateOrSend(
+          `✍️ <b>كتابة موعد وصول مخصص للطلاب:</b>\n\n` +
+          `أرسل رسالة نصية بالوقت المتوقع لوصولك (مثلاً: <code>7:40 صباحاً</code> أو <code>خلال ربع ساعة</code> أو <code>الساعة 8 ضبط</code>):\n\n` +
+          `<i>(سيتم إرسال الوقت مباشرة لجميع طلاب خطك الجاهزين)</i>`,
+          {
+            inline_keyboard: [
+              [{ text: '⬅️ إلغاء وتراجع', callback_data: 'daily_ride_hub' }]
+            ]
+          }
+        );
+      }
+
+      // --- Captain Alert for Single Student Menu ---
+      if (action.startsWith('hub_cpt_one_m_')) {
+        const bId = action.replace('hub_cpt_one_m_', '');
+        const { data: bData } = await supabase.from('transport_bookings').select('*').eq('id', bId).maybeSingle();
+        const pName = bData?.passenger_name || 'الطالب';
+        const pOrigin = bData?.route_origin || 'نقطة صعوده';
+
+        return await updateOrSend(
+          `🔔 <b>تنبيه وصول خاص بالطالب: ${pName} 👤</b>\n` +
+          `📍 <b>نقطة الصعود:</b> ${pOrigin}\n\n` +
+          `اختر الإشعار ليتم إرساله له فقط في التيليجرام:`,
+          {
+            inline_keyboard: [
+              [{ text: '📍 وصلت ببابك (هورن) 🚗💨', callback_data: `hub_cpt_one_arr_${bId}` }],
+              [
+                { text: '⏳ سأصلك خلال 5 دقائق', callback_data: `hub_cpt_one_5m_${bId}` },
+                { text: '⏳ سأصلك خلال 10 دقائق', callback_data: `hub_cpt_one_10m_${bId}` }
+              ],
+              [{ text: '✍️ كتابة وقت مخصص له', callback_data: `hub_cpt_one_cst_${bId}` }],
+              [{ text: '⬅️ تراجع', callback_data: 'hub_cpt_eta_menu' }]
+            ]
+          }
+        );
+      }
+
+      // --- Captain Single Student: Arrived ---
+      if (action.startsWith('hub_cpt_one_arr_')) {
+        const bId = action.replace('hub_cpt_one_arr_', '');
+        const { data: bData } = await supabase.from('transport_bookings').select('*').eq('id', bId).maybeSingle();
+        const cptName = tgUser?.first_name || tgUser?.name || 'كابتن الخط';
+        const nowTime = new Date().toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Baghdad' });
+
+        if (bData && bData.passenger_chat_id) {
+          try {
+            await sendMessage(
+              bData.passenger_chat_id,
+              `🚗💨 <b>تنبيه وصول (هورن بالباب 📢) من كابتن خطك (${cptName}):</b>\n\n` +
+              `📍 <b>الكابتن وصل الآن بالباب وهو بانتظارك! 🎺</b>\n` +
+              `⏰ <b>الوقت:</b> ${nowTime}\n\n` +
+              `يرجى الخروج والصعود للسيارة الآن لتفادي تأخير باقي ركاب الخط 🏃‍♂️🎒🌹`,
+              {
+                inline_keyboard: [
+                  [{ text: '🏃‍♂️ خارج لك هسة / نازل للسيارة', callback_data: `hub_stu_walk_${bId}` }],
+                  [{ text: '🚖 فتح مسار اليوم', callback_data: 'daily_ride_hub' }]
+                ]
+              }
+            );
+          } catch(e){}
+        }
+
+        if (callbackQueryId) {
+          try {
+            await answerCallbackQuery(callbackQueryId, '📢 تم إرسال تنبيه الهورن للطالب فوراً!', false);
+          } catch(e){}
+        }
+
+        return await updateOrSend(
+          `✅ <b>تم إشعار الطالب (${bData?.passenger_name || 'الراكب'}) بأنك بالباب الآن! 🚗💨</b>\n` +
+          `⏰ <i>وقت آخر تنبيه: ${nowTime}</i>\n\n` +
+          `💡 <b>إذا تأخر بالنزول أو تعتقد أنه لم يسمع الإشعار، اضغط زر التكرار أدناه:</b>`,
+          {
+            inline_keyboard: [
+              [{ text: '📢 تكرار التنبيه (هورن بالباب مرة ثانية 🚗💨)', callback_data: `hub_cpt_one_arr_${bId}` }],
+              [{ text: '🚖 العودة للوحة الخط', callback_data: 'daily_ride_hub' }]
+            ]
+          }
+        );
+      }
+
+      // --- Captain Single Student: 5m / 10m ---
+      if (action.startsWith('hub_cpt_one_5m_') || action.startsWith('hub_cpt_one_10m_')) {
+        const is5 = action.startsWith('hub_cpt_one_5m_');
+        const bId = action.replace(is5 ? 'hub_cpt_one_5m_' : 'hub_cpt_one_10m_', '');
+        const mins = is5 ? 5 : 10;
+        const { data: bData } = await supabase.from('transport_bookings').select('*').eq('id', bId).maybeSingle();
+        const cptName = tgUser?.first_name || tgUser?.name || 'كابتن الخط';
+        const nowTime = new Date().toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Baghdad' });
+
+        if (bData && bData.passenger_chat_id) {
+          try {
+            await sendMessage(
+              bData.passenger_chat_id,
+              `⏳ <b>تنبيه من كابتن خطك (${cptName}):</b>\n\n` +
+              `🚗 <b>الكابتن سيمر بنقطة صعودك خلال ${mins} دقائق تقريباً!</b>\n` +
+              `⏰ <b>الوقت:</b> ${nowTime}\n\n` +
+              `يرجى التجهز والنزول للشارع لتفادي التأخير 🎒🌹`,
+              {
+                inline_keyboard: [
+                  [{ text: '👍 تمام كابتن، أنا جاهز', callback_data: `hub_stu_ready_${bId}` }],
+                  [{ text: '🚖 فتح مسار اليوم', callback_data: 'daily_ride_hub' }]
+                ]
+              }
+            );
+          } catch(e){}
+        }
+
+        if (callbackQueryId) {
+          try {
+            await answerCallbackQuery(callbackQueryId, `⏳ تم إشعار الطالب أنك ستصل خلال ${mins} دقائق!`, false);
+          } catch(e){}
+        }
+
+        return await updateOrSend(
+          `✅ <b>تم إشعار الطالب (${bData?.passenger_name || 'الراكب'}) بأنك ستصل خلال ${mins} دقائق! ⏳</b>\n` +
+          `⏰ <i>وقت آخر تنبيه: ${nowTime}</i>`,
+          {
+            inline_keyboard: [
+              [{ text: `📢 تكرار التنبيه (${mins} دقائق)`, callback_data: is5 ? `hub_cpt_one_5m_${bId}` : `hub_cpt_one_10m_${bId}` }],
+              [{ text: '📍 وصلت بالباب (هورن) 🚗💨', callback_data: `hub_cpt_one_arr_${bId}` }],
+              [{ text: '🚖 العودة للوحة الخط', callback_data: 'daily_ride_hub' }]
+            ]
+          }
+        );
+      }
+
+      // --- Captain Single Student: Custom Text ---
+      if (action.startsWith('hub_cpt_one_cst_')) {
+        const bId = action.replace('hub_cpt_one_cst_', '');
+        state.step = 'hub_cpt_waiting_one_eta';
+        state.target_booking_id = bId;
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        return await updateOrSend(
+          `✍️ <b>كتابة وقت وصول مخصص لهذا الطالب:</b>\n\n` +
+          `أرسل رسالة نصية بالوقت المتوقع لوصولك إليه (مثلاً: <code>7:35 صباحاً</code> أو <code>خلال 12 دقيقة</code>):`,
+          {
+            inline_keyboard: [
+              [{ text: '⬅️ إلغاء وتراجع', callback_data: 'daily_ride_hub' }]
             ]
           }
         );
@@ -12131,6 +12989,24 @@ Deno.serve(async (req: any) => {
             [{ text: '🔍 تصفح خطوط المحافظات الأسبوعية', callback_data: 'tpage_all_0' }],
             [{ text: '➕ نشر خط أسبوعي جديد', callback_data: 'publish_transport' }],
             [{ text: '⬅️ العودة للوحة رحلتي', callback_data: 'daily_ride_hub' }]
+          ]
+        });
+      }
+
+      // 📜 Transport Terms & Disclaimer
+      if (action === 'terms_transport') {
+        const termsMsg = 
+          `📜 <b>شروط الاستخدام وإخلاء المسؤولية 🛡️:</b>\n\n` +
+          `هذه المنصة / المجموعة للطلاب الي يحتاجون خطوط أو يريدون يسوون خطوط لتسهيل أمرهم وربطهم مع بعض.\n\n` +
+          `📌 <b>ملاحظة هامة:</b>\n` +
+          `نحن وسيلة تقنية للتنسيق والربط الذكي فقط، ولسنا طرفاً في أي اتفاق تشغيلي أو مالي، ونحن غير مسؤولين عن أصحاب الخطوط أو عن الطلاب.\n\n` +
+          `نتمنى التوفيق والنجاح والسلامة للجميع دائماً 🌹`;
+
+        return await updateOrSend(termsMsg, {
+          inline_keyboard: [
+            [{ text: '🔍 تصفح خطوط النقل المتاحة 🚖', callback_data: 'tpage_all_0' }],
+            [{ text: '🚖 لوحة رحلتي وخطي اليومي', callback_data: 'daily_ride_hub' }],
+            [{ text: '🏠 الرئيسية', callback_data: 'main_menu' }]
           ]
         });
       }
@@ -14622,6 +15498,88 @@ Deno.serve(async (req: any) => {
         return await proceedToLocationOrReview(chatId, state, tgUser);
       }
 
+      // 📍 Optional GPS Sharing Decisions
+      if (action === 'trans_loc_opt_no') {
+        state.data = state.data || {};
+        state.data.pickup_lat = null;
+        state.data.pickup_lng = null;
+        state.step = 'trans_review';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        return await renderTransportReviewCard(chatId, state);
+      }
+
+      if (action === 'trans_loc_opt_yes') {
+        state.data = state.data || {};
+        const { data: freshUser } = await supabase.from('telegram_users').select('saved_lat, saved_lng').eq('telegram_chat_id', chatId).maybeSingle();
+        const savedLat = freshUser?.saved_lat || tgUser?.saved_lat;
+        const savedLng = freshUser?.saved_lng || tgUser?.saved_lng;
+
+        if (savedLat && savedLng) {
+          const savedPrompt = 
+            `📍 <b>لديك موقع جغرافي (GPS) محفوظ مسبقاً في حسابك:</b>\n` +
+            `🌐 <b>الإحداثيات:</b> <code>${Number(savedLat).toFixed(4)}, ${Number(savedLng).toFixed(4)}</code>\n\n` +
+            `هل تود استخدامه في هذا الإعلان لربطه بخرائط Google و Waze، أم ترغب بإرسال موقع جديد الآن؟`;
+
+          return await updateOrSend(savedPrompt, {
+            inline_keyboard: [
+              [{ text: '✅ نعم، استخدام موقعي المحفوظ', callback_data: 'trans_loc_use_saved' }],
+              [{ text: '📍 إرسال موقع GPS جديد', callback_data: 'trans_loc_req_new' }],
+              [{ text: '◀️ تراجع (بدون موقع)', callback_data: 'trans_loc_opt_no' }]
+            ]
+          });
+        }
+
+        state.step = 'trans_waiting_location';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const isOffer = state.data?.type === 'offer';
+        await sendMessage(chatId, 
+          `📍 <b>إرسال موقعك الجغرافي (GPS) 🗺️</b>\n\n` +
+          `اضغط على الزر أدناه لمشاركة موقع ${isOffer ? 'انطلاق الخط' : 'صعودك'}:\n` +
+          `<i>(سيتم تحويله تلقائياً لروابط Google Maps و Waze أسفل نص الإعلان)</i>`,
+          {
+            keyboard: [
+              [{ text: '📍 إرسال موقعي الحالي (GPS)', request_location: true }],
+              [{ text: '⏩ تخطي (الاعتماد على اسم المنطقة فقط)' }],
+              [{ text: '❌ إلغاء' }]
+            ],
+            resize_keyboard: true,
+            one_time_keyboard: true
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'trans_loc_use_saved') {
+        const { data: freshUser } = await supabase.from('telegram_users').select('saved_lat, saved_lng').eq('telegram_chat_id', chatId).maybeSingle();
+        const savedLat = freshUser?.saved_lat || tgUser?.saved_lat;
+        const savedLng = freshUser?.saved_lng || tgUser?.saved_lng;
+        state.data = state.data || {};
+        state.data.pickup_lat = savedLat;
+        state.data.pickup_lng = savedLng;
+        state.step = 'trans_review';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        return await renderTransportReviewCard(chatId, state);
+      }
+
+      if (action === 'trans_loc_req_new') {
+        state.step = 'trans_waiting_location';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        await sendMessage(chatId, 
+          `📍 <b>إرسال موقع GPS جديد:</b>\n\nاضغط على الزر أدناه لمشاركة موقعك الحالي:`,
+          {
+            keyboard: [
+              [{ text: '📍 إرسال موقعي الحالي (GPS)', request_location: true }],
+              [{ text: '⏩ تخطي (الاعتماد على اسم المنطقة فقط)' }],
+              [{ text: '❌ إلغاء' }]
+            ],
+            resize_keyboard: true,
+            one_time_keyboard: true
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
       if (action === 'trans_confirm_publish' || action === 'trans_bypass_publish' || action.startsWith('trans_replace_dup_')) {
         if (state.step === 'publishing' || !state.data || !state.data.destination) {
           return new Response('OK', { status: 200 });
@@ -14958,7 +15916,16 @@ Deno.serve(async (req: any) => {
               });
             }
 
-            const channelKeyboard = isSeeker
+            let locationLinksText = '';
+            const tLat = stateData.pickup_lat;
+            const tLng = stateData.pickup_lng;
+            if (tLat && tLng) {
+              const gLink = `https://www.google.com/maps/search/?api=1&query=${tLat},${tLng}`;
+              const wLink = `https://waze.com/ul?ll=${tLat},${tLng}&navigate=yes`;
+              locationLinksText = `\n   └ 📍 <a href="${gLink}">خرائط Google</a> | <a href="${wLink}">تطبيق Waze</a>`;
+            }
+
+            const channelKeyboard: any[][] = isSeeker
               ? [
                   seekerRow1,
                   [{ text: '🚌 تحتاج خط نقل؟ انشر طلبك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
@@ -14968,11 +15935,20 @@ Deno.serve(async (req: any) => {
                   [{ text: '🚌 كابتن؟ انشر خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
                 ];
 
+            if (tLat && tLng) {
+              const gLink = `https://www.google.com/maps/search/?api=1&query=${tLat},${tLng}`;
+              const wLink = `https://waze.com/ul?ll=${tLat},${tLng}&navigate=yes`;
+              channelKeyboard.unshift([
+                { text: '🚙 فتح في تطبيق Waze 🚗', url: wLink },
+                { text: '📍 خرائط Google', url: gLink }
+              ]);
+            }
+
             const channelMsg = isSeeker
               ? `🎓 <b>طلب خط نقل جديد — طالب / راكب يبحث عن خط 🚌</b>\n` +
                 `<i>خدمة مجانية 100% للطلاب والركاب 🎓</i>\n\n` +
                 `🏷️ <b>الفئة:</b> ${catType} (${targetStr})\n` +
-                `📍 <b>مناطق الانطلاق:</b> ${cleanRegions}\n` +
+                `📍 <b>مناطق الانطلاق:</b> ${cleanRegions}${locationLinksText}\n` +
                 `🏢 <b>الوجهة:</b> ${cleanDestination}\n` +
                 `⏰ <b>وقت الدوام:</b> ${stateData.shift || 'صباحي'}\n` +
                 `💰 <b>الأجرة المقترحة:</b> ${cleanFare}\n` +
@@ -14981,7 +15957,7 @@ Deno.serve(async (req: any) => {
               : `🚌 <b>إعلان خط نقل جديد — سوق بغداد</b>\n\n` +
                 `📌 <b>النوع:</b> ${typeStr}\n` +
                 `🏷️ <b>الفئة:</b> ${catType} (${targetStr})\n` +
-                `📍 <b>مناطق الانطلاق:</b> ${cleanRegions}\n` +
+                `📍 <b>مناطق الانطلاق:</b> ${cleanRegions}${locationLinksText}\n` +
                 `🏢 <b>الوجهة:</b> ${cleanDestination}\n` +
                 `⏰ <b>وقت الدوام:</b> ${stateData.shift || 'صباحي'}\n` +
                 `🚗 <b>المركبة:</b> ${stateData.vehicleType || 'صالون'} | <b>المقاعد:</b> ${stateData.seats || '4'} مقاعد\n` +
@@ -14996,7 +15972,7 @@ Deno.serve(async (req: any) => {
               try {
                 console.log(`[BOT WIZARD CARD STORAGE] Generating PNG card attempt ${attempt} for ad ${shortId}...`);
                 const controller = new AbortController();
-                const timer = setTimeout(() => controller.abort(), 10000);
+                const timer = setTimeout(() => controller.abort(), 22000);
                 const cardFetch = await fetch(dynamicPostUrl, { signal: controller.signal });
                 clearTimeout(timer);
                 if (cardFetch.ok) {
@@ -15925,6 +16901,63 @@ Deno.serve(async (req: any) => {
               captainTgUrl = `tg://user?id=${driverChatId}`;
             }
 
+            // 🛡️ Check if this passenger already has an active, confirmed, or pending booking for this ad
+            const { data: existingBookings } = await supabase
+              .from('transport_bookings')
+              .select('*')
+              .eq('ad_id', lineAd.id)
+              .eq('passenger_chat_id', passengerPrivateChatId)
+              .in('status', ['confirmed', 'active', 'pending'])
+              .order('created_at', { ascending: false })
+              .limit(1);
+
+            const existingBooking = existingBookings && existingBookings.length > 0 ? existingBookings[0] : null;
+
+            if (existingBooking) {
+              const isAlreadyConfirmed = existingBooking.status === 'confirmed' || existingBooking.status === 'active';
+              if (callbackQueryId) {
+                await answerCallbackQuery(
+                  callbackQueryId, 
+                  isAlreadyConfirmed ? 'ℹ️ أنت مشترك ومثبت بالفعل في هذا الخط!' : '⏳ طلب حجزك السابق قيد المراجعة لدى الكابتن!',
+                  true
+                );
+              }
+
+              const alreadyMsg = isAlreadyConfirmed
+                ? `ℹ️ <b>يا هلا بيك عيوني ${studentName}! 🌹</b>\n\n` +
+                  `✅ <b>أنت مشترك ومثبت بالفعل في هذا الخط مع الكابتن (${existingBooking.captain_name || 'الكابتن'})!</b>\n\n` +
+                  `🔖 <b>كود حجزك الرقمي:</b> <code>#${existingBooking.booking_code}</code>\n` +
+                  `📍 <b>المسار:</b> ${existingBooking.route_origin} ⬅️ ${existingBooking.route_destination}\n\n` +
+                  `⚡ <b>مقعدك محجوز ونشط؛</b> وتصلك إشعارات الكابتن اليومية (5 دقائق / 10 دقائق / بالباب) تلقائياً هنا.\n` +
+                  `إذا كنت ترغب بإلغاء اشتراكك، يمكنك ذلك بسهولة من الزر أدناه 👇`
+                : `⏳ <b>يا هلا بيك عيوني ${studentName}! 🌹</b>\n\n` +
+                  `📋 <b>لديك طلب حجز مقعد سابق قيد المراجعة في هذا الخط:</b>\n\n` +
+                  `🔖 <b>كود الطلب:</b> <code>#${existingBooking.booking_code}</code>\n` +
+                  `📍 <b>المسار:</b> ${existingBooking.route_origin} ⬅️ ${existingBooking.route_destination}\n\n` +
+                  `📲 تم إشعار الكابتن بطلبك مسبقاً، وسيقوم بالموافقة وتثبيت المقعد قريباً.\n` +
+                  `💡 <i>يمكنك مراسلته مباشرة بالخاص أو سحب الطلب إذا غيرت رأيك:</i>`;
+
+              const alreadyBtns: any[][] = [];
+              if (captainTgUrl) {
+                alreadyBtns.push([{ text: '💬 مراسلة الكابتن بالخاص تليكرام ✈️', url: captainTgUrl }]);
+              }
+              if (waPhone) {
+                alreadyBtns.push([{ text: '🟢 تواصل واتساب مع الكابتن', url: `https://wa.me/${waPhone}` }]);
+              }
+              if (isAlreadyConfirmed) {
+                alreadyBtns.push([{ text: '🚖 فتح مسار رحلتي وتنبيهات الخط', callback_data: 'daily_ride_hub' }]);
+              }
+              alreadyBtns.push([{ text: '❌ إلغاء هذا الحجز وتحرير المقعد', callback_data: `hub_stu_unb_p_${existingBooking.id}` }]);
+              alreadyBtns.push([{ text: '🚌 تصفح باقي الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }]);
+
+              if (isGroupChat) {
+                await sendMessage(chatId, alreadyMsg, { inline_keyboard: alreadyBtns });
+              } else {
+                await updateOrSend(alreadyMsg, { inline_keyboard: alreadyBtns });
+              }
+              return new Response('OK', { status: 200 });
+            }
+
             // 💾 Record the agreement in transport_bookings table with PASSENGER PRIVATE CHAT ID
             await supabase.from('transport_bookings').insert({
               booking_code: bookingCode,
@@ -15950,6 +16983,7 @@ Deno.serve(async (req: any) => {
                 `📍 <b>مسار خطك:</b> ${lineAd.location} ⬅️ ${lineAd.city}\n` +
                 (studentHandle ? `💬 <b>معرف التيليجرام:</b> ${studentHandle}\n` : '') +
                 `🔖 <b>كود الحجز الرقمي:</b> <code>#${bookingCode}</code>\n\n` +
+                `⚠️ <i>ملاحظة: هذه المنصة لتسهيل أمر الطلاب والكباتن، ونحن غير مسؤولين عن أصحاب الخطوط أو عن الطلاب. وبالتوفيق للجميع 🌹</i>\n\n` +
                 `<i>هل توافق على تثبيت المقعد لهذا الراكب وتأكيد الحجز؟</i>`;
 
               const drvBtns: any[][] = [
@@ -15977,7 +17011,13 @@ Deno.serve(async (req: any) => {
           (driverNotified 
             ? `📲 <b>تم إشعار الكابتن بطلبك فوراً عبر تيليجرام</b> وسيقوم بتأكيد الحجز.\n` 
             : `📲 تم توثيق طلبك رسمياً بالنظام لضمان حقك وأمانك.\n`) +
-          `\n💡 <i>يمكنك أيضاً مراسلته مباشرة عبر التيليجرام أو الواتساب للتأكيد السريع:</i>`;
+          `\n━━━━━━━━━━━━━━━━━━\n` +
+          `⚠️ <b>تنبيه وشروط الاستخدام:</b>\n` +
+          `هذه الخدمة مخصصة للطلاب الي يحتاجون خطوط أو يريدون يسوون خطوط لتسهيل أمرهم.\n` +
+          `📌 <b>ملاحظة:</b> نحن غير مسؤولين عن أصحاب الخطوط أو عن الطلاب.\n` +
+          `وبالتوفيق للجميع 🌹\n` +
+          `━━━━━━━━━━━━━━━━━━\n\n` +
+          `💡 <i>يمكنك أيضاً مراسلته مباشرة عبر التيليجرام أو الواتساب للتأكيد السريع:</i>`;
 
         const confirmBtns: any[] = [];
         if (captainTgUrl) {
@@ -16038,6 +17078,7 @@ Deno.serve(async (req: any) => {
         if (booking?.passenger_username) {
           capBtns.push([{ text: '💬 تواصل مع الراكب بالخاص تليكرام', url: `https://t.me/${booking.passenger_username.replace('@', '')}` }]);
         }
+        capBtns.push([{ text: '🚖 فتح مسار اليوم وتنبيهات الخط', callback_data: 'daily_ride_hub' }]);
         capBtns.push([{ text: '🚌 إدارة خطوطي', callback_data: 'manage_cat_trans' }]);
 
         if (callbackMsgId) {
@@ -16096,6 +17137,7 @@ Deno.serve(async (req: any) => {
                 { text: '[1]', callback_data: `rate_driver_${drvTarget}_1` }
               ]);
             }
+            passBtns.push([{ text: '🚖 فتح مسار رحلتي اليومية وتنبيهات الكابتن', callback_data: 'daily_ride_hub' }]);
             passBtns.push([{ text: '🛑 إيقاف التنبيهات (حصلت خط خلاص) 🌹', callback_data: `stop_alert_${booking.ad_id || 'user'}` }]);
 
             await sendMessage(booking.passenger_chat_id, passAlert, { inline_keyboard: passBtns });
