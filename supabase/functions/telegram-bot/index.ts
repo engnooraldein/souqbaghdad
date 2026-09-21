@@ -3207,32 +3207,72 @@ async function broadcastToPartnerChannels(record: any, category: 'transport' | '
         const targetPhoto = Array.isArray(photoUrl) ? photoUrl[0] : photoUrl;
         const partnerCaption = caption + `\n\n🤝 <i>بالتعاون مع: ${partner.channel_title || 'القناة الشريكة'}</i>`;
 
+        let pMsgId: string | null = null;
         if (targetPhoto) {
-          await sendPhoto(partner.channel_id, targetPhoto, partnerCaption, replyMarkup);
+          const pRes = await sendPhoto(partner.channel_id, targetPhoto, partnerCaption, replyMarkup);
+          if (pRes?.ok && pRes.result?.message_id) pMsgId = String(pRes.result.message_id);
         } else {
-          await sendMessage(partner.channel_id, partnerCaption, replyMarkup);
+          const pRes = await sendMessage(partner.channel_id, partnerCaption, replyMarkup);
+          if (pRes?.ok && pRes.result?.message_id) pMsgId = String(pRes.result.message_id);
         }
-        console.log(`[PARTNER SYNDICATION] Broadcasted ad #${record.short_id || record.id} to ${partner.channel_id} (${partner.channel_title})`);
+        console.log(`[PARTNER SYNDICATION] Broadcasted ad #${record.short_id || record.id} to ${partner.channel_id} (${partner.channel_title}) msgId: ${pMsgId}`);
 
-        // Increment partner posts count and earned points
+        // 💾 Store partner channel message IDs so we can update them on [تم الاتفاق / حصلت على خط]
+        if (pMsgId && record.id) {
+          try {
+            const { data: curAd } = await supabaseClient.from('ads').select('sync_status').eq('id', record.id).maybeSingle();
+            const currentSync = curAd?.sync_status || {};
+            const partnerMsgs = currentSync.partner_messages || {};
+            partnerMsgs[partner.channel_id] = pMsgId;
+            await supabaseClient.from('ads').update({
+              sync_status: { ...currentSync, partner_messages: partnerMsgs }
+            }).eq('id', record.id);
+          } catch(e) {
+            console.error('Error saving partner message ID to ad sync_status:', e);
+          }
+        }
+
+        // Increment partner posts count and earned points (+1 point reward per publish as requested)
         const updatedPosts = (partner.posts_count || 0) + 1;
-        const updatedPoints = (partner.earned_points || 0) + 15;
+        const updatedPoints = (partner.earned_points || 0) + 1;
         await supabaseClient.from('partner_channels').update({
           posts_count: updatedPosts,
           earned_points: updatedPoints,
           updated_at: new Date().toISOString()
         }).eq('id', partner.id);
 
+        // Also add point to the partner's user profile wallet so it reflects in their account balance!
+        const pOwnerTg = partner.owner_telegram_id || partner.partner_tg_chat_id;
+        let userCurrentPoints = updatedPoints;
+        if (pOwnerTg) {
+          try {
+            const { data: tgUser } = await supabaseClient.from('telegram_users').select('user_id').eq('telegram_chat_id', String(pOwnerTg)).maybeSingle();
+            if (tgUser?.user_id) {
+              const { data: prof } = await supabaseClient.from('profiles').select('points').eq('id', tgUser.user_id).maybeSingle();
+              const newPts = (prof?.points || 0) + 1;
+              await supabaseClient.from('profiles').update({ points: newPts }).eq('id', tgUser.user_id);
+              userCurrentPoints = newPts;
+            }
+          } catch(e) {}
+        }
+
         // Notify partner privately of the new post
         const pTargetChatId = partner.partner_tg_chat_id || partner.owner_telegram_id;
         if (pTargetChatId) {
           const pAlert = 
             `🔔 <b>إشعار الشريك: تم نشر خط جديد في قناتك! 🚌✨</b>\n\n` +
-            `📍 <b>المسار:</b> ${record.location || record.city || 'بغداد'} ⬅️ ${record.destination || record.university || partner.university}\n` +
+            `📍 <b>المسار:</b> ${record.location || record.city || 'بغداد'} ⬅️ ${record.destination || record.university || partner.university || 'الوجهة'}\n` +
             (record.price ? `💰 <b>الأجرة:</b> ${formatTgPrice(record.price)}\n` : '') +
-            `\n🚀 <b>تم ترحيل البوست وتصميمه إلى قناتك بنجاح!</b> (+15 نقطة مكافأة 🪙)`;
+            `\n🚀 <b>تم ترحيل البوست وتصميمه إلى قناتك بنجاح!</b> (+1 نقطة مكافأة 🪙)\n` +
+            `💰 <b>رصيد مكافآتك الحالي:</b> <b>${userCurrentPoints}</b> نقطة 🪙\n` +
+            `💡 <i>يمكنك استخدام رصيدك لترويج الخطوط وإرسال التنبيهات لطلابك.</i>`;
+
+          const pBtns = [
+            [{ text: '🪙 معرفة رصيدي وكيفية التعبئة والاستفادة', callback_data: 'partner_points_info' }],
+            [{ text: '📢 لوحة تحكم القناة الشريكة', callback_data: 'partner_dashboard_main' }]
+          ];
           try {
-            await sendMessage(pTargetChatId, pAlert);
+            await sendMessage(pTargetChatId, pAlert, { inline_keyboard: pBtns });
           } catch(e) {}
         }
       } catch (pErr) {
@@ -5820,6 +5860,19 @@ Deno.serve(async (req: any) => {
               console.error('Al-Rafdain webhook caption update error:', err);
             }
           }
+
+          // 2b. Also update all Partner Channels where this ad was syndicated
+          const partnerMsgs = actualAd.sync_status?.partner_messages || record?.sync_status?.partner_messages || {};
+          for (const [chId, chMsgId] of Object.entries(partnerMsgs)) {
+            if (chId && chMsgId) {
+              try {
+                console.log(`[PARTNER UPDATE WEBHOOK] Updating post in partner channel ${chId} with msgId ${chMsgId}`);
+                await editChannelMessage(chId, parseInt(String(chMsgId), 10), soldCaption, soldButtons);
+              } catch(err) {
+                console.error(`Failed to update partner channel ${chId} msg ${chMsgId}:`, err);
+              }
+            }
+          }
         }
 
         // 3. Update Facebook post text (with smart lookup for unindexed/past posts)
@@ -6442,8 +6495,8 @@ Deno.serve(async (req: any) => {
           // Prevent duplicate execution if already synced (only for automated background triggers, not manual modal publish)
           if (!isManualExplicitPublish && record.id && payload.table === 'ads') {
             const { data: existingAd } = await supabase.from('ads').select('telegram_message_id, sync_status').eq('id', record.id).maybeSingle();
-            if (existingAd?.telegram_message_id || existingAd?.sync_status?.telegram === 'success') {
-              console.log(`Transport ad ${record.id} already published to Telegram, skipping duplicate.`);
+            if (existingAd?.telegram_message_id || existingAd?.sync_status?.telegram === 'success' || existingAd?.sync_status?.telegram === 'skip') {
+              console.log(`Transport ad ${record.id} already published/handled in Telegram, skipping duplicate webhook.`);
               return new Response(JSON.stringify({ ok: true, message: 'Already published' }), { 
                 status: 200, 
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -11701,6 +11754,55 @@ Deno.serve(async (req: any) => {
           ]
         };
         return await updateOrSend(dashMsg, dashMarkup);
+      }
+
+      // 🪙 PARTNER POINTS & WALLET INFO
+      if (action === 'partner_points_info') {
+        const tgUserIdStr = fromUser?.id ? String(fromUser.id) : String(chatId);
+        let userPoints = 0;
+        let partnerChCount = 0;
+        let totalReceivedAds = 0;
+
+        try {
+          if (userId) {
+            const { data: prof } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
+            if (prof?.points) userPoints = prof.points;
+          }
+          const { data: myPartnerChs } = await supabase
+            .from('partner_channels')
+            .select('*')
+            .or(`partner_tg_user_id.eq.${tgUserIdStr},partner_tg_chat_id.eq.${String(chatId)},owner_telegram_id.eq.${chatId}`);
+
+          if (myPartnerChs && myPartnerChs.length > 0) {
+            partnerChCount = myPartnerChs.length;
+            totalReceivedAds = myPartnerChs.reduce((acc: number, c: any) => acc + (c.posts_count || 0), 0);
+            const totalPartnerPts = myPartnerChs.reduce((acc: number, c: any) => acc + (c.earned_points || 0), 0);
+            if (totalPartnerPts > userPoints) userPoints = totalPartnerPts;
+          }
+        } catch(e) {}
+
+        const infoMsg = 
+          `🪙 <b>نظام نقاط ومكافآت الشركاء — سوق بغداد 🎁</b>\n\n` +
+          `💰 <b>رصيد مكافآتك الحالي:</b> <b>${userPoints}</b> نقطة 🪙\n` +
+          `📢 <b>عدد قنواتك المربوطة:</b> <b>${partnerChCount}</b> قنوات\n` +
+          `📊 <b>إجمالي الإعلانات المستلمة:</b> <b>${totalReceivedAds}</b> منشور\n\n` +
+          `━━━━━━━━━━━━━━━━━━\n` +
+          `💡 <b>كيف تكسب النقاط؟</b>\n` +
+          `1. <b>مزامنة الخطوط (+1 نقطة):</b> مع كل خط نقل جديد ينشر ويخص جامعتك/كليتك ويرحل لقناتك، تحصل تلقائياً على <b>نقطة مكافأة</b> فوراً.\n` +
+          `2. <b>نشر خطوط لطلابك مجاناً:</b> بصفتك شريكاً، يمكنك أنت وطلاب قناتك نشر طلبات وخطوط النقل مجاناً وتصميم بوست وبطاقة احترافية فورية.\n` +
+          `3. <b>تفاعل ومشاركات الطلاب:</b> كلما تفاعل الطلاب مع إعلانات الخطوط زادت نقاطك ومكافآتك.\n\n` +
+          `🔋 <b>كيف تستفيد من رصيد النقاط؟</b>\n` +
+          `• <b>تثبيت وتمييز الخطوط:</b> استخدام النقاط لتثبيت أي خط في صدارة القناة والموقع.\n` +
+          `• <b>إرسال تنبيهات برودكاست للطلاب:</b> توجيه إشعارات خاصة للطلاب المهتمين بمسار معين.\n` +
+          `• <b>استبدال المكافآت:</b> تحويل الرصيد إلى رصيد كارتات (آسيا/أثير) عند بلوغ الحد المطلوب للشراكة.`;
+
+        return await updateOrSend(infoMsg, {
+          inline_keyboard: [
+            [{ text: '📢 لوحة تحكم قنواتي الشريكة', callback_data: 'partner_dashboard_main' }],
+            [{ text: '🚌 نشر خط نقل جديد بالقناة', callback_data: 'publish_transport' }],
+            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+          ]
+        });
       }
 
       // 🩺 PARTNER SELF PULSE CHECK
@@ -17479,7 +17581,79 @@ Deno.serve(async (req: any) => {
           : `• تم تحديث المنشورات في قنوات تيليجرام وصفحات التواصل لتصبح مباعة أو مكتملة.\n` +
             `• تم نقل الإعلان إلى <b>الأرشيف</b> ولن يزعجك أحد بالاتصال.`;
 
-        await sendMessage(chatId,
+        // Immediately update Telegram channel posts to [تم الاتفاق / حصلت على خط] or [اكتمل العدد / الخط مغلق]
+        try {
+          const isTransport = itemToClose.category === 'transport';
+          const msgId = itemToClose.telegram_message_id;
+          const browseUrl = isCar 
+            ? 'https://www.souqbaghdad.store/vehicles' 
+            : (isTransport ? 'https://www.souqbaghdad.store/transport' : 'https://www.souqbaghdad.store/products');
+          
+          const soldTag = isTransport 
+            ? (isSeekerAd ? '✅ <b>[تم الاتفاق / حصلت على خط 🎓]</b>' : '✅ <b>[اكتمل العدد / الخط مغلق 🔒]</b>')
+            : (isCar ? '⚠️ <b>[تم البيع / مباعة 🚗]</b>' : '⚠️ <b>[تم البيع / غير متوفر 🛍️]</b>');
+
+          const buttonText = isTransport 
+            ? (isSeekerAd ? '🚌 تصفح طلبات وخطوط أخرى 🌐' : '🚌 تصفح خطوط أخرى متاحة 🌐')
+            : (isCar ? '🚗 تم بيع هذه السيارة — تصفح المزيد 🔍' : '🛍️ تم البيع — تصفح أحدث العروض 🌐');
+
+          const soldButtons = {
+            inline_keyboard: [
+              [{ text: buttonText, url: browseUrl }],
+              [{ text: isSeekerAd ? '🚌 انشر طلب خط نقل جديد مجاناً' : '🚌 اعرض خطك مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
+            ]
+          };
+
+          const iconType = isTransport ? (isSeekerAd ? '🎓' : '🚌') : (isCar ? '🚗' : '🛍️');
+          const soldCaption = isSeekerAd
+            ? `${soldTag}\n\n` +
+              `🎓 <b>${itemToClose.title || 'طلب خط نقل'}</b>\n` +
+              `🤝 <b>تم الاتفاق مع كابتن بنجاح عبر منصة سوق بغداد</b>\n` +
+              `📍 ${itemToClose.location || 'بغداد'} ⬅️ ${itemToClose.city || 'الجامعة'}\n\n` +
+              `🔒 <i>تم إغلاق الطلب واكتمال التنسيق بنجاح.</i>`
+            : `${soldTag}\n\n` +
+              `${iconType} <b>${itemToClose.title || 'إعلان'}</b>\n` +
+              `💰 <b>تمت العملية بنجاح عبر منصة سوق بغداد</b>\n` +
+              `📍 ${itemToClose.location || itemToClose.city || 'العراق'}\n\n` +
+              `📣 لم يعد هذا الإعلان متاحاً للتواصل. يمكنك تصفح العروض المشابهة عبر الزر أدناه 👇`;
+
+          // 1. Edit main channel
+          if (msgId) {
+            const channelsToTry = isTransport 
+              ? Array.from(new Set([LINES_CHANNEL_ID, LINES_CHANNEL, '@souqbaghdad_lines', '@souqbaghdad_line'].filter(Boolean)))
+              : (isCar ? Array.from(new Set([CAR_CHANNEL_ID, CAR_CHANNEL, '@souqbaghdad_car'].filter(Boolean))) : Array.from(new Set([PRODUCT_CHANNEL, '@souqbaghdad_iq', EXTRA_CHANNEL].filter(Boolean))));
+            for (const ch of channelsToTry) {
+              try { await editChannelMessage(ch, parseInt(msgId, 10), soldCaption, soldButtons); } catch(e){}
+            }
+          }
+
+          // 2. Edit all Partner Channels where this ad was published
+          const partnerMsgs = itemToClose.sync_status?.partner_messages || {};
+          for (const [chId, chMsgId] of Object.entries(partnerMsgs)) {
+            if (chId && chMsgId) {
+              try {
+                console.log(`[SOLVE TRANS] Updating partner channel ${chId} msg ${chMsgId}`);
+                await editChannelMessage(chId, parseInt(String(chMsgId), 10), soldCaption, soldButtons);
+              } catch(e){}
+            }
+          }
+
+          // Also check if Al-Rafdain rucMsgId exists
+          const rucMsgId = itemToClose.sync_status?.ruc_telegram_message_id;
+          if (rucMsgId && ALRAFDAIN_TELEGRAM_CHANNEL) {
+            try { await editChannelMessage(ALRAFDAIN_TELEGRAM_CHANNEL, parseInt(rucMsgId, 10), soldCaption, soldButtons); } catch(e){}
+          }
+        } catch(e) {
+          console.error('[SOLVE_TRANS] Error updating channels immediately:', e);
+        }
+
+        if (callbackQueryId) {
+          try {
+            await answerCallbackQuery(callbackQueryId, `✅ ${tagText}`, false);
+          } catch(e) {}
+        }
+
+        await updateOrSend(
           `✅ <b>${tagText} (#${shortCode}) بنجاح!</b>\n\n` +
           `${closeDetails}\n\n` +
           `💡 <b>هل تريد إعادة فتح الإعلان مستقبلاً؟</b>\n` +
