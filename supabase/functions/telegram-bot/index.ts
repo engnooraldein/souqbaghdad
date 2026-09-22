@@ -5342,42 +5342,107 @@ function buildTransportAreasMarkup(state: any, pageIdx = 0) {
   return { inline_keyboard: buttons };
 }
 
-function buildTransportDestinationsMarkup(state: any, pageIdx = 0) {
-  const totalPages = TRANSPORT_DESTINATIONS_PAGES.length;
-  const safeIdx = Math.max(0, Math.min(pageIdx, totalPages - 1));
-  const curPage = TRANSPORT_DESTINATIONS_PAGES[safeIdx];
+function buildTransportDestinationsMarkup(state: any, catOrPage: string | number = 'pvt_bg', pageNum = 0) {
+  let activeCategory = 'pvt_bg';
+  let pageIdx = 0;
+  if (typeof catOrPage === 'number') {
+    pageIdx = catOrPage;
+    activeCategory = state?.data?.destCategory || 'pvt_bg';
+  } else if (typeof catOrPage === 'string') {
+    activeCategory = catOrPage || 'pvt_bg';
+    pageIdx = pageNum || 0;
+  }
+
+  const catTitles: { [k: string]: string } = {
+    pvt_bg: '🎓 كليات وجامعات بغداد الأهلية',
+    gov_bg: '🏛️ جامعات بغداد الحكومية والمعاهد',
+    south: '🕌 جامعات الفرات الأوسط والجنوب',
+    north: '🌄 جامعات المحافظات الشمالية والغربية',
+    org_gov: '🏢 وزارات ومؤسسات ودوائر'
+  };
+
+  const PAGE_SIZE = 8;
+  const filtered = IRAQI_UNIVERSITIES.filter(u => u.category === activeCategory);
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+  const page = Math.max(0, Math.min(pageIdx, totalPages - 1));
+  const pageItems = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
   const selectedDest = state?.data?.destination || '';
+  const inline_keyboard: any[][] = [];
 
-  const buttons: any[] = [];
-  curPage.rows.forEach((row: string[], rIdx: number) => {
-    buttons.push(row.map((dest: string, cIdx: number) => {
-      const isSelected = selectedDest === dest;
-      return {
-        text: isSelected ? `✅ ${dest}` : dest,
-        callback_data: `td_p${safeIdx}_r${rIdx}_c${cIdx}`
-      };
-    }));
-  });
+  // 1. Top Search Bar Button
+  inline_keyboard.push([
+    { text: '🔍 بحث سريع بالاسم (جامعات / كليات / دوائر)', callback_data: 'trans_dest_search_prompt' }
+  ]);
 
-  // Navigation pagination row
+  // 2. 8 Institutions Grid (2 columns)
+  for (let i = 0; i < pageItems.length; i += 2) {
+    const row = [];
+    const item1 = pageItems[i];
+    const isSel1 = selectedDest === item1.name;
+    row.push({
+      text: isSel1 ? `✅ ${item1.name}` : item1.name,
+      callback_data: `td_id_${item1.id}`
+    });
+
+    if (i + 1 < pageItems.length) {
+      const item2 = pageItems[i + 1];
+      const isSel2 = selectedDest === item2.name;
+      row.push({
+        text: isSel2 ? `✅ ${item2.name}` : item2.name,
+        callback_data: `td_id_${item2.id}`
+      });
+    }
+    inline_keyboard.push(row);
+  }
+
+  // 3. Navigation Pagination Bar
   const navRow: any[] = [];
-  if (safeIdx > 0) {
-    navRow.push({ text: '⬅️ السابق', callback_data: `trans_dest_page_${safeIdx - 1}` });
+  if (page > 0) {
+    navRow.push({ text: '⬅️ السابق', callback_data: `trans_dest_cat_${activeCategory}_${page - 1}` });
   }
-  navRow.push({ text: `📄 ${safeIdx + 1} / ${totalPages}`, callback_data: `trans_dest_page_${safeIdx}` });
-  if (safeIdx < totalPages - 1) {
-    navRow.push({ text: 'التالي ➡️', callback_data: `trans_dest_page_${safeIdx + 1}` });
+  navRow.push({ text: `📄 صفحة ${page + 1} من ${totalPages}`, callback_data: `trans_dest_cat_${activeCategory}_${page}` });
+  if (page < totalPages - 1) {
+    navRow.push({ text: 'التالي ➡️', callback_data: `trans_dest_cat_${activeCategory}_${page + 1}` });
   }
-  buttons.push(navRow);
+  inline_keyboard.push(navRow);
 
-  // Custom text input button
-  buttons.push([{ text: '✏️ كتابة الوجهة بنفسي (نص) 📝', callback_data: 'trans_dest_custom' }]);
-  buttons.push([
+  // 4. Category Selector Tabs (Matches Image 1 precisely)
+  inline_keyboard.push([
+    { text: activeCategory === 'pvt_bg' ? '🔘 🎓 أهلي بغداد' : '🎓 أهلي بغداد', callback_data: 'trans_dest_cat_pvt_bg_0' },
+    { text: activeCategory === 'gov_bg' ? '🔘 🏛️ حكومي بغداد' : '🏛️ حكومي بغداد', callback_data: 'trans_dest_cat_gov_bg_0' }
+  ]);
+  inline_keyboard.push([
+    { text: activeCategory === 'south' ? '🔘 🕌 الفرات والجنوب' : '🕌 الفرات والجنوب', callback_data: 'trans_dest_cat_south_0' },
+    { text: activeCategory === 'north' ? '🔘 🌄 الشمال والغربية' : '🌄 الشمال والغربية', callback_data: 'trans_dest_cat_north_0' }
+  ]);
+  inline_keyboard.push([
+    { text: activeCategory === 'org_gov' ? '🔘 🏢 وزارات ومؤسسات' : '🏢 وزارات ومؤسسات', callback_data: 'trans_dest_cat_org_gov_0' }
+  ]);
+
+  // 5. Fallback / Custom / Cancel options
+  inline_keyboard.push([
+    { text: '🌐 كل الجامعات (عام)', callback_data: 'trans_dest_pick_all' },
+    { text: '✏️ كتابة اسم مخصص', callback_data: 'trans_dest_custom' }
+  ]);
+  inline_keyboard.push([
     { text: '◀️ السابق (المناطق)', callback_data: 'trans_back_to_areas' },
     { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
   ]);
 
-  return { inline_keyboard: buttons };
+  const isPassenger = state?.data?.type === 'request';
+  const stepTitle = isPassenger
+    ? `🎓 <b>طلب خط — الخطوة 4 من 8 — تحديد الوجهة (الجامعة أو العمل)</b>`
+    : `🏢 <b>الخطوة 4 من 9 — الوجهة (الجامعة أو العمل)</b>`;
+
+  const text = 
+    `${stepTitle}\n\n` +
+    `📍 <b>القسم المختار:</b> <b>${catTitles[activeCategory] || activeCategory}</b>\n` +
+    `📍 <b>مناطق الانطلاق المعتمدة:</b> <b>${state?.data?.regions || 'بغداد'}</b>\n\n` +
+    `اختر كليتك أو مؤسستك مباشرة للربط المعتمد غير القابل للخطأ 🎯\n` +
+    `<i>(يمكنك استخدام زر 🔍 البحث بالاسم، أو أزرار السابق والتالي ⬅️ ➡️)</i>`;
+
+  return { text, markup: { inline_keyboard }, inline_keyboard };
 }
 
 const TRANSPORT_SHIFTS = [
@@ -15582,7 +15647,7 @@ Deno.serve(async (req: any) => {
         state.step = 'trans_cat';
         await supabase.from('telegram_users').update({ user_role: 'passenger', bot_state: state }).eq('telegram_chat_id', chatId);
 
-        await updateOrSend(`🚌 <b>طلب خط — الخطوة 2 من 7 — فئة الخط</b>\n\nالطلب مخصص لمن؟ 👇`, {
+        await updateOrSend(`🚌 <b>طلب خط — الخطوة 2 من 8 — فئة الخط</b>\n\nالطلب مخصص لمن؟ 👇`, {
           inline_keyboard: [
             [{ text: '🎓 طالب / طالبة جامعة أو كلية', callback_data: 'trans_cat_student' }],
             [{ text: '💼 موظف / موظفة قطاع عام أو خاص', callback_data: 'trans_cat_employee' }],
@@ -15599,12 +15664,15 @@ Deno.serve(async (req: any) => {
         state.step = 'trans_regions';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
+        const isPassenger = state.data?.type === 'request';
         const areaMarkup = buildTransportAreasMarkup(state, 0);
-        await updateOrSend(
-          `📍 <b>الخطوة 3 من 9 — مناطق الانطلاق (المرور)</b>\n\n` +
-          `اختر مناطق الانطلاق التي يمر بها خطك (يمكنك اختيار أكثر من منطقة بالضغط عليها) أو اكتبها بنفسك 👇`,
-          areaMarkup
-        );
+        const areaMsg = isPassenger
+          ? `📍 <b>طلب خط — الخطوة 3 من 8 — منطقة الانطلاق (الصعود)</b>\n\n` +
+            `اختر منطقة سكنك أو نقطة الصعود التي ترغب بالانطلاق منها (أو اكتبها بنفسك) 👇`
+          : `📍 <b>الخطوة 3 من 9 — مناطق الانطلاق (المرور)</b>\n\n` +
+            `اختر مناطق الانطلاق التي يمر بها خطك (يمكنك اختيار أكثر من منطقة) أو اكتبها بنفسك 👇`;
+
+        await updateOrSend(areaMsg, areaMarkup);
         return new Response('OK', { status: 200 });
       }
 
@@ -15679,22 +15747,50 @@ Deno.serve(async (req: any) => {
         );
       }
 
+      const proceedFromDestination = async (destVal: string, inst?: any) => {
+        state.data = state.data || {};
+        state.data.destination = destVal;
+        state.data.university = destVal;
+        if (inst) {
+          state.data.university_id = inst.id;
+          state.data.filter_keywords = inst.keywords;
+        } else {
+          state.data.filter_keywords = [destVal];
+        }
+        state.step = 'trans_shift';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const isPassenger = state.data?.type === 'request';
+        const shiftButtons = TRANSPORT_SHIFTS.map(row => row.map(s => ({ text: s, callback_data: `trans_shift_${s}` })));
+        shiftButtons.push([
+          { text: '◀️ السابق (الوجهة)', callback_data: 'trans_back_to_dest' },
+          { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+        ]);
+
+        const stepMsg = isPassenger
+          ? `⏰ <b>طلب خط — الخطوة 5 من 8 — أوقات الدوام (الشفت المطلوب)</b>\n\n` +
+            `📍 نقطة الصعود: <b>${state.data?.regions || 'بغداد'}</b>\n` +
+            `🏢 الوجهة: <b>${destVal}</b>\n\n` +
+            `اختر وقت دوامك المناسب لخطك أو اكتبه بنفسك 👇`
+          : `⏰ <b>الخطوة 5 من 9 — أوقات الدوام (الشفت)</b>\n\n` +
+            `📍 مناطق الانطلاق: <b>${state.data?.regions || 'بغداد'}</b>\n` +
+            `🏢 الوجهة: <b>${destVal}</b>\n\n` +
+            `اختر وقت الدوام المناسب لخطك أو اكتبه بنفسك 👇`;
+
+        return await updateOrSend(stepMsg, { inline_keyboard: shiftButtons });
+      };
+
       if (action === 'trans_area_done') {
         state.data = state.data || {};
         if (!state.data.regions) {
           state.data.regions = 'بغداد';
         }
         state.step = 'trans_dest';
+        state.data.destCategory = 'pvt_bg';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        const destMarkup = buildTransportDestinationsMarkup(state, 0);
-        return await updateOrSend(
-          `🏢 <b>الخطوة 4 من 9 — الوجهة (الجامعة أو العمل)</b>\n` +
-          `🎓 <b>${TRANSPORT_DESTINATIONS_PAGES[0].title}</b>\n\n` +
-          `📍 مناطق الانطلاق المعتمدة: <b>${state.data.regions}</b>\n\n` +
-          `اختر الوجهة المطلوبة من القوائم أدناه أو اكتبها بنفسك 👇`,
-          destMarkup
-        );
+        const destMarkup = buildTransportDestinationsMarkup(state, 'pvt_bg', 0);
+        return await updateOrSend(destMarkup.text, destMarkup.markup);
       }
 
       if (action === 'trans_area_custom') {
@@ -15720,23 +15816,68 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
-      if (action.startsWith('trans_dest_page_')) {
-        const pageIdx = parseInt(action.replace('trans_dest_page_', ''), 10) || 0;
+      if (action === 'trans_back_to_dest') {
         state.step = 'trans_dest';
+        const curCat = state.data?.destCategory || 'pvt_bg';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        const curPage = TRANSPORT_DESTINATIONS_PAGES[pageIdx] || TRANSPORT_DESTINATIONS_PAGES[0];
-        const destMarkup = buildTransportDestinationsMarkup(state, pageIdx);
+        const destMarkup = buildTransportDestinationsMarkup(state, curCat, 0);
+        return await updateOrSend(destMarkup.text, destMarkup.markup);
+      }
+
+      if (action.startsWith('trans_dest_cat_')) {
+        const parts = action.replace('trans_dest_cat_', '').split('_');
+        const pageIdx = parseInt(parts.pop() || '0', 10) || 0;
+        const catKey = parts.join('_') || 'pvt_bg';
+        state.step = 'trans_dest';
+        state.data = state.data || {};
+        state.data.destCategory = catKey;
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        const destMarkup = buildTransportDestinationsMarkup(state, catKey, pageIdx);
+        return await updateOrSend(destMarkup.text, destMarkup.markup);
+      }
+
+      if (action === 'trans_dest_search_prompt') {
+        state.step = 'trans_dest_search';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
         await updateOrSend(
-          `🏢 <b>الخطوة 4 من 9 — الوجهة (الجامعة أو العمل)</b>\n` +
-          `🎓 <b>${curPage.title}</b>\n\n` +
-          `📍 مناطق الانطلاق المعتمدة: <b>${state.data?.regions || 'بغداد'}</b>\n\n` +
-          `اختر الوجهة المطلوبة من القوائم أدناه أو اكتبها بنفسك 👇`,
-          destMarkup
+          `🔍 <b>البحث السريع عن وجهتك (جامعات / كليات / معاهد / وزارات / دوائر):</b>\n\n` +
+          `أرسل اسم أو جزء من اسم كليتك أو مؤسستك أو جهة عملك بالرسائل الآن ✍️\n` +
+          `<i>(مثال: الإسراء، الرافدين، التراث، الفراهيدي، دجلة، المستنصرية، النهرين، التكنولوجية، بابل، كربلاء، مدينة الطب، وزارة التربية...)</i>`,
+          {
+            inline_keyboard: [
+              [{ text: '⬅️ العودة لقائمة الوجهات', callback_data: 'trans_back_to_dest' }],
+              [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+            ]
+          }
         );
         return new Response('OK', { status: 200 });
       }
 
-      if (!action.startsWith('trans_dest_page_') && action !== 'trans_back_to_dest' && (action.startsWith('td_p') || action.startsWith('trans_dest_pick_') || action.startsWith('trans_dest_'))) {
+      if (action.startsWith('td_id_')) {
+        const instId = action.replace('td_id_', '');
+        const inst = IRAQI_UNIVERSITIES.find(u => u.id === instId);
+        const destVal = inst ? inst.name : instId;
+        return await proceedFromDestination(destVal, inst);
+      }
+
+      if (action === 'trans_dest_force_custom') {
+        const customText = state?.data?.pending_dest_text || 'وجهة مخصصة';
+        return await proceedFromDestination(customText);
+      }
+
+      if (action === 'trans_dest_pick_all') {
+        return await proceedFromDestination('كل الجامعات (عام)');
+      }
+
+      if (action.startsWith('trans_dest_page_')) {
+        const pageIdx = parseInt(action.replace('trans_dest_page_', ''), 10) || 0;
+        state.step = 'trans_dest';
+        const curCat = state.data?.destCategory || 'pvt_bg';
+        const destMarkup = buildTransportDestinationsMarkup(state, curCat, pageIdx);
+        return await updateOrSend(destMarkup.text, destMarkup.markup);
+      }
+
+      if (!action.startsWith('trans_dest_page_') && !action.startsWith('trans_dest_cat_') && action !== 'trans_back_to_dest' && action !== 'trans_dest_search_prompt' && (action.startsWith('td_p') || action.startsWith('trans_dest_pick_') || action.startsWith('trans_dest_'))) {
         let destVal = '';
         if (action.startsWith('td_p')) {
           const match = action.match(/^td_p(\d+)_r(\d+)_c(\d+)$/);
@@ -15761,52 +15902,49 @@ Deno.serve(async (req: any) => {
           );
         }
 
-        state.data = state.data || {};
-        state.data.destination = destVal;
-        state.step = 'trans_shift';
-        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-
-        const shiftButtons = TRANSPORT_SHIFTS.map(row => row.map(s => ({ text: s, callback_data: `trans_shift_${s}` })));
-        shiftButtons.push([
-          { text: '◀️ السابق (الوجهة)', callback_data: 'trans_back_to_dest' },
-          { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
-        ]);
-
-        return await updateOrSend(
-          `⏰ <b>الخطوة 5 من 9 — أوقات الدوام (الشفت)</b>\n\n` +
-          `📍 مناطق الانطلاق: <b>${state.data?.regions || 'بغداد'}</b>\n` +
-          `🏢 الوجهة: <b>${destVal}</b>\n\n` +
-          `اختر وقت الدوام المناسب لخطك أو اكتبه بنفسك 👇`,
-          { inline_keyboard: shiftButtons }
-        );
-      }
-
-      if (action === 'trans_back_to_dest') {
-        state.step = 'trans_dest';
-        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        const destMarkup = buildTransportDestinationsMarkup(state, 0);
-        await updateOrSend(
-          `🏢 <b>الخطوة 4 من 9 — الوجهة (الجامعة أو العمل)</b>\n\n` +
-          `📍 مناطق الانطلاق المعتمدة: <b>${state.data?.regions || 'بغداد'}</b>\n\n` +
-          `اختر الوجهة المطلوبة من القوائم أدناه أو اكتبها بنفسك 👇`,
-          destMarkup
-        );
-        return new Response('OK', { status: 200 });
+        return await proceedFromDestination(destVal);
       }
 
       if (action.startsWith('trans_shift_')) {
         const shiftVal = action.replace('trans_shift_', '');
         state.data.shift = shiftVal;
-        state.step = 'trans_vehicle';
-        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        const isPassenger = state.data?.type === 'request';
 
-        const vehicleButtons = TRANSPORT_VEHICLES.map(row => row.map(v => ({ text: v, callback_data: `trans_vehicle_${v}` })));
-        vehicleButtons.push([{ text: '◀️ السابق', callback_data: `trans_dest_${state.data.destination || 'جامعة بغداد'}` }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
+        if (isPassenger) {
+          // Passenger skips vehicle type directly to target audience (طالبات / طلاب / مختلط)
+          state.data.vehicleType = 'أي مركبة مناسبة ومكيفة';
+          state.step = 'trans_target';
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        await updateOrSend(`🚗 <b>الخطوة 6 من 9 — نوع المركبة</b>\n\nاختر نوع المركبة 👇`, {
-          inline_keyboard: vehicleButtons
-        });
-        return new Response('OK', { status: 200 });
+          const targetButtons = TRANSPORT_TARGETS.map(row => row.map(t => ({ text: t, callback_data: `trans_target_${t}` })));
+          targetButtons.push([
+            { text: '◀️ السابق (الشفت)', callback_data: `trans_dest_${state.data.destination || 'الجامعة'}` },
+            { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+          ]);
+
+          await updateOrSend(
+            `👥 <b>طلب خط — الخطوة 6 من 8 — فئة الخط المرغوب</b>\n\n` +
+            `ترغب بالانضمام لخط مخصص لمن؟ 👇`,
+            { inline_keyboard: targetButtons }
+          );
+          return new Response('OK', { status: 200 });
+        } else {
+          // Captain goes to vehicle type
+          state.step = 'trans_vehicle';
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+          const vehicleButtons = TRANSPORT_VEHICLES.map(row => row.map(v => ({ text: v, callback_data: `trans_vehicle_${v}` })));
+          vehicleButtons.push([
+            { text: '◀️ السابق (الوجهة)', callback_data: 'trans_back_to_dest' },
+            { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+          ]);
+
+          await updateOrSend(
+            `🚗 <b>الخطوة 6 من 9 — نوع المركبة</b>\n\nاختر نوع المركبة المتوفرة لديك 👇`,
+            { inline_keyboard: vehicleButtons }
+          );
+          return new Response('OK', { status: 200 });
+        }
       }
 
       if (action.startsWith('trans_vehicle_')) {
@@ -15816,11 +15954,15 @@ Deno.serve(async (req: any) => {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         const targetButtons = TRANSPORT_TARGETS.map(row => row.map(t => ({ text: t, callback_data: `trans_target_${t}` })));
-        targetButtons.push([{ text: '◀️ السابق', callback_data: `trans_shift_${state.data.shift || 'صباحي'}` }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
+        targetButtons.push([
+          { text: '◀️ السابق (المركبة)', callback_data: `trans_shift_${state.data.shift || 'صباحي'}` },
+          { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+        ]);
 
-        await updateOrSend(`👥 <b>الخطوة 7 من 9 — فئة الركاب</b>\n\nالخط مخصص لمن؟ 👇`, {
-          inline_keyboard: targetButtons
-        });
+        await updateOrSend(
+          `👥 <b>الخطوة 7 من 9 — فئة الركاب المخصصة</b>\n\nالخط مخصص لمن؟ 👇`,
+          { inline_keyboard: targetButtons }
+        );
         return new Response('OK', { status: 200 });
       }
 
@@ -15830,15 +15972,32 @@ Deno.serve(async (req: any) => {
         state.step = 'trans_fare';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        const fareButtons = TRANSPORT_FARES.map(row => row.map(f => {
-          if (f.includes('آخر')) return { text: f, callback_data: 'trans_fare_custom' };
-          return { text: f, callback_data: `trans_fare_${f}` };
-        }));
-        fareButtons.push([{ text: '◀️ السابق', callback_data: `trans_vehicle_${state.data.vehicleType || 'صالون'}` }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
+        const isPassenger = state.data?.type === 'request';
+        let fareButtons: any[][];
+        if (isPassenger) {
+          fareButtons = [
+            [{ text: '🤝 حسب الاتفاق مع الكابتن', callback_data: 'trans_fare_حسب الاتفاق 🤝' }],
+            [{ text: '50,000 د.ع', callback_data: 'trans_fare_50,000 د.ع' }, { text: '75,000 د.ع', callback_data: 'trans_fare_75,000 د.ع' }],
+            [{ text: '100,000 د.ع', callback_data: 'trans_fare_100,000 د.ع' }, { text: '125,000 د.ع', callback_data: 'trans_fare_125,000 د.ع' }],
+            [{ text: '150,000 د.ع', callback_data: 'trans_fare_150,000 د.ع' }, { text: 'مبلغ آخر ✏️', callback_data: 'trans_fare_custom' }]
+          ];
+        } else {
+          fareButtons = TRANSPORT_FARES.map(row => row.map(f => {
+            if (f.includes('آخر')) return { text: f, callback_data: 'trans_fare_custom' };
+            return { text: f, callback_data: `trans_fare_${f}` };
+          }));
+        }
 
-        await updateOrSend(`💰 <b>الخطوة 8 من 9 — الأجرة الشهرية / السعر</b>\n\nاختر الأجرة التقريبية لكل راكب 👇`, {
-          inline_keyboard: fareButtons
-        });
+        fareButtons.push([
+          { text: '◀️ السابق', callback_data: isPassenger ? `trans_shift_${state.data.shift || 'صباحي'}` : `trans_vehicle_${state.data.vehicleType || 'صالون'}` },
+          { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+        ]);
+
+        const stepMsg = isPassenger
+          ? `💰 <b>طلب خط — الخطوة 7 من 8 — الأجرة المقترحة / ميزانيتك</b>\n\nاختر الأجرة التقريبية المناسبة لك أو حسب الاتفاق مع السائق 👇`
+          : `💰 <b>الخطوة 8 من 9 — الأجرة الشهرية / السعر</b>\n\nاختر الأجرة التقريبية لكل راكب شهرياً 👇`;
+
+        await updateOrSend(stepMsg, { inline_keyboard: fareButtons });
         return new Response('OK', { status: 200 });
       }
 
@@ -15869,7 +16028,7 @@ Deno.serve(async (req: any) => {
         phoneButtons.push([{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
 
         const phonePrompt = isPassenger
-          ? `🔒 <b>الخطوة 9 من 9 — طريقة التواصل والخصوصية</b>\n\n` +
+          ? `🔒 <b>طلب خط — الخطوة 8 من 8 — طريقة التواصل والخصوصية</b>\n\n` +
             `<i>خدمة نشر طلبات النقل مجانية 100% للطلاب والركاب 🎓</i>\n\n` +
             `👇 اختر هل ترغب بالتواصل عبر تليكرام فقط لحماية خصوصيتك، أو كتابة رقم هاتفك للتواصل المباشر والواتساب:`
           : `📞 <b>الخطوة 9 من 9 — رقم الهاتف للتواصل</b>\n\nاكتب رقم الهاتف للتواصل، أو اضغط على الزر لاستخدام رقمك المسجل:`;
@@ -16125,7 +16284,10 @@ Deno.serve(async (req: any) => {
           interest: 0,
           whatsappClicks: 0,
           pickup_lat: state.data.pickup_lat || null,
-          pickup_lng: state.data.pickup_lng || null
+          pickup_lng: state.data.pickup_lng || null,
+          university: state.data.university || state.data.destination || null,
+          university_id: state.data.university_id || null,
+          keywords: state.data.filter_keywords || []
         });
 
         const cleanSavedLocation = (state.data.regions || 'بغداد')
@@ -20362,15 +20524,59 @@ Deno.serve(async (req: any) => {
         state.step = 'trans_dest';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        const destMarkup = buildTransportDestinationsMarkup(state, 0);
+        const destMarkup = buildTransportDestinationsMarkup(state, 'pvt_bg', 0);
         await sendMessage(
           chatId,
-          `🏢 <b>الخطوة 4 من 9 — الوجهة (الجامعة أو العمل)</b>\n\n` +
-          `📍 مناطق الانطلاق المعتمدة: <b>${state.data.regions}</b>\n\n` +
-          `اختر الوجهة المطلوبة من القوائم أدناه أو اكتبها بنفسك 👇`,
-          destMarkup
+          destMarkup.text,
+          destMarkup.markup
         );
         return new Response('OK', { status: 200 });
+      }
+      else if (state.step === 'trans_dest_search' && text) {
+        const query = text.trim();
+        const matches = searchIraqiInstitutions(query);
+        const isPassenger = state.data?.type === 'request';
+        const stepNum = isPassenger ? 'الخطوة 4 من 8' : 'الخطوة 4 من 9';
+
+        if (matches && matches.length > 0) {
+          const inline_keyboard: any[][] = [];
+          for (const inst of matches.slice(0, 6)) {
+            inline_keyboard.push([{ text: `🎯 ${inst.name}`, callback_data: `td_id_${inst.id}` }]);
+          }
+          state.data.pending_dest_text = query;
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+          inline_keyboard.push([{ text: `✏️ استخدام ما كتبته: "${query.slice(0, 25)}"`, callback_data: 'trans_dest_force_custom' }]);
+          inline_keyboard.push([
+            { text: '⬅️ العودة لقائمة الوجهات', callback_data: 'trans_back_to_dest' },
+            { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+          ]);
+
+          await sendMessage(
+            chatId,
+            `🔍 <b>نتائج البحث عن: "${query}"</b>\n` +
+            `<i>${stepNum} — اختر المؤسسة المطابقة لربط خطك بقناتها مباشرة:</i>`,
+            { inline_keyboard }
+          );
+          return new Response('OK', { status: 200 });
+        } else {
+          state.data.pending_dest_text = query;
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+          await sendMessage(
+            chatId,
+            `🔍 <b>لم نعثر على كلية أو دائرة مطابقة بالضبط لـ: "${query}"</b>\n\n` +
+            `يمكنك اعتماد الاسم الذي كتبته كوِجهة مخصصة، أو العودة للتصنيفات:`,
+            {
+              inline_keyboard: [
+                [{ text: `✅ اعتماد "${query.slice(0, 25)}" كوِجهة`, callback_data: 'trans_dest_force_custom' }],
+                [{ text: '⬅️ العودة للقائمة والتصنيفات', callback_data: 'trans_back_to_dest' }],
+                [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+              ]
+            }
+          );
+          return new Response('OK', { status: 200 });
+        }
       }
       else if ((state.step === 'trans_dest' || state.step === 'trans_dest_custom_input') && text) {
         const rawDest = text.trim();
@@ -20388,36 +20594,75 @@ Deno.serve(async (req: any) => {
           return new Response('OK', { status: 200 });
         }
 
-        state.data.destination = rawDest.substring(0, 40);
+        const matches = searchIraqiInstitutions(rawDest);
+        const bestInst = (matches && matches.length > 0 && matches[0].score >= 0.7) ? matches[0] : null;
+        const finalDest = bestInst ? bestInst.name : rawDest.substring(0, 40);
+
+        state.data.destination = finalDest;
+        state.data.university = finalDest;
+        if (bestInst) {
+          state.data.university_id = bestInst.id;
+          state.data.filter_keywords = bestInst.keywords;
+        } else {
+          state.data.filter_keywords = [finalDest];
+        }
         state.step = 'trans_shift';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
+        const isPassenger = state.data?.type === 'request';
         const shiftButtons = TRANSPORT_SHIFTS.map(row => row.map(s => ({ text: s, callback_data: `trans_shift_${s}` })));
         shiftButtons.push([
           { text: '◀️ السابق (الوجهة)', callback_data: 'trans_back_to_dest' },
           { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
         ]);
 
-        await sendMessage(chatId, `⏰ <b>الخطوة 5 من 9 — وقت الدوام والشفت</b>\n\n🏢 الوجهة: <b>${state.data.destination}</b>\nاختر وقت الدوام المناسب أو اكتبه 👇`, {
-          inline_keyboard: shiftButtons
-        });
+        const stepMsg = isPassenger
+          ? `⏰ <b>طلب خط — الخطوة 5 من 8 — أوقات الدوام (الشفت المطلوب)</b>\n\n` +
+            `📍 نقطة الصعود: <b>${state.data?.regions || 'بغداد'}</b>\n` +
+            `🏢 الوجهة: <b>${finalDest}</b>\n\n` +
+            `اختر وقت دوامك المناسب لخطك أو اكتبه بنفسك 👇`
+          : `⏰ <b>الخطوة 5 من 9 — أوقات الدوام (الشفت)</b>\n\n` +
+            `📍 مناطق الانطلاق: <b>${state.data?.regions || 'بغداد'}</b>\n` +
+            `🏢 الوجهة: <b>${finalDest}</b>\n\n` +
+            `اختر وقت الدوام المناسب لخطك أو اكتبه بنفسك 👇`;
+
+        await sendMessage(chatId, stepMsg, { inline_keyboard: shiftButtons });
         return new Response('OK', { status: 200 });
       }
       else if (state.step === 'trans_shift' && text) {
         state.data.shift = text.trim();
-        state.step = 'trans_vehicle';
-        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        const isPassenger = state.data?.type === 'request';
 
-        const vehicleButtons = TRANSPORT_VEHICLES.map(row => row.map(v => ({ text: v, callback_data: `trans_vehicle_${v}` })));
-        vehicleButtons.push([
-          { text: '◀️ السابق', callback_data: `trans_dest_${state.data.destination || 'جامعة بغداد'}` },
-          { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
-        ]);
+        if (isPassenger) {
+          state.data.vehicleType = 'أي مركبة مناسبة ومكيفة';
+          state.step = 'trans_target';
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        await sendMessage(chatId, `🚗 <b>الخطوة 6 من 9 — نوع المركبة</b>\n\nاختر نوع المركبة 👇`, {
-          inline_keyboard: vehicleButtons
-        });
-        return new Response('OK', { status: 200 });
+          const targetButtons = TRANSPORT_TARGETS.map(row => row.map(t => ({ text: t, callback_data: `trans_target_${t}` })));
+          targetButtons.push([
+            { text: '◀️ السابق (الشفت)', callback_data: `trans_dest_${state.data.destination || 'الجامعة'}` },
+            { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+          ]);
+
+          await sendMessage(chatId, `👥 <b>طلب خط — الخطوة 6 من 8 — فئة الخط المرغوب</b>\n\nترغب بالانضمام لخط مخصص لمن؟ 👇`, {
+            inline_keyboard: targetButtons
+          });
+          return new Response('OK', { status: 200 });
+        } else {
+          state.step = 'trans_vehicle';
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+          const vehicleButtons = TRANSPORT_VEHICLES.map(row => row.map(v => ({ text: v, callback_data: `trans_vehicle_${v}` })));
+          vehicleButtons.push([
+            { text: '◀️ السابق', callback_data: `trans_dest_${state.data.destination || 'جامعة بغداد'}` },
+            { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+          ]);
+
+          await sendMessage(chatId, `🚗 <b>الخطوة 6 من 9 — نوع المركبة</b>\n\nاختر نوع المركبة 👇`, {
+            inline_keyboard: vehicleButtons
+          });
+          return new Response('OK', { status: 200 });
+        }
       }
       else if (state.step === 'trans_vehicle' && text) {
         state.data.vehicleType = text.trim();
@@ -20440,16 +20685,32 @@ Deno.serve(async (req: any) => {
         state.step = 'trans_fare';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        const fareButtons = TRANSPORT_FARES.map(row => row.map(f => {
-          if (f.includes('آخر')) return { text: f, callback_data: 'trans_fare_custom' };
-          return { text: f, callback_data: `trans_fare_${f}` };
-        }));
+        const isPassenger = state.data?.type === 'request';
+        let fareButtons: any[][];
+        if (isPassenger) {
+          fareButtons = [
+            [{ text: '🤝 حسب الاتفاق مع الكابتن', callback_data: 'trans_fare_حسب الاتفاق 🤝' }],
+            [{ text: '50,000 د.ع', callback_data: 'trans_fare_50,000 د.ع' }, { text: '75,000 د.ع', callback_data: 'trans_fare_75,000 د.ع' }],
+            [{ text: '100,000 د.ع', callback_data: 'trans_fare_100,000 د.ع' }, { text: '125,000 د.ع', callback_data: 'trans_fare_125,000 د.ع' }],
+            [{ text: '150,000 د.ع', callback_data: 'trans_fare_150,000 د.ع' }, { text: 'مبلغ آخر ✏️', callback_data: 'trans_fare_custom' }]
+          ];
+        } else {
+          fareButtons = TRANSPORT_FARES.map(row => row.map(f => {
+            if (f.includes('آخر')) return { text: f, callback_data: 'trans_fare_custom' };
+            return { text: f, callback_data: `trans_fare_${f}` };
+          }));
+        }
+
         fareButtons.push([
-          { text: '◀️ السابق', callback_data: `trans_vehicle_${state.data.vehicleType || 'صالون'}` },
+          { text: '◀️ السابق', callback_data: isPassenger ? `trans_shift_${state.data.shift || 'صباحي'}` : `trans_vehicle_${state.data.vehicleType || 'صالون'}` },
           { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
         ]);
 
-        await sendMessage(chatId, `💰 <b>الخطوة 8 من 9 — الأجرة الشهرية / السعر</b>\n\nاختر الأجرة التقريبية لكل راكب 👇`, {
+        const stepMsg = isPassenger
+          ? `💰 <b>طلب خط — الخطوة 7 من 8 — الأجرة المقترحة / ميزانيتك</b>\n\nاختر الأجرة التقريبية المناسبة لك أو حسب الاتفاق مع السائق 👇`
+          : `💰 <b>الخطوة 8 من 9 — الأجرة الشهرية / السعر</b>\n\nاختر الأجرة التقريبية لكل راكب 👇`;
+
+        await sendMessage(chatId, stepMsg, {
           inline_keyboard: fareButtons
         });
         return new Response('OK', { status: 200 });
@@ -20472,7 +20733,7 @@ Deno.serve(async (req: any) => {
         phoneButtons.push([{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
 
         const phonePrompt = isPassenger
-          ? `🔒 <b>الخطوة 9 من 9 — طريقة التواصل والخصوصية</b>\n\n` +
+          ? `🔒 <b>طلب خط — الخطوة 8 من 8 — طريقة التواصل والخصوصية</b>\n\n` +
             `<i>خدمة نشر طلبات النقل مجانية 100% للطلاب والركاب 🎓</i>\n\n` +
             `👇 اختر هل ترغب بالتواصل عبر تليكرام فقط لحماية خصوصيتك، أو كتابة رقم هاتفك للتواصل المباشر والواتساب:`
           : `📞 <b>الخطوة 9 من 9 — رقم الهاتف للتواصل</b>\n\nاكتب رقم الهاتف الخاص بك للتواصل، أو اضغط على الزر أدناه:`;
