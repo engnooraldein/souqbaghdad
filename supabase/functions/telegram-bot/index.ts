@@ -6221,11 +6221,22 @@ Deno.serve(async (req: any) => {
           const cleanPhone = (ad.phone || '').replace(/[^0-9+]/g, '');
           const waPhone = cleanPhone.startsWith('07') ? '964' + cleanPhone.substring(1) : cleanPhone.replace('+', '');
 
+          const sellerTgUsername = ad.telegram_username;
+          const tgContactUrl = sellerTgUsername 
+            ? `https://t.me/${sellerTgUsername.replace('@', '')}` 
+            : `https://t.me/${BOT_USERNAME}?start=car_${shortId}`;
+          const waContactUrl = waPhone 
+            ? `https://wa.me/${waPhone}?text=${encodeURIComponent('السلام عليكم، بخصوص إعلان سيارتك في سوق بغداد')}` 
+            : null;
+
+          const row1: any[] = [{ text: '💬 تليكرام', url: tgContactUrl }];
+          if (waContactUrl) row1.push({ text: '🟢 واتساب', url: waContactUrl });
+          row1.push({ text: '🌐 الموقع', url: carLink });
+
           const carKeyboard = {
             inline_keyboard: [
-              [{ text: '🚗 تفاصيل السيارة والصور بالموقع', url: carLink }],
-              ...(waPhone ? [[{ text: '💬 تواصل واتساب 🟢', url: `https://wa.me/${waPhone}` }]] : []),
-              [{ text: '🚗 اعرض سيارتك للبيع (1 نقطة) ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
+              row1,
+              [{ text: '🚗 انشر من البوت (1 نقطة) ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
             ]
           };
 
@@ -6688,20 +6699,22 @@ Deno.serve(async (req: any) => {
           if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
           else cleanPhone = cleanPhone.replace('+', '');
 
-          const contactRow: any[] = [];
-          if (cleanPhone) {
-            const waText = encodeURIComponent('السلام عليكم، شفت إعلان سيارتك بسوق بغداد وحابة استفسر');
-            contactRow.push({ text: '💬 تواصل مع البائع (واتساب)', url: `https://wa.me/${cleanPhone}?text=${waText}` });
-          }
+          const sellerTgUsername = record.telegram_username;
+          const tgContactUrl = sellerTgUsername 
+            ? `https://t.me/${sellerTgUsername.replace('@', '')}` 
+            : `https://t.me/${BOT_USERNAME}?start=car_${record.short_id || record.id}`;
+          const waContactUrl = cleanPhone 
+            ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent('السلام عليكم، بخصوص إعلان سيارتك في سوق بغداد')}` 
+            : null;
+
+          const row1: any[] = [{ text: '💬 تليكرام', url: tgContactUrl }];
+          if (waContactUrl) row1.push({ text: '🟢 واتساب', url: waContactUrl });
+          row1.push({ text: '🌐 الموقع', url: link });
 
           const inlineKeyboard: any[] = [
-            [{ text: detailsButtonText, url: link }]
+            row1,
+            [{ text: '🚗 انشر من البوت (1 نقطة) ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
           ];
-          if (contactRow.length > 0) {
-            inlineKeyboard.push(contactRow);
-          }
-          // زر نشر سيارة عبر البوت مع deep-link مباشر لخطوة النشر
-          inlineKeyboard.push([{ text: '🚗 انشر سيارتك عبر البوت ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]);
 
           const replyMarkup = { inline_keyboard: inlineKeyboard };
 
@@ -7714,6 +7727,7 @@ Deno.serve(async (req: any) => {
     }
 
     const fromUser = update.message?.from || update.callback_query?.from;
+    const fromName = fromUser?.first_name || 'عزيزنا';
     callbackQueryId = callbackQuery?.id;
     const callbackMsgId = callbackQuery?.message?.message_id;
     const messageId = update.message?.message_id || callbackMsgId;
@@ -11376,6 +11390,60 @@ Deno.serve(async (req: any) => {
       return new Response('OK', { status: 200 });
     }
 
+    // --- Deep-Link Direct Car Details & Contact (/start car_ID) ---
+    if (text.startsWith('/start car_')) {
+      const carId = text.replace('/start car_', '').trim();
+      let carQuery = supabase.from('ads').select('*');
+      if (carId.length >= 30) {
+        carQuery = carQuery.eq('id', carId);
+      } else {
+        carQuery = carQuery.or(`short_id.eq.${carId},id.eq.${carId}`);
+      }
+      const { data: carAd } = await carQuery.limit(1).maybeSingle();
+
+      if (carAd) {
+        let specs: any = {};
+        try { specs = typeof carAd.description === 'string' ? JSON.parse(carAd.description) : (carAd.description || {}); } catch(e){}
+        const priceText = formatTgPrice(carAd.price, specs?.currency || '$');
+        const shortId = carAd.short_id || carAd.id;
+        const carLink = `https://www.souqbaghdad.store/vehicles/card/${shortId}`;
+
+        let cleanPhone = (carAd.phone || '').replace(/[^0-9+]/g, '');
+        if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
+        else cleanPhone = cleanPhone.replace('+', '');
+
+        const sellerTgUsername = carAd.telegram_username;
+        const tgContactUrl = sellerTgUsername ? `https://t.me/${sellerTgUsername.replace('@', '')}` : null;
+        const waContactUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent('السلام عليكم، بخصوص إعلان سيارتك المعروضة بسوق بغداد')}` : null;
+
+        let detailsMsg =
+          `🚗 <b>إعلان سيارة: ${carAd.title || 'سيارة معروضة للبيع'}</b>\n\n` +
+          `💰 <b>السعر:</b> ${priceText}\n` +
+          `📍 <b>الموقع:</b> ${carAd.location || 'بغداد'}\n` +
+          (specs?.brand ? `🏢 <b>الشركة:</b> ${specs.brand}\n` : '') +
+          (specs?.model ? `📋 <b>الموديل:</b> ${specs.model}\n` : '') +
+          (specs?.year ? `📅 <b>سنة الصنع:</b> ${specs.year}\n` : '') +
+          (specs?.gear ? `⚙️ <b>الجير:</b> ${specs.gear}\n` : '') +
+          (specs?.fuel ? `⛽ <b>نوع الوقود:</b> ${specs.fuel}\n` : '') +
+          (specs?.mileage ? `🛣️ <b>المسافة المقطوعة:</b> ${specs.mileage}\n` : '') +
+          `\n📞 <b>طرق التواصل المتاحة:</b>`;
+
+        const row1: any[] = [];
+        if (tgContactUrl) row1.push({ text: '💬 تليكرام', url: tgContactUrl });
+        if (waContactUrl) row1.push({ text: '🟢 واتساب', url: waContactUrl });
+        row1.push({ text: '🌐 الموقع', url: carLink });
+
+        const carBtns: any[][] = [
+          row1,
+          [{ text: '🚗 انشر من البوت (1 نقطة) ⚡', callback_data: 'publish_car' }],
+          [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+        ];
+
+        await updateOrSend(detailsMsg, { inline_keyboard: carBtns });
+        return new Response('OK', { status: 200 });
+      }
+    }
+
     // --- Deep-Link Direct Line Booking from Group (حجز الخط ونقل كامل المحادثة لخاص البوت) ---
     if (text.startsWith('/start book_') || text.startsWith('/start line_')) {
       const lineId = text.replace('/start book_', '').replace('/start line_', '').trim();
@@ -11737,7 +11805,34 @@ Deno.serve(async (req: any) => {
     }
 
     // --- Start / Register Command (Captures Referral Code & Deep-links) ---
-    if (text === '/start' || text.startsWith('/start ') || text === '/relink') {
+    const cleanLowerText = (text || '').trim().toLowerCase();
+    const isPublishTransportCmd = 
+      cleanLowerText === '/start pubtrans' || 
+      cleanLowerText === '/start publish_transport' || 
+      cleanLowerText === 'نشر خط' || 
+      cleanLowerText === 'انشر خط' || 
+      cleanLowerText === 'اريد انشر خط' || 
+      cleanLowerText === 'أريد انشر خط' || 
+      cleanLowerText === 'نشر خط نقل' || 
+      cleanLowerText === 'تسجيل خط' || 
+      cleanLowerText === 'عندي خط';
+
+    const isPublishCarCmd = 
+      cleanLowerText === '/start publish_car' ||
+      cleanLowerText === '/start pubcar' ||
+      cleanLowerText === '/start car' ||
+      cleanLowerText === 'نشر سيارة' || 
+      cleanLowerText === 'نشر سياره' || 
+      cleanLowerText === 'انشر سيارة' || 
+      cleanLowerText === 'انشر سياره' || 
+      cleanLowerText === 'عرض سيارة' || 
+      cleanLowerText === 'عرض سياره' || 
+      cleanLowerText === 'عرض سيارة للبيع' || 
+      cleanLowerText === 'عرض سياره للبيع' || 
+      cleanLowerText === 'بيع سيارة' || 
+      cleanLowerText === 'بيع سياره';
+
+    if (text === '/start' || text.startsWith('/start ') || text === '/relink' || isPublishTransportCmd || isPublishCarCmd) {
       if (text === '/start' || text === '/relink') {
         state = {};
         await supabase.from('telegram_users').update({ bot_state: null }).eq('telegram_chat_id', chatId);
@@ -12013,21 +12108,9 @@ Deno.serve(async (req: any) => {
       }
 
       // 🚗 Deep-Link / Text Command: Publish Transport
-      const cleanLowerText = (text || '').trim().toLowerCase();
-      const isPublishTransportCmd = 
-        cleanLowerText === '/start pubtrans' || 
-        cleanLowerText === '/start publish_transport' || 
-        cleanLowerText === 'نشر خط' || 
-        cleanLowerText === 'انشر خط' || 
-        cleanLowerText === 'اريد انشر خط' || 
-        cleanLowerText === 'أريد انشر خط' || 
-        cleanLowerText === 'نشر خط نقل' || 
-        cleanLowerText === 'تسجيل خط' || 
-        cleanLowerText === 'عندي خط';
-
       if (isPublishTransportCmd) {
         state = { step: 'trans_type', data: { phone: phone || null } };
-        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        await supabase.from('telegram_users').upsert({ telegram_chat_id: chatId, bot_state: state }, { onConflict: 'telegram_chat_id' });
 
         const transPrompt = 
           `🚌 <b>يا هلا بيك عيوني ${fromName}! 🌹</b>\n\n` +
@@ -12046,33 +12129,16 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
-      // 🚗 Deep-Link: Publish Car (/start publish_car or /start pubcar)
-      if (text === '/start publish_car' || text === '/start pubcar' || (text && text.startsWith('/start ') && (text.includes('publish_car') || text.includes('pubcar') || text.includes('car')))) {
-        const { data: profile } = await supabase.from('profiles').select('points, role').eq('id', userId).maybeSingle();
-        const userPoints = profile?.points || 0;
-        const isFreeRole = profile?.role === 'admin' || profile?.role === 'owner';
-
-        if (!isFreeRole && userPoints < 1) {
-          await sendMessage(chatId, 
-            `🚗 <b>يا هلا بيك عيوني ${fromName}! 🌹</b>\n\n` +
-            `ℹ️ <b>تكلفة نشر إعلان السيارة:</b> <code>1 نقطة واحدة فقط</code>.\n` +
-            `رصيد نقاطك الحالي: <b>${userPoints} نقطة</b>.\n\n` +
-            `يرجى شحن محفظتك للمتابعة ونشر سيارتك فوراً عبر الأزرار أدناه 👇`,
-            {
-              inline_keyboard: [
-                [{ text: '💳 شحن وشراء نقاط الآن', callback_data: 'buy_points' }],
-                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
-              ]
-            }
-          );
-          return new Response('OK', { status: 200 });
-        }
-
+      // 🚗 Deep-Link / Command: Publish Car (/start publish_car or /start pubcar or text)
+      if (text === '/start publish_car' || text === '/start pubcar' || text === '/start car' || (text && text.startsWith('/start ') && (text.includes('publish_car') || text.includes('pubcar') || text.includes('car'))) || isPublishCarCmd) {
         const carState = {
           step: 'car_brand',
           data: { images: [], type: 'car' }
         };
-        await supabase.from('telegram_users').update({ bot_state: carState }).eq('telegram_chat_id', chatId);
+        await supabase.from('telegram_users').upsert({
+          telegram_chat_id: chatId,
+          bot_state: carState
+        }, { onConflict: 'telegram_chat_id' });
 
         const brandButtons = CAR_BRANDS.map(row => row.map(b => ({ text: b, callback_data: `car_brand_${b}` })));
         brandButtons.push([{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]);
@@ -15628,14 +15694,6 @@ Deno.serve(async (req: any) => {
       // 🚗 CAR WIZARD (Interactive Step-by-Step)
       // ==========================================
       if (action === 'publish_car') {
-        const { data: profile } = await supabase.from('profiles').select('points, role').eq('id', userId).maybeSingle();
-        if (profile?.role !== 'admin' && profile?.role !== 'owner' && (profile?.points || 0) < 1) {
-          await updateOrSend('❌ عذراً، رصيد النقاط الخاص بك غير كافٍ. تكلفة نشر إعلان السيارة هي (1 نقطة واحدة فقط). يرجى شحن المحفظة أولاً.', {
-            inline_keyboard: [[{ text: '💳 شراء نقاط', callback_data: 'buy_points' }], [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
-          });
-          return new Response('OK', { status: 200 });
-        }
-
         state = { step: 'car_brand', data: { images: [], type: 'car' } };
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
@@ -15890,16 +15948,23 @@ Deno.serve(async (req: any) => {
         let cleanPhone = (state.data.phone || '').replace(/[^0-9+]/g, '');
         if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
         else cleanPhone = cleanPhone.replace('+', '');
-        const contactRow: any[] = [];
-        if (cleanPhone) {
-          contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-          
-        }
+
+        const sellerTgUsername = fromUser?.username || tgUser?.telegram_username;
+        const tgContactUrl = sellerTgUsername 
+          ? `https://t.me/${sellerTgUsername.replace('@', '')}` 
+          : `https://t.me/${BOT_USERNAME}?start=car_${adId}`;
+        const waContactUrl = cleanPhone 
+          ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent('السلام عليكم، بخصوص إعلان سيارتك المعروضة في سوق بغداد')}` 
+          : null;
+
+        const row1: any[] = [{ text: '💬 تليكرام', url: tgContactUrl }];
+        if (waContactUrl) row1.push({ text: '🟢 واتساب', url: waContactUrl });
+        row1.push({ text: '🌐 الموقع', url: carLink });
+
         const channelMarkup: any = {
           inline_keyboard: [
-            [{ text: '🌐 عرض التفاصيل كاملة بالمنصة', url: carLink }],
-            ...(contactRow.length > 0 ? [contactRow] : []),
-            [{ text: '🚗 اعرض سيارتك للبيع (1 نقطة) ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
+            row1,
+            [{ text: '🚗 انشر من البوت (1 نقطة) ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
           ]
         };
 
@@ -20882,17 +20947,22 @@ Deno.serve(async (req: any) => {
             if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
             else cleanPhone = cleanPhone.replace('+', '');
 
-            const contactRow = [];
-            if (cleanPhone) {
-              contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-              
-            }
+            const sellerTgUsername = updatedAd.telegram_username;
+            const tgContactUrl = sellerTgUsername 
+              ? `https://t.me/${sellerTgUsername.replace('@', '')}` 
+              : `https://t.me/${BOT_USERNAME}?start=car_${adId}`;
+            const waContactUrl = cleanPhone 
+              ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent('السلام عليكم، بخصوص إعلان سيارتك في سوق بغداد')}` 
+              : null;
+
+            const row1: any[] = [{ text: '💬 تليكرام', url: tgContactUrl }];
+            if (waContactUrl) row1.push({ text: '🟢 واتساب', url: waContactUrl });
+            row1.push({ text: '🌐 الموقع', url: link });
 
             const inlineKeyboard = [
-              [{ text: '🌐 عرض التفاصيل بالمنصة', url: link }]
+              row1,
+              [{ text: '🚗 انشر من البوت (1 نقطة) ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
             ];
-            if (contactRow.length > 0) inlineKeyboard.push(contactRow);
-            inlineKeyboard.push([{ text: '🚗 اعرض سيارتك للبيع (1 نقطة) ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]);
 
             const replyMarkup = { inline_keyboard: inlineKeyboard };
 
@@ -20958,17 +21028,22 @@ Deno.serve(async (req: any) => {
             if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
             else cleanPhone = cleanPhone.replace('+', '');
 
-            const contactRow = [];
-            if (cleanPhone) {
-              contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-              
-            }
+            const sellerTgUsername = updatedAd.telegram_username;
+            const tgContactUrl = sellerTgUsername 
+              ? `https://t.me/${sellerTgUsername.replace('@', '')}` 
+              : `https://t.me/${BOT_USERNAME}?start=car_${adId}`;
+            const waContactUrl = cleanPhone 
+              ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent('السلام عليكم، بخصوص إعلان سيارتك في سوق بغداد')}` 
+              : null;
+
+            const row1: any[] = [{ text: '💬 تليكرام', url: tgContactUrl }];
+            if (waContactUrl) row1.push({ text: '🟢 واتساب', url: waContactUrl });
+            row1.push({ text: '🌐 الموقع', url: link });
 
             const inlineKeyboard = [
-              [{ text: '🌐 عرض التفاصيل بالمنصة', url: link }]
+              row1,
+              [{ text: '🚗 انشر من البوت (1 نقطة) ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
             ];
-            if (contactRow.length > 0) inlineKeyboard.push(contactRow);
-            inlineKeyboard.push([{ text: '🚗 اعرض سيارتك للبيع (1 نقطة) ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]);
 
             const replyMarkup = { inline_keyboard: inlineKeyboard };
 
