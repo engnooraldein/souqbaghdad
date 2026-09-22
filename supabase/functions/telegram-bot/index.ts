@@ -5167,46 +5167,305 @@ async function checkInterruption(text: string): Promise<boolean> {
   }
 }
 
-// --- Data Lists for Car Wizard ---
-const CAR_BRANDS = [
-  ['هيونداي', 'كيا', 'تويوتا'],
-  ['نيسان', 'شفروليه', 'بي ام دبليو'],
-  ['مرسيدس', 'هوندا', 'سوزوكي'],
-  ['ميتسوبيشي', 'مازدا', 'فورد'],
-  ['جي ام سي', 'دودج', 'جيب'],
-  ['كاديلاك', 'كرايسلر', 'لكزس'],
-  ['شيري', 'جيلي', 'هافال'],
-  ['بايك', 'BYD', 'GAC'],
-  ['MG', 'جيتور', 'شانجان'],
-  ['فولكسفاغن', 'أودي', 'لاند روفر'],
-  ['بورشه', 'رينو', 'بيجو'],
-  ['أخرى 🔄']
+// --- Data Lists for Car Wizard (نظام اختيار وماركات السيارات المصنف والذكي) ---
+interface CarBrandItem {
+  id: string;
+  name: string;
+  category: 'popular' | 'asian' | 'american' | 'european' | 'chinese';
+  keywords: string[];
+}
+
+const ALL_CAR_BRANDS: CarBrandItem[] = [
+  // 🔥 الأكثر طلباً
+  { id: 'toyota', name: 'تويوتا', category: 'popular', keywords: ['تويوتا', 'toyota'] },
+  { id: 'hyundai', name: 'هيونداي', category: 'popular', keywords: ['هيونداي', 'hyundai', 'هونداي'] },
+  { id: 'kia', name: 'كيا', category: 'popular', keywords: ['كيا', 'kia'] },
+  { id: 'nissan', name: 'نيسان', category: 'popular', keywords: ['نيسان', 'nissan'] },
+  { id: 'chevrolet', name: 'شفروليه', category: 'popular', keywords: ['شفروليه', 'شفر', 'chevrolet', 'chevy'] },
+  { id: 'bmw', name: 'بي ام دبليو', category: 'popular', keywords: ['بي ام', 'بي ام دبليو', 'bmw'] },
+  { id: 'mercedes', name: 'مرسيدس', category: 'popular', keywords: ['مرسيدس', 'mercedes', 'بنز'] },
+  { id: 'ford', name: 'فورد', category: 'popular', keywords: ['فورد', 'ford'] },
+
+  // 🇯🇵 ياباني وكوري
+  { id: 'toyota_as', name: 'تويوتا', category: 'asian', keywords: ['تويوتا', 'toyota'] },
+  { id: 'hyundai_as', name: 'هيونداي', category: 'asian', keywords: ['هيونداي', 'hyundai', 'هونداي'] },
+  { id: 'kia_as', name: 'كيا', category: 'asian', keywords: ['كيا', 'kia'] },
+  { id: 'nissan_as', name: 'نيسان', category: 'asian', keywords: ['نيسان', 'nissan'] },
+  { id: 'honda_as', name: 'هوندا', category: 'asian', keywords: ['هوندا', 'honda'] },
+  { id: 'suzuki_as', name: 'سوزوكي', category: 'asian', keywords: ['سوزوكي', 'suzuki'] },
+  { id: 'mitsubishi_as', name: 'ميتسوبيشي', category: 'asian', keywords: ['ميتسوبيشي', 'متسوبيشي', 'mitsubishi'] },
+  { id: 'mazda_as', name: 'مازدا', category: 'asian', keywords: ['مازدا', 'mazda'] },
+  { id: 'lexus_as', name: 'لكزس', category: 'asian', keywords: ['لكزس', 'lexus'] },
+  { id: 'isuzu_as', name: 'إيسوزو', category: 'asian', keywords: ['ايسوزو', 'إيسوزو', 'isuzu'] },
+  { id: 'subaru_as', name: 'سوبارو', category: 'asian', keywords: ['سوبارو', 'subaru'] },
+  { id: 'genesis_as', name: 'جينيسيس', category: 'asian', keywords: ['جينيسيس', 'genesis'] },
+
+  // 🇺🇸 أمريكي
+  { id: 'chevrolet_am', name: 'شفروليه', category: 'american', keywords: ['شفروليه', 'شفر', 'chevrolet'] },
+  { id: 'ford_am', name: 'فورد', category: 'american', keywords: ['فورد', 'ford'] },
+  { id: 'jeep_am', name: 'جيب', category: 'american', keywords: ['جيب', 'jeep'] },
+  { id: 'dodge_am', name: 'دودج', category: 'american', keywords: ['دودج', 'دوج', 'dodge'] },
+  { id: 'gmc_am', name: 'جي ام سي', category: 'american', keywords: ['جمس', 'جي ام سي', 'gmc'] },
+  { id: 'chrysler_am', name: 'كرايسلر', category: 'american', keywords: ['كرايسلر', 'chrysler'] },
+  { id: 'cadillac_am', name: 'كاديلاك', category: 'american', keywords: ['كاديلاك', 'cadillac'] },
+  { id: 'ram_am', name: 'رام', category: 'american', keywords: ['رام', 'ram'] },
+  { id: 'lincoln_am', name: 'لينكولن', category: 'american', keywords: ['لينكولن', 'lincoln'] },
+
+  // 🇩🇪 ألماني وأوروبي
+  { id: 'bmw_eu', name: 'بي ام دبليو', category: 'european', keywords: ['بي ام دبليو', 'bmw'] },
+  { id: 'mercedes_eu', name: 'مرسيدس', category: 'european', keywords: ['مرسيدس', 'mercedes'] },
+  { id: 'volkswagen_eu', name: 'فولكسفاغن', category: 'european', keywords: ['فولكسفاغن', 'فولكس', 'volkswagen', 'vw'] },
+  { id: 'audi_eu', name: 'أودي', category: 'european', keywords: ['أودي', 'audi'] },
+  { id: 'landrover_eu', name: 'لاند روفر', category: 'european', keywords: ['لاند روفر', 'land rover', 'رينج'] },
+  { id: 'porsche_eu', name: 'بورشه', category: 'european', keywords: ['بورشه', 'بورش', 'porsche'] },
+  { id: 'renault_eu', name: 'رينو', category: 'european', keywords: ['رينو', 'renault'] },
+  { id: 'peugeot_eu', name: 'بيجو', category: 'european', keywords: ['بيجو', 'peugeot'] },
+  { id: 'skoda_eu', name: 'سكودا', category: 'european', keywords: ['سكودا', 'skoda'] },
+
+  // 🇨🇳 صيني حديث
+  { id: 'chery_cn', name: 'شيري', category: 'chinese', keywords: ['شيري', 'chery'] },
+  { id: 'geely_cn', name: 'جيلي', category: 'chinese', keywords: ['جيلي', 'geely'] },
+  { id: 'haval_cn', name: 'هافال', category: 'chinese', keywords: ['هافال', 'haval'] },
+  { id: 'changan_cn', name: 'شانجان', category: 'chinese', keywords: ['شانجان', 'changan'] },
+  { id: 'jetour_cn', name: 'جيتور', category: 'chinese', keywords: ['جيتور', 'jetour'] },
+  { id: 'mg_cn', name: 'MG', category: 'chinese', keywords: ['mg', 'ام جي'] },
+  { id: 'baic_cn', name: 'بايك', category: 'chinese', keywords: ['بايك', 'baic'] },
+  { id: 'byd_cn', name: 'BYD', category: 'chinese', keywords: ['byd', 'بي واي دي'] },
+  { id: 'gac_cn', name: 'GAC', category: 'chinese', keywords: ['gac', 'جاك'] },
+  { id: 'hongqi_cn', name: 'هونشي', category: 'chinese', keywords: ['هونشي', 'hongqi'] },
+  { id: 'bestune_cn', name: 'بيستون', category: 'chinese', keywords: ['بيستون', 'bestune'] },
+  { id: 'exeed_cn', name: 'إكسيد', category: 'chinese', keywords: ['اكسيد', 'exeed'] }
 ];
 
-const CAR_YEARS = [
-  ['2026', '2025', '2024', '2023'],
-  ['2022', '2021', '2020', '2019'],
-  ['2018', '2017', '2016', '2015'],
-  ['2014', '2013', '2012', '2011'],
-  ['2010', 'موديل أقدم 📅']
-];
+const POPULAR_CAR_MODELS: { [brand: string]: string[] } = {
+  'تويوتا': ['كورولا', 'كامري', 'لاندكروزر', 'راف فور (RAV4)', 'برادو', 'هيلوكس', 'فورتشنر', 'يارس', 'افالون', 'كراون'],
+  'هيونداي': ['النترا', 'سوناتا', 'توسان', 'سنتافي', 'أكسنت', 'أزيرا', 'كريتا', 'باليسيد', 'كوانتي', 'ستاريا'],
+  'كيا': ['سبورتاج', 'سيراتو (K3)', 'سورينتو', 'أوبتيما (K5)', 'بيكانتو', 'سيلتوس', 'كادينزا (K8)', 'فورتي', 'ريو', 'كرنفال'],
+  'نيسان': ['صني', 'سنترا', 'التيما', 'ماكسيما', 'باترول', 'اكس تريل', 'كيكس', 'روغ', 'تيدا', 'نافارا'],
+  'شفروليه': ['تاهو', 'ماليبو', 'كروز', 'ترافرس', 'سيلفرادو', 'كابتيفا', 'كامارو', 'تراكس', 'امبالا'],
+  'فورد': ['توروس', 'اكسبلورر', 'F-150', 'فيوجن', 'إكسبدشن', 'إيدج', 'فوكس', 'موستانج'],
+  'مرسيدس': ['C-Class', 'E-Class', 'S-Class', 'G-Class', 'GLE', 'GLC', 'CLA', 'A-Class'],
+  'بي ام دبليو': ['الفئة الثالثة 3-Series', 'الفئة الخامسة 5-Series', 'الفئة السابعة 7-Series', 'X5', 'X6', 'X3', 'X7', 'الفئة الرابعة 4-Series'],
+  'جيب': ['غراند شيروكي', 'شيروكي', 'رانجلر', 'كومباس', 'رينيجيد'],
+  'دودج': ['تشارجر', 'تشالنجر', 'دورانجو', 'جورني'],
+  'جي ام سي': ['يوكن', 'سييرا', 'تيرين', 'اكاديا'],
+  'لكزس': ['LX', 'ES', 'RX', 'GX', 'IS', 'LS'],
+  'هافال': ['H6', 'جوليان (Jolion)', 'دارغو (Dargo)', 'H9'],
+  'شيري': ['تيجو 8', 'تيجو 7', 'أريزو 6', 'تيجو 4', 'تيجو 2'],
+  'جيلي': ['مونجارو', 'كولراي', 'امجراند', 'ازكارا', 'توغيلا'],
+  'شانجان': ['CS85', 'CS95', 'CS75', 'CS35', 'UNI-K', 'UNI-T', 'UNI-V'],
+  'جيتور': ['داشينغ (Dashing)', 'X70', 'X90', 'T2 (ترافيلر)'],
+  'MG': ['MG 5', 'MG 6', 'MG ZS', 'MG RX5', 'MG HS', 'MG One']
+};
 
-const IRAQI_GOVERNORATES = [
-  ['بغداد', 'البصرة', 'أربيل'],
-  ['نينوى', 'السليمانية', 'دهوك'],
-  ['كركوك', 'الأنبار', 'صلاح الدين'],
-  ['بابل', 'كربلاء', 'النجف'],
-  ['ديالى', 'واسط', 'ميسان'],
-  ['ذي قار', 'المثنى', 'القادسية'],
-  ['حلبجة']
-];
+function searchCarBrands(query: string): string[] {
+  if (!query || query.trim().length === 0) return [];
+  const q = normArabic(query.toLowerCase().trim());
+  const scored: { name: string; score: number }[] = [];
+  const seen = new Set<string>();
 
-const CAR_SPECS_ORIGINS = [
-  ['وارد أمريكي 🇺🇸', 'وارد خليجي 🇦🇪'],
-  ['وارد كندي 🇨🇦', 'وارد كوري 🇰🇷'],
-  ['بدون صبغ ✨', 'صبغ عام 🎨'],
-  ['صبغ قطع بسيطة 🔧', 'مواصفات أخرى 📝']
-];
+  for (const b of ALL_CAR_BRANDS) {
+    if (seen.has(b.name)) continue;
+    let score = 0;
+    const normName = normArabic(b.name.toLowerCase());
+    if (normName === q) score += 150;
+    else if (normName.startsWith(q)) score += 100;
+    else if (normName.includes(q)) score += 50;
+
+    for (const kw of b.keywords) {
+      const normKw = normArabic(kw.toLowerCase());
+      if (normKw === q) score += 120;
+      else if (normKw.startsWith(q)) score += 80;
+      else if (normKw.includes(q)) score += 40;
+    }
+
+    if (score > 0) {
+      seen.add(b.name);
+      scored.push({ name: b.name, score });
+    }
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 8).map(s => s.name);
+}
+
+function buildCarBrandsMarkup(state: any, catOrPage: string | number = 'popular', pageNum = 0) {
+  let activeCategory = 'popular';
+  let pageIdx = 0;
+  if (typeof catOrPage === 'number') {
+    pageIdx = catOrPage;
+    activeCategory = state?.data?.brandCategory || 'popular';
+  } else if (typeof catOrPage === 'string') {
+    activeCategory = catOrPage || 'popular';
+    pageIdx = pageNum || 0;
+  }
+
+  const catTitles: { [k: string]: string } = {
+    popular: '🔥 الأكثر طلباً وشعبية',
+    asian: '🇯🇵 ياباني وكوري',
+    american: '🇺🇸 أمريكي',
+    european: '🇩🇪 ألماني وأوروبي',
+    chinese: '🇨🇳 صيني حديث'
+  };
+
+  const PAGE_SIZE = 8;
+  const filtered = ALL_CAR_BRANDS.filter(b => b.category === activeCategory);
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+  const page = Math.max(0, Math.min(pageIdx, totalPages - 1));
+  const pageItems = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const selectedBrand = state?.data?.brand || '';
+  const inline_keyboard: any[][] = [];
+
+  // 1. Top Search Bar Button
+  inline_keyboard.push([
+    { text: '🔍 بحث سريع بالاسم عن الماركة', callback_data: 'car_brand_search_prompt' }
+  ]);
+
+  // 2. 8 Brands Grid (2 columns)
+  for (let i = 0; i < pageItems.length; i += 2) {
+    const row = [];
+    const item1 = pageItems[i];
+    const isSel1 = selectedBrand === item1.name;
+    row.push({
+      text: isSel1 ? `✅ ${item1.name}` : `🚗 ${item1.name}`,
+      callback_data: `cb_name_${encodeURIComponent(item1.name)}`
+    });
+
+    if (i + 1 < pageItems.length) {
+      const item2 = pageItems[i + 1];
+      const isSel2 = selectedBrand === item2.name;
+      row.push({
+        text: isSel2 ? `✅ ${item2.name}` : `🚗 ${item2.name}`,
+        callback_data: `cb_name_${encodeURIComponent(item2.name)}`
+      });
+    }
+    inline_keyboard.push(row);
+  }
+
+  // 3. Navigation Pagination Bar
+  const navRow: any[] = [];
+  if (page > 0) {
+    navRow.push({ text: '⬅️ السابق', callback_data: `car_brand_cat_${activeCategory}_${page - 1}` });
+  }
+  navRow.push({ text: `📄 صفحة ${page + 1} من ${totalPages}`, callback_data: `car_brand_cat_${activeCategory}_${page}` });
+  if (page < totalPages - 1) {
+    navRow.push({ text: 'التالي ➡️', callback_data: `car_brand_cat_${activeCategory}_${page + 1}` });
+  }
+  if (navRow.length > 1 || totalPages > 1) {
+    inline_keyboard.push(navRow);
+  }
+
+  // 4. Category Selector Tabs (Matching Image 1 transport style)
+  inline_keyboard.push([
+    { text: activeCategory === 'popular' ? '🔘 🔥 الأكثر طلباً' : '🔥 الأكثر طلباً', callback_data: 'car_brand_cat_popular_0' },
+    { text: activeCategory === 'asian' ? '🔘 🇯🇵 ياباني وكوري' : '🇯🇵 ياباني وكوري', callback_data: 'car_brand_cat_asian_0' }
+  ]);
+  inline_keyboard.push([
+    { text: activeCategory === 'american' ? '🔘 🇺🇸 أمريكي' : '🇺🇸 أمريكي', callback_data: 'car_brand_cat_american_0' },
+    { text: activeCategory === 'european' ? '🔘 🇩🇪 أوروبي' : '🇩🇪 أوروبي', callback_data: 'car_brand_cat_european_0' }
+  ]);
+  inline_keyboard.push([
+    { text: activeCategory === 'chinese' ? '🔘 🇨🇳 صيني حديث' : '🇨🇳 صيني حديث', callback_data: 'car_brand_cat_chinese_0' }
+  ]);
+
+  // 5. Custom / Cancel options
+  inline_keyboard.push([
+    { text: '✏️ كتابة اسم ماركة أخرى', callback_data: 'car_brand_custom_prompt' },
+    { text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }
+  ]);
+
+  return { inline_keyboard };
+}
+
+function buildCarModelsMarkup(state: any, brand: string) {
+  const models = POPULAR_CAR_MODELS[brand] || [];
+  const inline_keyboard: any[][] = [];
+
+  if (models.length > 0) {
+    for (let i = 0; i < models.length; i += 2) {
+      const row = [{ text: `🚗 ${models[i]}`, callback_data: `cm_name_${encodeURIComponent(models[i])}` }];
+      if (i + 1 < models.length) {
+        row.push({ text: `🚗 ${models[i + 1]}`, callback_data: `cm_name_${encodeURIComponent(models[i + 1])}` });
+      }
+      inline_keyboard.push(row);
+    }
+  }
+
+  inline_keyboard.push([
+    { text: '✏️ كتابة اسم الموديل يدوياً ✍️', callback_data: 'car_model_custom_prompt' }
+  ]);
+  inline_keyboard.push([
+    { text: '◀️ السابق (الماركة)', callback_data: 'publish_car' },
+    { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+  ]);
+
+  return { inline_keyboard };
+}
+
+function buildCarYearsMarkup() {
+  return {
+    inline_keyboard: [
+      [{ text: '2026', callback_data: 'car_year_2026' }, { text: '2025', callback_data: 'car_year_2025' }, { text: '2024', callback_data: 'car_year_2024' }],
+      [{ text: '2023', callback_data: 'car_year_2023' }, { text: '2022', callback_data: 'car_year_2022' }, { text: '2021', callback_data: 'car_year_2021' }],
+      [{ text: '2020', callback_data: 'car_year_2020' }, { text: '2019', callback_data: 'car_year_2019' }, { text: '2018', callback_data: 'car_year_2018' }],
+      [{ text: '2017', callback_data: 'car_year_2017' }, { text: '2016', callback_data: 'car_year_2016' }, { text: '2015', callback_data: 'car_year_2015' }],
+      [{ text: '2014', callback_data: 'car_year_2014' }, { text: '2013', callback_data: 'car_year_2013' }, { text: '2012', callback_data: 'car_year_2012' }],
+      [{ text: '📅 موديل أقدم (كتابة السنة)', callback_data: 'car_year_older' }],
+      [{ text: '◀️ السابق (الموديل)', callback_data: 'car_back_to_model' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+    ]
+  };
+}
+
+function buildCarGovMarkup() {
+  return {
+    inline_keyboard: [
+      [{ text: '📍 بغداد', callback_data: 'car_gov_بغداد' }, { text: '📍 البصرة', callback_data: 'car_gov_البصرة' }],
+      [{ text: '📍 أربيل', callback_data: 'car_gov_أربيل' }, { text: '📍 نينوى (الموصل)', callback_data: 'car_gov_نينوى' }],
+      [{ text: '📍 كركوك', callback_data: 'car_gov_كركوك' }, { text: '📍 الأنبار', callback_data: 'car_gov_الأنبار' }],
+      [{ text: '📍 كربلاء المقدسة', callback_data: 'car_gov_كربلاء' }, { text: '📍 النجف الأشرف', callback_data: 'car_gov_النجف' }],
+      [{ text: '📍 بابل (الحلة)', callback_data: 'car_gov_بابل' }, { text: '📍 صلاح الدين', callback_data: 'car_gov_صلاح الدين' }],
+      [{ text: '📍 السليمانية', callback_data: 'car_gov_السليمانية' }, { text: '📍 دهوك', callback_data: 'car_gov_دهوك' }],
+      [{ text: '📍 ديالى', callback_data: 'car_gov_ديالى' }, { text: '📍 واسط (الكوت)', callback_data: 'car_gov_واسط' }],
+      [{ text: '📍 ميسان (العمارة)', callback_data: 'car_gov_ميسان' }, { text: '📍 ذي قار (الناصرية)', callback_data: 'car_gov_ذي قار' }],
+      [{ text: '📍 المثنى (السماوة)', callback_data: 'car_gov_المثنى' }, { text: '📍 القادسية (الديوانية)', callback_data: 'car_gov_القادسية' }],
+      [{ text: '◀️ السابق (السنة)', callback_data: 'car_back_to_year' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+    ]
+  };
+}
+
+function buildCarOriginMarkup() {
+  return {
+    inline_keyboard: [
+      [{ text: 'وارد خليجي (وكالة) 🇦🇪', callback_data: 'car_origin_وارد خليجي' }, { text: 'وارد أمريكي 🇺🇸', callback_data: 'car_origin_وارد أمريكي' }],
+      [{ text: 'وارد كندي 🇨🇦', callback_data: 'car_origin_وارد كندي' }, { text: 'وارد كوري 🇰🇷', callback_data: 'car_origin_وارد كوري' }],
+      [{ text: 'بدون صبغ (وكالة) ✨', callback_data: 'car_origin_بدون صبغ' }, { text: 'صبغ قطع بسيطة 🔧', callback_data: 'car_origin_صبغ قطع بسيطة' }],
+      [{ text: 'صبغ عام كامل 🎨', callback_data: 'car_origin_صبغ عام' }, { text: 'مواصفات أخرى 📝', callback_data: 'car_origin_وارد عام' }],
+      [{ text: '◀️ السابق (المحافظة)', callback_data: 'car_back_to_gov' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+    ]
+  };
+}
+
+function buildCarMileageMarkup() {
+  return {
+    inline_keyboard: [
+      [{ text: '🌟 0 كم (زيرو)', callback_data: 'car_mile_0' }, { text: 'أقل من 30,000 كم', callback_data: 'car_mile_25000' }],
+      [{ text: '30,000 - 60,000 كم', callback_data: 'car_mile_50000' }, { text: '60,000 - 100,000 كم', callback_data: 'car_mile_80000' }],
+      [{ text: '100,000 - 150,000 كم', callback_data: 'car_mile_125000' }, { text: 'أكثر من 150,000 كم', callback_data: 'car_mile_170000' }],
+      [{ text: '✏️ كتابة الممشى بدقة ✍️', callback_data: 'car_mile_custom' }],
+      [{ text: '◀️ السابق (المواصفات)', callback_data: 'car_back_to_origin' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+    ]
+  };
+}
+
+function buildCarCurrencyMarkup() {
+  return {
+    inline_keyboard: [
+      [{ text: '💵 دولار أمريكي ($)', callback_data: 'car_currency_usd' }, { text: '🇮🇶 دينار عراقي (د.ع)', callback_data: 'car_currency_iqd' }],
+      [{ text: '◀️ السابق (الممشى)', callback_data: 'car_back_to_mileage' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+    ]
+  };
+}
 
 // --- Data Lists for Transport Wizard (خطوط النقل - مناطق واسعة ومصنفة مع تصفح صفحات) ---
 const TRANSPORT_AREAS_PAGES = [
@@ -12133,24 +12392,23 @@ Deno.serve(async (req: any) => {
       if (text === '/start publish_car' || text === '/start pubcar' || text === '/start car' || (text && text.startsWith('/start ') && (text.includes('publish_car') || text.includes('pubcar') || text.includes('car'))) || isPublishCarCmd) {
         const carState = {
           step: 'car_brand',
-          data: { images: [], type: 'car' }
+          data: { images: [], type: 'car', brandCategory: 'popular' }
         };
         await supabase.from('telegram_users').upsert({
           telegram_chat_id: chatId,
           bot_state: carState
         }, { onConflict: 'telegram_chat_id' });
 
-        const brandButtons = CAR_BRANDS.map(row => row.map(b => ({ text: b, callback_data: `car_brand_${b}` })));
-        brandButtons.push([{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]);
-
         const carPublishMsg =
           `🚗 <b>يا هلا بيك عيوني ${fromName}! 🌹</b>\n\n` +
           `🚀 <b>نشر إعلان سيارتك في سوق بغداد!</b>\n` +
           `💰 <b>تكلفة النشر:</b> <code>1 نقطة واحدة فقط</code> ✨\n` +
           `سيصل إعلانك فوراً لقناة التيليجرام والموقع وصفحات الفيسبوك ✨\n\n` +
-          `👇 <b>الخطوة 1 من 10 — ما هي ماركة سيارتك؟</b>`;
+          `👇 <b>الخطوة 1 من 10 — ما هي ماركة سيارتك؟</b>\n` +
+          `<i>(اختر الماركة من الأقسام أدناه أو اضغط على «🔍 بحث سريع بالاسم»)</i>`;
 
-        await sendMessage(chatId, carPublishMsg, { inline_keyboard: brandButtons });
+        const brandMarkup = buildCarBrandsMarkup(carState, 'popular', 0);
+        await sendMessage(chatId, carPublishMsg, brandMarkup);
         return new Response('OK', { status: 200 });
       }
 
@@ -15694,29 +15952,131 @@ Deno.serve(async (req: any) => {
       // 🚗 CAR WIZARD (Interactive Step-by-Step)
       // ==========================================
       if (action === 'publish_car') {
-        state = { step: 'car_brand', data: { images: [], type: 'car' } };
+        state = { step: 'car_brand', data: { images: [], type: 'car', brandCategory: 'popular' } };
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        const brandButtons = CAR_BRANDS.map(row => row.map(b => ({ text: b, callback_data: `car_brand_${b}` })));
-        brandButtons.push([{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]);
-
-        await updateOrSend(`🚗 <b>الخطوة 1 من 10 — نوع السيارة (الماركة)</b>\n\n💰 <b>تكلفة النشر:</b> <code>1 نقطة واحدة فقط</code> ✨\n\nاختر نوع سيارتك من القائمة أدناه 👇`, {
-          inline_keyboard: brandButtons
-        });
+        const brandMarkup = buildCarBrandsMarkup(state, 'popular', 0);
+        await updateOrSend(
+          `🚗 <b>الخطوة 1 من 10 — ما هي ماركة سيارتك؟</b>\n\n` +
+          `💰 <b>تكلفة النشر:</b> <code>1 نقطة واحدة فقط</code> ✨\n` +
+          `اختر الماركة من الأقسام أدناه، أو اضغط على «🔍 بحث سريع بالاسم» 👇`,
+          brandMarkup
+        );
         return new Response('OK', { status: 200 });
       }
 
-      if (action.startsWith('car_brand_')) {
-        const brand = action.replace('car_brand_', '');
+      if (action.startsWith('car_brand_cat_')) {
+        const parts = action.replace('car_brand_cat_', '').split('_');
+        const catKey = parts[0] || 'popular';
+        const pageIdx = parseInt(parts[1] || '0') || 0;
+        state.data = state.data || {};
+        state.data.brandCategory = catKey;
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const brandMarkup = buildCarBrandsMarkup(state, catKey, pageIdx);
+        await updateOrSend(
+          `🚗 <b>الخطوة 1 من 10 — ما هي ماركة سيارتك؟</b>\n\n` +
+          `💰 <b>تكلفة النشر:</b> <code>1 نقطة واحدة فقط</code> ✨\n` +
+          `اختر الماركة من الأقسام أدناه، أو اضغط على «🔍 بحث سريع بالاسم» 👇`,
+          brandMarkup
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'car_brand_search_prompt') {
+        state.step = 'car_brand_search';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        await updateOrSend(
+          `🔍 <b>البحث السريع عن ماركة السيارة:</b>\n\n` +
+          `اكتب أول حرفين أو اسم الماركة في رسالة الآن:\n` +
+          `<i>(مثال: كيا، تويوتا، هيونداي، شفر، مارسيدس، صيني...)</i> 👇`,
+          {
+            inline_keyboard: [
+              [{ text: '◀️ إلغاء البحث والعودة للماركات', callback_data: 'publish_car' }],
+              [{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]
+            ]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'car_brand_custom_prompt') {
+        state.step = 'car_brand_custom_input';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        await updateOrSend(
+          `✏️ <b>كتابة اسم ماركة مخصصة:</b>\n\nاكتب اسم ماركة السيارة في رسالة الآن:`,
+          {
+            inline_keyboard: [
+              [{ text: '◀️ عودة لقائمة الماركات', callback_data: 'publish_car' }],
+              [{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]
+            ]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action.startsWith('cb_name_') || action.startsWith('car_brand_')) {
+        const raw = action.startsWith('cb_name_') ? action.replace('cb_name_', '') : action.replace('car_brand_', '');
+        const brand = decodeURIComponent(raw);
+        state.data = state.data || {};
         state.data.brand = brand;
         state.step = 'car_model';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        await updateOrSend(`🚗 <b>الخطوة 2 من 10 — الموديل</b>\n\nالنوع المختار: <b>${brand}</b>\nاكتب اسم موديل السيارة الآن:\n(مثال: النترا، كورولا، سبورتاج، سنتافي، تاهو، سوناتا...)`, {
-          inline_keyboard: [
-            [{ text: '◀️ السابق', callback_data: 'publish_car' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
-          ]
-        });
+        const modelMarkup = buildCarModelsMarkup(state, brand);
+        await updateOrSend(
+          `🚗 <b>الخطوة 2 من 10 — موديل السيارة</b>\n\n` +
+          `الماركة المختارة: <b>${brand}</b>\n` +
+          `اختر موديل سيارتك بنقرة واحدة، أو اضغط «✏️ كتابة اسم الموديل يدوياً» 👇`,
+          modelMarkup
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'car_model_custom_prompt') {
+        state.step = 'car_model_custom_input';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        await updateOrSend(
+          `✍️ <b>كتابة موديل السيارة:</b>\n\nاكتب اسم موديل سيارتك في رسالة الآن (مثال: النترا، كورولا، سبورتاج، تاهو...):`,
+          {
+            inline_keyboard: [
+              [{ text: '◀️ السابق', callback_data: `car_brand_${state.data?.brand || 'تويوتا'}` }],
+              [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+            ]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action.startsWith('cm_name_')) {
+        const model = decodeURIComponent(action.replace('cm_name_', ''));
+        state.data = state.data || {};
+        state.data.model = model;
+        state.step = 'car_year';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        await updateOrSend(
+          `📅 <b>الخطوة 3 من 10 — سنة الصنع (الموديل)</b>\n\n` +
+          `السيارة: <b>${state.data.brand} ${model}</b>\n` +
+          `اختر سنة الصنع بنقرة واحدة 👇`,
+          buildCarYearsMarkup()
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'car_back_to_model') {
+        state.step = 'car_model';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        const brand = state.data?.brand || 'تويوتا';
+        await updateOrSend(
+          `🚗 <b>الخطوة 2 من 10 — موديل السيارة</b>\n\n` +
+          `الماركة المختارة: <b>${brand}</b>\n` +
+          `اختر موديل سيارتك بنقرة واحدة، أو اضغط «✏️ كتابة اسم الموديل يدوياً» 👇`,
+          buildCarModelsMarkup(state, brand)
+        );
         return new Response('OK', { status: 200 });
       }
 
@@ -15726,55 +16086,124 @@ Deno.serve(async (req: any) => {
           state.step = 'car_year_custom';
           await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
           await updateOrSend(`📅 <b>الخطوة 3 من 10 — سنة الصنع</b>\n\nاكتب سنة صنع السيارة رقماً (مثال: 2005 أو 1998):`, {
-            inline_keyboard: [[{ text: '◀️ السابق', callback_data: `car_brand_${state.data.brand || 'هيونداي'}` }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]]
+            inline_keyboard: [[{ text: '◀️ السابق', callback_data: 'car_back_to_model' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]]
           });
           return new Response('OK', { status: 200 });
         }
 
+        state.data = state.data || {};
         state.data.year = yearVal;
         state.step = 'car_gov';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        const govButtons = IRAQI_GOVERNORATES.map(row => row.map(g => ({ text: g, callback_data: `car_gov_${g}` })));
-        govButtons.push([{ text: '◀️ السابق', callback_data: `car_brand_${state.data.brand || 'هيونداي'}` }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
+        await updateOrSend(
+          `📍 <b>الخطوة 4 من 10 — المحافظة</b>\n\nاختر محافظة تواجد السيارة 👇`,
+          buildCarGovMarkup()
+        );
+        return new Response('OK', { status: 200 });
+      }
 
-        await updateOrSend(`📍 <b>الخطوة 4 من 10 — المحافظة</b>\n\nاختر محافظة تواجد السيارة 👇`, {
-          inline_keyboard: govButtons
-        });
+      if (action === 'car_back_to_year') {
+        state.step = 'car_year';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        await updateOrSend(
+          `📅 <b>الخطوة 3 من 10 — سنة الصنع (الموديل)</b>\n\n` +
+          `السيارة: <b>${state.data?.brand || ''} ${state.data?.model || ''}</b>\n` +
+          `اختر سنة الصنع بنقرة واحدة 👇`,
+          buildCarYearsMarkup()
+        );
         return new Response('OK', { status: 200 });
       }
 
       if (action.startsWith('car_gov_')) {
         const gov = action.replace('car_gov_', '');
+        state.data = state.data || {};
         state.data.governorate = gov;
         state.step = 'car_origin';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        const originButtons = CAR_SPECS_ORIGINS.map(row => row.map(o => ({ text: o, callback_data: `car_origin_${o}` })));
-        originButtons.push([{ text: '◀️ السابق', callback_data: `car_year_${state.data.year || '2020'}` }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
+        await updateOrSend(
+          `📋 <b>الخطوة 5 من 10 — المواصفات والوارد</b>\n\nاختر وارد وحالة صبغ السيارة 👇`,
+          buildCarOriginMarkup()
+        );
+        return new Response('OK', { status: 200 });
+      }
 
-        await updateOrSend(`📋 <b>الخطوة 5 من 10 — المواصفات والوارد</b>\n\nاختر وارد وحالة صبغ السيارة 👇`, {
-          inline_keyboard: originButtons
-        });
+      if (action === 'car_back_to_gov') {
+        state.step = 'car_gov';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        await updateOrSend(
+          `📍 <b>الخطوة 4 من 10 — المحافظة</b>\n\nاختر محافظة تواجد السيارة 👇`,
+          buildCarGovMarkup()
+        );
         return new Response('OK', { status: 200 });
       }
 
       if (action.startsWith('car_origin_')) {
         const origin = action.replace('car_origin_', '');
+        state.data = state.data || {};
         state.data.origin = origin;
         state.step = 'car_mileage';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        await updateOrSend(`🛣️ <b>الخطوة 6 من 10 — الكيلومترات (الممشى)</b>\n\nاكتب عدد الكيلومترات المقطوعة بالأرقام فقط:\n(مثال: 110000 أو 50000 أو 0 إذا كانت زيرو)`, {
-          inline_keyboard: [
-            [{ text: '◀️ السابق', callback_data: `car_gov_${state.data.governorate || 'بغداد'}` }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
-          ]
-        });
+        await updateOrSend(
+          `🛣️ <b>الخطوة 6 من 10 — الكيلومترات (الممشى)</b>\n\n` +
+          `اختر المسافة المقطوعة بنقرة واحدة، أو اضغط «✏️ كتابة الممشى بدقة» 👇`,
+          buildCarMileageMarkup()
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'car_back_to_origin') {
+        state.step = 'car_origin';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        await updateOrSend(
+          `📋 <b>الخطوة 5 من 10 — المواصفات والوارد</b>\n\nاختر وارد وحالة صبغ السيارة 👇`,
+          buildCarOriginMarkup()
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action.startsWith('car_mile_')) {
+        const mVal = action.replace('car_mile_', '');
+        if (mVal === 'custom') {
+          state.step = 'car_mileage_custom';
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+          await updateOrSend(`🛣️ <b>كتابة الممشى بدقة:</b>\n\nاكتب عدد الكيلومترات المقطوعة بالأرقام (مثال: 45000 أو 110000):`, {
+            inline_keyboard: [
+              [{ text: '◀️ السابق', callback_data: 'car_back_to_origin' }],
+              [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+            ]
+          });
+          return new Response('OK', { status: 200 });
+        }
+
+        state.data = state.data || {};
+        state.data.mileage = mVal;
+        state.step = 'car_currency';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        await updateOrSend(
+          `💵 <b>الخطوة 7 من 10 — عملة السعر المطلوب</b>\n\nاختر عملة تسعير السيارة 👇`,
+          buildCarCurrencyMarkup()
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'car_back_to_mileage') {
+        state.step = 'car_mileage';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        await updateOrSend(
+          `🛣️ <b>الخطوة 6 من 10 — الكيلومترات (الممشى)</b>\n\n` +
+          `اختر المسافة المقطوعة بنقرة واحدة، أو اضغط «✏️ كتابة الممشى بدقة» 👇`,
+          buildCarMileageMarkup()
+        );
         return new Response('OK', { status: 200 });
       }
 
       if (action.startsWith('car_currency_')) {
         const curr = action.replace('car_currency_', '') === 'usd' ? '$' : 'د.ع';
+        state.data = state.data || {};
         state.data.currency = curr;
         state.step = 'car_price';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
@@ -15782,7 +16211,7 @@ Deno.serve(async (req: any) => {
         const examplePrice = curr === '$' ? '14500 أو 18000' : '18000000 أو 22500000';
         await updateOrSend(`💰 <b>الخطوة 8 من 10 — السعر</b>\n\nالعملة: <b>${curr === '$' ? 'دولار أمريكي $' : 'دينار عراقي د.ع'}</b>\nاكتب السعر المطلوب بالأرقام فقط:\n(مثال: ${examplePrice})`, {
           inline_keyboard: [
-            [{ text: '◀️ السابق', callback_data: `car_origin_${state.data.origin || 'وارد خليجي'}` }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+            [{ text: '◀️ السابق', callback_data: 'car_back_to_mileage' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
           ]
         });
         return new Response('OK', { status: 200 });
@@ -20736,20 +21165,78 @@ Deno.serve(async (req: any) => {
       // ==========================================
       // 🚗 CAR WIZARD TEXT & PHOTO INPUTS
       // ==========================================
-      if (state.step === 'car_model' && text) {
+      if (state.step === 'car_brand_search' && text) {
+        const queryText = text.trim();
+        const matches = searchCarBrands(queryText);
+
+        state.data = state.data || {};
+        state.data.pending_custom_brand = queryText;
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        if (matches && matches.length > 0) {
+          const inline_keyboard: any[][] = [];
+          for (let i = 0; i < matches.length; i += 2) {
+            const row = [{ text: `🚗 ${matches[i]}`, callback_data: `cb_name_${encodeURIComponent(matches[i])}` }];
+            if (i + 1 < matches.length) {
+              row.push({ text: `🚗 ${matches[i + 1]}`, callback_data: `cb_name_${encodeURIComponent(matches[i + 1])}` });
+            }
+            inline_keyboard.push(row);
+          }
+
+          inline_keyboard.push([
+            { text: `✏️ اعتماد كماركة مخصصة: "${queryText.slice(0, 18)}"`, callback_data: `cb_name_${encodeURIComponent(queryText)}` }
+          ]);
+          inline_keyboard.push([
+            { text: '🔍 بحث عن اسم آخر', callback_data: 'car_brand_search_prompt' },
+            { text: '⬅️ استعراض كل الماركات', callback_data: 'publish_car' }
+          ]);
+
+          const suggestMsg =
+            `💡 <b>نتائج البحث عن ماركة:</b> "<code>${queryText}</code>"\n\n` +
+            `🎯 <b>اختر الماركة بنقرة واحدة للمتابعة فوراً:</b>`;
+
+          await sendMessage(chatId, suggestMsg, { inline_keyboard });
+          return new Response('OK', { status: 200 });
+        } else {
+          await sendMessage(chatId,
+            `🔍 <b>لم نجد ماركة مسجلة تطابق:</b> "<code>${queryText}</code>"\n\n` +
+            `هل ترغب باعتماد هذا الاسم كماركة مخصصة لسيارتك، أو تفضل إعادة البحث؟`,
+            {
+              inline_keyboard: [
+                [{ text: `✅ نعم، اعتمد: "${queryText.slice(0, 20)}"`, callback_data: `cb_name_${encodeURIComponent(queryText)}` }],
+                [{ text: '🔍 بحث مرة أخرى بالاسم', callback_data: 'car_brand_search_prompt' }],
+                [{ text: '🚗 استعراض الماركات والأقسام', callback_data: 'publish_car' }]
+              ]
+            }
+          );
+          return new Response('OK', { status: 200 });
+        }
+      }
+      else if (state.step === 'car_brand_custom_input' && text) {
+        const brandName = text.trim();
+        state.data = state.data || {};
+        state.data.brand = brandName;
+        state.step = 'car_model';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const modelMarkup = buildCarModelsMarkup(state, brandName);
+        await sendMessage(
+          chatId,
+          `🚗 <b>الخطوة 2 من 10 — موديل السيارة</b>\n\n` +
+          `الماركة المختارة: <b>${brandName}</b>\n` +
+          `اكتب اسم موديل سيارتك الآن (مثال: النترا، كورولا، سبورتاج...):`,
+          modelMarkup
+        );
+        return new Response('OK', { status: 200 });
+      }
+      else if ((state.step === 'car_model' || state.step === 'car_model_custom_input') && text) {
+        state.data = state.data || {};
         state.data.model = text.trim();
         state.step = 'car_year';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        const yearButtons = CAR_YEARS.map(row => row.map(y => {
-          if (y.includes('أقدم')) return { text: y, callback_data: 'car_year_older' };
-          return { text: y, callback_data: `car_year_${y}` };
-        }));
-        yearButtons.push([{ text: '◀️ السابق', callback_data: `publish_car` }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
-
-        await sendMessage(chatId, `📅 <b>الخطوة 3 من 10 — سنة الصنع (الموديل)</b>\n\nاختر سنة صنع السيارة 👇`, {
-          inline_keyboard: yearButtons
-        });
+        await sendMessage(chatId, `📅 <b>الخطوة 3 من 10 — سنة الصنع (الموديل)</b>\n\nالسيارة: <b>${state.data.brand || ''} ${state.data.model}</b>\nاختر سنة صنع السيارة 👇`, buildCarYearsMarkup());
+        return new Response('OK', { status: 200 });
       }
       else if (state.step === 'car_year_custom' && text) {
         const cleanYear = text.replace(/[^0-9]/g, '');
@@ -20757,33 +21244,27 @@ Deno.serve(async (req: any) => {
           await sendMessage(chatId, '⚠️ الرجاء كتابة سنة الصنع بأربعة أرقام (مثال: 2008):');
           return new Response('OK', { status: 200 });
         }
+        state.data = state.data || {};
         state.data.year = cleanYear;
         state.step = 'car_gov';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        const govButtons = IRAQI_GOVERNORATES.map(row => row.map(g => ({ text: g, callback_data: `car_gov_${g}` })));
-        govButtons.push([{ text: '◀️ السابق', callback_data: `car_brand_${state.data.brand || 'هيونداي'}` }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
-
-        await sendMessage(chatId, `📍 <b>الخطوة 4 من 10 — المحافظة</b>\n\nاختر محافظة تواجد السيارة 👇`, {
-          inline_keyboard: govButtons
-        });
+        await sendMessage(chatId, `📍 <b>الخطوة 4 من 10 — المحافظة</b>\n\nاختر محافظة تواجد السيارة 👇`, buildCarGovMarkup());
+        return new Response('OK', { status: 200 });
       }
-      else if (state.step === 'car_mileage' && text) {
+      else if ((state.step === 'car_mileage' || state.step === 'car_mileage_custom') && text) {
         const cleanNum = text.replace(/[^0-9]/g, '');
         if (!cleanNum) {
           await sendMessage(chatId, '⚠️ اكتب عدد الكيلومترات بالأرقام فقط (مثال: 110000 أو 0 إذا كانت زيرو):');
           return new Response('OK', { status: 200 });
         }
+        state.data = state.data || {};
         state.data.mileage = cleanNum;
         state.step = 'car_currency';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        await sendMessage(chatId, `💵 <b>الخطوة 7 من 10 — عملة السعر</b>\n\nاختر عملة السعر 👇`, {
-          inline_keyboard: [
-            [{ text: '💵 دولار $', callback_data: 'car_currency_usd' }, { text: '💰 دينار عراقي د.ع', callback_data: 'car_currency_iqd' }],
-            [{ text: '◀️ السابق', callback_data: `car_origin_${state.data.origin || 'وارد خليجي'}` }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
-          ]
-        });
+        await sendMessage(chatId, `💵 <b>الخطوة 7 من 10 — عملة السعر المطلوب</b>\n\nاختر عملة تسعير السيارة 👇`, buildCarCurrencyMarkup());
+        return new Response('OK', { status: 200 });
       }
       else if (state.step === 'car_price' && text) {
         const cleanPrice = text.replace(/[^0-9]/g, '');
@@ -20791,6 +21272,7 @@ Deno.serve(async (req: any) => {
           await sendMessage(chatId, '⚠️ اكتب السعر بالأرقام فقط:');
           return new Response('OK', { status: 200 });
         }
+        state.data = state.data || {};
         state.data.price = cleanPrice;
         state.step = 'car_images';
         if (!state.data.images) state.data.images = [];
@@ -20799,10 +21281,11 @@ Deno.serve(async (req: any) => {
 
         await sendMessage(chatId, `📸 <b>الخطوة 9 من 10 — صور السيارة</b>\n\nأرسل صور سيارتك الآن (تگدر ترسل حتى 6 صور).\n• أول صورة ستظهر في القناة الرئيسية.\n• البقية تُحفظ وتُعرض في صفحة الإعلان بالمنصة.\n\nبعد الانتهاء من إرسال الصور اضغط «تم ✅» للمتابعة.`, {
           inline_keyboard: [
-            [{ text: 'تم ✅', callback_data: 'car_images_done' }],
+            [{ text: 'تم ✅ (متابعة)', callback_data: 'car_images_done' }],
             [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
           ]
         });
+        return new Response('OK', { status: 200 });
       }
       else if (state.step === 'car_images') {
         if (text && (text.trim() === 'تم' || text.trim() === 'تم ✅')) {
