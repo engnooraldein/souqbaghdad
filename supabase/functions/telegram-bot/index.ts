@@ -1,7 +1,7 @@
 // @ts-nocheck
 declare const Deno: any;
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.48.1'
 
 const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN') || '';
 const tgUrl = `https://api.telegram.org/bot${botToken}`;
@@ -5319,25 +5319,25 @@ function buildCarBrandsMarkup(state: any, catOrPage: string | number = 'popular'
 
   // 1. Top Search Bar Button
   inline_keyboard.push([
-    { text: '🔍 بحث سريع بالاسم عن الماركة', callback_data: 'car_brand_search_prompt' }
+    { text: 'بحث بالاسم...', callback_data: 'car_brand_search_prompt' }
   ]);
 
-  // 2. 8 Brands Grid (2 columns)
+  // 2. 8 Brands Grid (2 columns) - Clean & Minimal
   for (let i = 0; i < pageItems.length; i += 2) {
     const row = [];
     const item1 = pageItems[i];
     const isSel1 = selectedBrand === item1.name;
     row.push({
-      text: isSel1 ? `✅ ${item1.name}` : `🚗 ${item1.name}`,
-      callback_data: `cb_name_${encodeURIComponent(item1.name)}`
+      text: isSel1 ? `• ${item1.name} •` : item1.name,
+      callback_data: `cb_id_${item1.id}`
     });
 
     if (i + 1 < pageItems.length) {
       const item2 = pageItems[i + 1];
       const isSel2 = selectedBrand === item2.name;
       row.push({
-        text: isSel2 ? `✅ ${item2.name}` : `🚗 ${item2.name}`,
-        callback_data: `cb_name_${encodeURIComponent(item2.name)}`
+        text: isSel2 ? `• ${item2.name} •` : item2.name,
+        callback_data: `cb_id_${item2.id}`
       });
     }
     inline_keyboard.push(row);
@@ -5346,33 +5346,33 @@ function buildCarBrandsMarkup(state: any, catOrPage: string | number = 'popular'
   // 3. Navigation Pagination Bar
   const navRow: any[] = [];
   if (page > 0) {
-    navRow.push({ text: '⬅️ السابق', callback_data: `car_brand_cat_${activeCategory}_${page - 1}` });
+    navRow.push({ text: 'السابق', callback_data: `car_brand_cat_${activeCategory}_${page - 1}` });
   }
-  navRow.push({ text: `📄 صفحة ${page + 1} من ${totalPages}`, callback_data: `car_brand_cat_${activeCategory}_${page}` });
+  navRow.push({ text: `${page + 1} / ${totalPages}`, callback_data: `car_brand_cat_${activeCategory}_${page}` });
   if (page < totalPages - 1) {
-    navRow.push({ text: 'التالي ➡️', callback_data: `car_brand_cat_${activeCategory}_${page + 1}` });
+    navRow.push({ text: 'التالي', callback_data: `car_brand_cat_${activeCategory}_${page + 1}` });
   }
   if (navRow.length > 1 || totalPages > 1) {
     inline_keyboard.push(navRow);
   }
 
-  // 4. Category Selector Tabs (Matching Image 1 transport style)
+  // 4. Category Selector Tabs - Clean, Elegant, No clutter
   inline_keyboard.push([
-    { text: activeCategory === 'popular' ? '🔘 🔥 الأكثر طلباً' : '🔥 الأكثر طلباً', callback_data: 'car_brand_cat_popular_0' },
-    { text: activeCategory === 'asian' ? '🔘 🇯🇵 ياباني وكوري' : '🇯🇵 ياباني وكوري', callback_data: 'car_brand_cat_asian_0' }
+    { text: activeCategory === 'popular' ? '• الأكثر طلباً •' : 'الأكثر طلباً', callback_data: 'car_brand_cat_popular_0' },
+    { text: activeCategory === 'asian' ? '• ياباني وكوري •' : 'ياباني وكوري', callback_data: 'car_brand_cat_asian_0' }
   ]);
   inline_keyboard.push([
-    { text: activeCategory === 'american' ? '🔘 🇺🇸 أمريكي' : '🇺🇸 أمريكي', callback_data: 'car_brand_cat_american_0' },
-    { text: activeCategory === 'european' ? '🔘 🇩🇪 أوروبي' : '🇩🇪 أوروبي', callback_data: 'car_brand_cat_european_0' }
+    { text: activeCategory === 'american' ? '• أمريكي •' : 'أمريكي', callback_data: 'car_brand_cat_american_0' },
+    { text: activeCategory === 'european' ? '• أوروبي •' : 'أوروبي', callback_data: 'car_brand_cat_european_0' }
   ]);
   inline_keyboard.push([
-    { text: activeCategory === 'chinese' ? '🔘 🇨🇳 صيني حديث' : '🇨🇳 صيني حديث', callback_data: 'car_brand_cat_chinese_0' }
+    { text: activeCategory === 'chinese' ? '• صيني •' : 'صيني', callback_data: 'car_brand_cat_chinese_0' }
   ]);
 
   // 5. Custom / Cancel options
   inline_keyboard.push([
-    { text: '✏️ كتابة اسم ماركة أخرى', callback_data: 'car_brand_custom_prompt' },
-    { text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }
+    { text: 'كتابة اسم مخصص', callback_data: 'car_brand_custom_prompt' },
+    { text: 'إلغاء', callback_data: 'cancel_wizard' }
   ]);
 
   return { inline_keyboard };
@@ -5384,20 +5384,20 @@ function buildCarModelsMarkup(state: any, brand: string) {
 
   if (models.length > 0) {
     for (let i = 0; i < models.length; i += 2) {
-      const row = [{ text: `🚗 ${models[i]}`, callback_data: `cm_name_${encodeURIComponent(models[i])}` }];
+      const row = [{ text: models[i], callback_data: `cm_n_${models[i]}` }];
       if (i + 1 < models.length) {
-        row.push({ text: `🚗 ${models[i + 1]}`, callback_data: `cm_name_${encodeURIComponent(models[i + 1])}` });
+        row.push({ text: models[i + 1], callback_data: `cm_n_${models[i + 1]}` });
       }
       inline_keyboard.push(row);
     }
   }
 
   inline_keyboard.push([
-    { text: '✏️ كتابة اسم الموديل يدوياً ✍️', callback_data: 'car_model_custom_prompt' }
+    { text: 'كتابة الموديل يدوياً', callback_data: 'car_model_custom_prompt' }
   ]);
   inline_keyboard.push([
-    { text: '◀️ السابق (الماركة)', callback_data: 'publish_car' },
-    { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+    { text: 'السابق', callback_data: 'publish_car' },
+    { text: 'إلغاء', callback_data: 'cancel_wizard' }
   ]);
 
   return { inline_keyboard };
@@ -5411,8 +5411,8 @@ function buildCarYearsMarkup() {
       [{ text: '2020', callback_data: 'car_year_2020' }, { text: '2019', callback_data: 'car_year_2019' }, { text: '2018', callback_data: 'car_year_2018' }],
       [{ text: '2017', callback_data: 'car_year_2017' }, { text: '2016', callback_data: 'car_year_2016' }, { text: '2015', callback_data: 'car_year_2015' }],
       [{ text: '2014', callback_data: 'car_year_2014' }, { text: '2013', callback_data: 'car_year_2013' }, { text: '2012', callback_data: 'car_year_2012' }],
-      [{ text: '📅 موديل أقدم (كتابة السنة)', callback_data: 'car_year_older' }],
-      [{ text: '◀️ السابق (الموديل)', callback_data: 'car_back_to_model' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+      [{ text: 'موديل أقدم (كتابة السنة)', callback_data: 'car_year_older' }],
+      [{ text: 'السابق', callback_data: 'car_back_to_model' }, { text: 'إلغاء', callback_data: 'cancel_wizard' }]
     ]
   };
 }
@@ -5420,16 +5420,16 @@ function buildCarYearsMarkup() {
 function buildCarGovMarkup() {
   return {
     inline_keyboard: [
-      [{ text: '📍 بغداد', callback_data: 'car_gov_بغداد' }, { text: '📍 البصرة', callback_data: 'car_gov_البصرة' }],
-      [{ text: '📍 أربيل', callback_data: 'car_gov_أربيل' }, { text: '📍 نينوى (الموصل)', callback_data: 'car_gov_نينوى' }],
-      [{ text: '📍 كركوك', callback_data: 'car_gov_كركوك' }, { text: '📍 الأنبار', callback_data: 'car_gov_الأنبار' }],
-      [{ text: '📍 كربلاء المقدسة', callback_data: 'car_gov_كربلاء' }, { text: '📍 النجف الأشرف', callback_data: 'car_gov_النجف' }],
-      [{ text: '📍 بابل (الحلة)', callback_data: 'car_gov_بابل' }, { text: '📍 صلاح الدين', callback_data: 'car_gov_صلاح الدين' }],
-      [{ text: '📍 السليمانية', callback_data: 'car_gov_السليمانية' }, { text: '📍 دهوك', callback_data: 'car_gov_دهوك' }],
-      [{ text: '📍 ديالى', callback_data: 'car_gov_ديالى' }, { text: '📍 واسط (الكوت)', callback_data: 'car_gov_واسط' }],
-      [{ text: '📍 ميسان (العمارة)', callback_data: 'car_gov_ميسان' }, { text: '📍 ذي قار (الناصرية)', callback_data: 'car_gov_ذي قار' }],
-      [{ text: '📍 المثنى (السماوة)', callback_data: 'car_gov_المثنى' }, { text: '📍 القادسية (الديوانية)', callback_data: 'car_gov_القادسية' }],
-      [{ text: '◀️ السابق (السنة)', callback_data: 'car_back_to_year' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+      [{ text: 'بغداد', callback_data: 'car_gov_بغداد' }, { text: 'البصرة', callback_data: 'car_gov_البصرة' }],
+      [{ text: 'أربيل', callback_data: 'car_gov_أربيل' }, { text: 'نينوى', callback_data: 'car_gov_نينوى' }],
+      [{ text: 'كركوك', callback_data: 'car_gov_كركوك' }, { text: 'الأنبار', callback_data: 'car_gov_الأنبار' }],
+      [{ text: 'كربلاء', callback_data: 'car_gov_كربلاء' }, { text: 'النجف', callback_data: 'car_gov_النجف' }],
+      [{ text: 'بابل', callback_data: 'car_gov_بابل' }, { text: 'صلاح الدين', callback_data: 'car_gov_صلاح الدين' }],
+      [{ text: 'السليمانية', callback_data: 'car_gov_السليمانية' }, { text: 'دهوك', callback_data: 'car_gov_دهوك' }],
+      [{ text: 'ديالى', callback_data: 'car_gov_ديالى' }, { text: 'واسط', callback_data: 'car_gov_واسط' }],
+      [{ text: 'ميسان', callback_data: 'car_gov_ميسان' }, { text: 'ذي قار', callback_data: 'car_gov_ذي قار' }],
+      [{ text: 'المثنى', callback_data: 'car_gov_المثنى' }, { text: 'الديوانية', callback_data: 'car_gov_الديوانية' }],
+      [{ text: 'السابق', callback_data: 'car_back_to_year' }, { text: 'إلغاء', callback_data: 'cancel_wizard' }]
     ]
   };
 }
@@ -5437,11 +5437,11 @@ function buildCarGovMarkup() {
 function buildCarOriginMarkup() {
   return {
     inline_keyboard: [
-      [{ text: 'وارد خليجي (وكالة) 🇦🇪', callback_data: 'car_origin_وارد خليجي' }, { text: 'وارد أمريكي 🇺🇸', callback_data: 'car_origin_وارد أمريكي' }],
-      [{ text: 'وارد كندي 🇨🇦', callback_data: 'car_origin_وارد كندي' }, { text: 'وارد كوري 🇰🇷', callback_data: 'car_origin_وارد كوري' }],
-      [{ text: 'بدون صبغ (وكالة) ✨', callback_data: 'car_origin_بدون صبغ' }, { text: 'صبغ قطع بسيطة 🔧', callback_data: 'car_origin_صبغ قطع بسيطة' }],
-      [{ text: 'صبغ عام كامل 🎨', callback_data: 'car_origin_صبغ عام' }, { text: 'مواصفات أخرى 📝', callback_data: 'car_origin_وارد عام' }],
-      [{ text: '◀️ السابق (المحافظة)', callback_data: 'car_back_to_gov' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+      [{ text: 'وارد خليجي', callback_data: 'car_origin_وارد خليجي' }, { text: 'وارد أمريكي', callback_data: 'car_origin_وارد أمريكي' }],
+      [{ text: 'وارد كندي', callback_data: 'car_origin_وارد كندي' }, { text: 'وارد كوري', callback_data: 'car_origin_وارد كوري' }],
+      [{ text: 'بدون صبغ (وكالة)', callback_data: 'car_origin_بدون صبغ' }, { text: 'صبغ قطع بسيطة', callback_data: 'car_origin_صبغ قطع بسيطة' }],
+      [{ text: 'صبغ عام', callback_data: 'car_origin_صبغ عام' }, { text: 'مواصفات أخرى', callback_data: 'car_origin_وارد عام' }],
+      [{ text: 'السابق', callback_data: 'car_back_to_gov' }, { text: 'إلغاء', callback_data: 'cancel_wizard' }]
     ]
   };
 }
@@ -5449,11 +5449,11 @@ function buildCarOriginMarkup() {
 function buildCarMileageMarkup() {
   return {
     inline_keyboard: [
-      [{ text: '🌟 0 كم (زيرو)', callback_data: 'car_mile_0' }, { text: 'أقل من 30,000 كم', callback_data: 'car_mile_25000' }],
+      [{ text: '0 كم (زيرو)', callback_data: 'car_mile_0' }, { text: 'أقل من 30,000 كم', callback_data: 'car_mile_25000' }],
       [{ text: '30,000 - 60,000 كم', callback_data: 'car_mile_50000' }, { text: '60,000 - 100,000 كم', callback_data: 'car_mile_80000' }],
       [{ text: '100,000 - 150,000 كم', callback_data: 'car_mile_125000' }, { text: 'أكثر من 150,000 كم', callback_data: 'car_mile_170000' }],
-      [{ text: '✏️ كتابة الممشى بدقة ✍️', callback_data: 'car_mile_custom' }],
-      [{ text: '◀️ السابق (المواصفات)', callback_data: 'car_back_to_origin' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+      [{ text: 'كتابة الممشى بدقة', callback_data: 'car_mile_custom' }],
+      [{ text: 'السابق', callback_data: 'car_back_to_origin' }, { text: 'إلغاء', callback_data: 'cancel_wizard' }]
     ]
   };
 }
@@ -5461,8 +5461,8 @@ function buildCarMileageMarkup() {
 function buildCarCurrencyMarkup() {
   return {
     inline_keyboard: [
-      [{ text: '💵 دولار أمريكي ($)', callback_data: 'car_currency_usd' }, { text: '🇮🇶 دينار عراقي (د.ع)', callback_data: 'car_currency_iqd' }],
-      [{ text: '◀️ السابق (الممشى)', callback_data: 'car_back_to_mileage' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+      [{ text: 'دولار أمريكي ($)', callback_data: 'car_currency_usd' }, { text: 'دينار عراقي (د.ع)', callback_data: 'car_currency_iqd' }],
+      [{ text: 'السابق', callback_data: 'car_back_to_mileage' }, { text: 'إلغاء', callback_data: 'cancel_wizard' }]
     ]
   };
 }
@@ -12400,12 +12400,9 @@ Deno.serve(async (req: any) => {
         }, { onConflict: 'telegram_chat_id' });
 
         const carPublishMsg =
-          `🚗 <b>يا هلا بيك عيوني ${fromName}! 🌹</b>\n\n` +
-          `🚀 <b>نشر إعلان سيارتك في سوق بغداد!</b>\n` +
-          `💰 <b>تكلفة النشر:</b> <code>1 نقطة واحدة فقط</code> ✨\n` +
-          `سيصل إعلانك فوراً لقناة التيليجرام والموقع وصفحات الفيسبوك ✨\n\n` +
-          `👇 <b>الخطوة 1 من 10 — ما هي ماركة سيارتك؟</b>\n` +
-          `<i>(اختر الماركة من الأقسام أدناه أو اضغط على «🔍 بحث سريع بالاسم»)</i>`;
+          `<b>نشر إعلان سيارة</b>\n` +
+          `الخطوة 1 من 10 — تحديد الماركة\n\n` +
+          `اختر ماركة السيارة من القائمة أدناه، أو استخدم البحث بالاسم:`;
 
         const brandMarkup = buildCarBrandsMarkup(carState, 'popular', 0);
         await sendMessage(chatId, carPublishMsg, brandMarkup);
@@ -15957,9 +15954,9 @@ Deno.serve(async (req: any) => {
 
         const brandMarkup = buildCarBrandsMarkup(state, 'popular', 0);
         await updateOrSend(
-          `🚗 <b>الخطوة 1 من 10 — ما هي ماركة سيارتك؟</b>\n\n` +
-          `💰 <b>تكلفة النشر:</b> <code>1 نقطة واحدة فقط</code> ✨\n` +
-          `اختر الماركة من الأقسام أدناه، أو اضغط على «🔍 بحث سريع بالاسم» 👇`,
+          `<b>نشر إعلان سيارة</b>\n` +
+          `الخطوة 1 من 10 — تحديد الماركة\n\n` +
+          `اختر ماركة السيارة من القائمة أدناه، أو استخدم البحث بالاسم:`,
           brandMarkup
         );
         return new Response('OK', { status: 200 });
@@ -15975,9 +15972,9 @@ Deno.serve(async (req: any) => {
 
         const brandMarkup = buildCarBrandsMarkup(state, catKey, pageIdx);
         await updateOrSend(
-          `🚗 <b>الخطوة 1 من 10 — ما هي ماركة سيارتك؟</b>\n\n` +
-          `💰 <b>تكلفة النشر:</b> <code>1 نقطة واحدة فقط</code> ✨\n` +
-          `اختر الماركة من الأقسام أدناه، أو اضغط على «🔍 بحث سريع بالاسم» 👇`,
+          `<b>نشر إعلان سيارة</b>\n` +
+          `الخطوة 1 من 10 — تحديد الماركة\n\n` +
+          `اختر ماركة السيارة من القائمة أدناه، أو استخدم البحث بالاسم:`,
           brandMarkup
         );
         return new Response('OK', { status: 200 });
@@ -15988,13 +15985,12 @@ Deno.serve(async (req: any) => {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         await updateOrSend(
-          `🔍 <b>البحث السريع عن ماركة السيارة:</b>\n\n` +
-          `اكتب أول حرفين أو اسم الماركة في رسالة الآن:\n` +
-          `<i>(مثال: كيا، تويوتا، هيونداي، شفر، مارسيدس، صيني...)</i> 👇`,
+          `<b>البحث عن ماركة السيارة:</b>\n\n` +
+          `اكتب اسم الماركة في رسالة (مثال: كيا، تويوتا، هيونداي، شفروليه...):`,
           {
             inline_keyboard: [
-              [{ text: '◀️ إلغاء البحث والعودة للماركات', callback_data: 'publish_car' }],
-              [{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]
+              [{ text: 'العودة للماركات', callback_data: 'publish_car' }],
+              [{ text: 'إلغاء', callback_data: 'cancel_wizard' }]
             ]
           }
         );
@@ -16006,20 +16002,21 @@ Deno.serve(async (req: any) => {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         await updateOrSend(
-          `✏️ <b>كتابة اسم ماركة مخصصة:</b>\n\nاكتب اسم ماركة السيارة في رسالة الآن:`,
+          `<b>كتابة اسم ماركة مخصصة:</b>\n\nاكتب اسم ماركة السيارة في رسالة الآن:`,
           {
             inline_keyboard: [
-              [{ text: '◀️ عودة لقائمة الماركات', callback_data: 'publish_car' }],
-              [{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]
+              [{ text: 'عودة للماركات', callback_data: 'publish_car' }],
+              [{ text: 'إلغاء', callback_data: 'cancel_wizard' }]
             ]
           }
         );
         return new Response('OK', { status: 200 });
       }
 
-      if (action.startsWith('cb_name_') || action.startsWith('car_brand_')) {
-        const raw = action.startsWith('cb_name_') ? action.replace('cb_name_', '') : action.replace('car_brand_', '');
-        const brand = decodeURIComponent(raw);
+      if (action.startsWith('cb_id_')) {
+        const brandId = action.replace('cb_id_', '');
+        const found = ALL_CAR_BRANDS.find(b => b.id === brandId);
+        const brand = found ? found.name : brandId;
         state.data = state.data || {};
         state.data.brand = brand;
         state.step = 'car_model';
@@ -16027,9 +16024,30 @@ Deno.serve(async (req: any) => {
 
         const modelMarkup = buildCarModelsMarkup(state, brand);
         await updateOrSend(
-          `🚗 <b>الخطوة 2 من 10 — موديل السيارة</b>\n\n` +
-          `الماركة المختارة: <b>${brand}</b>\n` +
-          `اختر موديل سيارتك بنقرة واحدة، أو اضغط «✏️ كتابة اسم الموديل يدوياً» 👇`,
+          `<b>الخطوة 2 من 10 — موديل السيارة</b>\n` +
+          `الماركة: <b>${brand}</b>\n\n` +
+          `اختر موديل سيارتك من القائمة أو اكتبه يدوياً:`,
+          modelMarkup
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action.startsWith('cb_name_') || action.startsWith('cb_n_') || action.startsWith('car_brand_')) {
+        let brand = '';
+        if (action.startsWith('cb_name_')) brand = action.replace('cb_name_', '');
+        else if (action.startsWith('cb_n_')) brand = action.replace('cb_n_', '');
+        else brand = action.replace('car_brand_', '');
+        try { brand = decodeURIComponent(brand); } catch {}
+        state.data = state.data || {};
+        state.data.brand = brand;
+        state.step = 'car_model';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const modelMarkup = buildCarModelsMarkup(state, brand);
+        await updateOrSend(
+          `<b>الخطوة 2 من 10 — موديل السيارة</b>\n` +
+          `الماركة: <b>${brand}</b>\n\n` +
+          `اختر موديل سيارتك من القائمة أو اكتبه يدوياً:`,
           modelMarkup
         );
         return new Response('OK', { status: 200 });
@@ -16040,28 +16058,29 @@ Deno.serve(async (req: any) => {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         await updateOrSend(
-          `✍️ <b>كتابة موديل السيارة:</b>\n\nاكتب اسم موديل سيارتك في رسالة الآن (مثال: النترا، كورولا، سبورتاج، تاهو...):`,
+          `<b>كتابة موديل السيارة:</b>\n\nاكتب اسم موديل سيارتك في رسالة (مثال: النترا، كورولا، سبورتاج، تاهو...):`,
           {
             inline_keyboard: [
-              [{ text: '◀️ السابق', callback_data: `car_brand_${state.data?.brand || 'تويوتا'}` }],
-              [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+              [{ text: 'السابق', callback_data: `car_brand_${state.data?.brand || 'تويوتا'}` }],
+              [{ text: 'إلغاء', callback_data: 'cancel_wizard' }]
             ]
           }
         );
         return new Response('OK', { status: 200 });
       }
 
-      if (action.startsWith('cm_name_')) {
-        const model = decodeURIComponent(action.replace('cm_name_', ''));
+      if (action.startsWith('cm_n_') || action.startsWith('cm_name_')) {
+        let model = action.startsWith('cm_n_') ? action.replace('cm_n_', '') : action.replace('cm_name_', '');
+        try { model = decodeURIComponent(model); } catch {}
         state.data = state.data || {};
         state.data.model = model;
         state.step = 'car_year';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         await updateOrSend(
-          `📅 <b>الخطوة 3 من 10 — سنة الصنع (الموديل)</b>\n\n` +
-          `السيارة: <b>${state.data.brand} ${model}</b>\n` +
-          `اختر سنة الصنع بنقرة واحدة 👇`,
+          `<b>الخطوة 3 من 10 — سنة الصنع (الموديل)</b>\n` +
+          `السيارة: <b>${state.data.brand} ${model}</b>\n\n` +
+          `اختر سنة الصنع:`,
           buildCarYearsMarkup()
         );
         return new Response('OK', { status: 200 });
@@ -16072,9 +16091,9 @@ Deno.serve(async (req: any) => {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
         const brand = state.data?.brand || 'تويوتا';
         await updateOrSend(
-          `🚗 <b>الخطوة 2 من 10 — موديل السيارة</b>\n\n` +
-          `الماركة المختارة: <b>${brand}</b>\n` +
-          `اختر موديل سيارتك بنقرة واحدة، أو اضغط «✏️ كتابة اسم الموديل يدوياً» 👇`,
+          `<b>الخطوة 2 من 10 — موديل السيارة</b>\n` +
+          `الماركة: <b>${brand}</b>\n\n` +
+          `اختر موديل سيارتك من القائمة أو اكتبه يدوياً:`,
           buildCarModelsMarkup(state, brand)
         );
         return new Response('OK', { status: 200 });
@@ -16085,8 +16104,8 @@ Deno.serve(async (req: any) => {
         if (yearVal === 'older') {
           state.step = 'car_year_custom';
           await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-          await updateOrSend(`📅 <b>الخطوة 3 من 10 — سنة الصنع</b>\n\nاكتب سنة صنع السيارة رقماً (مثال: 2005 أو 1998):`, {
-            inline_keyboard: [[{ text: '◀️ السابق', callback_data: 'car_back_to_model' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]]
+          await updateOrSend(`<b>الخطوة 3 من 10 — سنة الصنع</b>\n\nاكتب سنة صنع السيارة رقماً (مثال: 2005 أو 1998):`, {
+            inline_keyboard: [[{ text: 'السابق', callback_data: 'car_back_to_model' }, { text: 'إلغاء', callback_data: 'cancel_wizard' }]]
           });
           return new Response('OK', { status: 200 });
         }
@@ -16097,7 +16116,7 @@ Deno.serve(async (req: any) => {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         await updateOrSend(
-          `📍 <b>الخطوة 4 من 10 — المحافظة</b>\n\nاختر محافظة تواجد السيارة 👇`,
+          `<b>الخطوة 4 من 10 — المحافظة</b>\n\nاختر محافظة تواجد السيارة:`,
           buildCarGovMarkup()
         );
         return new Response('OK', { status: 200 });
@@ -16107,9 +16126,9 @@ Deno.serve(async (req: any) => {
         state.step = 'car_year';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
         await updateOrSend(
-          `📅 <b>الخطوة 3 من 10 — سنة الصنع (الموديل)</b>\n\n` +
-          `السيارة: <b>${state.data?.brand || ''} ${state.data?.model || ''}</b>\n` +
-          `اختر سنة الصنع بنقرة واحدة 👇`,
+          `<b>الخطوة 3 من 10 — سنة الصنع (الموديل)</b>\n` +
+          `السيارة: <b>${state.data?.brand || ''} ${state.data?.model || ''}</b>\n\n` +
+          `اختر سنة الصنع:`,
           buildCarYearsMarkup()
         );
         return new Response('OK', { status: 200 });
@@ -16123,7 +16142,7 @@ Deno.serve(async (req: any) => {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         await updateOrSend(
-          `📋 <b>الخطوة 5 من 10 — المواصفات والوارد</b>\n\nاختر وارد وحالة صبغ السيارة 👇`,
+          `<b>الخطوة 5 من 10 — المواصفات والوارد</b>\n\nاختر وارد وحالة صبغ السيارة:`,
           buildCarOriginMarkup()
         );
         return new Response('OK', { status: 200 });
@@ -16133,7 +16152,7 @@ Deno.serve(async (req: any) => {
         state.step = 'car_gov';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
         await updateOrSend(
-          `📍 <b>الخطوة 4 من 10 — المحافظة</b>\n\nاختر محافظة تواجد السيارة 👇`,
+          `<b>الخطوة 4 من 10 — المحافظة</b>\n\nاختر محافظة تواجد السيارة:`,
           buildCarGovMarkup()
         );
         return new Response('OK', { status: 200 });
@@ -16147,8 +16166,7 @@ Deno.serve(async (req: any) => {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         await updateOrSend(
-          `🛣️ <b>الخطوة 6 من 10 — الكيلومترات (الممشى)</b>\n\n` +
-          `اختر المسافة المقطوعة بنقرة واحدة، أو اضغط «✏️ كتابة الممشى بدقة» 👇`,
+          `<b>الخطوة 6 من 10 — المسافة المقطوعة (الممشى)</b>\n\nاختر المسافة المقطوعة، أو اكتبها بدقة:`,
           buildCarMileageMarkup()
         );
         return new Response('OK', { status: 200 });
@@ -16158,7 +16176,7 @@ Deno.serve(async (req: any) => {
         state.step = 'car_origin';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
         await updateOrSend(
-          `📋 <b>الخطوة 5 من 10 — المواصفات والوارد</b>\n\nاختر وارد وحالة صبغ السيارة 👇`,
+          `<b>الخطوة 5 من 10 — المواصفات والوارد</b>\n\nاختر وارد وحالة صبغ السيارة:`,
           buildCarOriginMarkup()
         );
         return new Response('OK', { status: 200 });
@@ -16169,10 +16187,10 @@ Deno.serve(async (req: any) => {
         if (mVal === 'custom') {
           state.step = 'car_mileage_custom';
           await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-          await updateOrSend(`🛣️ <b>كتابة الممشى بدقة:</b>\n\nاكتب عدد الكيلومترات المقطوعة بالأرقام (مثال: 45000 أو 110000):`, {
+          await updateOrSend(`<b>كتابة الممشى بدقة:</b>\n\nاكتب عدد الكيلومترات المقطوعة بالأرقام (مثال: 45000 أو 110000):`, {
             inline_keyboard: [
-              [{ text: '◀️ السابق', callback_data: 'car_back_to_origin' }],
-              [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+              [{ text: 'السابق', callback_data: 'car_back_to_origin' }],
+              [{ text: 'إلغاء', callback_data: 'cancel_wizard' }]
             ]
           });
           return new Response('OK', { status: 200 });
@@ -16184,7 +16202,7 @@ Deno.serve(async (req: any) => {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         await updateOrSend(
-          `💵 <b>الخطوة 7 من 10 — عملة السعر المطلوب</b>\n\nاختر عملة تسعير السيارة 👇`,
+          `<b>الخطوة 7 من 10 — عملة السعر المطلوب</b>\n\nاختر عملة تسعير السيارة:`,
           buildCarCurrencyMarkup()
         );
         return new Response('OK', { status: 200 });
@@ -16194,8 +16212,7 @@ Deno.serve(async (req: any) => {
         state.step = 'car_mileage';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
         await updateOrSend(
-          `🛣️ <b>الخطوة 6 من 10 — الكيلومترات (الممشى)</b>\n\n` +
-          `اختر المسافة المقطوعة بنقرة واحدة، أو اضغط «✏️ كتابة الممشى بدقة» 👇`,
+          `<b>الخطوة 6 من 10 — المسافة المقطوعة (الممشى)</b>\n\nاختر المسافة المقطوعة، أو اكتبها بدقة:`,
           buildCarMileageMarkup()
         );
         return new Response('OK', { status: 200 });
@@ -16209,10 +16226,27 @@ Deno.serve(async (req: any) => {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         const examplePrice = curr === '$' ? '14500 أو 18000' : '18000000 أو 22500000';
-        await updateOrSend(`💰 <b>الخطوة 8 من 10 — السعر</b>\n\nالعملة: <b>${curr === '$' ? 'دولار أمريكي $' : 'دينار عراقي د.ع'}</b>\nاكتب السعر المطلوب بالأرقام فقط:\n(مثال: ${examplePrice})`, {
+        await updateOrSend(`<b>الخطوة 8 من 10 — السعر المطلوب</b>\n\nالعملة: <b>${curr === '$' ? 'دولار أمريكي ($)' : 'دينار عراقي (د.ع)'}</b>\nاكتب السعر المطلوب بالأرقام فقط:\n(مثال: ${examplePrice})`, {
           inline_keyboard: [
-            [{ text: '◀️ السابق', callback_data: 'car_back_to_mileage' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+            [{ text: 'السابق', callback_data: 'car_back_to_mileage' }, { text: 'إلغاء', callback_data: 'cancel_wizard' }]
           ]
+        });
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'car_images_done') {
+        state.step = 'car_phone';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const currentPhone = phone || '';
+        const phoneButtons = [];
+        if (currentPhone) {
+          phoneButtons.push([{ text: `استخدام رقمي الحالي (${currentPhone})`, callback_data: 'car_phone_current' }]);
+        }
+        phoneButtons.push([{ text: 'إلغاء', callback_data: 'cancel_wizard' }]);
+
+        await updateOrSend(`<b>الخطوة 10 من 10 — رقم الهاتف للتواصل</b>\n\nاكتب رقم هاتفك للتواصل، أو اضغط على الزر أدناه:`, {
+          inline_keyboard: phoneButtons
         });
         return new Response('OK', { status: 200 });
       }
@@ -21176,15 +21210,15 @@ Deno.serve(async (req: any) => {
         if (matches && matches.length > 0) {
           const inline_keyboard: any[][] = [];
           for (let i = 0; i < matches.length; i += 2) {
-            const row = [{ text: `🚗 ${matches[i]}`, callback_data: `cb_name_${encodeURIComponent(matches[i])}` }];
+            const row = [{ text: `🚗 ${matches[i]}`, callback_data: `cb_n_${matches[i]}` }];
             if (i + 1 < matches.length) {
-              row.push({ text: `🚗 ${matches[i + 1]}`, callback_data: `cb_name_${encodeURIComponent(matches[i + 1])}` });
+              row.push({ text: `🚗 ${matches[i + 1]}`, callback_data: `cb_n_${matches[i + 1]}` });
             }
             inline_keyboard.push(row);
           }
 
           inline_keyboard.push([
-            { text: `✏️ اعتماد كماركة مخصصة: "${queryText.slice(0, 18)}"`, callback_data: `cb_name_${encodeURIComponent(queryText)}` }
+            { text: `✏️ اعتماد كماركة مخصصة: "${queryText.slice(0, 18)}"`, callback_data: `cb_n_${queryText.slice(0, 18)}` }
           ]);
           inline_keyboard.push([
             { text: '🔍 بحث عن اسم آخر', callback_data: 'car_brand_search_prompt' },
@@ -21203,7 +21237,7 @@ Deno.serve(async (req: any) => {
             `هل ترغب باعتماد هذا الاسم كماركة مخصصة لسيارتك، أو تفضل إعادة البحث؟`,
             {
               inline_keyboard: [
-                [{ text: `✅ نعم، اعتمد: "${queryText.slice(0, 20)}"`, callback_data: `cb_name_${encodeURIComponent(queryText)}` }],
+                [{ text: `✅ نعم، اعتمد: "${queryText.slice(0, 20)}"`, callback_data: `cb_n_${queryText.slice(0, 20)}` }],
                 [{ text: '🔍 بحث مرة أخرى بالاسم', callback_data: 'car_brand_search_prompt' }],
                 [{ text: '🚗 استعراض الماركات والأقسام', callback_data: 'publish_car' }]
               ]
@@ -21249,13 +21283,13 @@ Deno.serve(async (req: any) => {
         state.step = 'car_gov';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        await sendMessage(chatId, `📍 <b>الخطوة 4 من 10 — المحافظة</b>\n\nاختر محافظة تواجد السيارة 👇`, buildCarGovMarkup());
+        await sendMessage(chatId, `<b>الخطوة 4 من 10 — المحافظة</b>\n\nاختر محافظة تواجد السيارة:`, buildCarGovMarkup());
         return new Response('OK', { status: 200 });
       }
       else if ((state.step === 'car_mileage' || state.step === 'car_mileage_custom') && text) {
         const cleanNum = text.replace(/[^0-9]/g, '');
         if (!cleanNum) {
-          await sendMessage(chatId, '⚠️ اكتب عدد الكيلومترات بالأرقام فقط (مثال: 110000 أو 0 إذا كانت زيرو):');
+          await sendMessage(chatId, 'اكتب عدد الكيلومترات بالأرقام فقط (مثال: 110000 أو 0 إذا كانت زيرو):');
           return new Response('OK', { status: 200 });
         }
         state.data = state.data || {};
@@ -21263,13 +21297,13 @@ Deno.serve(async (req: any) => {
         state.step = 'car_currency';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        await sendMessage(chatId, `💵 <b>الخطوة 7 من 10 — عملة السعر المطلوب</b>\n\nاختر عملة تسعير السيارة 👇`, buildCarCurrencyMarkup());
+        await sendMessage(chatId, `<b>الخطوة 7 من 10 — عملة السعر المطلوب</b>\n\nاختر عملة تسعير السيارة:`, buildCarCurrencyMarkup());
         return new Response('OK', { status: 200 });
       }
       else if (state.step === 'car_price' && text) {
         const cleanPrice = text.replace(/[^0-9]/g, '');
         if (!cleanPrice) {
-          await sendMessage(chatId, '⚠️ اكتب السعر بالأرقام فقط:');
+          await sendMessage(chatId, 'اكتب السعر بالأرقام فقط:');
           return new Response('OK', { status: 200 });
         }
         state.data = state.data || {};
@@ -21279,16 +21313,16 @@ Deno.serve(async (req: any) => {
         delete state.data.statusMsgId;
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        await sendMessage(chatId, `📸 <b>الخطوة 9 من 10 — صور السيارة</b>\n\nأرسل صور سيارتك الآن (تگدر ترسل حتى 6 صور).\n• أول صورة ستظهر في القناة الرئيسية.\n• البقية تُحفظ وتُعرض في صفحة الإعلان بالمنصة.\n\nبعد الانتهاء من إرسال الصور اضغط «تم ✅» للمتابعة.`, {
+        await sendMessage(chatId, `<b>الخطوة 9 من 10 — صور السيارة</b>\n\nأرسل صور سيارتك الآن (حتى 6 صور).\nالصورة الأولى تظهر في القناة الرئيسية.\n\nبعد إرسال الصور، اضغط «متابعة».`, {
           inline_keyboard: [
-            [{ text: 'تم ✅ (متابعة)', callback_data: 'car_images_done' }],
-            [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+            [{ text: 'متابعة', callback_data: 'car_images_done' }],
+            [{ text: 'إلغاء', callback_data: 'cancel_wizard' }]
           ]
         });
         return new Response('OK', { status: 200 });
       }
       else if (state.step === 'car_images') {
-        if (text && (text.trim() === 'تم' || text.trim() === 'تم ✅')) {
+        if (text && (text.trim() === 'تم' || text.trim() === 'متابعة' || text.trim() === 'تم ✅')) {
           state.step = 'car_phone';
           delete state.data.statusMsgId;
           await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
@@ -21296,11 +21330,11 @@ Deno.serve(async (req: any) => {
           const currentPhone = phone || '';
           const phoneButtons = [];
           if (currentPhone) {
-            phoneButtons.push([{ text: `📱 استخدام رقمي الحالي (${currentPhone})`, callback_data: 'car_phone_current' }]);
+            phoneButtons.push([{ text: `استخدام رقمي الحالي (${currentPhone})`, callback_data: 'car_phone_current' }]);
           }
-          phoneButtons.push([{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
+          phoneButtons.push([{ text: 'إلغاء', callback_data: 'cancel_wizard' }]);
 
-          await sendMessage(chatId, `📞 <b>الخطوة 10 من 10 — رقم الهاتف للتواصل</b>\n\nاكتب رقم الهاتف الخاص بك للتواصل، أو اضغط على الزر أدناه:`, {
+          await sendMessage(chatId, `<b>الخطوة 10 من 10 — رقم الهاتف للتواصل</b>\n\nاكتب رقم هاتفك، أو اضغط الزر أدناه:`, {
             inline_keyboard: phoneButtons
           });
           return new Response('OK', { status: 200 });
