@@ -17,7 +17,11 @@ async function sendMessage(chatId: string | number, text: string, replyMarkup?: 
     disable_web_page_preview: true,
     link_preview_options: { is_disabled: true }
   };
-  if (replyMarkup) body.reply_markup = replyMarkup;
+  if (replyMarkup) {
+    body.reply_markup = (replyMarkup && typeof replyMarkup === 'object' && replyMarkup.reply_markup !== undefined)
+      ? replyMarkup.reply_markup
+      : replyMarkup;
+  }
   if (replyToMessageId) body.reply_to_message_id = replyToMessageId;
   try {
     const res = await fetch(`${tgUrl}/sendMessage`, {
@@ -7861,18 +7865,28 @@ Deno.serve(async (req: any) => {
             }
           }
           state.data.regions = curRegions.join('، ');
+        } else {
+          state.data.regions = state.data.regions || 'موقعي الجغرافي';
         }
-        state.step = 'trans_regions';
+
+        // Advance immediately to next step (الوجهة / Destinations) with zero delay!
+        state.step = 'trans_dest';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        const areaMarkup = buildTransportAreasMarkup(state, state.data.areaCategory || 'bg_rusafa', 0, { saved_lat: lat, saved_lng: lng });
-        const successMsg = foundAreaName
-          ? `📍 <b>تم تحديد موقعك الجغرافي بنجاح! 📡</b>\n` +
-            `🎯 المنطقة الأقرب لموقعك: <b>${foundAreaName}</b> (تم إضافتها وتثبيت إحداثياتك ✅)\n\n` +
-            `يمكنك إضافة مناطق أخرى بالضغط عليها، أو المتابعة للوجهة مباشرة 👇`
-          : `📍 <b>تم حفظ موقعك الجغرافي بنجاح! 📡</b>\n\nاختر مناطق الانطلاق أو تابع للوجهة 👇`;
+        const isPassenger = state.data?.type === 'request';
+        const stepNum = isPassenger ? 'الخطوة 4 من 8' : 'الخطوة 4 من 9';
+        const regionLabel = state.data.regions || foundAreaName || 'موقعك عبر GPS';
 
-        await sendMessage(chatId, successMsg, areaMarkup.markup || areaMarkup);
+        const successMsg = 
+          `✅ <b>تم استلام موقعك وتحديد منطقة الانطلاق بنجاح! 📡</b>\n` +
+          `📍 <b>منطقة الانطلاق:</b> <b>${regionLabel}</b>\n\n` +
+          `<i>جاري الانتقال للخطوة التالية (${stepNum} — تحديد الوجهة)...</i>`;
+
+        await sendMessage(chatId, successMsg, { remove_keyboard: true });
+
+        const destCat = state.data?.destCategory || 'pvt_bg';
+        const destMarkup = buildTransportDestinationsMarkup(state, destCat, 0);
+        await sendMessage(chatId, destMarkup.text, destMarkup.markup);
         return new Response('OK', { status: 200, headers: corsHeaders });
       }
 
@@ -16003,13 +16017,16 @@ Deno.serve(async (req: any) => {
             state.data.regions = currentRegions.join('، ');
           }
 
-          state.step = 'trans_regions';
+          state.step = 'trans_dest';
           await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
           if (callbackQueryId) {
             try {
-              await answerCallbackQuery(callbackQueryId, '📍 تم اعتماد موقعك المحفوظ بنجاح! ✅', false);
+              await answerCallbackQuery(callbackQueryId, '📍 تم اعتماد موقعك والانتقال لتحديد الوجهة ✅', false);
             } catch(e) {}
           }
+          const destCat = state.data?.destCategory || 'pvt_bg';
+          const destMarkup = buildTransportDestinationsMarkup(state, destCat, 0);
+          return await updateOrSend(destMarkup.text, destMarkup.markup);
         }
 
         const curCat = state.data?.areaCategory || 'bg_rusafa';
@@ -16022,18 +16039,20 @@ Deno.serve(async (req: any) => {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         const promptText = 
-          `📍 <b>إرسال وتحديد موقعك الجغرافي (GPS) 📡</b>\n\n` +
-          `لتحديد منطقتك بدقة وتثبيت إحداثياتك للمرات القادمة:\n` +
-          `1️⃣ اضغط على علامة المشبك 📎 (أو ➕) أسفل الشاشة.\n` +
-          `2️⃣ اختر <b>«الموقع / Location» 📍</b> وأرسل موقعك الحالي.\n\n` +
-          `✨ <i>سيقوم البوت بالتعرف على منطقتك وإضافتها فوراً لانطلاق خطك دون عناء البحث!</i>`;
+          `📍 <b>مشاركة وتحديد موقعك الجغرافي (GPS) مباشرة 📡</b>\n\n` +
+          `🔹 <b>المشاركة المباشرة:</b> اضغط على الزر أدناه <b>«📍 إرسال موقعي الحالي مباشرة (GPS)»</b> لتحديد منطقتك فوراً بنقرة واحدة.\n\n` +
+          `🔹 <b>أو عبر المشبك 📎:</b> اضغط على المشبك أو (+) بجانب حقل الكتابة واختر «الموقع / Location» 📍 وأرسله.\n\n` +
+          `✨ <i>سيتعرف البوت تلقائياً على منطقتك ويضيفها للانطلاق ويحفظ موقعك دائماً!</i>`;
 
-        return await updateOrSend(promptText, {
-          inline_keyboard: [
-            [{ text: '◀️ العودة لقائمة المناطق', callback_data: 'trans_back_to_areas' }],
-            [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
-          ]
+        await sendMessage(chatId, promptText, {
+          keyboard: [
+            [{ text: '📍 إرسال موقعي الحالي مباشرة (GPS)', request_location: true }],
+            [{ text: '◀️ العودة لقائمة المناطق' }]
+          ],
+          resize_keyboard: true,
+          one_time_keyboard: true
         });
+        return new Response('OK', { status: 200 });
       }
 
       if (action === 'trans_area_search_prompt') {
@@ -16162,8 +16181,11 @@ Deno.serve(async (req: any) => {
         state.data.destCategory = 'pvt_bg';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
+        // Explicitly remove reply keyboard so it never leaks into next steps
+        await sendMessage(chatId, '🏢 جاري الانتقال لتحديد الوجهة...', { remove_keyboard: true });
         const destMarkup = buildTransportDestinationsMarkup(state, 'pvt_bg', 0);
-        return await updateOrSend(destMarkup.text, destMarkup.markup);
+        await sendMessage(chatId, destMarkup.text, destMarkup.markup);
+        return new Response('OK', { status: 200 });
       }
 
       if (action === 'trans_area_custom') {
@@ -16181,7 +16203,11 @@ Deno.serve(async (req: any) => {
         const curCat = state.data?.areaCategory || 'bg_rusafa';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
         const areaMarkup = buildTransportAreasMarkup(state, curCat, 0, tgUser);
-        return await updateOrSend(areaMarkup.text, areaMarkup.markup);
+
+        // Remove keyboard cleanly
+        await sendMessage(chatId, '📋 قائمة مناطق الانطلاق:', { remove_keyboard: true });
+        await sendMessage(chatId, areaMarkup.text, areaMarkup.markup);
+        return new Response('OK', { status: 200 });
       }
 
       if (action === 'trans_back_to_dest') {
@@ -20898,6 +20924,19 @@ Deno.serve(async (req: any) => {
           destMarkup.text,
           destMarkup.markup
         );
+        return new Response('OK', { status: 200 });
+      }
+      else if (state.step === 'trans_regions_waiting_gps' && text) {
+        state.step = 'trans_regions';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        await sendMessage(chatId, '👍 تم الرجوع لقائمة المناطق:', {
+          reply_markup: { remove_keyboard: true }
+        });
+
+        const curCat = state.data?.areaCategory || 'bg_rusafa';
+        const areaMarkup = buildTransportAreasMarkup(state, curCat, 0, tgUser);
+        await sendMessage(chatId, areaMarkup.text, areaMarkup.markup);
         return new Response('OK', { status: 200 });
       }
       else if (state.step === 'trans_area_search' && text) {
