@@ -5297,49 +5297,275 @@ const TRANSPORT_DESTINATIONS_PAGES = [
 const TRANSPORT_AREAS_BAGHDAD = TRANSPORT_AREAS_PAGES[0].rows;
 const TRANSPORT_DESTINATIONS_BAGHDAD = TRANSPORT_DESTINATIONS_PAGES[0].rows;
 
-function buildTransportAreasMarkup(state: any, pageIdx = 0) {
-  const totalPages = TRANSPORT_AREAS_PAGES.length;
-  const safeIdx = Math.max(0, Math.min(pageIdx, totalPages - 1));
-  const curPage = TRANSPORT_AREAS_PAGES[safeIdx];
+interface IraqiTransportArea {
+  id: string;
+  name: string;
+  category: 'bg_rusafa' | 'bg_karkh' | 'south' | 'north';
+  lat?: number;
+  lng?: number;
+  keywords: string[];
+}
+
+const IRAQI_TRANSPORT_AREAS: IraqiTransportArea[] = [
+  // 🟢 رصافة بغداد
+  { id: 'karada', name: 'الكرادة', category: 'bg_rusafa', lat: 33.303, lng: 44.422, keywords: ['الكرادة', 'كرادة', 'داخل', 'خارج', 'مسبح'] },
+  { id: 'jadriya', name: 'الجادرية', category: 'bg_rusafa', lat: 33.275, lng: 44.380, keywords: ['الجادرية', 'جادرية', 'جامعة بغداد', 'المسبح'] },
+  { id: 'zayouna', name: 'زيونة', category: 'bg_rusafa', lat: 33.325, lng: 44.450, keywords: ['زيونة', 'زيونه', 'ميسلون', 'الربيعي'] },
+  { id: 'palestine', name: 'شارع فلسطين', category: 'bg_rusafa', lat: 33.355, lng: 44.430, keywords: ['فلسطين', 'شارع فلسطين', 'موال', 'صخرة'] },
+  { id: 'ghadeer', name: 'الغدير', category: 'bg_rusafa', lat: 33.320, lng: 44.475, keywords: ['الغدير', 'غدير', 'ساحة ميسلون'] },
+  { id: 'new_baghdad', name: 'بغداد الجديدة', category: 'bg_rusafa', lat: 33.300, lng: 44.490, keywords: ['بغداد الجديدة', 'الجديدة', 'المسبح'] },
+  { id: 'adhamiya', name: 'الأعظمية', category: 'bg_rusafa', lat: 33.370, lng: 44.360, keywords: ['الاعظمية', 'الأعظمية', 'رأس الحواش', 'الكسرة'] },
+  { id: 'waziriya', name: 'الوزيرية', category: 'bg_rusafa', lat: 33.360, lng: 44.390, keywords: ['الوزيرية', 'وزيرية', 'الفنون', 'التربية'] },
+  { id: 'sulaikh', name: 'الصليخ', category: 'bg_rusafa', lat: 33.390, lng: 44.370, keywords: ['الصليخ', 'صليخ', 'شارع 600', 'السبع ابكار'] },
+  { id: 'shaab', name: 'الشعب', category: 'bg_rusafa', lat: 33.410, lng: 44.400, keywords: ['الشعب', 'شعب', 'عدن', 'ديالى'] },
+  { id: 'ur', name: 'حي أور', category: 'bg_rusafa', lat: 33.400, lng: 44.420, keywords: ['حي اور', 'حي أور', 'اور'] },
+  { id: 'qahira', name: 'القاهرة', category: 'bg_rusafa', lat: 33.380, lng: 44.390, keywords: ['القاهرة', 'قاهرة', 'ندا'] },
+  { id: 'bunuk', name: 'البنوك', category: 'bg_rusafa', lat: 33.385, lng: 44.415, keywords: ['البنوك', 'بنوك', 'الميثاق'] },
+  { id: 'sab_abkar', name: 'سبع ابكار والكريعات', category: 'bg_rusafa', lat: 33.395, lng: 44.350, keywords: ['سبع ابكار', 'الكريعات', 'كريعات'] },
+  { id: 'talbiya', name: 'الطالبية', category: 'bg_rusafa', lat: 33.375, lng: 44.435, keywords: ['الطالبية', 'طالبية', 'حكام'] },
+  { id: 'jamila', name: 'جميلة', category: 'bg_rusafa', lat: 33.365, lng: 44.460, keywords: ['جميلة', 'جميله', 'علوة جميلة'] },
+  { id: 'habibiya', name: 'الحبيبية', category: 'bg_rusafa', lat: 33.350, lng: 44.470, keywords: ['الحبيبية', 'حبيبية', 'ساحة الحمزة'] },
+  { id: 'sadr', name: 'مدينة الصدر', category: 'bg_rusafa', lat: 33.380, lng: 44.470, keywords: ['مدينة الصدر', 'الثورة', 'الصدر'] },
+  { id: 'mashtal', name: 'المشتل والأمين', category: 'bg_rusafa', lat: 33.310, lng: 44.480, keywords: ['المشتل', 'مشتل', 'الامين', 'الأمين'] },
+  { id: 'baladiyat', name: 'البلديات', category: 'bg_rusafa', lat: 33.330, lng: 44.490, keywords: ['البلديات', 'بلديات', 'شقق البلديات'] },
+  { id: 'zafraniya', name: 'الزعفرانية', category: 'bg_rusafa', lat: 33.240, lng: 44.490, keywords: ['الزعفرانية', 'زعفرانية', 'معهد'] },
+  { id: 'bismayah', name: 'بسماية', category: 'bg_rusafa', lat: 33.150, lng: 44.600, keywords: ['بسماية', 'بسمايه', 'مجمع بسماية'] },
+  { id: 'jisr_diyala', name: 'جسر ديالى والمدائن', category: 'bg_rusafa', lat: 33.220, lng: 44.520, keywords: ['جسر ديالى', 'المدائن', 'سلمان باك'] },
+  { id: 'husseiniya', name: 'الحسينية والراشدية', category: 'bg_rusafa', lat: 33.500, lng: 44.430, keywords: ['الحسينية', 'حسينية', 'الراشدية', 'راشدية', 'بوب الشام'] },
+
+  // 🔵 كرخ بغداد
+  { id: 'mansour', name: 'المنصور', category: 'bg_karkh', lat: 33.315, lng: 44.350, keywords: ['المنصور', 'منصور', '14 رمضان', 'اميرات'] },
+  { id: 'yarmouk', name: 'اليرموك', category: 'bg_karkh', lat: 33.295, lng: 44.345, keywords: ['اليرموك', 'يرموك', 'أربع شوارع', 'مستشفى اليرموك'] },
+  { id: 'university_area', name: 'حي الجامعة', category: 'bg_karkh', lat: 33.325, lng: 44.315, keywords: ['حي الجامعة', 'جامعة', 'الربيع'] },
+  { id: 'harthiya', name: 'الحارثية والقادسية', category: 'bg_karkh', lat: 33.310, lng: 44.365, keywords: ['الحارثية', 'حارثية', 'القادسية', 'قادسية', 'ساحة قحطان'] },
+  { id: 'khadra_adel', name: 'الخضراء وحي العدل', category: 'bg_karkh', lat: 33.330, lng: 44.300, keywords: ['الخضراء', 'حي الخضراء', 'حي العدل', 'عدل'] },
+  { id: 'ghazaliya', name: 'الغزالية', category: 'bg_karkh', lat: 33.340, lng: 44.250, keywords: ['الغزالية', 'غزالية', 'شارع مدير الامن'] },
+  { id: 'amriya', name: 'العامرية وحي الفرات', category: 'bg_karkh', lat: 33.290, lng: 44.280, keywords: ['العامرية', 'عامرية', 'شارع المنظمة', 'حي الفرات', 'فرات'] },
+  { id: 'jihad_amel', name: 'حي الجهاد وحي العامل', category: 'bg_karkh', lat: 33.265, lng: 44.285, keywords: ['حي الجهاد', 'جهاد', 'حي العامل', 'عامل'] },
+  { id: 'bayaa_saidiya', name: 'البياع والسيدية', category: 'bg_karkh', lat: 33.260, lng: 44.320, keywords: ['البياع', 'بياع', 'السيدية', 'سيدية', 'عشرين'] },
+  { id: 'dora', name: 'الدورة', category: 'bg_karkh', lat: 33.245, lng: 44.380, keywords: ['الدورة', 'دورة', 'ميكانيك', 'معلمين', 'جمعية', 'اسيا', 'حي الاعلام'] },
+  { id: 'kadhimiya', name: 'الكاظمية والعطيفية', category: 'bg_karkh', lat: 33.380, lng: 44.340, keywords: ['الكاظمية', 'كاظمية', 'العطيفية', 'عطيفية', 'باب الدروازة'] },
+  { id: 'shula_hurriya', name: 'الشعلة والحرية', category: 'bg_karkh', lat: 33.385, lng: 44.280, keywords: ['الشعلة', 'شعلة', 'الحرية', 'حرية', 'الدولعي'] },
+  { id: 'tobchi_iskan', name: 'الطوبجي والإسكان', category: 'bg_karkh', lat: 33.345, lng: 44.345, keywords: ['الطوبجي', 'طوبجي', 'الاسكان', 'وشاش'] },
+  { id: 'nafaq_shurta', name: 'نفق الشرطة وسويب', category: 'bg_karkh', lat: 33.320, lng: 44.330, keywords: ['نفق الشرطة', 'نفق', 'الشرطة الرابعة', 'الشرطة الخامسة', 'سويب', 'المعالف'] },
+  { id: 'abu_ghraib', name: 'أبو غريب', category: 'bg_karkh', lat: 33.310, lng: 44.180, keywords: ['ابو غريب', 'أبو غريب', 'عكركوف'] },
+  { id: 'taji_tarmiya', name: 'التاجي والطارمية', category: 'bg_karkh', lat: 33.520, lng: 44.260, keywords: ['التاجي', 'تاجي', 'الطارمية', 'طارمية', 'سبع البور'] },
+  { id: 'mahmoudiya', name: 'المحمودية واللطيفية', category: 'bg_karkh', lat: 33.060, lng: 44.350, keywords: ['المحمودية', 'محمودية', 'اللطيفية', 'اليوسفية', 'الرضوانية'] },
+
+  // 🕌 الفرات الأوسط والجنوب
+  { id: 'babil', name: 'بابل / الحلة', category: 'south', lat: 32.48, lng: 44.43, keywords: ['بابل', 'الحلة', 'حلة', 'طهمازية', 'نادر'] },
+  { id: 'karbala', name: 'كربلاء المقدسة', category: 'south', lat: 32.61, lng: 44.02, keywords: ['كربلاء', 'كربلاء المقدسة', 'الهندية', 'طويريج', 'الحر'] },
+  { id: 'najaf', name: 'النجف الأشرف / الكوفة', category: 'south', lat: 32.02, lng: 44.34, keywords: ['النجف', 'نجف', 'الكوفة', 'كوفة', 'المناذرة'] },
+  { id: 'diwaniya', name: 'الديوانية / القادسية', category: 'south', lat: 31.99, lng: 44.92, keywords: ['الديوانية', 'ديوانية', 'القادسية', 'الشامية', 'عفك'] },
+  { id: 'samawa', name: 'السماوة / المثنى', category: 'south', lat: 31.31, lng: 45.28, keywords: ['السماوة', 'سماوة', 'المثنى', 'الرميثة', 'الخضر'] },
+  { id: 'kut', name: 'الكوت / واسط', category: 'south', lat: 32.51, lng: 45.82, keywords: ['الكوت', 'كوت', 'واسط', 'النعمانية', 'الحي', 'الصويرة'] },
+  { id: 'nasiriyah', name: 'الناصرية / ذي قار', category: 'south', lat: 31.05, lng: 46.26, keywords: ['الناصرية', 'ناصرية', 'ذي قار', 'سوق الشيوخ', 'الشطرة', 'الرفاعي'] },
+  { id: 'amara', name: 'العمارة / ميسان', category: 'south', lat: 31.84, lng: 47.14, keywords: ['العمارة', 'عمارة', 'ميسان', 'علي الغربي', 'الميمونة', 'قلعة صالح'] },
+  { id: 'basra_center', name: 'البصرة (المركز)', category: 'south', lat: 30.51, lng: 47.81, keywords: ['البصرة', 'بصرة', 'العشار', 'الجبيلة', 'الجزائر', 'المعقل', 'الطويسة'] },
+  { id: 'basra_zubair', name: 'الزبير وسفوان', category: 'south', lat: 30.39, lng: 47.70, keywords: ['الزبير', 'زبير', 'سفوان', 'خور الزبير', 'أم قصر'] },
+  { id: 'basra_qurna', name: 'القرنة وشط العرب', category: 'south', lat: 31.01, lng: 47.43, keywords: ['القرنة', 'قرنة', 'شط العرب', 'التنومة', 'الهارثة', 'الدير'] },
+  { id: 'mussayib', name: 'المسيب والإسكندرية', category: 'south', lat: 32.78, lng: 44.29, keywords: ['المسيب', 'مسيب', 'الإسكندرية', 'سدة الهندية', 'المحاويل'] },
+
+  // 🌄 الشمال والغربية
+  { id: 'ramadi', name: 'الأنبار / الرمادي', category: 'north', lat: 33.42, lng: 43.30, keywords: ['الرمادي', 'رمادي', 'الانبار', 'الأنبار', 'التأميم', 'الورار', 'الصوفية'] },
+  { id: 'fallujah', name: 'الفلوجة والكرمة', category: 'north', lat: 33.35, lng: 43.78, keywords: ['الفلوجة', 'فلوجة', 'الكرمة', 'العامرية', 'الصقلاوية'] },
+  { id: 'west_anbar', name: 'هيت وحديثة والقائم', category: 'north', lat: 33.64, lng: 42.82, keywords: ['هيت', 'حديثة', 'القائم', 'عانة', 'راوة', 'البغدادي'] },
+  { id: 'tikrit', name: 'صلاح الدين / تكريت', category: 'north', lat: 34.61, lng: 43.68, keywords: ['تكريت', 'صلاح الدين', 'العوجة', 'الدور', 'بيجي'] },
+  { id: 'samarra', name: 'سامراء وبلد والدجيل', category: 'north', lat: 34.20, lng: 43.87, keywords: ['سامراء', 'بلد', 'الدجيل', 'الضلوعية'] },
+  { id: 'baqubah', name: 'ديالى / بعقوبة', category: 'north', lat: 33.75, lng: 44.64, keywords: ['بعقوبة', 'ديالى', 'بهرز', 'الخالص', 'المقدادية', 'خانقين', 'جلولاء'] },
+  { id: 'kirkuk', name: 'كركوك', category: 'north', lat: 35.47, lng: 44.39, keywords: ['كركوك', 'الحويجة', 'دبس', 'داقوق', 'رحيم اوة'] },
+  { id: 'mosul', name: 'الموصل / نينوى', category: 'north', lat: 36.34, lng: 43.13, keywords: ['الموصل', 'موصل', 'نينوى', 'الزهور', 'الجامعة', 'تلعفر', 'سنجار'] },
+  { id: 'erbil', name: 'أربيل', category: 'north', lat: 36.19, lng: 44.01, keywords: ['اربيل', 'أربيل', 'عينكاوة', 'شورش'] },
+  { id: 'sulaymaniyah', name: 'السليمانية', category: 'north', lat: 35.56, lng: 45.43, keywords: ['السليمانية', 'سليمانية', 'رابرين'] },
+  { id: 'duhok', name: 'دهوك وزاخو', category: 'north', lat: 36.87, lng: 42.99, keywords: ['دهوك', 'زاخو', 'سميل'] }
+];
+
+function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function findNearestIraqiArea(lat: number, lng: number): { area: IraqiTransportArea; distanceKm: number } | null {
+  if (!lat || !lng || !IRAQI_TRANSPORT_AREAS || IRAQI_TRANSPORT_AREAS.length === 0) return null;
+  let nearest: IraqiTransportArea | null = null;
+  let minDistance = Infinity;
+
+  for (const item of IRAQI_TRANSPORT_AREAS) {
+    if (item.lat && item.lng) {
+      const dist = calculateDistanceKm(lat, lng, item.lat, item.lng);
+      if (dist < minDistance) {
+        minDistance = dist;
+        nearest = item;
+      }
+    }
+  }
+
+  if (nearest) {
+    return { area: nearest, distanceKm: minDistance };
+  }
+  return null;
+}
+
+function searchIraqiAreas(query: string): IraqiTransportArea[] {
+  if (!query) return [];
+  const qNorm = normArabic(query.trim().toLowerCase());
+  const scored: { area: IraqiTransportArea; score: number }[] = [];
+
+  for (const area of IRAQI_TRANSPORT_AREAS) {
+    const nameNorm = normArabic(area.name.toLowerCase());
+    let score = 0;
+
+    if (nameNorm === qNorm) {
+      score = 1.0;
+    } else if (nameNorm.includes(qNorm)) {
+      score = 0.85;
+    } else if (qNorm.includes(nameNorm)) {
+      score = 0.8;
+    } else if (area.keywords && area.keywords.some((kw: string) => normArabic(kw.toLowerCase()).includes(qNorm))) {
+      score = 0.75;
+    }
+
+    if (score > 0) {
+      scored.push({ area, score });
+    }
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 8).map(s => s.area);
+}
+
+function buildTransportAreasMarkup(state: any, catOrPage: string | number = 'bg_rusafa', pageNum = 0, tgUser?: any) {
+  let activeCategory = 'bg_rusafa';
+  let pageIdx = 0;
+  if (typeof catOrPage === 'number') {
+    pageIdx = catOrPage;
+    activeCategory = state?.data?.areaCategory || 'bg_rusafa';
+  } else if (typeof catOrPage === 'string') {
+    if (!isNaN(Number(catOrPage))) {
+      pageIdx = Number(catOrPage);
+      activeCategory = state?.data?.areaCategory || 'bg_rusafa';
+    } else {
+      activeCategory = catOrPage || 'bg_rusafa';
+      pageIdx = pageNum || 0;
+    }
+  }
+
+  const catTitles: { [k: string]: string } = {
+    bg_rusafa: '🟢 رصافة بغداد وشرق القناة',
+    bg_karkh: '🔵 كرخ بغداد وأطرافها',
+    south: '🕌 الفرات الأوسط ومحافظات الجنوب',
+    north: '🌄 المحافظات الشمالية والغربية'
+  };
+
+  const PAGE_SIZE = 8;
+  const filtered = IRAQI_TRANSPORT_AREAS.filter(a => a.category === activeCategory);
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+  const page = Math.max(0, Math.min(pageIdx, totalPages - 1));
+  const pageItems = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
   const selectedRegions = state?.data?.regions || '';
   const selList = selectedRegions.split('،').map((s: string) => s.trim()).filter(Boolean);
 
-  const buttons: any[] = [];
-  curPage.rows.forEach((row: string[], rIdx: number) => {
-    buttons.push(row.map((area: string, cIdx: number) => {
-      const isSelected = selList.includes(area);
-      return {
-        text: isSelected ? `✅ ${area}` : area,
-        callback_data: `ta_p${safeIdx}_r${rIdx}_c${cIdx}`
-      };
-    }));
-  });
+  const inline_keyboard: any[][] = [];
 
-  // Navigation pagination row
+  // 1. Top Search Bar Button
+  inline_keyboard.push([
+    { text: '🔍 بحث سريع عن المنطقة / المدينة', callback_data: 'trans_area_search_prompt' }
+  ]);
+
+  // 2. Smart Location / GPS Row
+  const savedLat = tgUser?.saved_lat || state?.data?.pickup_lat;
+  const savedLng = tgUser?.saved_lng || state?.data?.pickup_lng;
+  if (savedLat && savedLng) {
+    const nearest = findNearestIraqiArea(savedLat, savedLng);
+    const locName = nearest ? nearest.area.name : 'موقعي المحفوظ';
+    inline_keyboard.push([
+      { text: `📍 استخدام موقعي المحفوظ: ${locName} 📌`, callback_data: 'trans_area_use_saved' }
+    ]);
+  }
+  inline_keyboard.push([
+    { text: '🗺️ إرسال موقعي الآن عبر GPS للتحديد التلقائي 📡', callback_data: 'trans_area_send_gps_prompt' }
+  ]);
+
+  // 3. 8 Areas Grid (2 columns)
+  for (let i = 0; i < pageItems.length; i += 2) {
+    const row = [];
+    const item1 = pageItems[i];
+    const isSel1 = selList.includes(item1.name);
+    row.push({
+      text: isSel1 ? `✅ ${item1.name}` : item1.name,
+      callback_data: `ta_id_${item1.id}`
+    });
+
+    if (i + 1 < pageItems.length) {
+      const item2 = pageItems[i + 1];
+      const isSel2 = selList.includes(item2.name);
+      row.push({
+        text: isSel2 ? `✅ ${item2.name}` : item2.name,
+        callback_data: `ta_id_${item2.id}`
+      });
+    }
+    inline_keyboard.push(row);
+  }
+
+  // 4. Navigation Pagination Bar
   const navRow: any[] = [];
-  if (safeIdx > 0) {
-    navRow.push({ text: '⬅️ السابق', callback_data: `trans_area_page_${safeIdx - 1}` });
+  if (page > 0) {
+    navRow.push({ text: '⬅️ السابق', callback_data: `trans_area_cat_${activeCategory}_${page - 1}` });
   }
-  navRow.push({ text: `📄 ${safeIdx + 1} / ${totalPages}`, callback_data: `trans_area_page_${safeIdx}` });
-  if (safeIdx < totalPages - 1) {
-    navRow.push({ text: 'التالي ➡️', callback_data: `trans_area_page_${safeIdx + 1}` });
+  navRow.push({ text: `📄 صفحة ${page + 1} من ${totalPages}`, callback_data: `trans_area_cat_${activeCategory}_${page}` });
+  if (page < totalPages - 1) {
+    navRow.push({ text: 'التالي ➡️', callback_data: `trans_area_cat_${activeCategory}_${page + 1}` });
   }
-  buttons.push(navRow);
+  inline_keyboard.push(navRow);
 
-  // Confirm button (always available so user can proceed anytime)
+  // 5. Category Tabs
+  inline_keyboard.push([
+    { text: activeCategory === 'bg_rusafa' ? '🔘 🟢 رصافة بغداد' : '🟢 رصافة بغداد', callback_data: 'trans_area_cat_bg_rusafa_0' },
+    { text: activeCategory === 'bg_karkh' ? '🔘 🔵 كرخ بغداد' : '🔵 كرخ بغداد', callback_data: 'trans_area_cat_bg_karkh_0' }
+  ]);
+  inline_keyboard.push([
+    { text: activeCategory === 'south' ? '🔘 🕌 الفرات والجنوب' : '🕌 الفرات والجنوب', callback_data: 'trans_area_cat_south_0' },
+    { text: activeCategory === 'north' ? '🔘 🌄 الشمال والغربية' : '🌄 الشمال والغربية', callback_data: 'trans_area_cat_north_0' }
+  ]);
+
+  // 6. Action Row: Confirm Selected
   const confirmLabel = selList.length > 0 
     ? `✅ اعتماد المناطق (${selList.length}) والمتابعة للوجهة ➡️` 
     : `✅ اعتماد والمتابعة للوجهة ➡️`;
-  buttons.push([{ text: confirmLabel, callback_data: 'trans_area_done' }]);
+  inline_keyboard.push([{ text: confirmLabel, callback_data: 'trans_area_done' }]);
 
-  // Custom text input button
-  buttons.push([{ text: '✏️ كتابة المناطق بنفسي (نص) 📝', callback_data: 'trans_area_custom' }]);
-  buttons.push([
+  // 7. Custom Input / Back / Cancel
+  inline_keyboard.push([
+    { text: '✏️ كتابة اسم منطقة مخصصة', callback_data: 'trans_area_custom' }
+  ]);
+  inline_keyboard.push([
     { text: '◀️ السابق', callback_data: `trans_cat_${state?.data?.categoryType || 'student'}` },
     { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
   ]);
 
-  return { inline_keyboard: buttons };
+  const isPassenger = state?.data?.type === 'request';
+  const stepTitle = isPassenger
+    ? `📍 <b>طلب خط — الخطوة 3 من 8 — منطقة الانطلاق (الصعود)</b>`
+    : `📍 <b>الخطوة 3 من 9 — مناطق الانطلاق والمرور</b>`;
+
+  const selectedStr = selList.length > 0 
+    ? `📌 <b>المناطق المحددة حتى الآن:</b> [ <b>${selList.join('، ')}</b> ]\n` 
+    : `📌 <b>المناطق المحددة:</b> <i>(لم يتم اختيار أي منطقة بعد)</i>\n`;
+
+  const text = 
+    `${stepTitle}\n\n` +
+    `📍 <b>القسم المختار:</b> <b>${catTitles[activeCategory] || activeCategory}</b>\n` +
+    `${selectedStr}\n` +
+    `اختر مناطق الانطلاق (يمكنك تحديد حتى 3 مناطق بالضغط عليها ✅)، أو استخدم 🔍 البحث بالاسم أو 📡 التحديد التلقائي عبر GPS 👇`;
+
+  return { text, markup: { inline_keyboard }, inline_keyboard };
 }
 
 function buildTransportDestinationsMarkup(state: any, catOrPage: string | number = 'pvt_bg', pageNum = 0) {
@@ -7614,6 +7840,41 @@ Deno.serve(async (req: any) => {
         pickup_lat: lat,
         pickup_lng: lng
       }).or(`passenger_chat_id.eq.${chatId},captain_chat_id.eq.${chatId}`);
+
+      // If user is in departure areas step (الانطلاق):
+      if (state && (state.step === 'trans_regions' || state.step === 'trans_regions_waiting_gps' || state.step === 'trans_area_custom_input')) {
+        state.data = state.data || {};
+        state.data.pickup_lat = lat;
+        state.data.pickup_lng = lng;
+
+        const nearest = findNearestIraqiArea(lat, lng);
+        let foundAreaName = '';
+        if (nearest) {
+          foundAreaName = nearest.area.name;
+          state.data.areaCategory = nearest.area.category;
+          let curRegions = (state.data.regions || '').split('،').map((s: string) => s.trim()).filter(Boolean);
+          if (!curRegions.includes(foundAreaName)) {
+            if (curRegions.length >= 3) {
+              curRegions = [foundAreaName];
+            } else {
+              curRegions.push(foundAreaName);
+            }
+          }
+          state.data.regions = curRegions.join('، ');
+        }
+        state.step = 'trans_regions';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const areaMarkup = buildTransportAreasMarkup(state, state.data.areaCategory || 'bg_rusafa', 0, { saved_lat: lat, saved_lng: lng });
+        const successMsg = foundAreaName
+          ? `📍 <b>تم تحديد موقعك الجغرافي بنجاح! 📡</b>\n` +
+            `🎯 المنطقة الأقرب لموقعك: <b>${foundAreaName}</b> (تم إضافتها وتثبيت إحداثياتك ✅)\n\n` +
+            `يمكنك إضافة مناطق أخرى بالضغط عليها، أو المتابعة للوجهة مباشرة 👇`
+          : `📍 <b>تم حفظ موقعك الجغرافي بنجاح! 📡</b>\n\nاختر مناطق الانطلاق أو تابع للوجهة 👇`;
+
+        await sendMessage(chatId, successMsg, areaMarkup.markup || areaMarkup);
+        return new Response('OK', { status: 200, headers: corsHeaders });
+      }
 
       // If user was in the middle of publishing a line:
       if (state && state.step === 'trans_waiting_location') {
@@ -15662,34 +15923,157 @@ Deno.serve(async (req: any) => {
         const catType = action.replace('trans_cat_', '');
         state.data.categoryType = catType;
         state.step = 'trans_regions';
+        state.data.areaCategory = state.data.areaCategory || 'bg_rusafa';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        const isPassenger = state.data?.type === 'request';
-        const areaMarkup = buildTransportAreasMarkup(state, 0);
-        const areaMsg = isPassenger
-          ? `📍 <b>طلب خط — الخطوة 3 من 8 — منطقة الانطلاق (الصعود)</b>\n\n` +
-            `اختر منطقة سكنك أو نقطة الصعود التي ترغب بالانطلاق منها (أو اكتبها بنفسك) 👇`
-          : `📍 <b>الخطوة 3 من 9 — مناطق الانطلاق (المرور)</b>\n\n` +
-            `اختر مناطق الانطلاق التي يمر بها خطك (يمكنك اختيار أكثر من منطقة) أو اكتبها بنفسك 👇`;
-
-        await updateOrSend(areaMsg, areaMarkup);
+        const areaMarkup = buildTransportAreasMarkup(state, state.data.areaCategory, 0, tgUser);
+        await updateOrSend(areaMarkup.text, areaMarkup.markup);
         return new Response('OK', { status: 200 });
+      }
+
+      if (action.startsWith('trans_area_cat_')) {
+        const parts = action.replace('trans_area_cat_', '').split('_');
+        const pageIdx = parseInt(parts.pop() || '0', 10) || 0;
+        const catKey = parts.join('_') || 'bg_rusafa';
+        state.step = 'trans_regions';
+        state.data = state.data || {};
+        state.data.areaCategory = catKey;
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const areaMarkup = buildTransportAreasMarkup(state, catKey, pageIdx, tgUser);
+        return await updateOrSend(areaMarkup.text, areaMarkup.markup);
+      }
+
+      if (action.startsWith('ta_id_')) {
+        const areaId = action.replace('ta_id_', '');
+        const areaObj = IRAQI_TRANSPORT_AREAS.find(a => a.id === areaId);
+        const areaVal = areaObj ? areaObj.name : areaId;
+
+        state.data = state.data || {};
+        let currentRegions = (state.data?.regions || '').split('،').map((s: string) => s.trim()).filter(Boolean);
+        if (areaVal) {
+          if (currentRegions.includes(areaVal)) {
+            // Toggle off
+            currentRegions = currentRegions.filter((r: string) => r !== areaVal);
+          } else {
+            // Toggle on with max 3 limit
+            if (currentRegions.length >= 3) {
+              if (callbackQueryId) {
+                try {
+                  await answerCallbackQuery(callbackQueryId, '⚠️ الحد الأقصى 3 مناطق رئيسية لضمان ترتيب إعلانك 🌹', true);
+                } catch(e) {}
+              }
+            } else {
+              currentRegions.push(areaVal);
+              if (!state.data.pickup_lat && areaObj?.lat && areaObj?.lng) {
+                state.data.pickup_lat = areaObj.lat;
+                state.data.pickup_lng = areaObj.lng;
+              }
+            }
+          }
+        }
+
+        state.data.regions = currentRegions.join('، ');
+        const curCat = areaObj?.category || state.data.areaCategory || 'bg_rusafa';
+        state.data.areaCategory = curCat;
+        state.step = 'trans_regions';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const areaMarkup = buildTransportAreasMarkup(state, curCat, 0, tgUser);
+        return await updateOrSend(areaMarkup.text, areaMarkup.markup);
+      }
+
+      if (action === 'trans_area_use_saved') {
+        const sLat = tgUser?.saved_lat || state.data?.pickup_lat;
+        const sLng = tgUser?.saved_lng || state.data?.pickup_lng;
+        if (sLat && sLng) {
+          state.data = state.data || {};
+          state.data.pickup_lat = sLat;
+          state.data.pickup_lng = sLng;
+
+          const nearest = findNearestIraqiArea(sLat, sLng);
+          if (nearest) {
+            const areaName = nearest.area.name;
+            state.data.areaCategory = nearest.area.category;
+            let currentRegions = (state.data?.regions || '').split('،').map((s: string) => s.trim()).filter(Boolean);
+            if (!currentRegions.includes(areaName)) {
+              if (currentRegions.length >= 3) currentRegions = [areaName];
+              else currentRegions.push(areaName);
+            }
+            state.data.regions = currentRegions.join('، ');
+          }
+
+          state.step = 'trans_regions';
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+          if (callbackQueryId) {
+            try {
+              await answerCallbackQuery(callbackQueryId, '📍 تم اعتماد موقعك المحفوظ بنجاح! ✅', false);
+            } catch(e) {}
+          }
+        }
+
+        const curCat = state.data?.areaCategory || 'bg_rusafa';
+        const areaMarkup = buildTransportAreasMarkup(state, curCat, 0, tgUser);
+        return await updateOrSend(areaMarkup.text, areaMarkup.markup);
+      }
+
+      if (action === 'trans_area_send_gps_prompt') {
+        state.step = 'trans_regions_waiting_gps';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const promptText = 
+          `📍 <b>إرسال وتحديد موقعك الجغرافي (GPS) 📡</b>\n\n` +
+          `لتحديد منطقتك بدقة وتثبيت إحداثياتك للمرات القادمة:\n` +
+          `1️⃣ اضغط على علامة المشبك 📎 (أو ➕) أسفل الشاشة.\n` +
+          `2️⃣ اختر <b>«الموقع / Location» 📍</b> وأرسل موقعك الحالي.\n\n` +
+          `✨ <i>سيقوم البوت بالتعرف على منطقتك وإضافتها فوراً لانطلاق خطك دون عناء البحث!</i>`;
+
+        return await updateOrSend(promptText, {
+          inline_keyboard: [
+            [{ text: '◀️ العودة لقائمة المناطق', callback_data: 'trans_back_to_areas' }],
+            [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+          ]
+        });
+      }
+
+      if (action === 'trans_area_search_prompt') {
+        state.step = 'trans_area_search';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const searchPromptMsg = 
+          `🔍 <b>البحث السريع عن منطقة الانطلاق أو محافظتك:</b>\n\n` +
+          `أرسل اسم منطقتك أو حيك أو مدينتك بالرسائل الآن ✍️\n` +
+          `<i>(مثال: المنصور، الكرادة، الدورة، اليرموك، الشعب، بسماية، الحلة، النجف، كربلاء، الرمادي، بعقوبة...)</i>`;
+
+        return await updateOrSend(searchPromptMsg, {
+          inline_keyboard: [
+            [{ text: '⬅️ العودة لقائمة المناطق', callback_data: 'trans_back_to_areas' }],
+            [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+          ]
+        });
+      }
+
+      if (action === 'trans_area_force_custom') {
+        const customArea = state?.data?.pending_area_text || 'منطقة مخصصة';
+        state.data = state.data || {};
+        let currentRegions = (state.data?.regions || '').split('،').map((s: string) => s.trim()).filter(Boolean);
+        if (!currentRegions.includes(customArea)) {
+          if (currentRegions.length >= 3) currentRegions = [customArea];
+          else currentRegions.push(customArea);
+        }
+        state.data.regions = currentRegions.join('، ');
+        state.step = 'trans_regions';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const areaMarkup = buildTransportAreasMarkup(state, state.data?.areaCategory || 'bg_rusafa', 0, tgUser);
+        return await updateOrSend(areaMarkup.text, areaMarkup.markup);
       }
 
       if (action.startsWith('trans_area_page_')) {
         const pageIdx = parseInt(action.replace('trans_area_page_', ''), 10) || 0;
-        const curPage = TRANSPORT_AREAS_PAGES[pageIdx] || TRANSPORT_AREAS_PAGES[0];
-        const areaMarkup = buildTransportAreasMarkup(state, pageIdx);
-        const selectedInfo = state.data?.regions 
-          ? `\n📌 <b>المناطق المحددة حتى الآن:</b> [ <b>${state.data.regions}</b> ]\n` 
-          : '\n';
-        await updateOrSend(
-          `📍 <b>الخطوة 3 من 9 — مناطق الانطلاق (المرور)</b>\n` +
-          `🗺️ <b>${curPage.title}</b>\n${selectedInfo}\n` +
-          `اختر منطقة أخرى لإضافتها أو اضغط «✅ اعتماد المناطق والمتابعة للوجهة» للمتابعة 👇`,
-          areaMarkup
-        );
-        return new Response('OK', { status: 200 });
+        const curCat = state.data?.areaCategory || 'bg_rusafa';
+        const areaMarkup = buildTransportAreasMarkup(state, curCat, pageIdx, tgUser);
+        return await updateOrSend(areaMarkup.text, areaMarkup.markup);
       }
 
       if (action.startsWith('ta_p') || action.startsWith('trans_area_pick_')) {
@@ -15710,15 +16094,12 @@ Deno.serve(async (req: any) => {
           pageIdx = pMatch ? parseInt(pMatch[2], 10) : 0;
         }
 
-        const curPage = TRANSPORT_AREAS_PAGES[pageIdx] || TRANSPORT_AREAS_PAGES[0];
         state.data = state.data || {};
         let currentRegions = (state.data?.regions || '').split('،').map((s: string) => s.trim()).filter(Boolean);
         if (areaVal) {
           if (currentRegions.includes(areaVal)) {
-            // Toggle off
             currentRegions = currentRegions.filter((r: string) => r !== areaVal);
           } else {
-            // Toggle on with max 3 limit
             if (currentRegions.length >= 3) {
               if (callbackQueryId) {
                 try {
@@ -15734,17 +16115,9 @@ Deno.serve(async (req: any) => {
         state.data.regions = currentRegions.join('، ');
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
-        const areaMarkup = buildTransportAreasMarkup(state, pageIdx);
-        const selectedInfo = state.data.regions 
-          ? `\n📌 <b>المناطق المحددة حتى الآن:</b>\n[ <b>${state.data.regions}</b> ]\n` 
-          : '\n';
-
-        return await updateOrSend(
-          `📍 <b>الخطوة 3 من 9 — مناطق الانطلاق (المرور)</b>\n` +
-          `🗺️ <b>${curPage.title}</b>\n${selectedInfo}\n` +
-          `اختر منطقة أخرى لإضافتها، أو اضغط «✅ اعتماد المناطق والمتابعة للوجهة» للمتابعة 👇`,
-          areaMarkup
-        );
+        const curCat = state.data?.areaCategory || 'bg_rusafa';
+        const areaMarkup = buildTransportAreasMarkup(state, curCat, 0, tgUser);
+        return await updateOrSend(areaMarkup.text, areaMarkup.markup);
       }
 
       const proceedFromDestination = async (destVal: string, inst?: any) => {
@@ -15805,15 +16178,10 @@ Deno.serve(async (req: any) => {
 
       if (action === 'trans_back_to_areas') {
         state.step = 'trans_regions';
+        const curCat = state.data?.areaCategory || 'bg_rusafa';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        const areaMarkup = buildTransportAreasMarkup(state, 0);
-        await updateOrSend(
-          `📍 <b>الخطوة 3 من 9 — مناطق الانطلاق (المرور)</b>\n` +
-          `🗺️ <b>${TRANSPORT_AREAS_PAGES[0].title}</b>\n\n` +
-          `اختر مناطق الانطلاق أو اكتبها بنفسك 👇`,
-          areaMarkup
-        );
-        return new Response('OK', { status: 200 });
+        const areaMarkup = buildTransportAreasMarkup(state, curCat, 0, tgUser);
+        return await updateOrSend(areaMarkup.text, areaMarkup.markup);
       }
 
       if (action === 'trans_back_to_dest') {
@@ -20531,6 +20899,53 @@ Deno.serve(async (req: any) => {
           destMarkup.markup
         );
         return new Response('OK', { status: 200 });
+      }
+      else if (state.step === 'trans_area_search' && text) {
+        const query = text.trim();
+        const matches = searchIraqiAreas(query);
+        const isPassenger = state.data?.type === 'request';
+        const stepNum = isPassenger ? 'الخطوة 3 من 8' : 'الخطوة 3 من 9';
+
+        if (matches && matches.length > 0) {
+          const inline_keyboard: any[][] = [];
+          for (const area of matches.slice(0, 6)) {
+            const isSel = (state.data?.regions || '').includes(area.name);
+            inline_keyboard.push([{ text: isSel ? `✅ ${area.name}` : `📍 ${area.name}`, callback_data: `ta_id_${area.id}` }]);
+          }
+          state.data.pending_area_text = query;
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+          inline_keyboard.push([{ text: `✏️ اعتماد ما كتبته: "${query.slice(0, 25)}"`, callback_data: 'trans_area_force_custom' }]);
+          inline_keyboard.push([
+            { text: '⬅️ العودة لقائمة المناطق', callback_data: 'trans_back_to_areas' },
+            { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+          ]);
+
+          await sendMessage(
+            chatId,
+            `🔍 <b>نتائج البحث عن: "${query}"</b>\n` +
+            `<i>${stepNum} — اضغط على منطقتك لإضافتها لمسار خطك:</i>`,
+            { inline_keyboard }
+          );
+          return new Response('OK', { status: 200 });
+        } else {
+          state.data.pending_area_text = query;
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+          await sendMessage(
+            chatId,
+            `🔍 <b>لم نعثر على منطقة مطابقة لـ: "${query}"</b>\n\n` +
+            `يمكنك اعتماد الاسم الذي كتبته كمنطقة مخصصة، أو العودة للتصنيفات:`,
+            {
+              inline_keyboard: [
+                [{ text: `✅ اعتماد "${query.slice(0, 25)}" كمنطقة`, callback_data: 'trans_area_force_custom' }],
+                [{ text: '⬅️ العودة للقائمة والتصنيفات', callback_data: 'trans_back_to_areas' }],
+                [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+              ]
+            }
+          );
+          return new Response('OK', { status: 200 });
+        }
       }
       else if (state.step === 'trans_dest_search' && text) {
         const query = text.trim();
