@@ -12675,16 +12675,44 @@ Deno.serve(async (req: any) => {
 
           const captainRows: any[][] = [];
           if (totalStudents > 0) {
-            captainRows.push([
-              { text: '⏳ سأصل خلال 5 دقائق (للجميع)', callback_data: 'hub_cpt_near_5m' },
-              { text: '⏳ سأصل خلال 10 دقائق (للجميع)', callback_data: 'hub_cpt_near_10m' }
-            ]);
-            captainRows.push([
-              { text: '📍 وصلت بالباب (هورن للجميع) 🚗💨', callback_data: 'hub_cpt_arrived_all' }
-            ]);
-            captainRows.push([
-              { text: '👤 إرسال تنبيه لشخص واحد فقط 🔔', callback_data: 'hub_cpt_eta_menu' }
-            ]);
+            if (studentList.length === 1) {
+              const singleStu = studentList[0];
+              const pName = (singleStu.passenger_name || 'الراكب').split(' ')[0];
+              captainRows.push([
+                { text: `📍 وصلت بالباب (${pName}) 🚗💨`, callback_data: `hub_cpt_one_arr_${singleStu.id}` }
+              ]);
+              captainRows.push([
+                { text: `⏳ سأصلك خلال 5 دقائق`, callback_data: `hub_cpt_one_5m_${singleStu.id}` },
+                { text: `⏳ سأصلك خلال 10 دقائق`, callback_data: `hub_cpt_one_10m_${singleStu.id}` }
+              ]);
+              captainRows.push([
+                { text: '☀️ رسالة صباحية: جاهز ومستعد لليوم 🎒', callback_data: 'hub_cpt_morning_msg' },
+                { text: `🔔 خيارات تنبيه أخرى`, callback_data: `hub_cpt_one_m_${singleStu.id}` }
+              ]);
+            } else {
+              captainRows.push([
+                { text: '🎯 تحديد شخص لإشعاره بالوصول (فردي) 👤', callback_data: 'hub_cpt_select_student' }
+              ]);
+              if (studentList.length <= 4) {
+                const stuQuickButtons: any[] = [];
+                studentList.forEach((b: any, idx: number) => {
+                  const shortName = (b.passenger_name || `طالب ${idx + 1}`).split(' ')[0];
+                  stuQuickButtons.push({
+                    text: `🔔 تنبيه: ${shortName}`,
+                    callback_data: `hub_cpt_one_m_${b.id}`
+                  });
+                });
+                for (let i = 0; i < stuQuickButtons.length; i += 2) {
+                  captainRows.push(stuQuickButtons.slice(i, i + 2));
+                }
+              }
+              captainRows.push([
+                { text: '☀️ رسالة صباحية (للجميع): مستعد وجاهز لليوم 🎒', callback_data: 'hub_cpt_morning_msg' }
+              ]);
+              captainRows.push([
+                { text: '📢 إشعار جماعي (سأصل 5د / 10د / هورن للكل) 🌐', callback_data: 'hub_cpt_broadcast_menu' }
+              ]);
+            }
             captainRows.push([
               { text: `👥 سجل المشتركين (${totalStudents}) وإلغاء مقعد`, callback_data: 'hub_cpt_manage_subscribers' }
             ]);
@@ -13432,7 +13460,8 @@ Deno.serve(async (req: any) => {
       }
 
       // --- Captain ETA & Single Student Menu ---
-      if (action === 'hub_cpt_eta_menu') {
+      // --- Captain Select Student for Individual Alert ---
+      if (action === 'hub_cpt_select_student' || action === 'hub_cpt_eta_menu') {
         const todayDate = new Date().toISOString().split('T')[0];
         const { data: bookings } = await supabase
           .from('transport_bookings')
@@ -13448,33 +13477,134 @@ Deno.serve(async (req: any) => {
         }
         const targets = Array.from(stuMap.values()).filter((b: any) => !(b.daily_status === 'excused' && b.daily_status_date === todayDate));
 
-        let etaPrompt = 
-          `⏱️ <b>تحديد موعد وصول أو تنبيه طالب محدد 🚗:</b>\n\n` +
-          `اختر وقت الوصول للجميع، أو حدد طالباً معيناً لتنبيهه بمفرده عند الاقتراب من بيته:`;
+        let promptText = 
+          `🎯 <b>تحديد طالب لإرسال إشعار وصول أو موعد خاص به 👤</b>\n\n` +
+          `اختر الطالب الذي تريد تنبيهه عند الاقتراب من بيته / نقطة صعوده:\n` +
+          `<i>(أو اختر إرسال للجميع إذا كنت تريد إشعار كافة الركاب دفعة واحدة)</i>`;
 
-        const etaRows: any[][] = [
-          [
-            { text: '⏱️ بعد 15 دقيقة (للجميع)', callback_data: 'hub_cpt_pre_15' },
-            { text: '⏱️ بعد 20 دقيقة (للجميع)', callback_data: 'hub_cpt_pre_20' }
-          ],
-          [
-            { text: '⏱️ بعد 30 دقيقة (للجميع)', callback_data: 'hub_cpt_pre_30' },
-            { text: '✍️ كتابة وقت مخصص (للجميع)', callback_data: 'hub_cpt_eta_custom' }
-          ]
-        ];
+        const rows: any[][] = [];
 
         if (targets.length > 0) {
           targets.forEach((b: any, idx: number) => {
             const pName = b.passenger_name || `طالب ${idx + 1}`;
-            etaRows.push([
-              { text: `🔔 تنبيه خاص: ${pName} (${b.route_origin || 'نقطة صعوده'})`, callback_data: `hub_cpt_one_m_${b.id}` }
+            const pOrigin = b.route_origin || 'نقطة صعوده';
+            rows.push([
+              { text: `👤 ${idx + 1}. ${pName} — 📍 ${pOrigin}`, callback_data: `hub_cpt_one_m_${b.id}` }
             ]);
           });
+        } else {
+          promptText += `\n\n⚠️ <i>لا يوجد ركاب نشطون جاهزون للصعود حالياً.</i>`;
         }
 
-        etaRows.push([{ text: '⬅️ العودة للوحة الخط', callback_data: 'daily_ride_hub' }]);
+        rows.push([
+          { text: '🌐 إرسال للجميع (كل المشتركين دفعة واحدة)', callback_data: 'hub_cpt_broadcast_menu' }
+        ]);
+        rows.push([{ text: '⬅️ العودة للوحة الخط', callback_data: 'daily_ride_hub' }]);
 
-        return await updateOrSend(etaPrompt, { inline_keyboard: etaRows });
+        return await updateOrSend(promptText, { inline_keyboard: rows });
+      }
+
+      // --- Captain Broadcast Menu (All Students) ---
+      if (action === 'hub_cpt_broadcast_menu') {
+        const todayDate = new Date().toISOString().split('T')[0];
+        const { data: bookings } = await supabase
+          .from('transport_bookings')
+          .select('*')
+          .eq('captain_chat_id', String(chatId))
+          .in('status', ['confirmed', 'active'])
+          .limit(30);
+
+        const stuMap = new Map();
+        for (const b of (bookings || [])) {
+          const key = b.passenger_chat_id || b.id;
+          if (!stuMap.has(key)) stuMap.set(key, b);
+        }
+        const targets = Array.from(stuMap.values()).filter((b: any) => !(b.daily_status === 'excused' && b.daily_status_date === todayDate));
+
+        return await updateOrSend(
+          `📢 <b>إرسال إشعار جماعي لجميع طلاب الخط (${targets.length} طالب) 🌐:</b>\n\n` +
+          `اختر الإشعار الذي تريد إرساله لجميع ركاب الخط دفعة واحدة:`,
+          {
+            inline_keyboard: [
+              [{ text: '☀️ رسالة صباحية: مستعد وجاهز لليوم وعلى الموعد 🎒', callback_data: 'hub_cpt_morning_msg' }],
+              [
+                { text: '⏳ سأصل خلال 5 دقائق (للجميع)', callback_data: 'hub_cpt_near_5m' },
+                { text: '⏳ سأصل خلال 10 دقائق (للجميع)', callback_data: 'hub_cpt_near_10m' }
+              ],
+              [{ text: '📍 وصلت بالباب (هورن للجميع) 🚗💨', callback_data: 'hub_cpt_arrived_all' }],
+              [
+                { text: '⏱️ بعد 15 دقيقة (للجميع)', callback_data: 'hub_cpt_pre_15' },
+                { text: '⏱️ بعد 20 دقيقة (للجميع)', callback_data: 'hub_cpt_pre_20' }
+              ],
+              [{ text: '✍️ كتابة موعد مخصص للجميع', callback_data: 'hub_cpt_eta_custom' }],
+              [{ text: '👤 إرسال تنبيه لشخص محدد فقط', callback_data: 'hub_cpt_select_student' }],
+              [{ text: '🚖 العودة للوحة الخط', callback_data: 'daily_ride_hub' }]
+            ]
+          }
+        );
+      }
+
+      // --- Captain Morning Ready Message ---
+      if (action === 'hub_cpt_morning_msg') {
+        const todayDate = new Date().toISOString().split('T')[0];
+        const { data: bookings } = await supabase
+          .from('transport_bookings')
+          .select('*')
+          .eq('captain_chat_id', String(chatId))
+          .in('status', ['confirmed', 'active'])
+          .limit(30);
+
+        const stuMap = new Map();
+        for (const b of (bookings || [])) {
+          const key = b.passenger_chat_id || b.id;
+          if (!stuMap.has(key)) stuMap.set(key, b);
+        }
+        const targets = Array.from(stuMap.values()).filter((b: any) => !(b.daily_status === 'excused' && b.daily_status_date === todayDate));
+        const cptName = tgUser?.first_name || tgUser?.name || 'كابتن الخط';
+
+        if (targets.length === 0) {
+          return await updateOrSend(
+            `ℹ️ لا يوجد طلاب نشطون جاهزون للصعود اليوم لتنبيههم.`,
+            { inline_keyboard: [[{ text: '🚖 رجوع', callback_data: 'daily_ride_hub' }]] }
+          );
+        }
+
+        for (const b of targets) {
+          if (b.passenger_chat_id) {
+            try {
+              await sendMessage(
+                b.passenger_chat_id,
+                `☀️ <b>صباح الخير من كابتن خطك (${cptName})!</b>\n\n` +
+                `🚗 <b>أنا مستعد وجاهز لخط اليوم وعلى الموعد تماماً.</b>\n` +
+                `نتمنى لكم يوماً دراسياً موفقاً وجميلاً 🎒🌹\n\n` +
+                `<i>(سأقوم بإشعارك عند الاقتراب من نقطة صعودك وعند الوصول بالباب)</i>`,
+                {
+                  inline_keyboard: [
+                    [{ text: '👍 صباح الخير كابتن، أنا بانتظارك', callback_data: `hub_stu_ready_${b.id}` }],
+                    [{ text: '🚖 فتح مسار اليوم', callback_data: 'daily_ride_hub' }]
+                  ]
+                }
+              );
+            } catch(e){}
+          }
+        }
+
+        if (callbackQueryId) {
+          try {
+            await answerCallbackQuery(callbackQueryId, '☀️ تم إرسال الرسالة الصباحية للجميع بنجاح!', false);
+          } catch(e){}
+        }
+
+        return await updateOrSend(
+          `✅ <b>تم إرسال الرسالة الصباحية بنجاح إلى جميع الطلاب (${targets.length} طالب)! ☀️🎒</b>\n\n` +
+          `تم إبلاغهم بأنك مستعد لليوم وعلى الموعد. عند اقترابك من كل طالب يمكنك استخدام زر التنبيه الفردي لإشعاره بالوصول.`,
+          {
+            inline_keyboard: [
+              [{ text: '🎯 تحديد طالب لإشعاره بالوصول 👤', callback_data: 'hub_cpt_select_student' }],
+              [{ text: '🚖 العودة للوحة الخط', callback_data: 'daily_ride_hub' }]
+            ]
+          }
+        );
       }
 
       // --- Captain Preset ETAs ---
@@ -13560,8 +13690,14 @@ Deno.serve(async (req: any) => {
                 { text: '⏳ سأصلك خلال 5 دقائق', callback_data: `hub_cpt_one_5m_${bId}` },
                 { text: '⏳ سأصلك خلال 10 دقائق', callback_data: `hub_cpt_one_10m_${bId}` }
               ],
-              [{ text: '✍️ كتابة وقت مخصص له', callback_data: `hub_cpt_one_cst_${bId}` }],
-              [{ text: '⬅️ تراجع', callback_data: 'hub_cpt_eta_menu' }]
+              [
+                { text: '⏱️ سأصلك خلال 15 دقيقة', callback_data: `hub_cpt_one_15m_${bId}` },
+                { text: '✍️ كتابة وقت مخصص له', callback_data: `hub_cpt_one_cst_${bId}` }
+              ],
+              [
+                { text: '👥 اختيار شخص آخر', callback_data: 'hub_cpt_select_student' },
+                { text: '🚖 لوحة الخط', callback_data: 'daily_ride_hub' }
+              ]
             ]
           }
         );
@@ -13611,11 +13747,12 @@ Deno.serve(async (req: any) => {
         );
       }
 
-      // --- Captain Single Student: 5m / 10m ---
-      if (action.startsWith('hub_cpt_one_5m_') || action.startsWith('hub_cpt_one_10m_')) {
+      // --- Captain Single Student: 5m / 10m / 15m ---
+      if (action.startsWith('hub_cpt_one_5m_') || action.startsWith('hub_cpt_one_10m_') || action.startsWith('hub_cpt_one_15m_')) {
         const is5 = action.startsWith('hub_cpt_one_5m_');
-        const bId = action.replace(is5 ? 'hub_cpt_one_5m_' : 'hub_cpt_one_10m_', '');
-        const mins = is5 ? 5 : 10;
+        const is10 = action.startsWith('hub_cpt_one_10m_');
+        const bId = action.replace(is5 ? 'hub_cpt_one_5m_' : is10 ? 'hub_cpt_one_10m_' : 'hub_cpt_one_15m_', '');
+        const mins = is5 ? 5 : is10 ? 10 : 15;
         const { data: bData } = await supabase.from('transport_bookings').select('*').eq('id', bId).maybeSingle();
         const cptName = tgUser?.first_name || tgUser?.name || 'كابتن الخط';
         const nowTime = new Date().toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Baghdad' });
