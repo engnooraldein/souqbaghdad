@@ -5733,12 +5733,12 @@ async function syncAdSoldStateToChannels(actualAd: any, supabaseClient: any) {
 
   const postNewText = isTransport
     ? (isSeeker ? '🚌 انشر طلب خط نقل جديد مجاناً' : '🚌 اعرض خطك مجاناً عبر البوت')
-    : (isCar ? '🚗 اعرض سيارتك للبيع مجاناً عبر البوت' : '📦 اعرض سلعتك مجاناً عبر البوت');
+    : (isCar ? '🚗 اعرض سيارتك للبيع (1 نقطة) ⚡' : '📦 اعرض سلعتك مجاناً عبر البوت');
 
   const soldButtons = {
     inline_keyboard: [
       [{ text: buttonText, url: browseUrl }],
-      [{ text: postNewText, url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
+      [{ text: postNewText, url: isCar ? `https://t.me/${BOT_USERNAME}?start=publish_car` : `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
     ]
   };
 
@@ -6225,7 +6225,7 @@ Deno.serve(async (req: any) => {
             inline_keyboard: [
               [{ text: '🚗 تفاصيل السيارة والصور بالموقع', url: carLink }],
               ...(waPhone ? [[{ text: '💬 تواصل واتساب 🟢', url: `https://wa.me/${waPhone}` }]] : []),
-              [{ text: '🚗 اعرض سيارتك للبيع مجاناً عبر البوت', url: `https://t.me/${BOT_USERNAME}?start=pubcar` }]
+              [{ text: '🚗 اعرض سيارتك للبيع (1 نقطة) ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
             ]
           };
 
@@ -6333,12 +6333,12 @@ Deno.serve(async (req: any) => {
 
         const postNewText = isTransport
           ? (isSeeker ? '🚌 انشر طلب خط نقل جديد مجاناً' : '🚌 اعرض خطك مجاناً عبر البوت')
-          : (isCar ? '🚗 اعرض سيارتك للبيع مجاناً عبر البوت' : '📦 اعرض سلعتك مجاناً عبر البوت');
+          : (isCar ? '🚗 اعرض سيارتك للبيع (1 نقطة) ⚡' : '📦 اعرض سلعتك مجاناً عبر البوت');
 
         const soldButtons = {
           inline_keyboard: [
             [{ text: buttonText, url: browseUrl }],
-            [{ text: postNewText, url: `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
+            [{ text: postNewText, url: isCar ? `https://t.me/${BOT_USERNAME}?start=publish_car` : `https://t.me/${BOT_USERNAME}?start=pubtrans` }]
           ]
         };
 
@@ -9287,7 +9287,7 @@ Deno.serve(async (req: any) => {
         menuRows.push([{ text: 'نشر خط نقل جديد', callback_data: 'publish_transport' }]);
         menuRows.push([{ text: 'إدارة خطوطي النشطة والأرشيف', callback_data: 'manage_cat_trans' }]);
         menuRows.push([{ text: '📍 تثبيت / تحديث موقع انطلاقي (GPS)', callback_data: 'hub_pin_location' }]);
-        menuRows.push([{ text: 'عرض سيارة للبيع', callback_data: 'publish_car' }]);
+        menuRows.push([{ text: '🚗 عرض سيارة للبيع (1 نقطة)', callback_data: 'publish_car' }]);
         menuRows.push([
           { text: 'تبديل الصفة (طالب)', callback_data: 'change_my_role' },
           { text: 'حسابي والخدمات', callback_data: 'account_services' }
@@ -9300,6 +9300,7 @@ Deno.serve(async (req: any) => {
         menuRows.push([{ text: '📋 طلباتي وإعلاناتي المنشورة (تعديل / حصلت على خط) ⚡', callback_data: 'manage_cat_trans' }]);
         menuRows.push([{ text: '🔔 مساراتي وتنبيهات الرادار الذكي', callback_data: 'manage_my_routes' }]);
         menuRows.push([{ text: '➕ نشر طلب خط نقل جديد 🚌', callback_data: 'publish_transport' }]);
+        menuRows.push([{ text: '🚗 عرض سيارة للبيع (1 نقطة)', callback_data: 'publish_car' }]);
         menuRows.push([{ text: '📍 تثبيت / تحديث موقعي الدائم (GPS)', callback_data: 'hub_pin_location' }]);
         menuRows.push([{ text: '📦 إدارة كافة إعلاناتي وحسابي', callback_data: 'manage_my_ads' }]);
         menuRows.push([
@@ -12045,29 +12046,45 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
-      // 🚗 Deep-Link: Publish Car (/start publish_car)
-      if (text === '/start publish_car' || (text && text.startsWith('/start ') && text.includes('publish_car'))) {
+      // 🚗 Deep-Link: Publish Car (/start publish_car or /start pubcar)
+      if (text === '/start publish_car' || text === '/start pubcar' || (text && text.startsWith('/start ') && (text.includes('publish_car') || text.includes('pubcar') || text.includes('car')))) {
+        const { data: profile } = await supabase.from('profiles').select('points, role').eq('id', userId).maybeSingle();
+        const userPoints = profile?.points || 0;
+        const isFreeRole = profile?.role === 'admin' || profile?.role === 'owner';
+
+        if (!isFreeRole && userPoints < 1) {
+          await sendMessage(chatId, 
+            `🚗 <b>يا هلا بيك عيوني ${fromName}! 🌹</b>\n\n` +
+            `ℹ️ <b>تكلفة نشر إعلان السيارة:</b> <code>1 نقطة واحدة فقط</code>.\n` +
+            `رصيد نقاطك الحالي: <b>${userPoints} نقطة</b>.\n\n` +
+            `يرجى شحن محفظتك للمتابعة ونشر سيارتك فوراً عبر الأزرار أدناه 👇`,
+            {
+              inline_keyboard: [
+                [{ text: '💳 شحن وشراء نقاط الآن', callback_data: 'buy_points' }],
+                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+              ]
+            }
+          );
+          return new Response('OK', { status: 200 });
+        }
+
         const carState = {
           step: 'car_brand',
-          data: { type: 'car' }
+          data: { images: [], type: 'car' }
         };
         await supabase.from('telegram_users').update({ bot_state: carState }).eq('telegram_chat_id', chatId);
 
+        const brandButtons = CAR_BRANDS.map(row => row.map(b => ({ text: b, callback_data: `car_brand_${b}` })));
+        brandButtons.push([{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]);
+
         const carPublishMsg =
           `🚗 <b>يا هلا بيك عيوني ${fromName}! 🌹</b>\n\n` +
-          `🚀 <b>نشر إعلان سيارتك مجاناً في سوق بغداد!</b>\n` +
-          `سيصل إعلانك فوراً لقنوات التيليكرام وصفحات الفيسبوك وآلاف الزوار يومياً ✨\n\n` +
-          `👇 <b>الخطوة الأولى — ما هي ماركة سيارتك؟</b>`;
+          `🚀 <b>نشر إعلان سيارتك في سوق بغداد!</b>\n` +
+          `💰 <b>تكلفة النشر:</b> <code>1 نقطة واحدة فقط</code> ✨\n` +
+          `سيصل إعلانك فوراً لقناة التيليجرام والموقع وصفحات الفيسبوك ✨\n\n` +
+          `👇 <b>الخطوة 1 من 10 — ما هي ماركة سيارتك؟</b>`;
 
-        const carBrands = [
-          [{ text: '🏎️ تويوتا', callback_data: 'car_brand_toyota' }, { text: '🚗 كيا', callback_data: 'car_brand_kia' }],
-          [{ text: '🚙 هيونداي', callback_data: 'car_brand_hyundai' }, { text: '🚐 نيسان', callback_data: 'car_brand_nissan' }],
-          [{ text: '🏎️ دوج', callback_data: 'car_brand_dodge' }, { text: '🚗 شيفرولي', callback_data: 'car_brand_chevy' }],
-          [{ text: '🚙 ميتسوبيشي', callback_data: 'car_brand_mitsubishi' }, { text: '🚗 هوندا', callback_data: 'car_brand_honda' }],
-          [{ text: '✍️ ماركة أخرى (اكتبها)', callback_data: 'car_brand_other' }],
-          [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
-        ];
-        await sendMessage(chatId, carPublishMsg, { inline_keyboard: carBrands });
+        await sendMessage(chatId, carPublishMsg, { inline_keyboard: brandButtons });
         return new Response('OK', { status: 200 });
       }
 
@@ -15613,19 +15630,19 @@ Deno.serve(async (req: any) => {
       if (action === 'publish_car') {
         const { data: profile } = await supabase.from('profiles').select('points, role').eq('id', userId).maybeSingle();
         if (profile?.role !== 'admin' && profile?.role !== 'owner' && (profile?.points || 0) < 1) {
-          await updateOrSend('❌ عذراً، رصيد النقاط الخاص بك غير كافٍ لنشر إعلان. يرجى شحن المحفظة أولاً.', {
+          await updateOrSend('❌ عذراً، رصيد النقاط الخاص بك غير كافٍ. تكلفة نشر إعلان السيارة هي (1 نقطة واحدة فقط). يرجى شحن المحفظة أولاً.', {
             inline_keyboard: [[{ text: '💳 شراء نقاط', callback_data: 'buy_points' }], [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
           });
           return new Response('OK', { status: 200 });
         }
 
-        state = { step: 'car_brand', data: { images: [] } };
+        state = { step: 'car_brand', data: { images: [], type: 'car' } };
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         const brandButtons = CAR_BRANDS.map(row => row.map(b => ({ text: b, callback_data: `car_brand_${b}` })));
         brandButtons.push([{ text: '❌ إلغاء العملية', callback_data: 'cancel_wizard' }]);
 
-        await updateOrSend(`🚗 <b>الخطوة 1 من 10 — نوع السيارة (الماركة)</b>\n\nاختر نوع سيارتك من القائمة أدناه 👇`, {
+        await updateOrSend(`🚗 <b>الخطوة 1 من 10 — نوع السيارة (الماركة)</b>\n\n💰 <b>تكلفة النشر:</b> <code>1 نقطة واحدة فقط</code> ✨\n\nاختر نوع سيارتك من القائمة أدناه 👇`, {
           inline_keyboard: brandButtons
         });
         return new Response('OK', { status: 200 });
@@ -15799,53 +15816,15 @@ Deno.serve(async (req: any) => {
           }
         }
 
-        // 2. فحص مهلة الـ 15 دقيقة (Cooldown)
-        let costMultiplier = 1;
-        if (!isOwnerOrAdmin && action !== 'car_bypass_publish') {
-          const { data: recentAds } = await supabase
-            .from('ads')
-            .select('created_at')
-            .eq('seller_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(1);
-
-          if (recentAds && recentAds.length > 0) {
-            const lastTime = new Date(recentAds[0].created_at).getTime();
-            const now = Date.now();
-            const elapsedMinutes = (now - lastTime) / (1000 * 60);
-
-            if (elapsedMinutes < 15) {
-              const remainingMinutes = Math.ceil(15 - elapsedMinutes);
-              await updateOrSend(
-                `⏳ <b>لديك إعلان تم نشره قبل قليل!</b>\n\n` +
-                `• يمكنك <b>الانتظار (${remainingMinutes} دقيقة)</b> للنشر بالتكلفة العادية (1 نقطة).\n` +
-                `• أو <b>النشر الفوري الآن</b> وتجاوز الوقت بخصم ضعف النقاط (<b>2 نقطة</b>).\n\n` +
-                `ماذا تفضل؟`,
-                {
-                  inline_keyboard: [
-                    [{ text: '⚡ نشر فوري الآن (خصم 2 نقطة)', callback_data: 'car_bypass_publish' }],
-                    [{ text: '⏳ انتظار وتعديل لاحقاً', callback_data: 'main_menu' }]
-                  ]
-                }
-              );
-              return new Response('OK', { status: 200 });
-            }
-          }
-        }
-
-        if (action === 'car_bypass_publish') {
-          costMultiplier = 2;
-        }
-
         state.step = 'publishing';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         await updateOrSend('⏳ جاري نشر إعلان سيارتك في المنصة وقناة التليكرام وشبكات التواصل...');
 
-        const cost = 1 * costMultiplier;
+        const cost = 1;
         if (!isOwnerOrAdmin && cost > 0) {
           if (!userProfile || (userProfile.points || 0) < cost) {
-            await updateOrSend(`❌ عذراً، رصيدك غير كافٍ. التكلفة المطلوبة (${cost} نقطة). يرجى شحن المحفظة.`, {
+            await updateOrSend(`❌ عذراً، رصيدك غير كافٍ. تكلفة نشر إعلان السيارة هي (1 نقطة واحدة فقط). يرجى شحن المحفظة.`, {
                inline_keyboard: [[{ text: '💳 شراء نقاط', callback_data: 'buy_points' }], [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
             });
             state = {};
@@ -15920,7 +15899,7 @@ Deno.serve(async (req: any) => {
           inline_keyboard: [
             [{ text: '🌐 عرض التفاصيل كاملة بالمنصة', url: carLink }],
             ...(contactRow.length > 0 ? [contactRow] : []),
-            [{ text: '🚗 اعرض سيارتك للبيع مجاناً', url: `https://t.me/${BOT_USERNAME}` }]
+            [{ text: '🚗 اعرض سيارتك للبيع (1 نقطة) ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
           ]
         };
 
@@ -20913,7 +20892,7 @@ Deno.serve(async (req: any) => {
               [{ text: '🌐 عرض التفاصيل بالمنصة', url: link }]
             ];
             if (contactRow.length > 0) inlineKeyboard.push(contactRow);
-            inlineKeyboard.push([{ text: '🚗 اعرض سيارتك للبيع مجاناً', url: `https://t.me/${BOT_USERNAME}` }]);
+            inlineKeyboard.push([{ text: '🚗 اعرض سيارتك للبيع (1 نقطة) ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]);
 
             const replyMarkup = { inline_keyboard: inlineKeyboard };
 
@@ -20989,7 +20968,7 @@ Deno.serve(async (req: any) => {
               [{ text: '🌐 عرض التفاصيل بالمنصة', url: link }]
             ];
             if (contactRow.length > 0) inlineKeyboard.push(contactRow);
-            inlineKeyboard.push([{ text: '🚗 اعرض سيارتك للبيع مجاناً', url: `https://t.me/${BOT_USERNAME}` }]);
+            inlineKeyboard.push([{ text: '🚗 اعرض سيارتك للبيع (1 نقطة) ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]);
 
             const replyMarkup = { inline_keyboard: inlineKeyboard };
 
