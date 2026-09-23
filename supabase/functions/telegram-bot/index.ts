@@ -6488,14 +6488,14 @@ Deno.serve(async (req: any) => {
             ? `https://wa.me/${waPhone}?text=${encodeURIComponent('السلام عليكم، بخصوص إعلان سيارتك في سوق بغداد')}` 
             : null;
 
-          const row1: any[] = [{ text: '💬 تليكرام', url: tgContactUrl }];
-          if (waContactUrl) row1.push({ text: '🟢 واتساب', url: waContactUrl });
-          row1.push({ text: '🌐 الموقع', url: carLink });
+          const row1: any[] = [{ text: 'تليكرام', url: tgContactUrl }];
+          if (waContactUrl) row1.push({ text: 'واتساب', url: waContactUrl });
+          row1.push({ text: 'الموقع', url: carLink });
 
           const carKeyboard = {
             inline_keyboard: [
               row1,
-              [{ text: '🚗 انشر من البوت (1 نقطة) ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
+              [{ text: 'انشر من البوت', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
             ]
           };
 
@@ -6966,13 +6966,13 @@ Deno.serve(async (req: any) => {
             ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent('السلام عليكم، بخصوص إعلان سيارتك في سوق بغداد')}` 
             : null;
 
-          const row1: any[] = [{ text: '💬 تليكرام', url: tgContactUrl }];
-          if (waContactUrl) row1.push({ text: '🟢 واتساب', url: waContactUrl });
-          row1.push({ text: '🌐 الموقع', url: link });
+          const row1: any[] = [{ text: 'تليكرام', url: tgContactUrl }];
+          if (waContactUrl) row1.push({ text: 'واتساب', url: waContactUrl });
+          row1.push({ text: 'الموقع', url: link });
 
           const inlineKeyboard: any[] = [
             row1,
-            [{ text: '🚗 انشر من البوت (1 نقطة) ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
+            [{ text: 'انشر من البوت', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
           ];
 
           const replyMarkup = { inline_keyboard: inlineKeyboard };
@@ -11688,14 +11688,14 @@ Deno.serve(async (req: any) => {
           `\n📞 <b>طرق التواصل المتاحة:</b>`;
 
         const row1: any[] = [];
-        if (tgContactUrl) row1.push({ text: '💬 تليكرام', url: tgContactUrl });
-        if (waContactUrl) row1.push({ text: '🟢 واتساب', url: waContactUrl });
-        row1.push({ text: '🌐 الموقع', url: carLink });
+        if (tgContactUrl) row1.push({ text: 'تليكرام', url: tgContactUrl });
+        if (waContactUrl) row1.push({ text: 'واتساب', url: waContactUrl });
+        row1.push({ text: 'الموقع', url: carLink });
 
         const carBtns: any[][] = [
           row1,
-          [{ text: '🚗 انشر من البوت (1 نقطة) ⚡', callback_data: 'publish_car' }],
-          [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+          [{ text: 'انشر من البوت', callback_data: 'publish_car' }],
+          [{ text: 'القائمة الرئيسية', callback_data: 'main_menu' }]
         ];
 
         await updateOrSend(detailsMsg, { inline_keyboard: carBtns });
@@ -16420,14 +16420,14 @@ Deno.serve(async (req: any) => {
           ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent('السلام عليكم، بخصوص إعلان سيارتك المعروضة في سوق بغداد')}` 
           : null;
 
-        const row1: any[] = [{ text: '💬 تليكرام', url: tgContactUrl }];
-        if (waContactUrl) row1.push({ text: '🟢 واتساب', url: waContactUrl });
-        row1.push({ text: '🌐 الموقع', url: carLink });
+        const row1: any[] = [{ text: 'تليكرام', url: tgContactUrl }];
+        if (waContactUrl) row1.push({ text: 'واتساب', url: waContactUrl });
+        row1.push({ text: 'الموقع', url: carLink });
 
         const channelMarkup: any = {
           inline_keyboard: [
             row1,
-            [{ text: '🚗 انشر من البوت (1 نقطة) ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
+            [{ text: 'انشر من البوت', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
           ]
         };
 
@@ -21472,13 +21472,13 @@ Deno.serve(async (req: any) => {
               ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent('السلام عليكم، بخصوص إعلان سيارتك في سوق بغداد')}` 
               : null;
 
-            const row1: any[] = [{ text: '💬 تليكرام', url: tgContactUrl }];
-            if (waContactUrl) row1.push({ text: '🟢 واتساب', url: waContactUrl });
-            row1.push({ text: '🌐 الموقع', url: link });
+            const row1: any[] = [{ text: 'تليكرام', url: tgContactUrl }];
+            if (waContactUrl) row1.push({ text: 'واتساب', url: waContactUrl });
+            row1.push({ text: 'الموقع', url: link });
 
             const inlineKeyboard = [
               row1,
-              [{ text: '🚗 انشر من البوت (1 نقطة) ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
+              [{ text: 'انشر من البوت', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
             ];
 
             const replyMarkup = { inline_keyboard: inlineKeyboard };
@@ -21500,8 +21500,8 @@ Deno.serve(async (req: any) => {
               await commentOnInstagram(updatedAd.instagram_post_id, commentText);
             }
 
-            await sendMessage(chatId, `✅ <b>تم تحديث السعر بنجاح!</b>\nالسعر الجديد: <b>${formattedPrice}</b>\nتم تحديث المنشور في القناة والتعليق بالسعر الجديد على المنصات.`, {
-              inline_keyboard: [[{ text: '🚗 العودة لسياراتي المعروضة', callback_data: 'manage_cat_cars' }], [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
+            await sendMessage(chatId, `<b>تم تحديث السعر بنجاح!</b>\nالسعر الجديد: <b>${formattedPrice}</b>\nتم تحديث المنشور في القناة على المنصات.`, {
+              inline_keyboard: [[{ text: 'سياراتي المعروضة', callback_data: 'manage_cat_cars' }], [{ text: 'القائمة الرئيسية', callback_data: 'main_menu' }]]
             });
           }
         }
@@ -21553,13 +21553,13 @@ Deno.serve(async (req: any) => {
               ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent('السلام عليكم، بخصوص إعلان سيارتك في سوق بغداد')}` 
               : null;
 
-            const row1: any[] = [{ text: '💬 تليكرام', url: tgContactUrl }];
-            if (waContactUrl) row1.push({ text: '🟢 واتساب', url: waContactUrl });
-            row1.push({ text: '🌐 الموقع', url: link });
+            const row1: any[] = [{ text: 'تليكرام', url: tgContactUrl }];
+            if (waContactUrl) row1.push({ text: 'واتساب', url: waContactUrl });
+            row1.push({ text: 'الموقع', url: link });
 
             const inlineKeyboard = [
               row1,
-              [{ text: '🚗 انشر من البوت (1 نقطة) ⚡', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
+              [{ text: 'انشر من البوت', url: `https://t.me/${BOT_USERNAME}?start=publish_car` }]
             ];
 
             const replyMarkup = { inline_keyboard: inlineKeyboard };
