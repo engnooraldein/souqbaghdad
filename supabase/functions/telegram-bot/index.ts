@@ -9679,6 +9679,7 @@ Deno.serve(async (req: any) => {
       if (isPartner) {
         // 👑 Dedicated Partner Menu (واجهة الشريك - مباشرة وخالية من التشتيت)
         menuRows.push([{ text: '💼 نشر إعلان خط لعميلك (مصدر رزق) 💰', callback_data: 'partner_publish_for_client' }]);
+        menuRows.push([{ text: '⚡ تعبئة رصيد مباشر لعميل (برقم هاتفه) 📲', callback_data: 'partner_direct_topup' }]);
         menuRows.push([{ text: '📢 لوحة تحكم القناة الشريكة 📊', callback_data: 'partner_dashboard_main' }]);
         menuRows.push([
           { text: '🪙 بيع وشحن الأكواد 💰', callback_data: 'partner_promo_menu_single' },
@@ -13197,9 +13198,10 @@ Deno.serve(async (req: any) => {
 
         const dashMarkup = {
           inline_keyboard: [
-            [{ text: '🩺 فحص نبض وصحة قناتي اللحظي', callback_data: 'partner_pulse_check' }, { text: '⚡ فحص الإرسال بقناتي (Ping)', callback_data: 'partner_ping_test' }],
-            [{ text: '📊 تقرير نشاط قناتي اليومي', callback_data: 'partner_daily_report_now' }, { text: '🎟️ بيع/إهداء نقاطي كبروموكود 💰', callback_data: 'partner_gen_student_code' }],
+            [{ text: '⚡ تعبئة رصيد مباشر لعميل 📲', callback_data: 'partner_direct_topup' }, { text: '🎟️ بيع/إهداء كود شحن 💰', callback_data: 'partner_gen_student_code' }],
             [{ text: '💼 نشر إعلان خط لعميلك (مصدر رزق) 💰', callback_data: 'partner_publish_for_client' }],
+            [{ text: '🩺 فحص نبض قناتي', callback_data: 'partner_pulse_check' }, { text: '⚡ فحص الإرسال (Ping)', callback_data: 'partner_ping_test' }],
+            [{ text: '📊 تقرير نشاط قناتي اليومي', callback_data: 'partner_daily_report_now' }],
             [{ text: '🚌 تصفح الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }],
             [{ text: '🏠 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]
           ]
@@ -13455,6 +13457,7 @@ Deno.serve(async (req: any) => {
           `اختر عدد النقاط التي تريد بيعها وتحويلها من رصيدك:`;
 
         const btns: any[][] = [];
+        btns.push([{ text: '⚡ تعبئة وشحن رصيد مباشر (برقم هاتف العميل) 📲', callback_data: 'partner_direct_topup' }]);
         if (curPts >= 1) btns.push([{ text: '🪙 1 نقطة (نشر إعلان واحد) — خصم 1', callback_data: 'partner_do_promo_1_1' }]);
         if (curPts >= 2) btns.push([{ text: '🪙 2 نقطتان (نشر إعلانين) — خصم 2', callback_data: 'partner_do_promo_2_1' }]);
         if (curPts >= 5) btns.push([{ text: '🪙 5 نقاط (نشر 5 إعلانات) — خصم 5', callback_data: 'partner_do_promo_5_1' }]);
@@ -13650,6 +13653,81 @@ Deno.serve(async (req: any) => {
           `مثال: <code>10 5</code> (تعني 10 نقاط لـ 5 طلاب = إجمالي 50 نقطة تُخصم من رصيدك).`,
           {
             inline_keyboard: [[{ text: '🔙 إلغاء والعودة', callback_data: 'partner_promo_menu_group' }]]
+          }
+        );
+      }
+
+      // ⚡ DIRECT TOP-UP FOR CLIENT BY PHONE NUMBER (تعبئة رصيد مباشر للعميل)
+      if (action === 'partner_direct_topup') {
+        let curPts = 0;
+        if (userId) {
+          const { data: prof } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
+          curPts = prof?.points || 0;
+        }
+
+        const topupMsg = 
+          `⚡ <b>تعبئة وشحن رصيد مباشر لعميلك (برقم هاتفه) 📲🤝</b>\n\n` +
+          `💰 <b>رصيدك المتاح:</b> <b>${curPts}</b> نقطة 🪙\n\n` +
+          `📌 <b>مميزات الشحن المباشر:</b>\n` +
+          `• بدون روابط أو أكواد!\n` +
+          `• بمجرد إدخال رقم هاتف العميل، يصله الرصيد فوراً لمحفظته.\n` +
+          `• تصله رسالة خاصة في تيليجرام باسمك ورقم هاتفك وتاريخ العملية.\n` +
+          `• تصله أزرار فورية لنشر خطه مباشرة.\n\n` +
+          `اختر عدد النقاط التي تريد تحويلها للعميل:`;
+
+        const btns: any[][] = [];
+        if (curPts >= 1) btns.push([{ text: '🪙 1 نقطة (نشر إعلان واحد) — خصم 1', callback_data: 'partner_direct_pts_1' }]);
+        if (curPts >= 2) btns.push([{ text: '🪙 2 نقطتان (نشر إعلانين) — خصم 2', callback_data: 'partner_direct_pts_2' }]);
+        if (curPts >= 5) btns.push([{ text: '🪙 5 نقاط (نشر 5 إعلانات) — خصم 5', callback_data: 'partner_direct_pts_5' }]);
+        if (curPts >= 10) btns.push([{ text: '🪙 10 نقاط — خصم 10 من رصيدك', callback_data: 'partner_direct_pts_10' }]);
+        if (curPts >= 25) btns.push([{ text: '🪙 25 نقطة — خصم 25 من رصيدك', callback_data: 'partner_direct_pts_25' }]);
+        if (curPts >= 50) btns.push([{ text: '🪙 50 نقطة — خصم 50 من رصيدك', callback_data: 'partner_direct_pts_50' }]);
+        btns.push([{ text: '✏️ تحديد عدد نقاط مخصص يدوياً', callback_data: 'partner_direct_pts_custom' }]);
+        btns.push([{ text: '🔙 عودة للوحة الشريك', callback_data: 'partner_dashboard_main' }]);
+
+        return await updateOrSend(topupMsg, { inline_keyboard: btns });
+      }
+
+      if (action.startsWith('partner_direct_pts_')) {
+        const valStr = action.replace('partner_direct_pts_', '');
+        if (valStr === 'custom') {
+          state = { step: 'partner_direct_waiting_custom_pts' };
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+          let curPts = 0;
+          if (userId) {
+            const { data: prof } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
+            curPts = prof?.points || 0;
+          }
+
+          return await updateOrSend(
+            `✏️ <b>تحديد عدد نقاط مخصص للشحن المباشر:</b>\n\n` +
+            `💰 رصيدك المتاح: <b>${curPts}</b> نقطة 🪙\n\n` +
+            `يرجى كتابة عدد النقاط التي تريد تحويلها للعميل (مثال: <code>3</code> أو <code>15</code>):`,
+            {
+              inline_keyboard: [[{ text: '🔙 إلغاء والعودة', callback_data: 'partner_direct_topup' }]]
+            }
+          );
+        }
+
+        const pts = parseInt(valStr, 10);
+        if (isNaN(pts) || pts <= 0) {
+          return await updateOrSend('❌ حدث خطأ في تحديد عدد النقاط.');
+        }
+
+        state = {
+          step: 'partner_direct_waiting_phone',
+          data: { direct_pts: pts }
+        };
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        return await updateOrSend(
+          `📲 <b>أدخل رقم هاتف العميل المطلوب شحن رصيده ⚡:</b>\n\n` +
+          `🎁 <b>الرصيد المراد تحويله:</b> <b>${pts} نقطة</b> 🪙\n\n` +
+          `يرجى كتابة رقم هاتف العميل (مثال: <code>07701234567</code> أو <code>07801234567</code>):\n\n` +
+          `<i>(💡 سيصل إشعار فوري للعميل في تيليجرام بتفاصيل الشحن مع اسمك ورقم هاتفك وتاريخ العملية ليتمكن من نشر خطه فوراً)</i>`,
+          {
+            inline_keyboard: [[{ text: '🔙 إلغاء والعودة', callback_data: 'partner_direct_topup' }]]
           }
         );
       }
