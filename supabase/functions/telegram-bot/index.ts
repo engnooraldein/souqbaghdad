@@ -8244,21 +8244,29 @@ Deno.serve(async (req: any) => {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
       }
 
+      const nearest = findNearestIraqiArea(lat, lng);
+      const detectedArea = nearest?.area?.name || '';
+
       const gmapsLink = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
       const wazeLink = `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`;
 
       const confirmText = 
         `✅ <b>تم تثبيت موقعك الجغرافي بنجاح! 📍</b>\n\n` +
+        (detectedArea ? `🏙️ <b>المنطقة التقديرية لموقعك:</b> <b>${detectedArea}</b>\n\n` : '') +
         `🌐 <b>الإحداثيات:</b> <code>${lat.toFixed(5)}, ${lng.toFixed(5)}</code>\n\n` +
         `🗺️ <b>خرائط Google:</b> <a href="${gmapsLink}">فتح في خرائط Google</a>\n` +
         `🚙 <b>تطبيق Waze:</b> <a href="${wazeLink}">فتح في تطبيق Waze</a>\n\n` +
-        `<i>تم حفظ موقعك بنجاح وسيتم استخدامه تلقائياً في جميع إعلاناتك ورحلاتك لتوجيه الكابتن بأسهل مسار.</i>`;
+        `<i>تم حفظ موقعك بنجاح وسيتم اعتماده في جميع طلباتك ورحلاتك لتوجيه الكابتن بدقة إلى نقطة صعودك.</i>`;
+
+      const confirmRows: any[][] = [];
+      if (detectedArea) {
+        confirmRows.push([{ text: `🚌 تصفح الخطوط المتاحة في ${detectedArea}`, callback_data: 'tpage_all_0' }]);
+      }
+      confirmRows.push([{ text: '🚖 فتح لوحة رحلتي وخطي اليومي', callback_data: 'daily_ride_hub' }]);
+      confirmRows.push([{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]);
 
       await sendMessage(chatId, confirmText, {
-        inline_keyboard: [
-          [{ text: '🚖 فتح لوحة رحلتي وخطي اليومي', callback_data: 'daily_ride_hub' }],
-          [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
-        ]
+        inline_keyboard: confirmRows
       });
 
       return new Response('OK', { status: 200, headers: corsHeaders });
@@ -9633,7 +9641,7 @@ Deno.serve(async (req: any) => {
         '💡 <b>تنسيق الدوام:</b> قسم «رحلتي وخطي اليومي ⚡» يتيح لك تأكيد أيام حضورك وتنسيق المواعيد مع السائق بسهولة.',
         '💡 <b>نشر تلقائي:</b> أي خط تنشره هنا يُوزع تلقائياً إلى قنوات وكروبات الجامعات المربوطة مجاناً 📢',
         '💡 <b>واجهة الشريك:</b> أصحاب القنوات يمكنهم نشر إعلانات لزبائنهم بأرقام هواتفهم الخاصة وتحقيق دخل إضافي 💰',
-        '💡 <b>ميزة الخريطة:</b> شارك موقعك الحالي 📍 في المحادثة ليبحث لك البوت عن أقرب الخطوط المارة قرب منطقتك.',
+        '💡 <b>شلون تدز موقعك (GPS) 📍:</b> اضغط زر «📍 موقع صعودي GPS» من القائمة الرئيسية، أو علامة المشبك 📎 أسفل الشات واختر (الموقع / Location) لتحديد منطقتك بدقة وتسهيل وصول الكابتن إليك!',
         '💡 <b>للكباتن:</b> عند اكتمال مقاعد خطك، يمكنك إغلاقه بنقرة واحدة من «إعلاناتي» حتى يتوقف تلقي الاتصالات 🔒',
         '💡 <b>رصيد النقاط:</b> تفاعلك ونشاطك يزيد رصيد نقاطك ويمنح إعلاناتك أولوية وظهوراً أوسع للطلاب ⭐',
         '💡 <b>نصيحة:</b> احرص دائماً على الاتفاق المسبق على مسار الخط، وقت الانطلاق، ونوع المركبة لضمان رحلة مريحة 🛡️',
@@ -9701,7 +9709,10 @@ Deno.serve(async (req: any) => {
           { text: '🔔 رادار التنبيهات 📡', callback_data: 'manage_my_routes' }
         ]);
         menuRows.push([
-          { text: '💼 حسابي والخدمات ⚙️', callback_data: 'account_services' },
+          { text: '📍 موقع صعودي GPS', callback_data: 'hub_pin_location' },
+          { text: '💼 حسابي والخدمات ⚙️', callback_data: 'account_services' }
+        ]);
+        menuRows.push([
           { text: '❓ مساعدة ودعم', callback_data: 'faq_hub_main' }
         ]);
       }
@@ -12214,6 +12225,41 @@ Deno.serve(async (req: any) => {
       cleanLowerText === 'عرض سياره للبيع' || 
       cleanLowerText === 'بيع سيارة' || 
       cleanLowerText === 'بيع سياره';
+
+    // 📍 Text Trigger for Location Pinning (إرسال الموقع وتثبيته عبر النص أو الأمر)
+    const isLocationCmd = 
+      text === '/location' || 
+      cleanLowerText === 'موقعي' || 
+      cleanLowerText === 'الموقع' || 
+      cleanLowerText === 'تحديد موقعي' || 
+      cleanLowerText === 'تثبيت موقعي' || 
+      cleanLowerText === 'ارسال موقعي' || 
+      cleanLowerText === 'إرسال موقعي' || 
+      cleanLowerText === 'الخريطة' || 
+      cleanLowerText === 'الخريطه' || 
+      cleanLowerText === 'موقع صعودي' ||
+      cleanLowerText === 'موقع انطلاقي';
+
+    if (isLocationCmd && (!state?.step || state.step === '' || state.step === 'hub_waiting_location')) {
+      state.step = 'hub_waiting_location';
+      await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+      const pinMsg = 
+        `📍 <b>تثبيت عنوانك وموقعك الدائم (GPS) 🗺️:</b>\n\n` +
+        `اضغط على زر <b>(📍 إرسال موقعي الحالي عبر GPS)</b> أدناه لتحديد موقع بيتك أو نقطة صعودك بدقة.\n\n` +
+        `<i>(يمكنك أيضاً فتح مشبك المرفقات 📎 في تيليجرام واختيار الموقع Location وتحديد النقطة يدوياً على الخريطة)</i>`;
+
+      await sendMessage(chatId, pinMsg, {
+        keyboard: [
+          [{ text: '📍 إرسال موقعي الحالي (GPS)', request_location: true }],
+          [{ text: '❌ إلغاء والعودة' }]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: true
+      });
+
+      return new Response('OK', { status: 200 });
+    }
 
     if (text === '/start' || text.startsWith('/start ') || text === '/relink' || isPublishTransportCmd || isPublishCarCmd) {
       if (text === '/start' || text === '/relink') {
