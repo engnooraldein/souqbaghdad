@@ -12228,6 +12228,105 @@ Deno.serve(async (req: any) => {
         }
       }
 
+      // 🎟️ Deep-Link: Direct Promo Code Redemption (/start promo_VIP-XXXX or /start VIP-XXXX)
+      if (text.startsWith('/start promo_') || text.startsWith('/start VIP-') || text.startsWith('/start promo') || text.startsWith('/start gift_')) {
+        const promoCandidate = text
+          .replace('/start promo_', '')
+          .replace('/start promo', '')
+          .replace('/start gift_', '')
+          .replace('/start ', '')
+          .trim();
+
+        if (promoCandidate) {
+          const { data: promoObj } = await supabase.from('promo_codes').select('*').ilike('code', promoCandidate).maybeSingle();
+          if (promoObj) {
+            if (!userId) {
+              state.pending_promo = promoObj.code;
+              await supabase.from('telegram_users').upsert({
+                telegram_chat_id: chatId,
+                bot_state: state
+              }, { onConflict: 'telegram_chat_id' });
+
+              await sendMessage(chatId,
+                `🎁 <b>يا هلا بيك! وصلك كود شحن بقيمة (${promoObj.points} نقطة) في سوق بغداد! 🪙✨</b>\n\n` +
+                `🎟️ <b>رمز الكود:</b> <code>${promoObj.code}</code>\n` +
+                `🚌 هذه النقاط تمكنك من نشر وإدارة خطوط النقل بالكامل (النقطة الواحدة تعادل نشر خط كامل).\n\n` +
+                `👇 <b>يرجى تفعيل رقم هاتفك لتسجيل حسابك وشحن النقاط فوراً في محفظتك:</b>`,
+                {
+                  inline_keyboard: [
+                    [{ text: '📱 مشاركة وتفعيل رقم هاتفي لاستلام النقاط ⚡', callback_data: 'share_phone_prompt' }]
+                  ]
+                }
+              );
+              return new Response('OK', { status: 200 });
+            }
+
+            // User is already registered -> redeem directly!
+            if (promoObj.is_used) {
+              await sendMessage(chatId, `⚠️ <b>عذراً، هذا الكود (${promoObj.code}) تم استخدامه مسبقاً واكتمال حدّه.</b>`, {
+                inline_keyboard: [[{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
+              });
+              return new Response('OK', { status: 200 });
+            }
+
+            const { data: alreadyUsed } = await supabase.from('promo_code_usages').select('id').ilike('code', promoObj.code).eq('user_id', userId).maybeSingle();
+            if (alreadyUsed) {
+              await sendMessage(chatId, `⚠️ <b>لقد قمت باستخدام وتفعيل هذا الكود مسبقاً في حسابك!</b>`, {
+                inline_keyboard: [[{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
+              });
+              return new Response('OK', { status: 200 });
+            }
+
+            const { count: totalUses } = await supabase.from('promo_code_usages').select('id', { count: 'exact', head: true }).ilike('code', promoObj.code);
+            const maxUses = promoObj.max_uses || 1;
+            if ((totalUses || 0) >= maxUses) {
+              await supabase.from('promo_codes').update({ is_used: true }).eq('id', promoObj.id);
+              await sendMessage(chatId, `⚠️ <b>هذا الكود اكتمل الحد الأقصى لاستخدامه.</b>`, {
+                inline_keyboard: [[{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]]
+              });
+              return new Response('OK', { status: 200 });
+            }
+
+            // Record usage
+            await supabase.from('promo_code_usages').insert({ code: promoObj.code, user_id: userId });
+
+            // Add points
+            const { data: curProfile } = await supabase.from('profiles').select('points').eq('id', userId).single();
+            const addedPoints = promoObj.points || 0;
+            const newTotalPoints = (curProfile?.points || 0) + addedPoints;
+            await supabase.from('profiles').update({ points: newTotalPoints }).eq('id', userId);
+
+            try {
+              await supabase.from('points_ledger').insert({
+                user_id: userId,
+                amount: addedPoints,
+                reason: `استرداد بروموكود رابط مباشر: ${promoObj.code}`
+              });
+            } catch(e) {}
+
+            if ((totalUses || 0) + 1 >= maxUses) {
+              await supabase.from('promo_codes').update({ is_used: true }).eq('id', promoObj.id);
+            }
+
+            await sendMessage(chatId,
+              `🎉 <b>ألف مبروك! تم تفعيل كود الشحن بنجاح وشحن رصيدك! 🪙✨</b>\n\n` +
+              `🎟️ <b>رمز الكود:</b> <code>${promoObj.code}</code>\n` +
+              `🎁 <b>النقاط المضافة لمحفظتك:</b> <b>+${addedPoints}</b> نقطة\n` +
+              `💰 <b>رصيدك الكلي الآن:</b> <b>${newTotalPoints}</b> نقطة 🪙\n\n` +
+              `🚀 تم شحن محفظتك فوراً، ويمكنك نشر خطك الجديد الآن بنقرة زر واحدة:`,
+              {
+                inline_keyboard: [
+                  [{ text: '🚌 نشر خط نقل جديد الآن ⚡', callback_data: 'publish_transport' }],
+                  [{ text: '💼 رصيدي ومحفظتي 🪙', callback_data: 'my_wallet' }],
+                  [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+                ]
+              }
+            );
+            return new Response('OK', { status: 200 });
+          }
+        }
+      }
+
       // 🚌 Deep-Link: Direct Line Booking & Details (/start book_ADID)
       if (text.startsWith('/start book_')) {
         const lineId = text.replace('/start book_', '').trim();
@@ -12666,6 +12765,30 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
+      let pendingPromoGranted = 0;
+      if (state?.pending_promo) {
+        try {
+          const { data: pObj } = await supabase.from('promo_codes').select('*').ilike('code', state.pending_promo).maybeSingle();
+          if (pObj && !pObj.is_used) {
+            const { data: aUsed } = await supabase.from('promo_code_usages').select('id').ilike('code', pObj.code).eq('user_id', matchedUserId).maybeSingle();
+            if (!aUsed) {
+              const { count: tUses } = await supabase.from('promo_code_usages').select('id', { count: 'exact', head: true }).ilike('code', pObj.code);
+              const mUses = pObj.max_uses || 1;
+              if ((tUses || 0) < mUses) {
+                await supabase.from('promo_code_usages').insert({ code: pObj.code, user_id: matchedUserId });
+                const { data: profCur } = await supabase.from('profiles').select('points').eq('id', matchedUserId).maybeSingle();
+                const pAdded = pObj.points || 0;
+                await supabase.from('profiles').update({ points: (profCur?.points || 0) + pAdded }).eq('id', matchedUserId);
+                pendingPromoGranted = pAdded;
+                if ((tUses || 0) + 1 >= mUses) {
+                  await supabase.from('promo_codes').update({ is_used: true }).eq('id', pObj.id);
+                }
+              }
+            }
+          }
+        } catch(e) {}
+      }
+
       await supabase.from('telegram_users').upsert({
         user_id: matchedUserId,
         telegram_chat_id: chatId,
@@ -12673,9 +12796,13 @@ Deno.serve(async (req: any) => {
         bot_state: {}
       }, { onConflict: 'telegram_chat_id' });
 
-      const welcomeMsg = isNewAccount
+      let welcomeMsg = isNewAccount
         ? '🎉 <b>أهلاً وسهلاً بك في منصة وبوت سوق بغداد! 🇮🇶</b>\n🎁 <b>تم منحك 10 نقاط مجانية</b> كهدية ترحيبية.'
         : '🎉 <b>تم تأكيد رقم هاتفك وربط الحساب بنجاح! 🇮🇶✨</b>';
+
+      if (pendingPromoGranted > 0) {
+        welcomeMsg += `\n\n🪙 <b>تم تفعيل كود الشحن بنجاح وإضافة +${pendingPromoGranted} نقطة إلى محفظتك!</b> 🚀`;
+      }
 
       await sendMessage(chatId, welcomeMsg, { remove_keyboard: true });
 
@@ -13199,10 +13326,10 @@ Deno.serve(async (req: any) => {
           curPts = prof?.points || 0;
         }
 
-        if (curPts < 5) {
+        if (curPts < 1) {
           return await updateOrSend(
-            `⚠️ <b>عذراً كابتن، رصيد نقاطك الحالي (${curPts} نقطة)!</b>\n\n` +
-            `الحد الأدنى لتحويل الرصيد إلى بروموكود هو <b>5 نقاط</b>.\n\n` +
+            `⚠️ <b>عذراً كابتن، ليس لديك رصيد نقاط كافٍ (رصيدك الحالي: ${curPts} نقطة)!</b>\n\n` +
+            `الحد الأدنى لتحويل الرصيد إلى كود بروموكود هو <b>1 نقطة</b>.\n\n` +
             `💡 <b>كيف تكسب النقاط؟</b>\n` +
             `• يتم كسب النقاط تلقائياً مع كل خط نقل جديد يتم ترحيله لقناتك الشريكة (+1 نقطة 🪙).\n` +
             `• مشاركة وتفاعل الطلاب مع إعلانات الخطوط.`,
@@ -13221,7 +13348,7 @@ Deno.serve(async (req: any) => {
           `💎 <b>رصيدك المتوفر حالياً:</b> <b>${curPts}</b> نقطة 🪙\n\n` +
           `🎯 <b>كيف تستفيد من رصيدك الحقيقي وتجعله مصدر دخل؟</b>\n\n` +
           `1️⃣ <b>💼 كود بيع لشخص واحد (لعميل أو كابتن خط):</b>\n` +
-          `تبيع النقاط لسائق أو عميل يحتاج نقاطاً لتثبيت إعلاناته وترويجها بالموقع والتطبيق، وتستلم أتعابك منه مباشرة 💵.\n\n` +
+          `تبيع النقاط لسائق أو عميل يحتاج نقاطاً لنشر خطوطه وترويجها بالموقع والتطبيق (النقطة الواحدة تعادل نشر خط نقل كامل)، وتستلم أتعابك منه مباشرة 💵.\n\n` +
           `2️⃣ <b>📢 كود هدية جماعي (لطلاب ومتابعي قناتك):</b>\n` +
           `توزع نقاطاً محددة كهدية تشجيعية لطلابك في القناة لزيادة تفاعل القناة، ويتم خصم الإجمالي من رصيدك.\n\n` +
           `⚠️ <i>تنبيه أمان: يتم خصم قيمة الكود مباشرةً من رصيدك الفعلي ولن يتم توليد نقاط مفتوحة بدون رصيد.</i>\n\n` +
@@ -13249,14 +13376,17 @@ Deno.serve(async (req: any) => {
           `💼 <b>توليد كود بيع لشخص واحد (سائق أو عميل) 🤝💰</b>\n\n` +
           `💰 <b>رصيدك المتاح:</b> <b>${curPts}</b> نقطة 🪙\n\n` +
           `📌 هذا الكود صالح للاستخدام <b>مرة واحدة فقط</b> لشخص واحد، ليقوم بشحن حسابه في منصة وبوت سوق بغداد.\n` +
+          `<i>(💡 ملاحظة: النقطة الواحدة تعادل نشر إعلان خط نقل كامل)</i>\n\n` +
           `اختر عدد النقاط التي تريد بيعها وتحويلها من رصيدك:`;
 
         const btns: any[][] = [];
-        if (curPts >= 10) btns.push([{ text: '🪙 10 نقاط (خصم 10 من رصيدك)', callback_data: 'partner_do_promo_10_1' }]);
-        if (curPts >= 25) btns.push([{ text: '🪙 25 نقطة (خصم 25 من رصيدك)', callback_data: 'partner_do_promo_25_1' }]);
-        if (curPts >= 50) btns.push([{ text: '🪙 50 نقطة (خصم 50 من رصيدك)', callback_data: 'partner_do_promo_50_1' }]);
-        if (curPts >= 100) btns.push([{ text: '🪙 100 نقطة (خصم 100 من رصيدك)', callback_data: 'partner_do_promo_100_1' }]);
-        if (curPts > 0 && curPts !== 10 && curPts !== 25 && curPts !== 50 && curPts !== 100) {
+        if (curPts >= 1) btns.push([{ text: '🪙 1 نقطة (نشر إعلان واحد) — خصم 1', callback_data: 'partner_do_promo_1_1' }]);
+        if (curPts >= 2) btns.push([{ text: '🪙 2 نقطتان (نشر إعلانين) — خصم 2', callback_data: 'partner_do_promo_2_1' }]);
+        if (curPts >= 5) btns.push([{ text: '🪙 5 نقاط (نشر 5 إعلانات) — خصم 5', callback_data: 'partner_do_promo_5_1' }]);
+        if (curPts >= 10) btns.push([{ text: '🪙 10 نقاط — خصم 10 من رصيدك', callback_data: 'partner_do_promo_10_1' }]);
+        if (curPts >= 25) btns.push([{ text: '🪙 25 نقطة — خصم 25 من رصيدك', callback_data: 'partner_do_promo_25_1' }]);
+        if (curPts >= 50) btns.push([{ text: '🪙 50 نقطة — خصم 50 من رصيدك', callback_data: 'partner_do_promo_50_1' }]);
+        if (curPts > 0 && curPts !== 1 && curPts !== 2 && curPts !== 5 && curPts !== 10 && curPts !== 25 && curPts !== 50) {
           btns.push([{ text: `💎 تحويل كامل رصيدي (${curPts} نقطة)`, callback_data: `partner_do_promo_${curPts}_1` }]);
         }
         btns.push([{ text: '✏️ تحديد عدد نقاط مخصص يدوياً', callback_data: 'partner_promo_custom_single' }]);
@@ -13334,32 +13464,47 @@ Deno.serve(async (req: any) => {
         });
 
         if (maxUses === 1) {
-          // Sale mode: Receipt ready to send to buyer/client
-          const saleMsg = 
-            `🎉 <b>تم توليد كود البيع بنجاح وخصم النقاط من رصيدك! 🤝💰</b>\n\n` +
+          // Sale mode: Receipt for partner + Clean, forwardable message for client
+          const directRedeemUrl = `https://t.me/${BOT_USERNAME}?start=promo_${promoCode}`;
+          const shareText = `🎁 وصلك كود شحن رصيد في سوق بغداد (${ptsPerUser} نقطة)!\nكودك: ${promoCode}\n\nاضغط الرابط أدناه لشحن رصيدك فوراً بنقرة واحدة:`;
+          const shareTelegramUrl = `https://t.me/share/url?url=${encodeURIComponent(directRedeemUrl)}&text=${encodeURIComponent(shareText)}`;
+
+          const receiptMsg = 
+            `🎉 <b>تم توليد كود الشحن بنجاح وخصم النقاط من رصيدك! 🤝💰</b>\n\n` +
             `💳 <b>النقاط المخصومة من محفظتك:</b> <b>${totalNeeded}</b> نقطة 🪙\n` +
             `💰 <b>رصيدك المتبقي الآن:</b> <b>${remainingPts}</b> نقطة 🪙\n\n` +
-            `━━━━━━━━━━━━━━━━━━\n` +
-            `📋 <b>انسخ الرسالة أدناه وأرسلها لعميلك مباشرة:</b>\n` +
-            `━━━━━━━━━━━━━━━━━━\n\n` +
-            `🤝 <b>كود شحن رصيد نقاط في منصة سوق بغداد 💼✨</b>\n\n` +
-            `🪙 <b>الرصيد المشحون:</b> <b>${ptsPerUser}</b> نقطة\n` +
-            `👤 <b>صلاحية الكود:</b> استخدام شخص واحد فقط (حسابك الشخصي)\n\n` +
-            `👇 <b>كود التفعيل الخاص بك:</b>\n` +
-            `<code>${promoCode}</code>\n\n` +
-            `📌 <b>طريقة التفعيل السريعة:</b>\n` +
-            `1️⃣ ادخل إلى بوت سوق بغداد @souqbaghdad_bot أو الموقع: https://www.souqbaghdad.store\n` +
-            `2️⃣ اضغط على <b>المحفظة 💼</b> ثم <b>إدخال كود هدية</b>.\n` +
-            `3️⃣ الصق الكود ليتم شحن رصيدك فوراً في محفظتك!`;
+            `👇 <b>تم إرسال بطاقة الكود أدناه كرسالة مستقلة وجاهزة لتتمكن من تحويلها أو مشاركتها لعميلك بنقرة زر 🚀</b>`;
 
-          return await updateOrSend(saleMsg, {
+          await updateOrSend(receiptMsg, {
             inline_keyboard: [
-              [{ text: '📋 نسخ الكود', copy_text: { text: promoCode } }],
+              [{ text: '📤 إرسال ومشاركة للعميل عبر تيليجرام 🚀', url: shareTelegramUrl }],
               [{ text: '💼 بيع كود آخر من رصيدي 💰', callback_data: 'partner_promo_menu_single' }],
               [{ text: '🔙 عودة للوحة الشريك', callback_data: 'partner_dashboard_main' }],
               [{ text: '🏠 الرئيسية', callback_data: 'main_menu' }]
             ]
           });
+
+          // Send clean, dedicated client message into chat
+          const clientCardMsg = 
+            `🤝 <b>كود شحن رصيد نقاط في منصة سوق بغداد 💼✨</b>\n\n` +
+            `🪙 <b>الرصيد المشحون:</b> <b>${ptsPerUser}</b> نقطة <i>(تعادل نشر ${ptsPerUser === 1 ? 'إعلان خط نقل كامل' : `${ptsPerUser} إعلانات خطوط نقل`})</i>\n` +
+            `👤 <b>صلاحية الكود:</b> استخدام شخص واحد فقط (لحسابك الخاص)\n\n` +
+            `👇 <b>كود التفعيل الخاص بك:</b>\n` +
+            `<code>${promoCode}</code>\n` +
+            `<i>(اضغط على الكود أعلاه لنسخه بنقرة واحدة)</i>\n\n` +
+            `⚡ <b>الشحن الفوري بنقرة واحدة (بدون كتابة الكود):</b>\n` +
+            `اضغط الرابط التالي ليتم شحن رصيدك في البوت فوراً وبلمح البصر:\n` +
+            `🔗 ${directRedeemUrl}\n\n` +
+            `📌 <b>أو عبر الموقع:</b> ادخل إلى https://www.souqbaghdad.store واضغط <b>المحفظة 💼</b> ثم <b>إدخال كود هدية</b>.`;
+
+          await sendMessage(chatId, clientCardMsg, {
+            inline_keyboard: [
+              [{ text: '⚡ شحن وتفعيل الرصيد فوراً بنقرة واحدة', url: directRedeemUrl }],
+              [{ text: '📋 نسخ الكود فقط', copy_text: { text: promoCode } }],
+              [{ text: '📤 إرسال ومشاركة لعميلك عبر تيليجرام 🚀', url: shareTelegramUrl }]
+            ]
+          });
+          return new Response('OK', { status: 200 });
         } else {
           // Group gift mode: Announcement ready for channel
           const groupShareMsg = 
@@ -22918,29 +23063,43 @@ Deno.serve(async (req: any) => {
           is_used: false
         });
 
-        const saleMsg = 
-          `🎉 <b>تم توليد كود البيع بنجاح وخصم النقاط من رصيدك! 🤝💰</b>\n\n` +
+        const directRedeemUrl = `https://t.me/${BOT_USERNAME}?start=promo_${promoCode}`;
+        const shareText = `🎁 وصلك كود شحن رصيد في سوق بغداد (${pts} نقطة)!\nكودك: ${promoCode}\n\nاضغط الرابط أدناه لشحن رصيدك فوراً بنقرة واحدة:`;
+        const shareTelegramUrl = `https://t.me/share/url?url=${encodeURIComponent(directRedeemUrl)}&text=${encodeURIComponent(shareText)}`;
+
+        const receiptMsg = 
+          `🎉 <b>تم توليد كود الشحن بنجاح وخصم النقاط من رصيدك! 🤝💰</b>\n\n` +
           `💳 <b>النقاط المخصومة من محفظتك:</b> <b>${pts}</b> نقطة 🪙\n` +
           `💰 <b>رصيدك المتبقي الآن:</b> <b>${remainingPts}</b> نقطة 🪙\n\n` +
-          `━━━━━━━━━━━━━━━━━━\n` +
-          `📋 <b>انسخ الرسالة أدناه وأرسلها لعميلك مباشرة:</b>\n` +
-          `━━━━━━━━━━━━━━━━━━\n\n` +
-          `🤝 <b>كود شحن رصيد نقاط في منصة سوق بغداد 💼✨</b>\n\n` +
-          `🪙 <b>الرصيد المشحون:</b> <b>${pts}</b> نقطة\n` +
-          `👤 <b>صلاحية الكود:</b> استخدام شخص واحد فقط (حسابك الشخصي)\n\n` +
-          `👇 <b>كود التفعيل الخاص بك:</b>\n` +
-          `<code>${promoCode}</code>\n\n` +
-          `📌 <b>طريقة التفعيل السريعة:</b>\n` +
-          `1️⃣ ادخل إلى بوت سوق بغداد @souqbaghdad_bot أو الموقع: https://www.souqbaghdad.store\n` +
-          `2️⃣ اضغط على <b>المحفظة 💼</b> ثم <b>إدخال كود هدية</b>.\n` +
-          `3️⃣ الصق الكود ليتم شحن رصيدك فوراً في محفظتك!`;
+          `👇 <b>تم إرسال بطاقة الكود أدناه كرسالة مستقلة وجاهزة لتتمكن من تحويلها أو مشاركتها لعميلك بنقرة زر 🚀</b>`;
 
-        await sendMessage(chatId, saleMsg, {
+        await sendMessage(chatId, receiptMsg, {
           inline_keyboard: [
-            [{ text: '📋 نسخ الكود', copy_text: { text: promoCode } }],
+            [{ text: '📤 إرسال ومشاركة للعميل عبر تيليجرام 🚀', url: shareTelegramUrl }],
             [{ text: '💼 بيع كود آخر من رصيدي 💰', callback_data: 'partner_promo_menu_single' }],
             [{ text: '🔙 عودة للوحة الشريك', callback_data: 'partner_dashboard_main' }],
             [{ text: '🏠 الرئيسية', callback_data: 'main_menu' }]
+          ]
+        });
+
+        // Send clean, dedicated client message into chat
+        const clientCardMsg = 
+          `🤝 <b>كود شحن رصيد نقاط في منصة سوق بغداد 💼✨</b>\n\n` +
+          `🪙 <b>الرصيد المشحون:</b> <b>${pts}</b> نقطة <i>(تعادل نشر ${pts === 1 ? 'إعلان خط نقل كامل' : `${pts} إعلانات خطوط نقل`})</i>\n` +
+          `👤 <b>صلاحية الكود:</b> استخدام شخص واحد فقط (لحسابك الخاص)\n\n` +
+          `👇 <b>كود التفعيل الخاص بك:</b>\n` +
+          `<code>${promoCode}</code>\n` +
+          `<i>(اضغط على الكود أعلاه لنسخه بنقرة واحدة)</i>\n\n` +
+          `⚡ <b>الشحن الفوري بنقرة واحدة (بدون كتابة الكود):</b>\n` +
+          `اضغط الرابط التالي ليتم شحن رصيدك في البوت فوراً وبلمح البصر:\n` +
+          `🔗 ${directRedeemUrl}\n\n` +
+          `📌 <b>أو عبر الموقع:</b> ادخل إلى https://www.souqbaghdad.store واضغط <b>المحفظة 💼</b> ثم <b>إدخال كود هدية</b>.`;
+
+        await sendMessage(chatId, clientCardMsg, {
+          inline_keyboard: [
+            [{ text: '⚡ شحن وتفعيل الرصيد فوراً بنقرة واحدة', url: directRedeemUrl }],
+            [{ text: '📋 نسخ الكود فقط', copy_text: { text: promoCode } }],
+            [{ text: '📤 إرسال ومشاركة لعميلك عبر تيليجرام 🚀', url: shareTelegramUrl }]
           ]
         });
         return new Response('OK', { status: 200 });
