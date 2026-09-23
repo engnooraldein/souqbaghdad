@@ -28,7 +28,7 @@ const ADMIN_CHAT_ID = Deno.env.get("ADMIN_CHAT_ID") || "777557036";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// ── 1. إرسال رسالة نصية (Facebook Messenger / Instagram DM) ──
+// ── 1. إرسال رسالة نصية بسيطة ──
 const sendMetaMessage = async (recipientId: string, text: string, token: string) => {
   if (!token) {
     console.error("Access token is missing!");
@@ -54,7 +54,87 @@ const sendMetaMessage = async (recipientId: string, text: string, token: string)
   }
 };
 
-// ── 2. الرد على تعليق في فيسبوك (Facebook Comment Reply) ──
+// ── 2. إرسال أزرار الردود السريعة (Quick Replies) ──
+const sendMetaQuickReplies = async (recipientId: string, text: string, quickReplies: any[], token: string) => {
+  if (!token) return;
+  const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(token)}`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        messaging_type: "RESPONSE",
+        message: {
+          text: text,
+          quick_replies: quickReplies.slice(0, 13) // الحد الأقصى لماسنجر هو 13 زر
+        }
+      })
+    });
+    if (!res.ok) console.error("Quick Replies Error:", await res.text());
+  } catch (e) {
+    console.error("sendMetaQuickReplies exception:", e);
+  }
+};
+
+// ── 3. إرسال قالب الأزرار التفاعلية (Button Template) ──
+const sendMetaButtonTemplate = async (recipientId: string, text: string, buttons: any[], token: string) => {
+  if (!token) return;
+  const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(token)}`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        messaging_type: "RESPONSE",
+        message: {
+          attachment: {
+            type: "template",
+            payload: {
+              template_type: "button",
+              text: text,
+              buttons: buttons.slice(0, 3) // الحد الأقصى لماسنجر هو 3 أزرار بالقالب
+            }
+          }
+        }
+      })
+    });
+    if (!res.ok) console.error("Button Template Error:", await res.text());
+  } catch (e) {
+    console.error("sendMetaButtonTemplate exception:", e);
+  }
+};
+
+// ── 4. إرسال الكاروسيل الأفقي للخطوط والإعلانات (Generic Template Carousel) ──
+const sendMetaGenericTemplate = async (recipientId: string, elements: any[], token: string) => {
+  if (!token) return;
+  const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(token)}`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        messaging_type: "RESPONSE",
+        message: {
+          attachment: {
+            type: "template",
+            payload: {
+              template_type: "generic",
+              elements: elements.slice(0, 10) // الحد الأقصى لماسنجر هو 10 بطاقات
+            }
+          }
+        }
+      })
+    });
+    if (!res.ok) console.error("Generic Template Error:", await res.text());
+  } catch (e) {
+    console.error("sendMetaGenericTemplate exception:", e);
+  }
+};
+
+// ── 5. الرد على تعليق في فيسبوك (Facebook Comment Reply) ──
 const replyToFacebookComment = async (commentId: string, message: string, token: string) => {
   if (!token) return;
   const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(commentId)}/comments?access_token=${encodeURIComponent(token)}`;
@@ -74,7 +154,7 @@ const replyToFacebookComment = async (commentId: string, message: string, token:
   }
 };
 
-// ── 3. الرد على تعليق في إنستغرام (Instagram Comment Reply) ──
+// ── 6. الرد على تعليق في إنستغرام (Instagram Comment Reply) ──
 const replyToInstagramComment = async (commentId: string, message: string, token: string) => {
   if (!token) return;
   const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(commentId)}/replies?access_token=${encodeURIComponent(token)}`;
@@ -94,7 +174,7 @@ const replyToInstagramComment = async (commentId: string, message: string, token
   }
 };
 
-// ── 4. إرسال رد خاص لصاحب التعليق (Private Reply) ──
+// ── 7. إرسال رد خاص لصاحب التعليق (Private Reply) ──
 const sendPrivateReplyToComment = async (commentId: string, text: string, isInstagram: boolean, token: string) => {
   if (!token) return;
   try {
@@ -121,7 +201,7 @@ const sendPrivateReplyToComment = async (commentId: string, text: string, isInst
   }
 };
 
-// ── 5. إرسال تنبيه فوري للأدمن على تيليكرام عند الشكاوى أو البلاغات ──
+// ── 8. إرسال تنبيه فوري للأدمن على تيليكرام عند الشكاوى أو البلاغات ──
 const notifyAdminTelegram = async (text: string) => {
   if (!TELEGRAM_BOT_TOKEN || !ADMIN_CHAT_ID) return;
   try {
@@ -140,7 +220,7 @@ const notifyAdminTelegram = async (text: string) => {
   }
 };
 
-// ── 6. استدعاء محرك الذكاء الاصطناعي ai-engine ──
+// ── 9. استدعاء محرك الذكاء الاصطناعي ai-engine ──
 const getAIReply = async (action: 'process_message' | 'process_comment', platform: string, text: string, senderId?: string, imageUrl?: string, audioUrl?: string) => {
   try {
     const aiRes = await fetch(`${SUPABASE_URL}/functions/v1/ai-engine`, {
@@ -167,6 +247,289 @@ const getAIReply = async (action: 'process_message' | 'process_comment', platfor
   return { reply: "أهلاً بك في منصة سوق بغداد! 🇮🇶 يسعدنا تواصلك معنا، تفضل بزيارة موقعنا: https://www.souqbaghdad.store" };
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 🤖 MESSENGER INTERACTIVE ENGINE (محرك الأزرار والقوائم والرادار التفاعلي)
+// ─────────────────────────────────────────────────────────────────────────────
+const handleMessengerInteractive = async (
+  senderId: string,
+  payload: string | null,
+  text: string,
+  token: string,
+  platform: string
+): Promise<boolean> => {
+  const cleanPayload = (payload || '').trim();
+  const cleanText = text.trim().toLowerCase();
+
+  // 1. القائمة الرئيسية (Main Menu / Greetings)
+  const isMenuTrigger = 
+    cleanPayload === 'MAIN_MENU' ||
+    cleanPayload === 'START' ||
+    ['start', '/start', 'مرحبا', 'مرحباً', 'هلا', 'سلام', 'السلام عليكم', 'menu', 'القائمة', 'الرئيسية'].some(k => cleanText === k);
+
+  if (isMenuTrigger) {
+    const welcomeMsg = 
+      `أهلاً بك في منصة سوق بغداد 🇮🇶\n` +
+      `خدمة النقل الذكي للجامعات والمدارس والخطوط المباشرة ✨\n\n` +
+      `يرجى اختيار صفتك للبدء:`;
+
+    const roleQuickReplies = [
+      { content_type: "text", title: "طالب / راكب 🎓", payload: "ROLE_PASSENGER" },
+      { content_type: "text", title: "كابتن / سائق 🚗", payload: "ROLE_DRIVER" },
+      { content_type: "text", title: "شريك معتمد 👑", payload: "ROLE_PARTNER" }
+    ];
+
+    await sendMetaQuickReplies(senderId, welcomeMsg, roleQuickReplies, token);
+    return true;
+  }
+
+  // 2. واجهة الطالب / الراكب (Student Role)
+  if (cleanPayload === 'ROLE_PASSENGER' || cleanText === 'طالب' || cleanText === 'طالبة') {
+    const passengerMsg = 
+      `🎓 واجهة الطالب / الراكب 🌹\n\n` +
+      `ابحث عن خطوط النقل المتاحة للجامعات أو فعّل رادار الإشعارات لمسارك:`;
+
+    const buttons = [
+      { type: "postback", title: "البحث عن خطوط 🚌", payload: "SEARCH_TRANSPORT" },
+      { type: "postback", title: "رادار التنبيهات 📡", payload: "RADAR_PROMPT" },
+      { type: "web_url", title: "تصفح كل الخطوط بالموقع 🌐", url: "https://www.souqbaghdad.store/transport" }
+    ];
+
+    await sendMetaButtonTemplate(senderId, passengerMsg, buttons, token);
+    return true;
+  }
+
+  // 3. شاشة اختيار الوجهة الجامعية (Search Transport Prompt)
+  if (cleanPayload === 'SEARCH_TRANSPORT' || cleanText === 'خطوط' || cleanText === 'بحث عن خط') {
+    const promptMsg = 
+      `🚌 اختر وجهتك الجامعية، أو اكتب اسم كليتك أو منطقتك برسالة للبحث الفوري:`;
+
+    const uniQuickReplies = [
+      { content_type: "text", title: "جامعة الرافدين 🎓", payload: "SEARCH_DEST_الرافدين" },
+      { content_type: "text", title: "جامعة دجلة 🎓", payload: "SEARCH_DEST_دجلة" },
+      { content_type: "text", title: "بغداد الجادرية 🎓", payload: "SEARCH_DEST_الجادرية" },
+      { content_type: "text", title: "الجامعة المستنصرية 🎓", payload: "SEARCH_DEST_المستنصرية" },
+      { content_type: "text", title: "الجامعة التكنولوجية 🎓", payload: "SEARCH_DEST_التكنولوجية" },
+      { content_type: "text", title: "جامعة النهرين 🎓", payload: "SEARCH_DEST_النهرين" },
+      { content_type: "text", title: "كلية المنصور 🎓", payload: "SEARCH_DEST_المنصور" },
+      { content_type: "text", title: "الرئيسية 🏠", payload: "MAIN_MENU" }
+    ];
+
+    await sendMetaQuickReplies(senderId, promptMsg, uniQuickReplies, token);
+    return true;
+  }
+
+  // 4. إرشادات الرادار (Radar Prompt)
+  if (cleanPayload === 'RADAR_PROMPT') {
+    const radarMsg = 
+      `📡 رادار التنبيهات 24/7 لمسارك ⚡\n\n` +
+      `أرسل رسالة تحتوي على مسارك (منطقتك إلى وجهتك)\nمثال: "السيدية إلى جامعة الرافدين"\nوسيقوم الرادار بحفظ طلبك وتنبيهك فور قيام أي كابتن بنشر خط يمر بك!`;
+
+    const quickReplies = [
+      { content_type: "text", title: "البحث عن خطوط 🚌", payload: "SEARCH_TRANSPORT" },
+      { content_type: "text", title: "الرئيسية 🏠", payload: "MAIN_MENU" }
+    ];
+
+    await sendMetaQuickReplies(senderId, radarMsg, quickReplies, token);
+    return true;
+  }
+
+  // 5. البحث الذكي عن الخطوط وعرض الكاروسيل (Search by Destination/Area)
+  let searchKeyword = '';
+  if (cleanPayload.startsWith('SEARCH_DEST_')) {
+    searchKeyword = decodeURIComponent(cleanPayload.replace('SEARCH_DEST_', '')).trim();
+  } else {
+    // التحقق مما إذا كان النص المرسل يحتوي على أسماء جامعات أو مناطق مشهورة
+    const knownKeywords = [
+      'الرافدين', 'دجلة', 'الجادرية', 'المستنصرية', 'التكنولوجية', 'النهرين', 'المنصور', 'العراقية',
+      'السيدية', 'الكرادة', 'الدورة', 'الشعب', 'الغزالية', 'اليرموك', 'الزعفرانية',
+      'الحرية', 'الكاظمية', 'زيونة', 'البنوك', 'الأعظمية', 'حي الجامعة', 'مدينة الصدر', 'البيجية'
+    ];
+    for (const kw of knownKeywords) {
+      if (cleanText.includes(kw.toLowerCase())) {
+        searchKeyword = kw;
+        break;
+      }
+    }
+  }
+
+  if (searchKeyword) {
+    // حماية التكاليف: سحب 5 نتائج فقط كحد أقصى للبطاقات
+    const { data: ads } = await supabase
+      .from('ads')
+      .select('id, short_id, title, price, university, destination, location, phone, images, description')
+      .eq('category', 'transport')
+      .eq('status', 'active')
+      .or(`university.ilike.%${searchKeyword}%,destination.ilike.%${searchKeyword}%,title.ilike.%${searchKeyword}%,description.ilike.%${searchKeyword}%,location.ilike.%${searchKeyword}%`)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (ads && ads.length > 0) {
+      const elements = ads.map((ad: any) => {
+        const img = (ad.images && ad.images.length > 0) 
+          ? ad.images[0] 
+          : 'https://www.souqbaghdad.store/transport-og.png';
+        const adUrl = `https://www.souqbaghdad.store/product/${ad.short_id || ad.id}`;
+        const subtitle = `📍 ${ad.location || 'بغداد'} ⬅️ ${ad.university || ad.destination || searchKeyword} | 💰 ${ad.price ? ad.price + ' د.ع' : 'تواصل لمعرفة السعر'}`;
+        
+        return {
+          title: (ad.title || `خط نقل ${searchKeyword}`).slice(0, 80),
+          subtitle: subtitle.slice(0, 80),
+          image_url: img,
+          buttons: [
+            {
+              type: "web_url",
+              url: adUrl,
+              title: "معاينة وحجز مقعد 💺"
+            },
+            {
+              type: "postback",
+              title: "تفعيل رادار للمسار 📡",
+              payload: `ACTIVATE_RADAR_${encodeURIComponent(ad.location || 'بغداد')}_${encodeURIComponent(ad.university || searchKeyword)}`
+            }
+          ]
+        };
+      });
+
+      await sendMetaMessage(senderId, `🚌 نتائج الخطوط المتوفرة لـ [${searchKeyword}]:`, token);
+      await sendMetaGenericTemplate(senderId, elements, token);
+      return true;
+    } else {
+      // لم يتم العثور على خطوط -> اقتراح الرادار المباشر
+      const noResultsMsg = 
+        `🚌 لم نجد مقاعد شاغرة متوفرة حالياً لـ [${searchKeyword}].\n\n` +
+        `🔔 هل ترغب بتفعيل رادار الإشعارات ليتم تنبيهك فور قيام أي كابتن بنشر خط يمر بهذا المسار؟`;
+
+      const buttons = [
+        { 
+          type: "postback", 
+          title: "تفعيل الرادار لمساري 📡", 
+          payload: `ACTIVATE_RADAR_${encodeURIComponent(searchKeyword)}_الجامعة` 
+        },
+        { 
+          type: "web_url", 
+          title: "تصفح كل الخطوط بالموقع 🌐", 
+          url: "https://www.souqbaghdad.store/transport" 
+        },
+        { 
+          type: "postback", 
+          title: "الرئيسية 🏠", 
+          payload: "MAIN_MENU" 
+        }
+      ];
+
+      await sendMetaButtonTemplate(senderId, noResultsMsg, buttons, token);
+      return true;
+    }
+  }
+
+  // 6. تفعيل رادار الإشعارات (Activate Radar Action)
+  if (cleanPayload.startsWith('ACTIVATE_RADAR_')) {
+    const parts = cleanPayload.replace('ACTIVATE_RADAR_', '').split('_');
+    const orig = decodeURIComponent(parts[0] || '').trim() || 'بغداد';
+    const dest = decodeURIComponent(parts[1] || '').trim() || 'الجامعة';
+
+    try {
+      await supabase.from('transport_requests').upsert({
+        telegram_chat_id: `fb_${senderId}`,
+        telegram_user_id: `fb_${senderId}`,
+        user_name: `FB_User_${senderId.slice(-4)}`,
+        origin: orig,
+        destination: dest,
+        raw_query: `messenger: ${orig} → ${dest}`,
+        status: 'pending'
+      }, { onConflict: 'telegram_chat_id,origin,destination' });
+    } catch (e) {
+      console.error("Error upserting transport_request from messenger:", e);
+    }
+
+    const confirmMsg = 
+      `🔔 تم تفعيل رادار المسار بنجاح! ✅\n\n` +
+      `📍 من: ${orig}\n🎓 إلى: ${dest}\n\n` +
+      `⚡ سيصلك إشعار مباشر هنا فور قيام أي كابتن بنشر خط يمر بمسارك!`;
+
+    const buttons = [
+      { type: "postback", title: "البحث عن وجهة أخرى 🚌", payload: "SEARCH_TRANSPORT" },
+      { type: "web_url", title: "تصفح الخطوط بالموقع 🌐", url: "https://www.souqbaghdad.store/transport" },
+      { type: "postback", title: "الرئيسية 🏠", payload: "MAIN_MENU" }
+    ];
+
+    await sendMetaButtonTemplate(senderId, confirmMsg, buttons, token);
+    return true;
+  }
+
+  // 7. واجهة الكابتن / السائق (Driver Role)
+  if (cleanPayload === 'ROLE_DRIVER' || cleanText === 'كابتن' || cleanText === 'سائق') {
+    const driverMsg = 
+      `🚗 واجهة الكابتن / السائق ⚡\n\n` +
+      `انشر خطوطك الجامعية واستقبل طلبات الحجز المباشرة من الطلاب:`;
+
+    const buttons = [
+      { type: "web_url", title: "نشر خط نقل جديد 🚌", url: "https://www.souqbaghdad.store/post?category=transport" },
+      { type: "postback", title: "طلبات الطلاب الباحثين 👥", payload: "VIEW_STUDENT_REQUESTS" },
+      { type: "postback", title: "الرئيسية 🏠", payload: "MAIN_MENU" }
+    ];
+
+    await sendMetaButtonTemplate(senderId, driverMsg, buttons, token);
+    return true;
+  }
+
+  // 8. استعراض طلبات الطلاب الباحثين عن خطوط (View Student Requests)
+  if (cleanPayload === 'VIEW_STUDENT_REQUESTS' || cleanText === 'طلبات الطلاب') {
+    const { data: requests } = await supabase
+      .from('transport_requests')
+      .select('id, origin, destination, created_at')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (requests && requests.length > 0) {
+      let listText = `👥 أحدث طلبات الطلاب الباحثين عن خطوط نقل:\n\n`;
+      requests.forEach((r: any, idx: number) => {
+        listText += `${idx + 1}. 📍 من [${r.origin || 'غير محدد'}] إلى [${r.destination || 'الجامعة'}]\n`;
+      });
+      listText += `\n💡 يمكنك نشر خط يمر بهذه المناطق لتصل إشعارات فورية لهؤلاء الطلاب!`;
+
+      const buttons = [
+        { type: "web_url", title: "نشر خط لهذه المناطق ➕", url: "https://www.souqbaghdad.store/post?category=transport" },
+        { type: "postback", title: "الرئيسية 🏠", payload: "MAIN_MENU" }
+      ];
+
+      await sendMetaButtonTemplate(senderId, listText, buttons, token);
+      return true;
+    } else {
+      const emptyMsg = `لا توجد طلبات معلقة حالياً، يمكنك نشر خطك الآن وسيظهر للطلاب مباشرة فور بحثهم.`;
+      const buttons = [
+        { type: "web_url", title: "نشر خط نقل 🚌", url: "https://www.souqbaghdad.store/post?category=transport" },
+        { type: "postback", title: "الرئيسية 🏠", payload: "MAIN_MENU" }
+      ];
+      await sendMetaButtonTemplate(senderId, emptyMsg, buttons, token);
+      return true;
+    }
+  }
+
+  // 9. واجهة الشركاء (Partner Role)
+  if (cleanPayload === 'ROLE_PARTNER' || cleanText === 'شريك') {
+    const partnerMsg = 
+      `👑 واجهة الشركاء المعتمدين 💼\n\n` +
+      `اربط قناتك أو صفحتك مع سوق بغداد واكسب عمولات وأرباح مستمرة:\n` +
+      `• نشر الخطوط تلقائياً في قناتك مع رابط تسويقي خاص بك\n` +
+      `• شحن رصيد وإعلانات لعملائك مباشرة برقم هاتفهم أو يوزرهم`;
+
+    const buttons = [
+      { type: "web_url", title: "لوحة الشركاء بالموقع 🌐", url: "https://www.souqbaghdad.store/partners" },
+      { type: "postback", title: "الرئيسية 🏠", payload: "MAIN_MENU" }
+    ];
+
+    await sendMetaButtonTemplate(senderId, partnerMsg, buttons, token);
+    return true;
+  }
+
+  return false;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 🌐 MAIN HTTP SERVER
+// ─────────────────────────────────────────────────────────────────────────────
 serve(async (req: Request) => {
   try {
     const url = new URL(req.url);
@@ -200,11 +563,10 @@ serve(async (req: Request) => {
           const entryId = entry.id;
           const currentToken = resolveAccessToken(entryId);
 
-          // ── أ. معالجة الرسائل الخاصة (Direct Messages, Messenger, Voice & Images) ──
+          // ── أ. معالجة الرسائل الخاصة والضغط على الأزرار (Messaging & Postbacks) ──
           if (entry.messaging && Array.isArray(entry.messaging)) {
             for (const messagingEvent of entry.messaging) {
-              // ── حارس اللوب الأساسي: تجاهل Echo (رسائل البوت المرتدة) والإيصالات ──
-              // عند إرسال البوت رسالة، Meta يرسل Webhook بـ is_echo=true — يجب تجاهله فوراً
+              // تجاهل رسائل البوت المرتدة (Echo Guard)
               if (messagingEvent.message?.is_echo) {
                 console.log(`[Echo Guard] Skipped echo message from bot to: ${messagingEvent.recipient?.id}`);
                 continue;
@@ -217,29 +579,49 @@ serve(async (req: Request) => {
               const senderId = messagingEvent.sender?.id;
               const recipientId = messagingEvent.recipient?.id;
 
-              // تجاهل الرسائل الصادرة من أي من حسابات المنصة لمنع الحلقات اللانهائية
-              // (سوق بغداد + الرافدين — فيسبوك وانستغرام)
+              // تجاهل الرسائل الصادرة من حساباتنا الرسمية لمنع الحلقات
               const OWN_IDS = new Set([
                 META_PAGE_ID, META_IG_ACCOUNT_ID, entryId,
                 ALRAFDAIN_FB_PAGE_ID, ALRAFDAIN_IG_ID
               ].filter(Boolean));
+
               if (!senderId || OWN_IDS.has(senderId)) {
                 console.log(`[Loop Guard] Ignored message from own account: ${senderId}`);
                 continue;
               }
 
+              const platform = isInstagram ? "instagram" : isThreads ? "threads" : "facebook";
+
+              // استخراج الـ Postback Payload أو الـ Quick Reply Payload إن وجد
+              const postbackPayload = messagingEvent.postback?.payload || messagingEvent.message?.quick_reply?.payload || null;
+              const rawUserText = (messagingEvent.message?.text || messagingEvent.postback?.title || "").trim();
+
+              // ── ⚡ توجيه الحدث إلى المحرك التفاعلي (Messenger Interactive Engine) ──
+              const handledByInteractive = await handleMessengerInteractive(
+                senderId,
+                postbackPayload,
+                rawUserText,
+                currentToken,
+                platform
+              );
+
+              if (handledByInteractive) {
+                console.log(`[Interactive Engine] Handled event for ${senderId} successfully.`);
+                continue;
+              }
+
+              // إذا كانت رسالة عادية ولم يعالجها المحرك التفاعلي
               if (messagingEvent.message) {
                 const msgId = messagingEvent.message.mid || messagingEvent.message.message_id;
-                const userText = (messagingEvent.message.text || "").trim();
-                const platform = isInstagram ? "instagram" : isThreads ? "threads" : "facebook";
+                const userText = rawUserText;
 
-                // ── حارس مضاعف: إذا كان المُستقبِل أيضاً من حساباتنا → لوب بين صفحتين → توقف فوري ──
+                // حارس مضاعف: منع الحلقات بين صفحتين
                 if (recipientId && OWN_IDS.has(recipientId) && OWN_IDS.has(senderId || '')) {
-                  console.log(`[Inter-Page Loop Guard] Both sender(${senderId}) and recipient(${recipientId}) are own accounts. Skipping.`);
+                  console.log(`[Inter-Page Loop Guard] Both sender and recipient are own accounts. Skipping.`);
                   continue;
                 }
 
-                // ── Dedup: تجاهل الرسائل التي سبق معالجتها (بناءً على message_id) ──
+                // Dedup Guard لمنع تكرار معالجة نفس الرسالة
                 if (msgId) {
                   const dedupKey = `meta_msg_${msgId}`;
                   const { data: existing } = await supabase
@@ -251,7 +633,6 @@ serve(async (req: Request) => {
                     console.log(`[Dedup Guard] Already processed message: ${msgId}`);
                     continue;
                   }
-                  // سجّل المعالجة (تنتهي تلقائياً بعد يوم)
                   supabase.from('telegram_users').upsert({
                     telegram_chat_id: dedupKey,
                     username: 'meta_dedup',
@@ -275,7 +656,7 @@ serve(async (req: Request) => {
 
                 console.log(`[${platform} DM] From: ${senderId}, Text: "${userText}", Image: ${!!imageUrl}, Audio: ${!!audioUrl}`);
 
-                // ── معالجة الردود على الستوري ──
+                // معالجة الردود على الستوري
                 let storyId = null;
                 if (messagingEvent.message.reply_to && messagingEvent.message.reply_to.story) {
                   storyId = messagingEvent.message.reply_to.story.id;
@@ -287,7 +668,7 @@ serve(async (req: Request) => {
                     .from('ads')
                     .select('id, short_id, title, category, description, university, destination, price')
                     .eq('instagram_post_id', storyId)
-                    .single();
+                    .maybeSingle();
                   
                   if (adRecord) {
                     const itemUrl = `https://www.souqbaghdad.store/product/${adRecord.short_id || adRecord.id}`;
@@ -298,11 +679,11 @@ serve(async (req: Request) => {
                     const replyText = `أهلاً بك عيوني 🌹\nبخصوص الإعلان اللي استفسرت عنه بالستوري (${details})${adRecord.price ? ` بالسعر: ${adRecord.price}` : ''}:\n🔗 تفضل الرابط المباشر للتواصل مع المعلن ومعاينة الإعلان:\n${itemUrl}`;
                     
                     await sendMetaMessage(senderId, replyText, currentToken);
-                    continue; // تم الرد بنجاح
+                    continue;
                   }
                 }
 
-                // استدعاء الذكاء الاصطناعي مع دعم النصوص والصوت والصور
+                // استدعاء الذكاء الاصطناعي (AI Engine)
                 const aiData = await getAIReply("process_message", platform, userText, senderId, imageUrl, audioUrl);
 
                 if (aiData?.reply) {
@@ -331,56 +712,47 @@ serve(async (req: Request) => {
               const val = change.value;
               if (!val) continue;
 
-              // دعم كافة حقول التعليقات والمنشورات لفيسبوك وإنستغرام وثريدز
               const isCommentField = field === "feed" || field === "comments" || field === "live_comments" || field === "mention" || field === "threads" || field === "media";
               
               if (isCommentField) {
-                // استخراج معرف التعليق ومعرف البوست والنص بدعم كافة البنى البرمجية لـ Meta
                 const commentId = val.comment_id || val.id;
                 const postId = val.post_id || val.media?.id || val.parent_id || val.post?.id;
                 const commentText = (val.message || val.text || "").trim();
                 const fromId = val.from?.id || val.user?.id;
 
-                // تجاهل إذا لم يكن هناك معرف أو نص
                 if (!commentText || !commentId) continue;
 
-                // تجاهل التعليقات الصادرة من نفس حسابات الصفحة لمنع الحلقات
                 if (fromId === META_PAGE_ID || fromId === META_IG_ACCOUNT_ID || fromId === entryId || fromId === ALRAFDAIN_FB_PAGE_ID || fromId === ALRAFDAIN_IG_ID) {
                   continue;
                 }
 
-                // تجاهل عمليات الحذف والتفاعلات
                 if (val.verb && (val.verb === "delete" || val.verb === "remove" || val.verb === "hide")) continue;
                 if (val.item && val.item !== "comment" && val.item !== "post" && val.item !== "media") continue;
 
                 const platformName = isInstagram ? "Instagram" : isThreads ? "Threads" : "Facebook";
                 console.log(`[${platformName} Comment Event] ID: ${commentId}, Post: ${postId}, Text: "${commentText}"`);
 
-                // 1. توليد رد ذكي من الذكاء الاصطناعي
                 const aiData = await getAIReply("process_comment", platformName.toLowerCase(), commentText, fromId);
-                const replyText = aiData?.reply || "أهلاً بك عيوني 🌹 راسلنا على بوت سوق بغداد في تيليجرام للرد الفوري ونشر إعلاناتك: https://t.me/souqbaghda_bot";
+                const replyText = aiData?.reply || "أهلاً بك عيوني 🌹 راسلنا على ماسنجر أو بوت تيليجرام للرد الفوري وتصفح الخطوط: https://www.souqbaghdad.store";
 
-                // 2. نشر الرد على التعليق علناً
                 if (isInstagram) {
                   await replyToInstagramComment(commentId, replyText, currentToken);
                 } else {
                   await replyToFacebookComment(commentId, replyText, currentToken);
                 }
 
-                // 3. البحث عن الإعلان المرتبط بهذا المنشور وإرسال تفاصيله على الخاص
                 const cleanComment = commentText.toLowerCase();
                 const isGeneralPraise = ["ما شاء الله", "حلو", "بالتوفيق", "منورين", "تبارك"].some(k => cleanComment.includes(k)) && cleanComment.length < 20;
                 
                 if (!isGeneralPraise) {
-                  let pmText = "يا هلا بيك عيوني 👋 للسرعة والرد الفوري، ولنشر إعلاناتك وتصفحها مجاناً، تواصل ويانة مباشرة على بوت سوق بغداد في تيليجرام:\nhttps://t.me/souqbaghda_bot";
+                  let pmText = "يا هلا بيك عيوني 👋 للسرعة والرد الفوري، ولنشر خطوطك وتصفحها مجاناً، تفضل بزيارة موقعنا أو محادثتنا هنا مباشرة:\nhttps://www.souqbaghdad.store/transport";
                   
-                  // محاولة جلب الإعلان المرتبط بالبوست من قاعدة البيانات
                   if (postId) {
                     const { data: matchedAd } = await supabase
                       .from('ads')
                       .select('id, short_id, title, price, year, location, phone, category, university, destination')
                       .or(`facebook_post_id.eq.${postId},instagram_post_id.eq.${postId},meta_post_id.eq.${postId}`)
-                      .single();
+                      .maybeSingle();
 
                     if (matchedAd) {
                       const adUrl = `https://www.souqbaghdad.store/product/${matchedAd.short_id || matchedAd.id}`;
@@ -404,7 +776,6 @@ serve(async (req: Request) => {
                   );
                 }
 
-                // 4. إشعار فوري للأدمن عند رصد أي بلاغ أو شكوى
                 if (["نصاب", "احتيال", "كذب", "حرامي", "اشتكي", "سرقة"].some(k => cleanComment.includes(k))) {
                   await notifyAdminTelegram(
                     `🚨 <b>تنبيه شكوى/تعليق مشبوه على ${platformName}!</b>\n\n💬 <b>التعليق:</b> "${commentText}"\n🆔 <b>المعرف:</b> <code>${commentId}</code>`
