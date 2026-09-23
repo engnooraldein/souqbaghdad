@@ -22,6 +22,21 @@ function resolveAccessToken(entryId: string) {
   return META_PAGE_ACCESS_TOKEN;
 }
 
+// تنظيف الوسوم النصية لتتوافق مع معايير Meta Messenger
+const stripHtml = (html: string) => html.replace(/<[^>]*>?/gm, '');
+
+// تطبيع النصوص العربية وتجريد الإيموجيات لمطابقة أزرار الماسنجر
+const normalizeArabicText = (txt: string) => {
+  return (txt || '')
+    .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}]/gu, '')
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/[\s\-_]+/g, ' ')
+    .trim()
+    .toLowerCase();
+};
+
 // بيانات تيليكرام للتنبيهات
 const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || Deno.env.get("BOT_TOKEN") || "";
 const ADMIN_CHAT_ID = Deno.env.get("ADMIN_CHAT_ID") || "777557036";
@@ -30,10 +45,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // ── 1. إرسال رسالة نصية بسيطة ──
 const sendMetaMessage = async (recipientId: string, text: string, token: string) => {
-  if (!token) {
-    console.error("Access token is missing!");
-    return;
-  }
+  if (!token) return;
   const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(token)}`;
   try {
     const res = await fetch(url, {
@@ -41,13 +53,11 @@ const sendMetaMessage = async (recipientId: string, text: string, token: string)
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         recipient: { id: recipientId },
-        message: { text: text }
+        message: { text: stripHtml(text) }
       })
     });
     if (!res.ok) {
       console.error("Send Meta Message Error:", await res.text());
-    } else {
-      console.log(`Successfully sent message to ${recipientId}`);
     }
   } catch (e) {
     console.error("sendMetaMessage exception:", e);
@@ -59,6 +69,12 @@ const sendMetaQuickReplies = async (recipientId: string, text: string, quickRepl
   if (!token) return;
   const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(token)}`;
   try {
+    // شرط فيسبوك الصارم: عنوان الزر يجب ألا يتجاوز 20 حرفاً إطلاقاً
+    const cleanQRs = quickReplies.slice(0, 13).map((qr: any) => ({
+      ...qr,
+      title: (qr.title || '').trim().slice(0, 20)
+    }));
+
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -66,8 +82,8 @@ const sendMetaQuickReplies = async (recipientId: string, text: string, quickRepl
         recipient: { id: recipientId },
         messaging_type: "RESPONSE",
         message: {
-          text: text,
-          quick_replies: quickReplies.slice(0, 13) // الحد الأقصى لماسنجر هو 13 زر
+          text: stripHtml(text),
+          quick_replies: cleanQRs
         }
       })
     });
@@ -82,6 +98,12 @@ const sendMetaButtonTemplate = async (recipientId: string, text: string, buttons
   if (!token) return;
   const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(token)}`;
   try {
+    // شرط فيسبوك الصارم: عنوان الزر يجب ألا يتجاوز 20 حرفاً
+    const cleanBtns = buttons.slice(0, 3).map((btn: any) => ({
+      ...btn,
+      title: (btn.title || '').trim().slice(0, 20)
+    }));
+
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -93,8 +115,8 @@ const sendMetaButtonTemplate = async (recipientId: string, text: string, buttons
             type: "template",
             payload: {
               template_type: "button",
-              text: text,
-              buttons: buttons.slice(0, 3) // الحد الأقصى لماسنجر هو 3 أزرار بالقالب
+              text: stripHtml(text),
+              buttons: cleanBtns
             }
           }
         }
@@ -111,6 +133,16 @@ const sendMetaGenericTemplate = async (recipientId: string, elements: any[], tok
   if (!token) return;
   const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(token)}`;
   try {
+    const cleanElements = elements.slice(0, 10).map((el: any) => ({
+      ...el,
+      title: (el.title || '').trim().slice(0, 80),
+      subtitle: (el.subtitle || '').trim().slice(0, 80),
+      buttons: (el.buttons || []).slice(0, 3).map((btn: any) => ({
+        ...btn,
+        title: (btn.title || '').trim().slice(0, 20)
+      }))
+    }));
+
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -122,7 +154,7 @@ const sendMetaGenericTemplate = async (recipientId: string, elements: any[], tok
             type: "template",
             payload: {
               template_type: "generic",
-              elements: elements.slice(0, 10) // الحد الأقصى لماسنجر هو 10 بطاقات
+              elements: cleanElements
             }
           }
         }
@@ -146,8 +178,6 @@ const replyToFacebookComment = async (commentId: string, message: string, token:
     });
     if (!res.ok) {
       console.error("Facebook Comment Reply Error:", await res.text());
-    } else {
-      console.log(`Successfully replied to FB comment ${commentId}`);
     }
   } catch (e) {
     console.error("replyToFacebookComment exception:", e);
@@ -166,8 +196,6 @@ const replyToInstagramComment = async (commentId: string, message: string, token
     });
     if (!res.ok) {
       console.error("Instagram Comment Reply Error:", await res.text());
-    } else {
-      console.log(`Successfully replied to IG comment ${commentId}`);
     }
   } catch (e) {
     console.error("replyToInstagramComment exception:", e);
@@ -248,7 +276,7 @@ const getAIReply = async (action: 'process_message' | 'process_comment', platfor
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 🤖 MESSENGER INTERACTIVE ENGINE (محرك الأزرار والقوائم والرادار التفاعلي)
+// 🤖 MESSENGER INTERACTIVE ENGINE (محرك الأزرار، القوائم، النشر من المحادثة، وزر الرجوع)
 // ─────────────────────────────────────────────────────────────────────────────
 const handleMessengerInteractive = async (
   senderId: string,
@@ -258,19 +286,67 @@ const handleMessengerInteractive = async (
   platform: string
 ): Promise<boolean> => {
   const cleanPayload = (payload || '').trim();
-  const cleanText = text.trim().toLowerCase();
+  const rawText = text.trim();
+  const normText = normalizeArabicText(rawText);
 
-  // 1. القائمة الرئيسية (Main Menu / Greetings)
-  const isMenuTrigger = 
+  const userChatId = `fb_${senderId}`;
+  
+  // 1. قراءة حالة المستخدم الحالية من جدول telegram_users
+  const { data: userRow } = await supabase
+    .from('telegram_users')
+    .select('bot_state, user_role, phone_number, user_id')
+    .eq('telegram_chat_id', userChatId)
+    .maybeSingle();
+
+  let botState: any = userRow?.bot_state || {};
+
+  // دوال مساعدة لإدارة الحالة (State Management)
+  const setSessionState = async (newState: any, newRole?: string) => {
+    botState = newState;
+    const record: any = {
+      telegram_chat_id: userChatId,
+      bot_state: newState,
+      username: `meta_${senderId}`
+    };
+    if (newRole) record.user_role = newRole;
+    await supabase.from('telegram_users').upsert(record, { onConflict: 'telegram_chat_id' });
+  };
+
+  const clearSessionState = async () => {
+    botState = {};
+    await supabase.from('telegram_users').upsert({
+      telegram_chat_id: userChatId,
+      bot_state: {}
+    }, { onConflict: 'telegram_chat_id' });
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🔙 فحص أزرار الرجوع والقائمة الرئيسية (Global Back & Cancel Triggers)
+  // ─────────────────────────────────────────────────────────────────────────
+  const isBackToMain = 
     cleanPayload === 'MAIN_MENU' ||
+    cleanPayload === 'BACK_TO_MAIN' ||
     cleanPayload === 'START' ||
-    ['start', '/start', 'مرحبا', 'مرحباً', 'هلا', 'سلام', 'السلام عليكم', 'menu', 'القائمة', 'الرئيسية'].some(k => cleanText === k);
+    normText === 'start' ||
+    normText === 'مرحبا' ||
+    normText === 'هلا' ||
+    normText === 'سلام' ||
+    normText === 'السلام عليكم' ||
+    normText === 'menu' ||
+    normText === 'القائمه' ||
+    normText === 'الرئيسيه' ||
+    normText === 'الرجوع للرئيسيه' ||
+    normText === 'الرجوع' ||
+    normText === 'رجوع' ||
+    normText === 'الغاء' ||
+    normText === 'الغاء العمليه';
 
-  if (isMenuTrigger) {
+  if (isBackToMain) {
+    await clearSessionState();
     const welcomeMsg = 
       `أهلاً بك في منصة سوق بغداد 🇮🇶\n` +
       `خدمة النقل الذكي للجامعات والمدارس والخطوط المباشرة ✨\n\n` +
-      `يرجى اختيار صفتك للبدء:`;
+      `يرجى اختيار صفتك للمتابعة:`;
 
     const roleQuickReplies = [
       { content_type: "text", title: "طالب / راكب 🎓", payload: "ROLE_PASSENGER" },
@@ -282,70 +358,485 @@ const handleMessengerInteractive = async (
     return true;
   }
 
-  // 2. واجهة الطالب / الراكب (Student Role)
-  if (cleanPayload === 'ROLE_PASSENGER' || cleanText === 'طالب' || cleanText === 'طالبة') {
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🎓 1. واجهة الطالب / الراكب (Student Role)
+  // ─────────────────────────────────────────────────────────────────────────
+  if (
+    cleanPayload === 'ROLE_PASSENGER' || 
+    normText === 'طالب' || 
+    normText === 'طالبه' || 
+    normText.includes('طالب / راكب') ||
+    normText === 'راكب'
+  ) {
+    await setSessionState({}, 'passenger');
     const passengerMsg = 
       `🎓 واجهة الطالب / الراكب 🌹\n\n` +
-      `ابحث عن خطوط النقل المتاحة للجامعات أو فعّل رادار الإشعارات لمسارك:`;
+      `ابحث عن خطك للدوام أو انشر طلب خط جديد ليجده السائقون:`;
 
     const buttons = [
       { type: "postback", title: "البحث عن خطوط 🚌", payload: "SEARCH_TRANSPORT" },
-      { type: "postback", title: "رادار التنبيهات 📡", payload: "RADAR_PROMPT" },
-      { type: "web_url", title: "تصفح كل الخطوط بالموقع 🌐", url: "https://www.souqbaghdad.store/transport" }
+      { type: "postback", title: "نشر طلب خط كطالب 📝", payload: "START_STUDENT_REQUEST" },
+      { type: "postback", title: "الرجوع للرئيسية 🔙", payload: "MAIN_MENU" }
     ];
 
     await sendMetaButtonTemplate(senderId, passengerMsg, buttons, token);
     return true;
   }
 
-  // 3. شاشة اختيار الوجهة الجامعية (Search Transport Prompt)
-  if (cleanPayload === 'SEARCH_TRANSPORT' || cleanText === 'خطوط' || cleanText === 'بحث عن خط') {
-    const promptMsg = 
-      `🚌 اختر وجهتك الجامعية، أو اكتب اسم كليتك أو منطقتك برسالة للبحث الفوري:`;
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🚗 2. واجهة الكابتن / السائق (Driver Role)
+  // ─────────────────────────────────────────────────────────────────────────
+  if (
+    cleanPayload === 'ROLE_DRIVER' || 
+    normText === 'كابتن' || 
+    normText === 'سائق' || 
+    normText.includes('كابتن / سائق')
+  ) {
+    await setSessionState({}, 'driver');
+    const driverMsg = 
+      `🚗 واجهة الكابتن / السائق ⚡\n\n` +
+      `انشر خطك الجامعي واستقبل طلبات الحجز المباشرة من الطلاب:`;
+
+    const buttons = [
+      { type: "postback", title: "نشر خط نقل جديد 🚌", payload: "START_PUBLISH_TRANSPORT" },
+      { type: "postback", title: "طلبات الطلاب 👥", payload: "VIEW_STUDENT_REQUESTS" },
+      { type: "postback", title: "الرجوع للرئيسية 🔙", payload: "MAIN_MENU" }
+    ];
+
+    await sendMetaButtonTemplate(senderId, driverMsg, buttons, token);
+    return true;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 👑 3. واجهة الشركاء المعتمدين (Partner Role)
+  // ─────────────────────────────────────────────────────────────────────────
+  if (
+    cleanPayload === 'ROLE_PARTNER' || 
+    normText.includes('شريك')
+  ) {
+    await setSessionState({}, 'partner');
+    const partnerMsg = 
+      `👑 واجهة الشركاء المعتمدين 💼\n\n` +
+      `اربط قناتك أو صفحتك مع سوق بغداد واكسب عمولات وأرباح مستمرة:\n` +
+      `• نشر الخطوط تلقائياً في قناتك مع رابط تسويقي خاص بك\n` +
+      `• شحن رصيد وإعلانات لعملائك برقم هاتفهم أو يوزرهم`;
+
+    const buttons = [
+      { type: "web_url", title: "دخول لوحة الشركاء 🌐", url: "https://www.souqbaghdad.store/partners" },
+      { type: "postback", title: "الرجوع للرئيسية 🔙", payload: "MAIN_MENU" }
+    ];
+
+    await sendMetaButtonTemplate(senderId, partnerMsg, buttons, token);
+    return true;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 📝 4. معالج نشر طلب خط للطالب بالمراسلة (Student Transport Request Wizard)
+  // ─────────────────────────────────────────────────────────────────────────
+  if (
+    cleanPayload === 'START_STUDENT_REQUEST' || 
+    normText.includes('طلب خط') || 
+    normText.includes('نشر طلب') ||
+    normText === 'طلب خط كطالب' ||
+    normText === 'نشر طلب خط كطالب'
+  ) {
+    await setSessionState({ wizard: 'req_transport', step: 'waiting_dest', data: {} }, 'passenger');
+
+    const step1Msg = 
+      `📝 نشر طلب خط نقل (خطوة 1 من 3)\n\n` +
+      `اختر الجامعة أو الكلية التي تداوم بها:\n(أو اكتب اسمها مباشرة برسالة)`;
+
+    const quickReplies = [
+      { content_type: "text", title: "جامعة الرافدين", payload: "REQ_DEST_الرافدين" },
+      { content_type: "text", title: "جامعة دجلة", payload: "REQ_DEST_دجلة" },
+      { content_type: "text", title: "بغداد الجادرية", payload: "REQ_DEST_الجادرية" },
+      { content_type: "text", title: "المستنصرية", payload: "REQ_DEST_المستنصرية" },
+      { content_type: "text", title: "التكنولوجية", payload: "REQ_DEST_التكنولوجية" },
+      { content_type: "text", title: "جامعة النهرين", payload: "REQ_DEST_النهرين" },
+      { content_type: "text", title: "الرجوع 🔙", payload: "ROLE_PASSENGER" }
+    ];
+
+    await sendMetaQuickReplies(senderId, step1Msg, quickReplies, token);
+    return true;
+  }
+
+  if (
+    cleanPayload.startsWith('REQ_DEST_') || 
+    (botState?.wizard === 'req_transport' && botState?.step === 'waiting_dest')
+  ) {
+    let dest = cleanPayload.startsWith('REQ_DEST_')
+      ? decodeURIComponent(cleanPayload.replace('REQ_DEST_', '')).trim()
+      : rawText;
+
+    if (normText.includes('رجوع') || cleanPayload === 'ROLE_PASSENGER') {
+      return await handleMessengerInteractive(senderId, 'ROLE_PASSENGER', '', token, platform);
+    }
+
+    await setSessionState({ wizard: 'req_transport', step: 'waiting_origin', data: { destination: dest } });
+
+    const step2Msg = 
+      `📍 منطقة سكنك أو صعودك (خطوة 2 من 3)\n\n` +
+      `الوجهة: [ ${dest} ] ✅\nمن أي منطقة ببغداد تريد الصعود؟ (مثال: السيدية، الدورة، المنصور...):`;
+
+    const quickReplies = [
+      { content_type: "text", title: "السيدية", payload: "REQ_ORIG_السيدية" },
+      { content_type: "text", title: "المنصور", payload: "REQ_ORIG_المنصور" },
+      { content_type: "text", title: "الدورة", payload: "REQ_ORIG_الدورة" },
+      { content_type: "text", title: "الكرادة", payload: "REQ_ORIG_الكرادة" },
+      { content_type: "text", title: "الشعب", payload: "REQ_ORIG_الشعب" },
+      { content_type: "text", title: "الغزالية", payload: "REQ_ORIG_الغزالية" },
+      { content_type: "text", title: "الرجوع 🔙", payload: "START_STUDENT_REQUEST" }
+    ];
+
+    await sendMetaQuickReplies(senderId, step2Msg, quickReplies, token);
+    return true;
+  }
+
+  if (
+    cleanPayload.startsWith('REQ_ORIG_') || 
+    (botState?.wizard === 'req_transport' && botState?.step === 'waiting_origin')
+  ) {
+    let orig = cleanPayload.startsWith('REQ_ORIG_')
+      ? decodeURIComponent(cleanPayload.replace('REQ_ORIG_', '')).trim()
+      : rawText;
+
+    if (normText.includes('رجوع') || cleanPayload === 'START_STUDENT_REQUEST') {
+      return await handleMessengerInteractive(senderId, 'START_STUDENT_REQUEST', '', token, platform);
+    }
+
+    const currentData = botState?.data || {};
+    await setSessionState({ wizard: 'req_transport', step: 'waiting_phone', data: { ...currentData, origin: orig } });
+
+    const step3Msg = 
+      `📞 رقم هاتفك للتواصل (خطوة 3 من 3)\n\n` +
+      `المسار: من [ ${orig} ] إلى [ ${currentData.destination || 'الجامعة'} ]\n\n` +
+      `أرسل رقم هاتفك ليتصل بك أصحاب الخطوط المارة بمنطقتك (مثال: 07701234567):`;
+
+    const quickReplies = [
+      { content_type: "text", title: "الرجوع 🔙", payload: "REQ_DEST_" + encodeURIComponent(currentData.destination || '') }
+    ];
+
+    await sendMetaQuickReplies(senderId, step3Msg, quickReplies, token);
+    return true;
+  }
+
+  if (botState?.wizard === 'req_transport' && botState?.step === 'waiting_phone') {
+    if (normText.includes('رجوع')) {
+      return await handleMessengerInteractive(senderId, 'START_STUDENT_REQUEST', '', token, platform);
+    }
+
+    const digitsOnly = rawText.replace(/[^0-9]/g, '');
+    const currentData = botState?.data || {};
+    const dest = currentData.destination || 'الجامعة';
+    const orig = currentData.origin || 'بغداد';
+
+    try {
+      await supabase.from('transport_requests').upsert({
+        telegram_chat_id: userChatId,
+        telegram_user_id: userChatId,
+        user_name: `طالب_${digitsOnly.slice(-4) || senderId.slice(-4)}`,
+        origin: orig,
+        destination: dest,
+        raw_query: `messenger request: ${orig} → ${dest} (Phone: ${digitsOnly})`,
+        status: 'pending'
+      }, { onConflict: 'telegram_chat_id,origin,destination' });
+    } catch (e) {
+      console.error("Error upserting transport_request:", e);
+    }
+
+    await clearSessionState();
+
+    const confirmMsg = 
+      `🎉 تم نشر وتثبيت طلبك بنجاح! ✅\n\n` +
+      `📍 المسار: من [ ${orig} ] إلى [ ${dest} ]\n` +
+      `📞 هاتف التواصل: ${digitsOnly || 'مسجل'}\n\n` +
+      `🔔 سيتم إشعار السائقين والكباتن فوراً، وسيتصلون بك بمجرد توفر مقعد!`;
+
+    const buttons = [
+      { type: "postback", title: "البحث عن خطوط 🚌", payload: "SEARCH_TRANSPORT" },
+      { type: "postback", title: "الرجوع للرئيسية 🏠", payload: "MAIN_MENU" }
+    ];
+
+    await sendMetaButtonTemplate(senderId, confirmMsg, buttons, token);
+    return true;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🚌 5. معالج نشر خط جديد للكابتن بالمراسلة (Captain Transport Publishing Wizard)
+  // ─────────────────────────────────────────────────────────────────────────
+  if (
+    cleanPayload === 'START_PUBLISH_TRANSPORT' || 
+    normText.includes('نشر خط') || 
+    normText.includes('انشر خط')
+  ) {
+    await setSessionState({ wizard: 'pub_transport', step: 'waiting_dest', data: {} }, 'driver');
+
+    const step1Msg = 
+      `🚌 نشر خط نقل جديد (خطوة 1 من 4)\n\n` +
+      `اختر الجامعة أو الكلية التي يذهب إليها خطك:\n(اضغط على أحد الخيارات أو اكتب اسم الوجهة برسالة)`;
+
+    const quickReplies = [
+      { content_type: "text", title: "جامعة الرافدين", payload: "PUB_DEST_الرافدين" },
+      { content_type: "text", title: "جامعة دجلة", payload: "PUB_DEST_دجلة" },
+      { content_type: "text", title: "بغداد الجادرية", payload: "PUB_DEST_الجادرية" },
+      { content_type: "text", title: "المستنصرية", payload: "PUB_DEST_المستنصرية" },
+      { content_type: "text", title: "التكنولوجية", payload: "PUB_DEST_التكنولوجية" },
+      { content_type: "text", title: "جامعة النهرين", payload: "PUB_DEST_النهرين" },
+      { content_type: "text", title: "كلية المنصور", payload: "PUB_DEST_المنصور" },
+      { content_type: "text", title: "الرجوع 🔙", payload: "ROLE_DRIVER" }
+    ];
+
+    await sendMetaQuickReplies(senderId, step1Msg, quickReplies, token);
+    return true;
+  }
+
+  if (cleanPayload === 'BACK_TO_PUB_STEP_1') {
+    await setSessionState({ wizard: 'pub_transport', step: 'waiting_dest', data: {} });
+    const step1Msg = `🚌 اختر الجامعة أو الكلية التي يذهب إليها خطك:`;
+    const quickReplies = [
+      { content_type: "text", title: "جامعة الرافدين", payload: "PUB_DEST_الرافدين" },
+      { content_type: "text", title: "جامعة دجلة", payload: "PUB_DEST_دجلة" },
+      { content_type: "text", title: "بغداد الجادرية", payload: "PUB_DEST_الجادرية" },
+      { content_type: "text", title: "المستنصرية", payload: "PUB_DEST_المستنصرية" },
+      { content_type: "text", title: "التكنولوجية", payload: "PUB_DEST_التكنولوجية" },
+      { content_type: "text", title: "الرجوع 🔙", payload: "ROLE_DRIVER" }
+    ];
+    await sendMetaQuickReplies(senderId, step1Msg, quickReplies, token);
+    return true;
+  }
+
+  if (
+    cleanPayload.startsWith('PUB_DEST_') || 
+    (botState?.wizard === 'pub_transport' && botState?.step === 'waiting_dest')
+  ) {
+    let dest = cleanPayload.startsWith('PUB_DEST_') 
+      ? decodeURIComponent(cleanPayload.replace('PUB_DEST_', '')).trim()
+      : rawText;
+
+    if (normText.includes('رجوع') || cleanPayload === 'ROLE_DRIVER') {
+      return await handleMessengerInteractive(senderId, 'ROLE_DRIVER', '', token, platform);
+    }
+
+    await setSessionState({ wizard: 'pub_transport', step: 'waiting_origin', data: { destination: dest } });
+
+    const step2Msg = 
+      `📍 منطقة الانطلاق (خطوة 2 من 4)\n\n` +
+      `وجهة خطك: [ ${dest} ] ✅\n` +
+      `من أي منطقة ببغداد ينطلق خطك؟\n(اضغط على منطقتك أو اكتب اسمها مباشرة):`;
+
+    const quickReplies = [
+      { content_type: "text", title: "السيدية", payload: "PUB_ORIG_السيدية" },
+      { content_type: "text", title: "المنصور", payload: "PUB_ORIG_المنصور" },
+      { content_type: "text", title: "الدورة", payload: "PUB_ORIG_الدورة" },
+      { content_type: "text", title: "الكرادة", payload: "PUB_ORIG_الكرادة" },
+      { content_type: "text", title: "الشعب", payload: "PUB_ORIG_الشعب" },
+      { content_type: "text", title: "الغزالية", payload: "PUB_ORIG_الغزالية" },
+      { content_type: "text", title: "الرجوع 🔙", payload: "BACK_TO_PUB_STEP_1" }
+    ];
+
+    await sendMetaQuickReplies(senderId, step2Msg, quickReplies, token);
+    return true;
+  }
+
+  if (cleanPayload === 'BACK_TO_PUB_STEP_2') {
+    const dest = botState?.data?.destination || 'الجامعة';
+    await setSessionState({ wizard: 'pub_transport', step: 'waiting_origin', data: { destination: dest } });
+    const step2Msg = `📍 من أي منطقة ينطلق خطك إلى [ ${dest} ]؟`;
+    const quickReplies = [
+      { content_type: "text", title: "السيدية", payload: "PUB_ORIG_السيدية" },
+      { content_type: "text", title: "المنصور", payload: "PUB_ORIG_المنصور" },
+      { content_type: "text", title: "الدورة", payload: "PUB_ORIG_الدورة" },
+      { content_type: "text", title: "الكرادة", payload: "PUB_ORIG_الكرادة" },
+      { content_type: "text", title: "الرجوع 🔙", payload: "BACK_TO_PUB_STEP_1" }
+    ];
+    await sendMetaQuickReplies(senderId, step2Msg, quickReplies, token);
+    return true;
+  }
+
+  if (
+    cleanPayload.startsWith('PUB_ORIG_') || 
+    (botState?.wizard === 'pub_transport' && botState?.step === 'waiting_origin')
+  ) {
+    let orig = cleanPayload.startsWith('PUB_ORIG_')
+      ? decodeURIComponent(cleanPayload.replace('PUB_ORIG_', '')).trim()
+      : rawText;
+
+    if (normText.includes('رجوع') || cleanPayload === 'BACK_TO_PUB_STEP_1') {
+      return await handleMessengerInteractive(senderId, 'BACK_TO_PUB_STEP_1', '', token, platform);
+    }
+
+    const currentData = botState?.data || {};
+    await setSessionState({ wizard: 'pub_transport', step: 'waiting_price', data: { ...currentData, origin: orig } });
+
+    const step3Msg = 
+      `💰 السعر الشهري للمقعد (خطوة 3 من 4)\n\n` +
+      `المسار: من [ ${orig} ] إلى [ ${currentData.destination || 'الجامعة'} ]\n\n` +
+      `اختر أو اكتب التكلفة الشهرية بالدينار العراقي:`;
+
+    const quickReplies = [
+      { content_type: "text", title: "50 ألف د.ع", payload: "PUB_PRICE_50000" },
+      { content_type: "text", title: "60 ألف د.ع", payload: "PUB_PRICE_60000" },
+      { content_type: "text", title: "70 ألف د.ع", payload: "PUB_PRICE_70000" },
+      { content_type: "text", title: "80 ألف د.ع", payload: "PUB_PRICE_80000" },
+      { content_type: "text", title: "90 ألف د.ع", payload: "PUB_PRICE_90000" },
+      { content_type: "text", title: "100 ألف د.ع", payload: "PUB_PRICE_100000" },
+      { content_type: "text", title: "الرجوع 🔙", payload: "BACK_TO_PUB_STEP_2" }
+    ];
+
+    await sendMetaQuickReplies(senderId, step3Msg, quickReplies, token);
+    return true;
+  }
+
+  if (cleanPayload === 'BACK_TO_PUB_STEP_3') {
+    const currentData = botState?.data || {};
+    await setSessionState({ wizard: 'pub_transport', step: 'waiting_price', data: currentData });
+    const step3Msg = `💰 اختر أو اكتب التكلفة الشهرية للمقعد:`;
+    const quickReplies = [
+      { content_type: "text", title: "60 ألف د.ع", payload: "PUB_PRICE_60000" },
+      { content_type: "text", title: "70 ألف د.ع", payload: "PUB_PRICE_70000" },
+      { content_type: "text", title: "80 ألف د.ع", payload: "PUB_PRICE_80000" },
+      { content_type: "text", title: "الرجوع 🔙", payload: "BACK_TO_PUB_STEP_2" }
+    ];
+    await sendMetaQuickReplies(senderId, step3Msg, quickReplies, token);
+    return true;
+  }
+
+  if (
+    cleanPayload.startsWith('PUB_PRICE_') || 
+    (botState?.wizard === 'pub_transport' && botState?.step === 'waiting_price')
+  ) {
+    let price = cleanPayload.startsWith('PUB_PRICE_')
+      ? cleanPayload.replace('PUB_PRICE_', '').trim()
+      : rawText;
+
+    if (normText.includes('رجوع') || cleanPayload === 'BACK_TO_PUB_STEP_2') {
+      return await handleMessengerInteractive(senderId, 'BACK_TO_PUB_STEP_2', '', token, platform);
+    }
+
+    const currentData = botState?.data || {};
+    await setSessionState({ wizard: 'pub_transport', step: 'waiting_phone', data: { ...currentData, price: price } });
+
+    const step4Msg = 
+      `📞 رقم هاتف الحجز والتواصل (خطوة 4 من 4)\n\n` +
+      `أرسل رقم هاتفك ليتصل بك الطلاب ويحجزوا مقاعدهم معك مباشرة (مثال: 07701234567):`;
+
+    const quickReplies = [
+      { content_type: "text", title: "الرجوع 🔙", payload: "BACK_TO_PUB_STEP_3" }
+    ];
+
+    await sendMetaQuickReplies(senderId, step4Msg, quickReplies, token);
+    return true;
+  }
+
+  if (botState?.wizard === 'pub_transport' && botState?.step === 'waiting_phone') {
+    if (normText.includes('رجوع') || cleanPayload === 'BACK_TO_PUB_STEP_3') {
+      return await handleMessengerInteractive(senderId, 'BACK_TO_PUB_STEP_3', '', token, platform);
+    }
+
+    const digitsOnly = rawText.replace(/[^0-9]/g, '');
+    if (digitsOnly.length < 10) {
+      await sendMetaQuickReplies(
+        senderId, 
+        `⚠️ يرجى كتابة رقم هاتف عراقي صحيح (10 إلى 11 رقم):\nمثال: 07701234567`,
+        [{ content_type: "text", title: "الرجوع 🔙", payload: "BACK_TO_PUB_STEP_3" }],
+        token
+      );
+      return true;
+    }
+
+    const savedData = botState?.data || {};
+    const dest = savedData.destination || 'الجامعة';
+    const orig = savedData.origin || 'بغداد';
+    const priceStr = savedData.price || '0';
+    const shortId = Math.random().toString(36).substring(2, 7).toUpperCase();
+
+    const fallbackSellerId = userRow?.user_id || '1bf7e012-4d5d-46f3-8c2a-2848defffc11';
+
+    try {
+      await supabase.from('ads').insert({
+        seller_id: fallbackSellerId,
+        category: 'transport',
+        type: 'offer',
+        title: `خط نقل إلى ${dest} من ${orig}`,
+        university: dest,
+        destination: dest,
+        location: orig,
+        city: orig,
+        price: priceStr.replace(/[^0-9]/g, '') || '0',
+        phone: digitsOnly,
+        short_id: shortId,
+        status: 'active',
+        seller_name: 'كابتن / سائق',
+        images: ['https://www.souqbaghdad.store/transport-og.png'],
+        description: JSON.stringify({
+          origin: orig,
+          destination: dest,
+          price: priceStr,
+          phone: digitsOnly,
+          categoryType: 'student',
+          type: 'offer'
+        })
+      });
+    } catch (e) {
+      console.error("Ad insert exception:", e);
+    }
+
+    await clearSessionState();
+
+    const successMsg = 
+      `🎉 تم نشر خطك بنجاح في سوق بغداد! ✅\n\n` +
+      `📍 المسار: من [ ${orig} ] إلى [ ${dest} ]\n` +
+      `💰 السعر الشهري: ${priceStr} د.ع\n` +
+      `📞 هاتف الحجز: ${digitsOnly}\n\n` +
+      `⚡ خطك الآن متاح لجميع الطلاب في ماسنجر وتيليجرام والموقع الإلكتروني!`;
+
+    const buttons = [
+      { type: "web_url", title: "معاينة الخط بالموقع 🌐", url: `https://www.souqbaghdad.store/product/${shortId}` },
+      { type: "postback", title: "نشر خط آخر ➕", payload: "START_PUBLISH_TRANSPORT" },
+      { type: "postback", title: "الرجوع للرئيسية 🏠", payload: "MAIN_MENU" }
+    ];
+
+    await sendMetaButtonTemplate(senderId, successMsg, buttons, token);
+    return true;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🔍 6. البحث عن خطوط وعرض الكاروسيل (Search Transport)
+  // ─────────────────────────────────────────────────────────────────────────
+  if (
+    cleanPayload === 'SEARCH_TRANSPORT' || 
+    normText.includes('بحث عن خط') || 
+    normText.includes('بحث خطوط') ||
+    normText === 'خطوط'
+  ) {
+    const promptMsg = `🚌 اختر وجهتك الجامعية، أو اكتب اسم كليتك أو منطقتك برسالة للبحث الفوري:`;
 
     const uniQuickReplies = [
-      { content_type: "text", title: "جامعة الرافدين 🎓", payload: "SEARCH_DEST_الرافدين" },
-      { content_type: "text", title: "جامعة دجلة 🎓", payload: "SEARCH_DEST_دجلة" },
-      { content_type: "text", title: "بغداد الجادرية 🎓", payload: "SEARCH_DEST_الجادرية" },
-      { content_type: "text", title: "الجامعة المستنصرية 🎓", payload: "SEARCH_DEST_المستنصرية" },
-      { content_type: "text", title: "الجامعة التكنولوجية 🎓", payload: "SEARCH_DEST_التكنولوجية" },
-      { content_type: "text", title: "جامعة النهرين 🎓", payload: "SEARCH_DEST_النهرين" },
-      { content_type: "text", title: "كلية المنصور 🎓", payload: "SEARCH_DEST_المنصور" },
-      { content_type: "text", title: "الرئيسية 🏠", payload: "MAIN_MENU" }
+      { content_type: "text", title: "جامعة الرافدين", payload: "SEARCH_DEST_الرافدين" },
+      { content_type: "text", title: "جامعة دجلة", payload: "SEARCH_DEST_دجلة" },
+      { content_type: "text", title: "بغداد الجادرية", payload: "SEARCH_DEST_الجادرية" },
+      { content_type: "text", title: "المستنصرية", payload: "SEARCH_DEST_المستنصرية" },
+      { content_type: "text", title: "التكنولوجية", payload: "SEARCH_DEST_التكنولوجية" },
+      { content_type: "text", title: "جامعة النهرين", payload: "SEARCH_DEST_النهرين" },
+      { content_type: "text", title: "الرجوع 🔙", payload: "ROLE_PASSENGER" }
     ];
 
     await sendMetaQuickReplies(senderId, promptMsg, uniQuickReplies, token);
     return true;
   }
 
-  // 4. إرشادات الرادار (Radar Prompt)
-  if (cleanPayload === 'RADAR_PROMPT') {
-    const radarMsg = 
-      `📡 رادار التنبيهات 24/7 لمسارك ⚡\n\n` +
-      `أرسل رسالة تحتوي على مسارك (منطقتك إلى وجهتك)\nمثال: "السيدية إلى جامعة الرافدين"\nوسيقوم الرادار بحفظ طلبك وتنبيهك فور قيام أي كابتن بنشر خط يمر بك!`;
-
-    const quickReplies = [
-      { content_type: "text", title: "البحث عن خطوط 🚌", payload: "SEARCH_TRANSPORT" },
-      { content_type: "text", title: "الرئيسية 🏠", payload: "MAIN_MENU" }
-    ];
-
-    await sendMetaQuickReplies(senderId, radarMsg, quickReplies, token);
-    return true;
-  }
-
-  // 5. البحث الذكي عن الخطوط وعرض الكاروسيل (Search by Destination/Area)
+  // البحث بالوجهة أو النص الحر
   let searchKeyword = '';
   if (cleanPayload.startsWith('SEARCH_DEST_')) {
     searchKeyword = decodeURIComponent(cleanPayload.replace('SEARCH_DEST_', '')).trim();
   } else {
-    // التحقق مما إذا كان النص المرسل يحتوي على أسماء جامعات أو مناطق مشهورة
     const knownKeywords = [
       'الرافدين', 'دجلة', 'الجادرية', 'المستنصرية', 'التكنولوجية', 'النهرين', 'المنصور', 'العراقية',
       'السيدية', 'الكرادة', 'الدورة', 'الشعب', 'الغزالية', 'اليرموك', 'الزعفرانية',
       'الحرية', 'الكاظمية', 'زيونة', 'البنوك', 'الأعظمية', 'حي الجامعة', 'مدينة الصدر', 'البيجية'
     ];
     for (const kw of knownKeywords) {
-      if (cleanText.includes(kw.toLowerCase())) {
+      if (normText.includes(normalizeArabicText(kw))) {
         searchKeyword = kw;
         break;
       }
@@ -353,7 +844,6 @@ const handleMessengerInteractive = async (
   }
 
   if (searchKeyword) {
-    // حماية التكاليف: سحب 5 نتائج فقط كحد أقصى للبطاقات
     const { data: ads } = await supabase
       .from('ads')
       .select('id, short_id, title, price, university, destination, location, phone, images, description')
@@ -394,7 +884,6 @@ const handleMessengerInteractive = async (
       await sendMetaGenericTemplate(senderId, elements, token);
       return true;
     } else {
-      // لم يتم العثور على خطوط -> اقتراح الرادار المباشر
       const noResultsMsg = 
         `🚌 لم نجد مقاعد شاغرة متوفرة حالياً لـ [${searchKeyword}].\n\n` +
         `🔔 هل ترغب بتفعيل رادار الإشعارات ليتم تنبيهك فور قيام أي كابتن بنشر خط يمر بهذا المسار؟`;
@@ -406,14 +895,14 @@ const handleMessengerInteractive = async (
           payload: `ACTIVATE_RADAR_${encodeURIComponent(searchKeyword)}_الجامعة` 
         },
         { 
-          type: "web_url", 
-          title: "تصفح كل الخطوط بالموقع 🌐", 
-          url: "https://www.souqbaghdad.store/transport" 
+          type: "postback", 
+          title: "نشر طلب خط كطالب 📝", 
+          payload: "START_STUDENT_REQUEST" 
         },
         { 
           type: "postback", 
-          title: "الرئيسية 🏠", 
-          payload: "MAIN_MENU" 
+          title: "الرجوع 🔙", 
+          payload: "ROLE_PASSENGER" 
         }
       ];
 
@@ -422,7 +911,9 @@ const handleMessengerInteractive = async (
     }
   }
 
-  // 6. تفعيل رادار الإشعارات (Activate Radar Action)
+  // ─────────────────────────────────────────────────────────────────────────
+  // 📡 7. تفعيل رادار الإشعارات (Activate Radar)
+  // ─────────────────────────────────────────────────────────────────────────
   if (cleanPayload.startsWith('ACTIVATE_RADAR_')) {
     const parts = cleanPayload.replace('ACTIVATE_RADAR_', '').split('_');
     const orig = decodeURIComponent(parts[0] || '').trim() || 'بغداد';
@@ -430,16 +921,16 @@ const handleMessengerInteractive = async (
 
     try {
       await supabase.from('transport_requests').upsert({
-        telegram_chat_id: `fb_${senderId}`,
-        telegram_user_id: `fb_${senderId}`,
-        user_name: `FB_User_${senderId.slice(-4)}`,
+        telegram_chat_id: userChatId,
+        telegram_user_id: userChatId,
+        user_name: `FB_${senderId.slice(-4)}`,
         origin: orig,
         destination: dest,
-        raw_query: `messenger: ${orig} → ${dest}`,
+        raw_query: `messenger radar: ${orig} → ${dest}`,
         status: 'pending'
       }, { onConflict: 'telegram_chat_id,origin,destination' });
     } catch (e) {
-      console.error("Error upserting transport_request from messenger:", e);
+      console.error("Error upserting radar request:", e);
     }
 
     const confirmMsg = 
@@ -450,31 +941,21 @@ const handleMessengerInteractive = async (
     const buttons = [
       { type: "postback", title: "البحث عن وجهة أخرى 🚌", payload: "SEARCH_TRANSPORT" },
       { type: "web_url", title: "تصفح الخطوط بالموقع 🌐", url: "https://www.souqbaghdad.store/transport" },
-      { type: "postback", title: "الرئيسية 🏠", payload: "MAIN_MENU" }
+      { type: "postback", title: "الرجوع للرئيسية 🔙", payload: "MAIN_MENU" }
     ];
 
     await sendMetaButtonTemplate(senderId, confirmMsg, buttons, token);
     return true;
   }
 
-  // 7. واجهة الكابتن / السائق (Driver Role)
-  if (cleanPayload === 'ROLE_DRIVER' || cleanText === 'كابتن' || cleanText === 'سائق') {
-    const driverMsg = 
-      `🚗 واجهة الكابتن / السائق ⚡\n\n` +
-      `انشر خطوطك الجامعية واستقبل طلبات الحجز المباشرة من الطلاب:`;
-
-    const buttons = [
-      { type: "web_url", title: "نشر خط نقل جديد 🚌", url: "https://www.souqbaghdad.store/post?category=transport" },
-      { type: "postback", title: "طلبات الطلاب الباحثين 👥", payload: "VIEW_STUDENT_REQUESTS" },
-      { type: "postback", title: "الرئيسية 🏠", payload: "MAIN_MENU" }
-    ];
-
-    await sendMetaButtonTemplate(senderId, driverMsg, buttons, token);
-    return true;
-  }
-
-  // 8. استعراض طلبات الطلاب الباحثين عن خطوط (View Student Requests)
-  if (cleanPayload === 'VIEW_STUDENT_REQUESTS' || cleanText === 'طلبات الطلاب') {
+  // ─────────────────────────────────────────────────────────────────────────
+  // 👥 8. استعراض طلبات الطلاب للكابتن (View Student Requests)
+  // ─────────────────────────────────────────────────────────────────────────
+  if (
+    cleanPayload === 'VIEW_STUDENT_REQUESTS' || 
+    normText.includes('طلبات الطلاب') ||
+    normText.includes('الطلاب الباحثين')
+  ) {
     const { data: requests } = await supabase
       .from('transport_requests')
       .select('id, origin, destination, created_at')
@@ -487,41 +968,24 @@ const handleMessengerInteractive = async (
       requests.forEach((r: any, idx: number) => {
         listText += `${idx + 1}. 📍 من [${r.origin || 'غير محدد'}] إلى [${r.destination || 'الجامعة'}]\n`;
       });
-      listText += `\n💡 يمكنك نشر خط يمر بهذه المناطق لتصل إشعارات فورية لهؤلاء الطلاب!`;
+      listText += `\n💡 يمكنك نشر خط لهذه المناطق الآن لتصلهم إشعارات فورية!`;
 
       const buttons = [
-        { type: "web_url", title: "نشر خط لهذه المناطق ➕", url: "https://www.souqbaghdad.store/post?category=transport" },
-        { type: "postback", title: "الرئيسية 🏠", payload: "MAIN_MENU" }
+        { type: "postback", title: "نشر خط لهذه المناطق ➕", payload: "START_PUBLISH_TRANSPORT" },
+        { type: "postback", title: "الرجوع 🔙", payload: "ROLE_DRIVER" }
       ];
 
       await sendMetaButtonTemplate(senderId, listText, buttons, token);
       return true;
     } else {
-      const emptyMsg = `لا توجد طلبات معلقة حالياً، يمكنك نشر خطك الآن وسيظهر للطلاب مباشرة فور بحثهم.`;
+      const emptyMsg = `لا توجد طلبات معلقة حالياً، يمكنك نشر خطك الآن وسيظهر للطلاب فور بحثهم.`;
       const buttons = [
-        { type: "web_url", title: "نشر خط نقل 🚌", url: "https://www.souqbaghdad.store/post?category=transport" },
-        { type: "postback", title: "الرئيسية 🏠", payload: "MAIN_MENU" }
+        { type: "postback", title: "نشر خط نقل جديد 🚌", payload: "START_PUBLISH_TRANSPORT" },
+        { type: "postback", title: "الرجوع 🔙", payload: "ROLE_DRIVER" }
       ];
       await sendMetaButtonTemplate(senderId, emptyMsg, buttons, token);
       return true;
     }
-  }
-
-  // 9. واجهة الشركاء (Partner Role)
-  if (cleanPayload === 'ROLE_PARTNER' || cleanText === 'شريك') {
-    const partnerMsg = 
-      `👑 واجهة الشركاء المعتمدين 💼\n\n` +
-      `اربط قناتك أو صفحتك مع سوق بغداد واكسب عمولات وأرباح مستمرة:\n` +
-      `• نشر الخطوط تلقائياً في قناتك مع رابط تسويقي خاص بك\n` +
-      `• شحن رصيد وإعلانات لعملائك مباشرة برقم هاتفهم أو يوزرهم`;
-
-    const buttons = [
-      { type: "web_url", title: "لوحة الشركاء بالموقع 🌐", url: "https://www.souqbaghdad.store/partners" },
-      { type: "postback", title: "الرئيسية 🏠", payload: "MAIN_MENU" }
-    ];
-
-    await sendMetaButtonTemplate(senderId, partnerMsg, buttons, token);
-    return true;
   }
 
   return false;
