@@ -659,6 +659,18 @@ async function scheduleMessageDeletion(chatId: string | number, botMessageId: nu
   } catch(e) {}
 }
 
+async function unpinChatMessage(chatId: string | number, messageId?: number) {
+  try {
+    const body: any = { chat_id: chatId };
+    if (messageId) body.message_id = messageId;
+    await fetch(`${tgUrl}/unpinChatMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  } catch(e) {}
+}
+
 async function sendOrReplaceGroupMessage(chatId: string | number, text: string, markup?: any, supabase?: any, replyToUserMsgId?: number | string, delayMs = 60000) {
   if (supabase) {
     try {
@@ -8531,6 +8543,18 @@ Deno.serve(async (req: any) => {
 
       const chatTitle = update.message?.chat?.title || update.callback_query?.message?.chat?.title || 'الكروب';
       const grpMessageId = update.message?.message_id;
+
+      // 🔕 AUTO-UNPIN: If Telegram auto-pinned a channel post in this group, silently unpin it
+      if (update.message?.pinned_message) {
+        const pinnedMsg = update.message.pinned_message;
+        // Only unpin if it came from a channel (forward_from_chat with type 'channel')
+        const fromChannel = pinnedMsg.forward_from_chat?.type === 'channel';
+        const isServiceMsg = !update.message.from || update.message.from?.is_bot;
+        if (fromChannel || isServiceMsg) {
+          await unpinChatMessage(chatId, update.message.message_id);
+          return new Response('OK', { status: 200 });
+        }
+      }
 
       // 1. Welcome New Members or Bot Added to Group
       if (update.message?.new_chat_members && update.message.new_chat_members.length > 0) {
