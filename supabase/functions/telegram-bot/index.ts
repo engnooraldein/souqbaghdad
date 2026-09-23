@@ -9662,64 +9662,64 @@ Deno.serve(async (req: any) => {
 
       const menuRows: any[] = [];
       if (isOwner) {
-        menuRows.push([{ text: '👑 لوحة تحكم الإدارة', callback_data: 'owner_hub_main' }]);
+        menuRows.push([{ text: 'لوحة تحكم الإدارة', callback_data: 'owner_hub_main' }]);
       }
 
       // 🔘 Ultra-Simple 1-Click Role Switcher Bar (شريط التبديل السريع والمباشر بين الفئات بنقرة واحدة)
       menuRows.push([
         {
-          text: !isDriver && !isPartner ? '🎓 طالب (نشط) ✅' : '🎓 طالب',
+          text: !isDriver && !isPartner ? 'طالب ✅' : 'طالب',
           callback_data: !isDriver && !isPartner ? 'noop' : 'set_role_passenger'
         },
         {
-          text: isDriver ? '🚗 كابتن (نشط) ✅' : '🚗 كابتن',
+          text: isDriver ? 'كابتن ✅' : 'كابتن',
           callback_data: isDriver ? 'noop' : 'set_role_driver'
         },
         {
-          text: isPartner ? '👑 شريك (نشط) ✅' : '👑 شريك',
+          text: isPartner ? 'شريك ✅' : 'شريك',
           callback_data: isPartner ? 'noop' : 'set_role_partner'
         }
       ]);
 
       if (isPartner) {
-        // 👑 Dedicated Partner Menu (واجهة الشريك - مباشرة وخالية من التشتيت)
-        menuRows.push([{ text: '💼 نشر إعلان خط لعميلك (مصدر رزق) 💰', callback_data: 'partner_publish_for_client' }]);
-        menuRows.push([{ text: '⚡ تعبئة رصيد مباشر لعميل (برقم هاتفه) 📲', callback_data: 'partner_direct_topup' }]);
-        menuRows.push([{ text: '📢 لوحة تحكم القناة الشريكة 📊', callback_data: 'partner_dashboard_main' }]);
+        // Dedicated Partner Menu
+        menuRows.push([{ text: 'نشر إعلان خط لعميلك', callback_data: 'partner_publish_for_client' }]);
+        menuRows.push([{ text: 'تعبئة رصيد مباشر لعميل', callback_data: 'partner_direct_topup' }]);
+        menuRows.push([{ text: 'لوحة تحكم القناة الشريكة', callback_data: 'partner_dashboard_main' }]);
         menuRows.push([
-          { text: '🪙 بيع وشحن الأكواد 💰', callback_data: 'partner_promo_menu_single' },
-          { text: '📋 قنواتي المربوطة', callback_data: 'partner_my_channels' }
+          { text: 'بيع وشحن الأكواد', callback_data: 'partner_promo_menu_single' },
+          { text: 'قنواتي المربوطة', callback_data: 'partner_my_channels' }
         ]);
         menuRows.push([
-          { text: '➕ ربط قناة / كروب 🔗', callback_data: 'partner_connect_channel' },
-          { text: '💼 حسابي والخدمات ⚙️', callback_data: 'account_services' }
+          { text: 'ربط قناة أو مجموعة', callback_data: 'partner_connect_channel' },
+          { text: 'حسابي والخدمات', callback_data: 'account_services' }
         ]);
       } else if (isDriver) {
-        // 🚗 Driver / Captain Menu (واجهة الكابتن - مرتبة وبسيطة)
-        menuRows.push([{ text: '➕ نشر خط نقل جديد 🚌', callback_data: 'publish_transport' }]);
-        menuRows.push([{ text: '🚖 رحلتي وخطي اليومي (إدارة الركاب) ⚡', callback_data: 'daily_ride_hub' }]);
+        // Driver / Captain Menu
+        menuRows.push([{ text: 'نشر خط نقل جديد', callback_data: 'publish_transport' }]);
+        menuRows.push([{ text: 'رحلتي وخطي اليومي (إدارة الركاب)', callback_data: 'daily_ride_hub' }]);
         menuRows.push([
-          { text: '📋 خطوطي النشطة', callback_data: 'manage_cat_trans' },
-          { text: '📍 موقع انطلاقي GPS', callback_data: 'hub_pin_location' }
+          { text: 'خطوطي النشطة', callback_data: 'manage_cat_trans' },
+          { text: 'موقع انطلاقي GPS', callback_data: 'hub_pin_location' }
         ]);
         menuRows.push([
-          { text: '💼 حسابي والخدمات ⚙️', callback_data: 'account_services' },
-          { text: '❓ مساعدة ودعم', callback_data: 'faq_hub_main' }
+          { text: 'حسابي والخدمات', callback_data: 'account_services' },
+          { text: 'مساعدة ودعم', callback_data: 'faq_hub_main' }
         ]);
       } else {
-        // 🎓 Passenger / Student Menu (واجهة الطالب - واضحة وسريعة)
-        menuRows.push([{ text: '➕ نشر طلب خط نقل جديد 🚌', callback_data: 'publish_transport' }]);
-        menuRows.push([{ text: '🚖 رحلتي وخطي اليومي (تنسيق الدوام) ⚡', callback_data: 'daily_ride_hub' }]);
+        // Passenger / Student Menu
+        menuRows.push([{ text: 'نشر طلب خط نقل جديد', callback_data: 'publish_transport' }]);
+        menuRows.push([{ text: 'رحلتي وخطي اليومي (تنسيق الدوام)', callback_data: 'daily_ride_hub' }]);
         menuRows.push([
-          { text: '📋 طلباتي المنشورة', callback_data: 'manage_cat_trans' },
-          { text: '🔔 رادار التنبيهات 📡', callback_data: 'manage_my_routes' }
+          { text: 'طلباتي المنشورة', callback_data: 'manage_cat_trans' },
+          { text: 'رادار التنبيهات', callback_data: 'manage_my_routes' }
         ]);
         menuRows.push([
-          { text: '📍 موقع صعودي GPS', callback_data: 'hub_pin_location' },
-          { text: '💼 حسابي والخدمات ⚙️', callback_data: 'account_services' }
+          { text: 'موقع صعودي GPS', callback_data: 'hub_pin_location' },
+          { text: 'حسابي والخدمات', callback_data: 'account_services' }
         ]);
         menuRows.push([
-          { text: '❓ مساعدة ودعم', callback_data: 'faq_hub_main' }
+          { text: 'مساعدة ودعم', callback_data: 'faq_hub_main' }
         ]);
       }
 
@@ -12874,9 +12874,9 @@ Deno.serve(async (req: any) => {
 
       const roleMarkup = {
         inline_keyboard: [
-          [{ text: '🎓 أنا طالب / راكب (أبحث عن خطوط)', callback_data: 'set_role_passenger' }],
-          [{ text: '🚗 أنا كابتن / سائق (أوفر خطوط نقل)', callback_data: 'set_role_driver' }],
-          [{ text: '👑 أنا شريك (صاحب قناة أو كروب)', callback_data: 'set_role_partner' }]
+          [{ text: 'طالب / راكب (أبحث عن خطوط)', callback_data: 'set_role_passenger' }],
+          [{ text: 'كابتن / سائق (أوفر خطوط نقل)', callback_data: 'set_role_driver' }],
+          [{ text: 'شريك (صاحب قناة أو كروب)', callback_data: 'set_role_partner' }]
         ]
       };
 
@@ -12954,18 +12954,18 @@ Deno.serve(async (req: any) => {
 
         const roleBtns: any[][] = [
           [
-            { text: activeRole === 'passenger' ? '🎓 طالب (نشط) ✅' : '🎓 تحويل لطالب', callback_data: 'set_role_passenger' },
-            { text: activeRole === 'driver' ? '🚗 كابتن (نشط) ✅' : '🚗 تحويل لكابتن', callback_data: 'set_role_driver' }
+            { text: activeRole === 'passenger' ? 'طالب ✅' : 'طالب', callback_data: 'set_role_passenger' },
+            { text: activeRole === 'driver' ? 'كابتن ✅' : 'كابتن', callback_data: 'set_role_driver' }
           ]
         ];
         
         if (hasPartnerChannel) {
-          roleBtns.push([{ text: activeRole === 'partner' ? '👑 شريك (نشط) ✅' : '👑 تحويل لشريك معتمد', callback_data: 'set_role_partner' }]);
+          roleBtns.push([{ text: activeRole === 'partner' ? 'شريك ✅' : 'شريك', callback_data: 'set_role_partner' }]);
         } else {
-          roleBtns.push([{ text: '📢 ربط قناة لتصبح شريكاً رسمياً 🔗', callback_data: 'partner_connect_channel' }]);
+          roleBtns.push([{ text: 'ربط قناة لتصبح شريكاً', callback_data: 'partner_connect_channel' }]);
         }
 
-        roleBtns.push([{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]);
+        roleBtns.push([{ text: 'العودة للرئيسية', callback_data: 'main_menu' }]);
 
         await updateOrSend(changeRoleMsg, { inline_keyboard: roleBtns });
         return new Response('OK', { status: 200 });
@@ -16186,14 +16186,14 @@ Deno.serve(async (req: any) => {
 
       if (action === 'account_services') {
         const accRows = [
-          [{ text: '📊 تقارير إعلاناتي النشطة والمؤرشفة', callback_data: 'my_publish_reports' }],
-          [{ text: '🚀 ترويج ونشر بالمنصات', callback_data: 'promo_select_ad' }],
-          [{ text: '🎁 شارك واكسب نقاط', callback_data: 'invite_and_earn' }, { text: '🎟️ تعبئة بروموكود', callback_data: 'redeem_promo' }],
-          [{ text: '💳 شراء نقاط', callback_data: 'buy_points' }, { text: '🔔 إدارة إشعاراتي', callback_data: 'manage_alerts' }],
-          [{ text: '🔗 ربط قناتك', callback_data: 'partner_connect_start' }, { text: '🔑 تغيير كلمة المرور', callback_data: 'forgot_password' }],
-          [{ text: '🔌 إعادة ربط الحساب', callback_data: 'relink_account' }, { text: '🔙 العودة للرئيسية', callback_data: 'main_menu' }]
+          [{ text: 'تقارير إعلاناتي النشطة والمؤرشفة', callback_data: 'my_publish_reports' }],
+          [{ text: 'ترويج ونشر بالمنصات', callback_data: 'promo_select_ad' }],
+          [{ text: 'شارك واكسب نقاط', callback_data: 'invite_and_earn' }, { text: 'تعبئة كود شحن', callback_data: 'redeem_promo' }],
+          [{ text: 'شراء نقاط', callback_data: 'buy_points' }, { text: 'إدارة الإشعارات', callback_data: 'manage_alerts' }],
+          [{ text: 'ربط قناتك', callback_data: 'partner_connect_start' }, { text: 'تغيير كلمة المرور', callback_data: 'forgot_password' }],
+          [{ text: 'إعادة ربط الحساب', callback_data: 'relink_account' }, { text: 'العودة للرئيسية', callback_data: 'main_menu' }]
         ];
-        return await updateOrSend(`💼 <b>حسابي والخدمات الإضافية</b>\n\nاختر من القائمة أدناه:`, { inline_keyboard: accRows });
+        return await updateOrSend(`<b>حسابي والخدمات</b>\n\nاختر من القائمة أدناه:`, { inline_keyboard: accRows });
       }
 
       // 📊 MY PUBLISH REPORTS (تقارير النشر الذكية)
