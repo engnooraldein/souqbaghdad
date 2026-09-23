@@ -9618,86 +9618,61 @@ Deno.serve(async (req: any) => {
 
       const menuRows: any[] = [];
       if (isOwner) {
-        menuRows.push([{ text: 'لوحة تحكم الإدارة', callback_data: 'owner_hub_main' }]);
+        menuRows.push([{ text: '👑 لوحة تحكم الإدارة', callback_data: 'owner_hub_main' }]);
       }
 
-      // Check if user is a verified channel partner
-      const tgUserIdStr = fromUser?.id ? String(fromUser.id) : String(chatId);
-      const { data: userPartnerChs } = await supabase
-        .from('partner_channels')
-        .select('id')
-        .or(`partner_tg_user_id.eq.${tgUserIdStr},partner_tg_chat_id.eq.${String(chatId)},owner_telegram_id.eq.${chatId}`)
-        .limit(1);
-      const hasPartnerChannels = userPartnerChs && userPartnerChs.length > 0;
+      // 🔘 Ultra-Simple 1-Click Role Switcher Bar (شريط التبديل السريع والمباشر بين الفئات بنقرة واحدة)
+      menuRows.push([
+        {
+          text: !isDriver && !isPartner ? '🎓 طالب (نشط) ✅' : '🎓 طالب',
+          callback_data: !isDriver && !isPartner ? 'noop' : 'set_role_passenger'
+        },
+        {
+          text: isDriver ? '🚗 كابتن (نشط) ✅' : '🚗 كابتن',
+          callback_data: isDriver ? 'noop' : 'set_role_driver'
+        },
+        {
+          text: isPartner ? '👑 شريك (نشط) ✅' : '👑 شريك',
+          callback_data: isPartner ? 'noop' : 'set_role_partner'
+        }
+      ]);
 
       if (isPartner) {
-        // 👑 Dedicated Partner Page & Menu (صفحة الشريك الرسمي)
+        // 👑 Dedicated Partner Menu (واجهة الشريك - مباشرة وخالية من التشتيت)
         menuRows.push([{ text: '💼 نشر إعلان خط لعميلك (مصدر رزق) 💰', callback_data: 'partner_publish_for_client' }]);
-        menuRows.push([{ text: '📢 لوحة تحكم القناة الشريكة وإحصائياتي 📊', callback_data: 'partner_dashboard_main' }]);
+        menuRows.push([{ text: '📢 لوحة تحكم القناة الشريكة 📊', callback_data: 'partner_dashboard_main' }]);
         menuRows.push([
-          { text: '📋 قنواتي المربوطة', callback_data: 'partner_my_channels' },
-          { text: '➕ ربط قناة / كروب جديد 🔗', callback_data: 'partner_connect_channel' }
-        ]);
-        menuRows.push([{ text: '🪙 محفظة المكافآت والأرباح 🎁', callback_data: 'partner_points_info' }]);
-        menuRows.push([{ text: '🚌 نشر خط نقل لنفسي (كابتن)', callback_data: 'publish_transport' }]);
-        menuRows.push([
-          { text: '🎓 واجهة طالب ⚡', callback_data: 'set_role_passenger' },
-          { text: '🚗 واجهة كابتن ⚡', callback_data: 'set_role_driver' }
+          { text: '🪙 بيع وشحن الأكواد 💰', callback_data: 'partner_promo_menu_single' },
+          { text: '📋 قنواتي المربوطة', callback_data: 'partner_my_channels' }
         ]);
         menuRows.push([
-          { text: '🔄 خيارات الصفة', callback_data: 'change_my_role' },
-          { text: 'حسابي والخدمات', callback_data: 'account_services' }
+          { text: '➕ ربط قناة / كروب 🔗', callback_data: 'partner_connect_channel' },
+          { text: '💼 حسابي والخدمات ⚙️', callback_data: 'account_services' }
         ]);
-        menuRows.push([{ text: '➕ أضف البوت لكروب دفعتك / كليتك 🛡️', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }]);
-        menuRows.push([{ text: 'الأسئلة الشائعة والمساعدة', callback_data: 'faq_hub_main' }]);
       } else if (isDriver) {
-        // Driver / Captain tailored menu
-        if (hasPartnerChannels) {
-          menuRows.push([{ text: '💼 نشر إعلان خط لعميلك (مصدر رزق) 💰', callback_data: 'partner_publish_for_client' }]);
-          menuRows.push([{ text: '📢 لوحة تحكم القناة الشريكة 📊', callback_data: 'partner_dashboard_main' }]);
-        }
-        menuRows.push([{ text: '🚖 رحلتي وخطي اليومي (إدارة الركاب والمسار) ⚡', callback_data: 'daily_ride_hub' }]);
-        menuRows.push([{ text: 'نشر خط نقل جديد', callback_data: 'publish_transport' }]);
-        menuRows.push([{ text: 'إدارة خطوطي النشطة والأرشيف', callback_data: 'manage_cat_trans' }]);
-        menuRows.push([{ text: '📍 تثبيت / تحديث موقع انطلاقي (GPS)', callback_data: 'hub_pin_location' }]);
-        menuRows.push([{ text: '🚗 عرض سيارة للبيع (1 نقطة)', callback_data: 'publish_car' }]);
+        // 🚗 Driver / Captain Menu (واجهة الكابتن - مرتبة وبسيطة)
+        menuRows.push([{ text: '➕ نشر خط نقل جديد 🚌', callback_data: 'publish_transport' }]);
+        menuRows.push([{ text: '🚖 رحلتي وخطي اليومي (إدارة الركاب) ⚡', callback_data: 'daily_ride_hub' }]);
         menuRows.push([
-          { text: '🎓 واجهة طالب ⚡', callback_data: 'set_role_passenger' },
-          hasPartnerChannels 
-            ? { text: '👑 واجهة شريك ⚡', callback_data: 'set_role_partner' }
-            : { text: '🔄 خيارات الصفة', callback_data: 'change_my_role' }
+          { text: '📋 خطوطي النشطة', callback_data: 'manage_cat_trans' },
+          { text: '📍 موقع انطلاقي GPS', callback_data: 'hub_pin_location' }
         ]);
-        menuRows.push([{ text: 'حسابي والخدمات', callback_data: 'account_services' }]);
-        if (!hasPartnerChannels) {
-          menuRows.push([{ text: '💼 نشر خط لعميلك (لأصحاب القنوات والكروبات) 💰', callback_data: 'partner_publish_for_client' }]);
-        }
-        menuRows.push([{ text: '➕ أضف البوت لكروب دفعتك / كليتك 🛡️', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }]);
-        menuRows.push([{ text: 'الأسئلة الشائعة والمساعدة', callback_data: 'faq_hub_main' }]);
+        menuRows.push([
+          { text: '💼 حسابي والخدمات ⚙️', callback_data: 'account_services' },
+          { text: '❓ مساعدة ودعم', callback_data: 'faq_hub_main' }
+        ]);
       } else {
-        // Passenger / Student tailored menu - 1-click access to published requests and management
-        if (hasPartnerChannels) {
-          menuRows.push([{ text: '💼 نشر إعلان خط لعميلك (مصدر رزق) 💰', callback_data: 'partner_publish_for_client' }]);
-          menuRows.push([{ text: '📢 لوحة تحكم القناة الشريكة 📊', callback_data: 'partner_dashboard_main' }]);
-        }
-        menuRows.push([{ text: '🚖 رحلتي وخطي اليومي (التنسيق الذكي والإجازات) ⚡', callback_data: 'daily_ride_hub' }]);
-        menuRows.push([{ text: '📋 طلباتي وإعلاناتي المنشورة (تعديل / حصلت على خط) ⚡', callback_data: 'manage_cat_trans' }]);
-        menuRows.push([{ text: '🔔 مساراتي وتنبيهات الرادار الذكي', callback_data: 'manage_my_routes' }]);
+        // 🎓 Passenger / Student Menu (واجهة الطالب - واضحة وسريعة)
         menuRows.push([{ text: '➕ نشر طلب خط نقل جديد 🚌', callback_data: 'publish_transport' }]);
-        menuRows.push([{ text: '🚗 عرض سيارة للبيع (1 نقطة)', callback_data: 'publish_car' }]);
-        menuRows.push([{ text: '📍 تثبيت / تحديث موقعي الدائم (GPS)', callback_data: 'hub_pin_location' }]);
-        menuRows.push([{ text: '📦 إدارة كافة إعلاناتي وحسابي', callback_data: 'manage_my_ads' }]);
+        menuRows.push([{ text: '🚖 رحلتي وخطي اليومي (تنسيق الدوام) ⚡', callback_data: 'daily_ride_hub' }]);
         menuRows.push([
-          { text: '🚗 واجهة كابتن ⚡', callback_data: 'set_role_driver' },
-          hasPartnerChannels 
-            ? { text: '👑 واجهة شريك ⚡', callback_data: 'set_role_partner' }
-            : { text: '🔄 خيارات الصفة', callback_data: 'change_my_role' }
+          { text: '📋 طلباتي المنشورة', callback_data: 'manage_cat_trans' },
+          { text: '🔔 رادار التنبيهات 📡', callback_data: 'manage_my_routes' }
         ]);
-        menuRows.push([{ text: 'حسابي والخدمات', callback_data: 'account_services' }]);
-        if (!hasPartnerChannels) {
-          menuRows.push([{ text: '💼 نشر خط لعميلك (لأصحاب القنوات والكروبات) 💰', callback_data: 'partner_publish_for_client' }]);
-        }
-        menuRows.push([{ text: '➕ أضف البوت لكروب دفعتك / كليتك 🛡️', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }]);
-        menuRows.push([{ text: 'الأسئلة الشائعة والمساعدة', callback_data: 'faq_hub_main' }]);
+        menuRows.push([
+          { text: '💼 حسابي والخدمات ⚙️', callback_data: 'account_services' },
+          { text: '❓ مساعدة ودعم', callback_data: 'faq_hub_main' }
+        ]);
       }
 
       const menuMarkup = { inline_keyboard: menuRows };
@@ -12815,7 +12790,8 @@ Deno.serve(async (req: any) => {
       const roleMarkup = {
         inline_keyboard: [
           [{ text: '🎓 أنا طالب / راكب (أبحث عن خطوط)', callback_data: 'set_role_passenger' }],
-          [{ text: '🚗 أنا كابتن / سائق (أوفر خطوط نقل)', callback_data: 'set_role_driver' }]
+          [{ text: '🚗 أنا كابتن / سائق (أوفر خطوط نقل)', callback_data: 'set_role_driver' }],
+          [{ text: '👑 أنا شريك (صاحب قناة أو كروب)', callback_data: 'set_role_partner' }]
         ]
       };
 
@@ -12845,13 +12821,21 @@ Deno.serve(async (req: any) => {
         try { await answerCallbackQuery(callbackQuery.id); } catch(e) {}
       }
 
+      // 🔘 No-operation callback (e.g. clicking already active role button)
+      if (action === 'noop' || action.startsWith('noop')) {
+        if (callbackQueryId) {
+          try { await answerCallbackQuery(callbackQueryId, '✅ هذه هي واجهتك النشطة حالياً', false); } catch(e) {}
+        }
+        return new Response('OK', { status: 200 });
+      }
+
       // 🎓 Set Role: Passenger / Student
       if (action === 'set_role_passenger') {
         await supabase.from('telegram_users').update({ user_role: 'passenger' }).eq('telegram_chat_id', chatId);
         if (callbackQueryId) {
-          await answerCallbackQuery(callbackQueryId, '🎓 تم التحويل إلى واجهة (طالب / راكب) بنجاح 🌹', false);
+          try { await answerCallbackQuery(callbackQueryId, '🎓 تم التحويل إلى واجهة (طالب) 🌹', false); } catch(e) {}
         }
-        await showMainMenu('🎓 <b>تم تحويل واجهة حسابك بنجاح إلى: [ طالب / راكب ]</b> 🌹\nمرحباً بك! تصفح خدمات البحث عن خطوط وتفعيل رادار التنبيهات أدناه:', true);
+        await showMainMenu(undefined, true);
         return new Response('OK', { status: 200 });
       }
 
@@ -12859,9 +12843,9 @@ Deno.serve(async (req: any) => {
       if (action === 'set_role_driver') {
         await supabase.from('telegram_users').update({ user_role: 'driver' }).eq('telegram_chat_id', chatId);
         if (callbackQueryId) {
-          await answerCallbackQuery(callbackQueryId, '🚗 تم التحويل إلى واجهة (كابتن / سائق) بنجاح ⚡', false);
+          try { await answerCallbackQuery(callbackQueryId, '🚗 تم التحويل إلى واجهة (كابتن) ⚡', false); } catch(e) {}
         }
-        await showMainMenu('🚗 <b>يا هلا بكابتنا! تم تحويل واجهة حسابك بنجاح إلى: [ كابتن / سائق ]</b> ⚡\nتفضل لوحة وخدمات نشر وإدارة خطوط النقل واستقبال الركاب:', true);
+        await showMainMenu(undefined, true);
         return new Response('OK', { status: 200 });
       }
 
@@ -12881,26 +12865,19 @@ Deno.serve(async (req: any) => {
         const roleText = activeRole === 'partner' ? '👑 شريك معتمد' : (activeRole === 'driver' ? '🚗 كابتن / سائق' : '🎓 طالب / راكب');
 
         const changeRoleMsg = 
-          `🔄 <b>التبديل الفوري بين الصفات وواجهات البوت</b> ⚡\n\n` +
-          `📌 <b>صفتك الحالية المعتمدة الآن:</b> [ <b>${roleText}</b> ]\n\n` +
-          `اختر الواجهة التي ترغب بالانتقال إليها فوراً بنقرة واحدة:\n\n` +
-          `🎓 <b>واجهة الطالب:</b> البحث عن خطوط، حجز مقاعد، تفعيل رادار الإشعارات الذكي 24/7.\n` +
-          `🚗 <b>واجهة الكابتن:</b> نشر خطوطك، استقبال طلبات الركاب، إدارة الرحلة اليومية وتحديد الموقع.\n` +
-          `👑 <b>واجهة الشريك:</b> إدارة قنواتك المربوطة، بيع وإهداء النقاط، ونشر خطوط لعملائك بمقابل.\n`;
+          `🔄 <b>التبديل الفوري بين الصفات</b> ⚡\n\n` +
+          `📌 <b>صفتك الحالية المعتمدة:</b> [ <b>${roleText}</b> ]\n\n` +
+          `اختر الواجهة التي ترغب بالانتقال إليها فوراً:`;
 
-        const roleBtns: any[][] = [];
+        const roleBtns: any[][] = [
+          [
+            { text: activeRole === 'passenger' ? '🎓 طالب (نشط) ✅' : '🎓 تحويل لطالب', callback_data: 'set_role_passenger' },
+            { text: activeRole === 'driver' ? '🚗 كابتن (نشط) ✅' : '🚗 تحويل لكابتن', callback_data: 'set_role_driver' }
+          ]
+        ];
         
-        // Show clear 1-click switcher buttons
-        if (activeRole !== 'passenger') {
-          roleBtns.push([{ text: '🎓 الانتقال لواجهة (طالب / راكب) ⚡', callback_data: 'set_role_passenger' }]);
-        }
-        if (activeRole !== 'driver') {
-          roleBtns.push([{ text: '🚗 الانتقال لواجهة (كابتن / سائق) ⚡', callback_data: 'set_role_driver' }]);
-        }
         if (hasPartnerChannel) {
-          if (activeRole !== 'partner') {
-            roleBtns.push([{ text: '👑 الانتقال لواجهة (شريك معتمد) ⚡', callback_data: 'set_role_partner' }]);
-          }
+          roleBtns.push([{ text: activeRole === 'partner' ? '👑 شريك (نشط) ✅' : '👑 تحويل لشريك معتمد', callback_data: 'set_role_partner' }]);
         } else {
           roleBtns.push([{ text: '📢 ربط قناة لتصبح شريكاً رسمياً 🔗', callback_data: 'partner_connect_channel' }]);
         }
@@ -12913,11 +12890,33 @@ Deno.serve(async (req: any) => {
 
       // 👑 Set Role: Partner
       if (action === 'set_role_partner') {
+        const tgUserIdStr = fromUser?.id ? String(fromUser.id) : String(chatId);
+        const { data: myPartnerChs } = await supabase
+          .from('partner_channels')
+          .select('id')
+          .or(`partner_tg_user_id.eq.${tgUserIdStr},partner_tg_chat_id.eq.${String(chatId)},owner_telegram_id.eq.${chatId}`)
+          .limit(1);
+        const hasPartnerChannel = myPartnerChs && myPartnerChs.length > 0;
+
+        if (!hasPartnerChannel) {
+          return await updateOrSend(
+            `👑 <b>واجهة الشريك المعتمد (أصحاب القنوات والكروبات) 📢✨</b>\n\n` +
+            `هذه الواجهة مخصصة لمشرفي قنوات وكروبات التيليجرام لإدارة النشر التلقائي، بيع الأكواد، وتحقيق دخل إضافي.\n\n` +
+            `👇 <b>لتفعيل صفة الشريك، يرجى ربط قناتك أو مجموعتك أولاً خلال دقيقة واحدة:</b>`,
+            {
+              inline_keyboard: [
+                [{ text: '➕ ربط قناتي / مجموعتي الآن 🔗', callback_data: 'partner_connect_channel' }],
+                [{ text: '🔙 العودة للرئيسية', callback_data: 'main_menu' }]
+              ]
+            }
+          );
+        }
+
         await supabase.from('telegram_users').update({ user_role: 'partner' }).eq('telegram_chat_id', chatId);
         if (callbackQueryId) {
-          await answerCallbackQuery(callbackQueryId, '👑 تم التحويل إلى واجهة (شريك معتمد) بنجاح 🌟', false);
+          try { await answerCallbackQuery(callbackQueryId, '👑 تم التحويل إلى واجهة (شريك معتمد) 🌟', false); } catch(e) {}
         }
-        await showMainMenu('👑 <b>يا هلا بشريكنا العزيز! تم تحويل واجهة حسابك بنجاح إلى: [ شريك معتمد ]</b> 🌟\nتفضل لوحة التحكم وإدارة القنوات ونشر إعلانات العملاء:', true);
+        await showMainMenu(undefined, true);
         return new Response('OK', { status: 200 });
       }
 
