@@ -3110,7 +3110,7 @@ let LINES_CHANNEL = '@souqbaghdad_lines';       // Transport lines username
 let LINES_CHANNEL_ID = Deno.env.get('LINES_CHANNEL_ID') || '@souqbaghdad_lines';        // Transport lines username/ID
 
 // Check if Bot is Admin in a Channel
-async function checkBotIsAdmin(channelId: string | number): Promise<{ ok: boolean; title?: string; error?: string }> {
+async function checkBotIsAdmin(channelId: string | number): Promise<{ ok: boolean; title?: string; username?: string | null; error?: string }> {
   try {
     const res = await fetch(`${tgUrl}/getChat?chat_id=${encodeURIComponent(String(channelId))}`);
     const data = await res.json();
@@ -3118,18 +3118,19 @@ async function checkBotIsAdmin(channelId: string | number): Promise<{ ok: boolea
       return { ok: false, error: data.description || 'لم يتم العثور على القناة' };
     }
     const chatTitle = data.result?.title || channelId;
+    const chatUsername = data.result?.username || null;
     
     // Check bot member status
     const botRes = await fetch(`${tgUrl}/getChatMember?chat_id=${encodeURIComponent(String(channelId))}&user_id=${botToken.split(':')[0]}`);
     const botData = await botRes.json();
     if (!botData.ok) {
-      return { ok: false, title: chatTitle, error: 'البوت ليس عضواً في القناة' };
+      return { ok: false, title: chatTitle, username: chatUsername, error: 'البوت ليس عضواً في القناة' };
     }
     const status = botData.result?.status;
     if (status === 'administrator' || status === 'creator') {
-      return { ok: true, title: chatTitle };
+      return { ok: true, title: chatTitle, username: chatUsername };
     }
-    return { ok: false, title: chatTitle, error: 'البوت ليس مشرفاً (Admin) في القناة' };
+    return { ok: false, title: chatTitle, username: chatUsername, error: 'البوت ليس مشرفاً (Admin) في القناة' };
   } catch (err: any) {
     return { ok: false, error: err.message || 'فشل التحقق من القناة' };
   }
@@ -3322,6 +3323,25 @@ async function broadcastToPartnerChannels(record: any, category: 'transport' | '
           } catch(e) {}
         }
 
+        // Construct direct post URL to view in the partner channel
+        let postUrl: string | null = null;
+        const chIdRaw = String(partner.channel_id || '').trim();
+        const chUsername = partner.channel_username 
+          ? String(partner.channel_username).replace(/^@/, '').trim() 
+          : (chIdRaw.startsWith('@') ? chIdRaw.substring(1) : null);
+
+        if (pMsgId) {
+          if (chUsername) {
+            postUrl = `https://t.me/${chUsername}/${pMsgId}`;
+          } else if (chIdRaw.startsWith('-100')) {
+            postUrl = `https://t.me/c/${chIdRaw.replace('-100', '')}/${pMsgId}`;
+          } else if (/^-?\d+$/.test(chIdRaw)) {
+            postUrl = `https://t.me/c/${chIdRaw.replace(/^-/, '')}/${pMsgId}`;
+          }
+        } else if (chUsername) {
+          postUrl = `https://t.me/${chUsername}`;
+        }
+
         // Notify partner privately of the new post
         const pTargetChatId = partner.partner_tg_chat_id || partner.owner_telegram_id;
         if (pTargetChatId) {
@@ -3333,10 +3353,17 @@ async function broadcastToPartnerChannels(record: any, category: 'transport' | '
             `💰 <b>رصيد مكافآتك الحالي:</b> <b>${userCurrentPoints}</b> نقطة 🪙\n` +
             `💡 <i>يمكنك استخدام رصيدك لترويج الخطوط وإرسال التنبيهات لطلابك.</i>`;
 
-          const pBtns = [
-            [{ text: '🪙 معرفة رصيدي وكيفية التعبئة والاستفادة', callback_data: 'partner_points_info' }],
-            [{ text: '📢 لوحة تحكم القناة الشريكة', callback_data: 'partner_dashboard_main' }]
-          ];
+          const pBtns: any[][] = [];
+          if (postUrl) {
+            pBtns.push([{ text: '👁️ مشاهدة الإعلان في قناتك ↗️', url: postUrl }]);
+          }
+          pBtns.push([
+            { text: '💼 نشر إعلان خط لعميلك (مصدر رزق) 💰', callback_data: 'partner_publish_for_client' }
+          ]);
+          pBtns.push([
+            { text: '🪙 معرفة رصيدي والاستفادة', callback_data: 'partner_points_info' },
+            { text: '📢 لوحة تحكم القناة الشريكة', callback_data: 'partner_dashboard_main' }
+          ]);
           try {
             await sendMessage(pTargetChatId, pAlert, { inline_keyboard: pBtns });
           } catch(e) {}
@@ -3373,10 +3400,15 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
     }).eq('id', editingDbId).eq('owner_telegram_id', chatId);
     error = res.error;
   } else {
+    const channelUName = state.data.channel_username 
+      ? String(state.data.channel_username).replace(/^@/, '') 
+      : (String(channelId).startsWith('@') ? String(channelId).substring(1) : null);
+
     const res = await supabaseClient.from('partner_channels').upsert({
       owner_telegram_id: chatId,
       channel_id: channelId,
       channel_title: channelTitle,
+      channel_username: channelUName,
       category: category,
       sub_category: subCategory,
       university: targetUni,
@@ -3532,10 +3564,14 @@ async function finalizePartnerChannel(chatId: number, state: any, supabaseClient
     `📢 <b>القناة:</b> ${channelTitle} (${channelId})\n` +
     (onlyMyAds 
       ? `👑 <b>الوضع المختار:</b> إعلانات متجرك الخاص فقط. أي منتج أو إعلان تنشره في الموقع أو البوت سينزل في قناتك فورياً وبتصميم مرتب!`
-      : `⚡ <b>الوضع المختار:</b> استلام إعلانات ${targetUni && !targetUni.includes('عام') ? `[ <b>${targetUni}</b> ]` : 'المنصة'} تلقائياً وبأعلى جودة!\n\nشكراً لانضمامك إلى شبكة سوق بغداد الرقمي 🤝`),
+      : `⚡ <b>الوضع المختار:</b> استلام إعلانات ${targetUni && !targetUni.includes('عام') ? `[ <b>${targetUni}</b> ]` : 'المنصة'} تلقائياً وبأعلى جودة!\n\n` +
+        `💼 <b>ميزة جديدة مفعلة لحسابك (مصدر رزق للشريك) 💰✨</b>\n` +
+        `أصبح بإمكانك الآن نشر إعلانات خطوط النقل لحساب عملائك وسائقي كليتك وتثبيت رقم هاتف العميل واسمه مباشرة ليكون مصدر دخل مستمر لقناتك!\n\n` +
+        `شكراً لانضمامك إلى شبكة سوق بغداد الرقمي 🤝`),
     {
       inline_keyboard: [
-        [{ text: '📋 عرض قنواتي المربوطة', callback_data: 'partner_my_channels' }],
+        [{ text: '💼 نشر إعلان خط لعميلك الآن (مصدر رزق) 💰', callback_data: 'partner_publish_for_client' }],
+        [{ text: '📋 عرض قنواتي المربوطة', callback_data: 'partner_my_channels' }, { text: '📢 لوحة تحكم الشريك', callback_data: 'partner_dashboard_main' }],
         [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
       ]
     }
@@ -9575,7 +9611,8 @@ Deno.serve(async (req: any) => {
         .or(`partner_tg_user_id.eq.${tgUserIdStr},partner_tg_chat_id.eq.${String(chatId)},owner_telegram_id.eq.${chatId}`)
         .limit(1);
       if (userPartnerChs && userPartnerChs.length > 0) {
-        menuRows.push([{ text: 'لوحة تحكم الشريك والإحصائيات', callback_data: 'partner_dashboard_main' }]);
+        menuRows.push([{ text: '💼 نشر إعلان خط لعميلك (مصدر رزق) 💰', callback_data: 'partner_publish_for_client' }]);
+        menuRows.push([{ text: '📢 لوحة تحكم القناة الشريكة وإحصائياتي', callback_data: 'partner_dashboard_main' }]);
       }
       
       if (isDriver) {
@@ -21133,6 +21170,7 @@ Deno.serve(async (req: any) => {
 
         state.data.channel_id = channelInput;
         state.data.channel_title = check.title || channelInput;
+        state.data.channel_username = check.username || (channelInput.startsWith('@') ? channelInput.replace('@', '') : null);
         state.step = 'partner_choose_category';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
