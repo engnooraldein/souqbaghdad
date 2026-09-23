@@ -9539,37 +9539,51 @@ Deno.serve(async (req: any) => {
       return new Response('OK', { status: 200 });
     }
 
-    // Helper: Reset & Show Main Menu
-    const showMainMenu = async (aiText?: string, editCurrent = false) => {
+    // Helper: Reset & Show Main Menu (⚡ Ultra-Fast with Zero-Lag Role Switching)
+    const showMainMenu = async (aiText?: string, editCurrent = false, forcedRole?: string) => {
       state = {};
-      await supabase.from('telegram_users').update({ bot_state: null }).eq('telegram_chat_id', chatId);
 
-      // Determine current role (Driver vs Passenger/Student) with Smart First-Time Auto-Detection
-      const { data: currentTgUser } = await supabase.from('telegram_users').select('user_role').eq('telegram_chat_id', chatId).maybeSingle();
-      let currentRole = currentTgUser?.user_role || tgUser?.user_role;
+      // ⚡ FAST ROLE RESOLUTION: If forcedRole is passed, use it immediately with ZERO DB queries!
+      let currentRole = forcedRole || tgUser?.user_role;
 
-      // Smart Auto-Role Detection for first time / unassigned role:
-      // If user has an active transport offer line (driver/captain), treat as driver. Otherwise default to passenger.
+      // ⚡ Non-blocking background DB persist for state and role
+      const bgPersist = (async () => {
+        try {
+          const updatePayload: any = { bot_state: null };
+          if (forcedRole) updatePayload.user_role = forcedRole;
+          await supabase.from('telegram_users').update(updatePayload).eq('telegram_chat_id', chatId);
+        } catch(e) {}
+      })();
+
+      if (typeof (globalThis as any).EdgeRuntime?.waitUntil === 'function') {
+        (globalThis as any).EdgeRuntime.waitUntil(bgPersist);
+      }
+
+      // Fallback only if role is completely unknown
       if (!currentRole) {
-        if (userId) {
-          const { data: activeOffers } = await supabase
-            .from('ads')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('category', 'transport')
-            .eq('type', 'offer')
-            .eq('status', 'active')
-            .limit(1);
+        const { data: currentTgUser } = await supabase.from('telegram_users').select('user_role').eq('telegram_chat_id', chatId).maybeSingle();
+        currentRole = currentTgUser?.user_role;
+        if (!currentRole) {
+          if (userId) {
+            const { data: activeOffers } = await supabase
+              .from('ads')
+              .select('id')
+              .eq('user_id', userId)
+              .eq('category', 'transport')
+              .eq('type', 'offer')
+              .eq('status', 'active')
+              .limit(1);
 
-          if (activeOffers && activeOffers.length > 0) {
-            currentRole = 'driver';
+            currentRole = (activeOffers && activeOffers.length > 0) ? 'driver' : 'passenger';
           } else {
             currentRole = 'passenger';
           }
-        } else {
-          currentRole = 'passenger';
+          if (typeof (globalThis as any).EdgeRuntime?.waitUntil === 'function') {
+            (globalThis as any).EdgeRuntime.waitUntil(
+              supabase.from('telegram_users').update({ user_role: currentRole }).eq('telegram_chat_id', chatId)
+            );
+          }
         }
-        await supabase.from('telegram_users').update({ user_role: currentRole }).eq('telegram_chat_id', chatId);
       }
 
       const isPartner = currentRole === 'partner';
@@ -9680,7 +9694,9 @@ Deno.serve(async (req: any) => {
       if (editCurrent && callbackMsgId) {
         try {
           const editRes = await editMessageText(chatId, callbackMsgId, messageToSend, menuMarkup);
-          if (editRes?.ok) return editRes;
+          if (editRes?.ok || editRes?.description?.includes('message is not modified')) {
+            return new Response('OK', { status: 200 });
+          }
         } catch(e){}
       }
       return await sendMessage(chatId, messageToSend, menuMarkup);
@@ -12818,7 +12834,7 @@ Deno.serve(async (req: any) => {
     if (callbackQuery) {
       let action = callbackQuery.data || text;
       if (callbackQuery.id) {
-        try { await answerCallbackQuery(callbackQuery.id); } catch(e) {}
+        try { answerCallbackQuery(callbackQuery.id); } catch(e) {}
       }
 
       // 🔘 No-operation callback (e.g. clicking already active role button)
@@ -12829,23 +12845,21 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
-      // 🎓 Set Role: Passenger / Student
+      // 🎓 Set Role: Passenger / Student (⚡ Instant 1-Click Zero-Lag)
       if (action === 'set_role_passenger') {
-        await supabase.from('telegram_users').update({ user_role: 'passenger' }).eq('telegram_chat_id', chatId);
         if (callbackQueryId) {
-          try { await answerCallbackQuery(callbackQueryId, '🎓 تم التحويل إلى واجهة (طالب) 🌹', false); } catch(e) {}
+          try { answerCallbackQuery(callbackQueryId, '🎓 تم التحويل إلى واجهة (طالب) 🌹'); } catch(e) {}
         }
-        await showMainMenu(undefined, true);
+        await showMainMenu(undefined, true, 'passenger');
         return new Response('OK', { status: 200 });
       }
 
-      // 🚗 Set Role: Driver / Captain
+      // 🚗 Set Role: Driver / Captain (⚡ Instant 1-Click Zero-Lag)
       if (action === 'set_role_driver') {
-        await supabase.from('telegram_users').update({ user_role: 'driver' }).eq('telegram_chat_id', chatId);
         if (callbackQueryId) {
-          try { await answerCallbackQuery(callbackQueryId, '🚗 تم التحويل إلى واجهة (كابتن) ⚡', false); } catch(e) {}
+          try { answerCallbackQuery(callbackQueryId, '🚗 تم التحويل إلى واجهة (كابتن) ⚡'); } catch(e) {}
         }
-        await showMainMenu(undefined, true);
+        await showMainMenu(undefined, true, 'driver');
         return new Response('OK', { status: 200 });
       }
 
@@ -12888,7 +12902,7 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
-      // 👑 Set Role: Partner
+      // 👑 Set Role: Partner (⚡ Instant 1-Click Zero-Lag)
       if (action === 'set_role_partner') {
         const tgUserIdStr = fromUser?.id ? String(fromUser.id) : String(chatId);
         const { data: myPartnerChs } = await supabase
@@ -12912,11 +12926,10 @@ Deno.serve(async (req: any) => {
           );
         }
 
-        await supabase.from('telegram_users').update({ user_role: 'partner' }).eq('telegram_chat_id', chatId);
         if (callbackQueryId) {
-          try { await answerCallbackQuery(callbackQueryId, '👑 تم التحويل إلى واجهة (شريك معتمد) 🌟', false); } catch(e) {}
+          try { answerCallbackQuery(callbackQueryId, '👑 تم التحويل إلى واجهة (شريك معتمد) 🌟'); } catch(e) {}
         }
-        await showMainMenu(undefined, true);
+        await showMainMenu(undefined, true, 'partner');
         return new Response('OK', { status: 200 });
       }
 
