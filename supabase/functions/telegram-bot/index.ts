@@ -3110,7 +3110,7 @@ let LINES_CHANNEL = '@souqbaghdad_lines';       // Transport lines username
 let LINES_CHANNEL_ID = Deno.env.get('LINES_CHANNEL_ID') || '@souqbaghdad_lines';        // Transport lines username/ID
 
 // Check if Bot is Admin in a Channel
-async function checkBotIsAdmin(channelId: string | number): Promise<{ ok: boolean; title?: string; username?: string | null; error?: string }> {
+async function checkBotIsAdmin(channelId: string | number): Promise<{ ok: boolean; id?: string | number; title?: string; username?: string | null; error?: string }> {
   try {
     const res = await fetch(`${tgUrl}/getChat?chat_id=${encodeURIComponent(String(channelId))}`);
     const data = await res.json();
@@ -3119,18 +3119,19 @@ async function checkBotIsAdmin(channelId: string | number): Promise<{ ok: boolea
     }
     const chatTitle = data.result?.title || channelId;
     const chatUsername = data.result?.username || null;
+    const realId = data.result?.id || channelId;
     
     // Check bot member status
     const botRes = await fetch(`${tgUrl}/getChatMember?chat_id=${encodeURIComponent(String(channelId))}&user_id=${botToken.split(':')[0]}`);
     const botData = await botRes.json();
     if (!botData.ok) {
-      return { ok: false, title: chatTitle, username: chatUsername, error: 'البوت ليس عضواً في القناة' };
+      return { ok: false, id: realId, title: chatTitle, username: chatUsername, error: 'البوت ليس عضواً في القناة' };
     }
     const status = botData.result?.status;
     if (status === 'administrator' || status === 'creator') {
-      return { ok: true, title: chatTitle, username: chatUsername };
+      return { ok: true, id: realId, title: chatTitle, username: chatUsername };
     }
-    return { ok: false, title: chatTitle, username: chatUsername, error: 'البوت ليس مشرفاً (Admin) في القناة' };
+    return { ok: false, id: realId, title: chatTitle, username: chatUsername, error: 'البوت ليس مشرفاً (Admin) في القناة' };
   } catch (err: any) {
     return { ok: false, error: err.message || 'فشل التحقق من القناة' };
   }
@@ -3370,8 +3371,8 @@ async function broadcastToPartnerChannels(record: any, category: 'transport' | '
             { text: '💼 نشر إعلان خط لعميلك (مصدر رزق) 💰', callback_data: 'partner_publish_for_client' }
           ]);
           pBtns.push([
-            { text: '🪙 معرفة رصيدي والاستفادة', callback_data: 'partner_points_info' },
-            { text: '📢 لوحة تحكم القناة الشريكة', callback_data: 'partner_dashboard_main' }
+            { text: '🎟️ بيع نقاطي كبروموكود 💰', callback_data: 'partner_gen_student_code' },
+            { text: '📢 لوحة تحكم الشريك 📊', callback_data: 'partner_dashboard_main' }
           ]);
           try {
             await sendMessage(pTargetChatId, pAlert, { inline_keyboard: pBtns });
@@ -9640,7 +9641,11 @@ Deno.serve(async (req: any) => {
         menuRows.push([{ text: '🪙 محفظة المكافآت والأرباح 🎁', callback_data: 'partner_points_info' }]);
         menuRows.push([{ text: '🚌 نشر خط نقل لنفسي (كابتن)', callback_data: 'publish_transport' }]);
         menuRows.push([
-          { text: '🔄 تبديل الصفة (طالب / كابتن)', callback_data: 'change_my_role' },
+          { text: '🎓 واجهة طالب ⚡', callback_data: 'set_role_passenger' },
+          { text: '🚗 واجهة كابتن ⚡', callback_data: 'set_role_driver' }
+        ]);
+        menuRows.push([
+          { text: '🔄 خيارات الصفة', callback_data: 'change_my_role' },
           { text: 'حسابي والخدمات', callback_data: 'account_services' }
         ]);
         menuRows.push([{ text: '➕ أضف البوت لكروب دفعتك / كليتك 🛡️', url: `https://t.me/${BOT_USERNAME}?startgroup=true` }]);
@@ -9657,9 +9662,12 @@ Deno.serve(async (req: any) => {
         menuRows.push([{ text: '📍 تثبيت / تحديث موقع انطلاقي (GPS)', callback_data: 'hub_pin_location' }]);
         menuRows.push([{ text: '🚗 عرض سيارة للبيع (1 نقطة)', callback_data: 'publish_car' }]);
         menuRows.push([
-          { text: hasPartnerChannels ? 'تبديل الصفة (شريك 👑)' : 'تبديل الصفة (طالب)', callback_data: 'change_my_role' },
-          { text: 'حسابي والخدمات', callback_data: 'account_services' }
+          { text: '🎓 واجهة طالب ⚡', callback_data: 'set_role_passenger' },
+          hasPartnerChannels 
+            ? { text: '👑 واجهة شريك ⚡', callback_data: 'set_role_partner' }
+            : { text: '🔄 خيارات الصفة', callback_data: 'change_my_role' }
         ]);
+        menuRows.push([{ text: 'حسابي والخدمات', callback_data: 'account_services' }]);
         if (!hasPartnerChannels) {
           menuRows.push([{ text: '💼 نشر خط لعميلك (لأصحاب القنوات والكروبات) 💰', callback_data: 'partner_publish_for_client' }]);
         }
@@ -9679,9 +9687,12 @@ Deno.serve(async (req: any) => {
         menuRows.push([{ text: '📍 تثبيت / تحديث موقعي الدائم (GPS)', callback_data: 'hub_pin_location' }]);
         menuRows.push([{ text: '📦 إدارة كافة إعلاناتي وحسابي', callback_data: 'manage_my_ads' }]);
         menuRows.push([
-          { text: hasPartnerChannels ? 'تبديل الصفة (شريك 👑)' : 'تبديل الصفة (كابتن)', callback_data: 'change_my_role' },
-          { text: 'حسابي والخدمات', callback_data: 'account_services' }
+          { text: '🚗 واجهة كابتن ⚡', callback_data: 'set_role_driver' },
+          hasPartnerChannels 
+            ? { text: '👑 واجهة شريك ⚡', callback_data: 'set_role_partner' }
+            : { text: '🔄 خيارات الصفة', callback_data: 'change_my_role' }
         ]);
+        menuRows.push([{ text: 'حسابي والخدمات', callback_data: 'account_services' }]);
         if (!hasPartnerChannels) {
           menuRows.push([{ text: '💼 نشر خط لعميلك (لأصحاب القنوات والكروبات) 💰', callback_data: 'partner_publish_for_client' }]);
         }
@@ -12711,22 +12722,9 @@ Deno.serve(async (req: any) => {
       if (action === 'set_role_passenger') {
         await supabase.from('telegram_users').update({ user_role: 'passenger' }).eq('telegram_chat_id', chatId);
         if (callbackQueryId) {
-          await answerCallbackQuery(callbackQueryId, '🎓 تم ضبط حسابك: طالب / راكب 🌹', true);
+          await answerCallbackQuery(callbackQueryId, '🎓 تم التحويل إلى واجهة (طالب / راكب) بنجاح 🌹', false);
         }
-        const studentWelcome = 
-          `🎓 <b>أهلاً وسهلاً بك كـ (طالب / راكب) في سوق بغداد! 🌹✨</b>\n\n` +
-          `📡 <b>خدماتك المتاحة كزبون:</b>\n` +
-          `• تفعيل <b>رادار الخطوط 24/7</b> ليصلك إشعار خاص أول ما ينشر أي كابتن خطاً لمسارك.\n` +
-          `• حجز مقاعد مباشرة ومراسلة الكباتن.\n` +
-          `• تصفح ومتابعة كافة خطوط الجامعات والمدارس.`;
-
-        const studentBtns = [
-          [{ text: '🔔 تسجيل مساري في رادار التنبيهات', callback_data: 'start_route_radar' }],
-          [{ text: '🚌 تصفح الخطوط المتوفرة بالموقع', url: 'https://www.souqbaghdad.store/transport' }],
-          [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
-        ];
-
-        await updateOrSend(studentWelcome, { inline_keyboard: studentBtns });
+        await showMainMenu('🎓 <b>تم تحويل واجهة حسابك بنجاح إلى: [ طالب / راكب ]</b> 🌹\nمرحباً بك! تصفح خدمات البحث عن خطوط وتفعيل رادار التنبيهات أدناه:', true);
         return new Response('OK', { status: 200 });
       }
 
@@ -12734,26 +12732,13 @@ Deno.serve(async (req: any) => {
       if (action === 'set_role_driver') {
         await supabase.from('telegram_users').update({ user_role: 'driver' }).eq('telegram_chat_id', chatId);
         if (callbackQueryId) {
-          await answerCallbackQuery(callbackQueryId, '🚗 تم ضبط حسابك: كابتن / سائق 🌹', true);
+          await answerCallbackQuery(callbackQueryId, '🚗 تم التحويل إلى واجهة (كابتن / سائق) بنجاح ⚡', false);
         }
-        const driverWelcome = 
-          `🚗 <b>يا هلا بكابتنا الغالي! 🌹✨</b>\n\n` +
-          `🚌 <b>خدماتك المتاحة ككابتن:</b>\n` +
-          `• <b>نشر خطك مجاناً</b> لنشره فورياً في قنوات سوق بغداد وفيسبوك وبوت التلغرام.\n` +
-          `• استقبال وتأكيد طلبات حجز المقاعد من الطلاب فوراً.\n` +
-          `• مطابقة الطلاب الباحثين عن خطوط لنفس مناطق مرورك.`;
-
-        const driverBtns = [
-          [{ text: '🚌 نشر خط نقل جديد الآن ⚡', callback_data: 'publish_transport' }],
-          [{ text: '📦 إدارة خطوطي النشطة', callback_data: 'manage_cat_trans' }],
-          [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
-        ];
-
-        await updateOrSend(driverWelcome, { inline_keyboard: driverBtns });
+        await showMainMenu('🚗 <b>يا هلا بكابتنا! تم تحويل واجهة حسابك بنجاح إلى: [ كابتن / سائق ]</b> ⚡\nتفضل لوحة وخدمات نشر وإدارة خطوط النقل واستقبال الركاب:', true);
         return new Response('OK', { status: 200 });
       }
 
-      // 🔄 Change Role
+      // 🔄 Change Role Menu (شاشة تبديل الصفات التفاعلية)
       if (action === 'change_my_role') {
         const tgUserIdStr = fromUser?.id ? String(fromUser.id) : String(chatId);
         const { data: myPartnerChs } = await supabase
@@ -12763,25 +12748,37 @@ Deno.serve(async (req: any) => {
           .limit(1);
         const hasPartnerChannel = myPartnerChs && myPartnerChs.length > 0;
 
+        const { data: currentTgUser } = await supabase.from('telegram_users').select('user_role').eq('telegram_chat_id', chatId).maybeSingle();
+        const activeRole = currentTgUser?.user_role || 'passenger';
+
+        const roleText = activeRole === 'partner' ? '👑 شريك معتمد' : (activeRole === 'driver' ? '🚗 كابتن / سائق' : '🎓 طالب / راكب');
+
         const changeRoleMsg = 
-          `🔄 <b>تعديل الصِفة وواجهة الحساب في البوت</b>\n\n` +
-          `اختر صفتك لتخصيص خدمات وواجهة البوت لك:\n\n` +
-          `🎓 <b>طالب / راكب:</b> البحث عن خطوط ورادار التنبيهات.\n` +
-          `🚗 <b>كابتن / سائق:</b> نشر وإدارة خطوط النقل واستقبال الركاب.\n` +
-          `👑 <b>شريك معتمد:</b> إدارة القناة المربوطة ونشر إعلانات لعملائك برقمهم كمصدر رزق.\n`;
+          `🔄 <b>التبديل الفوري بين الصفات وواجهات البوت</b> ⚡\n\n` +
+          `📌 <b>صفتك الحالية المعتمدة الآن:</b> [ <b>${roleText}</b> ]\n\n` +
+          `اختر الواجهة التي ترغب بالانتقال إليها فوراً بنقرة واحدة:\n\n` +
+          `🎓 <b>واجهة الطالب:</b> البحث عن خطوط، حجز مقاعد، تفعيل رادار الإشعارات الذكي 24/7.\n` +
+          `🚗 <b>واجهة الكابتن:</b> نشر خطوطك، استقبال طلبات الركاب، إدارة الرحلة اليومية وتحديد الموقع.\n` +
+          `👑 <b>واجهة الشريك:</b> إدارة قنواتك المربوطة، بيع وإهداء النقاط، ونشر خطوط لعملائك بمقابل.\n`;
 
-        const roleBtns: any[][] = [
-          [{ text: '🎓 أنا طالب / راكب (أبحث عن خطوط)', callback_data: 'set_role_passenger' }],
-          [{ text: '🚗 أنا كابتن / سائق (أوفر خطوط نقل)', callback_data: 'set_role_driver' }]
-        ];
-
+        const roleBtns: any[][] = [];
+        
+        // Show clear 1-click switcher buttons
+        if (activeRole !== 'passenger') {
+          roleBtns.push([{ text: '🎓 الانتقال لواجهة (طالب / راكب) ⚡', callback_data: 'set_role_passenger' }]);
+        }
+        if (activeRole !== 'driver') {
+          roleBtns.push([{ text: '🚗 الانتقال لواجهة (كابتن / سائق) ⚡', callback_data: 'set_role_driver' }]);
+        }
         if (hasPartnerChannel) {
-          roleBtns.push([{ text: '👑 أنا شريك قناة معتمد (إدارة القناة والعملاء) ✨', callback_data: 'set_role_partner' }]);
+          if (activeRole !== 'partner') {
+            roleBtns.push([{ text: '👑 الانتقال لواجهة (شريك معتمد) ⚡', callback_data: 'set_role_partner' }]);
+          }
         } else {
           roleBtns.push([{ text: '📢 ربط قناة لتصبح شريكاً رسمياً 🔗', callback_data: 'partner_connect_channel' }]);
         }
 
-        roleBtns.push([{ text: '🏠 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]);
+        roleBtns.push([{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]);
 
         await updateOrSend(changeRoleMsg, { inline_keyboard: roleBtns });
         return new Response('OK', { status: 200 });
@@ -12791,24 +12788,9 @@ Deno.serve(async (req: any) => {
       if (action === 'set_role_partner') {
         await supabase.from('telegram_users').update({ user_role: 'partner' }).eq('telegram_chat_id', chatId);
         if (callbackQueryId) {
-          await answerCallbackQuery(callbackQueryId, '👑 تم ضبط حسابك: شريك معتمد 🌟', true);
+          await answerCallbackQuery(callbackQueryId, '👑 تم التحويل إلى واجهة (شريك معتمد) بنجاح 🌟', false);
         }
-        const partnerWelcome = 
-          `👑 <b>أهلاً وسهلاً بك كـ (شريك قناة معتمد) في سوق بغداد! 🌟✨</b>\n\n` +
-          `تم تحويل واجهة حسابك بالكامل إلى <b>صفحة الشريك</b>:\n\n` +
-          `💼 <b>نشر إعلانات لعملائك برقمهم:</b> مصدر دخل متجدد لقناتك مع تحديد رقم هاتف واسم عميلك.\n` +
-          `📢 <b>مزامنة فورية وتلقائية:</b> استقبال إعلانات الخطوط والسيارات الخاصة بكليتك تلقائياً.\n` +
-          `📊 <b>لوحة تحكم تفاعلية:</b> لمتابعة إحصائيات قناتك، وعدد المنشورات، ونقاط المكافآت.\n` +
-          `🎁 <b>محفظة الشريك:</b> رصيد مجاني يُشحن تلقائياً مع كل مزامنة.`;
-
-        const partnerBtns = [
-          [{ text: '💼 نشر إعلان خط لعميلك (مصدر رزق) 💰', callback_data: 'partner_publish_for_client' }],
-          [{ text: '📢 لوحة تحكم القناة الشريكة 📊', callback_data: 'partner_dashboard_main' }],
-          [{ text: '📋 قنواتي المربوطة', callback_data: 'partner_my_channels' }],
-          [{ text: '👑 صفحتي الرئيسية كشريك معتمد', callback_data: 'main_menu' }]
-        ];
-
-        await updateOrSend(partnerWelcome, { inline_keyboard: partnerBtns });
+        await showMainMenu('👑 <b>يا هلا بشريكنا العزيز! تم تحويل واجهة حسابك بنجاح إلى: [ شريك معتمد ]</b> 🌟\nتفضل لوحة التحكم وإدارة القنوات ونشر إعلانات العملاء:', true);
         return new Response('OK', { status: 200 });
       }
 
@@ -13014,7 +12996,8 @@ Deno.serve(async (req: any) => {
         const dashMarkup = {
           inline_keyboard: [
             [{ text: '🩺 فحص نبض وصحة قناتي اللحظي', callback_data: 'partner_pulse_check' }, { text: '⚡ فحص الإرسال بقناتي (Ping)', callback_data: 'partner_ping_test' }],
-            [{ text: '📊 تقرير نشاط قناتي اليومي', callback_data: 'partner_daily_report_now' }, { text: '🎁 كود هدايا لطلابي', callback_data: 'partner_gen_student_code' }],
+            [{ text: '📊 تقرير نشاط قناتي اليومي', callback_data: 'partner_daily_report_now' }, { text: '🎟️ بيع/إهداء نقاطي كبروموكود 💰', callback_data: 'partner_gen_student_code' }],
+            [{ text: '💼 نشر إعلان خط لعميلك (مصدر رزق) 💰', callback_data: 'partner_publish_for_client' }],
             [{ text: '🚌 تصفح الخطوط بالموقع', url: 'https://www.souqbaghdad.store/transport' }],
             [{ text: '🏠 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]
           ]
@@ -13058,14 +13041,16 @@ Deno.serve(async (req: any) => {
           `2. <b>نشر خطوط لطلابك مجاناً:</b> بصفتك شريكاً، يمكنك أنت وطلاب قناتك نشر طلبات وخطوط النقل مجاناً وتصميم بوست وبطاقة احترافية فورية.\n` +
           `3. <b>تفاعل ومشاركات الطلاب:</b> كلما تفاعل الطلاب مع إعلانات الخطوط زادت نقاطك ومكافآتك.\n\n` +
           `🔋 <b>كيف تستفيد من رصيد النقاط؟</b>\n` +
+          `• <b>بيع النقاط كبروموكود 💵:</b> تحويل نقاطك لكود تبيعه للسائقين أو العملاء كاش.\n` +
+          `• <b>إهداء طلاب قناتك 🎁:</b> إنشاء كود هدية لطلابك في القناة لزيادة التفاعل.\n` +
           `• <b>تثبيت وتمييز الخطوط:</b> استخدام النقاط لتثبيت أي خط في صدارة القناة والموقع.\n` +
-          `• <b>إرسال تنبيهات برودكاست للطلاب:</b> توجيه إشعارات خاصة للطلاب المهتمين بمسار معين.\n` +
-          `• <b>استبدال المكافآت:</b> تحويل الرصيد إلى رصيد كارتات (آسيا/أثير) عند بلوغ الحد المطلوب للشراكة.`;
+          `• <b>إرسال تنبيهات برودكاست للطلاب:</b> توجيه إشعارات خاصة للطلاب المهتمين بمسار معين.`;
 
         return await updateOrSend(infoMsg, {
           inline_keyboard: [
+            [{ text: '🎟️ تحويل نقاطي إلى كود بروموكود (للبيع أو الإهداء) 💰', callback_data: 'partner_gen_student_code' }],
+            [{ text: '💼 نشر إعلان خط لعميلك (مصدر رزق) 💰', callback_data: 'partner_publish_for_client' }],
             [{ text: '📢 لوحة تحكم قنواتي الشريكة', callback_data: 'partner_dashboard_main' }],
-            [{ text: '🚌 نشر خط نقل جديد بالقناة', callback_data: 'publish_transport' }],
             [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
           ]
         });
@@ -13206,33 +13191,245 @@ Deno.serve(async (req: any) => {
         });
       }
 
-      // 🎁 GENERATE STUDENT CODE FOR PARTNER AUDIENCE
+      // 🎁 PARTNER POINTS TO PROMO CODE SYSTEM (بيع النقاط أو إهداؤها بدون نقاط مفتوحة)
       if (action === 'partner_gen_student_code') {
-        const studentPromoCode = 'VIP-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+        let curPts = 0;
+        if (userId) {
+          const { data: prof } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
+          curPts = prof?.points || 0;
+        }
+
+        if (curPts < 5) {
+          return await updateOrSend(
+            `⚠️ <b>عذراً كابتن، رصيد نقاطك الحالي (${curPts} نقطة)!</b>\n\n` +
+            `الحد الأدنى لتحويل الرصيد إلى بروموكود هو <b>5 نقاط</b>.\n\n` +
+            `💡 <b>كيف تكسب النقاط؟</b>\n` +
+            `• يتم كسب النقاط تلقائياً مع كل خط نقل جديد يتم ترحيله لقناتك الشريكة (+1 نقطة 🪙).\n` +
+            `• مشاركة وتفاعل الطلاب مع إعلانات الخطوط.`,
+            {
+              inline_keyboard: [
+                [{ text: '📢 لوحة تحكم القناة الشريكة', callback_data: 'partner_dashboard_main' }],
+                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+              ]
+            }
+          );
+        }
+
+        const menuText = 
+          `💰 <b>تحويل نقاط الشريك إلى كود بروموكود (للبيع أو الإهداء) 🪙✨</b>\n\n` +
+          `يا هلا بشريكنا العزيز 👑\n` +
+          `💎 <b>رصيدك المتوفر حالياً:</b> <b>${curPts}</b> نقطة 🪙\n\n` +
+          `🎯 <b>كيف تستفيد من رصيدك الحقيقي وتجعله مصدر دخل؟</b>\n\n` +
+          `1️⃣ <b>💼 كود بيع لشخص واحد (لعميل أو كابتن خط):</b>\n` +
+          `تبيع النقاط لسائق أو عميل يحتاج نقاطاً لتثبيت إعلاناته وترويجها بالموقع والتطبيق، وتستلم أتعابك منه مباشرة 💵.\n\n` +
+          `2️⃣ <b>📢 كود هدية جماعي (لطلاب ومتابعي قناتك):</b>\n` +
+          `توزع نقاطاً محددة كهدية تشجيعية لطلابك في القناة لزيادة تفاعل القناة، ويتم خصم الإجمالي من رصيدك.\n\n` +
+          `⚠️ <i>تنبيه أمان: يتم خصم قيمة الكود مباشرةً من رصيدك الفعلي ولن يتم توليد نقاط مفتوحة بدون رصيد.</i>\n\n` +
+          `👇 <b>اختر نوع الكود الذي تريد إنشاءه:</b>`;
+
+        return await updateOrSend(menuText, {
+          inline_keyboard: [
+            [{ text: '💼 كود بيع لشخص واحد (لعميل أو كابتن) 🤝', callback_data: 'partner_promo_menu_single' }],
+            [{ text: '📢 كود هدية جماعي لمتابعي قناتك 👥', callback_data: 'partner_promo_menu_group' }],
+            [{ text: '🔙 عودة للوحة الشريك', callback_data: 'partner_dashboard_main' }],
+            [{ text: '🏠 الرئيسية', callback_data: 'main_menu' }]
+          ]
+        });
+      }
+
+      // 💼 SINGLE-USER PROMO MENU (FOR SALE)
+      if (action === 'partner_promo_menu_single') {
+        let curPts = 0;
+        if (userId) {
+          const { data: prof } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
+          curPts = prof?.points || 0;
+        }
+
+        const singleMsg = 
+          `💼 <b>توليد كود بيع لشخص واحد (سائق أو عميل) 🤝💰</b>\n\n` +
+          `💰 <b>رصيدك المتاح:</b> <b>${curPts}</b> نقطة 🪙\n\n` +
+          `📌 هذا الكود صالح للاستخدام <b>مرة واحدة فقط</b> لشخص واحد، ليقوم بشحن حسابه في منصة وبوت سوق بغداد.\n` +
+          `اختر عدد النقاط التي تريد بيعها وتحويلها من رصيدك:`;
+
+        const btns: any[][] = [];
+        if (curPts >= 10) btns.push([{ text: '🪙 10 نقاط (خصم 10 من رصيدك)', callback_data: 'partner_do_promo_10_1' }]);
+        if (curPts >= 25) btns.push([{ text: '🪙 25 نقطة (خصم 25 من رصيدك)', callback_data: 'partner_do_promo_25_1' }]);
+        if (curPts >= 50) btns.push([{ text: '🪙 50 نقطة (خصم 50 من رصيدك)', callback_data: 'partner_do_promo_50_1' }]);
+        if (curPts >= 100) btns.push([{ text: '🪙 100 نقطة (خصم 100 من رصيدك)', callback_data: 'partner_do_promo_100_1' }]);
+        if (curPts > 0 && curPts !== 10 && curPts !== 25 && curPts !== 50 && curPts !== 100) {
+          btns.push([{ text: `💎 تحويل كامل رصيدي (${curPts} نقطة)`, callback_data: `partner_do_promo_${curPts}_1` }]);
+        }
+        btns.push([{ text: '✏️ تحديد عدد نقاط مخصص يدوياً', callback_data: 'partner_promo_custom_single' }]);
+        btns.push([{ text: '🔙 رجوع للخيارات', callback_data: 'partner_gen_student_code' }]);
+
+        return await updateOrSend(singleMsg, { inline_keyboard: btns });
+      }
+
+      // 📢 GROUP PROMO MENU (FOR CHANNEL AUDIENCE)
+      if (action === 'partner_promo_menu_group') {
+        let curPts = 0;
+        if (userId) {
+          const { data: prof } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
+          curPts = prof?.points || 0;
+        }
+
+        const groupMsg = 
+          `📢 <b>توليد كود هدية جماعي لطلاب ومتابعي قناتك 👥✨</b>\n\n` +
+          `💰 <b>رصيدك المتاح:</b> <b>${curPts}</b> نقطة 🪙\n\n` +
+          `📌 سيتمكن عدد محدد من الطلاب من تفعيل الكود، ويُخصم إجمالي النقاط (النقاط × عدد الطلاب) من رصيدك.\n` +
+          `اختر إحدى الباقات الجاهزة:`;
+
+        const btns: any[][] = [];
+        if (curPts >= 25) btns.push([{ text: '🎁 5 نقاط لـ 5 طلاب (إجمالي الخصم: 25 نقطة)', callback_data: 'partner_do_promo_5_5' }]);
+        if (curPts >= 50) btns.push([{ text: '🎁 5 نقاط لـ 10 طلاب (إجمالي الخصم: 50 نقطة)', callback_data: 'partner_do_promo_5_10' }]);
+        if (curPts >= 50) btns.push([{ text: '🎁 10 نقاط لـ 5 طلاب (إجمالي الخصم: 50 نقطة)', callback_data: 'partner_do_promo_10_5' }]);
+        if (curPts >= 100) btns.push([{ text: '🎁 10 نقاط لـ 10 طلاب (إجمالي الخصم: 100 نقطة)', callback_data: 'partner_do_promo_10_10' }]);
+        if (curPts >= 100) btns.push([{ text: '🎁 20 نقطة لـ 5 طلاب (إجمالي الخصم: 100 نقطة)', callback_data: 'partner_do_promo_20_5' }]);
+        btns.push([{ text: '✏️ تخصيص باقة يدوياً', callback_data: 'partner_promo_custom_group' }]);
+        btns.push([{ text: '🔙 رجوع للخيارات', callback_data: 'partner_gen_student_code' }]);
+
+        return await updateOrSend(groupMsg, { inline_keyboard: btns });
+      }
+
+      // ⚡ EXECUTE PROMO GENERATION FROM PARTNER BALANCE
+      if (action.startsWith('partner_do_promo_')) {
+        const parts = action.replace('partner_do_promo_', '').split('_');
+        const ptsPerUser = parseInt(parts[0], 10);
+        const maxUses = parseInt(parts[1], 10);
+
+        if (isNaN(ptsPerUser) || isNaN(maxUses) || ptsPerUser <= 0 || maxUses <= 0) {
+          return await updateOrSend('❌ حدث خطأ في بيانات الكود المطلوبة.');
+        }
+
+        const totalNeeded = ptsPerUser * maxUses;
+        const { data: prof } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
+        const curPts = prof?.points || 0;
+
+        if (curPts < totalNeeded) {
+          return await updateOrSend(
+            `❌ <b>رصيدك غير كافٍ!</b>\n\n` +
+            `💰 <b>رصيدك الحالي:</b> <b>${curPts}</b> نقطة 🪙\n` +
+            `🪙 <b>المطلوب لتوليد الكود:</b> <b>${totalNeeded}</b> نقطة\n\n` +
+            `يرجى اختيار باقة أصغر تتناسب مع رصيدك.`,
+            {
+              inline_keyboard: [
+                [{ text: '🔄 اختيار باقة أخرى', callback_data: 'partner_gen_student_code' }],
+                [{ text: '🔙 عودة للوحة الشريك', callback_data: 'partner_dashboard_main' }]
+              ]
+            }
+          );
+        }
+
+        // Deduct from partner balance
+        const remainingPts = curPts - totalNeeded;
+        await supabase.from('profiles').update({ points: remainingPts }).eq('id', userId);
+
+        // Insert code into promo_codes
+        const promoCode = 'VIP-' + Math.random().toString(36).substring(2, 7).toUpperCase();
         await supabase.from('promo_codes').insert({
-          code: studentPromoCode,
-          points: 50,
-          max_uses: 20
+          code: promoCode,
+          points: ptsPerUser,
+          max_uses: maxUses,
+          is_used: false
         });
 
-        const promoShareMsg = 
-          `🎁 <b>كود هدية حصري لطلاب ومتابعي القناة! ✨</b>\n\n` +
-          `🪙 <b>الرصيد:</b> 50 نقطة مجانية لكل طالب\n` +
-          `👥 <b>الاستخدامات المتاحة:</b> 20 طالب\n\n` +
-          `👇 <b>كود التفعيل:</b>\n<code>${studentPromoCode}</code>\n\n` +
-          `📌 <b>طريقة التفعيل:</b>\n` +
-          `افتح موقع سوق بغداد https://www.souqbaghdad.store واضغط على <b>المحفظة 💼</b> وأدخل الكود!`;
+        if (maxUses === 1) {
+          // Sale mode: Receipt ready to send to buyer/client
+          const saleMsg = 
+            `🎉 <b>تم توليد كود البيع بنجاح وخصم النقاط من رصيدك! 🤝💰</b>\n\n` +
+            `💳 <b>النقاط المخصومة من محفظتك:</b> <b>${totalNeeded}</b> نقطة 🪙\n` +
+            `💰 <b>رصيدك المتبقي الآن:</b> <b>${remainingPts}</b> نقطة 🪙\n\n` +
+            `━━━━━━━━━━━━━━━━━━\n` +
+            `📋 <b>انسخ الرسالة أدناه وأرسلها لعميلك مباشرة:</b>\n` +
+            `━━━━━━━━━━━━━━━━━━\n\n` +
+            `🤝 <b>كود شحن رصيد نقاط في منصة سوق بغداد 💼✨</b>\n\n` +
+            `🪙 <b>الرصيد المشحون:</b> <b>${ptsPerUser}</b> نقطة\n` +
+            `👤 <b>صلاحية الكود:</b> استخدام شخص واحد فقط (حسابك الشخصي)\n\n` +
+            `👇 <b>كود التفعيل الخاص بك:</b>\n` +
+            `<code>${promoCode}</code>\n\n` +
+            `📌 <b>طريقة التفعيل السريعة:</b>\n` +
+            `1️⃣ ادخل إلى بوت سوق بغداد @souqbaghdad_bot أو الموقع: https://www.souqbaghdad.store\n` +
+            `2️⃣ اضغط على <b>المحفظة 💼</b> ثم <b>إدخال كود هدية</b>.\n` +
+            `3️⃣ الصق الكود ليتم شحن رصيدك فوراً في محفظتك!`;
 
-        return await updateOrSend(
-          `🎉 <b>تم توليد كود الهدية لمتابعي قناتك بنجاح! 👑✨</b>\n\n` +
-          `يمكنك نسخه ومشاركته مباشرة في قناتك 👇\n\n` +
-          promoShareMsg,
-          {
+          return await updateOrSend(saleMsg, {
             inline_keyboard: [
-              [{ text: '📋 نسخ الكود', copy_text: { text: studentPromoCode } }],
+              [{ text: '📋 نسخ الكود', copy_text: { text: promoCode } }],
+              [{ text: '💼 بيع كود آخر من رصيدي 💰', callback_data: 'partner_promo_menu_single' }],
               [{ text: '🔙 عودة للوحة الشريك', callback_data: 'partner_dashboard_main' }],
               [{ text: '🏠 الرئيسية', callback_data: 'main_menu' }]
             ]
+          });
+        } else {
+          // Group gift mode: Announcement ready for channel
+          const groupShareMsg = 
+            `🎁 <b>كود هدية حصري لطلاب ومتابعي القناة! ✨</b>\n\n` +
+            `🪙 <b>الرصيد:</b> <b>${ptsPerUser}</b> نقطة مجانية لكل طالب\n` +
+            `👥 <b>الاستخدامات المتاحة:</b> <b>${maxUses}</b> طالب (أسبقية التفعيل!)\n\n` +
+            `👇 <b>كود التفعيل:</b>\n` +
+            `<code>${promoCode}</code>\n\n` +
+            `📌 <b>طريقة التفعيل:</b>\n` +
+            `افتح موقع سوق بغداد https://www.souqbaghdad.store أو البوت واضغط على <b>المحفظة 💼</b> وأدخل الكود!`;
+
+          const successReport = 
+            `🎉 <b>تم توليد كود الهدية لقناتك بنجاح! 👑✨</b>\n\n` +
+            `💳 <b>إجمالي النقاط المخصومة من رصيدك:</b> <b>${totalNeeded}</b> نقطة (${ptsPerUser} نقطة × ${maxUses} طالب) 🪙\n` +
+            `💰 <b>رصيدك المتبقي الآن:</b> <b>${remainingPts}</b> نقطة 🪙\n\n` +
+            `━━━━━━━━━━━━━━━━━━\n` +
+            `📋 <b>يمكنك نسخه ومشاركته مباشرة في قناتك:</b>\n` +
+            `━━━━━━━━━━━━━━━━━━\n\n` +
+            groupShareMsg;
+
+          return await updateOrSend(successReport, {
+            inline_keyboard: [
+              [{ text: '📋 نسخ الكود', copy_text: { text: promoCode } }],
+              [{ text: '🎁 توليد كود آخر', callback_data: 'partner_promo_menu_group' }],
+              [{ text: '🔙 عودة للوحة الشريك', callback_data: 'partner_dashboard_main' }],
+              [{ text: '🏠 الرئيسية', callback_data: 'main_menu' }]
+            ]
+          });
+        }
+      }
+
+      // ✏️ PROMPT FOR CUSTOM SINGLE PROMO
+      if (action === 'partner_promo_custom_single') {
+        state = { step: 'partner_custom_promo_single' };
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        let curPts = 0;
+        if (userId) {
+          const { data: prof } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
+          curPts = prof?.points || 0;
+        }
+
+        return await updateOrSend(
+          `✍️ <b>تحديد عدد نقاط كود البيع يدوياً:</b>\n\n` +
+          `💰 رصيدك المتاح: <b>${curPts}</b> نقطة 🪙\n\n` +
+          `يرجى كتابة عدد النقاط التي تريد تحويلها لكود بيع لشخص واحد (مثال: <code>35</code> أو <code>75</code>):`,
+          {
+            inline_keyboard: [[{ text: '🔙 إلغاء والعودة', callback_data: 'partner_promo_menu_single' }]]
+          }
+        );
+      }
+
+      // ✏️ PROMPT FOR CUSTOM GROUP PROMO
+      if (action === 'partner_promo_custom_group') {
+        state = { step: 'partner_custom_promo_group' };
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        let curPts = 0;
+        if (userId) {
+          const { data: prof } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
+          curPts = prof?.points || 0;
+        }
+
+        return await updateOrSend(
+          `✍️ <b>تحديد باقة هدية جماعية مخصصة:</b>\n\n` +
+          `💰 رصيدك المتاح: <b>${curPts}</b> نقطة 🪙\n\n` +
+          `أرسل <b>عدد النقاط لكل طالب</b> ثم <b>عدد الطلاب</b> مفصولة بمسافة.\n` +
+          `مثال: <code>10 5</code> (تعني 10 نقاط لـ 5 طلاب = إجمالي 50 نقطة تُخصم من رصيدك).`,
+          {
+            inline_keyboard: [[{ text: '🔙 إلغاء والعودة', callback_data: 'partner_promo_menu_group' }]]
           }
         );
       }
@@ -14517,20 +14714,28 @@ Deno.serve(async (req: any) => {
       }
 
       // ❓ FAQ & SMART ASSISTANT HUB
+      // ❓ FAQ & SMART ASSISTANT HUB (مركز الدليل الشامل والمساعد الذكي)
       if (action === 'faq_hub_main') {
         const faqMsg = 
-          `❓ <b>مركز الأسئلة الشائعة والمساعد الذكي 💡</b>\n\n` +
-          `يا هلا بيك! أنا هنا لمساعدتك والإجابة على كافة استفساراتك حول المنصة بضغطة زر.\n\n` +
-          `اختر الموضوع الذي تحتاج مساعدة بشأنه أدناه، أو ببساطة <b>اكتب سؤالك كرسالة عادية</b> وسأجيبك فوراً 🤖💬:`;
+          `📚 <b>دليل استخدام منصة سوق بغداد والمساعد الذكي 💡</b>\n\n` +
+          `يا هلا بيك! تجد هنا دليلاً مفصلاً خطوة بخطوة لكل ما تحتاجه في المنصة:\n\n` +
+          `📢 <b>1. دليل النشر الشامل:</b> كيف تنشر خط نقل، سيارة، أو تنشر لعميلك برقم هاتفه.\n` +
+          `💳 <b>2. دليل تعبئة وشحن الرصيد:</b> طرق الدفع المتاحة (زين كاش / آسيا)، وشحن النقاط المجانية.\n` +
+          `💺 <b>3. دليل حجز المقاعد:</b> كيف يحجز الطلاب مقعداً ويتواصلون مع الكابتن مباشرة.\n` +
+          `👑 <b>4. دليل الشركاء وأصحاب القنوات:</b> ربط القنوات وجعل المنصة مصدر دخل لك.\n` +
+          `🪪 <b>5. توثيق الحساب والأمان:</b> شارة الكابتن المعتمد وحماية إعلاناتك.\n\n` +
+          `👇 <b>اختر القسم الذي ترغب بمعرفة تفاصيله:</b>\n` +
+          `<i>(أو اكتب أي سؤال يخطر ببالك وسيجيبك المساعد الذكي فوراً 🤖💬)</i>`;
 
         const faqMarkup = {
           inline_keyboard: [
-            [{ text: '🪙 النقاط: كيف أكسبها وماذا أفعل إذا نفدت؟', callback_data: 'faq_points' }],
-            [{ text: '🚌 كيف أنشر خط نقل وأعدل المقاعد؟', callback_data: 'faq_pub_trans' }],
-            [{ text: '💺 كيف أحجز مقعد مع الكابتن؟', callback_data: 'faq_book_seat' }],
+            [{ text: '📢 دليل كيفية النشر بالتفصيل (خطوط، سيارات، عملاء)', callback_data: 'faq_pub_trans' }],
+            [{ text: '💳 دليل شحن وتعبئة الرصيد بالكامل (زين كاش، مجاني)', callback_data: 'faq_points' }],
+            [{ text: '💺 كيف أحجز مقعد مع الكابتن؟ (للركاب)', callback_data: 'faq_book_seat' }],
+            [{ text: '👑 دليل الشركاء وأصحاب القنوات (مصدر رزق)', callback_data: 'partner_guide_full' }],
             [{ text: '🪪 توثيق الحساب وهوية الكابتن (شارة الثقة)', callback_data: 'faq_verification' }],
-            [{ text: '🚗 نشر سيارة أو منتج للبيع', callback_data: 'faq_pub_goods' }],
-            [{ text: '🔒 استرجاع الرمز السري والأمان', callback_data: 'faq_security' }],
+            [{ text: '🚗 نشر سيارة أو منتج في السوق العام', callback_data: 'faq_pub_goods' }],
+            [{ text: '🔒 الأمان واسترجاع الرمز السري', callback_data: 'faq_security' }],
             [{ text: '💬 اسأل المساعد الذكي أي سؤال', callback_data: 'faq_ai_chat' }],
             [{ text: '🏠 العودة للقائمة الرئيسية', callback_data: 'main_menu' }]
           ]
@@ -14540,18 +14745,31 @@ Deno.serve(async (req: any) => {
 
       if (action === 'faq_points') {
         const ptsMsg = 
-          `🪙 <b>نظام النقاط والمكافآت في سوق بغداد 🎁</b>\n\n` +
-          `• <b>الهدية الترحيبية:</b> يحصل كل مستخدم جديد على <b>100 نقطة مجانية</b> فور تفعيل حسابه!\n` +
-          `• <b>شحن النقاط مجاناً:</b>\n` +
-          `  1. تسجيل الدخول اليومي يمنحك نقاطاً مجانية.\n` +
-          `  2. دعوة أصدقائك عبر رابط الإحالة يمنحك نقاطاً عن كل مستخدم ينضم.\n` +
-          `  3. أكواد الخصم والهدايا التي تنشرها إدارة المنصة.\n\n` +
-          `• <b>إذا نفدت نقاطك:</b> يمكنك إدخال كود هدية، أو دعوة أصدقاء، أو التواصل مع المالك لشحن رصيدك فوراً!`;
+          `💳 <b>دليل شحن وتعبئة الرصيد والنقاط بالتفصيل 🪙✨</b>\n\n` +
+          `📌 <b>ما هي النقاط؟</b>\n` +
+          `النقاط هي الرصيد المستخدم في المنصة لترويج الإعلانات، ونشر بعض الفئات، وتثبيت الخطوط في الصدارة وإرسال إشعارات للركاب.\n\n` +
+          `🎁 <b>الهدية الترحيبية:</b>\n` +
+          `كل مستخدم جديد يحصل على <b>100 نقطة مجانية</b> فور تفعيل حسابه لأول مرة!\n\n` +
+          `━━━━━━━━━━━━━━━━━━\n` +
+          `💰 <b>طرق شحن وتعبئة الرصيد المدفوع:</b>\n` +
+          `1️⃣ <b>زين كاش (ZainCash) أو آسيا حوالة (Asiacell):</b>\n` +
+          `• تواصل مباشرة مع الإدارة عبر المعرف: <b>@rucno</b>\n` +
+          `• حدد باقة النقاط المطلوبة، وحول المبلغ إلى محفظة المنصة.\n` +
+          `• ستستلم فوراً <b>كود بروموكود تعبئة</b>، أو يتم شحن محفظتك بلمح البصر!\n\n` +
+          `2️⃣ <b>تعبئة كود بروموكود (الشحن الفوري):</b>\n` +
+          `إذا كان لديك كود شحن، اضغط على زر <b>«🎟️ إدخال وتعبئة بروموكود»</b> أدناه، واكتب الكود ليُضاف الرصيد فوراً لحسابك.\n\n` +
+          `━━━━━━━━━━━━━━━━━━\n` +
+          `🌟 <b>طرق شحن النقاط مجاناً 100%:</b>\n` +
+          `• <b>مشاركة رابط الإحالة:</b> شارك رابطك مع زملائك أو في الكروبات، واكسب نقاطاً مجانية عن كل شخص يسجل عن طريقك!\n` +
+          `• <b>تسجيل الدخول اليومي:</b> افتح البوت يومياً واحصل على نقاط تفاعل مجانية.\n` +
+          `• <b>أكواد الهدايا الدورية:</b> تابع قنواتنا حيث ننشر أكواد هدايا مجانية للجميع.\n` +
+          `• <b>لأصحاب القنوات الشريكة:</b> اربط قناتك وستحصل على <b>+1 نقطة مجانية</b> مع كل إعلان يرحل لقناتك!`;
 
         const ptsMarkup = {
           inline_keyboard: [
-            [{ text: '🎁 إدخال كود هدية', callback_data: 'redeem_promo' }, { text: '🔗 رابط الإحالة ومكافآتي', callback_data: 'referral_program' }],
-            [{ text: '🔙 عودة لمركز المساعدة', callback_data: 'faq_hub_main' }, { text: '🏠 الرئيسية', callback_data: 'main_menu' }]
+            [{ text: '💳 شراء وشحن نقاط الآن (زين كاش / آسيا)', callback_data: 'buy_points' }],
+            [{ text: '🎟️ إدخال وتعبئة بروموكود ⚡', callback_data: 'redeem_promo' }, { text: '🔗 رابط الإحالة ومكافآتي', callback_data: 'referral_program' }],
+            [{ text: '🔙 عودة لمركز الدليل', callback_data: 'faq_hub_main' }, { text: '🏠 الرئيسية', callback_data: 'main_menu' }]
           ]
         };
         return await updateOrSend(ptsMsg, ptsMarkup);
@@ -14559,22 +14777,66 @@ Deno.serve(async (req: any) => {
 
       if (action === 'faq_pub_trans') {
         const pubMsg = 
-          `🚌 <b>دليل نشر وإدارة خطوط النقل 📍</b>\n\n` +
-          `1. اضغط على <b>«نشر خط نقل جديد»</b> من القائمة الرئيسية.\n` +
-          `2. اختر مناطق الانطلاق أو اكتبها بدقة، وحدد الكلية أو الوجهة.\n` +
-          `3. حدد نوع السيارة، وقت الدوام (صباحي/مسائي)، وعدد المقاعد الشاغرة.\n` +
-          `4. سيقوم البوت فورياً بتوليد <b>صورة ستوري وبطاقة مسار احترافية</b> ونشرها في قنوات التيليجرام وفيسبوك!\n\n` +
-          `💺 <b>تعديل المقاعد:</b> يمكنك زيادة أو تقليل المقاعد من «إدارة خطوطي» وسيتعدل المنشور في القنوات لحظياً.\n` +
-          `🔒 <b>إغلاق الخط:</b> عند امتلاء الخط، اضغط «قبط واكتمل العدد» ليتحول المنشور إلى مغلق.`;
+          `📢 <b>دليل النشر الشامل لكافة الأقسام بالتفصيل 📍✨</b>\n\n` +
+          `━━━━━━━━━━━━━━━━━━\n` +
+          `🚌 <b>1️⃣ نشر خط نقل (للكباتن والطلاب):</b>\n` +
+          `• اضغط على <b>«نشر خط نقل جديد»</b> من القائمة الرئيسية.\n` +
+          `• اختر صفتك: <b>كابتن يوفر خط</b> أو <b>طالب يبحث عن خط</b>.\n` +
+          `• حدد مناطق الانطلاق بدقة (المحافظة > القضاء > المنطقة أو الحي).\n` +
+          `• حدد الجامعة أو الكلية من الدليل المعتمد (يشمل أكثر من 85 جامعة وكلية في بغداد والمحافظات).\n` +
+          `• حدد توقيت الدوام (صباحي/مسائي)، سعة السيارة ونوعها، وعدد المقاعد المتوفرة.\n` +
+          `⚡ <b>ميزة حصرية:</b> يولد البوت خلال ثوانٍ <b>صورة ستوري احترافية وبطاقة مسار ذكية</b> وينشرها فوراً على تيليجرام وفيسبوك وبوت الموقع!\n\n` +
+          `━━━━━━━━━━━━━━━━━━\n` +
+          `💼 <b>2️⃣ نشر إعلان خط لعميلك (مصدر رزق لأصحاب القنوات):</b>\n` +
+          `• إذا كان لديك قناة أو كروب وأردت الإعلان لسائق أو كابتن مقابل عمولة، اضغط <b>«💼 نشر إعلان خط لعميلك»</b>.\n` +
+          `• أدخل اسم العميل ورقم هاتفه، وسيتم توليد الإعلان برقم عميلك مباشرة مع أزرار اتصال وواتساب تخصه، ليتواصل الركاب معه دون إزعاجك!\n\n` +
+          `━━━━━━━━━━━━━━━━━━\n` +
+          `🚗 <b>3️⃣ نشر سيارة للبيع:</b>\n` +
+          `• اضغط <b>«🚗 عرض سيارة للبيع»</b>، حدد الماركة والموديل وسنة الصنع والمسافة المقطوعة والسعر.\n` +
+          `• ارفع حتى 10 صور واضحة لسيارتك وسيتم نشرها في قناة سوق بغداد للسيارات.\n\n` +
+          `━━━━━━━━━━━━━━━━━━\n` +
+          `🎛️ <b>4️⃣ إدارة الإعلان بعد النشر (المقاعد واكتمال العدد):</b>\n` +
+          `• من زر <b>«📦 إدارة خطوطي النشطة»</b>، يمكنك بضغطة زر:\n` +
+          `  - تعديل عدد المقاعد الشاغرة (يتحدث الإعلان في القناة فورياً).\n` +
+          `  - الضغط على <b>«🔒 قبط واكتمل العدد»</b> عند امتلاء الخط ليتوقف الاتصال بك ويغلق الإعلان بأناقة!`;
 
         const pubMarkup = {
           inline_keyboard: [
             [{ text: '🚌 نشر خط نقل جديد الآن ⚡', callback_data: 'publish_transport' }],
-            [{ text: '📦 إدارة خطوطي النشطة', callback_data: 'manage_cat_trans' }],
-            [{ text: '🔙 عودة لمركز المساعدة', callback_data: 'faq_hub_main' }]
+            [{ text: '💼 نشر إعلان خط لعميلك (مصدر رزق) 💰', callback_data: 'partner_publish_for_client' }],
+            [{ text: '🚗 عرض سيارة للبيع', callback_data: 'publish_car' }, { text: '📦 إدارة خطوطي وإعلاناتي', callback_data: 'manage_cat_trans' }],
+            [{ text: '🔙 عودة لمركز الدليل', callback_data: 'faq_hub_main' }, { text: '🏠 الرئيسية', callback_data: 'main_menu' }]
           ]
         };
         return await updateOrSend(pubMsg, pubMarkup);
+      }
+
+      if (action === 'partner_guide_full') {
+        const partnerGuideMsg = 
+          `👑 <b>دليل الشركاء وأصحاب القنوات والكروبات 🌟✨</b>\n\n` +
+          `يا هلا بك كابتن وشريكنا العزيز 🌹\n` +
+          `تم تصميم برنامج الشركاء لتمكين أصحاب القنوات والكروبات الطلابية من إدارة مجتمعاتهم وتحقيق <b>مصدر رزق متجدد</b> بكل سهولة:\n\n` +
+          `📌 <b>1️⃣ كيف تربط قناتك أو مجموعتك؟</b>\n` +
+          `• اضغط على <b>«➕ ربط قناة / كروب جديد»</b>.\n` +
+          `• يمكنك الضغط على زر الإضافة التلقائية لرفع البوت مشرفاً بنقرة واحدة، أو أرسل معرف قناتك، أو أعد توجيه أي منشور منها للبوت مباشرة!\n\n` +
+          `📌 <b>2️⃣ المزامنة التلقائية لإعلانات كليتك:</b>\n` +
+          `• بمجرد اختيار تخصص قناتك (مثلاً: خطوط جامعة التراث أو كلية الرافدين)، سيرحل البوت الإعلانات الخاصة بطلابك فقط تلقائياً إلى قناتك دون أي إزعاج.\n` +
+          `• يمكنك التحكم في خيار <b>التثبيت التلقائي</b> (تشغيله أو إيقافه) حسب رغبتك!\n\n` +
+          `📌 <b>3️⃣ كيف تجعل القناة مصدر رزق لك؟</b>\n` +
+          `• يمكنك استلام طلبات الإعلانات من السائقين ومكاتب النقل وأخذ عمولتهم كاش.\n` +
+          `• ادخل على البوت واضغط <b>«💼 نشر إعلان خط لعميلك»</b> وضع رقم واسم السائق لينشر البوست بتصميمه الاحترافي وبرقم عميلك فوراً!\n\n` +
+          `📌 <b>4️⃣ نظام مكافآت ونقاط الشريك:</b>\n` +
+          `• تكسب رصيد مكافآت مع كل إعلان ومزامنة، ويمكنك تحويل النقاط إلى بروموكودات وبيعها أو إهدائها لأعضاء قناتك.`;
+
+        const partnerGuideMarkup = {
+          inline_keyboard: [
+            [{ text: '➕ ربط قناة أو كروب الآن 🔗', callback_data: 'partner_connect_channel' }],
+            [{ text: '💼 نشر إعلان خط لعميلك (مصدر رزق) 💰', callback_data: 'partner_publish_for_client' }],
+            [{ text: '📋 قنواتي ومجموعاتي المربوطة', callback_data: 'partner_my_channels' }],
+            [{ text: '🔙 عودة لمركز الدليل', callback_data: 'faq_hub_main' }, { text: '🏠 الرئيسية', callback_data: 'main_menu' }]
+          ]
+        };
+        return await updateOrSend(partnerGuideMsg, partnerGuideMarkup);
       }
 
       if (action === 'faq_book_seat') {
@@ -15859,22 +16121,30 @@ Deno.serve(async (req: any) => {
       // ==========================================
       // 🔗 PARTNER CHANNEL CONNECT WIZARD
       // ==========================================
-      if (action === 'partner_connect_start') {
+      if (action === 'partner_connect_start' || action === 'partner_connect_channel') {
         state = { step: 'partner_await_channel', data: {} };
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         const guideMsg = 
-          `🔗 <b>ربط قناتك / مجموعتك مع منصة سوق بغداد</b> 🇮🇶\n\n` +
-          `انضم إلى شبكة قنوات سوق بغداد واحصل على إعلانات منسقة ومصممة تلقائياً لقناتك لزيادة التفاعل والنشاط!\n\n` +
-          `📌 <b>خطوات الربط البسيطة:</b>\n` +
-          `1️⃣ أضف البوت <b>@${BOT_USERNAME}</b> كمشرف (Admin) في قناتك مع صلاحية نشر الرسائل.\n` +
-          `2️⃣ أرسل معرف قناتك العام (مثال: <code>@my_channel</code>) أو رقم المعرف الخاص بها.\n\n` +
-          `👇 <b>أرسل معرف قناتك الآن للتحقق:</b>`;
+          `🔗 <b>ربط قناتك أو مجموعتك كشريك رسمي — سوق بغداد 👑✨</b>\n\n` +
+          `يا هلا بك كابتن وشريكنا العزيز 🌹\n` +
+          `انضم لشبكة القنوات الشريكة لتحصل على ترحيل فوري لإعلانات الخطوط والطلبات إلى قناتك/مجموعتك تلقائياً، وتكسب أرباحاً ومكافآت مع كل إعلان!\n\n` +
+          `📌 <b>طريقة الربط السريعة (اختر الأسهل لك):</b>\n\n` +
+          `1️⃣ <b>الربط التلقائي بنقرة واحدة:</b>\n` +
+          `اضغط على أحد الأزرار أدناه لإضافة البوت مباشرة لقناتك أو مجموعتك كمشرف بكامل الصلاحيات.\n\n` +
+          `2️⃣ <b>الربط اليدوي:</b>\n` +
+          `ارفع البوت <b>@${BOT_USERNAME}</b> مشرفاً في قناتك أو مجموعتك، ثم:\n` +
+          `• أرسل معرف القناة/المجموعة (مثال: <code>@my_channel</code>)\n` +
+          `• أو أرسل رابطها (مثال: <code>https://t.me/my_channel</code>)\n` +
+          `• أو قم بـ <b>إعادة توجيه (Forward)</b> أي رسالة من قناتك إلى هنا مباشرة!\n\n` +
+          `👇 <b>أرسل معرف قناتك/مجموعتك أو قم بتوجيه رسالة منها الآن:</b>`;
 
         await updateOrSend(guideMsg, {
           inline_keyboard: [
-            [{ text: '📋 عرض قنواتي المربوطة', callback_data: 'partner_my_channels' },
-            { text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            [{ text: '📢 إضافة البوت لقناتي كمشرف ⚡', url: `https://t.me/${BOT_USERNAME}?startchannel=true&admin=post_messages+edit_messages+delete_messages` }],
+            [{ text: '👥 إضافة البوت لمجموعتي كمشرف ⚡', url: `https://t.me/${BOT_USERNAME}?startgroup=true&admin=post_messages+delete_messages` }],
+            [{ text: '📋 عرض قنواتي ومجموعاتي المربوطة', callback_data: 'partner_my_channels' }],
+            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
           ]
         });
         return new Response('OK', { status: 200 });
@@ -20798,13 +21068,33 @@ Deno.serve(async (req: any) => {
 
       // Other features (support, register, faq...)
       if (action === 'buy_points') {
-        await updateOrSend(`💳 <b>شراء وشحن النقاط</b> 🪙\n\nلشراء النقاط وتعبئة رصيدك في المنصة، يرجى مراسلة الإدارة عبر تيليكرام للحصول على كود التعبئة:\n👉 @rucno\n\nإذا كان لديك كود بروموكود جاهز، اضغط على زر "🎟️ إدخال بروموكود" أدناه لتفعيله فوراً:`, {
-          inline_keyboard: [
-            [{ text: '🎟️ إدخال وتعبئة بروموكود', callback_data: 'redeem_promo' }],
-            [{ text: '💬 مراسلة الإدارة لشراء نقاط', url: 'https://t.me/rucno' }],
-            [{ text: 'الرجوع للقائمة الرئيسية 🔙', callback_data: 'main_menu' }]
-          ]
-        });
+        await updateOrSend(
+          `💳 <b>شراء وتعبئة رصيد النقاط — سوق بغداد 🪙✨</b>\n\n` +
+          `يمكنك شحن رصيدك بكل سهولة عبر وسائل الدفع المعتمدة في العراق:\n\n` +
+          `💰 <b>طرق الدفع المتاحة:</b>\n` +
+          `• <b>زين كاش (ZainCash)</b> 📲\n` +
+          `• <b>آسيا حوالة / كارتات آسيا سيل</b> 📲\n` +
+          `• <b>ماستركارد / فيزا كارد</b> 💳\n\n` +
+          `📦 <b>باقات النقاط المخفضة:</b>\n` +
+          `• <b>باقة البداية (50 نقطة):</b> 5,000 د.ع\n` +
+          `• <b>باقة الكابتن (120 نقطة):</b> 10,000 د.ع (تشمل 20 نقطة هدية مجاناً)\n` +
+          `• <b>باقة الشركاء والمكاتب (300 نقطة):</b> 20,000 د.ع (تشمل 100 نقطة مجانية)\n\n` +
+          `━━━━━━━━━━━━━━━━━━\n` +
+          `💡 <b>طريقة الشحن الفوري:</b>\n` +
+          `1️⃣ اضغط على زر <b>«💬 مراسلة الإدارة للشحن الفوري»</b> أدناه.\n` +
+          `2️⃣ أرسل اسمك ورقم هاتفك والباقة المطلوبة.\n` +
+          `3️⃣ ستحصل فوراً على <b>كود بروموكود</b> تشحن به رصيدك في ثانية واحدة!\n\n` +
+          `🎟️ <b>هل لديك كود بروموكود جاهز؟</b>\n` +
+          `اضغط على زر «إدخال وتعبئة بروموكود» واكتب الكود ليضاف الرصيد لمحفظتك فوراً.`,
+          {
+            inline_keyboard: [
+              [{ text: '💬 مراسلة الإدارة للشحن الفوري (زين كاش / آسيا) ⚡', url: 'https://t.me/rucno' }],
+              [{ text: '🎟️ إدخال وتعبئة بروموكود جاهز', callback_data: 'redeem_promo' }],
+              [{ text: '🎁 كسب نقاط مجاناً (رابط الإحالة)', callback_data: 'referral_program' }],
+              [{ text: '🔙 عودة لمركز الدليل', callback_data: 'faq_hub_main' }, { text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ]
+          }
+        );
         return new Response('OK', { status: 200 });
       }
 
@@ -21458,26 +21748,66 @@ Deno.serve(async (req: any) => {
       }
 
       // --- Partner Channel Connect Text Inputs ---
-      if (state.step === 'partner_await_channel' && text) {
-        let channelInput = text.trim();
-        if (!channelInput.startsWith('@') && !channelInput.startsWith('-100') && !channelInput.startsWith('-')) {
+      if (state.step === 'partner_await_channel') {
+        let channelInput = '';
+        let detectedTitle = '';
+        let detectedUsername = '';
+
+        // Check if message was forwarded from a channel or group
+        const fChat = (message as any)?.forward_from_chat;
+        if (fChat?.id) {
+          channelInput = String(fChat.id);
+          detectedTitle = fChat.title || '';
+          detectedUsername = fChat.username || '';
+        } else if (text) {
+          channelInput = text.trim();
+        }
+
+        if (!channelInput) {
+          return new Response('OK', { status: 200 });
+        }
+
+        // Clean up input
+        if (channelInput.includes('t.me/c/')) {
+          const match = channelInput.match(/t\.me\/c\/(\d+)/);
+          if (match) channelInput = '-100' + match[1];
+        } else if (channelInput.includes('t.me/')) {
+          const match = channelInput.match(/t\.me\/([^/?#]+)/);
+          if (match) channelInput = '@' + match[1].replace('@', '');
+        } else if (channelInput.startsWith('@') || channelInput.startsWith('-100') || channelInput.startsWith('-')) {
+          // valid prefix already
+        } else if (/^\d+$/.test(channelInput)) {
+          channelInput = '-100' + channelInput;
+        } else {
           channelInput = '@' + channelInput;
         }
 
-        await updateOrSend(`⏳ جاري التحقق من وجود القناة وصلاحيات البوت المشرف فيها (${channelInput})...`);
+        await updateOrSend(`⏳ جاري التحقق من وجود القناة/المجموعة وصلاحيات البوت المشرف فيها (<code>${channelInput}</code>)...`);
 
-        const check = await checkBotIsAdmin(channelInput);
+        let check = await checkBotIsAdmin(channelInput);
+        if (!check.ok && channelInput.startsWith('-100')) {
+          const altInput = channelInput.replace('-100', '-');
+          const fallbackCheck = await checkBotIsAdmin(altInput);
+          if (fallbackCheck.ok) {
+            check = fallbackCheck;
+            channelInput = altInput;
+          }
+        }
+
         if (!check.ok) {
           await updateOrSend(
-            `❌ <b>تعذر التحقق من القناة!</b>\n\n` +
-            `• السبب: ${check.error || 'البوت ليس مشرفاً (Admin)'}\n\n` +
-            `📌 <b>تأكد من:</b>\n` +
-            `1. إضافة البوت <b>@${BOT_USERNAME}</b> كمشرف (Admin) في القناة.\n` +
-            `2. منح البوت صلاحية نشر الرسائل (Post Messages).\n` +
-            `3. كتابة المعرف بشكل صحيح (مثال: <code>@my_channel</code>).\n\n` +
-            `👇 أعد إرسال معرف القناة بعد رفع البوت أدمن:`,
+            `❌ <b>تعذر التحقق من القناة أو المجموعة!</b>\n\n` +
+            `• <b>السبب:</b> ${check.error || 'البوت ليس مشرفاً (Admin)'}\n\n` +
+            `📌 <b>تأكد من الخطوات التالية:</b>\n` +
+            `1️⃣ أضف البوت <b>@${BOT_USERNAME}</b> كمشرف (Admin) في قناتك أو مجموعتك.\n` +
+            `2️⃣ امنح البوت صلاحية <b>نشر الرسائل</b> (Post Messages).\n` +
+            `3️⃣ تأكد من المعرف أو الرابط، أو <b>قم بإعادة توجيه أي منشور من القناة/الجروب إلى هنا</b> مباشرة!\n\n` +
+            `👇 يمكنك أيضاً الضغط على الزر أدناه لإضافة البوت كمشرف فوراً:`,
             {
               inline_keyboard: [
+                [{ text: '📢 إضافة البوت لقناتي كمشرف ⚡', url: `https://t.me/${BOT_USERNAME}?startchannel=true&admin=post_messages+edit_messages+delete_messages` }],
+                [{ text: '👥 إضافة البوت لمجموعتي كمشرف ⚡', url: `https://t.me/${BOT_USERNAME}?startgroup=true&admin=post_messages+delete_messages` }],
+                [{ text: '🔄 إعادة المحاولة', callback_data: 'partner_connect_start' }],
                 [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
               ]
             }
@@ -21485,16 +21815,17 @@ Deno.serve(async (req: any) => {
           return new Response('OK', { status: 200 });
         }
 
-        state.data.channel_id = channelInput;
-        state.data.channel_title = check.title || channelInput;
-        state.data.channel_username = check.username || (channelInput.startsWith('@') ? channelInput.replace('@', '') : null);
+        state.data = state.data || {};
+        state.data.channel_id = String(check.id || channelInput);
+        state.data.channel_title = check.title || detectedTitle || channelInput;
+        state.data.channel_username = check.username || detectedUsername || (channelInput.startsWith('@') ? channelInput.replace('@', '') : null);
         state.step = 'partner_choose_category';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         await updateOrSend(
-          `✅ <b>تم التحقق من القناة وصلاحية المشرف بنجاح!</b>\n\n` +
-          `📢 <b>اسم القناة:</b> ${check.title}\n` +
-          `🆔 <b>المعرف:</b> ${channelInput}\n\n` +
+          `✅ <b>تم التحقق من القناة/المجموعة وصلاحية المشرف بنجاح! 👑🎉</b>\n\n` +
+          `📢 <b>الاسم:</b> ${state.data.channel_title}\n` +
+          `🆔 <b>المعرف:</b> <code>${state.data.channel_id}</code>\n\n` +
           `👇 <b>حدد تخصص ونوع الإعلانات التي ترغب بنشرها في قناتك تلقائياً:</b>`,
           {
             inline_keyboard: [
@@ -22548,6 +22879,140 @@ Deno.serve(async (req: any) => {
         }
         state = {};
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        return new Response('OK', { status: 200 });
+      }
+
+      // ✏️ Partner Custom Promo (Single User for Sale)
+      else if (state.step === 'partner_custom_promo_single' && text) {
+        const pts = parseInt(text.trim().replace(/[^0-9]/g, ''), 10);
+        if (isNaN(pts) || pts <= 0) {
+          await sendMessage(chatId, '⚠️ يرجى إدخال رقم صحيح لعدد النقاط (مثال: <code>50</code>):', {
+            inline_keyboard: [[{ text: '🔙 إلغاء والعودة', callback_data: 'partner_promo_menu_single' }]]
+          });
+          return new Response('OK', { status: 200 });
+        }
+
+        const { data: prof } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
+        const curPts = prof?.points || 0;
+        if (pts > curPts) {
+          await sendMessage(chatId, `❌ <b>الرصيد غير كافٍ!</b>\n\nرصيدك الحالي: <b>${curPts}</b> نقطة 🪙\nالنقاط المطلوبة: <b>${pts}</b> نقطة.`, {
+            inline_keyboard: [[{ text: '🔄 تجربة قيمة أخرى', callback_data: 'partner_promo_custom_single' }], [{ text: '🔙 إلغاء', callback_data: 'partner_gen_student_code' }]]
+          });
+          state = {};
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+          return new Response('OK', { status: 200 });
+        }
+
+        state = {};
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        // Deduct points from partner
+        const remainingPts = curPts - pts;
+        await supabase.from('profiles').update({ points: remainingPts }).eq('id', userId);
+
+        const promoCode = 'VIP-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+        await supabase.from('promo_codes').insert({
+          code: promoCode,
+          points: pts,
+          max_uses: 1,
+          is_used: false
+        });
+
+        const saleMsg = 
+          `🎉 <b>تم توليد كود البيع بنجاح وخصم النقاط من رصيدك! 🤝💰</b>\n\n` +
+          `💳 <b>النقاط المخصومة من محفظتك:</b> <b>${pts}</b> نقطة 🪙\n` +
+          `💰 <b>رصيدك المتبقي الآن:</b> <b>${remainingPts}</b> نقطة 🪙\n\n` +
+          `━━━━━━━━━━━━━━━━━━\n` +
+          `📋 <b>انسخ الرسالة أدناه وأرسلها لعميلك مباشرة:</b>\n` +
+          `━━━━━━━━━━━━━━━━━━\n\n` +
+          `🤝 <b>كود شحن رصيد نقاط في منصة سوق بغداد 💼✨</b>\n\n` +
+          `🪙 <b>الرصيد المشحون:</b> <b>${pts}</b> نقطة\n` +
+          `👤 <b>صلاحية الكود:</b> استخدام شخص واحد فقط (حسابك الشخصي)\n\n` +
+          `👇 <b>كود التفعيل الخاص بك:</b>\n` +
+          `<code>${promoCode}</code>\n\n` +
+          `📌 <b>طريقة التفعيل السريعة:</b>\n` +
+          `1️⃣ ادخل إلى بوت سوق بغداد @souqbaghdad_bot أو الموقع: https://www.souqbaghdad.store\n` +
+          `2️⃣ اضغط على <b>المحفظة 💼</b> ثم <b>إدخال كود هدية</b>.\n` +
+          `3️⃣ الصق الكود ليتم شحن رصيدك فوراً في محفظتك!`;
+
+        await sendMessage(chatId, saleMsg, {
+          inline_keyboard: [
+            [{ text: '📋 نسخ الكود', copy_text: { text: promoCode } }],
+            [{ text: '💼 بيع كود آخر من رصيدي 💰', callback_data: 'partner_promo_menu_single' }],
+            [{ text: '🔙 عودة للوحة الشريك', callback_data: 'partner_dashboard_main' }],
+            [{ text: '🏠 الرئيسية', callback_data: 'main_menu' }]
+          ]
+        });
+        return new Response('OK', { status: 200 });
+      }
+
+      // ✏️ Partner Custom Promo (Group Audience)
+      else if (state.step === 'partner_custom_promo_group' && text) {
+        const parts = text.trim().split(/\s+/).map(p => parseInt(p.replace(/[^0-9]/g, ''), 10));
+        const ptsPerUser = parts[0];
+        const maxUses = parts[1];
+
+        if (isNaN(ptsPerUser) || isNaN(maxUses) || ptsPerUser <= 0 || maxUses <= 0) {
+          await sendMessage(chatId, '⚠️ يرجى إدخال عدد النقاط ثم عدد الطلاب مفصولة بمسافة (مثال: <code>10 5</code> تعني 10 نقاط لـ 5 طلاب):', {
+            inline_keyboard: [[{ text: '🔙 إلغاء والعودة', callback_data: 'partner_gen_student_code' }]]
+          });
+          return new Response('OK', { status: 200 });
+        }
+
+        const totalNeeded = ptsPerUser * maxUses;
+        const { data: prof } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
+        const curPts = prof?.points || 0;
+
+        if (totalNeeded > curPts) {
+          await sendMessage(chatId, `❌ <b>الرصيد غير كافٍ!</b>\n\nرصيدك الحالي: <b>${curPts}</b> نقطة 🪙\nالنقاط الإجمالية المطلوبة: <b>${totalNeeded}</b> نقطة (${ptsPerUser} نقطة × ${maxUses} طالب).`, {
+            inline_keyboard: [[{ text: '🔄 تجربة باقة أخرى', callback_data: 'partner_promo_custom_group' }], [{ text: '🔙 إلغاء', callback_data: 'partner_gen_student_code' }]]
+          });
+          state = {};
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+          return new Response('OK', { status: 200 });
+        }
+
+        state = {};
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        // Deduct points from partner
+        const remainingPts = curPts - totalNeeded;
+        await supabase.from('profiles').update({ points: remainingPts }).eq('id', userId);
+
+        const promoCode = 'VIP-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+        await supabase.from('promo_codes').insert({
+          code: promoCode,
+          points: ptsPerUser,
+          max_uses: maxUses,
+          is_used: false
+        });
+
+        const groupShareMsg = 
+          `🎁 <b>كود هدية حصري لطلاب ومتابعي القناة! ✨</b>\n\n` +
+          `🪙 <b>الرصيد:</b> <b>${ptsPerUser}</b> نقطة مجانية لكل طالب\n` +
+          `👥 <b>الاستخدامات المتاحة:</b> <b>${maxUses}</b> طالب (أسبقية التفعيل!)\n\n` +
+          `👇 <b>كود التفعيل:</b>\n` +
+          `<code>${promoCode}</code>\n\n` +
+          `📌 <b>طريقة التفعيل:</b>\n` +
+          `افتح موقع سوق بغداد https://www.souqbaghdad.store أو البوت واضغط على <b>المحفظة 💼</b> وأدخل الكود!`;
+
+        const successReport = 
+          `🎉 <b>تم توليد كود الهدية لقناتك بنجاح! 👑✨</b>\n\n` +
+          `💳 <b>إجمالي النقاط المخصومة من رصيدك:</b> <b>${totalNeeded}</b> نقطة (${ptsPerUser} نقطة × ${maxUses} طالب) 🪙\n` +
+          `💰 <b>رصيدك المتبقي الآن:</b> <b>${remainingPts}</b> نقطة 🪙\n\n` +
+          `━━━━━━━━━━━━━━━━━━\n` +
+          `📋 <b>يمكنك نسخه ومشاركته مباشرة في قناتك:</b>\n` +
+          `━━━━━━━━━━━━━━━━━━\n\n` +
+          groupShareMsg;
+
+        await sendMessage(chatId, successReport, {
+          inline_keyboard: [
+            [{ text: '📋 نسخ الكود', copy_text: { text: promoCode } }],
+            [{ text: '🎁 توليد كود آخر', callback_data: 'partner_promo_menu_group' }],
+            [{ text: '🔙 عودة للوحة الشريك', callback_data: 'partner_dashboard_main' }],
+            [{ text: '🏠 الرئيسية', callback_data: 'main_menu' }]
+          ]
+        });
         return new Response('OK', { status: 200 });
       }
 
