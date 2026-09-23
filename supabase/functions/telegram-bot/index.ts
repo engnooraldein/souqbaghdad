@@ -8068,6 +8068,11 @@ Deno.serve(async (req: any) => {
     let userId = tgUser?.user_id;
     let phone = tgUser?.phone_number;
 
+    // Sync telegram username if present
+    if (fromUser?.username && tgUser && (!tgUser.username || tgUser.username !== fromUser.username.toLowerCase())) {
+      supabase.from('telegram_users').update({ username: fromUser.username.toLowerCase() }).eq('telegram_chat_id', chatId).then(() => {});
+    }
+
     // 🛡️ ANTI-QUEUE FLOODING & LATEST MESSAGE GUARANTEE (اعتماد آخر رسالة وتجاهل التراكمات القديمة)
     const incomingMsgDate = update.message?.date || Math.floor(Date.now() / 1000);
     const incomingMsgId = update.message?.message_id || 0;
@@ -13722,9 +13727,10 @@ Deno.serve(async (req: any) => {
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         return await updateOrSend(
-          `📲 <b>أدخل رقم هاتف العميل المطلوب شحن رصيده ⚡:</b>\n\n` +
+          `📲 <b>أدخل رقم هاتف أو معرّف تليكرام العميل المطلوب شحن رصيده ⚡:</b>\n\n` +
           `🎁 <b>الرصيد المراد تحويله:</b> <b>${pts} نقطة</b> 🪙\n\n` +
-          `يرجى كتابة رقم هاتف العميل (مثال: <code>07701234567</code> أو <code>07801234567</code>):\n\n` +
+          `يرجى كتابة رقم هاتف العميل (مثال: <code>07701234567</code>)\n` +
+          `أو معرّفه في تيليجرام (مثال: <code>@username</code>):\n\n` +
           `<i>(💡 سيصل إشعار فوري للعميل في تيليجرام بتفاصيل الشحن مع اسمك ورقم هاتفك وتاريخ العملية ليتمكن من نشر خطه فوراً)</i>`,
           {
             inline_keyboard: [[{ text: '🔙 إلغاء والعودة', callback_data: 'partner_direct_topup' }]]
@@ -23325,6 +23331,241 @@ Deno.serve(async (req: any) => {
             [{ text: '🏠 الرئيسية', callback_data: 'main_menu' }]
           ]
         });
+        return new Response('OK', { status: 200 });
+      }
+
+      // ✏️ Partner Direct Top-up: Waiting Custom Points
+      else if (state.step === 'partner_direct_waiting_custom_pts' && text) {
+        const pts = parseInt(text.trim().replace(/[^0-9]/g, ''), 10);
+        if (isNaN(pts) || pts <= 0) {
+          await sendMessage(chatId, '⚠️ يرجى إدخال رقم صحيح لعدد النقاط (مثال: <code>5</code> أو <code>20</code>):', {
+            inline_keyboard: [[{ text: '🔙 إلغاء والعودة', callback_data: 'partner_direct_topup' }]]
+          });
+          return new Response('OK', { status: 200 });
+        }
+
+        const { data: prof } = await supabase.from('profiles').select('points').eq('id', userId).maybeSingle();
+        const curPts = prof?.points || 0;
+        if (pts > curPts) {
+          await sendMessage(chatId, `❌ <b>الرصيد غير كافٍ!</b>\n\nرصيدك الحالي: <b>${curPts}</b> نقطة 🪙\nالنقاط المطلوبة: <b>${pts}</b> نقطة.`, {
+            inline_keyboard: [[{ text: '🔄 تجربة قيمة أخرى', callback_data: 'partner_direct_pts_custom' }], [{ text: '🔙 عودة للوحة الشريك', callback_data: 'partner_dashboard_main' }]]
+          });
+          state = {};
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+          return new Response('OK', { status: 200 });
+        }
+
+        state = {
+          step: 'partner_direct_waiting_phone',
+          data: { direct_pts: pts }
+        };
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        await sendMessage(
+          chatId,
+          `📲 <b>أدخل رقم هاتف أو معرّف تليكرام العميل المطلوب شحن رصيده ⚡:</b>\n\n` +
+          `🎁 <b>الرصيد المراد تحويله:</b> <b>${pts} نقطة</b> 🪙\n\n` +
+          `يرجى كتابة رقم هاتف العميل (مثال: <code>07701234567</code>)\n` +
+          `أو معرّفه في تيليجرام (مثال: <code>@username</code>):\n\n` +
+          `<i>(💡 سيصل إشعار فوري للعميل في تيليجرام بتفاصيل الشحن مع اسمك ورقم هاتفك وتاريخ العملية ليتمكن من نشر خطه فوراً)</i>`,
+          {
+            inline_keyboard: [[{ text: '🔙 إلغاء والعودة', callback_data: 'partner_direct_topup' }]]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      // 📲 Partner Direct Top-up: Waiting Phone Number or Telegram Username
+      else if (state.step === 'partner_direct_waiting_phone' && text) {
+        const rawInput = text.trim();
+        const pts = state.data?.direct_pts || 1;
+
+        // Verify partner balance again
+        const { data: partnerProf } = await supabase.from('profiles').select('points, full_name, phone').eq('id', userId).maybeSingle();
+        const curPartnerPts = partnerProf?.points || 0;
+        if (pts > curPartnerPts) {
+          await sendMessage(chatId, `❌ <b>رصيدك غير كافٍ لإتمام العملية!</b>\n\nرصيدك الحالي: <b>${curPartnerPts}</b> نقطة 🪙\nالمطلوب: <b>${pts}</b> نقطة.`, {
+            inline_keyboard: [[{ text: '🔙 عودة للوحة الشريك', callback_data: 'partner_dashboard_main' }]]
+          });
+          state = {};
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+          return new Response('OK', { status: 200 });
+        }
+
+        let targetProfile: any = null;
+        let targetTgUser: any = null;
+
+        const isExplicitUsername = rawInput.startsWith('@') || (/^[a-zA-Z][a-zA-Z0-9_]{2,}$/.test(rawInput) && !/^\d+$/.test(rawInput));
+
+        if (isExplicitUsername) {
+          const cleanUname = rawInput.replace(/^@/, '').toLowerCase().trim();
+
+          // 1. Try finding in telegram_users by username
+          const { data: tu } = await supabase.from('telegram_users').select('user_id, telegram_chat_id, phone_number, username').ilike('username', cleanUname).limit(1).maybeSingle();
+          if (tu) {
+            targetTgUser = tu;
+            if (tu.user_id) {
+              const { data: p } = await supabase.from('profiles').select('id, full_name, phone, username, points').eq('id', tu.user_id).limit(1).maybeSingle();
+              targetProfile = p;
+            }
+          }
+
+          // 2. Try finding in profiles by username
+          if (!targetProfile) {
+            const { data: p } = await supabase.from('profiles').select('id, full_name, phone, username, points').ilike('username', cleanUname).limit(1).maybeSingle();
+            if (p) {
+              targetProfile = p;
+              if (!targetTgUser) {
+                const { data: tu2 } = await supabase.from('telegram_users').select('user_id, telegram_chat_id, phone_number, username').eq('user_id', p.id).limit(1).maybeSingle();
+                targetTgUser = tu2;
+              }
+            }
+          }
+        } else {
+          // Phone number matching (support 07..., 9647..., +9647..., 7...)
+          const digits = rawInput.replace(/[^0-9]/g, '');
+          let local07 = '';
+          let intl964 = '';
+          let plus964 = '';
+          let core9 = '';
+
+          if (digits.length >= 9) {
+            core9 = digits.slice(-9); // last 9 digits (e.g. 7701109692)
+            local07 = '0' + core9;
+            intl964 = '964' + core9;
+            plus964 = '+' + intl964;
+          } else {
+            local07 = digits;
+            intl964 = digits;
+            plus964 = '+' + digits;
+            core9 = digits;
+          }
+
+          // 1. Search in telegram_users
+          const { data: tuList } = await supabase.from('telegram_users').select('user_id, telegram_chat_id, phone_number, username')
+            .or(`phone_number.eq.${local07},phone_number.eq.${intl964},phone_number.eq.${plus964},phone_number.ilike.%${core9}%`)
+            .limit(1);
+
+          if (tuList && tuList.length > 0) {
+            targetTgUser = tuList[0];
+            if (targetTgUser.user_id) {
+              const { data: p } = await supabase.from('profiles').select('id, full_name, phone, username, points').eq('id', targetTgUser.user_id).limit(1).maybeSingle();
+              targetProfile = p;
+            }
+          }
+
+          // 2. Search in profiles
+          if (!targetProfile) {
+            const { data: pList } = await supabase.from('profiles').select('id, full_name, phone, username, points')
+              .or(`phone.eq.${local07},phone.eq.${intl964},phone.eq.${plus964},phone.ilike.%${core9}%`)
+              .limit(1);
+
+            if (pList && pList.length > 0) {
+              targetProfile = pList[0];
+              if (!targetTgUser) {
+                const { data: tu2 } = await supabase.from('telegram_users').select('user_id, telegram_chat_id, phone_number, username').eq('user_id', targetProfile.id).limit(1).maybeSingle();
+                targetTgUser = tu2;
+              }
+            }
+          }
+
+          // 3. Check if input matches a telegram_chat_id directly
+          if (!targetProfile && !targetTgUser && /^\d{6,14}$/.test(rawInput)) {
+            const { data: tuByChatId } = await supabase.from('telegram_users').select('user_id, telegram_chat_id, phone_number, username').eq('telegram_chat_id', rawInput).limit(1).maybeSingle();
+            if (tuByChatId) {
+              targetTgUser = tuByChatId;
+              if (tuByChatId.user_id) {
+                const { data: p } = await supabase.from('profiles').select('id, full_name, phone, username, points').eq('id', tuByChatId.user_id).limit(1).maybeSingle();
+                targetProfile = p;
+              }
+            }
+          }
+        }
+
+        // Check if target client was found
+        if (!targetProfile && !targetTgUser) {
+          await sendMessage(
+            chatId,
+            `⚠️ <b>لم يتم العثور على حساب مسجل بهذا الرقم أو المعرف!</b>\n\n` +
+            `🔍 <b>المدخل:</b> <code>${rawInput}</code>\n\n` +
+            `💡 <b>الحلول المتاحة:</b>\n` +
+            `1️⃣ <b>توليد كود شحن فوري:</b> يمكنك توليد كود شحن بقيمة (${pts} نقطة) وإرساله لعميلك مباشرة عبر واتساب أو تليكرام ليشحن حسابه فور دخوله.\n` +
+            `2️⃣ <b>إعادة المحاولة:</b> التأكد من صحة رقم الهاتف أو المعرف والمحاولة مجدداً.`,
+            {
+              inline_keyboard: [
+                [{ text: '🎟️ توليد كود شحن للعميل الآن 💰', callback_data: `partner_do_promo_${pts}_1` }],
+                [{ text: '🔄 إعادة المحاولة', callback_data: `partner_direct_pts_${pts}` }],
+                [{ text: '🔙 عودة للوحة الشريك', callback_data: 'partner_dashboard_main' }]
+              ]
+            }
+          );
+          return new Response('OK', { status: 200 });
+        }
+
+        // Deduct points from partner
+        const remainingPartnerPts = curPartnerPts - pts;
+        await supabase.from('profiles').update({ points: remainingPartnerPts }).eq('id', userId);
+
+        // Add points to target client
+        let newClientPts = pts;
+        if (targetProfile) {
+          newClientPts = (targetProfile.points || 0) + pts;
+          await supabase.from('profiles').update({ points: newClientPts }).eq('id', targetProfile.id);
+        }
+
+        // Clear partner state
+        state = {};
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        const clientChatId = targetTgUser?.telegram_chat_id;
+        const clientName = targetProfile?.full_name || targetTgUser?.username || 'عميل سوق بغداد';
+        const partnerName = partnerProf?.full_name || tgUser?.first_name || 'الشريك المعتمد';
+        const partnerPhone = partnerProf?.phone || tgUser?.phone_number || '';
+        const nowFormatted = new Date().toLocaleString('ar-IQ', { timeZone: 'Asia/Baghdad' });
+
+        // 1. Notify Client in Telegram (if telegram_chat_id exists and is private chat)
+        if (clientChatId && Number(clientChatId) > 0) {
+          try {
+            const clientNotification = 
+              `🎁 <b>وصلتك تعبئة رصيد مباشر في محفظتك! ⚡🪙</b>\n\n` +
+              `🪙 <b>الرصيد المشحون:</b> <b>+${pts} نقطة</b> <i>(تعادل نشر ${pts === 1 ? 'إعلان خط نقل كامل' : `${pts} إعلانات خطوط نقل`})</i>\n` +
+              `💰 <b>رصيد محفظتك الحالي:</b> <b>${newClientPts} نقطة</b> 🪙\n\n` +
+              `🤝 <b>تم الشحن بواسطة:</b> <b>${partnerName}</b>${partnerPhone ? ` (${partnerPhone})` : ''}\n` +
+              `📅 <b>تاريخ ووقت الشحن:</b> <code>${nowFormatted}</code>\n\n` +
+              `🚀 <i>يمكنك الآن نشر إعلان خطك فوراً في المنصة والقنوات الشريكة بنقرة زر أدناه:</i>`;
+
+            await sendMessage(clientChatId, clientNotification, {
+              inline_keyboard: [
+                [{ text: '🚌 نشر إعلان خط نقل الآن 📢', callback_data: 'publish_transport' }],
+                [{ text: '💼 عرض محفظتي ورصيدي', callback_data: 'my_wallet' }],
+                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+              ]
+            });
+          } catch (e) {
+            console.error('Error notifying client of direct topup:', e);
+          }
+        }
+
+        // 2. Send Receipt to Partner
+        const partnerReceipt = 
+          `🎉 <b>تم شحن رصيد العميل بنجاح تام! ⚡🤝</b>\n\n` +
+          `👤 <b>العميل المستفيد:</b> <b>${clientName}</b>\n` +
+          `📞 <b>المعرف/الهاتف:</b> <code>${rawInput}</code>\n` +
+          `🪙 <b>النقاط المحولة:</b> <b>${pts}</b> نقطة <i>(تعادل نشر ${pts === 1 ? 'إعلان خط كامل' : `${pts} إعلانات`})</i>\n` +
+          `💰 <b>رصيدك المتبقي الآن:</b> <b>${remainingPartnerPts}</b> نقطة 🪙\n` +
+          (clientChatId && Number(clientChatId) > 0 
+            ? `\n📬 <i>تم إرسال إشعار فوري للعميل في تيليجرام بتفاصيل الشحن مع اسمك ورقمك وزر نشر خطه مباشرة.</i>`
+            : `\n📌 <i>تم شحن رصيد العميل بنجاح في الموقع.</i>`);
+
+        await sendMessage(chatId, partnerReceipt, {
+          inline_keyboard: [
+            [{ text: '⚡ شحن رصيد لعميل آخر 📲', callback_data: 'partner_direct_topup' }],
+            [{ text: '💼 نشر إعلان خط لعميلك مباشرة 💰', callback_data: 'partner_publish_for_client' }],
+            [{ text: '🔙 عودة للوحة الشريك', callback_data: 'partner_dashboard_main' }],
+            [{ text: '🏠 الرئيسية', callback_data: 'main_menu' }]
+          ]
+        });
+
         return new Response('OK', { status: 200 });
       }
 
