@@ -3240,21 +3240,30 @@ async function broadcastToPartnerChannels(record: any, category: 'transport' | '
           if (hasKw && !kwMatched) continue;
         }
 
+        // Explicit channel selection for partner client publishing
+        let recordDescObj: any = {};
+        try { recordDescObj = typeof record.description === 'string' ? JSON.parse(record.description) : (record.description || {}); } catch (_) {}
+        const isTargetPartnerChannel = recordDescObj?.partner_channel_db_id && String(partner.id) === String(recordDescObj.partner_channel_db_id);
+        const isTargetTgChannel = recordDescObj?.partner_channel_tg_id && (partner.channel_id === recordDescObj.partner_channel_tg_id || `@${partner.channel_username}` === recordDescObj.partner_channel_tg_id);
+        const isExplicitChannel = Boolean(isTargetPartnerChannel || isTargetTgChannel);
+
         // University / College targeted match for transport lines
         if (category === 'transport') {
-          const hasTargetUni = Boolean(partner.university && partner.university !== 'all' && !partner.university.includes('عام'));
-          if (hasTargetUni) {
-            const targetUni = partner.university.trim();
-            const isUniMatch = isDestinationMatch(targetUni, fullAdSearch, record.city || '') || 
-                               fullAdSearch.includes(targetUni.toLowerCase()) ||
-                               normArabic(fullAdSearch).includes(normArabic(targetUni));
-            // Match if EITHER isUniMatch is true OR kwMatched is true (handles all spelling variations & aliases seamlessly)
-            if (!isUniMatch && !kwMatched) {
-              console.log(`[PARTNER SYNDICATION] Skipping partner ${partner.channel_id} (neither university ${partner.university} nor keywords matched ad)`);
+          if (!isExplicitChannel) {
+            const hasTargetUni = Boolean(partner.university && partner.university !== 'all' && !partner.university.includes('عام'));
+            if (hasTargetUni) {
+              const targetUni = partner.university.trim();
+              const isUniMatch = isDestinationMatch(targetUni, fullAdSearch, record.city || '') || 
+                                 fullAdSearch.includes(targetUni.toLowerCase()) ||
+                                 normArabic(fullAdSearch).includes(normArabic(targetUni));
+              // Match if EITHER isUniMatch is true OR kwMatched is true (handles all spelling variations & aliases seamlessly)
+              if (!isUniMatch && !kwMatched) {
+                console.log(`[PARTNER SYNDICATION] Skipping partner ${partner.channel_id} (neither university ${partner.university} nor keywords matched ad)`);
+                continue;
+              }
+            } else if (hasKw && !kwMatched) {
               continue;
             }
-          } else if (hasKw && !kwMatched) {
-            continue;
           }
         }
 
@@ -12808,9 +12817,10 @@ Deno.serve(async (req: any) => {
         const tgUserIdStr = fromUser?.id ? String(fromUser.id) : String(chatId);
         const { data: myPartnerChs } = await supabase
           .from('partner_channels')
-          .select('id, channel_title, channel_id')
-          .or(`partner_tg_user_id.eq.${tgUserIdStr},partner_tg_chat_id.eq.${String(chatId)},owner_telegram_id.eq.${chatId}`)
-          .limit(1);
+          .select('id, channel_title, channel_id, channel_username, university')
+          .or(`owner_telegram_id.eq.${chatId},partner_tg_user_id.eq.${tgUserIdStr},partner_tg_chat_id.eq.${String(chatId)}`)
+          .eq('is_active', true)
+          .order('id', { ascending: false });
 
         if (!myPartnerChs || myPartnerChs.length === 0) {
           return await updateOrSend(
@@ -12827,21 +12837,94 @@ Deno.serve(async (req: any) => {
           );
         }
 
-        // Start client publishing flow
-        state = { 
-          step: 'partner_client_phone', 
-          data: { 
+        // Render keyboard listing partner channels to choose from
+        const chanBtns: any[][] = [];
+        for (const ch of myPartnerChs) {
+          const title = ch.channel_title || ch.channel_id;
+          const displayHandle = ch.channel_id.startsWith('@') ? ch.channel_id : (ch.channel_username ? `@${ch.channel_username}` : ch.channel_id);
+          chanBtns.push([{
+            text: `📢 ${title} (${displayHandle})`,
+            callback_data: `partner_pick_chan_${ch.id}`
+          }]);
+        }
+
+        if (myPartnerChs.length > 1) {
+          chanBtns.push([{
+            text: '🌐 النشر في كل قنواتي الشريكة + المنصة 🚀',
+            callback_data: 'partner_pick_chan_all'
+          }]);
+        }
+
+        chanBtns.push([
+          { text: '➕ ربط قناة / كروب إضافي', callback_data: 'partner_connect_channel' },
+          { text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }
+        ]);
+
+        await updateOrSend(
+          `💼 <b>نشر إعلان خط لعميلك (مصدر رزق للشريك) 💰✨</b>\n\n` +
+          `يا هلا بك يا شريكنا العزيز! لديك <b>${myPartnerChs.length}</b> قناة/كروب معتمد في شبكة سوق بغداد.\n\n` +
+          `👇 <b>اختر القناة أو الكروب الذي ترغب بنشر إعلان الكابتن / العميل فيه:</b>`,
+          { inline_keyboard: chanBtns }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action.startsWith('partner_pick_chan_')) {
+        const selId = action.replace('partner_pick_chan_', '');
+        let targetName = 'كل قنواتك الشريكة 🌐';
+        let selChannel: any = null;
+
+        if (selId !== 'all') {
+          const { data: ch } = await supabase.from('partner_channels').select('*').eq('id', selId).maybeSingle();
+          if (ch) {
+            selChannel = ch;
+            targetName = `${ch.channel_title || ch.channel_id} (${ch.channel_id})`;
+          }
+        }
+
+        state = {
+          step: 'partner_await_start_wizard',
+          data: {
             is_client_ad: true,
-            type: 'offer'
-          } 
+            type: 'offer',
+            partner_channel_db_id: selId !== 'all' ? selId : null,
+            partner_channel_tg_id: selChannel?.channel_id || null,
+            partner_channel_title: selChannel?.channel_title || null,
+            partner_channel_uni: selChannel?.university || null,
+            destination: selChannel?.university && !selChannel.university.includes('عام') ? selChannel.university : null,
+            university: selChannel?.university && !selChannel.university.includes('عام') ? selChannel.university : null
+          }
         };
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
 
         await updateOrSend(
-          `💼 <b>نشر إعلان خط لعميلك / سائق (مصدر رزق للشريك) 💰✨</b>\n\n` +
-          `يا هلا بك يا شريكنا العزيز! هذه الميزة تتيح لك نشر إعلان خط نيابة عن سائق/عميل لديك، مع تثبيت <b>رقم هاتفه واسمه</b> في الإعلان والبوست المنشور ليتواصل الطلاب معه مباشرة، بينما تحتفظ أنت بعمولتك أو أجرتك المتفق عليها معه! 🤝\n\n` +
-          `📱 <b>الخطوة 1 من 2: أدخل رقم هاتف الكابتن / العميل:</b>\n` +
-          `<i>(مثال: 07701234567 أو 07801234567)</i>`,
+          `🎯 <b>تم اختيار القناة:</b>\n` +
+          `📢 <b>${targetName}</b>\n\n` +
+          `💼 <b>خطوات نشر الإعلان للعميل (مصدر رزق):</b>\n` +
+          `1️⃣ إدخال <b>رقم هاتف الكابتن / العميل</b> لتثبيته في الإعلان والواتساب.\n` +
+          `2️⃣ إدخال <b>اسم الكابتن</b> (مثال: كابتن أبو فهد).\n` +
+          `3️⃣ إكمال تفاصيل الخط (المسار، التوقيت، الأجرة).\n` +
+          `🚀 <b>النتيجة:</b> سينشر الإعلان فوراً في <b>${targetName}</b> مع تثبيت رقم الكابتن، وتصلك بطاقة المنشور ورابطه المباشر فوراً! 🤝💰\n\n` +
+          `👇 <b>اضغط على الزر أدناه لبدء إدخال إعلان العميل:</b>`,
+          {
+            inline_keyboard: [
+              [{ text: '🚀 بدء إدخال إعلان العميل الآن', callback_data: 'partner_start_client_wizard' }],
+              [{ text: '🔄 اختيار قناة أخرى', callback_data: 'partner_publish_for_client' }],
+              [{ text: '🏠 إلغاء والعودة', callback_data: 'main_menu' }]
+            ]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'partner_start_client_wizard') {
+        state.step = 'partner_client_phone';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        await updateOrSend(
+          `📱 <b>الخطوة 1 من 2: أدخل رقم هاتف الكابتن / العميل:</b>\n\n` +
+          `<i>(مثال: <code>07701234567</code> أو <code>07801234567</code>)</i>\n\n` +
+          `هذا الرقم سيظهر في بطاقة الإعلان وزر الواتساب ليتواصل الطلاب والركاب معه مباشرة، بينما تحتفظ أنت بعمولتك وأتعابك 🤝`,
           {
             inline_keyboard: [
               [{ text: '❌ إلغاء والعودة', callback_data: 'main_menu' }]
@@ -17539,7 +17622,12 @@ Deno.serve(async (req: any) => {
           pickup_lng: state.data.pickup_lng || null,
           university: state.data.university || state.data.destination || null,
           university_id: state.data.university_id || null,
-          keywords: state.data.filter_keywords || []
+          keywords: state.data.filter_keywords || [],
+          is_client_ad: state.data.is_client_ad || false,
+          client_name: state.data.client_name || null,
+          partner_channel_db_id: state.data.partner_channel_db_id || null,
+          partner_channel_tg_id: state.data.partner_channel_tg_id || null,
+          partner_channel_title: state.data.partner_channel_title || null
         });
 
         const cleanSavedLocation = (state.data.regions || 'بغداد')
@@ -17619,6 +17707,10 @@ Deno.serve(async (req: any) => {
           : `https://t.me/${LINES_CHANNEL.replace('@', '')}`;
 
         // Immediately send success message to user before heavy background tasks (same as cars section)
+        const partnerTargetLink = stateData.partner_channel_tg_id 
+          ? `https://t.me/${stateData.partner_channel_tg_id.replace('@', '')}` 
+          : channelLink;
+
         const immediateReportLines = stateData.type === 'request'
           ? [
               `🎉 <b>تم نشر طلب خطك وتفعيل الرادار بنجاح 🎓✨</b>`,
@@ -17633,7 +17725,21 @@ Deno.serve(async (req: any) => {
               `✅ تم النشر في قناة خطوط النقل بالبطاقة الزرقاء المميزة`,
               `🔔 رادارك الذكي مفعل لتنبيهك بأي كابتن يمر بمسارك 24/7 ⚡`
             ]
-          : [
+          : (stateData.is_client_ad ? [
+              `🎉 <b>ألف مبروك كابتن! تم نشر إعلان عميلك بنجاح 💼💰</b>`,
+              ``,
+              `📋 <b>ملخص إعلان العميل المنشور:</b>`,
+              `👤 <b>اسم الكابتن / العميل:</b> ${stateData.client_name || 'كابتن خط'}`,
+              `📱 <b>هاتف التواصل المثبت:</b> <code>${stateData.phone}</code>`,
+              `🚌 <b>المسار:</b> ${stateData.regions || cleanRegions} ⬅️ ${stateData.destination || cleanDestination}`,
+              `💰 <b>الأجرة:</b> ${cleanFare}`,
+              `🔖 <b>كود الخط:</b> <code>#${shortId}</code>`,
+              ``,
+              `📡 <b>حالة النشر التلقائي:</b>`,
+              `✅ تم النشر في قناتك الشريكة: <b>${stateData.partner_channel_title || stateData.partner_channel_tg_id || 'قناتك الشريكة'}</b>`,
+              `✅ تم النشر في شبكة خطوط سوق بغداد الرقمية`,
+              `🤝 تم تثبيت هاتف عميلك ليتواصل معه الطلاب مباشرة وتضمن أتعابك!`,
+            ] : [
               isReplacedDuplicate
                 ? `♻️ <b>تم حذف الخط السابق ونشر إعلان خطك الجديد بنجاح! 🚀</b>`
                 : `🎉 <b>ألف مبروك! تم نشر إعلان خطك بنجاح 🚌✨</b>`,
@@ -17650,7 +17756,7 @@ Deno.serve(async (req: any) => {
               `⏳ إنستغرام — قيد النشر التلقائي`,
               ``,
               `📌 <b>سيصلك تقرير النشر الكامل لجميع المنصات خلال لحظات!</b>`,
-            ];
+            ]);
 
         const immediateButtons = stateData.type === 'request'
           ? [
@@ -17661,14 +17767,19 @@ Deno.serve(async (req: any) => {
               [{ text: '📋 إدارة طلبي وإعلاناتي ⚡', callback_data: 'manage_cat_trans' }, { text: '🔔 مساراتي وتنبيهاتي', callback_data: 'manage_my_routes' }],
               [{ text: '🗑️ حذف أو إلغاء الطلب', callback_data: `del_trans_${insertedId}` }, { text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
             ]
-          : [
+          : (stateData.is_client_ad ? [
+              [{ text: `📢 شاهد المنشور في قناتك (${stateData.partner_channel_title || 'القناة'}) 👁️`, url: partnerTargetLink }, { text: '🌐 عرض البطاقة بالموقع', url: link }],
+              [{ text: '💼 نشر إعلان لعميل آخر (مصدر رزق) 💰', callback_data: 'partner_publish_for_client' }],
+              [{ text: '📢 لوحة تحكم القناة الشريكة 📊', callback_data: 'partner_dashboard_main' }],
+              [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            ] : [
               [{ text: '🌐 عرض بطاقتي بالموقع', url: link }, { text: '📢 شاهد بالقناة', url: channelLink }],
               [{ text: '🚀 ترويج البوست في صدارة فيسبوك وانستغرام (VIP)', callback_data: `promo_menu_${insertedId}` }],
               [{ text: '💰 تعديل الأجرة', callback_data: `edit_trans_price_${insertedId}` }, { text: '📞 تعديل الهاتف', callback_data: `edit_trans_phone_${insertedId}` }],
               [{ text: '✅ إغلاق الخط (اكتمل العدد)', callback_data: `solve_trans_${insertedId}` }, { text: '🗑️ حذف الخط نهائياً', callback_data: `del_trans_${insertedId}` }],
               [{ text: '🚌 نشر خط آخر', callback_data: 'publish_transport' }, { text: '📦 إدارة خطوطي', callback_data: 'manage_cat_trans' }],
               [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
-            ];
+            ]);
 
         await updateOrSend(immediateReportLines.join('\n'), {
           inline_keyboard: immediateButtons
