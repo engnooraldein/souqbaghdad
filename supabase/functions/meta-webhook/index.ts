@@ -380,21 +380,29 @@ const handleMessengerInteractive = async (
   // ─────────────────────────────────────────────────────────────────────────
   // 🤖 طلب رابط البوت / التيليجرام
   // ─────────────────────────────────────────────────────────────────────────
-  if (
+  const isBotRequest = 
     cleanPayload === 'TELEGRAM_BOT_INFO' ||
     normText === 'بوت' ||
     normText === 'البوت' ||
+    normText === 'تلي' ||
     normText.includes('رابط بوت') ||
     normText.includes('رابط البوت') ||
+    normText.includes('بوت تلي') ||
     normText.includes('تليجرام') ||
     normText.includes('تليكرام') ||
     normText.includes('تيليجرام') ||
-    normText === 'تلي'
-  ) {
+    normText.includes('مو موقع') ||
+    normText.includes('ماريد موقع') ||
+    normText.includes('اريد البوت') ||
+    normText.includes('دزلي البوت');
+
+  if (isBotRequest) {
     const tgMsg = 
       `🤖 بوت سوق بغداد الرسمي على تيليجرام ✨\n\n` +
-      `يمكنك تصفح ونشر الخطوط والإعلانات مجاناً وبكل سهولة عبر البوت:\n` +
-      `👉 @souqbaghda_bot`;
+      `تفضل يالغالي رابط ومعرف البوت المباشر:\n` +
+      `👉 https://t.me/souqbaghda_bot\n` +
+      `المعرف: @souqbaghda_bot\n\n` +
+      `يمكنك تصفح ونشر الخطوط والإعلانات مجاناً وبكل سهولة عبر البوت!`;
 
     const buttons = [
       { type: "web_url", title: "فتح بوت تيليجرام 🤖", url: "https://t.me/souqbaghda_bot" },
@@ -402,6 +410,37 @@ const handleMessengerInteractive = async (
     ];
 
     await sendMetaButtonTemplate(senderId, tgMsg, buttons, token);
+    return true;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🚗 قسم السيارات وإعلانات السيارات
+  // ─────────────────────────────────────────────────────────────────────────
+  const isCarsRequest = 
+    cleanPayload === 'CARS_MENU' ||
+    normText === 'سيارات' ||
+    normText === 'سيارات للبيع' ||
+    normText === 'سوق السيارات' ||
+    normText === 'معرض السيارات' ||
+    normText === 'قسم السيارات' ||
+    normText.includes('شراء سيار') ||
+    normText.includes('سيارات معروضه');
+
+  if (isCarsRequest) {
+    const carsMsg = 
+      `🚗 قسم السيارات في سوق بغداد ✨\n\n` +
+      `تصفح أحدث إعلانات السيارات الحية بالأسعار، أو انشر سيارتك مجاناً وبدقائق:\n` +
+      `🌐 تصفح كافة السيارات: https://www.souqbaghdad.store\n` +
+      `➕ رابط نشر سيارتك: https://www.souqbaghdad.store/post-ad\n` +
+      `🤖 أو عبر بوت تيليجرام: @souqbaghda_bot`;
+
+    const buttons = [
+      { type: "web_url", title: "تصفح السيارات 🚗", url: "https://www.souqbaghdad.store" },
+      { type: "web_url", title: "نشر سيارتك مجاناً ➕", url: "https://www.souqbaghdad.store/post-ad" },
+      { type: "postback", title: "الرجوع للرئيسية 🔙", payload: "MAIN_MENU" }
+    ];
+
+    await sendMetaButtonTemplate(senderId, carsMsg, buttons, token);
     return true;
   }
 
@@ -941,8 +980,9 @@ const handleMessengerInteractive = async (
   } else {
     const knownKeywords = [
       'الرافدين', 'دجلة', 'الجادرية', 'المستنصرية', 'التكنولوجية', 'النهرين', 'المنصور', 'العراقية',
-      'السيدية', 'الكرادة', 'الدورة', 'الشعب', 'الغزالية', 'اليرموك', 'الزعفرانية',
-      'الحرية', 'الكاظمية', 'زيونة', 'البنوك', 'الأعظمية', 'حي الجامعة', 'مدينة الصدر', 'البيجية'
+      'البيان', 'اشور', 'الاسراء', 'اوروك', 'التراث', 'الفارابي', 'المأمون', 'المعارف', 'النسور', 'العين',
+      'السيدية', 'الكرادة', 'الدورة', 'الشعب', 'الغزالية', 'اليرموك', 'الزعفرانية', 'العامرية', 'الخضراء',
+      'الحرية', 'الكاظمية', 'زيونة', 'البنوك', 'الأعظمية', 'حي الجامعة', 'مدينة الصدر', 'البيجية', 'الوزيرية', 'القاهرة'
     ];
     for (const kw of knownKeywords) {
       if (normText.includes(normalizeArabicText(kw))) {
@@ -1254,7 +1294,18 @@ serve(async (req: Request) => {
                 const aiData = await getAIReply("process_message", platform, userText, senderId, imageUrl, audioUrl);
 
                 if (aiData?.reply) {
-                  await sendMetaMessage(senderId, aiData.reply, currentToken);
+                  if (platform === "facebook") {
+                    const smartQRs = [
+                      { content_type: "text", title: "القائمة الرئيسية 🔙", payload: "MAIN_MENU" },
+                      { content_type: "text", title: "بوت تيليجرام 🤖", payload: "TELEGRAM_BOT_INFO" },
+                      { content_type: "text", title: "خدمة الخطوط 🚌", payload: "ROLE_PASSENGER" },
+                      { content_type: "text", title: "قسم السيارات 🚗", payload: "CARS_MENU" },
+                      { content_type: "text", title: "نشر إعلان 📢", payload: "START_PUBLISH_TRANSPORT" }
+                    ];
+                    await sendMetaQuickReplies(senderId, aiData.reply, smartQRs, currentToken);
+                  } else {
+                    await sendMetaMessage(senderId, aiData.reply, currentToken);
+                  }
                 }
 
                 // إذا كان هناك نتائج بحث إضافية مطابقة
@@ -1317,7 +1368,7 @@ serve(async (req: Request) => {
                   if (postId) {
                     const { data: matchedAd } = await supabase
                       .from('ads')
-                      .select('id, short_id, title, price, year, location, phone, category, university, destination')
+                      .select('id, short_id, title, price, location, phone, category, university, destination')
                       .or(`facebook_post_id.eq.${postId},instagram_post_id.eq.${postId},meta_post_id.eq.${postId}`)
                       .maybeSingle();
 
