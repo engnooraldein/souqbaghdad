@@ -1351,7 +1351,11 @@ serve(async (req: Request) => {
                 console.log(`[${platformName} Comment Event] ID: ${commentId}, Post: ${postId}, Text: "${commentText}"`);
 
                 const aiData = await getAIReply("process_comment", platformName.toLowerCase(), commentText, fromId);
-                const replyText = aiData?.reply || "أهلاً بك عيوني 🌹 راسلنا على ماسنجر أو بوت تيليجرام للرد الفوري وتصفح الخطوط: https://www.souqbaghdad.store";
+                let replyText = aiData?.reply || "تدلل عيوني 🌹 دزيتلك كامل التفاصيل على الخاص 📩 وتكدر تنشر وتتصفح مجاناً عبر بوت التيليكرام: @souqbaghda_bot أو موقعنا: https://www.souqbaghdad.store";
+
+                if (!replyText.includes("@souqbaghda_bot") && !replyText.includes("t.me")) {
+                  replyText += " 🤖 بوت النشر والتصفح السريع: @souqbaghda_bot";
+                }
 
                 if (isInstagram) {
                   await replyToInstagramComment(commentId, replyText, currentToken);
@@ -1363,7 +1367,13 @@ serve(async (req: Request) => {
                 const isGeneralPraise = ["ما شاء الله", "حلو", "بالتوفيق", "منورين", "تبارك"].some(k => cleanComment.includes(k)) && cleanComment.length < 20;
                 
                 if (!isGeneralPraise) {
-                  let pmText = "يا هلا بيك عيوني 👋 للسرعة والرد الفوري، ولنشر خطوطك وتصفحها مجاناً، تفضل بزيارة موقعنا أو محادثتنا هنا مباشرة:\nhttps://www.souqbaghdad.store/transport";
+                  let pmText = 
+                    `يا هلا وكل الهلا بيك عيوني 🌹 نورت سوق بغداد 🇮🇶\n\n` +
+                    `🤖 تكدر تتصفح وتبحث وتنشر خطوط النقل والسيارات مجاناً وبدقائق من خلال بوت التيليجرام السريع:\n` +
+                    `👉 https://t.me/souqbaghda_bot\n` +
+                    `المعرف: @souqbaghda_bot\n\n` +
+                    `🌐 وتكدر تزور منصتنا مباشرة: https://www.souqbaghdad.store\n\n` +
+                    `💬 إذا تدور على خط نقل لجامعتك، سيارة معينة، أو تحب تنشر إعلانك، اكتبلي هنا وحاضر أساعدك خطوة بخطوة وتدلل من عيوني 🌹`;
                   
                   if (postId) {
                     const { data: matchedAd } = await supabase
@@ -1378,12 +1388,26 @@ serve(async (req: Request) => {
                       if (matchedAd.category === 'transport') {
                         adSummary = `خط نقل: ${matchedAd.university || ''} - ${matchedAd.destination || ''}`;
                       }
-                      pmText = `يا هلا بيك عيوني 🌹\nبخصوص المنشور اللي علقت عليه (${adSummary}):\n💰 السعر: ${matchedAd.price || 'تواصل لمعرفة السعر'}\n📍 الموقع: ${matchedAd.location || 'بغداد'}\n🔗 رابط المعاينة والتواصل مع صاحب الإعلان:\n${adUrl}`;
+                      pmText = 
+                        `يا هلا بيك عيوني 🌹\n` +
+                        `بخصوص الإعلان اللي استفسرت عنه (${adSummary}):\n` +
+                        `💰 السعر: ${matchedAd.price ? matchedAd.price + ' د.ع' : 'تواصل لمعرفة السعر'}\n` +
+                        `📍 الموقع: ${matchedAd.location || 'بغداد'}\n` +
+                        `🔗 رابط المعاينة والتواصل المباشر مع صاحب الإعلان:\n${adUrl}\n\n` +
+                        `🤖 وتكدر أيضاً تنشر خطك أو سيارتك أو تبحث عن خطوط مجاناً وبكل سهولة عبر بوت التيليجرام الرسمي:\n` +
+                        `👉 @souqbaghda_bot\n` +
+                        `رابط البوت: https://t.me/souqbaghda_bot\n\n` +
+                        `💬 أنا موجود هنا لمساعدتك فوراً، اكتبلي طلبك أو أي استفسار وتدلل! 🌹`;
                     }
                   }
 
                   if (entryId === ALRAFDAIN_FB_PAGE_ID || entryId === ALRAFDAIN_IG_ID) {
-                    pmText = "أهلاً بك في كلية الرافدين الجامعة 🎓 يسعدنا تواصلك معنا، لمعرفة تفاصيل الخطوط والتسجيل تفضل بزيارة موقعنا: https://www.souqbaghdad.store/transport";
+                    pmText = 
+                      `أهلاً بك في كلية الرافدين الجامعة 🎓 يسعدنا تواصلك معنا!\n\n` +
+                      `🚌 لمعرفة تفاصيل الخطوط المتوفرة والحجز المباشر أو نشر خطك ككابتن، تفضل عبر بوت التيليجرام:\n` +
+                      `👉 https://t.me/souqbaghda_bot (@souqbaghda_bot)\n` +
+                      `🌐 أو عبر منصة سوق بغداد: https://www.souqbaghdad.store/transport\n\n` +
+                      `💬 اكتبلي منطقتك للبحث الفوري عن الخطوط المتوفرة لك!`;
                   }
 
                   await sendPrivateReplyToComment(

@@ -91,6 +91,9 @@ function getLocalIraqiFallback(text: string, isComment: boolean = false, dbConte
     clean.includes("مو موقع") ||
     clean.includes("ماريد موقع")
   ) {
+    if (isComment) {
+      return "يا هلا بيك يالغالي! تفضل رابط بوت التيليكرام الرسمي للنشر والتصفح المباشر: @souqbaghda_bot 🤖 ودزينالك كامل التفاصيل على الخاص 📩 نورتنا!";
+    }
     return `🤖 تفضل عيوني، هذا رابط ومعرف بوت سوق بغداد الرسمي على التيليكرام:
 👉 https://t.me/souqbaghda_bot
 المعرف: @souqbaghda_bot
@@ -103,6 +106,9 @@ function getLocalIraqiFallback(text: string, isComment: boolean = false, dbConte
 
   // 2. نية النشر أو العرض أو البيع
   if (clean.includes("نشر") || clean.includes("انشر") || clean.includes("أنشر") || clean.includes("ابيع") || clean.includes("أبيع") || clean.includes("اعرض") || clean.includes("أعرض") || clean.includes("اعلان") || clean.includes("إعلان")) {
+    if (isComment) {
+      return "تدلل عيوني 🌹 النشر مجاني 100%! تكدر تنشر إعلانك أو خطك بدقائق عبر بوت التيليكرام: @souqbaghda_bot أو موقعنا: https://www.souqbaghdad.store وشوف رسالتنا بالخاص 📩";
+    }
     if (clean.includes("خط") || clean.includes("طالب") || clean.includes("سايق") || clean.includes("كابتن")) {
       return `🚌 تدلل عيوني! تكدر تنشر خطك أو طلبك هنا بالماسنجر مباشرة وبكل سهولة:
 • اكتب "نشر خط" إذا كنت كابتن وعندك باص/سيارة.
@@ -123,6 +129,9 @@ function getLocalIraqiFallback(text: string, isComment: boolean = false, dbConte
 
   // 3. الاستفسار عن السيارات والبحث عنها
   if (clean.includes("سيار") || clean.includes("سياره") || clean.includes("سيارات")) {
+    if (isComment) {
+      return "يا هلا بيك عيوني 🌹 دزيتلك رابط الإعلان وكامل تفاصيل السيارات على الخاص 📩 وتكدر تتصفح وتنشر مجاناً عبر بوت التيليكرام: @souqbaghda_bot";
+    }
     if (dbContext) {
       return `🚗 يا هلا بيك يالغالي! هاي أحدث السيارات المطابقة لطلبك والمعروضة حالياً:\n${dbContext}\nتكدر تضغط على رابط أي إعلان للتواصل مع صاحبه مباشرة 🌹`;
     }
@@ -134,6 +143,9 @@ function getLocalIraqiFallback(text: string, isComment: boolean = false, dbConte
 
   // 4. خطوط النقل والتوصيل للجامعات والموظفين
   if (clean.includes("خط") || clean.includes("نقل") || clean.includes("جامع") || clean.includes("سايق") || clean.includes("طالب") || clean.includes("كوسية") || clean.includes("رافدين") || clean.includes("دجلة") || clean.includes("بغداد")) {
+    if (isComment) {
+      return "يا هلا بيك يالغالي 🚌 دزيتلك تفاصيل الخطوط ورابط الحجز على الخاص 📩 وتكدر تبحث وتنشر خطك فوراً عبر بوت التيليكرام: @souqbaghda_bot";
+    }
     if (dbContext) {
       return `🚌 يا هلا بيك! هاي خطوط النقل المتوفرة حالياً حسب طلبك:\n${dbContext}\nتكدر تتواصل وية الكابتن أو تحجز مقعدك مباشرة!`;
     }
@@ -164,29 +176,35 @@ function getLocalIraqiFallback(text: string, isComment: boolean = false, dbConte
   // 8. الاستفسار عن الأسعار
   if (clean.includes("سعر") || clean.includes("بكم") || clean.includes("شكد") || clean.includes("بيش") || clean.includes("السعر") || clean.includes("قسط")) {
     return isComment 
-      ? "أهلاً بك عيوني 🌹 التفاصيل والأسعار معروضة بالكامل، وتكدر تتواصل مباشرة مع البائع عبر موقعنا: https://www.souqbaghdad.store"
+      ? "تدلل عيوني 🌹 دزيتلك السعر وكامل التفاصيل على الخاص 📩 وتكدر تتصفح وتنشر مجاناً عبر بوت التيليكرام: @souqbaghda_bot أو موقعنا: https://www.souqbaghdad.store"
       : "يا هلا بيك يالغالي! تكدر تشوف كل الأسعار الحية وتفاصيل الإعلانات وأرقام هواتف البائعين مباشرة من خلال منصتنا: https://www.souqbaghdad.store أو اكتبلي اسم السلعة أو وجهة الخط لأعطيك تفاصيلها.";
   }
 
   // 9. التحيات
   if (clean.includes("مرحبا") || clean.includes("مرحباً") || clean.includes("هلو") || clean.includes("سلام") || clean.includes("السلام") || clean.includes("مساء") || clean.includes("صباح")) {
     return isComment
-      ? "أهلاً بك عيوني 🇮🇶 نورتنا في سوق بغداد! تفضل بزيارة المنصة: https://www.souqbaghdad.store"
+      ? "أهلاً بك عيوني 🇮🇶 نورتنا في سوق بغداد! دزينالك رسالة على الخاص 📩 وتكدر تنشر وتتصفح مجاناً عبر بوت التيليكرام: @souqbaghda_bot"
       : "يا هلا وكل الهلا بيك عيوني! نورت سوق بغداد 🇮🇶\nشلون أقدر أخدمك اليوم؟\n1️⃣ تبحث عن خط نقل للجامعة أو المدرسة؟ (اكتب اسم جامعتك)\n2️⃣ تبحث عن سيارة أو منتج؟\n3️⃣ تحب تنشر إعلانك مجاناً وبسرعة؟\n(اكتبلي طلبك وتدلل من عيوني 🌹)";
   }
 
   // 10. إذا كان هناك بحث مطابق في قاعدة البيانات
   if (dbContext) {
+    if (isComment) {
+      return "يا هلا بيك عيوني 🌹 دزيتلك روابط الإعلانات المطابقة وكامل التفاصيل على الخاص 📩 وتكدر تنشر وتتصفح مجاناً عبر بوت التيليكرام: @souqbaghda_bot";
+    }
     return `يا هلا بيك عيوني! 🌹 بخصوص استفسارك، هاي النتائج المتوفرة حالياً:\n${dbContext}\nوتكدر تشوف كل التفاصيل من موقعنا: https://www.souqbaghdad.store`;
   }
 
   // 11. طلب الروابط العامة للموقع
   if (clean.includes("رابط") || clean.includes("موقع") || clean.includes("لينك") || clean.includes("وين") || clean.includes("عنوان") || clean.includes("صفحة")) {
+    if (isComment) {
+      return "يا هلا بيك يالغالي! تفضل رابط المنصة: https://www.souqbaghdad.store 🌐 ورابط بوت التيليكرام للنشر المباشر: @souqbaghda_bot 🤖 ودزينالك التفاصيل بالخاص 📩";
+    }
     return "تفضل رابط منصة سوق بغداد للتصفح المباشر ونشر الإعلانات مجاناً: https://www.souqbaghdad.store 🌐 نورتنا يالغالي!";
   }
 
   return isComment
-    ? "أهلاً بك في سوق بغداد 🇮🇶 نورتنا عيوني! للتفاصيل وزيارة المنصة: https://www.souqbaghdad.store"
+    ? "أهلاً بك في سوق بغداد 🇮🇶 نورتنا عيوني! دزينالك كامل التفاصيل على الخاص 📩 وتكدر تتصفح وتنشر مجاناً عبر بوت التيليكرام: @souqbaghda_bot أو موقعنا: https://www.souqbaghdad.store"
     : "يا هلا بيك عيوني نورت سوق بغداد! 🇮🇶 اكتبلي شنو طلبك (شراء، بيع، خط نقل، أو نشر إعلان) وحاضر أساعدك فوراً وبأدق التفاصيل.";
 }
 
