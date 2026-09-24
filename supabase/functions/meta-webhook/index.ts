@@ -41,6 +41,9 @@ const normalizeArabicText = (txt: string) => {
 const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || Deno.env.get("BOT_TOKEN") || "";
 const ADMIN_CHAT_ID = Deno.env.get("ADMIN_CHAT_ID") || "777557036";
 
+// ذاكرة سريعة لمنع تكرار معالجة نفس الرسالة (In-Memory Dedup Cache)
+const processedMetaMsgIds = new Set<string>();
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // ── 1. إرسال رسالة نصية بسيطة ──
@@ -291,33 +294,49 @@ const handleMessengerInteractive = async (
 
   const userChatId = `fb_${senderId}`;
   
-  // 1. قراءة حالة المستخدم الحالية من جدول telegram_users
-  const { data: userRow } = await supabase
-    .from('telegram_users')
-    .select('bot_state, user_role, phone_number, user_id')
-    .eq('telegram_chat_id', userChatId)
+  // 1. قراءة حالة المستخدم الحالية من جدول bot_conversations المخصص لرسائل المنصات
+  const { data: convRow } = await supabase
+    .from('bot_conversations')
+    .select('context')
+    .eq('platform', platform)
+    .eq('sender_id', senderId)
     .maybeSingle();
 
-  let botState: any = userRow?.bot_state || {};
+  let botContext: any = convRow?.context || {};
+  let botState: any = botContext?.bot_state || {};
+  let userRole: string = botContext?.user_role || '';
 
   // دوال مساعدة لإدارة الحالة (State Management)
   const setSessionState = async (newState: any, newRole?: string) => {
     botState = newState;
-    const record: any = {
-      telegram_chat_id: userChatId,
+    if (newRole) userRole = newRole;
+    const newContext = {
+      ...botContext,
       bot_state: newState,
-      username: `meta_${senderId}`
+      ...(userRole ? { user_role: userRole } : {})
     };
-    if (newRole) record.user_role = newRole;
-    await supabase.from('telegram_users').upsert(record, { onConflict: 'telegram_chat_id' });
+    botContext = newContext;
+    await supabase.from('bot_conversations').upsert({
+      platform,
+      sender_id: senderId,
+      context: newContext,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'platform,sender_id' });
   };
 
   const clearSessionState = async () => {
     botState = {};
-    await supabase.from('telegram_users').upsert({
-      telegram_chat_id: userChatId,
+    const newContext = {
+      ...botContext,
       bot_state: {}
-    }, { onConflict: 'telegram_chat_id' });
+    };
+    botContext = newContext;
+    await supabase.from('bot_conversations').upsert({
+      platform,
+      sender_id: senderId,
+      context: newContext,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'platform,sender_id' });
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -359,6 +378,90 @@ const handleMessengerInteractive = async (
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // 🤖 طلب رابط البوت / التيليجرام
+  // ─────────────────────────────────────────────────────────────────────────
+  if (
+    cleanPayload === 'TELEGRAM_BOT_INFO' ||
+    normText === 'بوت' ||
+    normText === 'البوت' ||
+    normText.includes('رابط بوت') ||
+    normText.includes('رابط البوت') ||
+    normText.includes('تليجرام') ||
+    normText.includes('تليكرام') ||
+    normText.includes('تيليجرام') ||
+    normText === 'تلي'
+  ) {
+    const tgMsg = 
+      `🤖 بوت سوق بغداد الرسمي على تيليجرام ✨\n\n` +
+      `يمكنك تصفح ونشر الخطوط والإعلانات مجاناً وبكل سهولة عبر البوت:\n` +
+      `👉 @souqbaghda_bot`;
+
+    const buttons = [
+      { type: "web_url", title: "فتح بوت تيليجرام 🤖", url: "https://t.me/souqbaghda_bot" },
+      { type: "postback", title: "الرجوع للرئيسية 🔙", payload: "MAIN_MENU" }
+    ];
+
+    await sendMetaButtonTemplate(senderId, tgMsg, buttons, token);
+    return true;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🚗 طلب نشر سيارة أو إعلان عام
+  // ─────────────────────────────────────────────────────────────────────────
+  if (
+    normText.includes('نشر سيار') ||
+    normText.includes('اعلان سيار') ||
+    normText.includes('بيع سيار')
+  ) {
+    const carPubMsg = 
+      `🚗 نشر إعلان سيارة في سوق بغداد ✨\n\n` +
+      `يمكنك نشر سيارتك للبيع مجاناً مع الصور والمواصفات الكاملة:\n` +
+      `🌐 عبر الموقع: https://www.souqbaghdad.store/post-ad\n` +
+      `🤖 أو عبر بوت تيليجرام: @souqbaghda_bot`;
+
+    const buttons = [
+      { type: "web_url", title: "نشر سيارة بالموقع 🌐", url: "https://www.souqbaghdad.store/post-ad" },
+      { type: "web_url", title: "النشر عبر البوت 🤖", url: "https://t.me/souqbaghda_bot" },
+      { type: "postback", title: "الرجوع للرئيسية 🔙", payload: "MAIN_MENU" }
+    ];
+
+    await sendMetaButtonTemplate(senderId, carPubMsg, buttons, token);
+    return true;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 📢 التعامل الذكي مع كلمة "نشر" ومشتقاتها
+  // ─────────────────────────────────────────────────────────────────────────
+  const isGeneralPublish = 
+    normText === 'نشر' || 
+    normText === 'انشر' || 
+    normText === 'اريد انشر' || 
+    normText === 'طريقه النشر' ||
+    normText === 'نشر اعلان' ||
+    normText === 'اعلان';
+
+  if (isGeneralPublish) {
+    if (userRole === 'passenger') {
+      return await handleMessengerInteractive(senderId, 'START_STUDENT_REQUEST', '', token, platform);
+    } else if (userRole === 'driver') {
+      return await handleMessengerInteractive(senderId, 'START_PUBLISH_TRANSPORT', '', token, platform);
+    } else {
+      const pubChoiceMsg = 
+        `📢 ما الذي ترغب بنشره في سوق بغداد؟ ✨\n\n` +
+        `اختر نوع الخدمة للمتابعة فوراً:`;
+
+      const buttons = [
+        { type: "postback", title: "نشر خط ككابتن 🚌", payload: "START_PUBLISH_TRANSPORT" },
+        { type: "postback", title: "نشر طلب كطالب 📝", payload: "START_STUDENT_REQUEST" },
+        { type: "postback", title: "الرجوع للرئيسية 🔙", payload: "MAIN_MENU" }
+      ];
+
+      await sendMetaButtonTemplate(senderId, pubChoiceMsg, buttons, token);
+      return true;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // 🎓 1. واجهة الطالب / الراكب (Student Role)
   // ─────────────────────────────────────────────────────────────────────────
   if (
@@ -375,7 +478,7 @@ const handleMessengerInteractive = async (
 
     const buttons = [
       { type: "postback", title: "البحث عن خطوط 🚌", payload: "SEARCH_TRANSPORT" },
-      { type: "postback", title: "نشر طلب خط كطالب 📝", payload: "START_STUDENT_REQUEST" },
+      { type: "postback", title: "نشر طلب خط 📝", payload: "START_STUDENT_REQUEST" },
       { type: "postback", title: "الرجوع للرئيسية 🔙", payload: "MAIN_MENU" }
     ];
 
@@ -398,7 +501,7 @@ const handleMessengerInteractive = async (
       `انشر خطك الجامعي واستقبل طلبات الحجز المباشرة من الطلاب:`;
 
     const buttons = [
-      { type: "postback", title: "نشر خط نقل جديد 🚌", payload: "START_PUBLISH_TRANSPORT" },
+      { type: "postback", title: "نشر خط جديد 🚌", payload: "START_PUBLISH_TRANSPORT" },
       { type: "postback", title: "طلبات الطلاب 👥", payload: "VIEW_STUDENT_REQUESTS" },
       { type: "postback", title: "الرجوع للرئيسية 🔙", payload: "MAIN_MENU" }
     ];
@@ -437,8 +540,11 @@ const handleMessengerInteractive = async (
     cleanPayload === 'START_STUDENT_REQUEST' || 
     normText.includes('طلب خط') || 
     normText.includes('نشر طلب') ||
+    normText.includes('طالب خط') ||
+    normText.includes('كطالب') ||
     normText === 'طلب خط كطالب' ||
-    normText === 'نشر طلب خط كطالب'
+    normText === 'نشر طلب خط كطالب' ||
+    (userRole === 'passenger' && (normText.includes('طلب') || normText.includes('نشر')))
   ) {
     await setSessionState({ wizard: 'req_transport', step: 'waiting_dest', data: {} }, 'passenger');
 
@@ -567,7 +673,10 @@ const handleMessengerInteractive = async (
   if (
     cleanPayload === 'START_PUBLISH_TRANSPORT' || 
     normText.includes('نشر خط') || 
-    normText.includes('انشر خط')
+    normText.includes('انشر خط') ||
+    normText.includes('خط نقل جديد') ||
+    normText === 'نشر خط نقل جديد' ||
+    (userRole === 'driver' && (normText.includes('خط') || normText.includes('نشر')))
   ) {
     await setSessionState({ wizard: 'pub_transport', step: 'waiting_dest', data: {} }, 'driver');
 
@@ -750,7 +859,7 @@ const handleMessengerInteractive = async (
     const priceStr = savedData.price || '0';
     const shortId = Math.random().toString(36).substring(2, 7).toUpperCase();
 
-    const fallbackSellerId = userRow?.user_id || '1bf7e012-4d5d-46f3-8c2a-2848defffc11';
+    const fallbackSellerId = convRow?.user_id || '1bf7e012-4d5d-46f3-8c2a-2848defffc11';
 
     try {
       await supabase.from('ads').insert({
@@ -1087,21 +1196,15 @@ serve(async (req: Request) => {
 
                 // Dedup Guard لمنع تكرار معالجة نفس الرسالة
                 if (msgId) {
-                  const dedupKey = `meta_msg_${msgId}`;
-                  const { data: existing } = await supabase
-                    .from('telegram_users')
-                    .select('telegram_chat_id')
-                    .eq('telegram_chat_id', dedupKey)
-                    .maybeSingle();
-                  if (existing) {
+                  if (processedMetaMsgIds.has(msgId)) {
                     console.log(`[Dedup Guard] Already processed message: ${msgId}`);
                     continue;
                   }
-                  supabase.from('telegram_users').upsert({
-                    telegram_chat_id: dedupKey,
-                    username: 'meta_dedup',
-                    created_at: new Date().toISOString()
-                  }, { onConflict: 'telegram_chat_id' }).then(() => {});
+                  processedMetaMsgIds.add(msgId);
+                  if (processedMetaMsgIds.size > 2000) {
+                    const firstItem = processedMetaMsgIds.values().next().value;
+                    if (firstItem) processedMetaMsgIds.delete(firstItem);
+                  }
                 }
 
                 // استخراج المرفقات (صور أو بصمات صوتية)

@@ -29,7 +29,7 @@ async function fetchDatabaseContext(queryText: string): Promise<string> {
     if (clean.includes('اخر') || clean.includes('اخير') || clean.includes('أحدث') || clean.includes('جديد') || clean.includes('شنو نزل') || clean.includes('اعلانات') || clean.includes('سيار') || clean.includes('خط')) {
       const { data: latestAds } = await supabase
         .from('ads')
-        .select('title, price, year, location, city, phone, short_id, category, type, created_at')
+        .select('title, price, location, city, phone, short_id, category, type, created_at')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(4);
@@ -37,7 +37,7 @@ async function fetchDatabaseContext(queryText: string): Promise<string> {
       if (latestAds && latestAds.length > 0) {
         adsContext += `\n[إعلانات حية معروضة حالياً بالمنصة]:\n`;
         latestAds.forEach((ad, i) => {
-          adsContext += `${i + 1}. ${ad.title} (موديل: ${ad.year || 'غير محدد'}) | السعر: ${ad.price} | الموقع: ${ad.city || ad.location || 'بغداد'} | رقم هاتف البائع: ${ad.phone || 'تواصل عبر الموقع'} | رقم الإعلان: #${ad.short_id || ad.title} | الرابط: https://www.souqbaghdad.store/product/${ad.short_id}\n`;
+          adsContext += `${i + 1}. ${ad.title} | السعر: ${ad.price} | الموقع: ${ad.city || ad.location || 'بغداد'} | رقم هاتف البائع: ${ad.phone || 'تواصل عبر الموقع'} | رقم الإعلان: #${ad.short_id || ad.title} | الرابط: https://www.souqbaghdad.store/product/${ad.short_id}\n`;
         });
       }
     }
@@ -47,7 +47,7 @@ async function fetchDatabaseContext(queryText: string): Promise<string> {
     
     if (keywords.length > 0) {
       const searchTerms = keywords.slice(0, 3);
-      let query = supabase.from('ads').select('title, price, year, location, city, phone, short_id, category, description, created_at').eq('status', 'active');
+      let query = supabase.from('ads').select('title, price, location, city, phone, short_id, category, description, created_at').eq('status', 'active');
       
       const orConditions = searchTerms.map(t => `title.ilike.%${t}%,description.ilike.%${t}%,location.ilike.%${t}%`).join(',');
       const { data: searchAds } = await query.or(orConditions).order('created_at', { ascending: false }).limit(4);
@@ -55,7 +55,7 @@ async function fetchDatabaseContext(queryText: string): Promise<string> {
       if (searchAds && searchAds.length > 0) {
         adsContext += `\n[إعلانات مطابقة لبحث الزبون]:\n`;
         searchAds.forEach((ad, i) => {
-          adsContext += `${i + 1}. ${ad.title} (سنة: ${ad.year || 'غير محدد'}) | السعر: ${ad.price} | الموقع: ${ad.city || ad.location || 'بغداد'} | هاتف البائع: ${ad.phone || 'متوفر بالموقع'} | رقم الإعلان: #${ad.short_id} | الرابط: https://www.souqbaghdad.store/product/${ad.short_id}\n`;
+          adsContext += `${i + 1}. ${ad.title} | السعر: ${ad.price} | الموقع: ${ad.city || ad.location || 'بغداد'} | هاتف البائع: ${ad.phone || 'متوفر بالموقع'} | رقم الإعلان: #${ad.short_id} | الرابط: https://www.souqbaghdad.store/product/${ad.short_id}\n`;
         });
       }
     }
@@ -266,7 +266,7 @@ serve(async (req) => {
             last_message: userText || (audio_url ? "[تسجيل صوتي]" : "[صورة]"),
             last_reply: aiReply,
             updated_at: new Date().toISOString()
-          });
+          }, { onConflict: 'platform,sender_id' });
         } catch(e) {}
       }
 
