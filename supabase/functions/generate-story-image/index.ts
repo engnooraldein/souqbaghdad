@@ -278,7 +278,7 @@ serve(async (req: Request) => {
           </div>
 
           <!-- Left side: Brand Logo -->
-          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; background: #ffffff; padding: 12px 22px; border-radius: 22px; box-shadow: 0 4px 15px rgba(124,58,237,0.08); border: 1.5px solid ${colorBorder}; margin-top: 4px;">
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; background: #ffffff; padding: 12px 22px; border-radius: 22px; border: 1.5px solid ${colorBorder}; margin-top: 4px;">
             <div style="display: flex; flex-direction: column; align-items: flex-end;">
               <span style="font-size: 26px; font-weight: bold; color: #1e1b4b; line-height: 1.1;">${fixAr('سوق بغداد')}</span>
               <span style="font-size: 13px; color: #6b7280; letter-spacing: 1.5px; font-weight: bold;">SOUQ BAGHDAD</span>
@@ -288,7 +288,7 @@ serve(async (req: Request) => {
         </div>
 
         <!-- 2. Route Card (Floating White Card) -->
-        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #ffffff; border: 1.5px solid ${colorBorder}; border-radius: 28px; padding: 22px 32px; box-shadow: 0 10px 30px rgba(76,29,149,0.06); position: relative;">
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #ffffff; border: 1.5px solid ${colorBorder}; border-radius: 28px; padding: 22px 32px;  position: relative;">
           
           <!-- الانطلاق من (Right in layout) -->
           <div style="display: flex; flex-direction: column; align-items: flex-start; flex: 1;">
@@ -324,7 +324,7 @@ serve(async (req: Request) => {
         <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; gap: 20px; position: relative;">
           
           <!-- Price Card (Dark bg - dynamic color) -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; flex: 1.1; background: ${colorDarkBg}; border-radius: 24px; padding: 20px 28px; box-shadow: 0 10px 25px rgba(35,11,61,0.25);">
+          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; flex: 1.1; background: ${colorDarkBg}; border-radius: 24px; padding: 20px 28px; ">
             <div style="display: flex; flex-direction: column; align-items: flex-start;">
               <span style="font-size: 20px; color: ${colorSubText}; font-weight: bold; margin-bottom: 4px;">${fixAr(fareTitle)}</span>
               <span style="font-size: 38px; color: #ffffff; font-weight: bold;">${fixAr(rawFare)}</span>
@@ -335,7 +335,7 @@ serve(async (req: Request) => {
           </div>
 
           <!-- Ad Code Card (White) -->
-          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; flex: 0.9; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 24px; padding: 20px 28px; box-shadow: 0 8px 20px rgba(76,29,149,0.04);">
+          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; flex: 0.9; background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 24px; padding: 20px 28px; ">
             <div style="display: flex; flex-direction: column; align-items: flex-start;">
               <span style="font-size: 20px; color: #6b7280; font-weight: bold; margin-bottom: 4px;">${fixAr('كود الإعلان')}</span>
               <span style="font-size: 32px; color: #2e0854; font-weight: bold; letter-spacing: 1px;">${formattedId}</span>
@@ -347,7 +347,7 @@ serve(async (req: Request) => {
         </div>
 
         <!-- 4. Schedule & Details Pill Row (3 Columns Card) -->
-        <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; background: #ffffff; border: 1.5px solid ${colorCardBorder}; border-radius: 24px; padding: 18px 24px; box-shadow: 0 8px 20px rgba(76,29,149,0.04); position: relative;">
+        <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; background: #ffffff; border: 1.5px solid ${colorCardBorder}; border-radius: 24px; padding: 18px 24px;  position: relative;">
           
           <!-- Column 1: نوع الخط -->
           <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; flex: 0.95;">
@@ -387,7 +387,7 @@ serve(async (req: Request) => {
         <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; gap: 20px; position: relative;">
           
           <!-- Right Box: المرور والمناطق -->
-          <div style="display: flex; flex-direction: row; align-items: flex-start; gap: 16px; flex: 1.3; background: #ffffff; border: 1.5px solid ${colorCardBorder}; border-radius: 24px; padding: 18px 24px; box-shadow: 0 8px 20px rgba(76,29,149,0.04);">
+          <div style="display: flex; flex-direction: row; align-items: flex-start; gap: 16px; flex: 1.3; background: #ffffff; border: 1.5px solid ${colorCardBorder}; border-radius: 24px; padding: 18px 24px; ">
             <div style="display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: ${colorCardIconBg}; border: 1.5px solid ${colorCardBorder}; border-radius: 25px;">
               <img src="${svgImg(SVGS.pin)}" width="24" height="24" />
             </div>
@@ -398,7 +398,7 @@ serve(async (req: Request) => {
           </div>
 
           <!-- Left Box: الفئة المستهدفة -->
-          <div style="display: flex; flex-direction: row; align-items: flex-start; gap: 16px; flex: 1; background: #ffffff; border: 1.5px solid ${colorCardBorder}; border-radius: 24px; padding: 18px 24px; box-shadow: 0 8px 20px rgba(76,29,149,0.04);">
+          <div style="display: flex; flex-direction: row; align-items: flex-start; gap: 16px; flex: 1; background: #ffffff; border: 1.5px solid ${colorCardBorder}; border-radius: 24px; padding: 18px 24px; ">
             <div style="display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: ${colorCardIconBg}; border: 1.5px solid ${colorCardBorder}; border-radius: 25px;">
               <img src="${svgImg(SVGS.users)}" width="26" height="26" />
             </div>
@@ -410,11 +410,11 @@ serve(async (req: Request) => {
         </div>
 
         <!-- 6. Contact & QR Code Card -->
-        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #ffffff; border: 1.5px solid ${colorCardBorder}; border-radius: 24px; padding: 18px 28px; box-shadow: 0 8px 20px rgba(76,29,149,0.04); position: relative;">
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; background: #ffffff; border: 1.5px solid ${colorCardBorder}; border-radius: 24px; padding: 18px 28px;  position: relative;">
           
           <!-- Contact Phone / Telegram -->
           <div style="display: flex; flex-direction: row; align-items: center; gap: 14px;">
-            <div style="display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; background: ${colorThemeBtn}; border-radius: 26px; box-shadow: 0 4px 12px ${isRequest ? 'rgba(2,132,199,0.3)' : 'rgba(124,58,237,0.3)'};">
+            <div style="display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; background: ${colorThemeBtn}; border-radius: 26px; ">
               <img src="${svgImg(isTelegramOnly ? SVGS.telegram : SVGS.phone)}" width="24" height="24" />
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-start;">
@@ -436,7 +436,7 @@ serve(async (req: Request) => {
                 <span style="font-size: 17px; color: #ffffff; font-weight: bold;">${shortUrlDisplay}</span>
               </div>
             </div>
-            <div style="display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; background: ${colorThemeBtn}; border-radius: 26px; box-shadow: 0 4px 12px ${isRequest ? 'rgba(2,132,199,0.3)' : 'rgba(124,58,237,0.3)'};">
+            <div style="display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; background: ${colorThemeBtn}; border-radius: 26px; ">
               <img src="${svgImg(SVGS.link)}" width="24" height="24" />
             </div>
           </div>

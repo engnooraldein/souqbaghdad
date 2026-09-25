@@ -3167,42 +3167,47 @@ async function broadcastToPartnerChannels(record: any, category: 'transport' | '
 
     for (const partner of partners) {
       try {
-        // Mode: Only My Ads (متجري فقط)
-        if (partner.only_my_ads || partner.category === 'my_store') {
-          let isOwnerAd = false;
+        const pOwnerTg = partner.owner_telegram_id || partner.partner_tg_chat_id;
+        let isOwnerAd = false;
 
-          // 1. Match by Telegram Chat ID
-          if (partner.owner_telegram_id && record.telegram_chat_id && String(partner.owner_telegram_id) === String(record.telegram_chat_id)) {
+        // 1. Match by Telegram Chat ID
+        if (pOwnerTg && record.telegram_chat_id && String(pOwnerTg) === String(record.telegram_chat_id)) {
+          isOwnerAd = true;
+        }
+
+        // 2. Match by User ID or Phone
+        if (!isOwnerAd && pOwnerTg) {
+          const { data: tgUser } = await supabaseClient.from('telegram_users').select('user_id, phone_number').eq('telegram_chat_id', String(pOwnerTg)).maybeSingle();
+          const partnerUserId = tgUser?.user_id;
+          const partnerTgPhone = tgUser?.phone_number;
+
+          if (partnerUserId && recordSellerId && String(partnerUserId) === String(recordSellerId)) {
             isOwnerAd = true;
           }
 
-          // 2. Match by User ID
-          if (!isOwnerAd) {
-            const { data: tgUser } = await supabaseClient.from('telegram_users').select('user_id, phone_number').eq('telegram_chat_id', partner.owner_telegram_id).maybeSingle();
-            const partnerUserId = tgUser?.user_id;
-            const partnerTgPhone = tgUser?.phone_number;
-
-            if (partnerUserId && recordSellerId && String(partnerUserId) === String(recordSellerId)) {
-              isOwnerAd = true;
-            }
-
-            // 3. Match by Phone Number
-            if (!isOwnerAd && record.phone) {
-              const cleanRecPhone = String(record.phone).replace(/[^0-9]/g, '');
-              if (partnerTgPhone) {
-                const cleanTgPhone = String(partnerTgPhone).replace(/[^0-9]/g, '');
-                if (cleanRecPhone.slice(-8) === cleanTgPhone.slice(-8)) isOwnerAd = true;
+          // 3. Match by Phone Number
+          if (!isOwnerAd && record.phone) {
+            const cleanRecPhone = String(record.phone).replace(/[^0-9]/g, '');
+            if (partnerTgPhone) {
+              const cleanTgPhone = String(partnerTgPhone).replace(/[^0-9]/g, '');
+              if (cleanRecPhone.length >= 7 && cleanTgPhone.length >= 7 && cleanRecPhone.slice(-8) === cleanTgPhone.slice(-8)) {
+                isOwnerAd = true;
               }
-              if (!isOwnerAd && partnerUserId) {
-                const { data: prof } = await supabaseClient.from('profiles').select('phone').eq('id', partnerUserId).maybeSingle();
-                if (prof?.phone) {
-                  const cleanProfPhone = String(prof.phone).replace(/[^0-9]/g, '');
-                  if (cleanRecPhone.slice(-8) === cleanProfPhone.slice(-8)) isOwnerAd = true;
+            }
+            if (!isOwnerAd && partnerUserId) {
+              const { data: prof } = await supabaseClient.from('profiles').select('phone').eq('id', partnerUserId).maybeSingle();
+              if (prof?.phone) {
+                const cleanProfPhone = String(prof.phone).replace(/[^0-9]/g, '');
+                if (cleanRecPhone.length >= 7 && cleanProfPhone.length >= 7 && cleanRecPhone.slice(-8) === cleanProfPhone.slice(-8)) {
+                  isOwnerAd = true;
                 }
               }
             }
           }
+        }
 
+        // Mode: Only My Ads (متجري فقط)
+        if (partner.only_my_ads || partner.category === 'my_store') {
           if (!isOwnerAd) {
             console.log(`[PARTNER SYNDICATION] Skipping partner ${partner.channel_id} (not owner's ad)`);
             continue; // Skip because it's not the store owner's ad
@@ -3309,26 +3314,37 @@ async function broadcastToPartnerChannels(record: any, category: 'transport' | '
           }
         }
 
-        // Increment partner posts count and earned points (+1 point reward per publish as requested)
+        // Increment partner posts count
         const updatedPosts = (partner.posts_count || 0) + 1;
-        const updatedPoints = (partner.earned_points || 0) + 1;
+        let updatedPoints = partner.earned_points || 0;
+        let pointsEarnedThisPost = 0;
+
+        // Reward with +1 point ONLY if the ad is from another user/client (syndication), NOT if the partner himself published it!
+        if (!isOwnerAd) {
+          pointsEarnedThisPost = 1;
+          updatedPoints += 1;
+        }
+
         await supabaseClient.from('partner_channels').update({
           posts_count: updatedPosts,
           earned_points: updatedPoints,
           updated_at: new Date().toISOString()
         }).eq('id', partner.id);
 
-        // Also add point to the partner's user profile wallet so it reflects in their account balance!
-        const pOwnerTg = partner.owner_telegram_id || partner.partner_tg_chat_id;
+        // Also add point to the partner's user profile wallet if earned, or get current balance
         let userCurrentPoints = updatedPoints;
         if (pOwnerTg) {
           try {
             const { data: tgUser } = await supabaseClient.from('telegram_users').select('user_id').eq('telegram_chat_id', String(pOwnerTg)).maybeSingle();
             if (tgUser?.user_id) {
               const { data: prof } = await supabaseClient.from('profiles').select('points').eq('id', tgUser.user_id).maybeSingle();
-              const newPts = (prof?.points || 0) + 1;
-              await supabaseClient.from('profiles').update({ points: newPts }).eq('id', tgUser.user_id);
-              userCurrentPoints = newPts;
+              if (pointsEarnedThisPost > 0) {
+                const newPts = (prof?.points || 0) + pointsEarnedThisPost;
+                await supabaseClient.from('profiles').update({ points: newPts }).eq('id', tgUser.user_id);
+                userCurrentPoints = newPts;
+              } else {
+                userCurrentPoints = prof?.points || 0;
+              }
             }
           } catch(e) {}
         }
@@ -3355,11 +3371,15 @@ async function broadcastToPartnerChannels(record: any, category: 'transport' | '
         // Notify partner privately of the new post
         const pTargetChatId = partner.partner_tg_chat_id || partner.owner_telegram_id;
         if (pTargetChatId) {
+          const rewardNotice = pointsEarnedThisPost > 0
+            ? `\n🚀 <b>تم ترحيل البوست وتصميمه إلى قناتك بنجاح!</b> (+1 نقطة مكافأة 🪙)\n`
+            : `\n🚀 <b>تم نشر إعلانك وتصميمه في قناتك بنجاح!</b>\n`;
+
           const pAlert = 
             `🔔 <b>إشعار الشريك: تم نشر خط جديد في قناتك! 🚌✨</b>\n\n` +
             `📍 <b>المسار:</b> ${record.location || record.city || 'بغداد'} ⬅️ ${record.destination || record.university || partner.university || 'الوجهة'}\n` +
             (record.price ? `💰 <b>الأجرة:</b> ${formatTgPrice(record.price)}\n` : '') +
-            `\n🚀 <b>تم ترحيل البوست وتصميمه إلى قناتك بنجاح!</b> (+1 نقطة مكافأة 🪙)\n` +
+            rewardNotice +
             `💰 <b>رصيد مكافآتك الحالي:</b> <b>${userCurrentPoints}</b> نقطة 🪙\n` +
             `💡 <i>يمكنك استخدام رصيدك لترويج الخطوط وإرسال التنبيهات لطلابك.</i>`;
 
@@ -7632,10 +7652,10 @@ Deno.serve(async (req: any) => {
             }
           }
 
-          // If story failed but card succeeded -> adapt card onto story
+          // If story failed but card succeeded -> adapt card onto story seamlessly matching card background
           if (!finalStoryPhotoUrl || finalStoryPhotoUrl.includes('generate-story-image')) {
             if (finalPostPhotoUrl && !finalPostPhotoUrl.includes('generate-story-image')) {
-              finalStoryPhotoUrl = `https://wsrv.nl/?url=${encodeURIComponent(finalPostPhotoUrl)}&w=1080&h=1920&fit=contain&cbg=18191a&output=jpg`;
+              finalStoryPhotoUrl = `https://wsrv.nl/?url=${encodeURIComponent(finalPostPhotoUrl)}&w=1080&h=1920&fit=contain&cbg=fbfbfe&output=jpg`;
             } else {
               finalStoryPhotoUrl = finalPostPhotoUrl;
             }
@@ -18689,21 +18709,71 @@ Deno.serve(async (req: any) => {
 
               // Send concise verification report with direct post links
               try {
-                const tgPostLink = tgMsgId ? `https://t.me/${(LINES_CHANNEL_ID || LINES_CHANNEL).replace('@', '')}/${tgMsgId}` : null;
-                const rucPostLink = rucMsgId ? `https://t.me/${ALRAFDAIN_TELEGRAM_CHANNEL.replace('@', '')}/${rucMsgId}` : null;
-                const fbPostLink = socialUpdates.facebook_post_id ? `https://www.facebook.com/${socialUpdates.facebook_post_id}` : null;
-                const igPostLink = socialUpdates.instagram_post_id ? `https://www.instagram.com/p/${socialUpdates.instagram_post_id}/` : null;
+                const tgPostLink = tgMsgId 
+                  ? `https://t.me/${(LINES_CHANNEL_ID || LINES_CHANNEL || '@souqbaghdad_lines').replace('@', '')}/${tgMsgId}` 
+                  : `https://t.me/${(LINES_CHANNEL_ID || LINES_CHANNEL || '@souqbaghdad_lines').replace('@', '')}`;
+                
+                const rucPostLink = rucMsgId 
+                  ? `https://t.me/${ALRAFDAIN_TELEGRAM_CHANNEL.replace('@', '')}/${rucMsgId}` 
+                  : (isAlRafdain ? `https://t.me/${ALRAFDAIN_TELEGRAM_CHANNEL.replace('@', '')}` : null);
+                
+                let fbPostLink: string | null = null;
+                const rafdainPageId = '102975411515668';
+                if (socialUpdates.facebook_post_id) {
+                  const fbIdStr = String(socialUpdates.facebook_post_id);
+                  if (fbIdStr.includes('_')) {
+                    const [pId, pPostId] = fbIdStr.split('_');
+                    fbPostLink = `https://www.facebook.com/permalink.php?story_fbid=${pPostId}&id=${pId || rafdainPageId}`;
+                  } else {
+                    fbPostLink = `https://www.facebook.com/permalink.php?story_fbid=${fbIdStr}&id=${rafdainPageId}`;
+                  }
+                } else if (currentSync.rafdain_facebook === 'success') {
+                  fbPostLink = `https://www.facebook.com/${rafdainPageId}`;
+                }
+
+                const rafdainIgLink = `https://www.instagram.com/al_rafdain/`;
+                const souqFbStoryLink = `https://www.facebook.com/souqbaghdad.iq`;
+                const souqIgStoryLink = `https://www.instagram.com/souqbaghdad.iq/`;
 
                 const platformLines: string[] = [];
-                // تيليجرام
-                platformLines.push(tgPostLink ? `✅ تيليجرام @souqbaghdad_lines` : `⚪ تيليجرام`);
-                platformLines.push(rucPostLink ? `✅ قناة الرافدين @ruc_1` : `⚪ قناة الرافدين`);
-                // الرافدين (أساسي — جميع الخطوط)
-                platformLines.push(currentSync.rafdain_facebook === 'success' ? `✅ الرافدين فيسبوك — بوست + ستوري 🏛️` : `⚪ الرافدين فيسبوك`);
-                platformLines.push(currentSync.rafdain_instagram_story === 'success' ? `✅ الرافدين انستغرام — ستوري 🏛️` : `⚪ الرافدين انستغرام`);
-                // سوق بغداد (ستوري فقط)
-                platformLines.push(currentSync.souq_facebook_story === 'success' ? `✅ سوق بغداد فيسبوك — ستوري` : `⚪ سوق بغداد فيسبوك`);
-                platformLines.push(currentSync.souq_instagram_story === 'success' ? `✅ سوق بغداد انستغرام — ستوري` : `⚪ سوق بغداد انستغرام`);
+                // 1. تيليجرام
+                platformLines.push(`✅ تيليجرام @souqbaghdad_lines — <a href="${tgPostLink}">اضغط هنا لمشاهدة رابط الإعلان المباشر ↗️</a>`);
+                
+                // 2. قناة الرافدين
+                if (rucPostLink) {
+                  platformLines.push(`✅ قناة الرافدين @ruc_1 — <a href="${rucPostLink}">اضغط هنا لمشاهدة رابط الإعلان المباشر ↗️</a>`);
+                } else if (isAlRafdain) {
+                  platformLines.push(`⚪ قناة الرافدين @ruc_1 — <a href="https://t.me/ruc_1">اضغط هنا لفتح القناة ↗️</a>`);
+                }
+
+                // 3. الرافدين فيسبوك — بوست + ستوري (الأساسي — جميع الخطوط)
+                if (currentSync.rafdain_facebook === 'success' || fbPostLink) {
+                  const directFbUrl = fbPostLink || `https://www.facebook.com/${rafdainPageId}`;
+                  platformLines.push(`✅ الرافدين فيسبوك — بوست + ستوري 🏛️ — <a href="${directFbUrl}">اضغط هنا لمشاهدة رابط الإعلان المباشر ↗️</a>`);
+                } else {
+                  platformLines.push(`⚪ الرافدين فيسبوك — بوست + ستوري 🏛️`);
+                }
+
+                // 4. الرافدين انستغرام — ستوري
+                if (currentSync.rafdain_instagram_story === 'success') {
+                  platformLines.push(`✅ الرافدين انستغرام — ستوري 🏛️ — <a href="${rafdainIgLink}">اضغط هنا لمشاهدة رابط الإعلان المباشر ↗️</a>`);
+                } else {
+                  platformLines.push(`⚪ الرافدين انستغرام — ستوري 🏛️`);
+                }
+
+                // 5. سوق بغداد فيسبوك — ستوري
+                if (currentSync.souq_facebook_story === 'success') {
+                  platformLines.push(`✅ سوق بغداد فيسبوك — ستوري — <a href="${souqFbStoryLink}">اضغط هنا لمشاهدة رابط الإعلان المباشر ↗️</a>`);
+                } else {
+                  platformLines.push(`⚪ سوق بغداد فيسبوك — ستوري`);
+                }
+
+                // 6. سوق بغداد انستغرام — ستوري
+                if (currentSync.souq_instagram_story === 'success') {
+                  platformLines.push(`✅ سوق بغداد انستغرام — ستوري — <a href="${souqIgStoryLink}">اضغط هنا لمشاهدة رابط الإعلان المباشر ↗️</a>`);
+                } else {
+                  platformLines.push(`⚪ سوق بغداد انستغرام — ستوري`);
+                }
 
                 const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(`🚌 خط نقل: ${cleanRegions} ← ${cleanDestination}`)}`;
 
@@ -18711,12 +18781,12 @@ Deno.serve(async (req: any) => {
                   ? `📊 <b>تقرير النشر — #${shortId}</b>\n` +
                     `🎓 <b>طلب خط نقل:</b> ${cleanRegions} ⬅️ ${cleanDestination} | 💰 ${cleanFare}\n\n` +
                     platformLines.join('\n') + '\n\n' +
-                    `🌐 بطاقة تفاعلية بالموقع ✅\n` +
+                    `🌐 <b>بطاقة تفاعلية بالموقع ✅</b> — <a href="${link}">اضغط هنا لمشاهدة رابط الإعلان المباشر ↗️</a>\n\n` +
                     `❤️ <i>شكراً لثقتك بمنصة سوق بغداد 🤝</i>`
                   : `📊 <b>تقرير النشر — #${shortId}</b>\n` +
                     `🚌 ${cleanRegions} ⬅️ ${cleanDestination} | 💰 ${cleanFare}\n\n` +
                     platformLines.join('\n') + '\n\n' +
-                    `🌐 بطاقة تفاعلية بالموقع ✅\n` +
+                    `🌐 <b>بطاقة تفاعلية بالموقع ✅</b> — <a href="${link}">اضغط هنا لمشاهدة رابط الإعلان المباشر ↗️</a>\n\n` +
                     `❤️ <i>شكراً لثقتك بمنصة سوق بغداد 🤝</i>`;
 
                 // Build buttons with direct post view links
