@@ -4889,7 +4889,7 @@ const generateSocialCaption = async (record: any, type: 'car' | 'product' | 'tra
   const title = record.title || 'إعلان معروض في سوق بغداد';
   const location = record.governorate || record.location || record.city || 'بغداد';
   const shortId = record.short_id || (record.id && String(record.id).length < 12 ? record.id : '');
-  const condition = record.condition === 'new' ? '✨ جديد' : (record.condition === 'used' ? '👌 مستعمل' : '');
+  const condition = record.condition === 'new' ? 'جديد' : (record.condition === 'like_new' ? 'مستعمل نظيف جداً' : (record.condition === 'used' ? 'مستعمل' : (record.condition || '')));
 
   let descText = '';
   if (typeof record.description === 'string') {
@@ -4922,25 +4922,23 @@ const generateSocialCaption = async (record: any, type: 'car' | 'product' | 'tra
   let contactInfo = '';
   if (rawPhone) {
     if (isHtml) {
-      contactInfo = `📞 <a href="https://wa.me/${cleanPhone}">تواصل مباشر واتساب (${rawPhone})</a>`;
+      contactInfo = `تواصل واتساب: <a href="https://wa.me/${cleanPhone}">${rawPhone}</a>`;
     } else {
-      contactInfo = `📞 التواصل المباشر (هاتف / واتساب): ${rawPhone}\n💬 رابط الواتساب المباشر: https://wa.me/${cleanPhone}`;
+      contactInfo = `التواصل: ${rawPhone}\nواتساب: https://wa.me/${cleanPhone}`;
     }
   } else {
-    contactInfo = `📞 التواصل المباشر: عبر الموقع أو الرسائل الخاصة`;
+    contactInfo = `التواصل: عبر المنصة أو البوت`;
   }
 
-  const emoji = type === 'product' ? '🛍️' : '📢';
-
-  return `${emoji} ${b(title)}\n\n` +
-         (condition ? `🏷️ ${b('الحالة:')} ${condition}\n` : '') +
-         `💰 ${b('السعر:')} ${price}\n` +
-         `📍 ${b('الموقع:')} ${location}\n\n` +
-         (descText ? `📝 ${b('التفاصيل الكاملة:')}\n${descText}\n\n` : '') +
-         `🆔 ${b('كود الإعلان:')} #${shortId}\n` +
-         `🔗 ${b('رابط المعاينة والتفاصيل:')}\n${link}\n\n` +
+  return `${b(title)}\n\n` +
+         (condition ? `• ${b('الحالة:')} ${condition}\n` : '') +
+         `• ${b('السعر:')} ${price}\n` +
+         `• ${b('الموقع:')} ${location}\n` +
+         (descText ? `• ${b('التفاصيل:')} ${descText}\n` : '') +
+         (shortId ? `• ${b('كود الإعلان:')} #${shortId}\n` : '') +
+         `\n🔗 ${b('رابط التفاصيل:')}\n${link}\n\n` +
          `${contactInfo}\n\n` +
-         `#سوق_بغداد #تسوق_العراق #العراق #بغداد`;
+         `#سوق_بغداد #تسوق_العراق #العراق`;
 };
 
 function generateHashtags(title: string, desc: string): string {
@@ -5545,6 +5543,55 @@ function buildCarCurrencyMarkup() {
     inline_keyboard: [
       [{ text: 'دولار أمريكي ($)', callback_data: 'car_currency_usd' }, { text: 'دينار عراقي (د.ع)', callback_data: 'car_currency_iqd' }],
       [{ text: 'السابق', callback_data: 'car_back_to_mileage' }, { text: 'إلغاء', callback_data: 'cancel_wizard' }]
+    ]
+  };
+}
+
+const PROD_CATEGORY_NAMES: Record<string, string> = {
+  electronics: 'إلكترونيات وموبايل',
+  appliances: 'أجهزة وكهربائيات',
+  home: 'أثاث ومستلزمات منزلية',
+  fashion: 'أزياء وملابس',
+  beauty: 'عطور وعناية شخصية',
+  realestate: 'عقارات وأملاك',
+  other: 'أقسام وسلع أخرى'
+};
+
+function buildProdCatMarkup() {
+  return {
+    inline_keyboard: [
+      [{ text: 'إلكترونيات وموبايل', callback_data: 'prod_cat_electronics' }, { text: 'أجهزة وكهربائيات', callback_data: 'prod_cat_appliances' }],
+      [{ text: 'أثاث ومستلزمات منزلية', callback_data: 'prod_cat_home' }, { text: 'أزياء وملابس', callback_data: 'prod_cat_fashion' }],
+      [{ text: 'عطور وعناية شخصية', callback_data: 'prod_cat_beauty' }, { text: 'عقارات وأملاك', callback_data: 'prod_cat_realestate' }],
+      [{ text: 'أقسام وسلع أخرى', callback_data: 'prod_cat_other' }],
+      [{ text: 'إلغاء', callback_data: 'cancel_wizard' }]
+    ]
+  };
+}
+
+function buildProdConditionMarkup() {
+  return {
+    inline_keyboard: [
+      [{ text: 'جديد (غير مستعمل)', callback_data: 'prod_cond_new' }, { text: 'مستعمل نظيف جداً', callback_data: 'prod_cond_like_new' }],
+      [{ text: 'مستعمل', callback_data: 'prod_cond_used' }],
+      [{ text: 'السابق', callback_data: 'prod_back_to_title' }, { text: 'إلغاء', callback_data: 'cancel_wizard' }]
+    ]
+  };
+}
+
+function buildProdGovMarkup() {
+  return {
+    inline_keyboard: [
+      [{ text: 'بغداد', callback_data: 'prod_gov_بغداد' }, { text: 'البصرة', callback_data: 'prod_gov_البصرة' }],
+      [{ text: 'أربيل', callback_data: 'prod_gov_أربيل' }, { text: 'نينوى', callback_data: 'prod_gov_نينوى' }],
+      [{ text: 'كركوك', callback_data: 'prod_gov_كركوك' }, { text: 'الأنبار', callback_data: 'prod_gov_الأنبار' }],
+      [{ text: 'كربلاء', callback_data: 'prod_gov_كربلاء' }, { text: 'النجف', callback_data: 'prod_gov_النجف' }],
+      [{ text: 'بابل', callback_data: 'prod_gov_بابل' }, { text: 'صلاح الدين', callback_data: 'prod_gov_صلاح الدين' }],
+      [{ text: 'السليمانية', callback_data: 'prod_gov_السليمانية' }, { text: 'دهوك', callback_data: 'prod_gov_دهوك' }],
+      [{ text: 'ديالى', callback_data: 'prod_gov_ديالى' }, { text: 'واسط', callback_data: 'prod_gov_واسط' }],
+      [{ text: 'ميسان', callback_data: 'prod_gov_ميسان' }, { text: 'ذي قار', callback_data: 'prod_gov_ذي قار' }],
+      [{ text: 'المثنى', callback_data: 'prod_gov_المثنى' }, { text: 'الديوانية', callback_data: 'prod_gov_الديوانية' }],
+      [{ text: 'السابق', callback_data: 'prod_back_to_cond' }, { text: 'إلغاء', callback_data: 'cancel_wizard' }]
     ]
   };
 }
@@ -16902,19 +16949,19 @@ Deno.serve(async (req: any) => {
       // ==========================================
       if (action === 'publish_market_menu' || action === 'publish_choose' || action === 'publish_select') {
         const chooseMsg = 
-          `📣 <b>سوق بغداد — نشر إعلان مجاني 🇮🇶✨</b>\n\n` +
-          `اختر نوع الإعلان الذي ترغب بنشره مجاناً:\n\n` +
-          `🚗 <b>عرض سيارة للبيع:</b> نشر سيارتك مع الصور والمواصفات الكاملة في معارض وقنوات سوق بغداد.\n` +
-          `🛍️ <b>نشر منتج أو سلعة عامة:</b> هواتف، أجهزة، إلكترونيات، وكل البضائع.\n` +
-          `🚌 <b>خطوط النقل:</b> إذا كنت سائقاً توفر خطاً أو راكباً/طالباً تبحث عن خط نقل.\n\n` +
-          `👇 <b>اضغط على القسم المطلوب للبدء فوراً:</b>`;
+          `<b>نشر إعلان مجاني — سوق بغداد</b>\n\n` +
+          `اختر نوع الإعلان الذي ترغب بنشره:\n\n` +
+          `• <b>عرض سيارة للبيع:</b> نشر سيارتك مع الصور والمواصفات الكاملة في معارض وقنوات سوق بغداد.\n` +
+          `• <b>نشر منتج أو سلعة عامة:</b> أجهزة، إلكترونيات، أثاث، وكافة البضائع.\n` +
+          `• <b>خدمات النقل:</b> توفير خط نقل أو طلب خط كطالب أو راكب.\n\n` +
+          `اختر القسم المطلوب للمتابعة:`;
 
         const chooseMarkup = {
           inline_keyboard: [
-            [{ text: '🚗 عرض سيارة للبيع مجاناً', callback_data: 'publish_car' }],
-            [{ text: '🛍️ نشر منتج أو سلعة عامة', callback_data: 'publish_product' }],
-            [{ text: '🚌 نشر خط نقل (أوفر خط / أبحث عن خط) 🟢', callback_data: 'publish_transport' }],
-            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+            [{ text: 'عرض سيارة للبيع مجاناً', callback_data: 'publish_car' }],
+            [{ text: 'نشر منتج أو سلعة عامة', callback_data: 'publish_product' }],
+            [{ text: 'نشر خط نقل (سائق / راكب)', callback_data: 'publish_transport' }],
+            [{ text: 'القائمة الرئيسية', callback_data: 'main_menu' }]
           ]
         };
 
@@ -21754,128 +21801,268 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
-      // =================== Product Wizard (Full 9-Step) ===================
-      // Helper: DELETE old wizard message + SEND new one at bottom of chat
-      // This ensures the wizard always appears as the latest message (not editing old ones)
-      const editProdWizard = async (text: string, markup: any) => {
-        const wMsgId = state.data?.wizardMsgId;
-        // Delete old wizard message silently
-        if (wMsgId) {
-          try { await deleteMessage(chatId, wMsgId); } catch(e) {}
-        }
-        // Send fresh message at bottom
-        const res = await sendMessage(chatId, text, markup);
-        if (res?.result?.message_id) {
-          if (!state.data) state.data = {};
-          state.data.wizardMsgId = res.result.message_id;
-          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        }
-      };
 
-
+      // ==========================================
+      // 🛍️ PRODUCT WIZARD (Interactive Step-by-Step)
+      // ==========================================
       if (action === 'publish_product') {
         const { data: profile } = await supabase.from('profiles').select('points, role').eq('id', userId).maybeSingle();
         if (profile?.role !== 'admin' && profile?.role !== 'owner' && (profile?.points || 0) < 1) {
-          await sendMessage(chatId, '❌ عذراً، رصيد النقاط الخاص بك غير كافٍ لنشر إعلان. يرجى شحن المحفظة أولاً.', { inline_keyboard: [[{ text: '💳 شراء نقاط', callback_data: 'buy_points' }], [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]] });
+          await updateOrSend('عذراً، رصيد النقاط الخاص بك غير كافٍ لنشر إعلان. يرجى شحن المحفظة أولاً.', {
+            inline_keyboard: [
+              [{ text: 'شراء نقاط', callback_data: 'buy_points' }],
+              [{ text: 'القائمة الرئيسية', callback_data: 'main_menu' }]
+            ]
+          });
           return new Response('OK', { status: 200 });
         }
-        state = { step: 'product_title', data: { images: [] } };
+
+        state = { step: 'product_category', data: { images: [] } };
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        const initMsg = await sendMessage(chatId,
-          `📦 <b>نشر منتج جديد في سوق بغداد</b> 🛍️\n\n<b>الخطوة 1 من 9 — عنوان المنتج</b>\n\nاكتب اسم المنتج بوضوح (مثال: ايفون 15 برو ماكس، تلفزيون سامسونج 55 بوصة):`,
-          { inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]] }
+
+        await updateOrSend(
+          `<b>نشر إعلان في السوق العام</b>\n` +
+          `الخطوة 1 من 7 — تحديد القسم\n\n` +
+          `اختر قسم المنتج من القائمة أدناه:`,
+          buildProdCatMarkup()
         );
-        if (initMsg?.result?.message_id) {
-          state.data.wizardMsgId = initMsg.result.message_id;
-          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        }
         return new Response('OK', { status: 200 });
       }
 
       if (action.startsWith('prod_cat_')) {
-        state.data.category = action.replace('prod_cat_', '');
-        state.step = 'product_condition';
+        const catKey = action.replace('prod_cat_', '');
+        state.data = state.data || {};
+        state.data.category = catKey;
+        state.data.images = state.data.images || [];
+        state.step = 'product_title';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        await editProdWizard(
-          `<b>الخطوة 3 من 9 — حالة المنتج</b>\n\nما هي حالة المنتج؟`,
-          { inline_keyboard: [[{ text: '🆕 جديد', callback_data: 'prod_cond_new' }, { text: '♻️ مستعمل', callback_data: 'prod_cond_used' }], [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]] }
+
+        const catName = PROD_CATEGORY_NAMES[catKey] || 'السوق العام';
+        await updateOrSend(
+          `<b>الخطوة 2 من 7 — اسم وموديل المنتج</b>\n` +
+          `القسم: <b>${catName}</b>\n\n` +
+          `اكتب اسم المنتج ومواصفته في رسالة:\n` +
+          `(مثال: آيفون 15 برو ماكس 256GB كفالة عراقنا)`,
+          {
+            inline_keyboard: [
+              [{ text: 'السابق', callback_data: 'publish_product' }],
+              [{ text: 'إلغاء', callback_data: 'cancel_wizard' }]
+            ]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'prod_back_to_title') {
+        state.step = 'product_title';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        const catName = PROD_CATEGORY_NAMES[state.data?.category] || 'السوق العام';
+        await updateOrSend(
+          `<b>الخطوة 2 من 7 — اسم وموديل المنتج</b>\n` +
+          `القسم: <b>${catName}</b>\n\n` +
+          `اكتب اسم المنتج ومواصفته في رسالة:`,
+          {
+            inline_keyboard: [
+              [{ text: 'السابق', callback_data: 'publish_product' }],
+              [{ text: 'إلغاء', callback_data: 'cancel_wizard' }]
+            ]
+          }
         );
         return new Response('OK', { status: 200 });
       }
 
       if (action.startsWith('prod_cond_')) {
-        state.data.condition = action.replace('prod_cond_', '') === 'new' ? 'جديد' : 'مستعمل';
-        state.step = 'product_price';
+        const condKey = action.replace('prod_cond_', '');
+        const condMap: Record<string, string> = {
+          new: 'جديد (غير مستعمل)',
+          like_new: 'مستعمل نظيف جداً',
+          used: 'مستعمل'
+        };
+        state.data = state.data || {};
+        state.data.condition = condMap[condKey] || 'مستعمل';
+        state.step = 'product_gov';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        await editProdWizard(
-          `<b>الخطوة 4 من 9 — السعر</b>\n\nاكتب <b>سعر المنتج</b> بالأرقام بالدينار العراقي:\n(مثال: 50000 أو 150000)`,
-          { inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]] }
+
+        await updateOrSend(
+          `<b>الخطوة 4 من 7 — المحافظة</b>\n\n` +
+          `اختر محافظة تواجد المنتج:`,
+          buildProdGovMarkup()
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'prod_back_to_cond') {
+        state.step = 'product_condition';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        await updateOrSend(
+          `<b>الخطوة 3 من 7 — حالة المنتج</b>\n` +
+          `المنتج: <b>${state.data?.title || ''}</b>\n\n` +
+          `اختر حالة المنتج:`,
+          buildProdConditionMarkup()
         );
         return new Response('OK', { status: 200 });
       }
 
       if (action.startsWith('prod_gov_')) {
         const gov = action.replace('prod_gov_', '').replace(/_/g, ' ');
+        state.data = state.data || {};
         state.data.governorate = gov;
-        state.step = 'product_images';
-        if (!state.data.images) state.data.images = [];
+        state.step = 'product_price';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        await editProdWizard(
-          `<b>الخطوة 7 من 9 — صور المنتج</b>\n\nأرسل صور المنتج الآن (يمكنك إرسال حتى 5 صور).\nبعد الانتهاء اضغط «تم ✅».`,
-          { inline_keyboard: [[{ text: '✅ تم إرسال الصور', callback_data: 'prod_images_done' }], [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]] }
+
+        await updateOrSend(
+          `<b>الخطوة 5 من 7 — السعر المطلوب</b>\n` +
+          `المحافظة: <b>${gov}</b>\n\n` +
+          `اكتب السعر بالدينار العراقي في رسالة (أرقام فقط):\n` +
+          `(مثال: 125000 أو اختر «السعر حسب الاتفاق» أدناه)`,
+          {
+            inline_keyboard: [
+              [{ text: 'السعر حسب الاتفاق', callback_data: 'prod_price_negotiable' }],
+              [{ text: 'السابق', callback_data: 'prod_back_to_cond' }, { text: 'إلغاء', callback_data: 'cancel_wizard' }]
+            ]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'prod_back_to_gov') {
+        state.step = 'product_gov';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        await updateOrSend(
+          `<b>الخطوة 4 من 7 — المحافظة</b>\n\n` +
+          `اختر محافظة تواجد المنتج:`,
+          buildProdGovMarkup()
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'prod_price_negotiable') {
+        state.data = state.data || {};
+        state.data.price = 0;
+        state.step = 'product_images';
+        state.data.images = state.data.images || [];
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        await updateOrSend(
+          `<b>الخطوة 6 من 7 — صور المنتج</b>\n\n` +
+          `أرسل صور المنتج في المحادثة (حتى 5 صور).\n` +
+          `عند الانتهاء أو إذا كنت تفضل المتابعة بدون صور، اضغط الزر أدناه:`,
+          {
+            inline_keyboard: [
+              [{ text: 'متابعة بدون صور / تم', callback_data: 'prod_images_done' }],
+              [{ text: 'السابق', callback_data: 'prod_back_to_price' }, { text: 'إلغاء', callback_data: 'cancel_wizard' }]
+            ]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'prod_back_to_price') {
+        state.step = 'product_price';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        await updateOrSend(
+          `<b>الخطوة 5 من 7 — السعر المطلوب</b>\n` +
+          `المحافظة: <b>${state.data?.governorate || 'بغداد'}</b>\n\n` +
+          `اكتب السعر بالدينار العراقي في رسالة (أرقام فقط):\n` +
+          `(مثال: 125000 أو اختر «السعر حسب الاتفاق» أدناه)`,
+          {
+            inline_keyboard: [
+              [{ text: 'السعر حسب الاتفاق', callback_data: 'prod_price_negotiable' }],
+              [{ text: 'السابق', callback_data: 'prod_back_to_gov' }, { text: 'إلغاء', callback_data: 'cancel_wizard' }]
+            ]
+          }
         );
         return new Response('OK', { status: 200 });
       }
 
       if (action === 'prod_images_done') {
-        if (!state.data.images || state.data.images.length === 0) {
-          await editProdWizard('⚠️ يرجى إرسال صورة واحدة على الأقل قبل المتابعة.', {
-            inline_keyboard: [[{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]]
-          });
-          return new Response('OK', { status: 200 });
-        }
+        state.data = state.data || {};
         state.step = 'product_phone';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
         const phoneButtons: any[] = [];
-        if (phone) phoneButtons.push([{ text: `📱 استخدم رقمي الحالي (${phone})`, callback_data: 'prod_phone_current' }]);
-        phoneButtons.push([{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]);
-        await editProdWizard(
-          `<b>الخطوة 8 من 9 — رقم الهاتف</b>\n\nاكتب <b>رقم هاتفك</b> للتواصل، أو اضغط الزر أدناه:`,
+        if (phone) {
+          phoneButtons.push([{ text: `استخدام رقمي المسجل (${phone})`, callback_data: 'prod_phone_current' }]);
+        }
+        phoneButtons.push([{ text: 'السابق', callback_data: 'prod_back_to_images' }, { text: 'إلغاء', callback_data: 'cancel_wizard' }]);
+
+        await updateOrSend(
+          `<b>الخطوة 7 من 7 — رقم الهاتف للتواصل</b>\n\n` +
+          `اكتب رقم هاتفك في رسالة، أو اضغط الزر لاستخدام رقمك المسجل:`,
           { inline_keyboard: phoneButtons }
         );
         return new Response('OK', { status: 200 });
       }
 
+      if (action === 'prod_back_to_images') {
+        state.step = 'product_images';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        await updateOrSend(
+          `<b>الخطوة 6 من 7 — صور المنتج</b>\n\n` +
+          `أرسل صور المنتج في المحادثة (حتى 5 صور).\n` +
+          `عند الانتهاء أو إذا كنت تفضل المتابعة بدون صور، اضغط الزر أدناه:`,
+          {
+            inline_keyboard: [
+              [{ text: 'متابعة بدون صور / تم', callback_data: 'prod_images_done' }],
+              [{ text: 'السابق', callback_data: 'prod_back_to_price' }, { text: 'إلغاء', callback_data: 'cancel_wizard' }]
+            ]
+          }
+        );
+        return new Response('OK', { status: 200 });
+      }
+
       if (action === 'prod_phone_current') {
+        state.data = state.data || {};
         state.data.phone = phone || '';
         state.step = 'product_review';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
         const d = state.data;
-        const catLabels: Record<string, string> = { electronics: '📱 إلكترونيات', fashion: '👕 أزياء وملابس', home: '🏠 المنزل', vehicles: '🚗 أوتو', other: '🔄 أخرى' };
+        const catLabel = PROD_CATEGORY_NAMES[d.category] || d.category || 'عام';
+        const rawP = Number(String(d.price).replace(/[^0-9]/g, '')) || 0;
+        const priceFormatted = rawP > 0 ? `${rawP.toLocaleString('en-US')} د.ع` : 'حسب الاتفاق';
+
         const reviewText =
-          `🔍 <b>مراجعة أخيرة — الخطوة 9 من 9</b>\n\n` +
-          `📌 <b>العنوان:</b> ${d.title || '-'}\n` +
-          `📑 <b>القسم:</b> ${catLabels[d.category] || d.category || '-'}\n` +
-          `✨ <b>الحالة:</b> ${d.condition || '-'}\n` +
-          `💰 <b>السعر:</b> ${Number(String(d.price).replace(/[^0-9]/g, '')).toLocaleString('en-US')} د.ع\n` +
-          `📝 <b>الوصف:</b> ${d.description || '-'}\n` +
-          `📍 <b>المحافظة:</b> ${d.governorate || '-'}\n` +
-          `📸 <b>الصور:</b> ${(d.images || []).length} صورة\n` +
-          `📞 <b>الهاتف:</b> ${d.phone || '-'}\n\n` +
-          `هل كل شيء صحيح؟ اضغط «✅ نشر الإعلان الآن» للنشر الفوري على تيليكرام وفيسبوك وانستكرام وثريدز.`;
-        await editProdWizard(reviewText, {
+          `<b>مراجعة تفاصيل الإعلان</b>\n\n` +
+          `• <b>المنتج:</b> ${d.title || '-'}\n` +
+          `• <b>القسم:</b> ${catLabel}\n` +
+          `• <b>الحالة:</b> ${d.condition || '-'}\n` +
+          `• <b>السعر:</b> ${priceFormatted}\n` +
+          `• <b>المحافظة:</b> ${d.governorate || '-'}\n` +
+          `• <b>الصور:</b> ${(d.images || []).length} صورة\n` +
+          `• <b>الهاتف:</b> ${d.phone || '-'}\n\n` +
+          `اضغط «تأكيد ونشر الإعلان» للنشر الفوري في قناة التليكرام وشبكة المنصات.`;
+
+        await updateOrSend(reviewText, {
           inline_keyboard: [
-            [{ text: '✅ نشر الإعلان الآن 🚀', callback_data: 'prod_confirm_publish' }],
-            [{ text: '❌ إلغاء وبدء من جديد', callback_data: 'cancel_wizard' }]
+            [{ text: 'تأكيد ونشر الإعلان', callback_data: 'prod_confirm_publish' }],
+            [{ text: 'السابق', callback_data: 'prod_back_to_phone' }, { text: 'إلغاء', callback_data: 'cancel_wizard' }]
           ]
         });
+        return new Response('OK', { status: 200 });
+      }
+
+      if (action === 'prod_back_to_phone') {
+        state.step = 'product_phone';
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        const phoneButtons: any[] = [];
+        if (phone) {
+          phoneButtons.push([{ text: `استخدام رقمي المسجل (${phone})`, callback_data: 'prod_phone_current' }]);
+        }
+        phoneButtons.push([{ text: 'السابق', callback_data: 'prod_back_to_images' }, { text: 'إلغاء', callback_data: 'cancel_wizard' }]);
+
+        await updateOrSend(
+          `<b>الخطوة 7 من 7 — رقم الهاتف للتواصل</b>\n\n` +
+          `اكتب رقم هاتفك في رسالة، أو اضغط الزر لاستخدام رقمك المسجل:`,
+          { inline_keyboard: phoneButtons }
+        );
         return new Response('OK', { status: 200 });
       }
 
       if (action === 'prod_confirm_publish') {
         const d = state.data || {};
         if (!d.title) {
-          await updateOrSend('❌ البيانات غير مكتملة، يرجى البدء من جديد.', { inline_keyboard: [[{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]] });
+          await updateOrSend('البيانات غير مكتملة، يرجى البدء من جديد.', { inline_keyboard: [[{ text: 'القائمة الرئيسية', callback_data: 'main_menu' }]] });
           return new Response('OK', { status: 200 });
         }
 
@@ -21883,15 +22070,14 @@ Deno.serve(async (req: any) => {
         const { data: userProfile } = await supabase.from('profiles').select('points, role, full_name, avatar_url').eq('id', userId).single();
         if (userProfile?.role !== 'admin' && userProfile?.role !== 'owner') {
           if (!userProfile || (userProfile.points || 0) < 1) {
-            await updateOrSend('❌ رصيد نقاطك غير كافٍ لنشر الإعلان.', { inline_keyboard: [[{ text: '💳 شراء نقاط', callback_data: 'buy_points' }]] });
+            await updateOrSend('عذراً، رصيد نقاطك غير كافٍ لنشر الإعلان.', { inline_keyboard: [[{ text: 'شراء نقاط', callback_data: 'buy_points' }]] });
             return new Response('OK', { status: 200 });
           }
           await supabase.from('profiles').update({ points: userProfile.points - 1 }).eq('id', userId);
         }
 
-        // Answer immediately
-        if (callbackQueryId) await answerCallbackQuery(callbackQueryId, '⏳ جاري نشر إعلانك...');
-        await updateOrSend('⏳ <b>جاري نشر الإعلان على جميع المنصات...</b>\nانتظر لحظة من فضلك.');
+        if (callbackQueryId) await answerCallbackQuery(callbackQueryId, 'جاري نشر إعلانك...');
+        await updateOrSend('⏳ <b>جاري نشر الإعلان على المنصة وشبكات التواصل...</b>\nانتظر لحظة من فضلك.');
 
         const stateData = { ...d };
         state = {};
@@ -21902,7 +22088,6 @@ Deno.serve(async (req: any) => {
           try {
             const rawPrice = String(stateData.price || '0').replace(/[^0-9]/g, '');
             const priceNum = parseInt(rawPrice, 10) || 0;
-            const catLabels: Record<string, string> = { electronics: 'إلكترونيات', fashion: 'أزياء وملابس', home: 'المنزل', vehicles: 'أوتو', other: 'أخرى' };
 
             const fallbackProductImage = getFallbackImage({
               category: stateData.category,
@@ -21913,7 +22098,7 @@ Deno.serve(async (req: any) => {
             const { data: inserted } = await supabase.from('products').insert({
               title: stateData.title,
               price: priceNum,
-              description: stateData.description || '',
+              description: stateData.description || stateData.title || '',
               governorate: stateData.governorate || 'بغداد',
               category: stateData.category || 'other',
               condition: stateData.condition || 'مستعمل',
@@ -21927,7 +22112,7 @@ Deno.serve(async (req: any) => {
             }).select().single();
 
             if (!inserted) {
-              await sendMessage(chatId, '❌ حدث خطأ أثناء حفظ الإعلان، يرجى المحاولة مرة أخرى.');
+              await sendMessage(chatId, 'حدث خطأ أثناء حفظ الإعلان، يرجى المحاولة مرة أخرى.');
               return;
             }
 
@@ -21935,11 +22120,9 @@ Deno.serve(async (req: any) => {
             const productLink = `https://www.souqbaghdad.store/product/${prodId}`;
             const priceFormatted = priceNum > 0 ? `${priceNum.toLocaleString('en-US')} د.ع` : 'حسب الاتفاق';
 
-            // 2. Telegram caption & buttons (Matching Car publishing logic 100%)
+            // 2. Telegram caption & buttons
             const tgCaption = await generateSocialCaption(inserted, 'product', productLink, true);
-
             const prodImages = await ensurePublicImages(inserted, 'products', supabase);
-            const mainImage = prodImages && prodImages.length > 0 ? prodImages[0] : null;
 
             let cleanPhone = (stateData.phone || phone || '').replace(/[^0-9+]/g, '');
             if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
@@ -21964,7 +22147,7 @@ Deno.serve(async (req: any) => {
               ]
             };
 
-            // 3. Send to Telegram product channel first to obtain message ID
+            // 3. Send to Telegram product channel
             let tgMsgId: string | null = null;
             let tgRes;
             try {
@@ -21986,41 +22169,41 @@ Deno.serve(async (req: any) => {
 
             const tgPostLink = tgMsgId ? `https://t.me/${PRODUCT_CHANNEL.replace('@', '')}/${tgMsgId}` : null;
 
-            // 4. Send success message with direct post link and full management buttons
-            const successMsg = `🎉 <b>ألف مبروك! تم نشر إعلان منتجك بنجاح 🛍️✨</b>\n\n` +
-                               `📋 <b>ملخص الإعلان:</b>\n` +
-                               `🛍️ <b>المنتج:</b> ${stateData.title}\n` +
-                               `💰 <b>السعر:</b> ${priceFormatted}\n` +
-                               `📍 <b>المحافظة:</b> ${stateData.governorate || 'بغداد'}\n\n` +
-                               `📡 <b>حالة النشر على المنصات:</b>\n` +
-                               `${tgPostLink ? '✅' : '⏳'} تيليجرام — ${tgPostLink ? `<a href="${tgPostLink}">عرض المنشور</a>` : 'قيد المعالجة...'}\n` +
+            // 4. Send success message with direct post link and full management buttons (minimal emojis)
+            const successMsg = `<b>تم نشر إعلان منتجك بنجاح</b>\n\n` +
+                               `<b>ملخص الإعلان:</b>\n` +
+                               `• <b>المنتج:</b> ${stateData.title}\n` +
+                               `• <b>السعر:</b> ${priceFormatted}\n` +
+                               `• <b>المحافظة:</b> ${stateData.governorate || 'بغداد'}\n\n` +
+                               `<b>حالة النشر على المنصات:</b>\n` +
+                               `${tgPostLink ? '✓' : '⏳'} تيليجرام — ${tgPostLink ? `<a href="${tgPostLink}">عرض المنشور</a>` : 'قيد المعالجة...'}\n` +
                                `⏳ فيسبوك — قيد النشر التلقائي\n` +
                                `⏳ إنستغرام — قيد النشر التلقائي\n\n` +
-                               `📌 <b>احفظ هذه الرسالة لمتابعة إعلانك وإدارته بسهولة!</b>`;
+                               `احفظ هذه الرسالة لمتابعة إعلانك وإدارته بسهولة.`;
 
             const reportButtons: any[][] = [];
             if (tgPostLink) {
-              reportButtons.push([{ text: '📢 شاهد إعلانك بالقناة', url: tgPostLink }]);
+              reportButtons.push([{ text: 'شاهد إعلانك بالقناة', url: tgPostLink }]);
             }
-            reportButtons.push([{ text: '🌐 عرض بطاقة المنتج بالموقع', url: productLink }]);
-            reportButtons.push([{ text: '🚀 ترويج في صدارة فيسبوك وانستغرام (VIP)', callback_data: `promo_menu_${inserted.id}` }]);
+            reportButtons.push([{ text: 'عرض بطاقة المنتج بالموقع', url: productLink }]);
+            reportButtons.push([{ text: 'ترويج في الصدارة (VIP)', callback_data: `promo_menu_${inserted.id}` }]);
             reportButtons.push([
-              { text: '⚠️ تم البيع (حصلت)', callback_data: `mark_sold_${inserted.id}` },
-              { text: '🗑️ حذف الإعلان نهائياً', callback_data: `del_prod_${inserted.id}` }
+              { text: 'تم البيع', callback_data: `mark_sold_${inserted.id}` },
+              { text: 'حذف الإعلان', callback_data: `del_prod_${inserted.id}` }
             ]);
             reportButtons.push([
-              { text: '🛍️ نشر منتج آخر', callback_data: 'publish_product' },
-              { text: '📦 إعلاناتي', callback_data: 'manage_cat_ads' }
+              { text: 'نشر منتج آخر', callback_data: 'publish_product' },
+              { text: 'إعلاناتي', callback_data: 'manage_cat_ads' }
             ]);
-            reportButtons.push([{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]);
+            reportButtons.push([{ text: 'القائمة الرئيسية', callback_data: 'main_menu' }]);
 
             await sendMessage(chatId, successMsg, { inline_keyboard: reportButtons });
 
-            // 5. Broadcast to Partner Channels Network (Products/All)
+            // 5. Broadcast to Partner Channels Network
             EdgeRuntime.waitUntil(broadcastToPartnerChannels(inserted, 'products', tgCaption, prodImages, channelMarkup, supabase));
           } catch(err: any) {
             console.error('[PROD PUBLISH ERROR]', err);
-            await sendMessage(chatId, '❌ حدث خطأ أثناء النشر. يرجى المحاولة مرة أخرى.', { inline_keyboard: [[{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]] });
+            await sendMessage(chatId, 'حدث خطأ أثناء النشر. يرجى المحاولة مرة أخرى.', { inline_keyboard: [[{ text: 'القائمة الرئيسية', callback_data: 'main_menu' }]] });
           }
         })());
         return new Response('OK', { status: 200 });
@@ -23865,76 +24048,61 @@ Deno.serve(async (req: any) => {
         });
         state = {};
       }
-      // Product Wizard Text Inputs (9-step)
+      // Product Wizard Inputs (7-Step Interactive Flow)
       else if (state.step === 'product_title' && text) {
-        if (text.trim().length < 3) {
-          await sendMessage(chatId, '⚠️ يرجى كتابة عنوان واضح (على الأقل 3 حروف).', cancelBtn);
+        if (text.trim().length < 2) {
+          await sendMessage(chatId, 'يرجى كتابة اسم واضح للمنتج (حرفين على الأقل).', {
+            inline_keyboard: [
+              [{ text: 'السابق', callback_data: 'publish_product' }],
+              [{ text: 'إلغاء', callback_data: 'cancel_wizard' }]
+            ]
+          });
           return new Response('OK', { status: 200 });
         }
+        state.data = state.data || {};
         state.data.title = text.trim();
-        state.step = 'product_category';
-        
-        // Delete old wizard message
-        if (state.data.wizardMsgId) { try { await deleteMessage(chatId, state.data.wizardMsgId); } catch(e) {} }
-        
-        const res2 = await sendMessage(chatId,
-          `<b>الخطوة 2 من 9 — قسم المنتج</b>\n\nاختر <b>القسم</b> المناسب:`,
-          {
-            inline_keyboard: [
-              [{ text: '📱 إلكترونيات', callback_data: 'prod_cat_electronics' }, { text: '👕 أزياء وملابس', callback_data: 'prod_cat_fashion' }],
-              [{ text: '🏠 المنزل', callback_data: 'prod_cat_home' }, { text: '🚗 أوتو', callback_data: 'prod_cat_vehicles' }],
-              [{ text: '🔄 أخرى', callback_data: 'prod_cat_other' }],
-              [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
-            ]
-          }
-        );
-        if (res2?.result?.message_id) { state.data.wizardMsgId = res2.result.message_id; }
+        state.step = 'product_condition';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+        await sendMessage(
+          chatId,
+          `<b>الخطوة 3 من 7 — حالة المنتج</b>\n` +
+          `المنتج: <b>${state.data.title}</b>\n\n` +
+          `اختر حالة المنتج:`,
+          buildProdConditionMarkup()
+        );
       }
       else if (state.step === 'product_price' && text) {
         const rawNum = text.replace(/[^0-9]/g, '');
-        if (!rawNum || parseInt(rawNum) <= 0) {
-          await sendMessage(chatId, '⚠️ يرجى كتابة السعر بالأرقام فقط (مثال: 50000).', cancelBtn);
-          return new Response('OK', { status: 200 });
-        }
-        state.data.price = rawNum;
-        state.step = 'product_desc';
-        
-        if (state.data.wizardMsgId) { try { await deleteMessage(chatId, state.data.wizardMsgId); } catch(e) {} }
-
-        const res5 = await sendMessage(chatId,
-          `<b>الخطوة 5 من 9 — وصف المنتج</b>\n\nاكتب <b>وصفاً مفصلاً</b> للمنتج (المواصفات، الحالة، أي معلومة مفيدة):`,
-          cancelBtn
-        );
-        if (res5?.result?.message_id) { state.data.wizardMsgId = res5.result.message_id; }
+        const numVal = parseInt(rawNum, 10);
+        state.data = state.data || {};
+        state.data.price = isNaN(numVal) ? 0 : numVal;
+        state.step = 'product_images';
+        state.data.images = state.data.images || [];
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-      }
-      else if (state.step === 'product_desc' && text) {
-        state.data.description = text.trim();
-        state.step = 'product_gov';
-        
-        if (state.data.wizardMsgId) { try { await deleteMessage(chatId, state.data.wizardMsgId); } catch(e) {} }
 
-        const res6 = await sendMessage(chatId,
-          `<b>الخطوة 6 من 9 — المحافظة</b>\n\nاختر محافظتك:`,
+        const priceDisplay = state.data.price > 0 ? `${state.data.price.toLocaleString('en-US')} د.ع` : 'حسب الاتفاق';
+        await sendMessage(
+          chatId,
+          `<b>الخطوة 6 من 7 — صور المنتج</b>\n` +
+          `السعر: <b>${priceDisplay}</b>\n\n` +
+          `أرسل صور المنتج في المحادثة (حتى 5 صور).\n` +
+          `عند الانتهاء أو إذا كنت تفضل المتابعة بدون صور، اضغط الزر أدناه:`,
           {
             inline_keyboard: [
-              [{ text: '🏠 بغداد', callback_data: 'prod_gov_بغداد' }, { text: '🌊 البصرة', callback_data: 'prod_gov_البصرة' }, { text: '🟙 أربيل', callback_data: 'prod_gov_أربيل' }],
-              [{ text: '🏙️ نينوى', callback_data: 'prod_gov_نينوى' }, { text: '📍 كركوك', callback_data: 'prod_gov_كركوك' }, { text: '📌 السليمانية', callback_data: 'prod_gov_السليمانية' }],
-              [{ text: '📍 كربلاء', callback_data: 'prod_gov_كربلاء' }, { text: '📍 النجف', callback_data: 'prod_gov_النجف' }, { text: '📍 بابل', callback_data: 'prod_gov_بابل' }],
-              [{ text: '📍 ديالى', callback_data: 'prod_gov_ديالى' }, { text: '📍 واسط', callback_data: 'prod_gov_واسط' }, { text: '📍 الأنبار', callback_data: 'prod_gov_الأنبار' }],
-              [{ text: '📍 محافظات أخرى 📝', callback_data: 'prod_gov_أخرى' }],
-              [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+              [{ text: 'متابعة بدون صور / تم', callback_data: 'prod_images_done' }],
+              [{ text: 'السابق', callback_data: 'prod_back_to_price' }],
+              [{ text: 'إلغاء', callback_data: 'cancel_wizard' }]
             ]
           }
         );
-        if (res6?.result?.message_id) { state.data.wizardMsgId = res6.result.message_id; }
-        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
       }
       else if (state.step === 'product_images' && photo) {
-        if ((state.data.images || []).length >= 5) {
-          await sendMessage(chatId, '⚠️ وصلت للحد الأقصى (5 صور). اضغط «تم ✅» للمتابعة.', {
-            inline_keyboard: [[{ text: '✅ تم إرسال الصور', callback_data: 'prod_images_done' }]]
+        if (!state.data) state.data = { images: [] };
+        if (!state.data.images) state.data.images = [];
+        if (state.data.images.length >= 5) {
+          await sendMessage(chatId, 'وصلت للحد الأقصى المسموح (5 صور). اضغط «متابعة» للمتابعة.', {
+            inline_keyboard: [[{ text: 'متابعة', callback_data: 'prod_images_done' }]]
           });
           return new Response('OK', { status: 200 });
         }
@@ -23949,66 +24117,68 @@ Deno.serve(async (req: any) => {
           const { data: uploadData } = await supabase.storage.from('ad-images').upload(fileName, imageBlob, { contentType: 'image/jpeg' });
           if (uploadData) {
             const { data: pubUrl } = supabase.storage.from('ad-images').getPublicUrl(fileName);
-            if (!state.data.images) state.data.images = [];
             state.data.images.push(pubUrl.publicUrl);
             const count = state.data.images.length;
             await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-            const statusText = `📸 <b>تم استلام (${count}) من الصور ✅</b>${count >= 5 ? '\n(وصلت للحد الأقصى)' : ''}\n\nأرسل المزيد أو اضغط «تم ✅» للمتابعة.`;
-            if (state.data.statusMsgId) {
-              try {
-                await editMessageText(chatId, state.data.statusMsgId, statusText, { inline_keyboard: [[{ text: '✅ تم إرسال الصور', callback_data: 'prod_images_done' }]] });
-              } catch(e) {
-                const r = await sendMessage(chatId, statusText, { inline_keyboard: [[{ text: '✅ تم إرسال الصور', callback_data: 'prod_images_done' }]] });
-                if (r?.result?.message_id) state.data.statusMsgId = r.result.message_id;
-              }
-            } else {
-              const r = await sendMessage(chatId, statusText, { inline_keyboard: [[{ text: '✅ تم إرسال الصور', callback_data: 'prod_images_done' }]] });
-              if (r?.result?.message_id) state.data.statusMsgId = r.result.message_id;
-            }
-            await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+            const statusText = `تم استلام (${count}) من الصور.${count >= 5 ? ' (الحد الأقصى)' : ''}\nأرسل المزيد أو اضغط «متابعة» للخطوة التالية.`;
+            await sendMessage(chatId, statusText, {
+              inline_keyboard: [
+                [{ text: 'متابعة', callback_data: 'prod_images_done' }],
+                [{ text: 'السابق', callback_data: 'prod_back_to_price' }],
+                [{ text: 'إلغاء', callback_data: 'cancel_wizard' }]
+              ]
+            });
           }
         }
       }
       else if (state.step === 'product_images' && text) {
-        await sendMessage(chatId, '📸 أرسل صورة، أو اضغط «تم ✅» للمتابعة.', {
-          inline_keyboard: [[{ text: '✅ تم إرسال الصور', callback_data: 'prod_images_done' }]]
+        await sendMessage(chatId, 'أرسل صور المنتج في المحادثة، أو اضغط «متابعة بدون صور / تم» للمتابعة.', {
+          inline_keyboard: [
+            [{ text: 'متابعة بدون صور / تم', callback_data: 'prod_images_done' }],
+            [{ text: 'السابق', callback_data: 'prod_back_to_price' }],
+            [{ text: 'إلغاء', callback_data: 'cancel_wizard' }]
+          ]
         });
       }
       else if (state.step === 'product_phone' && text) {
         const cleanPhone = text.replace(/[^0-9+]/g, '');
         if (cleanPhone.length < 10) {
-          await sendMessage(chatId, '⚠️ يرجى إدخال رقم هاتف صحيح.', cancelBtn);
+          await sendMessage(chatId, 'يرجى إدخال رقم هاتف صحيح (10 أرقام على الأقل).', {
+            inline_keyboard: [
+              [{ text: 'السابق', callback_data: 'prod_back_to_images' }],
+              [{ text: 'إلغاء', callback_data: 'cancel_wizard' }]
+            ]
+          });
           return new Response('OK', { status: 200 });
         }
+        state.data = state.data || {};
         state.data.phone = cleanPhone;
         state.step = 'product_review';
         await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
         const d = state.data;
-        const catLabels: Record<string, string> = { electronics: '📱 إلكترونيات', fashion: '👕 أزياء وملابس', home: '🏠 المنزل', vehicles: '🚗 أوتو', other: '🔄 أخرى' };
+        const catLabel = PROD_CATEGORY_NAMES[d.category] || d.category || 'عام';
+        const rawP = Number(String(d.price).replace(/[^0-9]/g, '')) || 0;
+        const priceFormatted = rawP > 0 ? `${rawP.toLocaleString('en-US')} د.ع` : 'حسب الاتفاق';
+
         const reviewText =
-          `🔍 <b>مراجعة أخيرة — الخطوة 9 من 9</b>\n\n` +
-          `📌 <b>العنوان:</b> ${d.title || '-'}\n` +
-          `📑 <b>القسم:</b> ${catLabels[d.category] || d.category || '-'}\n` +
-          `✨ <b>الحالة:</b> ${d.condition || '-'}\n` +
-          `💰 <b>السعر:</b> ${Number(String(d.price).replace(/[^0-9]/g, '')).toLocaleString('en-US')} د.ع\n` +
-          `📝 <b>الوصف:</b> ${d.description || '-'}\n` +
-          `📍 <b>المحافظة:</b> ${d.governorate || '-'}\n` +
-          `📸 <b>الصور:</b> ${(d.images || []).length} صورة\n` +
-          `📞 <b>الهاتف:</b> ${d.phone || '-'}\n\n` +
-          `هل كل شيء صحيح؟ اضغط «✅ نشر الإعلان الآن» للنشر الفوري.`;
-        const revMarkup = {
+          `<b>مراجعة تفاصيل الإعلان</b>\n\n` +
+          `• <b>المنتج:</b> ${d.title || '-'}\n` +
+          `• <b>القسم:</b> ${catLabel}\n` +
+          `• <b>الحالة:</b> ${d.condition || '-'}\n` +
+          `• <b>السعر:</b> ${priceFormatted}\n` +
+          `• <b>المحافظة:</b> ${d.governorate || '-'}\n` +
+          `• <b>الصور:</b> ${(d.images || []).length} صورة\n` +
+          `• <b>الهاتف:</b> ${d.phone || '-'}\n\n` +
+          `اضغط «تأكيد ونشر الإعلان» للنشر الفوري في قناة التليكرام وشبكة المنصات.`;
+
+        await sendMessage(chatId, reviewText, {
           inline_keyboard: [
-            [{ text: '✅ نشر الإعلان الآن 🚀', callback_data: 'prod_confirm_publish' }],
-            [{ text: '❌ إلغاء وبدء من جديد', callback_data: 'cancel_wizard' }]
+            [{ text: 'تأكيد ونشر الإعلان', callback_data: 'prod_confirm_publish' }],
+            [{ text: 'السابق', callback_data: 'prod_back_to_phone' }],
+            [{ text: 'إلغاء', callback_data: 'cancel_wizard' }]
           ]
-        };
-        const wId = state.data?.wizardMsgId;
-        if (wId) { try { await deleteMessage(chatId, wId); } catch(e) {} }
-        const resRev = await sendMessage(chatId, reviewText, revMarkup);
-        if (resRev?.result?.message_id) {
-          state.data.wizardMsgId = resRev.result.message_id;
-          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
-        }
+        });
       }
       else if (state.step === 'edit_route_origin_custom' && (text || originalVoiceText)) {
         const inputArea = (text || originalVoiceText || '').trim();
