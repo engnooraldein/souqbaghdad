@@ -9743,6 +9743,11 @@ Deno.serve(async (req: any) => {
         ]);
       }
 
+      // 📢 شريط أخير: انشر هنا إعلانك مجاناً (سيارة أو منتج)
+      menuRows.push([
+        { text: '📢 انشر هنا إعلانك مجاناً (سيارة أو منتج) 🚗🛍️', callback_data: 'publish_market_menu' }
+      ]);
+
       const menuMarkup = { inline_keyboard: menuRows };
 
       if (editCurrent && callbackMsgId) {
@@ -12252,6 +12257,17 @@ Deno.serve(async (req: any) => {
       cleanLowerText === 'بيع سيارة' || 
       cleanLowerText === 'بيع سياره';
 
+    const isPublishMarketCmd = 
+      cleanLowerText === '/publish' ||
+      cleanLowerText === 'انشر هنا اعلانك مجانا' ||
+      cleanLowerText === 'انشر هنا إعلانك مجاناً' ||
+      cleanLowerText === 'انشر اعلانك مجانا' ||
+      cleanLowerText === 'انشر إعلانك مجاناً' ||
+      cleanLowerText === 'نشر اعلان' ||
+      cleanLowerText === 'نشر إعلان' ||
+      cleanLowerText === 'انشر اعلان' ||
+      cleanLowerText === 'انشر إعلان';
+
     // 📍 Text Trigger for Location Pinning (إرسال الموقع وتثبيته عبر النص أو الأمر)
     const isLocationCmd = 
       text === '/location' || 
@@ -12287,7 +12303,7 @@ Deno.serve(async (req: any) => {
       return new Response('OK', { status: 200 });
     }
 
-    if (text === '/start' || text.startsWith('/start ') || text === '/relink' || isPublishTransportCmd || isPublishCarCmd) {
+    if (text === '/start' || text.startsWith('/start ') || text === '/relink' || isPublishTransportCmd || isPublishCarCmd || isPublishMarketCmd) {
       if (text === '/start' || text === '/relink') {
         state = {};
         await supabase.from('telegram_users').update({ bot_state: null }).eq('telegram_chat_id', chatId);
@@ -12704,6 +12720,29 @@ Deno.serve(async (req: any) => {
         return new Response('OK', { status: 200 });
       }
 
+      // 📢 Deep-Link / Command: Publish Car or Product
+      if (isPublishMarketCmd) {
+        const marketMsg = 
+          `📣 <b>سوق بغداد — نشر إعلان مجاني 🇮🇶✨</b>\n\n` +
+          `اختر نوع الإعلان الذي ترغب بنشره مجاناً:\n\n` +
+          `🚗 <b>عرض سيارة للبيع:</b> نشر سيارتك مع الصور والمواصفات الكاملة في معارض وقنوات سوق بغداد.\n` +
+          `🛍️ <b>نشر منتج أو سلعة عامة:</b> هواتف، أجهزة، إلكترونيات، وكل البضائع.\n` +
+          `🚌 <b>خطوط النقل:</b> توفير خط نقل أو طلب خط كطالب/راكب.\n\n` +
+          `👇 <b>اضغط على القسم المطلوب للبدء فوراً:</b>`;
+
+        const marketMarkup = {
+          inline_keyboard: [
+            [{ text: '🚗 عرض سيارة للبيع مجاناً', callback_data: 'publish_car' }],
+            [{ text: '🛍️ نشر منتج أو سلعة عامة', callback_data: 'publish_product' }],
+            [{ text: '🚌 نشر خط نقل (أوفر خط / أبحث عن خط) 🟢', callback_data: 'publish_transport' }],
+            [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+          ]
+        };
+
+        await sendMessage(chatId, marketMsg, marketMarkup);
+        return new Response('OK', { status: 200 });
+      }
+
       // 🚀 If user is already registered, show the Main Menu directly!
       if (userId || phone) {
         await showMainMenu();
@@ -12909,7 +12948,8 @@ Deno.serve(async (req: any) => {
       text === 'publish_car' || 
       text === 'publish_transport' || 
       text === 'publish_product' || 
-      text === 'publish_choose';
+      text === 'publish_choose' ||
+      text === 'publish_market_menu';
 
     if (!userId && isPublishAction) {
       if (callbackQuery) await answerCallbackQuery(callbackQuery.id, 'يرجى تفعيل رقم الهاتف أولاً لنشر الإعلانات', true);
@@ -16809,20 +16849,20 @@ Deno.serve(async (req: any) => {
       // ==========================================
       // 📣 GENERAL AD PUBLISH CHOOSER MENU
       // ==========================================
-      if (action === 'publish_choose' || action === 'publish_select') {
+      if (action === 'publish_market_menu' || action === 'publish_choose' || action === 'publish_select') {
         const chooseMsg = 
-          `📣 <b>نشر إعلان جديد مجاناً في سوق بغداد 🇮🇶✨</b>\n\n` +
-          `اختر القسم المناسب لإعلانك:\n\n` +
-          `🚌 <b>خطوط النقل:</b> إذا كنت سائقاً توفر خطاً، أو راكباً/طالباً تبحث عن خط نقل.\n` +
-          `🚗 <b>السيارات:</b> لعرض سيارتك للبيع في معارض وسوق بغداد.\n` +
-          `🛍️ <b>المنتجات والسوق العام:</b> لبيع الهواتف، الأجهزة، والأغراض الشخصية.\n\n` +
-          `👇 <b>اضغط على القسم المطلوب للبدء:</b>`;
+          `📣 <b>سوق بغداد — نشر إعلان مجاني 🇮🇶✨</b>\n\n` +
+          `اختر نوع الإعلان الذي ترغب بنشره مجاناً:\n\n` +
+          `🚗 <b>عرض سيارة للبيع:</b> نشر سيارتك مع الصور والمواصفات الكاملة في معارض وقنوات سوق بغداد.\n` +
+          `🛍️ <b>نشر منتج أو سلعة عامة:</b> هواتف، أجهزة، إلكترونيات، وكل البضائع.\n` +
+          `🚌 <b>خطوط النقل:</b> إذا كنت سائقاً توفر خطاً أو راكباً/طالباً تبحث عن خط نقل.\n\n` +
+          `👇 <b>اضغط على القسم المطلوب للبدء فوراً:</b>`;
 
         const chooseMarkup = {
           inline_keyboard: [
-            [{ text: '🚌 نشر خط نقل (أوفر خط / أبحث عن خط) 🟢', callback_data: 'publish_transport' }],
             [{ text: '🚗 عرض سيارة للبيع مجاناً', callback_data: 'publish_car' }],
             [{ text: '🛍️ نشر منتج أو سلعة عامة', callback_data: 'publish_product' }],
+            [{ text: '🚌 نشر خط نقل (أوفر خط / أبحث عن خط) 🟢', callback_data: 'publish_transport' }],
             [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
           ]
         };
