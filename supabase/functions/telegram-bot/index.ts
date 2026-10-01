@@ -7176,19 +7176,22 @@ Deno.serve(async (req: any) => {
           if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
           else cleanPhone = cleanPhone.replace('+', '');
 
-          const contactRow = [];
-          if (cleanPhone) {
-            contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-            
-          }
+          const sellerTgUsername = record.telegram_username;
+          const tgContactUrl = sellerTgUsername 
+            ? `https://t.me/${sellerTgUsername.replace('@', '')}` 
+            : `https://t.me/${BOT_USERNAME}?start=prod_${record.short_id || record.id}`;
+          const waContactUrl = cleanPhone 
+            ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`السلام عليكم، بخصوص إعلانك (${record.title || 'المنتج'}) المعروض في سوق بغداد`)}` 
+            : null;
 
-          const inlineKeyboard = [
-            [{ text: detailsButtonText, url: link }]
+          const row1: any[] = [{ text: 'تليكرام', url: tgContactUrl }];
+          if (waContactUrl) row1.push({ text: 'واتساب', url: waContactUrl });
+          row1.push({ text: 'الموقع', url: link });
+
+          const inlineKeyboard: any[] = [
+            row1,
+            [{ text: 'انشر من البوت', url: `https://t.me/${BOT_USERNAME}?start=publish_product` }]
           ];
-          if (contactRow.length > 0) {
-            inlineKeyboard.push(contactRow);
-          }
-          inlineKeyboard.push([{ text: '🛍️ اعرض منتجك للبيع مجاناً', url: `https://t.me/${BOT_USERNAME}` }]);
 
           const replyMarkup = { inline_keyboard: inlineKeyboard };
 
@@ -11865,6 +11868,54 @@ Deno.serve(async (req: any) => {
         ];
 
         await updateOrSend(detailsMsg, { inline_keyboard: carBtns });
+        return new Response('OK', { status: 200 });
+      }
+    }
+
+    // --- Deep-Link Direct Product Details & Contact (/start prod_ID) ---
+    if (text.startsWith('/start prod_')) {
+      const prodId = text.replace('/start prod_', '').trim();
+      let prodQuery = supabase.from('products').select('*');
+      if (prodId.length >= 30) {
+        prodQuery = prodQuery.eq('id', prodId);
+      } else {
+        prodQuery = prodQuery.or(`short_id.eq.${prodId},id.eq.${prodId}`);
+      }
+      const { data: prodItem } = await prodQuery.limit(1).maybeSingle();
+
+      if (prodItem) {
+        const shortId = prodItem.short_id || prodItem.id;
+        const productLink = `https://www.souqbaghdad.store/product/${shortId}`;
+        const priceText = prodItem.price ? `${Number(prodItem.price).toLocaleString('en-US')} د.ع` : 'حسب الاتفاق';
+
+        let cleanPhone = (prodItem.phone || '').replace(/[^0-9+]/g, '');
+        if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
+        else cleanPhone = cleanPhone.replace('+', '');
+
+        const sellerTgUsername = prodItem.telegram_username;
+        const tgContactUrl = sellerTgUsername ? `https://t.me/${sellerTgUsername.replace('@', '')}` : null;
+        const waContactUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`السلام عليكم، بخصوص إعلانك (${prodItem.title}) المعروض بسوق بغداد`)}` : null;
+
+        let detailsMsg =
+          `🛍️ <b>إعلان منتج: ${prodItem.title || 'منتج معروض للبيع'}</b>\n\n` +
+          `💰 <b>السعر:</b> ${priceText}\n` +
+          `📍 <b>الموقع:</b> ${prodItem.governorate || 'بغداد'}\n` +
+          (prodItem.condition ? `✨ <b>الحالة:</b> ${prodItem.condition}\n` : '') +
+          (prodItem.description ? `📝 <b>الوصف:</b> ${prodItem.description}\n` : '') +
+          `\n📞 <b>طرق التواصل المتاحة:</b>`;
+
+        const row1: any[] = [];
+        if (tgContactUrl) row1.push({ text: 'تليكرام', url: tgContactUrl });
+        if (waContactUrl) row1.push({ text: 'واتساب', url: waContactUrl });
+        row1.push({ text: 'الموقع', url: productLink });
+
+        const prodBtns: any[][] = [
+          row1,
+          [{ text: 'انشر من البوت', callback_data: 'publish_product' }],
+          [{ text: 'القائمة الرئيسية', callback_data: 'main_menu' }]
+        ];
+
+        await updateOrSend(detailsMsg, { inline_keyboard: prodBtns });
         return new Response('OK', { status: 200 });
       }
     }
@@ -21884,77 +21935,89 @@ Deno.serve(async (req: any) => {
             const productLink = `https://www.souqbaghdad.store/product/${prodId}`;
             const priceFormatted = priceNum > 0 ? `${priceNum.toLocaleString('en-US')} د.ع` : 'حسب الاتفاق';
 
-            // Send instant success message with warm thank you note and action buttons
-            const successMsg = `🎉 <b>تم نشر إعلان منتجك بنجاح! شكراً لاختيارك منصة سوق بغداد 🤝</b>\n\n` +
-                               `🛍️ <b>${stateData.title}</b>\n` +
-                               `💰 <b>السعر:</b> ${priceFormatted}\n` +
-                               `📍 <b>المحافظة:</b> ${stateData.governorate || 'بغداد'}\n\n` +
-                               `📣 <b>إعلانك معروض الآن بالموقع وقناة السوق العام.</b>\n` +
-                               `✨ نتمنى لك دوام التوفيق والبركة في البيع!`;
-
-            await sendMessage(chatId, successMsg, {
-              inline_keyboard: [
-                [{ text: '🌐 عرض بطاقتي بالموقع', url: productLink }, { text: '📢 شاهد بالقناة', url: `https://t.me/${PRODUCT_CHANNEL.replace('@', '')}` }],
-                [{ text: '⚠️ تم البيع (حصلت)', callback_data: `mark_sold_${inserted.id}` }, { text: '🗑️ حذف الإعلان نهائياً', callback_data: `del_prod_${inserted.id}` }],
-                [{ text: '🛍️ نشر منتج آخر', callback_data: 'publish_product' }, { text: '📦 إعلاناتي', callback_data: 'manage_cat_ads' }],
-                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
-              ]
-            });
-
-            // 2. Telegram caption & buttons (Matching unified 3-row logic)
+            // 2. Telegram caption & buttons (Matching Car publishing logic 100%)
             const tgCaption = await generateSocialCaption(inserted, 'product', productLink, true);
 
             const prodImages = await ensurePublicImages(inserted, 'products', supabase);
             const mainImage = prodImages && prodImages.length > 0 ? prodImages[0] : null;
-            const photoCount = prodImages.length;
-            const detailsButtonText = photoCount > 1 
-              ? `📸 تصفح كافة الصور (${photoCount} صور) والتفاصيل 🌐` 
-              : `🌐 عرض التفاصيل والصور بالمنصة`;
 
             let cleanPhone = (stateData.phone || phone || '').replace(/[^0-9+]/g, '');
             if (cleanPhone.startsWith('07')) cleanPhone = '964' + cleanPhone.substring(1);
             else cleanPhone = cleanPhone.replace('+', '');
 
-            const contactRow = [];
-            if (cleanPhone) {
-              contactRow.push({ text: '💬 تواصل واتساب', url: `https://wa.me/${cleanPhone}` });
-              
-            }
+            const sellerTgUsername = fromUser?.username || tgUser?.telegram_username;
+            const tgContactUrl = sellerTgUsername 
+              ? `https://t.me/${sellerTgUsername.replace('@', '')}` 
+              : `https://t.me/${BOT_USERNAME}?start=prod_${prodId}`;
+            const waContactUrl = cleanPhone 
+              ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`السلام عليكم، بخصوص إعلانك (${stateData.title || 'المنتج'}) المعروض في سوق بغداد`)}` 
+              : null;
 
-            const tgInlineKeyboard = [
-              [{ text: detailsButtonText, url: productLink }]
-            ];
-            if (contactRow.length > 0) {
-              tgInlineKeyboard.push(contactRow);
-            }
-            tgInlineKeyboard.push([{ text: '🛍️ اعرض منتجك للبيع مجاناً', url: `https://t.me/${BOT_USERNAME}` }]);
+            const row1: any[] = [{ text: 'تليكرام', url: tgContactUrl }];
+            if (waContactUrl) row1.push({ text: 'واتساب', url: waContactUrl });
+            row1.push({ text: 'الموقع', url: productLink });
 
-            const tgButtons = { inline_keyboard: tgInlineKeyboard };
+            const channelMarkup: any = {
+              inline_keyboard: [
+                row1,
+                [{ text: 'انشر من البوت', url: `https://t.me/${BOT_USERNAME}?start=publish_product` }]
+              ]
+            };
 
-            // 3. Send to Telegram product channel
-            const updates: any = {};
+            // 3. Send to Telegram product channel first to obtain message ID
             let tgMsgId: string | null = null;
-
             let tgRes;
-            if (prodImages.length >= 1) {
-              tgRes = await sendPhoto(PRODUCT_CHANNEL, prodImages[0], tgCaption, tgButtons);
-            } else {
-              tgRes = await sendMessage(PRODUCT_CHANNEL, tgCaption, tgButtons);
-            }
-            if (tgRes?.ok && tgRes.result?.message_id) {
-              tgMsgId = tgRes.result.message_id.toString();
-              updates.telegram_message_id = tgMsgId;
+            try {
+              if (prodImages.length >= 1) {
+                tgRes = await sendPhoto(PRODUCT_CHANNEL, prodImages[0], tgCaption, channelMarkup);
+              } else {
+                tgRes = await sendMessage(PRODUCT_CHANNEL, tgCaption, channelMarkup);
+              }
+              if (tgRes?.ok && tgRes.result?.message_id) {
+                tgMsgId = tgRes.result.message_id.toString();
+                await supabase.from('products').update({
+                  telegram_message_id: tgMsgId,
+                  sync_status: { telegram: 'success', facebook: 'pending', instagram: 'pending', tiktok: 'pending', threads: 'pending' }
+                }).eq('id', inserted.id);
+              }
+            } catch(tgErr) {
+              console.error('[PROD TG SEND ERROR]', tgErr);
             }
 
-            // 3b. Broadcast to Partner Channels Network (Products/All)
-            EdgeRuntime.waitUntil(broadcastToPartnerChannels(inserted, 'products', tgCaption, prodImages, tgButtons, supabase));
+            const tgPostLink = tgMsgId ? `https://t.me/${PRODUCT_CHANNEL.replace('@', '')}/${tgMsgId}` : null;
 
-            // DB Webhook will automatically pick up sync_status pending for Facebook/Instagram/Stories/Threads
+            // 4. Send success message with direct post link and full management buttons
+            const successMsg = `🎉 <b>ألف مبروك! تم نشر إعلان منتجك بنجاح 🛍️✨</b>\n\n` +
+                               `📋 <b>ملخص الإعلان:</b>\n` +
+                               `🛍️ <b>المنتج:</b> ${stateData.title}\n` +
+                               `💰 <b>السعر:</b> ${priceFormatted}\n` +
+                               `📍 <b>المحافظة:</b> ${stateData.governorate || 'بغداد'}\n\n` +
+                               `📡 <b>حالة النشر على المنصات:</b>\n` +
+                               `${tgPostLink ? '✅' : '⏳'} تيليجرام — ${tgPostLink ? `<a href="${tgPostLink}">عرض المنشور</a>` : 'قيد المعالجة...'}\n` +
+                               `⏳ فيسبوك — قيد النشر التلقائي\n` +
+                               `⏳ إنستغرام — قيد النشر التلقائي\n\n` +
+                               `📌 <b>احفظ هذه الرسالة لمتابعة إعلانك وإدارته بسهولة!</b>`;
 
-            // 8. Update DB with social IDs (Telegram only here)
-            if (Object.keys(updates).length > 0) {
-              await supabase.from('products').update(updates).eq('id', inserted.id);
+            const reportButtons: any[][] = [];
+            if (tgPostLink) {
+              reportButtons.push([{ text: '📢 شاهد إعلانك بالقناة', url: tgPostLink }]);
             }
+            reportButtons.push([{ text: '🌐 عرض بطاقة المنتج بالموقع', url: productLink }]);
+            reportButtons.push([{ text: '🚀 ترويج في صدارة فيسبوك وانستغرام (VIP)', callback_data: `promo_menu_${inserted.id}` }]);
+            reportButtons.push([
+              { text: '⚠️ تم البيع (حصلت)', callback_data: `mark_sold_${inserted.id}` },
+              { text: '🗑️ حذف الإعلان نهائياً', callback_data: `del_prod_${inserted.id}` }
+            ]);
+            reportButtons.push([
+              { text: '🛍️ نشر منتج آخر', callback_data: 'publish_product' },
+              { text: '📦 إعلاناتي', callback_data: 'manage_cat_ads' }
+            ]);
+            reportButtons.push([{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]);
+
+            await sendMessage(chatId, successMsg, { inline_keyboard: reportButtons });
+
+            // 5. Broadcast to Partner Channels Network (Products/All)
+            EdgeRuntime.waitUntil(broadcastToPartnerChannels(inserted, 'products', tgCaption, prodImages, channelMarkup, supabase));
           } catch(err: any) {
             console.error('[PROD PUBLISH ERROR]', err);
             await sendMessage(chatId, '❌ حدث خطأ أثناء النشر. يرجى المحاولة مرة أخرى.', { inline_keyboard: [[{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]] });
