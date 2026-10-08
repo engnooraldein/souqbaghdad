@@ -651,6 +651,124 @@ async function transcribeVoiceWithAi(fileUrl: string): Promise<{ text: string | 
   return { text: null, base64: null };
 }
 
+interface ExtractedTransport {
+  is_transport: boolean;
+  type?: 'request' | 'offer'; // request = seeker/passenger/student, offer = captain/driver
+  categoryType?: 'student' | 'employee';
+  origin?: string;
+  destination?: string;
+  shift?: string;
+  targetAudience?: string;
+  vehicleType?: string;
+  seats?: string;
+  price?: string;
+  phone?: string;
+  note?: string;
+}
+
+async function extractTransportWithAi(
+  text: string,
+  imageBase64?: string | null,
+  audioBase64?: string | null
+): Promise<ExtractedTransport | null> {
+  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+  if (!GEMINI_API_KEY) return null;
+
+  try {
+    const parts: any[] = [];
+
+    const systemPrompt = `أنت خبير ذكاء اصطناعي فائق الذكاء متخصص في تحليل وتنسيق إعلانات خطوط النقل والتوصيل في العراق (خاصة بغداد والمحافظات).
+مهمتك: قراءة الرسالة النصية أو تحليل الصورة المرفقة أو الاستماع للبصمة الصوتية واستخراج كافة بيانات خط النقل بدقة فائقة ككائن JSON نقي.
+
+قواعد الاستخراج الدقيقة:
+1. "is_transport": هل الرسالة/الصورة/البصمة تخص خط نقل أو توصيل أو طالب/طالبة يبحث عن خط أو سائق يعرض خط أو مقاعد؟ (true أو false). إذا كانت رسالة عامة، بيع سيارة، أو استفسار عام غير متعلق بنقل ضع false.
+2. "type":
+   - "request": إذا كان الشخص راكب / طالب / طالبة / موظف / موظفة يبحث عن خط (مثال: "محتاجة خط", "اريد خط", "ادور خط", "طالبة محتاجة خط", "نقص خط").
+   - "offer": إذا كان الشخص سائق / كابتن / صاحب سيارة يوفر خط أو مقاعد (مثال: "عندي خط", "متوفر خط", "يوجد خط", "سايق", "كابتن", "باقي 3 مقاعد", "خط النترا").
+3. "categoryType": "student" (جامعات، كليات، معاهد، مدارس) أو "employee" (دوائر، وزارات، شركات، موظفين). الافتراضي "student".
+4. "origin": اسم منطقة الانطلاق (الصعود) بدقة (مثال: البلديات، الدورة، المنصور، الكاظمية، الشعب، الحبيبية، الغزالية، زيونة، البياع، حي الجامعة...).
+5. "destination": اسم الوجهة (الجامعة، الكلية، المعهد، أو مكان العمل) بدقة بدون إيموجيات وبدون كلمات مثل "العودة" أو "القائمة" (مثال: كلية الرافدين الجامعة، جامعة بغداد الجادرية، الجامعة المستنصرية، كلية دجلة، جامعة التراث...).
+6. "shift": وقت الدوام المطلوب أو المتوفر (مثال: "صباحي", "مسائي", "صباحي ومسائي"). الافتراضي "صباحي".
+7. "targetAudience": الفئة المستهدفة:
+   - "طالبات" (إذا كانت فتاة أو كُتب طالبات / بنات فقط).
+   - "طلاب" (إذا كُتب شباب فقط).
+   - "الجميع" (إذا كان عاماً أو لم يُحدد).
+8. "vehicleType": نوع وموديل السيارة إذا ذُكرت (مثال: "هيونداي إلنترا", "كيا سيراتو", "كيا كوستر", "ستاركس", "صالون"). إن لم تُذكر ضع null.
+9. "seats": عدد المقاعد الشاغرة إذا ذُكر (مثال: "1", "2", "3", "4"). إن لم تُذكر ضع null.
+10. "price": الأجرة إذا ذُكرت (مثال: "100 ألف" أو "75 الف"). إن لم تُذكر ضع null.
+11. "phone": أي رقم هاتف عراقي موجود (مثل: 07701234567). إن لم يُذكر ضع null.
+12. "note": أي تفاصيل أو ملاحظات إضافية.
+
+أجب بكائن JSON صالح فقط بدون ماركداون:
+{
+  "is_transport": true,
+  "type": "request",
+  "categoryType": "student",
+  "origin": "البلديات",
+  "destination": "كلية الرافدين الجامعة",
+  "shift": "صباحي",
+  "targetAudience": "طالبات",
+  "vehicleType": null,
+  "seats": null,
+  "price": null,
+  "phone": null,
+  "note": null
+}`;
+
+    parts.push({ text: systemPrompt });
+
+    if (text) {
+      parts.push({ text: `نص الرسالة / التفريغ الصوتي:\n"${text}"` });
+    }
+
+    if (imageBase64) {
+      parts.push({
+        inlineData: {
+          mimeType: "image/jpeg",
+          data: imageBase64
+        }
+      });
+      parts.push({ text: `حلل الصورة المرفقة واستخرج منها تفاصيل خط النقل أو مسار الرحلة أو مواصفات السيارة.` });
+    }
+
+    if (audioBase64) {
+      parts.push({
+        inlineData: {
+          mimeType: "audio/ogg",
+          data: audioBase64
+        }
+      });
+      parts.push({ text: `استمع للبصمة الصوتية بدقة متناهية للهجة العراقية واستخرج منها كافة تفاصيل خط النقل.` });
+    }
+
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts }],
+        generationConfig: {
+          temperature: 0.1,
+          responseMimeType: "application/json"
+        }
+      })
+    });
+
+    if (!resp.ok) {
+      console.warn('Gemini extractTransport failed:', resp.status, await resp.text());
+      return null;
+    }
+
+    const data = await resp.json();
+    const rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!rawJson) return null;
+
+    return JSON.parse(rawJson.trim());
+  } catch(e) {
+    console.error('Error in extractTransportWithAi:', e);
+    return null;
+  }
+}
+
 async function scheduleMessageDeletion(chatId: string | number, botMessageId: number, delayMs = 60000) {
   if (!botMessageId) return;
   try {
@@ -5832,6 +5950,15 @@ function searchIraqiAreas(query: string): IraqiTransportArea[] {
   return scored.slice(0, 8).map(s => s.area);
 }
 
+function isInvalidTransportDestination(val?: string | null): boolean {
+  if (!val) return true;
+  const s = val.trim();
+  if (s.length < 2) return true;
+  if (/(العودة|قائمة|المناطق|السابق|إلغاء|تخطي|رئيسية|الرئيسية|القائمة)/i.test(s)) return true;
+  if (/^[◀⬅🔙❌🔘📌📍]/.test(s)) return true;
+  return false;
+}
+
 function buildTransportAreasMarkup(state: any, catOrPage: string | number = 'bg_rusafa', pageNum = 0, tgUser?: any) {
   let activeCategory = 'bg_rusafa';
   let pageIdx = 0;
@@ -5864,28 +5991,41 @@ function buildTransportAreasMarkup(state: any, catOrPage: string | number = 'bg_
   const selectedRegions = state?.data?.regions || '';
   const selList = selectedRegions.split('،').map((s: string) => s.trim()).filter(Boolean);
 
+  const isPassenger = state?.data?.type === 'request';
+  const stepTitle = isPassenger
+    ? `📍 <b>طلب خط — الخطوة 3 من 8 — منطقة الانطلاق (الصعود)</b>`
+    : `📍 <b>الخطوة 3 من 9 — مناطق الانطلاق والمرور</b>`;
+
   const inline_keyboard: any[][] = [];
 
-  // 1. Top Search Bar Button
-  inline_keyboard.push([
-    { text: '🔍 بحث سريع عن المنطقة / المدينة', callback_data: 'trans_area_search_prompt' }
-  ]);
+  // ⭐ 1. زر الاعتماد البارز الوحيد في القمة (يظهر فور اختيار أي منطقة)
+  if (selList.length > 0) {
+    const topConfirm = isPassenger
+      ? `✅ اعتماد [ ${selList.join('، ')} ] والمتابعة للوجهة ➡️`
+      : `✅ اعتماد المناطق (${selList.length}) والمتابعة للوجهة ➡️`;
+    inline_keyboard.push([{ text: topConfirm, callback_data: 'trans_area_done' }]);
+  } else {
+    inline_keyboard.push([
+      { text: '👇 اضغط على اسم منطقتك أدناه للاختيار', callback_data: 'trans_area_hint_pick' }
+    ]);
+  }
 
-  // 2. Smart Location / GPS Row
+  // 2. أدوات البحث والموقع بدون ملصقات مشتتة
+  const toolRow: any[] = [
+    { text: 'بحث بالاسم', callback_data: 'trans_area_search_prompt' }
+  ];
   const savedLat = tgUser?.saved_lat || state?.data?.pickup_lat;
   const savedLng = tgUser?.saved_lng || state?.data?.pickup_lng;
   if (savedLat && savedLng) {
     const nearest = findNearestIraqiArea(savedLat, savedLng);
-    const locName = nearest ? nearest.area.name : 'موقعي المحفوظ';
-    inline_keyboard.push([
-      { text: `📍 استخدام موقعي المحفوظ: ${locName} 📌`, callback_data: 'trans_area_use_saved' }
-    ]);
+    const locName = nearest ? nearest.area.name : 'موقعي';
+    toolRow.push({ text: `موقعي المحفوظ (${locName})`, callback_data: 'trans_area_use_saved' });
+  } else {
+    toolRow.push({ text: 'تحديد موقعي (GPS)', callback_data: 'trans_area_send_gps_prompt' });
   }
-  inline_keyboard.push([
-    { text: '🗺️ إرسال موقعي الآن عبر GPS للتحديد التلقائي 📡', callback_data: 'trans_area_send_gps_prompt' }
-  ]);
+  inline_keyboard.push(toolRow);
 
-  // 3. 8 Areas Grid (2 columns)
+  // 3. شبكة المناطق (نظيفة، فقط المنطقة المختارة عليها ✅)
   for (let i = 0; i < pageItems.length; i += 2) {
     const row = [];
     const item1 = pageItems[i];
@@ -5906,56 +6046,51 @@ function buildTransportAreasMarkup(state: any, catOrPage: string | number = 'bg_
     inline_keyboard.push(row);
   }
 
-  // 4. Navigation Pagination Bar
+  // ⭐ 4. زر الاعتماد أسفل شبكة المناطق مباشرة
+  if (selList.length > 0) {
+    const midConfirm = isPassenger
+      ? `✅ متابعة لتحديد الوجهة (${selList.join('، ')}) ➡️`
+      : `✅ اعتماد والمتابعة للوجهة ➡️`;
+    inline_keyboard.push([{ text: midConfirm, callback_data: 'trans_area_done' }]);
+  }
+
+  // 5. التنقل بين الصفحات بدون ملصقات
   const navRow: any[] = [];
   if (page > 0) {
-    navRow.push({ text: '⬅️ السابق', callback_data: `trans_area_cat_${activeCategory}_${page - 1}` });
+    navRow.push({ text: 'السابق', callback_data: `trans_area_cat_${activeCategory}_${page - 1}` });
   }
-  navRow.push({ text: `📄 صفحة ${page + 1} من ${totalPages}`, callback_data: `trans_area_cat_${activeCategory}_${page}` });
+  navRow.push({ text: `صفحة ${page + 1} من ${totalPages}`, callback_data: `trans_area_cat_${activeCategory}_${page}` });
   if (page < totalPages - 1) {
-    navRow.push({ text: 'التالي ➡️', callback_data: `trans_area_cat_${activeCategory}_${page + 1}` });
+    navRow.push({ text: 'التالي', callback_data: `trans_area_cat_${activeCategory}_${page + 1}` });
   }
   inline_keyboard.push(navRow);
 
-  // 5. Category Tabs
+  // 6. تصنيفات المناطق نظيفة وبسيطة
   inline_keyboard.push([
-    { text: activeCategory === 'bg_rusafa' ? '🔘 🟢 رصافة بغداد' : '🟢 رصافة بغداد', callback_data: 'trans_area_cat_bg_rusafa_0' },
-    { text: activeCategory === 'bg_karkh' ? '🔘 🔵 كرخ بغداد' : '🔵 كرخ بغداد', callback_data: 'trans_area_cat_bg_karkh_0' }
+    { text: activeCategory === 'bg_rusafa' ? '• رصافة بغداد •' : 'رصافة بغداد', callback_data: 'trans_area_cat_bg_rusafa_0' },
+    { text: activeCategory === 'bg_karkh' ? '• كرخ بغداد •' : 'كرخ بغداد', callback_data: 'trans_area_cat_bg_karkh_0' }
   ]);
   inline_keyboard.push([
-    { text: activeCategory === 'south' ? '🔘 🕌 الفرات والجنوب' : '🕌 الفرات والجنوب', callback_data: 'trans_area_cat_south_0' },
-    { text: activeCategory === 'north' ? '🔘 🌄 الشمال والغربية' : '🌄 الشمال والغربية', callback_data: 'trans_area_cat_north_0' }
-  ]);
-
-  // 6. Action Row: Confirm Selected
-  const confirmLabel = selList.length > 0 
-    ? `✅ اعتماد المناطق (${selList.length}) والمتابعة للوجهة ➡️` 
-    : `✅ اعتماد والمتابعة للوجهة ➡️`;
-  inline_keyboard.push([{ text: confirmLabel, callback_data: 'trans_area_done' }]);
-
-  // 7. Custom Input / Back / Cancel
-  inline_keyboard.push([
-    { text: '✏️ كتابة اسم منطقة مخصصة', callback_data: 'trans_area_custom' }
-  ]);
-  inline_keyboard.push([
-    { text: '◀️ السابق', callback_data: `trans_cat_${state?.data?.categoryType || 'student'}` },
-    { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+    { text: activeCategory === 'south' ? '• الفرات والجنوب •' : 'الفرات والجنوب', callback_data: 'trans_area_cat_south_0' },
+    { text: activeCategory === 'north' ? '• الشمال والغربية •' : 'الشمال والغربية', callback_data: 'trans_area_cat_north_0' }
   ]);
 
-  const isPassenger = state?.data?.type === 'request';
-  const stepTitle = isPassenger
-    ? `📍 <b>طلب خط — الخطوة 3 من 8 — منطقة الانطلاق (الصعود)</b>`
-    : `📍 <b>الخطوة 3 من 9 — مناطق الانطلاق والمرور</b>`;
+  // 7. خيارات سريعة نظيفة
+  inline_keyboard.push([
+    { text: 'كتابة اسم يدوي', callback_data: 'trans_area_custom' },
+    { text: 'السابق', callback_data: `trans_cat_${state?.data?.categoryType || 'student'}` },
+    { text: 'إلغاء', callback_data: 'cancel_wizard' }
+  ]);
 
   const selectedStr = selList.length > 0 
-    ? `📌 <b>المناطق المحددة حتى الآن:</b> [ <b>${selList.join('، ')}</b> ]\n` 
-    : `📌 <b>المناطق المحددة:</b> <i>(لم يتم اختيار أي منطقة بعد)</i>\n`;
+    ? `🎉 <b>تم اختيار:</b> [ <b>${selList.join('، ')}</b> ] ✅\n` +
+      `👇 <b>اضغط الآن على زر «✅ اعتماد والمتابعة للوجهة ➡️» أدناه للمتابعة:</b>` 
+    : `اختر منطقتك من القائمة أدناه، أو اكتب اسم منطقتك بالرسائل مباشرة ✍️`;
 
   const text = 
     `${stepTitle}\n\n` +
-    `📍 <b>القسم المختار:</b> <b>${catTitles[activeCategory] || activeCategory}</b>\n` +
-    `${selectedStr}\n` +
-    `اختر مناطق الانطلاق (يمكنك تحديد حتى 3 مناطق بالضغط عليها ✅)، أو استخدم 🔍 البحث بالاسم أو 📡 التحديد التلقائي عبر GPS 👇`;
+    `📍 <b>القسم:</b> <b>${catTitles[activeCategory] || activeCategory}</b>\n\n` +
+    `${selectedStr}`;
 
   return { text, markup: { inline_keyboard }, inline_keyboard };
 }
@@ -5972,11 +6107,11 @@ function buildTransportDestinationsMarkup(state: any, catOrPage: string | number
   }
 
   const catTitles: { [k: string]: string } = {
-    pvt_bg: '🎓 كليات وجامعات بغداد الأهلية',
-    gov_bg: '🏛️ جامعات بغداد الحكومية والمعاهد',
-    south: '🕌 جامعات الفرات الأوسط والجنوب',
-    north: '🌄 جامعات المحافظات الشمالية والغربية',
-    org_gov: '🏢 وزارات ومؤسسات ودوائر'
+    pvt_bg: 'كليات وجامعات بغداد الأهلية',
+    gov_bg: 'جامعات بغداد الحكومية والمعاهد',
+    south: 'جامعات الفرات الأوسط والجنوب',
+    north: 'جامعات المحافظات الشمالية والغربية',
+    org_gov: 'وزارات ومؤسسات ودوائر'
   };
 
   const PAGE_SIZE = 8;
@@ -5988,12 +6123,12 @@ function buildTransportDestinationsMarkup(state: any, catOrPage: string | number
   const selectedDest = state?.data?.destination || '';
   const inline_keyboard: any[][] = [];
 
-  // 1. Top Search Bar Button
+  // 1. أداة البحث بدون ملصقات
   inline_keyboard.push([
-    { text: '🔍 بحث سريع بالاسم (جامعات / كليات / دوائر)', callback_data: 'trans_dest_search_prompt' }
+    { text: 'بحث بالاسم (جامعات / كليات / دوائر)', callback_data: 'trans_dest_search_prompt' }
   ]);
 
-  // 2. 8 Institutions Grid (2 columns)
+  // 2. شبكة الجامعات والمؤسسات (الاسم فقط، والمحدد عليه ✅)
   for (let i = 0; i < pageItems.length; i += 2) {
     const row = [];
     const item1 = pageItems[i];
@@ -6014,38 +6149,38 @@ function buildTransportDestinationsMarkup(state: any, catOrPage: string | number
     inline_keyboard.push(row);
   }
 
-  // 3. Navigation Pagination Bar
+  // 3. التنقل بين الصفحات بدون ملصقات
   const navRow: any[] = [];
   if (page > 0) {
-    navRow.push({ text: '⬅️ السابق', callback_data: `trans_dest_cat_${activeCategory}_${page - 1}` });
+    navRow.push({ text: 'السابق', callback_data: `trans_dest_cat_${activeCategory}_${page - 1}` });
   }
-  navRow.push({ text: `📄 صفحة ${page + 1} من ${totalPages}`, callback_data: `trans_dest_cat_${activeCategory}_${page}` });
+  navRow.push({ text: `صفحة ${page + 1} من ${totalPages}`, callback_data: `trans_dest_cat_${activeCategory}_${page}` });
   if (page < totalPages - 1) {
-    navRow.push({ text: 'التالي ➡️', callback_data: `trans_dest_cat_${activeCategory}_${page + 1}` });
+    navRow.push({ text: 'التالي', callback_data: `trans_dest_cat_${activeCategory}_${page + 1}` });
   }
   inline_keyboard.push(navRow);
 
-  // 4. Category Selector Tabs (Matches Image 1 precisely)
+  // 4. تصنيفات الجامعات نظيفة وبسيطة
   inline_keyboard.push([
-    { text: activeCategory === 'pvt_bg' ? '🔘 🎓 أهلي بغداد' : '🎓 أهلي بغداد', callback_data: 'trans_dest_cat_pvt_bg_0' },
-    { text: activeCategory === 'gov_bg' ? '🔘 🏛️ حكومي بغداد' : '🏛️ حكومي بغداد', callback_data: 'trans_dest_cat_gov_bg_0' }
+    { text: activeCategory === 'pvt_bg' ? '• أهلي بغداد •' : 'أهلي بغداد', callback_data: 'trans_dest_cat_pvt_bg_0' },
+    { text: activeCategory === 'gov_bg' ? '• حكومي بغداد •' : 'حكومي بغداد', callback_data: 'trans_dest_cat_gov_bg_0' }
   ]);
   inline_keyboard.push([
-    { text: activeCategory === 'south' ? '🔘 🕌 الفرات والجنوب' : '🕌 الفرات والجنوب', callback_data: 'trans_dest_cat_south_0' },
-    { text: activeCategory === 'north' ? '🔘 🌄 الشمال والغربية' : '🌄 الشمال والغربية', callback_data: 'trans_dest_cat_north_0' }
+    { text: activeCategory === 'south' ? '• الفرات والجنوب •' : 'الفرات والجنوب', callback_data: 'trans_dest_cat_south_0' },
+    { text: activeCategory === 'north' ? '• الشمال والغربية •' : 'الشمال والغربية', callback_data: 'trans_dest_cat_north_0' }
   ]);
   inline_keyboard.push([
-    { text: activeCategory === 'org_gov' ? '🔘 🏢 وزارات ومؤسسات' : '🏢 وزارات ومؤسسات', callback_data: 'trans_dest_cat_org_gov_0' }
+    { text: activeCategory === 'org_gov' ? '• وزارات ومؤسسات •' : 'وزارات ومؤسسات', callback_data: 'trans_dest_cat_org_gov_0' }
   ]);
 
-  // 5. Fallback / Custom / Cancel options
+  // 5. خيارات ختامية
   inline_keyboard.push([
-    { text: '🌐 كل الجامعات (عام)', callback_data: 'trans_dest_pick_all' },
-    { text: '✏️ كتابة اسم مخصص', callback_data: 'trans_dest_custom' }
+    { text: 'كل الجامعات (عام)', callback_data: 'trans_dest_pick_all' },
+    { text: 'كتابة اسم مخصص', callback_data: 'trans_dest_custom' }
   ]);
   inline_keyboard.push([
-    { text: '◀️ السابق (المناطق)', callback_data: 'trans_back_to_areas' },
-    { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+    { text: 'السابق (المناطق)', callback_data: 'trans_back_to_areas' },
+    { text: 'إلغاء', callback_data: 'cancel_wizard' }
   ]);
 
   const isPassenger = state?.data?.type === 'request';
@@ -6055,10 +6190,9 @@ function buildTransportDestinationsMarkup(state: any, catOrPage: string | number
 
   const text = 
     `${stepTitle}\n\n` +
-    `📍 <b>القسم المختار:</b> <b>${catTitles[activeCategory] || activeCategory}</b>\n` +
-    `📍 <b>مناطق الانطلاق المعتمدة:</b> <b>${state?.data?.regions || 'بغداد'}</b>\n\n` +
-    `اختر كليتك أو مؤسستك مباشرة للربط المعتمد غير القابل للخطأ 🎯\n` +
-    `<i>(يمكنك استخدام زر 🔍 البحث بالاسم، أو أزرار السابق والتالي ⬅️ ➡️)</i>`;
+    `📍 <b>القسم:</b> <b>${catTitles[activeCategory] || activeCategory}</b>\n` +
+    `📍 <b>مناطق الانطلاق:</b> <b>${state?.data?.regions || 'بغداد'}</b>\n\n` +
+    `اختر كليتك أو مؤسستك من القائمة، أو اكتب اسمها بالرسائل مباشرة ✍️`;
 
   return { text, markup: { inline_keyboard }, inline_keyboard };
 }
@@ -6304,6 +6438,64 @@ Deno.serve(async (req: any) => {
         botMe: meRes,
         webhookInfo: hookRes,
         setWebhookResult: fixRes
+      }, null, 2), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      });
+    }
+
+    // Erroneous ad cleanup and user apology
+    if (payload.action === 'cleanup_erroneous_transport_ad') {
+      const channelId = Deno.env.get('TRANSPORT_CHANNEL_ID') || '@souqbaghdad_lines';
+      let delMsgRes: any = null;
+      try {
+        delMsgRes = await fetch(`${tgUrl}/deleteMessage?chat_id=${encodeURIComponent(channelId)}&message_id=477`).then(r => r.json());
+      } catch (err: any) {
+        delMsgRes = { error: err.message };
+      }
+
+      let notifyRes: any = null;
+      try {
+        const apologyText = 
+          `🌹 <b>أهلاً بك عزيزنا الكريم في سوق بغداد</b>\n\n` +
+          `نعتذر منك جداً، لاحظنا حدوث خلل بسيط في تحديد الوجهة أثناء نشر طلب الخط الأخير الخاص بك (كود <code>#GIZDV</code>).\n\n` +
+          `✨ <b>قمنا بحذف الإعلان السابق تلقائياً</b>، وبإمكانك الآن إعادة نشر طلب خطك بسهولة وخلال ثوانٍ معدودة وبشكل مجاني تماماً بالضغط على الزر أدناه 👇`;
+
+        notifyRes = await fetch(`${tgUrl}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: 1003081813,
+            text: apologyText,
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🚖 إعادة نشر طلب خط الآن (مجاناً)', callback_data: 'trans_type_request' }],
+                [{ text: '🏠 القائمة الرئيسية', callback_data: 'main_menu' }]
+              ]
+            }
+          })
+        }).then(r => r.json());
+      } catch (err: any) {
+        notifyRes = { error: err.message };
+      }
+
+      const sbClient = createClient(
+        Deno.env.get('SUPABASE_URL') || '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+      );
+      const { data: updateData, error: updateErr } = await sbClient
+        .from('ads')
+        .update({ status: 'deleted' })
+        .eq('id', '6d31d0f4-9f2d-499c-af80-42d0ab4546bb')
+        .select('id, short_id, status');
+
+      return new Response(JSON.stringify({
+        status: 'done',
+        deleteMessage: delMsgRes,
+        notifyUser: notifyRes,
+        adUpdate: updateData,
+        adUpdateError: updateErr
       }, null, 2), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200
@@ -8076,12 +8268,13 @@ Deno.serve(async (req: any) => {
     let isVoiceInput = false;
     let originalVoiceText = '';
     let voiceBase64: string | null = null;
+    let photoBase64: string | null = null;
     let forwardFromChat: any = null;
     let userLocation: any = null;
 
     if (update.message) {
       chatId = update.message.chat.id;
-      text = update.message.text || '';
+      text = update.message.text || update.message.caption || '';
       contact = update.message.contact;
       photo = update.message.photo;
       voice = update.message.voice || update.message.audio;
@@ -8107,6 +8300,28 @@ Deno.serve(async (req: any) => {
           }
         } catch(e) {
           console.error('Error processing incoming voice note:', e);
+        }
+      }
+
+      // 📸 Extract Photo Base64 for Multimodal Vision AI
+      if (photo && photo.length > 0) {
+        try {
+          const largestPhoto = photo[photo.length - 1];
+          const photoUrl = await getTelegramFileUrl(largestPhoto.file_id);
+          if (photoUrl) {
+            const pFetch = await fetch(photoUrl);
+            if (pFetch.ok) {
+              const pBuf = await pFetch.arrayBuffer();
+              const pU8 = new Uint8Array(pBuf);
+              let bin = '';
+              for (let i = 0; i < pU8.byteLength; i++) {
+                bin += String.fromCharCode(pU8[i]);
+              }
+              photoBase64 = btoa(bin);
+            }
+          }
+        } catch(e) {
+          console.warn('Error extracting photo base64:', e);
         }
       }
     } else if (update.callback_query) {
@@ -8171,6 +8386,18 @@ Deno.serve(async (req: any) => {
     // 🗺️ SMART TRANSPORT REVIEW CARD & LOCATION PROCEED HELPERS
     // =========================================================================
     const renderTransportReviewCard = async (cId: string | number, st: any) => {
+      if (isInvalidTransportDestination(st.data?.destination)) {
+        st.step = 'trans_dest';
+        delete st.data?.destination;
+        delete st.data?.university;
+        delete st.data?.university_id;
+        await supabase.from('telegram_users').update({ bot_state: st }).eq('telegram_chat_id', cId);
+        const destCat = st.data?.destCategory || 'pvt_bg';
+        const destMarkup = buildTransportDestinationsMarkup(st, destCat, 0);
+        await sendMessage(cId, '⚠️ <b>لم يتم تحديد الوجهة بشكل صحيح! يرجى اختيار وجهتك (الجامعة أو الكلية أو مكان العمل) من القائمة أدناه:</b>', destMarkup.markup);
+        return new Response('OK', { status: 200, headers: corsHeaders });
+      }
+
       const isPassenger = st.data?.type === 'request';
       const typeStr = isPassenger ? '🙋‍♂️ أبحث عن خط نقل (مطلوب)' : '🚗 أوفر خط نقل (سائق)';
       const fareStr = formatTgPrice(st.data?.price);
@@ -17637,19 +17864,43 @@ Deno.serve(async (req: any) => {
           if (currentRegions.includes(areaVal)) {
             // Toggle off
             currentRegions = currentRegions.filter((r: string) => r !== areaVal);
+            if (callbackQueryId) {
+              try {
+                await answerCallbackQuery(callbackQueryId, `❌ تم إلغاء تحديد [${areaVal}]`, false);
+              } catch(e) {}
+            }
           } else {
-            // Toggle on with max 3 limit
-            if (currentRegions.length >= 3) {
+            const isPassenger = state.data?.type === 'request';
+            if (isPassenger) {
+              currentRegions = [areaVal];
+              if (areaObj?.lat && areaObj?.lng) {
+                state.data.pickup_lat = areaObj.lat;
+                state.data.pickup_lng = areaObj.lng;
+              }
               if (callbackQueryId) {
                 try {
-                  await answerCallbackQuery(callbackQueryId, '⚠️ الحد الأقصى 3 مناطق رئيسية لضمان ترتيب إعلانك 🌹', true);
+                  await answerCallbackQuery(callbackQueryId, `✅ تم اختيار [${areaVal}] — اضغط زر الاعتماد بالأعلى للمتابعة ➡️`, false);
                 } catch(e) {}
               }
             } else {
-              currentRegions.push(areaVal);
-              if (!state.data.pickup_lat && areaObj?.lat && areaObj?.lng) {
-                state.data.pickup_lat = areaObj.lat;
-                state.data.pickup_lng = areaObj.lng;
+              // Toggle on with max 3 limit for driver
+              if (currentRegions.length >= 3) {
+                if (callbackQueryId) {
+                  try {
+                    await answerCallbackQuery(callbackQueryId, '⚠️ الحد الأقصى 3 مناطق رئيسية لضمان ترتيب إعلانك 🌹', true);
+                  } catch(e) {}
+                }
+              } else {
+                currentRegions.push(areaVal);
+                if (!state.data.pickup_lat && areaObj?.lat && areaObj?.lng) {
+                  state.data.pickup_lat = areaObj.lat;
+                  state.data.pickup_lng = areaObj.lng;
+                }
+                if (callbackQueryId) {
+                  try {
+                    await answerCallbackQuery(callbackQueryId, `✅ تم تحديد [${areaVal}] — اضغط زر (المتابعة للوجهة ➡️)`, false);
+                  } catch(e) {}
+                }
               }
             }
           }
@@ -17786,6 +18037,11 @@ Deno.serve(async (req: any) => {
         if (areaVal) {
           if (currentRegions.includes(areaVal)) {
             currentRegions = currentRegions.filter((r: string) => r !== areaVal);
+            if (callbackQueryId) {
+              try {
+                await answerCallbackQuery(callbackQueryId, `❌ تم إلغاء تحديد [${areaVal}]`, false);
+              } catch(e) {}
+            }
           } else {
             if (currentRegions.length >= 3) {
               if (callbackQueryId) {
@@ -17795,6 +18051,11 @@ Deno.serve(async (req: any) => {
               }
             } else {
               currentRegions.push(areaVal);
+              if (callbackQueryId) {
+                try {
+                  await answerCallbackQuery(callbackQueryId, `✅ تم تحديد [${areaVal}] — اضغط زر (المتابعة للوجهة ➡️)`, false);
+                } catch(e) {}
+              }
             }
           }
         }
@@ -17808,6 +18069,21 @@ Deno.serve(async (req: any) => {
       }
 
       const proceedFromDestination = async (destVal: string, inst?: any) => {
+        if (!destVal || isInvalidTransportDestination(destVal)) {
+          state.step = 'trans_dest';
+          if (state.data) {
+            delete state.data.destination;
+            delete state.data.university;
+            delete state.data.university_id;
+          }
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+          const destCat = state.data?.destCategory || 'pvt_bg';
+          const destMarkup = buildTransportDestinationsMarkup(state, destCat, 0);
+          return await updateOrSend(
+            `⚠️ <b>يرجى اختيار الوجهة (الكلية أو الجامعة أو مكان العمل) من القائمة أدناه 🌹</b>`,
+            destMarkup.markup
+          );
+        }
         state.data = state.data || {};
         state.data.destination = destVal;
         state.data.university = destVal;
@@ -17839,6 +18115,15 @@ Deno.serve(async (req: any) => {
 
         return await updateOrSend(stepMsg, { inline_keyboard: shiftButtons });
       };
+
+      if (action === 'trans_area_hint_pick') {
+        if (callbackQueryId) {
+          try {
+            await answerCallbackQuery(callbackQueryId, '📍 يرجى الضغط على اسم منطقتك من القائمة أدناه للاختيار 🌹', false);
+          } catch(e) {}
+        }
+        return new Response('OK', { status: 200 });
+      }
 
       if (action === 'trans_area_done') {
         state.data = state.data || {};
@@ -18205,7 +18490,19 @@ Deno.serve(async (req: any) => {
       }
 
       if (action === 'trans_confirm_publish' || action === 'trans_bypass_publish' || action.startsWith('trans_replace_dup_')) {
-        if (state.step === 'publishing' || !state.data || !state.data.destination) {
+        if (state.step === 'publishing' || !state.data || !state.data.destination || isInvalidTransportDestination(state.data.destination)) {
+          if (isInvalidTransportDestination(state.data?.destination)) {
+            state.step = 'trans_dest';
+            if (state.data) {
+              delete state.data.destination;
+              delete state.data.university;
+              delete state.data.university_id;
+            }
+            await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+            const destCat = state.data?.destCategory || 'pvt_bg';
+            const destMarkup = buildTransportDestinationsMarkup(state, destCat, 0);
+            await sendMessage(chatId, '⚠️ <b>لم يتم تحديد الوجهة بشكل صحيح! يرجى اختيار وجهتك (الجامعة أو الكلية) أدناه:</b>', destMarkup.markup);
+          }
           return new Response('OK', { status: 200 });
         }
 
@@ -22956,8 +23253,41 @@ Deno.serve(async (req: any) => {
       // ==========================================
       // 🚌 TRANSPORT WIZARD TEXT INPUTS
       // ==========================================
+      // 🛡️ Global Interception for reply keyboard buttons in transport wizard:
+      else if (state.step && state.step.startsWith('trans_') && text && (
+        text.includes('العودة لقائمة المناطق') ||
+        text.includes('العودة للمناطق') ||
+        text === '◀️ العودة لقائمة المناطق' ||
+        text === '⬅️ العودة لقائمة المناطق' ||
+        text === '🔙 العودة لقائمة المناطق'
+      )) {
+        state.step = 'trans_regions';
+        if (state.data) {
+          if (state.data.destination && isInvalidTransportDestination(state.data.destination)) {
+            delete state.data.destination;
+            delete state.data.university;
+            delete state.data.university_id;
+          }
+        }
+        await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+        await sendMessage(chatId, '👍 تم الرجوع لقائمة مناطق الانطلاق:', {
+          reply_markup: { remove_keyboard: true }
+        });
+        const curCat = state.data?.areaCategory || 'bg_rusafa';
+        const areaMarkup = buildTransportAreasMarkup(state, curCat, 0, tgUser);
+        await sendMessage(chatId, areaMarkup.text, areaMarkup.markup);
+        return new Response('OK', { status: 200 });
+      }
       else if ((state.step === 'trans_regions' || state.step === 'trans_area_custom_input') && text) {
         const rawInput = text.trim();
+        if (isInvalidTransportDestination(rawInput) || rawInput.includes('العودة') || rawInput.includes('إلغاء')) {
+          await sendMessage(
+            chatId,
+            `⚠️ <b>يرجى كتابة اسم المنطقة فقط (مثال: المنصور، أو زيونة، حي الجامعة):</b>`,
+            { inline_keyboard: [[{ text: '◀️ العودة لاختيار المناطق بالقوائم', callback_data: 'trans_back_to_areas' }]] }
+          );
+          return new Response('OK', { status: 200 });
+        }
         const hasPhone = /(?:07[3-9]\d{8}|\+9647[3-9]\d{8}|07\d{2}\s?\d{3}\s?\d{4}|\d{7,})/.test(rawInput);
         const hasBadDump = /(صاحب الخط|سائق|سايق|طالب|طالبة|طالبه|النترا|ستاركس|كوستر|كيا|توسان|خصوصي|سلام عليكم|مرحبا|متوفر خط|يوجد خط|في الكلية|في الكليه|علما|فرع|للاستفسار|للحجز|توصيل|سعر|الأجرة|الاجرة|أجرة|اجرة|رقمي|هاتفي)/i.test(rawInput);
         
@@ -22973,7 +23303,70 @@ Deno.serve(async (req: any) => {
           return new Response('OK', { status: 200 });
         }
 
-        if (hasBadDump || rawInput.length > 40 || rawInput.split(/\s+/).length > 6) {
+        if (hasBadDump || rawInput.length > 30 || rawInput.split(/\s+/).length > 5 || isVoiceInput) {
+          // 🤖 Smart AI Interception: Try to extract full transport ad directly
+          try {
+            sendChatAction(chatId, 'typing');
+            const aiQuick = await extractTransportWithAi(rawInput, photoBase64, voiceBase64);
+            if (aiQuick && aiQuick.is_transport && aiQuick.destination && !isInvalidTransportDestination(aiQuick.destination)) {
+              let resOrigin = aiQuick.origin ? aiQuick.origin.trim() : '';
+              let resLat: number | null = null;
+              let resLng: number | null = null;
+              if (resOrigin) {
+                const mAreas = searchIraqiAreas(resOrigin);
+                if (mAreas && mAreas.length > 0) {
+                  resOrigin = mAreas[0].name;
+                  resLat = mAreas[0].lat || null;
+                  resLng = mAreas[0].lng || null;
+                }
+              } else {
+                resOrigin = 'بغداد';
+              }
+
+              let resDest = aiQuick.destination.trim();
+              const mUni = IRAQI_UNIVERSITIES.find(u => u.name.toLowerCase().includes(resDest.toLowerCase()) || resDest.toLowerCase().includes(u.name.toLowerCase()));
+              if (mUni) resDest = mUni.name;
+
+              const isSeeker = aiQuick.type === 'request' || state.data?.type === 'request' || aiQuick.targetAudience === 'طالبات';
+              state.data = {
+                ...(state.data || {}),
+                type: isSeeker ? 'request' : 'offer',
+                regions: resOrigin,
+                destination: resDest,
+                university: resDest,
+                shift: aiQuick.shift || state.data?.shift || 'صباحي',
+                targetAudience: aiQuick.targetAudience || state.data?.targetAudience || (isSeeker ? 'طالبات' : 'الجميع'),
+                vehicleType: aiQuick.vehicleType || state.data?.vehicleType || (isSeeker ? 'صالون' : 'صالون حديث'),
+                seats: aiQuick.seats || state.data?.seats || (isSeeker ? '1' : '4'),
+                price: aiQuick.price || state.data?.price || (isSeeker ? 'حسب الاتفاق' : 'حسب المسار'),
+                phone: aiQuick.phone || tgUser?.phone_number || phone || '',
+                pickup_lat: resLat || state.data?.pickup_lat || null,
+                pickup_lng: resLng || state.data?.pickup_lng || null,
+                isAiGenerated: true
+              };
+              state.step = 'trans_review';
+              await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+              const cardText = 
+                `🤖 <b>عاشت إيدك! فهمت تفاصيل خطك بالكامل بالذكاء الاصطناعي 🎯✨</b>\n\n` +
+                (isVoiceInput && originalVoiceText ? `🎙️ <i>البصمة الصوتية:</i> «<b>${originalVoiceText}</b>»\n\n` : '') +
+                `📍 <b>منطقة الانطلاق:</b> <b>${resOrigin}</b>\n` +
+                `🏢 <b>الوجهة:</b> <b>${resDest}</b>\n` +
+                `⏰ <b>الدوام:</b> <b>${state.data.shift}</b>\n` +
+                `👥 <b>الفئة:</b> <b>${state.data.targetAudience}</b>\n\n` +
+                `👇 <b>كل شيء جاهز بدقة! اضغط تأكيد ونشر الإعلان فوراً 🚀:</b>`;
+
+              const cardBtns = [
+                [{ text: isSeeker ? '✅ تأكيد ونشر طلب الخط الآن مجاناً 🚀' : '✅ تأكيد ونشر إعلان الخط الآن 🚀', callback_data: 'trans_confirm_publish' }],
+                [{ text: '✏️ تعديل في المعالج', callback_data: 'trans_back_to_areas' }, { text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+              ];
+              await sendMessage(chatId, cardText, { inline_keyboard: cardBtns });
+              return new Response('OK', { status: 200 });
+            }
+          } catch(e) {
+            console.warn('AI quick extraction in trans_regions error:', e);
+          }
+
           await sendMessage(
             chatId,
             `⚠️ <b>يرجى كتابة اسم المنطقة فقط 🌹</b>\n` +
@@ -23112,16 +23505,41 @@ Deno.serve(async (req: any) => {
       }
       else if ((state.step === 'trans_dest' || state.step === 'trans_dest_custom_input') && text) {
         const rawDest = text.trim();
+
+        // 🛡️ If user pressed a back/return navigation button
+        if (rawDest.includes('السابق') || rawDest.includes('المناطق') || rawDest.includes('العودة') || rawDest === '◀️ العودة لقائمة المناطق' || rawDest === '⬅️ العودة لقائمة المناطق') {
+          state.step = 'trans_regions';
+          if (state.data) {
+            delete state.data.destination;
+            delete state.data.university;
+            delete state.data.university_id;
+          }
+          await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+          await sendMessage(chatId, '👍 تم الرجوع لقائمة مناطق الانطلاق:', {
+            reply_markup: { remove_keyboard: true }
+          });
+          const curCat = state.data?.areaCategory || 'bg_rusafa';
+          const areaMarkup = buildTransportAreasMarkup(state, curCat, 0, tgUser);
+          await sendMessage(chatId, areaMarkup.text, areaMarkup.markup);
+          return new Response('OK', { status: 200 });
+        }
+
         const hasPhone = /(?:07[3-9]\d{8}|\+9647[3-9]\d{8}|07\d{2}\s?\d{3}\s?\d{4}|\d{7,})/.test(rawDest);
         const hasBadDump = /(صاحب الخط|سائق|سايق|النترا|ستاركس|كوستر|كيا|توسان|خصوصي|سلام عليكم|مرحبا|متوفر خط|يوجد خط|علما|للاستفسار|للحجز)/i.test(rawDest);
 
-        if (hasPhone || hasBadDump || rawDest.length > 45 || rawDest.split(/\s+/).length > 6) {
+        if (hasPhone || hasBadDump || rawDest.length > 45 || rawDest.split(/\s+/).length > 6 || isInvalidTransportDestination(rawDest)) {
           await sendMessage(
             chatId,
-            `⚠️ <b>يرجى كتابة اسم الكلية أو الجامعة فقط 🌹</b>\n` +
+            `⚠️ <b>يرجى اختيار الوجهة من القائمة أو كتابة اسم الكلية أو الجامعة فقط 🌹</b>\n` +
             `📍 <b>مثال صحيح:</b> <code>كلية الرافدين الجامعة</code> أو <code>جامعة بغداد</code>\n\n` +
             `👇 <b>أعد كتابة اسم وجهتك فقط:</b>`,
-            { inline_keyboard: [[{ text: '◀️ العودة للقائمة', callback_data: 'trans_back_to_dest' }]] }
+            { 
+              reply_markup: { remove_keyboard: true },
+              inline_keyboard: [
+                [{ text: '◀️ السابق (المناطق)', callback_data: 'trans_back_to_areas' }],
+                [{ text: '❌ إلغاء', callback_data: 'cancel_wizard' }]
+              ] 
+            }
           );
           return new Response('OK', { status: 200 });
         }
@@ -24856,7 +25274,188 @@ Deno.serve(async (req: any) => {
             }
           }
 
-          // 4. Check if user is searching for transport line in private chat
+          // 🤖 4. SMART AI ONE-CLICK TRANSPORT AD ASSISTANT (مساعد الذكاء الاصطناعي الفوري للنشر بضغطة زر واحدة)
+          const rawCheck = (userCaption || text || '').trim();
+          const lowerCheck = rawCheck.toLowerCase();
+          const hasTransportKeywords = 
+            isVoiceInput ||
+            photoBase64 !== null ||
+            lowerCheck.includes('خط') || 
+            lowerCheck.includes('نقل') || 
+            lowerCheck.includes('توصيل') || 
+            lowerCheck.includes('سايق') || 
+            lowerCheck.includes('سائق') || 
+            lowerCheck.includes('كابتن') || 
+            lowerCheck.includes('طالب') || 
+            lowerCheck.includes('طالبة') || 
+            lowerCheck.includes('طالبه') || 
+            lowerCheck.includes('محتاج') || 
+            lowerCheck.includes('محتاجة') || 
+            lowerCheck.includes('محتاجه') || 
+            lowerCheck.includes('اريد') || 
+            lowerCheck.includes('أريد') || 
+            lowerCheck.includes('ادور') || 
+            lowerCheck.includes('أدور') || 
+            lowerCheck.includes('عندي') || 
+            lowerCheck.includes('متوفر') ||
+            lowerCheck.includes('مقاعد') ||
+            lowerCheck.includes('سيار');
+
+          if (hasTransportKeywords && (rawCheck.length >= 8 || isVoiceInput || photoBase64)) {
+            sendChatAction(chatId, 'typing');
+            try {
+              const aiTransport = await extractTransportWithAi(rawCheck, photoBase64, voiceBase64);
+
+              if (aiTransport && aiTransport.is_transport) {
+                // 1. Process and normalize Origin
+                let resolvedOrigin = '';
+                let resolvedLat: number | null = null;
+                let resolvedLng: number | null = null;
+                if (aiTransport.origin) {
+                  const matchedAreas = searchIraqiAreas(aiTransport.origin);
+                  if (matchedAreas && matchedAreas.length > 0) {
+                    resolvedOrigin = matchedAreas[0].name;
+                    resolvedLat = matchedAreas[0].lat || null;
+                    resolvedLng = matchedAreas[0].lng || null;
+                  } else {
+                    resolvedOrigin = aiTransport.origin.trim();
+                  }
+                }
+
+                // 2. Process and normalize Destination
+                let resolvedDest = '';
+                if (aiTransport.destination && !isInvalidTransportDestination(aiTransport.destination)) {
+                  const cleanDestLower = aiTransport.destination.toLowerCase();
+                  const matchedUni = IRAQI_UNIVERSITIES.find(u => {
+                    const uLower = u.name.toLowerCase();
+                    return uLower.includes(cleanDestLower) || cleanDestLower.includes(uLower);
+                  });
+                  if (matchedUni) {
+                    resolvedDest = matchedUni.name;
+                  } else {
+                    resolvedDest = aiTransport.destination.trim();
+                  }
+                }
+
+                const isSeeker = aiTransport.type === 'request' || (aiTransport.targetAudience === 'طالبات' && !aiTransport.vehicleType);
+
+                // CASE A: Both Origin AND Destination are provided -> ONE CLICK REVIEW & PUBLISH! 🚀
+                if (resolvedOrigin && resolvedDest) {
+                  state.data = {
+                    type: isSeeker ? 'request' : 'offer',
+                    categoryType: aiTransport.categoryType || 'student',
+                    regions: resolvedOrigin,
+                    destination: resolvedDest,
+                    university: resolvedDest,
+                    shift: aiTransport.shift || 'صباحي',
+                    targetAudience: aiTransport.targetAudience || (isSeeker ? 'طالبات' : 'الجميع'),
+                    vehicleType: aiTransport.vehicleType || (isSeeker ? 'صالون' : 'صالون حديث'),
+                    seats: aiTransport.seats || (isSeeker ? '1' : '4'),
+                    price: aiTransport.price || (isSeeker ? 'حسب الاتفاق' : 'حسب المسار'),
+                    phone: aiTransport.phone || tgUser?.phone_number || phone || '',
+                    pickup_lat: resolvedLat,
+                    pickup_lng: resolvedLng,
+                    note: aiTransport.note || '',
+                    isAiGenerated: true
+                  };
+                  state.step = 'trans_review';
+                  await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+                  const typeBadge = isSeeker ? '🎓 طلب خط نقل (طالب / راكب)' : '🚗 توفير خط نقل (كابتن)';
+                  const audienceBadge = state.data.targetAudience === 'طالبات' ? '👧 خط طالبات (بنات فقط)' : (state.data.targetAudience === 'طلاب' ? '👦 طلاب (شباب فقط)' : '👥 الجميع');
+                  const contactShow = state.data.phone || '🔒 تليكرام (معرفك)';
+
+                  let aiCardText = 
+                    `🤖 <b>عاشت إيدك! فهمت طلبك بالكامل بالذكاء الاصطناعي 🎯✨</b>\n\n` +
+                    (isVoiceInput && originalVoiceText ? `🎙️ <i>تم الاستماع للبصمة الصوتية:</i> «<b>${originalVoiceText}</b>»\n\n` : '') +
+                    `تم تجهيز بيانات الإعلان بدقة:\n` +
+                    `📌 <b>نوع الإعلان:</b> <b>${typeBadge}</b>\n` +
+                    `📍 <b>منطقة الانطلاق:</b> <b>${state.data.regions}</b>\n` +
+                    `🏢 <b>الوجهة:</b> <b>${state.data.destination}</b>\n` +
+                    `⏰ <b>وقت الدوام:</b> <b>${state.data.shift}</b>\n` +
+                    `🏷️ <b>الفئة:</b> <b>${audienceBadge}</b>\n`;
+
+                  if (!isSeeker && state.data.vehicleType) {
+                    aiCardText += `🚗 <b>المركبة:</b> <b>${state.data.vehicleType}</b> (${state.data.seats || 'متوفر'} مقاعد)\n`;
+                  }
+                  if (state.data.price) {
+                    aiCardText += `💰 <b>الأجرة:</b> <b>${state.data.price}</b>\n`;
+                  }
+                  aiCardText += `📞 <b>التواصل:</b> <b>${contactShow}</b>\n\n`;
+                  aiCardText += `🎁 <b>التكلفة:</b> ${isSeeker ? '<b>مجاني 100% للطلاب والركاب 🎓</b>' : '<b>1 نقطة فقط (أو باقتك)</b>'}\n\n`;
+                  aiCardText += `👇 <b>الإعلان مكتمل ومضبوط 100%! اضغط للنشر فوراً بدون أي خطوات إضافية:</b>`;
+
+                  const aiButtons = [
+                    [{ text: isSeeker ? '✅ تأكيد ونشر طلب الخط الآن مجاناً 🚀' : '✅ تأكيد ونشر إعلان الخط الآن 🚀', callback_data: 'trans_confirm_publish' }],
+                    [
+                      { text: '✏️ تعديل في المعالج', callback_data: 'trans_back_to_areas' },
+                      { text: '❌ إلغاء', callback_data: 'cancel_wizard' }
+                    ]
+                  ];
+
+                  await sendMessage(chatId, aiCardText, { inline_keyboard: aiButtons });
+                  return new Response('OK', { status: 200, headers: corsHeaders });
+                }
+
+                // CASE B: Destination is present, but Origin is missing
+                if (resolvedDest && !resolvedOrigin) {
+                  state.data = {
+                    type: isSeeker ? 'request' : 'offer',
+                    categoryType: aiTransport.categoryType || 'student',
+                    destination: resolvedDest,
+                    university: resolvedDest,
+                    shift: aiTransport.shift || 'صباحي',
+                    targetAudience: aiTransport.targetAudience || (isSeeker ? 'طالبات' : 'الجميع'),
+                    vehicleType: aiTransport.vehicleType || 'صالون',
+                    phone: aiTransport.phone || tgUser?.phone_number || phone || '',
+                    isAiGenerated: true
+                  };
+                  state.step = 'trans_regions';
+                  await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+                  const introMsg = 
+                    `🤖 <b>أهلاً بك! تم استخراج الوجهة [${resolvedDest}] والدوام [${state.data.shift}] بنجاح 🎯</b>\n\n` +
+                    (isVoiceInput && originalVoiceText ? `🎙️ <i>سمعت بصمتك:</i> «<b>${originalVoiceText}</b>»\n\n` : '') +
+                    `📍 <b>باقي خطوة واحدة فقط:</b> اضغط على <b>منطقة انطلاقك</b> من القائمة أدناه لإتمام النشر فوراً 👇`;
+
+                  const areaMarkup = buildTransportAreasMarkup(state, 'bg_rusafa', 0, tgUser);
+                  await sendMessage(chatId, introMsg, areaMarkup.markup);
+                  return new Response('OK', { status: 200, headers: corsHeaders });
+                }
+
+                // CASE C: Origin is present, but Destination is missing
+                if (resolvedOrigin && !resolvedDest) {
+                  state.data = {
+                    type: isSeeker ? 'request' : 'offer',
+                    categoryType: aiTransport.categoryType || 'student',
+                    regions: resolvedOrigin,
+                    shift: aiTransport.shift || 'صباحي',
+                    targetAudience: aiTransport.targetAudience || (isSeeker ? 'طالبات' : 'الجميع'),
+                    vehicleType: aiTransport.vehicleType || 'صالون',
+                    phone: aiTransport.phone || tgUser?.phone_number || phone || '',
+                    pickup_lat: resolvedLat,
+                    pickup_lng: resolvedLng,
+                    isAiGenerated: true
+                  };
+                  state.step = 'trans_dest';
+                  await supabase.from('telegram_users').update({ bot_state: state }).eq('telegram_chat_id', chatId);
+
+                  const introMsg = 
+                    `🤖 <b>أهلاً بك! تم استخراج منطقة الانطلاق [${resolvedOrigin}] بنجاح 🎯</b>\n\n` +
+                    (isVoiceInput && originalVoiceText ? `🎙️ <i>سمعت بصمتك:</i> «<b>${originalVoiceText}</b>»\n\n` : '') +
+                    `🏢 <b>باقي خطوة واحدة فقط:</b> اختر وجهتك (الجامعة أو الكلية أو مكان العمل) من القائمة أدناه لإتمام النشر فوراً 👇`;
+
+                  const destMarkup = buildTransportDestinationsMarkup(state, 'pvt_bg', 0);
+                  await sendMessage(chatId, introMsg, destMarkup.markup);
+                  return new Response('OK', { status: 200, headers: corsHeaders });
+                }
+              }
+            } catch (err: any) {
+              console.warn('AI Transport assistant processing failed, falling back:', err);
+            }
+          }
+
+          // 5. Check if user is searching for transport line in private chat
           const isTransportIntentP = 
             cleanP.startsWith('/line') || cleanP.startsWith('\\line') || cleanP.includes('خط') || cleanP.includes('خك') || cleanP.includes('حط') || cleanP.includes('نقل') ||
             ((cleanP.includes('من ') || cleanP.includes('الى ') || cleanP.includes('إلى ') || cleanP.includes('لـ')) && (cleanP.includes('رافدين') || cleanP.includes('رفدين') || cleanP.includes('جامع') || cleanP.includes('كلية') || cleanP.includes('دورة') || cleanP.includes('جميل') || cleanP.includes('سيدي') || cleanP.includes('منصور')));
